@@ -47,3 +47,7 @@ Offline checks: `node --check .../controller.mjs` и
 `node --test docs/qa/harness/728-room-native400/capture-fields.test.mjs`.
 
 Packing source proof: WebGL shaders.ts1448 and587 encode P=(amount*water, amount*wet, amount*strength, amount); native stamp.ts49/deposit paint match. Old allRGBA P0 FAIL is INVALID ORACLE, not model defect. Failed records now persist before controller rejects.
+
+Дополнительный QA_SCENARIO=zigzag400: один round stroke по шести corners
+300/600 x300/500/700, input интерполируется каждые20px. Root запускает только
+после здорового corrected P0 gate. Нет обхода origin-zero bounds guard.

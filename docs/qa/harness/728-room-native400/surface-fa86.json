@@ -1,0 +1,1483 @@
+{
+  "date": "2026-10-08",
+  "source": "fa86fd7f",
+  "device": "Surface Intel Chrome154",
+  "runs": [
+    {
+      "source": "fa86fd7f",
+      "scenario": "first400",
+      "complete": true,
+      "error": null,
+      "errors": [],
+      "export": {
+        "width": 1754,
+        "height": 2480,
+        "alpha": 45177,
+        "sha": "01a0406a4b195f9ceaa28b2c6aef62dedf382d4bee89085181c48fe44f481209"
+      },
+      "memoryTimeline": [
+        {
+          "at": "2026-10-08T10:53:49.443Z",
+          "MiB": 2001.8515625,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T10:54:02.447Z",
+          "MiB": 1941.52734375,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T10:54:12.179Z",
+          "MiB": 1906.32421875,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T10:54:22.107Z",
+          "MiB": 1810.1796875,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T10:54:32.165Z",
+          "MiB": 1740.7890625,
+          "stage": "native-init"
+        },
+        {
+          "at": "2026-10-08T10:54:41.699Z",
+          "MiB": 1354.7265625,
+          "stage": "native-init"
+        }
+      ],
+      "sourceFileCount": 1138,
+      "captureFieldsDiagnostic": false,
+      "final": {
+        "secure": true,
+        "gpu": true,
+        "engine": true,
+        "native": true,
+        "ready": true,
+        "pending": false,
+        "error": null,
+        "ops": [
+          {
+            "type": "stroke",
+            "tool": "watercolor",
+            "state": "done",
+            "packedBytes": 58,
+            "preset": "normal:100:100:PB29:round"
+          }
+        ],
+        "lost": false,
+        "gl": 0,
+        "nativeOwner": true
+      },
+      "stageCounts": {
+        "getPaperBytes:preload-start": 1,
+        "getPaperBytes:preload-end": 1,
+        "hooks:ready": 1,
+        "RoomNativeRuntime.create:start": 1,
+        "paper:load-start": 1,
+        "paper:expand-start": 1,
+        "paper:expand-done": 1,
+        "CanonicalWatercolorWebGpu.create:start": 1,
+        "adapter:request-start": 1,
+        "CanonicalWatercolorWebGpu.support:start": 1,
+        "CanonicalWatercolorWebGpu.support:end": 1,
+        "device:request-start": 1,
+        "device:request-done": 1,
+        "backend:start": 1,
+        "backend:material-resources": 1,
+        "backend:paper-noise": 1,
+        "backend:ready": 1,
+        "CanonicalWatercolorWebGpu.create:end": 1,
+        "RoomNativeRuntime.create:end": 1,
+        "source.consume:start": 1,
+        "source.consume:end": 1,
+        "source.ownerFor:start": 1,
+        "source.ownerFor:end": 1,
+        "source.emitPrepared:start": 1,
+        "source.emitPrepared:end": 1,
+        "source.publishCurrentToGl:start": 1,
+        "source.publishCurrentToGl:end": 1,
+        "source.finish:start": 1,
+        "source.finish:end": 1,
+        "source.prepareSettle:start": 1,
+        "source.prepareSettle:end": 1
+      },
+      "rejects": [],
+      "strokeObservations": [
+        {
+          "label": "pigment400",
+          "preset": "normal:100:100:PB29:round",
+          "live": {
+            "label": "pigment400-live",
+            "width": 1554,
+            "height": 1698,
+            "changed": 17812,
+            "purple": 13686,
+            "sha": "2718be0a13e1e3aea0fdbf4d2fa2f40214a78ee0fb928d03896d0534e033864d",
+            "gl": 0,
+            "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency",
+            "meaningfulPigmentVisible": true
+          },
+          "finalFrame": {
+            "label": "pigment400-final",
+            "width": 1554,
+            "height": 1698,
+            "changed": 17843,
+            "purple": 16458,
+            "sha": "7baf9b71df05bbc16940df10f78e584ffbbf28d088820338d1fd624839236a9d",
+            "gl": 0,
+            "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency",
+            "meaningfulPigmentVisible": true
+          },
+          "pendingAtLift": true
+        }
+      ]
+    },
+    {
+      "source": "fa86fd7f",
+      "scenario": "water-pigment400",
+      "complete": true,
+      "error": null,
+      "errors": [],
+      "export": {
+        "width": 1754,
+        "height": 2480,
+        "alpha": 49860,
+        "sha": "3b52b35c20d8ccf07ff20af1229efbfce71daaaeebd51d8fda3a978f4c8dc0e4"
+      },
+      "memoryTimeline": [
+        {
+          "at": "2026-10-08T11:02:51.523Z",
+          "MiB": 2010.3984375,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T11:03:10.258Z",
+          "MiB": 1832.8671875,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T11:03:19.911Z",
+          "MiB": 1457.3984375,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T11:03:30.384Z",
+          "MiB": 1718.91015625,
+          "stage": "native-init"
+        },
+        {
+          "at": "2026-10-08T11:03:39.955Z",
+          "MiB": 1241.51171875,
+          "stage": "water-pigment400"
+        },
+        {
+          "at": "2026-10-08T11:03:50.237Z",
+          "MiB": 934.84375,
+          "stage": "water-pigment400"
+        }
+      ],
+      "sourceFileCount": 1138,
+      "captureFieldsDiagnostic": true,
+      "final": {
+        "secure": true,
+        "gpu": true,
+        "engine": true,
+        "native": true,
+        "ready": true,
+        "pending": false,
+        "error": null,
+        "ops": [
+          {
+            "type": "stroke",
+            "tool": "watercolor",
+            "state": "done",
+            "packedBytes": 58,
+            "preset": "normal:100:0:PB29:round"
+          },
+          {
+            "type": "stroke",
+            "tool": "watercolor",
+            "state": "done",
+            "packedBytes": 58,
+            "preset": "normal:100:100:PB29:round",
+            "wet": "e"
+          }
+        ],
+        "lost": false,
+        "gl": 0,
+        "nativeOwner": true
+      },
+      "stageCounts": {
+        "getPaperBytes:preload-start": 1,
+        "getPaperBytes:preload-end": 1,
+        "hooks:ready": 1,
+        "RoomNativeRuntime.create:start": 1,
+        "paper:load-start": 1,
+        "paper:expand-start": 1,
+        "paper:expand-done": 1,
+        "CanonicalWatercolorWebGpu.create:start": 1,
+        "adapter:request-start": 1,
+        "CanonicalWatercolorWebGpu.support:start": 1,
+        "CanonicalWatercolorWebGpu.support:end": 1,
+        "device:request-start": 1,
+        "device:request-done": 1,
+        "backend:start": 1,
+        "backend:material-resources": 1,
+        "backend:paper-noise": 1,
+        "backend:ready": 1,
+        "CanonicalWatercolorWebGpu.create:end": 1,
+        "RoomNativeRuntime.create:end": 1,
+        "source.consume:start": 2,
+        "source.consume:end": 2,
+        "source.ownerFor:start": 2,
+        "source.ownerFor:end": 2,
+        "source.emitPrepared:start": 2,
+        "source.emitPrepared:end": 2,
+        "source.publishCurrentToGl:start": 2,
+        "source.publishCurrentToGl:end": 2,
+        "source.finish:start": 2,
+        "source.finish:end": 2,
+        "source.prepareSettle:start": 2,
+        "source.prepareSettle:end": 2
+      },
+      "rejects": [],
+      "strokeObservations": [
+        {
+          "label": "water400",
+          "preset": "normal:100:0:PB29:round",
+          "live": {
+            "label": "water400-live",
+            "width": 1554,
+            "height": 1698,
+            "changed": 17805,
+            "purple": 0,
+            "sha": "bab90140b3ea42cf70fa48bfb165a4d6961bb981d1de8ef6438fd3532432299c",
+            "gl": 0,
+            "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency",
+            "meaningfulPigmentVisible": false
+          },
+          "finalFrame": {
+            "label": "water400-final",
+            "width": 1554,
+            "height": 1698,
+            "changed": 17793,
+            "purple": 0,
+            "sha": "477fa2bd8d009ce2ea6dd08a298d3a34e51c1b5cbc674b4ab99b82dda5d46b15",
+            "gl": 0,
+            "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency",
+            "meaningfulPigmentVisible": false
+          },
+          "ownerFields": {
+            "records": [
+              {
+                "role": "material",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              {
+                "role": "tile0:original",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              {
+                "role": "tile0:coverage",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 130589,
+                "sums": [
+                  5416491,
+                  0,
+                  10580562,
+                  10580562
+                ],
+                "max": [
+                  251,
+                  0,
+                  255,
+                  255
+                ],
+                "sha": "11d87566e716ce8ebd52bff8d0ee87bd7fdc7345d4754b9873a1f84deaf7d5ac"
+              },
+              {
+                "role": "tile0:coverageFilm",
+                "absent": true
+              },
+              {
+                "role": "tile0:inkLoad",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              {
+                "role": "tile0:inkSettled",
+                "absent": true
+              },
+              {
+                "role": "tile0:inkColor",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              {
+                "role": "tile0:colorSettled",
+                "absent": true
+              },
+              {
+                "role": "tile0:strokeInk",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              {
+                "role": "tile0:inkBase",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              {
+                "role": "tile0:strokeColor",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              {
+                "role": "tile0:colorBase",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              {
+                "role": "tile0:inkDry",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              {
+                "role": "tile0:colorDry",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              {
+                "role": "tile0:foreignSolventLoad",
+                "absent": true
+              },
+              {
+                "role": "tile0:solventLoad",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 85906,
+                "sums": [
+                  2616552,
+                  0,
+                  0,
+                  2616552
+                ],
+                "max": [
+                  64,
+                  0,
+                  0,
+                  64
+                ],
+                "sha": "5f66809205b3049dedfb22a299f276d12dc37ce7070cef95d32b8603b6f7847c"
+              },
+              {
+                "role": "tile0:solventBase",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              {
+                "role": "tile0:strokeSolvent",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 85906,
+                "sums": [
+                  2616552,
+                  0,
+                  0,
+                  2616552
+                ],
+                "max": [
+                  64,
+                  0,
+                  0,
+                  64
+                ],
+                "sha": "5f66809205b3049dedfb22a299f276d12dc37ce7070cef95d32b8603b6f7847c"
+              },
+              {
+                "role": "settle:a",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "d2ee4703cd9698945ca7b9fe1689ea3095597eac1a0afd8dba00cac7894fdc43"
+              },
+              {
+                "role": "settle:b",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "d2ee4703cd9698945ca7b9fe1689ea3095597eac1a0afd8dba00cac7894fdc43"
+              },
+              {
+                "role": "settle:c",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "d2ee4703cd9698945ca7b9fe1689ea3095597eac1a0afd8dba00cac7894fdc43"
+              },
+              {
+                "role": "settle:coverage",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 130589,
+                "sums": [
+                  5416491,
+                  0,
+                  10580562,
+                  10580562
+                ],
+                "max": [
+                  251,
+                  0,
+                  255,
+                  255
+                ],
+                "sha": "8f344af8495777c1db584bc17b16be7e6a1709c83dd6d2c6ce8291da6c4f0ea3"
+              },
+              {
+                "role": "settle:ca",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "d2ee4703cd9698945ca7b9fe1689ea3095597eac1a0afd8dba00cac7894fdc43"
+              },
+              {
+                "role": "settle:cb",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "d2ee4703cd9698945ca7b9fe1689ea3095597eac1a0afd8dba00cac7894fdc43"
+              },
+              {
+                "role": "settle:cc",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "d2ee4703cd9698945ca7b9fe1689ea3095597eac1a0afd8dba00cac7894fdc43"
+              },
+              {
+                "role": "settle:mask",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 130589,
+                "sums": [
+                  5416491,
+                  0,
+                  10580562,
+                  10580562
+                ],
+                "max": [
+                  251,
+                  0,
+                  255,
+                  255
+                ],
+                "sha": "8f344af8495777c1db584bc17b16be7e6a1709c83dd6d2c6ce8291da6c4f0ea3"
+              },
+              {
+                "role": "settle:pressure",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "d2ee4703cd9698945ca7b9fe1689ea3095597eac1a0afd8dba00cac7894fdc43"
+              },
+              {
+                "role": "settle:band",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 130589,
+                "sums": [
+                  5416491,
+                  0,
+                  10580562,
+                  10580562
+                ],
+                "max": [
+                  251,
+                  0,
+                  255,
+                  255
+                ],
+                "sha": "8f344af8495777c1db584bc17b16be7e6a1709c83dd6d2c6ce8291da6c4f0ea3"
+              }
+            ],
+            "totalBytes": 153092096,
+            "waterOnly": true,
+            "gatePassed": true,
+            "failures": [],
+            "pigmentZero": true,
+            "colorZero": true,
+            "packing": "P.Rwater Gwet Bpigment Aamount; C allchannels mustzero for purewater",
+            "waterNonempty": true,
+            "scope": "Sequential post-idle diagnostic fields; no transient/source parity or performance claims"
+          },
+          "pendingAtLift": true
+        },
+        {
+          "label": "pigment-on-water400",
+          "preset": "normal:100:100:PB29:round",
+          "live": {
+            "label": "pigment-on-water400-live",
+            "width": 1554,
+            "height": 1698,
+            "changed": 19554,
+            "purple": 13843,
+            "sha": "052ea995a7f4ce414959a93f3bddcc6c5faa8a320e4a25f3972adbe6706f6521",
+            "gl": 0,
+            "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency",
+            "meaningfulPigmentVisible": true
+          },
+          "finalFrame": {
+            "label": "pigment-on-water400-final",
+            "width": 1554,
+            "height": 1698,
+            "changed": 19586,
+            "purple": 18132,
+            "sha": "554c4ba13064c580531d4f208d13f2148011fdf880c83a420fb25712b109d807",
+            "gl": 0,
+            "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency",
+            "meaningfulPigmentVisible": true
+          },
+          "ownerFields": {
+            "records": [
+              {
+                "role": "material",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 149580,
+                "sums": [
+                  3707134,
+                  0,
+                  7246899,
+                  9582159
+                ],
+                "max": [
+                  88,
+                  0,
+                  177,
+                  255
+                ],
+                "sha": "12a47b4a73358bb2e30070e40ced764fce21145a00ffd3c252dbce0d19d5067a"
+              },
+              {
+                "role": "tile0:original",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              {
+                "role": "tile0:coverage",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 149505,
+                "sums": [
+                  6226987,
+                  0,
+                  12221866,
+                  12706496
+                ],
+                "max": [
+                  252,
+                  0,
+                  255,
+                  255
+                ],
+                "sha": "9ffa139e841f69e530978b2a9b8d2143a5b88a1808a01a06589186194f9c6a37"
+              },
+              {
+                "role": "tile0:coverageFilm",
+                "absent": true
+              },
+              {
+                "role": "tile0:inkLoad",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 199444,
+                "sums": [
+                  2564697,
+                  2564697,
+                  2564697,
+                  2564697
+                ],
+                "max": [
+                  94,
+                  94,
+                  94,
+                  94
+                ],
+                "sha": "02ac75ea18331c367e409e85e02da5e9603a0b95c325d2ee6ddbb86da55c571b"
+              },
+              {
+                "role": "tile0:inkSettled",
+                "absent": true
+              },
+              {
+                "role": "tile0:inkColor",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 199403,
+                "sums": [
+                  1031416,
+                  2502387,
+                  326717,
+                  2564697
+                ],
+                "max": [
+                  38,
+                  92,
+                  12,
+                  94
+                ],
+                "sha": "a1edca4fad2df7da223242b407bccea63930971f486d9db3815b21695af46cbb"
+              },
+              {
+                "role": "tile0:colorSettled",
+                "absent": true
+              },
+              {
+                "role": "tile0:strokeInk",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 171968,
+                "sums": [
+                  2574646,
+                  2574646,
+                  2574646,
+                  2574646
+                ],
+                "max": [
+                  116,
+                  116,
+                  116,
+                  116
+                ],
+                "sha": "e961d6f68b52fb4f2cc1072797557351f494323c378ce441802ada24e155f087"
+              },
+              {
+                "role": "tile0:inkBase",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              {
+                "role": "tile0:strokeColor",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 170003,
+                "sums": [
+                  1035827,
+                  2517989,
+                  328751,
+                  2574646
+                ],
+                "max": [
+                  47,
+                  114,
+                  15,
+                  116
+                ],
+                "sha": "067ccce23e9ff95a4780f6fd2b5ea2fc467a5ba7d836b106f1eae296c11a8f91"
+              },
+              {
+                "role": "tile0:colorBase",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 0,
+                "sums": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "max": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              {
+                "role": "tile0:inkDry",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 199444,
+                "sums": [
+                  2556194,
+                  2556194,
+                  2556194,
+                  2556194
+                ],
+                "max": [
+                  94,
+                  94,
+                  94,
+                  94
+                ],
+                "sha": "d40b82494e2539f3514ea890b13554853bcb912471832388c8af48ffb811a811"
+              },
+              {
+                "role": "tile0:colorDry",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 199403,
+                "sums": [
+                  1028058,
+                  2493986,
+                  325504,
+                  2556194
+                ],
+                "max": [
+                  38,
+                  92,
+                  12,
+                  94
+                ],
+                "sha": "115fbe492637b2a1e32a27b0e731624eab2eb16a44d5d21471d2429da32059eb"
+              },
+              {
+                "role": "tile0:foreignSolventLoad",
+                "absent": true
+              },
+              {
+                "role": "tile0:solventLoad",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 95504,
+                "sums": [
+                  5262383,
+                  0,
+                  0,
+                  5262383
+                ],
+                "max": [
+                  128,
+                  0,
+                  0,
+                  128
+                ],
+                "sha": "f96dc5dd3ee0bde1053042cbaf35af682ead666db6fcf7a603ed79b32ed6839e"
+              },
+              {
+                "role": "tile0:solventBase",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 85906,
+                "sums": [
+                  2616552,
+                  0,
+                  0,
+                  2616552
+                ],
+                "max": [
+                  64,
+                  0,
+                  0,
+                  64
+                ],
+                "sha": "5f66809205b3049dedfb22a299f276d12dc37ce7070cef95d32b8603b6f7847c"
+              },
+              {
+                "role": "tile0:strokeSolvent",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 4194304,
+                "nonzero": 86622,
+                "sums": [
+                  2645831,
+                  0,
+                  0,
+                  2645831
+                ],
+                "max": [
+                  64,
+                  0,
+                  0,
+                  64
+                ],
+                "sha": "83525f7c3b1dc75ba03c2ffd4d88534869c3764bd971e6f1e67d6183de765e49"
+              },
+              {
+                "role": "settle:a",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 199444,
+                "sums": [
+                  2564697,
+                  2564697,
+                  2564697,
+                  2564697
+                ],
+                "max": [
+                  94,
+                  94,
+                  94,
+                  94
+                ],
+                "sha": "5cdd83f28a770d9379645e1e2b9f988916a35cbaaca893d633507295eb6e2bf6"
+              },
+              {
+                "role": "settle:b",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 33248,
+                "sums": [
+                  8800,
+                  8800,
+                  8800,
+                  8800
+                ],
+                "max": [
+                  2,
+                  2,
+                  2,
+                  2
+                ],
+                "sha": "caf049bb252232b13a86aae28003d9e8719cfc24cf70202c45f9c6951731951e"
+              },
+              {
+                "role": "settle:c",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 199444,
+                "sums": [
+                  2556194,
+                  2556194,
+                  2556194,
+                  2556194
+                ],
+                "max": [
+                  94,
+                  94,
+                  94,
+                  94
+                ],
+                "sha": "6955e4b2dfd63905d11215791b656eecf24be4edb49e5c9126e7b9a3270a2ace"
+              },
+              {
+                "role": "settle:coverage",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 149505,
+                "sums": [
+                  6226987,
+                  0,
+                  12221866,
+                  12706496
+                ],
+                "max": [
+                  252,
+                  0,
+                  255,
+                  255
+                ],
+                "sha": "c1d5889eada6728bcddf8616e712489ec6861798a781edad7e4a9a7eba9b981b"
+              },
+              {
+                "role": "settle:ca",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 199403,
+                "sums": [
+                  1028058,
+                  2493986,
+                  325504,
+                  2556194
+                ],
+                "max": [
+                  38,
+                  92,
+                  12,
+                  94
+                ],
+                "sha": "286cb786cdb06ea65c45313d622da29c7335b8bbafa1157b973521af61000a7c"
+              },
+              {
+                "role": "settle:cb",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 824,
+                "sums": [
+                  206,
+                  206,
+                  206,
+                  206
+                ],
+                "max": [
+                  1,
+                  1,
+                  1,
+                  1
+                ],
+                "sha": "4439587fef9252c4f4d9615266e8c0f8408b192a995ef7aaa584b6b45a2c573c"
+              },
+              {
+                "role": "settle:cc",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 199403,
+                "sums": [
+                  1031416,
+                  2502387,
+                  326717,
+                  2564697
+                ],
+                "max": [
+                  38,
+                  92,
+                  12,
+                  94
+                ],
+                "sha": "f2519c6dfd8428dbada41c94ff2b8d9312602050b0eb47b379369cab18e522f6"
+              },
+              {
+                "role": "settle:mask",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 144849,
+                "sums": [
+                  6028677,
+                  0,
+                  11826794,
+                  11826794
+                ],
+                "max": [
+                  252,
+                  0,
+                  255,
+                  255
+                ],
+                "sha": "d6cc1c18a753ff3f004ffe16a04f2836fee6ff1a10a85e0b81c71adfc7b96033"
+              },
+              {
+                "role": "settle:pressure",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 824,
+                "sums": [
+                  206,
+                  206,
+                  206,
+                  206
+                ],
+                "max": [
+                  1,
+                  1,
+                  1,
+                  1
+                ],
+                "sha": "4439587fef9252c4f4d9615266e8c0f8408b192a995ef7aaa584b6b45a2c573c"
+              },
+              {
+                "role": "settle:band",
+                "width": 1536,
+                "height": 1536,
+                "bytes": 9437184,
+                "nonzero": 149505,
+                "sums": [
+                  6226987,
+                  0,
+                  12221866,
+                  12706496
+                ],
+                "max": [
+                  252,
+                  0,
+                  255,
+                  255
+                ],
+                "sha": "c1d5889eada6728bcddf8616e712489ec6861798a781edad7e4a9a7eba9b981b"
+              }
+            ],
+            "totalBytes": 153092096,
+            "waterOnly": false,
+            "gatePassed": true,
+            "failures": [],
+            "pigmentZero": false,
+            "colorZero": false,
+            "packing": "P.Rwater Gwet Bpigment Aamount; C allchannels mustzero for purewater",
+            "waterNonempty": true,
+            "scope": "Sequential post-idle diagnostic fields; no transient/source parity or performance claims"
+          },
+          "pendingAtLift": true
+        }
+      ]
+    },
+    {
+      "source": "fa86fd7f",
+      "scenario": "zigzag400",
+      "complete": true,
+      "error": null,
+      "errors": [],
+      "export": {
+        "width": 1754,
+        "height": 2480,
+        "alpha": 417601,
+        "sha": "99a592a0bd1eb56ba5430d5da6dbb07a9e1e424a4c2a1be2de9e46bf76c77fb0"
+      },
+      "memoryTimeline": [
+        {
+          "at": "2026-10-08T11:04:39.811Z",
+          "MiB": 1991.09375,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T11:04:53.554Z",
+          "MiB": 1907.4921875,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T11:05:03.339Z",
+          "MiB": 1880.5625,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T11:05:13.721Z",
+          "MiB": 1775.83984375,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T11:05:23.415Z",
+          "MiB": 1706.6875,
+          "stage": "native-init"
+        },
+        {
+          "at": "2026-10-08T11:05:33.326Z",
+          "MiB": 1807.78125,
+          "stage": "native-init"
+        },
+        {
+          "at": "2026-10-08T11:05:43.480Z",
+          "MiB": 1410.3203125,
+          "stage": "zigzag400"
+        },
+        {
+          "at": "2026-10-08T11:05:53.155Z",
+          "MiB": 1264.28515625,
+          "stage": "zigzag400"
+        }
+      ],
+      "sourceFileCount": 1138,
+      "captureFieldsDiagnostic": false,
+      "final": {
+        "secure": true,
+        "gpu": true,
+        "engine": true,
+        "native": true,
+        "ready": true,
+        "pending": false,
+        "error": null,
+        "ops": [
+          {
+            "type": "stroke",
+            "tool": "watercolor",
+            "state": "done",
+            "packedBytes": 5658,
+            "preset": "normal:100:100:PB29:round"
+          }
+        ],
+        "lost": false,
+        "gl": 0,
+        "nativeOwner": true
+      },
+      "stageCounts": {
+        "getPaperBytes:preload-start": 1,
+        "getPaperBytes:preload-end": 1,
+        "hooks:ready": 1,
+        "RoomNativeRuntime.create:start": 1,
+        "paper:load-start": 1,
+        "paper:expand-start": 1,
+        "paper:expand-done": 1,
+        "CanonicalWatercolorWebGpu.create:start": 1,
+        "adapter:request-start": 1,
+        "CanonicalWatercolorWebGpu.support:start": 1,
+        "CanonicalWatercolorWebGpu.support:end": 1,
+        "device:request-start": 1,
+        "device:request-done": 1,
+        "backend:start": 1,
+        "backend:material-resources": 1,
+        "backend:paper-noise": 1,
+        "backend:ready": 1,
+        "CanonicalWatercolorWebGpu.create:end": 1,
+        "RoomNativeRuntime.create:end": 1,
+        "source.consume:start": 35,
+        "source.consume:end": 35,
+        "source.ownerFor:start": 35,
+        "source.ownerFor:end": 35,
+        "source.emitPrepared:start": 35,
+        "source.emitPrepared:end": 35,
+        "source.publishCurrentToGl:start": 35,
+        "source.publishCurrentToGl:end": 35,
+        "source.finish:start": 1,
+        "source.finish:end": 1,
+        "source.prepareSettle:start": 1,
+        "source.prepareSettle:end": 1
+      },
+      "rejects": [],
+      "strokeObservations": [
+        {
+          "label": "zigzag400",
+          "preset": "normal:100:100:PB29:round",
+          "live": {
+            "label": "zigzag400-live",
+            "width": 1554,
+            "height": 1698,
+            "changed": 155775,
+            "purple": 148159,
+            "sha": "73aa876f3a2734271b1cde97cf5f05341e8e9dca0ecba71fbdf0698fe7a7da5a",
+            "gl": 0,
+            "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency",
+            "meaningfulPigmentVisible": true
+          },
+          "finalFrame": {
+            "label": "zigzag400-final",
+            "width": 1554,
+            "height": 1698,
+            "changed": 155826,
+            "purple": 151992,
+            "sha": "91b2bf774ca6fbc69e122895ebb4791e7239ed961e2c72e17c153844c78b7700",
+            "gl": 0,
+            "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency",
+            "meaningfulPigmentVisible": true
+          },
+          "pendingAtLift": true
+        }
+      ]
+    }
+  ],
+  "invalidEvidence": [
+    {
+      "raw": "native-fa86-waterpig400",
+      "reason": "wrong fixture normal:0:100 means dry pigment, not pure water"
+    },
+    {
+      "raw": "native-fa86-waterpig400-fields",
+      "reason": "wrong fixture plus allRGBA P0 invalidoracle"
+    },
+    {
+      "raw": "native-fa86-waterpig400-fields-corrected",
+      "reason": "P.B/C oracle valid but wrong fixture"
+    }
+  ],
+  "limitations": [
+    "No native→GL parity/performance/physical latency claim.",
+    "Short first400 is single retained dab; zigzag is genuinely many-dab packed5658chars.",
+    "Corrected pure water→pigment is separate field-readback diagnostic cohort; not unperturbed cadence.",
+    "UndoRedo/reload/multiuser/Samsung not tested."
+  ]
+}
