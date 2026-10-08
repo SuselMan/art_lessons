@@ -31,3 +31,20 @@ nonzero0, plateau nonnegative, water-gap negative и source8SHA before/after.
 SOURCE-only их оценки, costbudget и production carry constants. Нельзя брать
 in-progress parent scratch pressure; late predecessor land меняет canonical
 context. Finalcanonical SAME NEWtape должен остаться прежним.
+
+## Первое аппаратное наблюдение: неподвижный контроль, НЕ positive PASS
+
+Surface ONE43182, fresh2129/controller2138,min1909/post2064MiB, ownclosed/release.
+Raw `temp/device-runs/preview-front-carry-surface.json`. Source8SHA все совпали,
+GL0/lostfalse, P/C alpha4880→4880, right/outside0; nonzero61→61. Operational
+valid=true в старом контроллере проверял только safety, **не движение**; этот
+raw не доказывает работающий carry или conservation при ненулевом flux.
+
+В следующем packet positivegate требует actualP SHA change. Добавлены seed и
+front pressure samples(центр/край/снаружи/сухаящель/соседняялужа), reachedcount,
+P/C hashes и mass на шагах1/4/16. Пока без нового запуска. Алгебра:
+receiver pressure>band(.65625) закрывает face; nonpositivegradient разрешён
+только plateau cost≈0 и Vphasepositive. Здесь sourceV.A=1⇒phasepositive,
+seedcoverage.B=1/standing1⇒deepseed1. Эти input свойства НЕдоказывают actual
+pressurecostпослеGLseed/front. Реальная причина неподвижности пока не установлена;
+увеличениеrate/шага/D не проводится.
