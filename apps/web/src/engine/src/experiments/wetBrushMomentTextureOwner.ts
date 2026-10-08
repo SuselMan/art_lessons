@@ -40,7 +40,7 @@ export class WetBrushMomentTextureOwner {
  private unpack:GPUComputePipeline|null=null
  private readonly diagnosticVector:boolean
  constructor(device:GPUDevice,diagnosticVector=false){this.device=device;this.diagnosticVector=diagnosticVector;this.operator=new WetBrushMomentGpu(device,diagnosticVector)}
- encode(encoder:GPUCommandEncoder,input:MomentTextureInputs,enabled=false):{buffers:GPUBuffer[];invalid:GPUBuffer|null;pairPasses:number;stages?:{stage:string;buffer:GPUBuffer;width:number;height:number;bytesPerRecord:number}[]} {
+ encode(encoder:GPUCommandEncoder,input:MomentTextureInputs,enabled=false):{buffers:GPUBuffer[];invalid:GPUBuffer|null;pairPasses:number;stages?:{stage:string;buffer:GPUBuffer;width:number;height:number;bytesPerRecord:number;bytesPerRow?:number}[]} {
   if(!enabled)return{buffers:[],invalid:null,pairPasses:0}
   const {pigment,color,availableWater,contact,outputPigment,outputColor,rect,recipe}=input
   const textures=[pigment,color,availableWater,contact,outputPigment,outputColor]
@@ -54,7 +54,7 @@ export class WetBrushMomentTextureOwner {
   const d=this.device,buffers:GPUBuffer[]=[],make=(size:number,usage:GPUBufferUsageFlags)=>{const b=d.createBuffer({size,usage});buffers.push(b);return b}
   const capture=input.diagnosticStages
   if(capture&&(![capture.x,capture.y,capture.width,capture.height].every(Number.isInteger)||capture.x<0||capture.y<0||capture.width<1||capture.height<1||capture.width>96||capture.height>96||capture.x+capture.width>width||capture.y+capture.height>height))throw Error('Bounded96² stage capture inside actual ROI required')
-  const stages:{stage:string;buffer:GPUBuffer;width:number;height:number;bytesPerRecord:number}[]=[]
+  const stages:{stage:string;buffer:GPUBuffer;width:number;height:number;bytesPerRecord:number;bytesPerRow?:number}[]=[]
   const snapshot=(stage:string,source:GPUBuffer)=>{if(!capture)return;const out=make(capture.width*capture.height*40,GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ);for(let row=0;row<capture.height;row++)encoder.copyBufferToBuffer(source,((capture.y+row)*width+capture.x)*40,out,row*capture.width*40,capture.width*40);stages.push({stage,buffer:out,width:capture.width,height:capture.height,bytesPerRecord:40})}
   const storageUsage=GPUBufferUsage.STORAGE|(capture?GPUBufferUsage.COPY_SRC:0)
   const a=make(width*height*40,storageUsage),b=make(width*height*40,storageUsage),invalid=make(4,GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST),u=make(16,GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST)
@@ -86,6 +86,7 @@ export class WetBrushMomentTextureOwner {
   // Original full texture copy preserves all pixels outside bounded ROI.
   if(!inPlace){encoder.copyTextureToTexture({texture:pigment},{texture:outputPigment},[pigment.width,pigment.height]);encoder.copyTextureToTexture({texture:color},{texture:outputColor},[color.width,color.height])}
   execute(this.unpack,[{binding:0,resource:{buffer:source}},{binding:1,resource:outputPigment.createView()},{binding:2,resource:outputColor.createView()},{binding:3,resource:{buffer:u}}])
+  if(capture){const bytesPerRow=Math.ceil(capture.width*4/256)*256;for(const [stage,texture]of [['unpack-P',outputPigment],['unpack-C',outputColor]]as const){const out=make(bytesPerRow*capture.height,GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ);encoder.copyTextureToBuffer({texture,origin:{x:x+capture.x,y:y+capture.y}},{buffer:out,bytesPerRow},[capture.width,capture.height]);stages.push({stage,buffer:out,width:capture.width,height:capture.height,bytesPerRecord:4,bytesPerRow})}}
   return{buffers,invalid,pairPasses:4,...(capture?{stages}:{})}
  }
 }
