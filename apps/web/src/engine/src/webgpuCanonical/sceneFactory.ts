@@ -27,8 +27,11 @@ export class CanonicalSceneSession {
  private frame = 0
  private accepted = false
  private failed = false
+ private readonly gpuError = (event: GPUUncapturedErrorEvent) => { if (!this.disposed) this.fail(event.error.message) }
  constructor(backend: CanonicalWatercolorWebGpu, callbacks: CanonicalSceneCallbacks) {
   this.backend = backend; this.callbacks = callbacks
+  backend.device.addEventListener('uncapturederror', this.gpuError)
+  void backend.device.lost.then(info => { if (!this.disposed) this.fail(`WebGPU device lost: ${info.reason} ${info.message}`) })
   this.runner = new CanonicalBoundedSceneRunner(backend, {
    now: () => performance.now(), timestamp: () => Date.now(), operationId: () => crypto.randomUUID(),
    onLocalOperation: callbacks.onOperation,
@@ -87,6 +90,7 @@ export class CanonicalSceneSession {
  destroy() {
   if (this.disposed) return
   this.disposed = true; cancelAnimationFrame(this.frame); this.detach?.(); this.detach = null
+  this.backend.device.removeEventListener('uncapturederror', this.gpuError)
   // Reset/unmount discards the entire debug device, including an active input;
   // it never fabricates a pen-up or writes an operation on behalf of the user.
   if (this.runner.isIdle) this.runner.destroy()
