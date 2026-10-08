@@ -18,15 +18,16 @@ export function bindOwnedPreviewRuntime(e,morph,{pool,port,domain,event=()=>{}})
  const detach=s=>{const held=e._washReveals.get(s.owner.lease.fields.presentation);if(held?.pending===s.transport.lease.pending)held.pending=undefined};
  const retire=s=>{detach(s);s.fence=s.transport.retire();states.delete(s.owner.token);return s};
  const retired=[];
- const tick=()=>{frame=null;if(disposed||e.gl.isContextLost())return;const eligible=[...states.values()].filter(s=>s.owner.source.epoch===s.epoch).at(-1);if(eligible&&!e._strokeId){const ticket=eligible.transport.begin();if(ticket){port.step(ticket);eligible.transport.complete(ticket);material(eligible);event('owned-preview-step',{sequence:eligible.owner.token.sequence,epoch:eligible.epoch});e._scheduleDisplay()}}if(states.size)frame=requestAnimationFrame(tick)};
+ const lost=()=>{if(frame!==null)cancelAnimationFrame(frame);frame=null;for(const s of [...states.values()])retired.push(retire(s));event('owned-preview-context-lost')};
+ const tick=()=>{frame=null;if(disposed)return;if(e.gl.isContextLost()){lost();return}for(const s of [...states.values()])if(s.owner.source.epoch!==s.epoch){retired.push(retire(s));event('owned-preview-stale-epoch',{sequence:s.owner.token.sequence})}const eligible=[...states.values()].at(-1);if(eligible&&!e._strokeId){const ticket=eligible.transport.begin();if(ticket){port.step(ticket);eligible.transport.complete(ticket);material(eligible);event('owned-preview-step',{sequence:eligible.owner.token.sequence,epoch:eligible.epoch});e._scheduleDisplay()}}if(states.size)frame=requestAnimationFrame(tick)};
  const schedule=()=>{if(frame===null&&!disposed)frame=requestAnimationFrame(tick)};
  return {bytes:pool.bytes,stats:port.stats,
-  seal(owner){if(disposed||states.has(owner.token))throw Error('Preview seal lifecycle');const lease=pool.take();if(!lease)throw Error('Preview capacity exhausted');const transport=new SealedPreviewTransport({source:owner.lease.fields,lease,token:owner.token}),s={owner,transport,epoch:owner.source.epoch};states.set(owner.token,s);try{port.initialize(transport.seal());material(s);const held=morph.hold(owner);if(held.pending)throw Error('Preview pending already owned');held.pending=lease.pending;event('owned-preview-seal',{sequence:owner.token.sequence,epoch:s.epoch});schedule()}catch(error){retired.push(retire(s));throw error}},
+  seal(owner){if(disposed||states.has(owner.token))throw Error('Preview seal lifecycle');const lease=pool.take();if(!lease)throw Error('Preview capacity exhausted');let transport;try{transport=new SealedPreviewTransport({source:owner.lease.fields,lease,token:owner.token})}catch(error){lease.release();throw error}const s={owner,transport,epoch:owner.source.epoch};states.set(owner.token,s);try{port.initialize(transport.seal());material(s);const held=morph.hold(owner);if(held.pending)throw Error('Preview pending already owned');held.pending=lease.pending;event('owned-preview-seal',{sequence:owner.token.sequence,epoch:s.epoch});schedule()}catch(error){retired.push(retire(s));throw error}},
   /** Called BEFORE exact source rebase; GL command ordering preserves issued preview reads. */
   beforeRebase(owner){const s=states.get(owner.token);if(s)retired.push(retire(s))},
   /** Do not release pooled textures on land/DOWN. Physical reuse only after idle fence. */
   retire(owner){const s=states.get(owner.token);if(s)retired.push(retire(s))},
-  ownsPending:field=>pool.owns(field),
+  ownsPending:field=>pool.owns(field),handleContextLoss:lost,
   disposeAfterFence(){if(disposed)return;disposed=true;if(frame!==null)cancelAnimationFrame(frame);for(const s of [...states.values()])retired.push(retire(s));if(!e.gl.isContextLost())e.gl.finish();for(const s of retired)s.transport.releaseAfterFence(s.fence);pool.disposeAfterFence();domain.disposeAfterFence()}
  }
 }
