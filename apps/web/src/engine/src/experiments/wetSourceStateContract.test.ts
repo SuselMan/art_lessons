@@ -24,3 +24,16 @@ it('conditional RGB<=A is preserved by MAX/add/fit but is not inferred from inde
  // All-u8 bounded source records do not universally require RGB<=A either.
  expect(land([255,0,0,1],[0,0,0,0])).toEqual([255,0,0,1])
 })
+it('observed gesture1→2→3 with absent settled records does not identify a unique historical mobile snapshot',()=>{
+ // Matches observed epoch/absence bookkeeping only; scalar amounts are a
+ // counterexample, NOT reconstructed hardware pixels from lost binary payload.
+ const observed={gestures:[1,2,3],filmGestures:[1,2,3],settled:[null,null,null]}
+ const purpleLoad=[75,25],baseOnYellow=[...purpleLoad],yellowLoad=[80,25]
+ const historicalZero=[0,0],mobile=(load:number[],snapshot:number[])=>load.map((v,i)=>Math.max(0,v-snapshot[i]))
+ expect(observed.gestures).toEqual(observed.filmGestures);expect(observed.settled.every(x=>x===null)).toBe(true)
+ expect(mobile(yellowLoad,baseOnYellow)).toEqual([5,0])
+ expect(mobile(yellowLoad,historicalZero)).toEqual([80,25])
+ // Same current epoch and absence data fit both interpretations. Wetness,
+ // settled timing and original snapshot identity are required to choose one.
+ expect(baseOnYellow).not.toBe(purpleLoad)
+})
