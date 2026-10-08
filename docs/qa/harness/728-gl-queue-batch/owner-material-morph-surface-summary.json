@@ -1,0 +1,79 @@
+{
+  "scope": "ONE Surface diagnostic material-morph; readback-perturbed, not clean latency",
+  "sourceCommit": "9b2a7d0a",
+  "valid": true,
+  "room": "81C6ehsT",
+  "memoryMinMiB": 874,
+  "gestures": [
+    {
+      "name": "first-pigment",
+      "downCpuMs": 51.39999997615814,
+      "downAllocations": 1,
+      "downDrains": 0,
+      "activeRevealsBefore": 0
+    },
+    {
+      "name": "second-pigment-during-settle",
+      "downCpuMs": 42.09999996423721,
+      "downAllocations": 0,
+      "downDrains": 0,
+      "activeRevealsBefore": 0
+    },
+    {
+      "name": "third-pigment-held-future",
+      "downCpuMs": 58.09999996423721,
+      "downAllocations": 0,
+      "downDrains": 0,
+      "activeRevealsBefore": 2
+    },
+    {
+      "name": "fourth-new-color-during-reveal",
+      "downCpuMs": 23.100000023841858,
+      "downAllocations": 0,
+      "downDrains": 0,
+      "activeRevealsBefore": 1
+    }
+  ],
+  "quality": {
+    "before": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 765377,
+      "sha": "496cfa1f0ad3bbdd7f68339d59bb7578e400fa54fe4838d960a4152d049bb668"
+    },
+    "undone": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 764790,
+      "sha": "99347e202e9ac7b285eb006c763357f7e318133380757108d102f93871853bb2"
+    },
+    "redone": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 765377,
+      "sha": "496cfa1f0ad3bbdd7f68339d59bb7578e400fa54fe4838d960a4152d049bb668"
+    },
+    "meaningful": true,
+    "exact": true,
+    "glError": 0,
+    "lost": false,
+    "limitations": [
+      "Final target exact history gate; working scratch fields are not asserted across rebuild",
+      "Readback AFTER measured drawing only"
+    ]
+  },
+  "probeCount": 11,
+  "minVisibleAlpha": 179,
+  "zoom": [
+    1.33546875,
+    1.6693359374999999,
+    1.33546875
+  ],
+  "limitations": [
+    "No original same-packed final comparator for new four-stroke tape yet",
+    "Three points per event do not prove absence of clipping everywhere",
+    "Screenshots after drawing do not prove transition smoothness",
+    "First DOWN still allocates one texture; role not localized",
+    "Samsung preflight invalid:1573MiB<1700; no drawing attempted"
+  ]
+}
