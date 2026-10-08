@@ -16,6 +16,7 @@ export interface RoomNativeMaterialJob {
  /** Executes one ORIGINAL pass/Q8 boundary. Owner schedules; executor has no timer. */
  step():boolean
  finish():void
+ publish?():Promise<void>
  dispose():void
 }
 export interface RoomNativeCentralOwner {
@@ -47,7 +48,7 @@ export type RoomNativeSettleInput=Omit<CanonicalTileFinishInput,'settleComplete'
  * Room wiring is still an explicit next step; this module never self-installs. */
 export class CanonicalRoomWatercolorExecutor {
  readonly adapter:CanonicalPlanAdapter
- readonly scratch:CanonicalStrokeScratchMetadata
+ readonly scratch:CanonicalStrokeScratchMetadata<Pick<CanonicalStrokeChunkState,'brushTravel'|'wetContacts'>>
  readonly target
  private readonly backend:CanonicalWatercolorWebGpu
  private readonly glTile:AccumulationBuffer
@@ -65,13 +66,13 @@ export class CanonicalRoomWatercolorExecutor {
  private retired=false
  private retirement:Promise<void>|null=null
  private readonly ready:Promise<void>
- constructor(backend:CanonicalWatercolorWebGpu,options:{tile:AccumulationBuffer;originX:number;originY:number;layerId:string;generation:number;delivery:CanonicalStrokeChunkState;central:RoomNativeCentralOwner;bridgeMode:'readback'|'canvas';bridgeCanvas:HTMLCanvasElement}) {
+ constructor(backend:CanonicalWatercolorWebGpu,options:{tile:AccumulationBuffer;originX:number;originY:number;layerId:string;generation:number;delivery:Pick<CanonicalStrokeChunkState,'brushTravel'|'wetContacts'>;central:RoomNativeCentralOwner;bridgeMode:'readback'|'canvas';bridgeCanvas:HTMLCanvasElement}) {
   if(options.tile.width!==1024||options.tile.height!==1024||options.originX!==0||options.originY!==0)throw new Error('DEV Room native executor requires one origin-zero1024 tile; no silent GL fallback')
   if(!options.central.isIdle)throw new Error('Seed native Room tile only at a central idle boundary')
   this.backend=backend;this.glTile=options.tile;this.layerId=options.layerId;this.generation=options.generation;this.central=options.central;this.bridgeMode=options.bridgeMode
   this.adapter=new CanonicalPlanAdapter(backend);this.pool=new CanonicalScratchPool(backend);this.fields=new CanonicalPlanFieldOwner(backend)
   this.target={buffer:new CanonicalFieldBuffer(backend,1024,1024,'linear','DEV actual Room watercolor tile'),originX:0,originY:0,contentRect:null}
-  this.scratch=new CanonicalStrokeScratchMetadata(new CanonicalTileScratch(this.pool),options.delivery,[this.target])
+  this.scratch=new CanonicalStrokeScratchMetadata(new CanonicalTileScratch(this.pool),{brushTravel:[],wetContacts:[]},[this.target])
   this.source=new CanonicalSourcePhaseExecutor(backend,this.scratch.tiles,[this.target],{fieldOp:(out,a,b,mode,k,scissor)=>this.adapter.fieldOp(out,a,b,mode,k,{scissor:scissor?[...scissor]:undefined})})
   this.finish=new CanonicalSingleTileFinish(backend,this.scratch.tiles,[this.target]);this.bridge=new CanonicalRoomTileBridge(backend.device,options.bridgeCanvas,1024,1024)
   this.planner=new CanonicalWatercolorSettlePlan({fieldFor:(w,h,c)=>this.fields.fieldFor(w,h,c),paperWorldSize:()=>({w:backend.paper.texSize[0],h:backend.paper.texSize[1]}),pool:()=>this.pool,supportsFilm:()=>true,ab:()=>({noDiffuse:false,noCarry:false,opDry:false}),shouldPreview:()=>false,passes:()=>this.adapter,uploads:this.adapter.uploads})
@@ -92,28 +93,40 @@ export class CanonicalRoomWatercolorExecutor {
   const paints=[...chunk.metadata.paints];this.scratch.paints.clear();for(const paint of paints)this.scratch.paints.add(paint)
   this.scratch.pigmentInputsKnownZero=false
   this.scratch.foreignSources=chunk.metadata.foreignSources;this.scratch.dryCtx=chunk.metadata.dryCtx
-  // Delivery brushTravel/wetContacts are already the shared CPU object; never append twice.
+  // Immutable outputs of the ONE CPU advance are installed for this queued material boundary.
+  this.scratch.delivery.brushTravel=chunk.metadata.brushTravel.map(v=>({...v}))
+  this.scratch.delivery.wetContacts=chunk.metadata.wetContacts.map(v=>({...v}))
   this.adapter.runQuantum(ctx=>this.adapter.retain(this.source.execute(ctx.encoder,chunk.segment,chunk.materialGesture)))
   this.adapter.runQuantum(ctx=>this.adapter.retain(this.finish.encodeLive(ctx.encoder,chunk.live)))
   this.accepted.add(key)
  }
- async settle(input:RoomNativeSettleInput):Promise<void> {
+ prepareSettle(input:RoomNativeSettleInput):RoomNativeMaterialJob|null {
   this.assertLive()
   if(!this.central.isIdle)throw new Error('Central Room owner must serialize settle admission')
   const job=this.adapter.runQuantum(()=>this.planner.prepare(this.scratch,[this.target],input.bounds,input.bloom,input.radiusPx,input.waterLevel,input.landedWet,input.standing,input.wetPeak,input.dwellMs,undefined,false,this.scratch.captureMetadata(),true))
-  if(!job)return
+  if(!job)return null
   let next=0,disposed=false,finished=false
   const task:RoomNativeMaterialJob={
    step:()=>{this.assertLive();if(disposed||finished)throw new Error('Native Room job already closed');if(next<job.ops.length)this.adapter.runQuantum(()=>job.ops[next++]());return next===job.ops.length},
    finish:()=>{this.assertLive();if(disposed||finished||next!==job.ops.length)throw new Error('Native Room finish before canonical passes complete');this.adapter.runQuantum(ctx=>{job.finish();this.adapter.retain(this.finish.encode(ctx.encoder,{...input,settleComplete:true,settledGesture:this.scratch.gesture,materialGesture:this.scratch.materialGesture,bounds:job.compositeDomain}))});finished=true},
+   publish:()=>this.publishWithoutDrain(),
    dispose:()=>{if(disposed)return;disposed=true;this.adapter.runQuantum(()=>job.dispose())},
   }
-  try{await this.central.admit(task)}finally{task.dispose()}
+  return task
+ }
+ async settle(input:RoomNativeSettleInput):Promise<void> {
+  const task=this.prepareSettle(input)
+  if(task)try{await this.central.admit(task)}finally{task.dispose()}
  }
  /** Barrier before GL pencil/eraser/transform, snapshot/export or drawing the
   * shared GL canvas. Never silently renders the same watercolor in WebGL. */
  async synchronizeToGl():Promise<void> {
   await this.central.drain();await this.seedReady();this.assertLive()
+  await this.publishWithoutDrain()
+ }
+ publishCurrentToGl():Promise<void> {return this.publishWithoutDrain()}
+ private async publishWithoutDrain():Promise<void> {
+  this.assertLive()
   if(this.bridgeMode==='canvas')await this.bridge.copyByCanvas(this.target.buffer.field,this.glTile)
   else await this.bridge.copyByReadback(this.target.buffer.field,this.glTile,field=>this.backend.readField(field))
  }

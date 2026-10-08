@@ -2,11 +2,13 @@
  * executes their GPU continuations only after the previous solver has landed.
  * It never drains a blocked solver on the input stack. */
 export interface CanonicalWatercolorRequest {
+  /** Native tasks keep the same FIFO; the engine selects their GPU clock. */
+  gpuBackend?: 'webgpu'
   execute(): Generator<number, void, void>
   cancel(contextLost: boolean): void
 }
 export interface CanonicalWatercolorFIFOContext {
-  advance?(work: Generator<number, void, void>, current: () => boolean): IteratorResult<number, void>
+  advance?(work: Generator<number, void, void>, current: () => boolean, request?: CanonicalWatercolorRequest): IteratorResult<number, void>
   blocked(): boolean
   schedule(callback: () => void): number
   unschedule(handle: number): void
@@ -50,7 +52,7 @@ export class WatercolorCanonicalFIFO {
       const epoch = this.epoch
       try {
         this.work ??= request.execute()
-        const step = this.ctx.advance ? this.ctx.advance(this.work, () => epoch === this.epoch) : this.work.next()
+        const step = this.ctx.advance ? this.ctx.advance(this.work, () => epoch === this.epoch, request) : this.work.next()
         if (epoch !== this.epoch) return
         if (step.done) { this.requests.shift(); this.work = null }
         this.ctx.changed()
