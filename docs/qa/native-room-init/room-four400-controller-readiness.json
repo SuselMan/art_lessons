@@ -1,0 +1,25 @@
+{
+  "scope": "Offline execution of actual generated controller; no device/network access",
+  "controllerSha256": "e295e2a5afae6364b985cdc8d016d701f5c4b7882bad455343ad48bc1bd106e3",
+  "checks": [
+    "node --check PASS",
+    "3 actual controller negative passports (wrong head, malformed decoded LA checksum, sourceOrigin with path) fail before global fetch, RAM SSH, own CDP target, or pointer",
+    "Failure JSON saved for each negative run",
+    "Full five-file parser guards and helper mode15/16/filter/finally OFF identity tests PASS",
+    "git apply --check on root daac0068 PASS"
+  ],
+  "rawRoot": "temp/native-source-offline/room-controller-negative",
+  "limitations": [
+    "No hardware launch",
+    "Full app typecheck pending parent application",
+    "A frozen trusted origin/source/paper manifest must be supplied; READY does not assert endpoint exists",
+    "No GPU timing or pen-to-visible latency claim"
+  ],
+  "requiredOriginManifest": {
+    "head": "40hex matching source manifest",
+    "origin": "trusted browser origin",
+    "sourceOrigin": "direct frozen source origin with no path",
+    "paperLaSha256": "decoded Fine LA64hex"
+  },
+  "primaryScenario": "four400, water100/pig0 then pig70 and two pig70 colors, origin-zero1024 tile footprint; no readPixels until final endpoint"
+}
