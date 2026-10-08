@@ -97,3 +97,17 @@ Peer не добавлялся под RAM guard, Samsung обычная Room н�
 `room-surface-summary.json`; source flags имеют отдельныйcommitca9f8bc2.
 Defaults OFF до live/animation проверки. Заключение — быстрее завершение
 канонической сцены, ещё не решение всех проблем отзывчивости.
+
+### Уточнение фазы длинного gap (offline RAW)
+
+Большой gap не расположен сразу на первом MOVE. После DOWN pigment-over-water
+rAF OFF приходят на +15.8,+32.7,+49.2,+66.0,+82.6ms, затем +616.0ms;
+ON +15.3,+32.0,+81.9,+98.6,+115.2ms, затем +565.2ms. Таким образом
+задержка проявляется после нескольких обработанных MOVE, а не доказывает
+блокировку самого первого MOVE. Она может включать ранее отправленную GPU
+работу, очередное исполнение source/solver либо иной stall; текущий trace
+не различает эти причины и не доказывает cold compilation/allocation.
+CPU probe добавляет preset/tool, вложенность и allocation hooks
+_makeLayerBuffer/_createBuffer/_destroyBuffer. Его два unit gate проверяют
+порядок drain→source, неизменные return/throw и bounded recorder/detach;
+GPU/экранную задержку эти тесты не измеряют.
