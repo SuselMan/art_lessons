@@ -15,7 +15,7 @@
       "summary": "Проверки доступа, создание состояния штриха, первый отпечаток и показ.",
       "complexity": "O(первый отпечаток + незавершённый settle).",
       "priority": "P1",
-      "status": "proposal",
+      "status": "validated",
       "metrics": {
         "id": "Engine._onStart",
         "calls": 2,
@@ -56,16 +56,26 @@
           "risk": "Обобщение joinedTouch на чужой цвет/слой может затереть следующий мазок."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "No measured whole-engine percentage.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Mixed admission avoids a proved compatible settle barrier; Surface Room upperbound715→63ms, Samsung standalone1246→157ms. Not physical pen latency; default OFF.",
+        "evidence": "../728-joined-mixed-samsung.md",
+        "wholeGain": "No measured whole-engine percentage.",
+        "productionReady": false
+      }
     },
     {
       "id": "Engine._onMove",
       "summary": "Обрабатывает образец, скорость/нажим, генерацию дабов и покраску батча.",
       "complexity": "O(образцы + созданные дабы).",
       "priority": "P2",
-      "status": "proposal",
+      "status": "implemented",
       "metrics": {
         "id": "Engine._onMove",
         "calls": 362,
@@ -106,16 +116,26 @@
           "risk": "Пропуск образцов меняет траекторию; вычисления в другом порядке меняют округление."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "No measured whole gain attributed to this method.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Canonical geometry/delivery extraction preserves formulas/packed dabs; no isolated _onMove hardware gain demonstrated.",
+        "evidence": "../728-ribbon-band-batch.md",
+        "wholeGain": "No measured whole gain attributed to this method.",
+        "productionReady": false
+      }
     },
     {
       "id": "Engine._onEnd",
       "summary": "Финальные дабы, taper/pooling/lift, завершение ленты и операция.",
       "complexity": "O(конец + prepare + возможный drain).",
       "priority": "P1",
-      "status": "proposal",
+      "status": "implemented",
       "metrics": {
         "id": "Engine._onEnd",
         "calls": 2,
@@ -156,16 +176,26 @@
           "risk": "Простой перенос solver после нового штриха нарушает ownership."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "No measured own/whole gain.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Canonical finish/queue lifecycle extracted and tested; pending native Room and live admission gates remain.",
+        "evidence": "../728-canonical-settle-plan.md",
+        "wholeGain": "No measured own/whole gain.",
+        "productionReady": false
+      }
     },
     {
       "id": "Engine._paintDabs",
       "summary": "Канонизация дабов, выбор painter, покраска ленты.",
       "complexity": "O(дабы + геометрия + покрытые тайлы/пиксели).",
       "priority": "P1",
-      "status": "proposal",
+      "status": "validated",
       "metrics": {
         "id": "Engine._paintDabs",
         "calls": 53,
@@ -270,16 +300,26 @@
           "risk": "Повторные контакты неперестановочны, нельзя просто объединять дабы."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "CPU micro old13.969→2.775ms is not whole/device FPS.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "One geometry walk/typed writer and exact material-band bytes validated; separate CPU contact cache has no robust whole gain and remains OFF.",
+        "evidence": "../728-ribbon-band-batch.md",
+        "wholeGain": "CPU micro old13.969→2.775ms is not whole/device FPS.",
+        "productionReady": false
+      }
     },
     {
       "id": "Engine._finishRibbonStroke",
       "summary": "Связывает scratch, snapshot/reveal и settle plan.",
       "complexity": "O(тайлы + план + capture).",
       "priority": "P1",
-      "status": "proposal",
+      "status": "implemented",
       "metrics": {
         "id": "Engine._finishRibbonStroke",
         "calls": 2,
@@ -344,16 +384,26 @@
           "risk": "Alias pooled texture после release повреждает reveal и undo."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "No own-method hardware gain.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Shared canonical plan and native source/finish orchestration; native bounded != complete Room.",
+        "evidence": "../728-canonical-settle-plan.md",
+        "wholeGain": "No own-method hardware gain.",
+        "productionReady": false
+      }
     },
     {
       "id": "Engine._startSettle",
       "summary": "Прокси к очереди и её lifecycle.",
       "complexity": "O(1) собственный код; capture в дочернем start.",
       "priority": "P3",
-      "status": "no-change",
+      "status": "pending",
       "metrics": {
         "id": "Engine._startSettle",
         "calls": 2,
@@ -400,16 +450,26 @@
           "risk": "Малое self time, таймерная точность не позволяет обещать выигрыш."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "no-change",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "Engine._completeSettle",
       "summary": "Синхронно завершает очередь settle.",
       "complexity": "O(оставшиеся ops).",
       "priority": "P1",
-      "status": "proposal",
+      "status": "validated",
       "metrics": {
         "id": "Engine._completeSettle",
         "calls": 1,
@@ -534,16 +594,26 @@
           "risk": "Очередь одного shared field не допускает свободной перестановки."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Specific DOWN readback upperbound; not FPS/whole%.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Mixed admission reduces selected startup drains; compulsory barriers remain. Whole replay improvements belong queue candidate, not this method alone.",
+        "evidence": "../728-joined-mixed-samsung.md",
+        "wholeGain": "Specific DOWN readback upperbound; not FPS/whole%.",
+        "productionReady": false
+      }
     },
     {
       "id": "Engine._diffuseFieldFor",
       "summary": "Получает каноническое поле, аллоцирует или чистит 10 буферов.",
       "complexity": "O(10·W·H), обычно W,H≥1536.",
       "priority": "P1",
-      "status": "proposal",
+      "status": "implemented",
       "metrics": {
         "id": "Engine._diffuseFieldFor",
         "calls": 2,
@@ -590,16 +660,26 @@
           "risk": "Уже пробованная scissor/уменьшение размера меняет границы solver; cold/outside-capture пути обязательны."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "No robust whole gain established.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "ПустьC обнуляетA,B,coverage,CA,CB, а K=op0 обнуляет те же ресурсы до первого чтения. Тогда K∘C=K лишь при отсутствии чтений между ними и полном совпадении write-domain. Это доказуемое устранение мёртвой записи, не изменение solver."
+      "mathematicalArgument": "ПустьC обнуляетA,B,coverage,CA,CB, а K=op0 обнуляет те же ресурсы до первого чтения. Тогда K∘C=K лишь при отсутствии чтений между ними и полном совпадении write-domain. Это доказуемое устранение мёртвой записи, не изменение solver.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Storage/field-owner boundaries clarified; allocations and captures explicit. Whole allocation optimization not independently validated on current Room.",
+        "evidence": "../728-gpu-flow-storage.md",
+        "wholeGain": "No robust whole gain established.",
+        "productionReady": false
+      }
     },
     {
       "id": "Engine._display",
       "summary": "Live composite, reveal, сборка FBO и paper compose.",
       "complexity": "O(видимые тайлы + screen pixels + wet overlay).",
       "priority": "P1",
-      "status": "proposal",
+      "status": "pending",
       "metrics": {
         "id": "Engine._display",
         "calls": 114,
@@ -777,16 +857,26 @@
           "risk": "Reveal/zoom/paper wetness расширяют dirty область; нельзя заморозить clock."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Composite является функцией слоя/version, camera и clock. Кэш допустим лишь для подвыражения с неизменными аргументами. Dirty union должен включать stencil/mipmap footprint каждого downstream sampler; иначе border texels отличаются."
+      "mathematicalArgument": "Composite является функцией слоя/version, camera и clock. Кэш допустим лишь для подвыражения с неизменными аргументами. Dirty union должен включать stencil/mipmap footprint каждого downstream sampler; иначе border texels отличаются.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "Engine._displayIfNotSuspended",
       "summary": "Запрашивает display через существующее объединение кадра.",
       "complexity": "O(1).",
       "priority": "P3",
-      "status": "no-change",
+      "status": "pending",
       "metrics": {
         "id": "Engine._displayIfNotSuspended",
         "calls": 101,
@@ -958,16 +1048,26 @@
           "risk": "101 вызов всего1.1ms; расход находится ниже."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "no-change",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "Engine._resolveWithinSheet",
       "summary": "Клиппинг запроса и получение тайлов внутри листа.",
       "complexity": "O(пересечённые тайлы + cold allocation).",
       "priority": "P2",
-      "status": "proposal",
+      "status": "pending",
       "metrics": {
         "id": "Engine._resolveWithinSheet",
         "calls": 71,
@@ -1041,16 +1141,26 @@
           "risk": "Не аллоцировать всю доску; учитывать GPU budget и transform."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "Engine._enforceGpuBudget",
       "summary": "Контроль памяти и eviction/spill.",
       "complexity": "O(кандидаты eviction), в записи2вызова.",
       "priority": "P3",
-      "status": "no-change",
+      "status": "pending",
       "metrics": {
         "id": "Engine._enforceGpuBudget",
         "calls": 2,
@@ -1108,16 +1218,26 @@
           "risk": "Редкие тяжёлые spill не представлены2вызовами."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "no-change",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "PointerInput._handleDown",
       "summary": "DOM pointerdown, координаты/ownership и вызов engine start.",
       "complexity": "O(1)+engine.",
       "priority": "P3",
-      "status": "proposal",
+      "status": "pending",
       "metrics": {
         "id": "PointerInput._handleDown",
         "calls": 2,
@@ -1145,16 +1265,26 @@
           "risk": "Self1.9ms на2вызова; главный расход в engine."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "PointerInput._handleMove",
       "summary": "Coalesced samples, timestamp/speed, callback engine move.",
       "complexity": "O(coalesced samples).",
       "priority": "P2",
-      "status": "proposal",
+      "status": "pending",
       "metrics": {
         "id": "PointerInput._handleMove",
         "calls": 183,
@@ -1182,16 +1312,26 @@
           "risk": "Decimation/последний образец меняет давление и повороты."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "PointerInput._handleUp",
       "summary": "Закрывает pointer ownership и вызывает end.",
       "complexity": "O(1)+engine.",
       "priority": "P3",
-      "status": "no-change",
+      "status": "pending",
       "metrics": {
         "id": "PointerInput._handleUp",
         "calls": 2,
@@ -1219,16 +1359,26 @@
           "risk": "Нельзя трактовать117ms всей цепочки как стоимость DOM handler."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "no-change",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "Queue.start",
       "summary": "Drain предыдущего задания, немедленный capture op0 и rAF.",
       "complexity": "O(предыдущие ops + capture).",
       "priority": "P1",
-      "status": "proposal",
+      "status": "pending",
       "metrics": {
         "id": "Queue.start",
         "calls": 2,
@@ -1335,16 +1485,26 @@
           "risk": "Несвоевременный capture меняет картинку; CPU submission не ограничивает GPU backlog."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "Queue.tick",
       "summary": "rAF политика late/drawing/backlog, запускает advance.",
       "complexity": "O(число ops/tick).",
       "priority": "P2",
-      "status": "proposal",
+      "status": "validated",
       "metrics": {
         "id": "Queue.tick",
         "calls": 126,
@@ -1385,16 +1545,26 @@
           "risk": "Меньше rAF без GPU замера может перегрузить очередь; animation timing меняется."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Observed replay range5.3–9.7% GL1; not universal.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Original ordered front operations grouped: actual engine Surface/Samsung field/whole parity. Full factorial Surface replay~7.5% front, combined~9.2%; Room closure pending.",
+        "evidence": "../728-webgl-factorial-surface.md",
+        "wholeGain": "Observed replay range5.3–9.7% GL1; not universal.",
+        "productionReady": false
+      }
     },
     {
       "id": "Queue.advance",
       "summary": "Исполняет следующий op и commit последнего.",
       "complexity": "O(текущий op).",
       "priority": "P1",
-      "status": "proposal",
+      "status": "validated",
       "metrics": {
         "id": "Queue.advance",
         "calls": 126,
@@ -1465,16 +1635,26 @@
           "risk": "В одном op скрыты сотни копий/контактов; считать advance единицей GPU недостаточно."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Shares Queue.tick result; do not add percentages.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Same per-operation Q8/order; batching removes frame boundaries, not mathematical iterations. Native bounded progressive is separate OFF candidate.",
+        "evidence": "../728-webgl-factorial-surface.md",
+        "wholeGain": "Shares Queue.tick result; do not add percentages.",
+        "productionReady": false
+      }
     },
     {
       "id": "Queue.complete",
       "summary": "Синхронно выполняет все оставшиеся ops и вложенные jobs.",
       "complexity": "O(остаток).",
       "priority": "P1",
-      "status": "proposal",
+      "status": "implemented",
       "metrics": {
         "id": "Queue.complete",
         "calls": 1,
@@ -1539,16 +1719,26 @@
           "risk": "Callback может читать preview; существующий diagnostic gate ещё нуждается в admission."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "No independent measured whole gain.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Canonical queue/finish ownership retained. Post-settle UndoRedo gates exist; rapid pending cancellation/current Room matrix open.",
+        "evidence": "../728-history-multiuser-morning.md",
+        "wholeGain": "No independent measured whole gain.",
+        "productionReady": false
+      }
     },
     {
       "id": "Queue.scheduleTick",
       "summary": "Ставит один rAF на job.",
       "complexity": "O(1).",
       "priority": "P3",
-      "status": "no-change",
+      "status": "pending",
       "metrics": {
         "id": "Queue.scheduleTick",
         "calls": 127,
@@ -1624,16 +1814,26 @@
           "risk": "Доли ms и инструментирование, не bottleneck."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "no-change",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "Plan.prepare",
       "summary": "Выбор домена/масштаба, snapshot ресурсов и построение ops closures.",
       "complexity": "O(тайлы + контакты + W·H CPU fields + ops).",
       "priority": "P1",
-      "status": "proposal",
+      "status": "implemented",
       "metrics": {
         "id": "Plan.prepare",
         "calls": 2,
@@ -1674,16 +1874,26 @@
           "risk": "Prepare65.7ms inclusive; нужно выделить brushDragField/allocations отдельными span перед численным обещанием."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "No independent whole preparation gain.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Canonical generic planner plus upload/storage/source state seams implemented with frozen trace and CPU proofs.",
+        "evidence": "../728-canonical-settle-plan.md",
+        "wholeGain": "No independent whole preparation gain.",
+        "productionReady": false
+      }
     },
     {
       "id": "Passes.fieldOp",
       "summary": "Полноэкранный полевой оператор по mode.",
       "complexity": "O(W·H·kernel) GPU, O(bindings) CPU.",
       "priority": "P1",
-      "status": "proposal",
+      "status": "implemented",
       "metrics": {
         "id": "Passes.fieldOp",
         "calls": 671,
@@ -2014,16 +2224,26 @@
           "risk": "Fusing проходов меняет RGBA8 округление; рост shader ломал Adreno compiler."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "No isolated/full-engine hardware gain accepted.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Замена A→tmp→B на swap exact только если все дальнейшие consumers используют обновлённый handle и нет владельца, ожидающего старыйhandle. Algebraic fusion не сохраняет Q(f(Q(g(x))))=Q(f(g(x))) в общем случае дляRG​BA8."
+      "mathematicalArgument": "Замена A→tmp→B на swap exact только если все дальнейшие consumers используют обновлённый handle и нет владельца, ожидающего старыйhandle. Algebraic fusion не сохраняет Q(f(Q(g(x))))=Q(f(g(x))) в общем случае дляRG​BA8.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Native port/LINEAR diagnostic improves sampled carry input matching, but native vsGL final not exact. No production fusion or mode-count reduction.",
+        "evidence": "../728-night-2026-10-08.md",
+        "wholeGain": "No isolated/full-engine hardware gain accepted.",
+        "productionReady": false
+      }
     },
     {
       "id": "Passes.waterFrontStep",
       "summary": "Один шаг relaxation стоимости фронта по бумаге и воде.",
       "complexity": "O(W·H·stencil) на шаг.",
       "priority": "P1",
-      "status": "proposal",
+      "status": "validated",
       "metrics": {
         "id": "Passes.waterFrontStep",
         "calls": 252,
@@ -2075,16 +2295,26 @@
           "risk": "Меньше итераций/больше stride не тождественно; нулевой внешний фон не всегда верен."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Native operator34% is not GL/Room/whole34%.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "D_{k+1}(x)=min(D_k(x),min_n[D_k(n)+c(x,n)]) сохраняется только при идентичном c и read-domain. Кэш c допустим при неизменных water/paper uniforms; region уменьшать можно лишь вне точного dependency cone каждого шага."
+      "mathematicalArgument": "D_{k+1}(x)=min(D_k(x),min_n[D_k(n)+c(x,n)]) сохраняется только при идентичном c и read-domain. Кэш c допустим при неизменных water/paper uniforms; region уменьшать можно лишь вне точного dependency cone каждого шага.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Native static float height/climb cache171 iterations exact; GPU operator~34%, combined native whole100 small warm series~8%. GL lazy variant rejected; defaults OFF.",
+        "evidence": "../harness/728-static-whole-ab/README.md",
+        "wholeGain": "Native operator34% is not GL/Room/whole34%.",
+        "productionReady": false
+      }
     },
     {
       "id": "Passes.wcResample",
       "summary": "Mean2×2 или base+up(new−old), max; scissor overlap.",
       "complexity": "O(rect pixels).",
       "priority": "P2",
-      "status": "proposal",
+      "status": "implemented",
       "metrics": {
         "id": "Passes.wcResample",
         "calls": 152,
@@ -2153,16 +2383,26 @@
           "risk": "Нельзя менять mean на bilinear или убирать промежуточную quantization."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "No accepted whole gain.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Exact direct target copy-back candidate with alias fallback and no extra Q8 boundary; hardware whole payoff not established.",
+        "evidence": "../728-gpu-direct-resample.md",
+        "wholeGain": "No accepted whole gain.",
+        "productionReady": false
+      }
     },
     {
       "id": "Passes.diffuseStep",
       "summary": "Один water-gated diffusion stencil.",
       "complexity": "O(W·H·stencil) на шаг.",
       "priority": "P2",
-      "status": "proposal",
+      "status": "validated",
       "metrics": {
         "id": "Passes.diffuseStep",
         "calls": 26,
@@ -2208,16 +2448,26 @@
           "risk": "Без GPU trace26 вызовов не доказывают bottleneck; fusion steps обычно не exact."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Native only; no Room400 gain claim.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Для fixed gate линейный stencil L сохраняется кэшированием coefficients, но Q(L(Q(Lx))) обычно не равноQ(L²x). Поэтому убрать промежуточную запись или заменить серию blur одним kernel без потерь нельзя."
+      "mathematicalArgument": "Для fixed gate линейный stencil L сохраняется кэшированием coefficients, но Q(L(Q(Lx))) обычно не равноQ(L²x). Поэтому убрать промежуточную запись или заменить серию blur одним kernel без потерь нельзя.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Native height cache171 iterations exact, GPU operator~29%; combined whole100 small series~8%. GL static cache rejected:28bytes/max1.",
+        "evidence": "../harness/728-static-whole-ab/README.md",
+        "wholeGain": "Native only; no Room400 gain claim.",
+        "productionReady": false
+      }
     },
     {
       "id": "Passes.brushPass",
       "summary": "Хронологический контакт, перенос source при flow/water/pigment.",
       "complexity": "O(contact scissor pixels),1406вызовов.",
       "priority": "P1",
-      "status": "proposal",
+      "status": "validated",
       "metrics": {
         "id": "Passes.brushPass",
         "calls": 1406,
@@ -2269,16 +2519,26 @@
           "risk": "Нельзя объединять последовательные перекрывающиеся контакты: операторы не коммутируют."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Do not transfer isolated42% to whole.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Для записиR_i=T_i(R_{i−1};F_i,W_i) последовательные T_i обычно не коммутируют. Допустим cache самого F_i, если inputs идентичны; недопустимо заменить T_n∘…∘T_1 одним усреднённым контактом."
+      "mathematicalArgument": "Для записиR_i=T_i(R_{i−1};F_i,W_i) последовательные T_i обычно не коммутируют. Допустим cache самого F_i, если inputs идентичны; недопустимо заменить T_n∘…∘T_1 одним усреднённым контактом.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "WebGL2 MRT actual sampled P/C workload~38–40% faster, whole400 original~2.25%, with front~9.2% combined. All fields/UndoRedo full-engine parity; ordinary Room pending.",
+        "evidence": "../728-webgl-factorial-surface.md",
+        "wholeGain": "Do not transfer isolated42% to whole.",
+        "productionReady": false
+      }
     },
     {
       "id": "Passes.pigmentColor",
       "summary": "Single pigment shortcut color=deposit·tau.",
       "complexity": "O(W·H).",
       "priority": "P2",
-      "status": "proposal",
+      "status": "pending",
       "metrics": {
         "id": "Passes.pigmentColor",
         "calls": 42,
@@ -2336,16 +2596,26 @@
           "risk": "Другая tau или запись deposit должна инвалидировать кэш."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "Passes.gradientField",
       "summary": "Ленивый cached fibre shader, обычно прогрет.",
       "complexity": "O(1) cache hit, compilation cold.",
       "priority": "P3",
-      "status": "no-change",
+      "status": "pending",
       "metrics": {
         "id": "Passes.gradientField",
         "calls": 8,
@@ -2392,16 +2662,26 @@
           "risk": "8вызовов ниже разрешения таймера; компиляцию отдельно проверять salted на Adreno."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "no-change",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "Buffer.clear",
       "summary": "Обнуляет текстуру и инвалидирует mipmap.",
       "complexity": "O(W·H) GPU,221вызов.",
       "priority": "P1",
-      "status": "proposal",
+      "status": "pending",
       "metrics": {
         "id": "Buffer.clear",
         "calls": 221,
@@ -3619,16 +3899,26 @@
           "risk": "clear state/scissor/colorMask и context loss делают глобальный clean bit ненадёжным."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Полная clear является dead store только если для каждого texel/channel существует последующая запись до первого чтения. Partial overwrite, pooledoutside и readback нарушают условие."
+      "mathematicalArgument": "Полная clear является dead store только если для каждого texel/channel существует последующая запись до первого чтения. Partial overwrite, pooledoutside и readback нарушают условие.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "Buffer.copyTo",
       "summary": "Полная копия через copyTexImage2D, storage redefine.",
       "complexity": "O(W·H),247вызовов.",
       "priority": "P1",
-      "status": "proposal",
+      "status": "implemented",
       "metrics": {
         "id": "Buffer.copyTo",
         "calls": 247,
@@ -3905,16 +4195,26 @@
           "risk": "copyTo иногда меняет физический размер dest: такой путь должен остаться прежним."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "No measured whole gain.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "При одинаковых extent/format и действующем storage texImage-copy и texSubImage-copy задают один массив dst[x,y,c]=src[x,y,c] для всехtexels. За пределамиcopy область пуста. Размер/формат dest и mip invalidation должны совпасть."
+      "mathematicalArgument": "При одинаковых extent/format и действующем storage texImage-copy и texSubImage-copy задают один массив dst[x,y,c]=src[x,y,c] для всехtexels. За пределамиcopy область пуста. Размер/формат dest и mip invalidation должны совпасть.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Same-size storage reuse and exact copies reviewed/tested; no separate robust copyTo whole payoff.",
+        "evidence": "../728-night-2026-10-08.md",
+        "wholeGain": "No measured whole gain.",
+        "productionReady": false
+      }
     },
     {
       "id": "Buffer.copyRegionInto",
       "summary": "Копирует прямоугольник framebuffer в существующую texture.",
       "complexity": "O(rect pixels),1512вызовов.",
       "priority": "P1",
-      "status": "proposal",
+      "status": "pending",
       "metrics": {
         "id": "Buffer.copyRegionInto",
         "calls": 1512,
@@ -4137,16 +4437,26 @@
           "risk": "Copy cache должен учитывать каждый write/clear/pool reuse; 3ms CPU не отражают bandwidth GPU."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "Buffer.readPixels",
       "summary": "Синхронно читает RGBA в CPU массив.",
       "complexity": "O(W·H)+GPU synchronization.",
       "priority": "P2",
-      "status": "proposal",
+      "status": "pending",
       "metrics": {
         "id": "Buffer.readPixels",
         "calls": 1,
@@ -4271,16 +4581,26 @@
           "risk": "Один15.2ms read в этом сценарии, не объясняет817ms сам по себе."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "GL.drawArrays",
       "summary": "Raw GL submission; ближайшие обёртки скрывают реальные painters.",
       "complexity": "5235команд, стоимость GPU неизвестна.",
       "priority": "P1",
-      "status": "proposal",
+      "status": "validated",
       "metrics": {
         "id": "GL.drawArrays",
         "calls": 5235,
@@ -4548,16 +4868,26 @@
           "risk": "2µs mean—CPU enqueue, не shader duration; уменьшение draw count не гарантирует меньше GPU pixels."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Shared brush/front results, not additive.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "MRT pairs reduce duplicated brush draws, front grouping preserves all draws; counts/whole GPU samples measured in factorial. Not arbitrary draw fusion.",
+        "evidence": "../728-webgl-factorial-surface.md",
+        "wholeGain": "Shared brush/front results, not additive.",
+        "productionReady": false
+      }
     },
     {
       "id": "GL.clear",
       "summary": "Raw очистка bound framebuffer.",
       "complexity": "221команда, GPU pixels не записаны.",
       "priority": "P1",
-      "status": "proposal",
+      "status": "pending",
       "metrics": {
         "id": "GL.clear",
         "calls": 221,
@@ -5747,16 +6077,26 @@
           "risk": "Нужны region/resource identity и state trace."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "GL.readPixels",
       "summary": "Raw GPU→CPU read и возможное ожидание очереди.",
       "complexity": "1вызов15.1ms.",
       "priority": "P2",
-      "status": "proposal",
+      "status": "pending",
       "metrics": {
         "id": "GL.readPixels",
         "calls": 1,
@@ -5884,16 +6224,26 @@
           "risk": "WebGL1 не даёт обычного PBO async-read; удалять canonical read нельзя."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "Not measured.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается."
+      "mathematicalArgument": "Эквивалентность требует одинаковых аргументов, порядка побочных эффектов и округлений. Предложение устраняет повторное вычисление/передачу либо планирует те же операции; общего доказательства ускорения здесь нет. Для no-change изменение не предлагается.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "No isolated implemented+hardware-validated optimization identified for this measured method. Historical suggestions remain proposals; no gain invented.",
+        "evidence": "../728-optimization-forecast-2026-10-08.md",
+        "wholeGain": "Not measured.",
+        "productionReady": false
+      }
     },
     {
       "id": "GL.texImage2D",
       "summary": "Allocation или upload texture,211вызовов.",
       "complexity": "O(upload bytes/driver allocation); max3.6msCPU.",
       "priority": "P1",
-      "status": "proposal",
+      "status": "implemented",
       "metrics": {
         "id": "GL.texImage2D",
         "calls": 211,
@@ -6061,9 +6411,35 @@
           "risk": "Pooling без budget/lifetime controls увеличивает память; texImage null и pixelupload разные задачи."
         }
       ],
-      "speedup": "Не измерено; ускорение не обещается до A/B.",
+      "speedup": "No stable whole gain established.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
-      "mathematicalArgument": "Разрешён stable-size update при том же storage-format и полной записи payload. Тогда texSubImage задаёт тот же массив содержимого; allocation metadata/zero-init обязаны остаться эквивалентны."
+      "mathematicalArgument": "Разрешён stable-size update при том же storage-format и полной записи payload. Тогда texSubImage задаёт тот же массив содержимого; allocation metadata/zero-init обязаны остаться эквивалентны.",
+      "historicalProposalStatus": "proposal",
+      "currentAssessment": {
+        "date": "2026-10-08",
+        "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
+        "backendScope": "See evidence; GL and native are not interchangeable",
+        "note": "Flow-storage reuse replaces full same-size upload with texSubImage2D, format/dimensions/context invalidation retained; OFF until suitable hardware payoff.",
+        "evidence": "../728-gpu-flow-storage.md",
+        "wholeGain": "No stable whole gain established.",
+        "productionReady": false
+      }
     }
-  ]
+  ],
+  "currentReview": {
+    "date": "2026-10-08",
+    "forecast": "../728-optimization-forecast-2026-10-08.md",
+    "statusCounts": {
+      "validated": 9,
+      "implemented": 10,
+      "pending": 17
+    },
+    "originalMetricsUnchanged": true,
+    "limitations": [
+      "Original call counts/timings belong6aa14a43 profile; annotation update does not remeasure those methods.",
+      "validated means named candidate has stated evidence, not production default ON/whole Room done.",
+      "Rejected variants (contact workspace, trig/lazy, GL static cache, source+live batching) are described separately; method remains available for future work.",
+      "No inclusive totals summed; CPU submission != GPU time; percentages shared across methods do not add."
+    ]
+  }
 }
