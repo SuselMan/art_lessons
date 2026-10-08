@@ -16,6 +16,7 @@ import { useBanned } from './lib/api/banned'
 // engine, @dnd-kit, and socket.io-client — none of which /login, /create, or
 // /my-lessons need. Each page ships as its own chunk, fetched on navigation.
 const WatercolorGpuPoc = import.meta.env.DEV ? lazy(() => import('./pages/WatercolorGpuPoc').then(m => ({ default: m.WatercolorGpuPocPage }))) : null
+const CanonicalWatercolorGpu = import.meta.env.DEV ? lazy(() => import('./pages/WatercolorGpuPoc/CanonicalScenePage').then(m => ({ default: m.CanonicalScenePage }))) : null
 const CreateRoom = lazy(() => import('./pages/CreateRoom').then(m => ({ default: m.CreateRoom })))
 // Through `importRoomPage` rather than an inline `import()` so the pages that
 // preload this chunk share one specifier with it — see lib/api/roomChunk.ts.
@@ -97,6 +98,7 @@ export function App() {
               {banned ? <Banned /> : <Routes>
                 <Route path="/" element={<Navigate to="/create" replace />} />
                 {WatercolorGpuPoc && <Route path="/dev/watercolor-webgpu" element={<WatercolorGpuPoc />} />}
+                {CanonicalWatercolorGpu && <Route path="/dev/watercolor-native" element={<CanonicalWatercolorGpu />} />}
                 <Route path="/create" element={<CreateRoom />} />
                 <Route path="/room/:id" element={<Room />} />
                 <Route path="/login" element={<Auth />} />
