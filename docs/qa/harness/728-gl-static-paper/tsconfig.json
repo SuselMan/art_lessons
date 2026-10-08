@@ -1,0 +1,1 @@
+{"extends":"../../../../apps/web/tsconfig.app.json","compilerOptions":{"tsBuildInfoFile":"../../../../temp/gl-static-paper/harness.tsbuildinfo"},"include":["run.ts"]}
