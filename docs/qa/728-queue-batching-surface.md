@@ -16,3 +16,9 @@ Standalone actual-engine бандл97508016, кисть400, Fine, фиксиро
 Артефакт на диске: `temp/fast-watercolor-night/queue-batch-surface-1791415501736.json`.
 
 Обратный порядок: `temp/fast-watercolor-night/queue-batch-reverse-surface-1791417105954.json`.
+
+## Samsung
+
+Actual SM-T970/Adreno, Chrome154, тот же immutable975 tape, Fine400. Порядок front→baseline:19781→23696мс (16.5% выигрыш front),1146→1235срезов. Всего32среза с несколькими примитивами. Полные поля, wholeRGBA и материал совпали; meaningful Undo/Redo,GL0/lostfalse. Максимальный CPUсрез front32.8мс против baseline22.7мс: общее ускорение не доказывает улучшение каждого кадра. Нужны живойinput и normalRoom gates до default ON.
+
+Артефакт: `temp/fast-watercolor-night/queue-batch-samsung-1791417470774.json`. Первая попытка не открыла QAURL из-за shell-разделителя в запросе; workload не выполнялся, retained отдельно.
