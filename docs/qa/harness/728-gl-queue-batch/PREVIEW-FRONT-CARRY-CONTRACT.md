@@ -110,3 +110,26 @@ source/options/paper. Actual uniforms и texture bindings снимаются о�
 отдельно, без обещания строгой conservation. Только synthetic primitive;
 никакого Room/endpoint/performance claim. Release Float fields после knownidle
 в finally; hardware ещё не запускался.
+
+### Actual Surface paired control — 09.10.2026
+
+Raw `temp/device-runs/preview-front-carry-paired-surface.json`, compact
+`preview-front-carry-paired-summary.json`. Preflight2056/controller2066MiB,
+post1989MiB; собственная страница закрыта, Surface RELEASE.
+Actual rgba32f/FBO allocator accepted; four fields1MiB. Initial GPU mode1
+copy differs from exact Q8/255 by at most1.1102826e-8.
+
+On SAME pressure/source/options/paper Q8 stays61nonzero, every P/C SHA unchanged;
+Float32 expands61→89→141→174 at carry steps1/4/16. Both alpha sums
+4880.000172704→4880.000116103 Q8-equivalent, drift−0.000056602
+(−1.16e-8 relative); P/C alpha sums equal. Outsidewet/support and otherpond
+mass both0. Eight source SHA unchanged, GLerror0/contextlostfalse.
+Actual program uniforms in both arms equal (rate.5, dir1/128, travel.35,
+pow3,costMax16,band.65625); texture roles pressure0/solventLoad/oldP/C correct.
+Unused compile-specialized uniforms are null, not missing live bindings.
+
+This confirms a sub-Q8 transport loss in THIS synthetic fixture without rate
+tuning. It does not prove actualRoom preview quality, canonical equivalence
+or speed. Readback perturbs timing; no latency/performance claim. Next OFF
+Room port must use captured source fluid options, leased pressure pair, finite
+budget and pen priority, while canonical eight sources remain readonly.
