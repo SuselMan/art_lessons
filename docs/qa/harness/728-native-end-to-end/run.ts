@@ -1,3 +1,4 @@
+import { withGlOwnerCleanup } from './glOwnerCleanup'
 import { installProductionGlNoisePatch } from './productionGlNoisePatch'
 import type { ConsistentNoiseVariant } from './consistentNoise'
 import { coveragePrimitiveOracle,coverageSequenceOracle } from './coverageOracle'
@@ -115,8 +116,7 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,st
  const replayLegacy=async(variant?:ConsistentNoiseVariant)=>{
  const glCanvas=document.createElement('canvas');glCanvas.width=1024;glCanvas.height=1024;surface.append(glCanvas)
  const shaderPatch=installProductionGlNoisePatch(glCanvas,variant)
- let engine:PencilEngine
- try{engine=new PencilEngine(glCanvas,{paper:'fine',pageWidth:1024,pageHeight:1024,userId:'qa-native',joinedTouch:true,gradientFibres:true})}catch(error){shaderPatch.restore();throw error}
+ return withGlOwnerCleanup(()=>new PencilEngine(glCanvas,{paper:'fine',pageWidth:1024,pageHeight:1024,userId:'qa-native',joinedTouch:true,gradientFibres:true}),async engine=>{
  const probe=engine as unknown as {_ribbonPainter:Record<string,unknown>;_ribbonPasses:Record<string,(...args:unknown[])=>unknown>;gl:WebGLRenderingContext;_settle:unknown;_rebuildJobs:Map<string,unknown>;_pendingRebuilds:Set<string>;_unsettledLayers:Set<string>;_layers:Map<string,ILayerBuffer>}
  const actualGlDither:Array<{method:string;phase:unknown;enabled:boolean}>=[]
  if(coveragePrimitives||coverageSequence)for(const name of ['drawRibbonNibPass','drawRibbonBands']){
@@ -136,9 +136,10 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,st
   glStages=await glCapture?.read()??[]
   if(sameInputFront){if(stages!=='pressure'||frontIndex<1)throw new Error('Same-input front requires pressure probe and positive index');glCapture!.detach();frontExpected=glCapture!.replayFrontGl()}
   const ext=probe.gl.getExtension('WEBGL_debug_renderer_info');renderer=ext?String(probe.gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):null;glError=probe.gl.getError()
- }finally{try{glCapture?.detach();glCapture?.destroy();engine.destroy();surface.replaceChildren()}finally{shaderPatch.restore()}}
+ }finally{try{glCapture?.detach()}finally{glCapture?.destroy()}}
  const shaderReport=await shaderPatch.report();if(variant&&!shaderReport.changedPrograms)throw new Error('GL diagnostic patched no noise programs')
  return{legacy,renderer,glError,glCapture,glStages,frontExpected,actualGlDither,shaderReport,legacyMs:performance.now()-glStarted}
+ },()=>{try{surface.replaceChildren()}finally{shaderPatch.restore()}})
  }
  const baselineGl=await replayLegacy()
  const {legacy,renderer,glError,glCapture,glStages,frontExpected,actualGlDither}=baselineGl
