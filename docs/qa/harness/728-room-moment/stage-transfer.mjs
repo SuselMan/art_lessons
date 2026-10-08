@@ -9,7 +9,7 @@ export async function transferStages(evaluate,out){
  let total=0
  for(let i=0;i<meta.length;i++)for(let j=0;j<meta[i].stages.length;j++){
   const s=meta[i].stages[j],file=`stage-${i}-${j}.bin`,fd=fs.openSync(out+'/'+file,'wx'),hash=crypto.createHash('sha256');let bytes=0
-  try{for(const chunk of chunkPlan(s.encodedLength)){const text=await evaluate(p=>window.__momentStageResults[p.i].stages[p.j].base64.slice(p.offset,p.offset+p.length),{i,j,...chunk});if(text.length!==chunk.length)throw Error('Stage chunk length changed');const block=Buffer.from(text,'base64');hash.update(block);fs.writeSync(fd,block);bytes+=block.length}}finally{fs.closeSync(fd)}
+  try{for(const chunk of chunkPlan(s.encodedLength)){const text=await evaluate(p=>window.__momentStageResults[p.i].stages[p.j].base64.slice(p.offset,p.offset+p.length),{i,j,...chunk});if(text.length!==chunk.length)throw Error('Stage chunk length changed');const block=Buffer.from(text,'base64');hash.update(block);fs.writeSync(fd,block);bytes+=block.length}fs.fsyncSync(fd)}finally{fs.closeSync(fd)}
   if(bytes!==s.byteLength||hash.digest('hex')!==s.sha)throw Error('Bounded binary stage SHA mismatch')
   total+=bytes;s.file=file;await evaluate(p=>{delete window.__momentStageResults[p.i].stages[p.j].base64;return true},{i,j})
  }
