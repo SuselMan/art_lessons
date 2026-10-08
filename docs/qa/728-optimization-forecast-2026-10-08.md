@@ -51,3 +51,9 @@ Surface mixed400/Fine: отдельный passes cohort без ошибок и �
 Расширенный профиль: [аппаратные данные](harness/728-gl-gpu-coverage/README.md). Baseline334ticks (contact204/front70/barrier60), tickbody сумма140.6ms/max46.3ms, фазы мазков2850/2900ms. Timestamp кадров в этом snapshot отсутствует, поэтому очередные интервалы нельзя назвать чистым CPU временем. Приоритет: bounded группировка нескольких исходных операций за кадр с сохранением каждой Q8 границы и обязательных barrier/presentation/admission контрактов; нужна OFF/ON quality+timing проверка. Измеренный9.2% предыдущего batching не означает предел новой группировки, но новый процент ещё неизвестен.
 
 Новый кандидат очереди: [аппаратный результат](harness/728-gl-queue-batch/README.md). Расчёт выполняет до4 одинаково помеченных исходных единиц заtick под8ms budget после sync каждой единицы; capture/upload/class/presentation границы не пересекаются. Финальные данные exact не доказывают удовлетворительную промежуточную анимацию.
+
+### Итог проверки кандидата в бою
+
+[Полный отчёт](728-queue-finish-2026-10-08.md): Surface ordinary Room400 elapsed10931.5→6650.8ms (~39% одна пара), Dry/meaningfulUndo/exactRedo/7ops reentry exact обеих рук. В той же живой сцене вода→пигмент задана правильнымnormal:100:0. Оставшийсяgap416.7–533ms не исчез; узкийCPUtrace исключил выполнение покрытыхCPUsource/queue/upload/finish/display внутри одногоgap. CPUAPI timestamps неphysicalpigmentonset. DefaultsOFF, production не менялся.
+
+[Native Room400](728-room-native400-surface.md) функционально завершил настоящийwater→pigмент сP.B/Czero/Vnonempty и многодабовыйzigzag. Старыйnativewater fixtureinvalid, корректныйповторPASS. Полная доска/GLquality/history/nativeperformance ещёнепроверены.
