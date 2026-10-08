@@ -3,11 +3,12 @@ import {SealedPreviewTransport,PREVIEW_BYTES} from './SealedPreviewTransport.mjs
 import {SealedPreviewGlPort} from './SealedPreviewGlPort.mjs';
 import {createPreviewWaterDomain} from './PreviewWaterDomain.mjs';
 /** OFF-only runtime, no canonical callbacks/resources. Construction awaited before input. */
-export async function createOwnedPreviewRuntime(e,morph,{event=()=>{},budgetBytes=3*PREVIEW_BYTES,excluded=[]}={}){
- const {AccumulationBuffer}=await import('/src/engine/src/buffers/AccumulationBuffer.ts');
- const pool=new PrewarmedPreviewPool({create:(w,h,filter)=>new AccumulationBuffer(e.gl,w,h,filter),destroy:f=>f.destroy()},{budgetBytes,excluded});let domain;
- try{domain=await createPreviewWaterDomain(e._watercolorPasses)}catch(error){pool.disposeAfterFence();throw error}
+export async function createOwnedPreviewRuntime(e,morph,{event=()=>{},budgetBytes=3*PREVIEW_BYTES,excluded=[],createBuffer=null,createDomain=createPreviewWaterDomain}={}){
+ const AccumulationBuffer=createBuffer?null:(await import('/src/engine/src/buffers/AccumulationBuffer.ts')).AccumulationBuffer;
+ const pool=new PrewarmedPreviewPool({create:(w,h,filter)=>createBuffer?createBuffer(w,h,filter):new AccumulationBuffer(e.gl,w,h,filter),destroy:f=>f.destroy()},{budgetBytes,excluded});let domain;
+ try{domain=await createDomain(e._watercolorPasses);
  const paper=e._watercolorPasses.ctx.paperWorldSize(),port=new SealedPreviewGlPort(e._watercolorPasses,{paperWidth:paper.w,paperHeight:paper.h,domainFromWater:domain});return bindOwnedPreviewRuntime(e,morph,{pool,port,domain,event})
+ }catch(error){if(!e.gl.isContextLost())e.gl.finish();domain?.disposeAfterFence();pool.disposeAfterFence();throw error}
 }
 /** Testable chronological seam; default factory above supplies real GL resources. */
 export function bindOwnedPreviewRuntime(e,morph,{pool,port,domain,event=()=>{}}){
