@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
 import {SealedPreviewGlPort} from '/home/suselman/projects/pencil-agents/728-solvent-init/docs/qa/harness/728-gl-queue-batch/SealedPreviewGlPort.mjs';
 const field=(name,rgba)=>({name,texture:{},width:128,height:128,rgba:[...rgba]});
 const coverage=field('coverage',[128,64,230,255]), water=field('water',[255,0,0,255]);
@@ -31,5 +32,8 @@ assert.notEqual(Math.round(c*fraction)/Math.round(p*fraction),c/p);
 assert.equal(512/1024,64/128);
 const runtime=await readFile('/home/suselman/projects/pencil-agents/728-solvent-init/docs/qa/harness/728-gl-queue-batch/OwnedPreviewRuntime.mjs','utf8');
 assert(runtime.includes('f.original.copyTo(pending)'));
-assert(runtime.includes('f.original,l.coverage,l[`p${side}`],l[`c${side}`]'));
+const oldRuntime=execFileSync('git',['show','6aeec405:docs/qa/harness/728-gl-queue-batch/OwnedPreviewRuntime.mjs'],{cwd:'/home/suselman/projects/pencil-agents/728-solvent-init',encoding:'utf8'});
+assert(oldRuntime.includes('f.original,l.coverage,l[`p${side}`],l[`c${side}`]'));
+assert(runtime.includes('f.original,f.coverage,l[`p${side}`],l[`c${side}`]'));
+assert(!runtime.includes('f.original,l.coverage,l[`p${side}`],l[`c${side}`]'));
 console.log(JSON.stringify({pass:true,coverageChannelsLost:true,standingBefore:wet(source.coverage.rgba),standingPreview:wet(out.coverage.rgba),pairedPasses:2,scope:'CPU contract; no GPU pixels or mass proof'}));
