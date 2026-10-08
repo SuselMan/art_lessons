@@ -54,30 +54,33 @@ fn paint(v:V)->InkOut {
 
 `;
 /** OFF diagnostic retaining production DAB_VERT arithmetic order; hardware parity unproven. */
-export function canonicalStampShader(literalVertex=false):string {
- if(!literalVertex)return CANONICAL_STAMP_WGSL
+export function canonicalStampShader(literalVertex=false,cpuTrig=false):string {
+ const shader=cpuTrig?CANONICAL_STAMP_WGSL.replace("let c=cos(u.shape.x);let s=sin(u.shape.x);","let c=u.clip.z;let s=u.clip.w;"):CANONICAL_STAMP_WGSL
+ if(!literalVertex)return shader
  const old=` let c=cos(u.shape.x);let s=sin(u.shape.x);let scaled=uv*vec2f(u.pose.w,1.0);
  let p=vec2f(scaled.x*c-scaled.y*s,scaled.x*s+scaled.y*c)*u.pose.z+u.pose.xy;
  var o:V;o.position=vec4f(p/u.resolution*vec2f(2.0,-2.0)+vec2f(-1.0,1.0),0,1);o.local=uv;return o;`
  if(!CANONICAL_STAMP_WGSL.includes(old))throw new Error('Canonical stamp vertex anchor missing')
- return CANONICAL_STAMP_WGSL.replace(old,` let position=uv*0.5;
+ const result=shader.replace(cpuTrig?old.replace('let c=cos(u.shape.x);let s=sin(u.shape.x);','let c=u.clip.z;let s=u.clip.w;'):old,` let position=uv*0.5;
  let c=cos(u.shape.x);let s=sin(u.shape.x);
  let scaled=vec2f(position.x*u.pose.w,position.y);
  let rotated=vec2f(scaled.x*c-scaled.y*s,scaled.x*s+scaled.y*c);
  let screenPos=rotated*u.pose.z*2.0+u.pose.xy;
  var clip=(screenPos/u.resolution)*2.0-1.0;clip.y=-clip.y;
  var o:V;o.position=vec4f(clip,0,1);o.local=position*2.0;return o;`)
+ return cpuTrig?result.replace("let c=cos(u.shape.x);let s=sin(u.shape.x);","let c=u.clip.z;let s=u.clip.w;"):result
 }
 
 export class CanonicalStampDeposit {
+ private readonly cpuTrig:boolean
  private readonly device:GPUDevice
  private readonly noise:CanonicalGpuField
  private readonly module:GPUShaderModule
  private readonly pipelines=new Map<string,GPURenderPipeline>()
  private get coverage(){return this.pipeline('coverage')}
- constructor(device:GPUDevice,noise:CanonicalGpuField,lazy=false,literalVertex=false){
-  this.device=device;this.noise=noise
-  this.module=device.createShaderModule({label:'production watercolor nib deposit',code:canonicalStampShader(literalVertex)})
+ constructor(device:GPUDevice,noise:CanonicalGpuField,lazy=false,literalVertex=false,cpuTrig=false){
+  this.device=device;this.noise=noise;this.cpuTrig=cpuTrig
+  this.module=device.createShaderModule({label:'production watercolor nib deposit',code:canonicalStampShader(literalVertex,cpuTrig)})
   if(!lazy)for(const key of ['coverage','inkmax','inkadd','pigmentOnlymax','pigmentOnlyadd','colorOnlymax','colorOnlyadd'])this.pipeline(key)
  }
  private pipeline(key:string){
@@ -92,7 +95,7 @@ export class CanonicalStampDeposit {
  encode(encoder:GPUCommandEncoder,stamp:CanonicalStamp,coverage:CanonicalGpuField,blank:CanonicalGpuField,pigment:CanonicalGpuField,color:CanonicalGpuField,phase:CanonicalRasterPhase='all'):GPUBuffer[] {
   return withTransientGpuBuffers(retain=>{
   const v=stamp.uniforms,u=retain(this.device.createBuffer({size:160,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}))
-  this.device.queue.writeBuffer(u,0,new Float32Array([coverage.width,coverage.height,...v.worldOrigin,...v.mottleSeed,v.aaPx,v.washWater,v.waterRetain,v.bristleCombs,v.bristleInk,v.cloudDeposit,v.granDeposit,v.poolBlot,+v.useAvailableWater,0,...v.tau,0,...stamp.center,stamp.radius,stamp.aspect,stamp.angle,+(stamp.nibShape==='roundedBox'),stamp.cornerRadius,stamp.opacity,stamp.inkWater,stamp.paperWet,stamp.inkStrength,stamp.puddle,...stamp.acrossLocal,stamp.pressure,stamp.inkEdge,stamp.inkClip,stamp.pigmentPool,0,0]))
+  this.device.queue.writeBuffer(u,0,new Float32Array([coverage.width,coverage.height,...v.worldOrigin,...v.mottleSeed,v.aaPx,v.washWater,v.waterRetain,v.bristleCombs,v.bristleInk,v.cloudDeposit,v.granDeposit,v.poolBlot,+v.useAvailableWater,0,...v.tau,0,...stamp.center,stamp.radius,stamp.aspect,stamp.angle,+(stamp.nibShape==='roundedBox'),stamp.cornerRadius,stamp.opacity,stamp.inkWater,stamp.paperWet,stamp.inkStrength,stamp.puddle,...stamp.acrossLocal,stamp.pressure,stamp.inkEdge,stamp.inkClip,stamp.pigmentPool,this.cpuTrig?Math.fround(Math.cos(Math.fround(stamp.angle))):0,this.cpuTrig?Math.fround(Math.sin(Math.fround(stamp.angle))):0]))
   const encode=(pipeline:GPURenderPipeline,read:CanonicalGpuField,writes:CanonicalGpuField[])=>{
    // Coverage entry does not statically use binding1; auto layout omits it.
    const entries:GPUBindGroupEntry[]=[{binding:0,resource:{buffer:u}},{binding:2,resource:this.noise.view}]
