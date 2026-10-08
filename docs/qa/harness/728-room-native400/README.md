@@ -19,7 +19,7 @@ nonzero, max, SHA. Один readback resident за раз, aggregate cap256MiB. 
 поэтому это не unperturbed timing/physical latency и не доказательство отсутствия
 transient400 bug. До чтения idle обязателен, released buffers вызывают FAIL.
 
-Water-only diagnostic требует настоящие P-поля ==0 и solventLoad nonempty;
+Water-only diagnostic требует настоящие P.B ==0 (Rwater/Gwet/Aamount могут быть положительными), C-поля все RGBA ==0 и solventLoad nonempty;
 отсутствующие P-поля не дают ложного PASS. Final material hash и все owner field
 hashes описывают конкретное исполнение, не parity сами по себе. Смена scratch
 может удалить прежние роли: отсутствия сохранены явно.
@@ -45,3 +45,5 @@ Stage readbacks меняют cadence; нельзя ими маскировать
 
 Offline checks: `node --check .../controller.mjs` и
 `node --test docs/qa/harness/728-room-native400/capture-fields.test.mjs`.
+
+Packing source proof: WebGL shaders.ts1448 and587 encode P=(amount*water, amount*wet, amount*strength, amount); native stamp.ts49/deposit paint match. Old allRGBA P0 FAIL is INVALID ORACLE, not model defect. Failed records now persist before controller rejects.

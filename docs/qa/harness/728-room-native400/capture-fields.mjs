@@ -20,7 +20,8 @@ export async function captureOwnerFields({waterOnly=false}={}) {
  for(const [key,aux]of owner.foreignAux??[])for(const [,entry]of aux.scratch.tileEntries())for(const name of ['coverage','solventLoad','solventBase','strokeSolvent'])await capture('foreign:'+key+':'+name,entry[name])
  for(const r of records){if(seen.has(r.role))throw Error('Duplicate owner role');seen.add(r.role)}
  const pigment=records.filter(r=>/^tile\d+:(inkLoad|strokeInk|inkDry|inkSettled)$/.test(r.role)&&!r.absent)
+ const color=records.filter(r=>/^tile\d+:(inkColor|strokeColor|colorDry|colorSettled)$/.test(r.role)&&!r.absent)
  const water=records.filter(r=>/:solventLoad$/.test(r.role)&&!r.absent)
- if(waterOnly){if(!pigment.length)throw Error('Water P0 gate missing actual pigment fields');if(pigment.some(r=>r.nonzero))throw Error('Water-only actual P field is not zero');if(!water.some(r=>r.nonzero))throw Error('Water-only actual solvent field empty')}
- return{records,totalBytes,waterOnly,pigmentZero:pigment.every(r=>r.nonzero===0),waterNonempty:water.some(r=>r.nonzero>0),scope:'Sequential post-idle diagnostic fields; no transient/source parity or performance claims'}
+ const failures=[];if(waterOnly){if(!pigment.length)failures.push('Water P0 gate missing actual pigment fields');if(pigment.some(r=>r.sums[2]!==0))failures.push('Water-only actual pigment mass P.B is not zero');if(!color.length)failures.push('Water C gate missing actual color fields');if(color.some(r=>r.nonzero))failures.push('Water-only actual color field is not zero');if(!water.some(r=>r.nonzero))failures.push('Water-only actual solvent field empty')}
+ return{records,totalBytes,waterOnly,gatePassed:failures.length===0,failures,pigmentZero:pigment.every(r=>r.sums[2]===0),colorZero:color.every(r=>r.nonzero===0),packing:'P.Rwater Gwet Bpigment Aamount; C allchannels mustzero for purewater',waterNonempty:water.some(r=>r.nonzero>0),scope:'Sequential post-idle diagnostic fields; no transient/source parity or performance claims'}
 }
