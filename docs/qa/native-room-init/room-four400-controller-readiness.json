@@ -1,12 +1,14 @@
 {
   "scope": "Offline execution of actual generated controller; no device/network access",
-  "controllerSha256": "e295e2a5afae6364b985cdc8d016d701f5c4b7882bad455343ad48bc1bd106e3",
+  "controllerSha256": "7ac6fc7e63e3f54dce8b05b42e984a8331021684b04b197aa9a40e558f8f1ef4",
   "checks": [
     "node --check PASS",
     "3 actual controller negative passports (wrong head, malformed decoded LA checksum, sourceOrigin with path) fail before global fetch, RAM SSH, own CDP target, or pointer",
     "Failure JSON saved for each negative run",
     "Full five-file parser guards and helper mode15/16/filter/finally OFF identity tests PASS",
-    "git apply --check on root daac0068 PASS"
+    "git apply --check on root daac0068 PASS",
+    "Actual browser-context helper mock PASS: create/context-scoped target, success and create-target failure dispose-once, only owned target closed, protected targets untouched",
+    "Already-closed owner rejects later creation before any network"
   ],
   "rawRoot": "temp/native-source-offline/room-controller-negative",
   "limitations": [
@@ -21,5 +23,14 @@
     "sourceOrigin": "direct frozen source origin with no path",
     "paperLaSha256": "decoded Fine LA64hex"
   },
-  "primaryScenario": "four400, water100/pig0 then pig70 and two pig70 colors, origin-zero1024 tile footprint; no readPixels until final endpoint"
+  "primaryScenario": "four400, water100/pig0 then pig70 and two pig70 colors, origin-zero1024 tile footprint; no readPixels until final endpoint",
+  "contextIsolation": "Target.createBrowserContext disposeOnDetach=true; own target uses browserContextId; dispose on finally. Default profile cookies/localStorage/service workers untouched.",
+  "runtimeFreeze": {
+    "head": "731733c908245b80caf7c172823019f5f3e949e4",
+    "sourceOrigin": "http://127.0.0.1:5363",
+    "manifest": "temp/native-source-offline/runtime-room-731733c9-manifest.json",
+    "paper": "immutable symlink, no duplicate",
+    "sourceHttpCritical4": "200 SHA exact",
+    "fineLaSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521"
+  }
 }
