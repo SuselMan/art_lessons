@@ -1,0 +1,58 @@
+{
+  "scope": "Surface actual four packed strokes original vs owned material morph; target only",
+  "sourceCommit": "79fdb547",
+  "dataTapeSHA": "1f6ebb83deef939797dbc188d869088e00e49ca535d24bbf5153e6c9c01d4531",
+  "originalFinal": {
+    "width": 1024,
+    "height": 1024,
+    "nonzero": 765377,
+    "sha": "496cfa1f0ad3bbdd7f68339d59bb7578e400fa54fe4838d960a4152d049bb668"
+  },
+  "ownedFinal": {
+    "width": 1024,
+    "height": 1024,
+    "nonzero": 765377,
+    "sha": "496cfa1f0ad3bbdd7f68339d59bb7578e400fa54fe4838d960a4152d049bb668"
+  },
+  "ownedRedo": {
+    "width": 1024,
+    "height": 1024,
+    "nonzero": 765377,
+    "sha": "496cfa1f0ad3bbdd7f68339d59bb7578e400fa54fe4838d960a4152d049bb668"
+  },
+  "originalAfterThree": {
+    "width": 1024,
+    "height": 1024,
+    "nonzero": 764790,
+    "sha": "99347e202e9ac7b285eb006c763357f7e318133380757108d102f93871853bb2"
+  },
+  "ownedUndo": {
+    "width": 1024,
+    "height": 1024,
+    "nonzero": 764790,
+    "sha": "99347e202e9ac7b285eb006c763357f7e318133380757108d102f93871853bb2"
+  },
+  "finalExact": true,
+  "undoExact": true,
+  "flags": {
+    "gradientFibres": true,
+    "joinedTouch": false,
+    "deferred": false,
+    "async": false,
+    "solver": true
+  },
+  "glError": 0,
+  "lost": false,
+  "ramMiB": {
+    "pre": 2040,
+    "min": 1557,
+    "postClose": 1973
+  },
+  "limitations": [
+    "Not whole working field parity across rebuild",
+    "Replay per-operation readbacks perturb timing",
+    "Morph subjective smoothness still requires filmstrip/live review",
+    "One device, one four-stroke tape",
+    "Explicit CDP loader/context succeeded; prior teardown cause unproven"
+  ]
+}
