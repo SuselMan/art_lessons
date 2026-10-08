@@ -1,0 +1,305 @@
+{
+  "scope": "Surface actual full mode6, common GL pressure/inward/coverage and shared new seeded corner texture. Different spatial pattern, OFF QA only.",
+  "source": "c5c172fbebb1afa6d3d3c8a428c158df35bf73ce",
+  "bundleSha256": "012c9fb7f8c8d5b37de9b2129ebff5772be384c2216a5d60d67bce0321246cb1",
+  "memory": [
+    {
+      "stage": "before-own-tab",
+      "availableMiB": 2009.6
+    },
+    {
+      "stage": "arm-0-preflight",
+      "availableMiB": 2005
+    }
+  ],
+  "channels": [
+    {
+      "changed": 3,
+      "max": 1,
+      "sum": 3
+    },
+    {
+      "changed": 9,
+      "max": 1,
+      "sum": 9
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    }
+  ],
+  "exact": false,
+  "functionalValid": true,
+  "glError": 0,
+  "errors": [],
+  "lost": false,
+  "validation": null,
+  "expectedSha256": "df6dc0c2147e540ffb30734905d48125ef1d83a733a554d16c8d2b74620d752d",
+  "actualSha256": "93c4cdfa336c6dadc41e18d6fdd330c872c20a4404758a7a082a4d7682a5b86d",
+  "corner": {
+    "seed": 728,
+    "origin": [
+      -1,
+      -35
+    ],
+    "width": 85,
+    "height": 54,
+    "bytes": 18360,
+    "sha256": "beab000184424c69e4af1218cb5a677382a27a34dbaa2e21c2146a8f6a7c00f9",
+    "filter": "nearest",
+    "rowConvention": "noise-coordinate rows; no world-top flip",
+    "patternChange": {
+      "channels": [
+        {
+          "changed": 0,
+          "max": 0,
+          "sum": 0
+        },
+        {
+          "changed": 74280,
+          "max": 230,
+          "sum": 10781146
+        },
+        {
+          "changed": 2527,
+          "max": 149,
+          "sum": 81295
+        },
+        {
+          "changed": 0,
+          "max": 0,
+          "sum": 0
+        }
+      ],
+      "differences": [
+        {
+          "x": 314,
+          "y": 267,
+          "channel": 1,
+          "expected": 25,
+          "actual": 49
+        },
+        {
+          "x": 324,
+          "y": 267,
+          "channel": 1,
+          "expected": 26,
+          "actual": 25
+        },
+        {
+          "x": 326,
+          "y": 267,
+          "channel": 1,
+          "expected": 27,
+          "actual": 25
+        },
+        {
+          "x": 327,
+          "y": 267,
+          "channel": 1,
+          "expected": 27,
+          "actual": 25
+        },
+        {
+          "x": 308,
+          "y": 268,
+          "channel": 1,
+          "expected": 25,
+          "actual": 221
+        },
+        {
+          "x": 312,
+          "y": 268,
+          "channel": 1,
+          "expected": 25,
+          "actual": 94
+        },
+        {
+          "x": 313,
+          "y": 268,
+          "channel": 1,
+          "expected": 25,
+          "actual": 65
+        },
+        {
+          "x": 314,
+          "y": 268,
+          "channel": 1,
+          "expected": 25,
+          "actual": 43
+        },
+        {
+          "x": 312,
+          "y": 269,
+          "channel": 2,
+          "expected": 8,
+          "actual": 26
+        },
+        {
+          "x": 313,
+          "y": 269,
+          "channel": 2,
+          "expected": 3,
+          "actual": 6
+        },
+        {
+          "x": 314,
+          "y": 269,
+          "channel": 2,
+          "expected": 8,
+          "actual": 12
+        },
+        {
+          "x": 308,
+          "y": 270,
+          "channel": 2,
+          "expected": 8,
+          "actual": 60
+        },
+        {
+          "x": 309,
+          "y": 270,
+          "channel": 2,
+          "expected": 8,
+          "actual": 51
+        },
+        {
+          "x": 310,
+          "y": 270,
+          "channel": 2,
+          "expected": 7,
+          "actual": 39
+        },
+        {
+          "x": 311,
+          "y": 270,
+          "channel": 2,
+          "expected": 7,
+          "actual": 31
+        },
+        {
+          "x": 312,
+          "y": 270,
+          "channel": 2,
+          "expected": 8,
+          "actual": 23
+        }
+      ],
+      "differencesTruncated": true
+    },
+    "limits": "OFF QA DIFFERENT lattice hash/spatial pattern; original frequencies/interpolation/threshold fixed. Not legacy-appearance fidelity fix."
+  },
+  "comparisonToPreviousOriginalNoise": {
+    "originalChannels": {
+      "R": {
+        "changed": 3,
+        "max": 1
+      },
+      "G": {
+        "changed": 3254,
+        "max": 5
+      },
+      "B": {
+        "changed": 19,
+        "max": 1
+      },
+      "A": {
+        "changed": 0
+      }
+    },
+    "caveat": "Original noise and seeded noise are different patterns; operator proof of same seeded input is no original appearance fidelity proof."
+  },
+  "visualObservation": "384x384 G-field PNG confirms white/dark patches move substantially. This is an uncomposed mask, not artwork. Seeded GL/native visually indistinguishable at this scale; full bytes remain12 mismatches/max1.",
+  "pngs": {
+    "baseline": "temp/device-runs/first-band-seeded-c5/images/baseline.png",
+    "seededGl": "temp/device-runs/first-band-seeded-c5/images/seededGl.png",
+    "seededNative": "temp/device-runs/first-band-seeded-c5/images/seededNative.png"
+  },
+  "differences": [
+    {
+      "x": 305,
+      "y": 354,
+      "channel": 1,
+      "expected": 67,
+      "actual": 68
+    },
+    {
+      "x": 516,
+      "y": 363,
+      "channel": 1,
+      "expected": 37,
+      "actual": 38
+    },
+    {
+      "x": 537,
+      "y": 376,
+      "channel": 1,
+      "expected": 55,
+      "actual": 56
+    },
+    {
+      "x": 273,
+      "y": 377,
+      "channel": 0,
+      "expected": 233,
+      "actual": 232
+    },
+    {
+      "x": 619,
+      "y": 400,
+      "channel": 1,
+      "expected": 73,
+      "actual": 72
+    },
+    {
+      "x": 546,
+      "y": 416,
+      "channel": 1,
+      "expected": 106,
+      "actual": 105
+    },
+    {
+      "x": 486,
+      "y": 429,
+      "channel": 1,
+      "expected": 100,
+      "actual": 99
+    },
+    {
+      "x": 364,
+      "y": 469,
+      "channel": 1,
+      "expected": 155,
+      "actual": 154
+    },
+    {
+      "x": 382,
+      "y": 484,
+      "channel": 1,
+      "expected": 120,
+      "actual": 119
+    },
+    {
+      "x": 472,
+      "y": 530,
+      "channel": 0,
+      "expected": 57,
+      "actual": 58
+    },
+    {
+      "x": 422,
+      "y": 535,
+      "channel": 0,
+      "expected": 227,
+      "actual": 226
+    }
+  ],
+  "raw": "temp/device-runs/first-band-seeded-c5/report.json",
+  "limits": "No default, production or full Room change. No whole dry final/max36 improvement demonstrated. Remaining R3 same coords, G9 likely later interpolation/Q8 arithmetic but instruction not localized; B exact for this seeded case."
+}
