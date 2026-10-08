@@ -43,3 +43,9 @@ triangle58 actual edge/3=1 in both; rawAcrossEncoded24bit identical0.23167438696
 Full actual selected diagnostics and flat blend outputs: ribbon58-blend-surface-summary.json. Software flat gate differs at near-half; hardware behavior must not be inferred from software. This remains one Surface source site, no fullRoom400/model-parity verdict.
 
 Next callable noisePointOracle(owner) now supplies identical explicitF32 uniform coordinates to both APIs (drift/hair/opening points, no interpolated attributes). Captures four lattice values, fractions, noise and FBM24bit outputs. Literal GLSL helpers extracted from current RIBBON_FRAG; same WGSL common and baked251lattice. Software actual24rows all exact, errors[]: sampler/frac/noise/octaves work under identical inputs on SwiftShader. This excludes neither Surface compiler arithmetic nor inlined coordinate-expression differences.4guards PASS; no hardware invocation yet.
+
+## Actual shared-coordinate noise gate9c7586be
+
+Trusted immutable bundle2709f71e45700e0bdba890b20d91c95f4fb00ee477a6ec06019a7d023a4fb55d. ONE completed hardware gate valid, errors[], minimumRAM1620.3MiB; own page closed before analysis.23/24 diagnostic rows exactly match, including all four sampled lattice values, fractions and single wcNoise at every supplied point.
+
+Only wcFbm at sharedhairpoint[-4.6664452553,29.4786109924] differs: native0.32103158957, GL0.32103343731. This reproduces the difference **without any interpolated attributes**; varying-layout changes are unnecessary to reproduce this subcase. It isolates the second octave coordinate construction or weighted FBM combine. A next decomposition must compare p*2.7, +offset, second wcNoise and two weighted parts; explicit WGSL fma is a diagnostic candidate, not an enabled source fix.24-bit diagnostic float limitations remain.
