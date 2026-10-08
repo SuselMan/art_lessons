@@ -1,0 +1,146 @@
+{
+  "fullFieldGate": {
+    "evidence": "native-bounded-progressive-surface-1791426387611.json",
+    "result": {
+      "fullField1536": true,
+      "diff": 0,
+      "max": 0,
+      "original": "c5132eac",
+      "bounded": "c5132eac",
+      "frames": [
+        "db06d339",
+        "bd9ff046",
+        "c5132eac"
+      ],
+      "distinct": 3,
+      "errors": [],
+      "blocked": true,
+      "metrics": {
+        "off": {
+          "ops": 75,
+          "turns": 75,
+          "yields": 75,
+          "maxOpsInTurn": 1,
+          "maxCpuTurnMs": 2.199999988079071
+        },
+        "on": {
+          "ops": 75,
+          "turns": 11,
+          "yields": 11,
+          "maxOpsInTurn": 8,
+          "maxCpuTurnMs": 3.399999976158142
+        }
+      },
+      "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+    }
+  },
+  "pointerOn": {
+    "evidence": "native-pointer400-bounded-surface-1791426417182.json",
+    "preparationMs": 2556.100000023842,
+    "strokes": [
+      {
+        "stroke": 1,
+        "beginCpuMs": 18.100000023841858,
+        "downToFirstScreenSubmitMs": 27.900000035762787,
+        "upToIdleMs": 1796.6000000238419,
+        "endCpuMs": 63.19999998807907
+      },
+      {
+        "stroke": 2,
+        "beginCpuMs": 3.199999988079071,
+        "downToFirstScreenSubmitMs": 7.199999988079071,
+        "upToIdleMs": 1268.1000000238419,
+        "endCpuMs": 28.5
+      },
+      {
+        "stroke": 3,
+        "beginCpuMs": 2,
+        "downToFirstScreenSubmitMs": 6.100000023841858,
+        "upToIdleMs": 850.9000000357628,
+        "endCpuMs": 4.300000011920929
+      },
+      {
+        "stroke": 4,
+        "beginCpuMs": 2.300000011920929,
+        "downToFirstScreenSubmitMs": 5.599999964237213,
+        "upToIdleMs": 963.6999999880791,
+        "endCpuMs": 3.300000011920929
+      }
+    ],
+    "replay": {
+      "wallMs": 4448.600000023842,
+      "submitCpu": {
+        "count": 811,
+        "totalMs": 16.900000751018524,
+        "medianMs": 0,
+        "p95Ms": 0.10000002384185791,
+        "maxMs": 0.20000004768371582
+      }
+    }
+  },
+  "historicalOff": {
+    "evidence": "native-pointer400-surface-1791423488414.json",
+    "upToIdleMs": [
+      4751.699999988079,
+      4713.599999964237,
+      1591,
+      1585.6000000238419
+    ],
+    "replayWallMs": 12605.5
+  },
+  "limits": [
+    "CurrentOFF followup preserves large release/replay gain; small N/freshdevices/order remain, no start improvement claim",
+    "First screen submit proxy, not first visible pigment",
+    "Fullfield gate source fixture size20/constantpaper; actualPointer400 latency separate, no whole400 finalphysicalhash proof here"
+  ],
+  "currentOff": {
+    "evidence": "native-pointer400-surface-1791426472465.json",
+    "preparationMs": 1748,
+    "strokes": [
+      {
+        "stroke": 1,
+        "beginCpuMs": 9.199999988079071,
+        "downToFirstScreenSubmitMs": 14.800000011920929,
+        "upToIdleMs": 4733.300000011921,
+        "endCpuMs": 93.19999998807907
+      },
+      {
+        "stroke": 2,
+        "beginCpuMs": 3.5,
+        "downToFirstScreenSubmitMs": 11.099999964237213,
+        "upToIdleMs": 4677.300000011921,
+        "endCpuMs": 31.400000035762787
+      },
+      {
+        "stroke": 3,
+        "beginCpuMs": 2.400000035762787,
+        "downToFirstScreenSubmitMs": 4.300000011920929,
+        "upToIdleMs": 1594.2999999523163,
+        "endCpuMs": 3.699999988079071
+      },
+      {
+        "stroke": 4,
+        "beginCpuMs": 2.800000011920929,
+        "downToFirstScreenSubmitMs": 4.799999952316284,
+        "upToIdleMs": 1590.5,
+        "endCpuMs": 2.199999988079071
+      }
+    ],
+    "replay": {
+      "wallMs": 12596.100000023842,
+      "submitCpu": {
+        "count": 1469,
+        "totalMs": 43.70000010728836,
+        "medianMs": 0,
+        "p95Ms": 0.10000002384185791,
+        "maxMs": 0.20000004768371582
+      }
+    }
+  },
+  "releaseReductionPercent": [
+    62.04339467138536,
+    72.88820473305945,
+    46.62861443509928,
+    39.40899088411952
+  ]
+}

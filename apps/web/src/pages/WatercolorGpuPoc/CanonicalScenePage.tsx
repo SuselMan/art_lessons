@@ -6,6 +6,7 @@ import styles from './styles.module.css'
 declare global { interface Window { __canonicalNativeScene?: CanonicalSceneSession } }
 
 export function CanonicalScenePage() {
+ const [boundedSettle] = useState(() => new URLSearchParams(window.location.search).get('boundedSettle') === '1')
  const canvas = useRef<HTMLCanvasElement>(null), scene = useRef<CanonicalSceneSession | null>(null)
  const operations = useRef<StrokeOperation[]>([])
  const [version, setVersion] = useState(0), [size, setSize] = useState(100)
@@ -23,10 +24,11 @@ export function CanonicalScenePage() {
   }).then(value => {
    if (cancelled) { value.destroy(); return }
    owned = value; scene.current = value; window.__canonicalNativeScene = value
+   if (boundedSettle) value.runner.setDiagnosticProgressiveQuantum({ maxOps: 8, cpuBudgetMs: 4 })
    value.attach(() => settings.current); setReady(true); setStatus('Можно рисовать')
   }, error => { if (!cancelled) setStatus(String(error)) })
   return () => { cancelled = true; owned?.destroy(); if (scene.current === owned) scene.current = null; if (window.__canonicalNativeScene === owned) delete window.__canonicalNativeScene }
- }, [version])
+ }, [version, boundedSettle])
  async function replay() {
   const value = scene.current
   if (!value || !value.isIdle) { setStatus('Дождись завершения текущего штриха.'); return }
@@ -39,7 +41,7 @@ export function CanonicalScenePage() {
  }
  return <main className={styles.page}>
   <h1>Акварель Grafetto · WebGPU</h1>
-  <p className={styles.notice}>Эксперимент с текущей моделью акварели. Один холст, следующий штрих после завершения расчёта предыдущего. Во время осадка показываются промежуточные поля растекания.</p>
+  <p className={styles.notice}>Эксперимент с текущей моделью акварели. Один холст, следующий штрих после завершения расчёта предыдущего. Во время осадка показываются промежуточные поля растекания.{boundedSettle && ' Включён эксперимент с ускоренным расчётом между кадрами.'}</p>
   <div className={styles.controls}>
    <label>Кисть <input aria-label="Размер кисти" type="range" min="20" max="400" value={size} onChange={e => setSize(+e.target.value)} />{size}</label>
    <label>Вода <input aria-label="Вода" type="range" min="0" max="100" value={water} onChange={e => setWater(+e.target.value)} />{water}%</label>
