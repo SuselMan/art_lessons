@@ -25,6 +25,8 @@ export interface MomentTextureInputs {
  recipe:MomentContactRecipe
  /** OFF-default candidate: pack completes before original textures become storage outputs. */
  diagnosticInPlace?:boolean
+ /** OFF-only observer, coordinates relative to operator ROI; max96². */
+ diagnosticStages?:{x:number;y:number;width:number;height:number}
 }
 /** DEV owner seam. Caller inserts after source landing BEFORE settle, once per
  * retained contact (not repeated CPU delivery). Isolated bounded rectangle only.
@@ -38,7 +40,7 @@ export class WetBrushMomentTextureOwner {
  private unpack:GPUComputePipeline|null=null
  private readonly diagnosticVector:boolean
  constructor(device:GPUDevice,diagnosticVector=false){this.device=device;this.diagnosticVector=diagnosticVector;this.operator=new WetBrushMomentGpu(device,diagnosticVector)}
- encode(encoder:GPUCommandEncoder,input:MomentTextureInputs,enabled=false):{buffers:GPUBuffer[];invalid:GPUBuffer|null;pairPasses:number} {
+ encode(encoder:GPUCommandEncoder,input:MomentTextureInputs,enabled=false):{buffers:GPUBuffer[];invalid:GPUBuffer|null;pairPasses:number;stages?:{stage:string;buffer:GPUBuffer;width:number;height:number;bytesPerRecord:number}[]} {
   if(!enabled)return{buffers:[],invalid:null,pairPasses:0}
   const {pigment,color,availableWater,contact,outputPigment,outputColor,rect,recipe}=input
   const textures=[pigment,color,availableWater,contact,outputPigment,outputColor]
@@ -50,7 +52,12 @@ export class WetBrushMomentTextureOwner {
   if(![x,y,width,height].every(Number.isInteger)||x<0||y<0||width<1||height<1||x+width>pigment.width||y+height>pigment.height||width*height>512*512)throw Error('Bounded <=512-square moment ROI required')
   if(![recipe.mixRate,recipe.advectionRate,recipe.directionX,recipe.directionY].every(Number.isInteger)||recipe.mixRate<0||recipe.mixRate>255||recipe.advectionRate<0||recipe.advectionRate>255||Math.abs(recipe.directionX)>256||Math.abs(recipe.directionY)>256)throw Error('Prepared bounded contact recipe required')
   const d=this.device,buffers:GPUBuffer[]=[],make=(size:number,usage:GPUBufferUsageFlags)=>{const b=d.createBuffer({size,usage});buffers.push(b);return b}
-  const a=make(width*height*40,GPUBufferUsage.STORAGE),b=make(width*height*40,GPUBufferUsage.STORAGE),invalid=make(4,GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST),u=make(16,GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST)
+  const capture=input.diagnosticStages
+  if(capture&&(![capture.x,capture.y,capture.width,capture.height].every(Number.isInteger)||capture.x<0||capture.y<0||capture.width<1||capture.height<1||capture.width>96||capture.height>96||capture.x+capture.width>width||capture.y+capture.height>height))throw Error('Bounded96² stage capture inside actual ROI required')
+  const stages:{stage:string;buffer:GPUBuffer;width:number;height:number;bytesPerRecord:number}[]=[]
+  const snapshot=(stage:string,source:GPUBuffer)=>{if(!capture)return;const out=make(capture.width*capture.height*40,GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ);for(let row=0;row<capture.height;row++)encoder.copyBufferToBuffer(source,((capture.y+row)*width+capture.x)*40,out,row*capture.width*40,capture.width*40);stages.push({stage,buffer:out,width:capture.width,height:capture.height,bytesPerRecord:40})}
+  const storageUsage=GPUBufferUsage.STORAGE|(capture?GPUBufferUsage.COPY_SRC:0)
+  const a=make(width*height*40,storageUsage),b=make(width*height*40,storageUsage),invalid=make(4,GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST),u=make(16,GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST)
   d.queue.writeBuffer(u,0,new Uint32Array([x,y,width,height]));encoder.clearBuffer(invalid)
   if(!this.pack){
    const layout=this.diagnosticVector?d.createPipelineLayout({bindGroupLayouts:[d.createBindGroupLayout({entries:[
@@ -73,11 +80,12 @@ export class WetBrushMomentTextureOwner {
   }
   const execute=(pipeline:GPUComputePipeline,entries:GPUBindGroupEntry[])=>{const cp=encoder.beginComputePass();cp.setPipeline(pipeline);cp.setBindGroup(0,d.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries}));cp.dispatchWorkgroups(Math.ceil(width*height/64));cp.end()}
   execute(this.pack,[...textures.slice(0,4).map((t,binding)=>({binding,resource:t.createView()})),{binding:4,resource:{buffer:a}},{binding:5,resource:{buffer:invalid}},{binding:6,resource:{buffer:u}}])
+  snapshot('pack',a)
   let source=a,target=b
-  for(const axis of [0,1] as const)for(const parity of [0,1] as const){buffers.push(...this.operator.encode(encoder,source,target,invalid,{width,height,axis,parity,mixRate:recipe.mixRate,advectionRate:recipe.advectionRate,direction:axis===0?recipe.directionX:recipe.directionY},true));[source,target]=[target,source]}
+  for(const axis of [0,1] as const)for(const parity of [0,1] as const){buffers.push(...this.operator.encode(encoder,source,target,invalid,{width,height,axis,parity,mixRate:recipe.mixRate,advectionRate:recipe.advectionRate,direction:axis===0?recipe.directionX:recipe.directionY},true));[source,target]=[target,source];snapshot(`pair-${axis}-${parity}`,source)}
   // Original full texture copy preserves all pixels outside bounded ROI.
   if(!inPlace){encoder.copyTextureToTexture({texture:pigment},{texture:outputPigment},[pigment.width,pigment.height]);encoder.copyTextureToTexture({texture:color},{texture:outputColor},[color.width,color.height])}
   execute(this.unpack,[{binding:0,resource:{buffer:source}},{binding:1,resource:outputPigment.createView()},{binding:2,resource:outputColor.createView()},{binding:3,resource:{buffer:u}}])
-  return{buffers,invalid,pairPasses:4}
+  return{buffers,invalid,pairPasses:4,...(capture?{stages}:{})}
  }
 }
