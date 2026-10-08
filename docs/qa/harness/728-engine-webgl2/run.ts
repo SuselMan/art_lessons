@@ -75,7 +75,7 @@ export function disposePrototype() {
   engine?.destroy(); engine = null
   document.querySelector('#surface')!.replaceChildren()
 }
-export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', paper = 'flat', schedule = 'baseline', pageWidth = 1024, skipSinglePaintColourSnapshot = false, verifyUndo = true }: { backend?: Backend; scenario?: string; paper?: PaperType; schedule?: BatchSchedule; pageWidth?:1024|2048; skipSinglePaintColourSnapshot?:boolean; verifyUndo?:boolean } = {}) {
+export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', paper = 'flat', schedule = 'baseline', pageWidth = 1024, skipSinglePaintColourSnapshot = false, verifyUndo = true, onPaintPhase }: { backend?: Backend; scenario?: string; paper?: PaperType; schedule?: BatchSchedule; pageWidth?:1024|2048; skipSinglePaintColourSnapshot?:boolean; verifyUndo?:boolean; onPaintPhase?:(phase:'start'|'end',probe:Probe)=>void } = {}) {
   disposePrototype()
   const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 1024
   document.querySelector('#surface')!.append(canvas)
@@ -94,6 +94,7 @@ export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', pa
   const initMs = performance.now() - started
   const operations = tape(scenario)
   const tapeSha256 = await digest(new TextEncoder().encode(JSON.stringify(operations)))
+  onPaintPhase?.('start',probe)
   const phaseMs: number[] = [], startedPaint = performance.now()
   for (const operation of operations) {
     if(scenario==='mixed400'&&operation.id==='stroke-2')probe._settlePlan.diagnosticSkipSinglePaintColourSnapshot=skipSinglePaintColourSnapshot
@@ -101,6 +102,7 @@ export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', pa
   }
   await idle(probe)
   const paintMs = performance.now() - startedPaint
+  onPaintPhase?.('end',probe)
   const queue = queueCapture.snapshot(); queueCapture.detach()
   const fields = await captureFieldRoles(current as unknown as Parameters<typeof captureFieldRoles>[0], paper, probe._watercolorPasses.brushPairStats.pairs)
   const materialWholeLayer = await hashLayer(probe)
