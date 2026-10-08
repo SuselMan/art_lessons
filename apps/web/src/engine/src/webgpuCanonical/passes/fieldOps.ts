@@ -174,15 +174,22 @@ export class CanonicalFieldOps {
  private pipeline: GPUComputePipeline | null=null
  private readonly device: GPUDevice
  private readonly specializeModes: boolean
+ private readonly omitDeadCapillary: boolean
  private readonly specialized = new Map<number,GPUComputePipeline>()
  private layout: GPUBindGroupLayout|null=null
  private module: GPUShaderModule|null=null
- constructor(device: GPUDevice, diagnostic:{specializeModes?:boolean}={}){this.device=device;this.specializeModes=diagnostic.specializeModes===true}
+ constructor(device: GPUDevice, diagnostic:{specializeModes?:boolean;omitDeadCapillary?:boolean}={}){this.device=device;this.specializeModes=diagnostic.specializeModes===true;this.omitDeadCapillary=diagnostic.omitDeadCapillary===true}
+ private shaderCode():string {
+  if(!this.omitDeadCapillary)return CANONICAL_FIELD_OPS_WGSL
+  const start=CANONICAL_FIELD_OPS_WGSL.indexOf('fn capillary('),end=CANONICAL_FIELD_OPS_WGSL.indexOf('fn carry(',start)
+  if(start<0||end<0)throw new Error('Diagnostic capillary anchor missing')
+  return CANONICAL_FIELD_OPS_WGSL.slice(0,start)+'fn capillary(uv:vec2f)->f32{return 1.0;}\n'+CANONICAL_FIELD_OPS_WGSL.slice(end)
+ }
  private pipelineFor(mode:number):GPUComputePipeline {
-  if(!this.specializeModes){if(!this.pipeline)this.pipeline=this.device.createComputePipeline({label:'Canonical field ops',layout:'auto',compute:{module:this.device.createShaderModule({code:CANONICAL_FIELD_OPS_WGSL}),entryPoint:'main'}});return this.pipeline}
+  if(!this.specializeModes){if(!this.pipeline)this.pipeline=this.device.createComputePipeline({label:'Canonical field ops',layout:'auto',compute:{module:this.device.createShaderModule({code:this.shaderCode()}),entryPoint:'main'}});return this.pipeline}
   const cached=this.specialized.get(mode);if(cached)return cached
   if(!this.layout)this.layout=this.device.createBindGroupLayout({entries:[...Array.from({length:7},(_,binding)=>({binding,visibility:GPUShaderStage.COMPUTE,texture:{sampleType:'float' as const,viewDimension:'2d' as const}})),{binding:7,visibility:GPUShaderStage.COMPUTE,storageTexture:{access:'write-only',format:'rgba8unorm',viewDimension:'2d'}},{binding:8,visibility:GPUShaderStage.COMPUTE,buffer:{type:'uniform',minBindingSize:128}}]})
-  if(!this.module)this.module=this.device.createShaderModule({code:'override FIELD_MODE:i32=-1;\n'+CANONICAL_FIELD_OPS_WGSL.replace('let mode=u.scalars.y;','let mode=f32(FIELD_MODE);')})
+  if(!this.module)this.module=this.device.createShaderModule({code:'override FIELD_MODE:i32=-1;\n'+this.shaderCode().replace('let mode=u.scalars.y;','let mode=f32(FIELD_MODE);')})
   const pipeline=this.device.createComputePipeline({label:'Diagnostic canonical field mode '+mode,layout:this.device.createPipelineLayout({bindGroupLayouts:[this.layout]}),compute:{module:this.module,entryPoint:'main',constants:{FIELD_MODE:mode}}})
   this.specialized.set(mode,pipeline);return pipeline
  }
