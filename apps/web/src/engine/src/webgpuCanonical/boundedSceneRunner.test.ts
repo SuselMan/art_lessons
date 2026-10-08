@@ -2,6 +2,7 @@ import { expect,it,vi } from 'vitest'
 import type { Operation } from '@grafetto/shared'
 const trace=vi.hoisted(()=>({events:[] as string[],commands:[] as any[],liveProfiles:[] as any[]}))
 vi.mock('./settlePlanAdapter',()=>({CanonicalPlanAdapter:class {
+ disposeCarryOracle(){trace.events.push('disposeCarryOracle')}
  uploads={};runQuantum(task:any){trace.events.push('quantum');return task({encoder:{}})}retain(){}fieldOp(){trace.events.push('sourceField')}
 }}))
 vi.mock('../raster/CanonicalWatercolorSettlePlan',()=>({CanonicalWatercolorSettlePlan:class{
@@ -93,7 +94,7 @@ it('retirement interrupts a never-resolving progressive frame, disposes once and
  expect(trace.events).not.toContain('settleFinish');expect(trace.events).not.toContain('composite')
  expect(()=>runner.begin(pointer(440,90),settings,{strokeId:'late',layerId:'L',userId:'u'})).toThrow('retired')
  expect(()=>runner.replay({tool:'watercolor'} as any)).toThrow('retired')
- runner.destroy();expect(trace.events.filter(e=>e==='destroyTextures')).toHaveLength(1)
+ runner.destroy();expect(trace.events.filter(e=>e==='disposeCarryOracle')).toHaveLength(1);expect(trace.events.filter(e=>e==='destroyTextures')).toHaveLength(1)
 })
 it('active owner retirement creates no synthetic pen-up or recorded operation',async()=>{
  trace.events=[];const {runner,settings,pointer,operations}=fixture()
