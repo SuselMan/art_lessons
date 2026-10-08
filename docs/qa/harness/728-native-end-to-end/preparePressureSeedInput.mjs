@@ -2,6 +2,7 @@
 import fs from 'node:fs'
 import crypto from 'node:crypto'
 import zlib from 'node:zlib'
+import {firstOutboundSchedule} from './frontSchedule.mjs'
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex')
 export function preparePressureSeedInput({partitionDir,stitchReport,tracePath}){
  const checkpointBytes=fs.readFileSync(partitionDir+'/checkpoint/checkpoint.json'),packet=JSON.parse(checkpointBytes),producer=JSON.parse(fs.readFileSync(partitionDir+'/producer/report.json')),common=JSON.parse(fs.readFileSync(partitionDir+'/common/report.json')),stitch=JSON.parse(fs.readFileSync(stitchReport)),traceBytes=fs.readFileSync(tracePath),trace=JSON.parse(traceBytes)
@@ -27,4 +28,11 @@ export function addFirstFrontQuantum(input,{tracePath}){
  const first=events[0],pressure=first[5].buffer,a=first[6].buffer
  for(let i=0;i<4;i++){const e=events[i];if(e[0]!=='front'||e[5].buffer!==(i%2?a:pressure)||e[6].buffer!==(i%2?pressure:a)||JSON.stringify(e.slice(7))!==JSON.stringify(first.slice(7))||e[2]!==first[2]||e[3]!==first[3]||e[4]!==first[4])throw Error('Original alternating first quantum changed')}
  return{...input,front:{...input.front,steps:4}}
+}
+
+export function addOutboundFrontRecipe(input,{tracePath}){
+ const trace=JSON.parse(fs.readFileSync(tracePath)),schedule=firstOutboundSchedule(trace)
+ if(!input.front||trace.packetSha256!==input.checkpointSha256)throw Error('Outbound packet passport')
+ for(const[k,v]of Object.entries(schedule.recipe))if(input.front[k]!==v)throw Error('Outbound shader recipe differs')
+ return{...input,front:{...input.front,steps:schedule.steps}}
 }
