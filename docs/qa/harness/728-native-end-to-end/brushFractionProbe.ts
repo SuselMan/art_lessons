@@ -18,7 +18,7 @@ export function brushFractionWgslShader(){
  const prefix=CANONICAL_TEXTURE_BRUSH_WGSL.slice(0,i).replace('@group(0) @binding(6) var outPigment:texture_storage_2d<rgba8unorm,write>;','@group(0) @binding(6) var<storage,read_write> results:array<vec4f>;').replace('@group(0) @binding(7) var outColor:texture_storage_2d<rgba8unorm,write>;','')
  return prefix+`@compute @workgroup_size(16) fn probe(@builtin(global_invocation_id) tid:vec3u){
  let row=tid.x;if(row>=16u){return;}let x=349u+row/8u;let center=snap(vec2f(f32(x)+.5,1536.0-288.0-.5)/vec2f(1536));
- let dir=axis(row%4u),neighbour=snap(center+dir*u.step);var a=center;var b=neighbour;var d=dir;
+ let dir=axis(row%4u);let neighbour=snap(center+dir*u.step);var a=center;var b=neighbour;var d=dir;
  if((row/4u)%2u==1u){a=neighbour;b=center;d=-dir;}
  let amount=raw(a,b,d);let f=fraction(a,b,d);let q=floor(pigmentAt(a).r*255.0+.5);let product=q*f;
  results[row]=vec4f(amount,f,product,floor(product));}`
