@@ -1,0 +1,84 @@
+{
+  "scope": "CPU F32 sequential mode10, no actual paper/noise/shader; SHA compare with actual pressure seed only",
+  "sha": "d9c25185217f838a6afe0c05e93d6985993f084cc98f8ba5bbcc60aa5e19863d",
+  "actualPressureSeedSha": "d9c25185217f838a6afe0c05e93d6985993f084cc98f8ba5bbcc60aa5e19863d",
+  "exactSha": true,
+  "histogram": [
+    {
+      "byte": 0,
+      "count": 93609
+    },
+    {
+      "byte": 4,
+      "count": 26
+    },
+    {
+      "byte": 14,
+      "count": 12
+    },
+    {
+      "byte": 27,
+      "count": 24
+    },
+    {
+      "byte": 45,
+      "count": 23
+    },
+    {
+      "byte": 65,
+      "count": 21
+    },
+    {
+      "byte": 87,
+      "count": 20
+    },
+    {
+      "byte": 111,
+      "count": 27
+    },
+    {
+      "byte": 134,
+      "count": 13
+    },
+    {
+      "byte": 158,
+      "count": 18
+    },
+    {
+      "byte": 180,
+      "count": 16
+    },
+    {
+      "byte": 200,
+      "count": 8
+    },
+    {
+      "byte": 217,
+      "count": 17
+    },
+    {
+      "byte": 230,
+      "count": 22
+    },
+    {
+      "byte": 239,
+      "count": 17
+    },
+    {
+      "byte": 243,
+      "count": 2351
+    },
+    {
+      "byte": 255,
+      "count": 2263072
+    }
+  ],
+  "producerCode": "5f2e8ddd7fea6ab096beb5322070c11100da69cf",
+  "operationSha256": "3000d2378db11c11b99010f35c9d99890cf5fa70e85b759e36bfc02985a47d56",
+  "reference": "Actual Surface pressure-seed2c2, d9c full1536 texture SHA",
+  "limits": [
+    "CPU pressure seed only, shader PAPER/NOISE not used in mode10",
+    "No initial245/246 cells; later threshold amplification not established",
+    "F32 sequential transcription not a portable shader compiler equivalence proof"
+  ]
+}
