@@ -45,5 +45,14 @@
   "operationSha256": "9f2b887738937d3c4cd440bfa7404c3620d2ba359cb11c1c0c167260ac03d411",
   "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
   "actualRoleMetadataSha256": "9bff754770611d5c40a90e26e614095073fe16df60cb2cb969fbceb2c0c548d0",
-  "remaining": "Separate300sec software nativebaseline/common arms; historical43282/max36 is not aligned baseline."
+  "remaining": "Separate300sec software nativebaseline/common arms; historical43282/max36 is not aligned baseline.",
+  "nativeBaselineSoftware": {
+    "valid": false,
+    "deadlineSeconds": 300,
+    "resultReturned": false,
+    "errors": [],
+    "lastProgress": "COMMON_SOURCE native arm starting false",
+    "error": "Error: Bounded baseline timeout",
+    "interpretation": "Bounded software timeout, not solver PASS and not model FAIL. Same durableGL artifact remains usable; GL not repeated."
+  }
 }
