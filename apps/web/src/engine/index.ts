@@ -9507,3 +9507,8 @@ export class PencilEngine implements PencilEngineAPI {
     return encode('image/png')
   }
 }
+
+/** DEV diagnostic entry: internals stay behind the engine API and load lazily. */
+export async function runCanonicalStageDiagnostic() {
+  return (await import('./src/webgpuCanonical/stageDiagnostic')).runCanonicalStageDiagnostic()
+}

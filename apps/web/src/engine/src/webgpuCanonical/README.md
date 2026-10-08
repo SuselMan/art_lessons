@@ -1,3 +1,9 @@
+---
+layer: engine-internals
+summary: каноническая акварель WebGPU
+issues: [728]
+tags: [webgpu, акварель, эксперимент]
+---
 # Каноническая акварель WebGPU: перенос по этапам
 
 Это native WebGPU backend для существующей модели, а не float PoC. CPU передаёт

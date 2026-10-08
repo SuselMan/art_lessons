@@ -17,8 +17,7 @@ import { ClassChrome } from './panels/ClassChrome'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { exposeEngineForDev } from './diagnostics/devEngineHandle'
-import { joinedTouchQaEnabled } from './diagnostics/joinedTouchQa'
-import { joinedFinishDeferredQaEnabled } from './diagnostics/joinedFinishDeferredQa'
+import { watercolorQaOptions } from './diagnostics/watercolorQaOptions'
 import {
   eraseThroughTargets, isLayerLocked,
 } from '../../lib/layers/layers'
@@ -966,12 +965,7 @@ function RoomEditor() {
     replayIncompleteRef.current = false
     snapshotGateRef.current = createSnapshotGate(reportInvariant)
     const engine = new PencilEngine(canvasRef.current, {
-      asyncFinish: false,
-      joinedTouch: !import.meta.env.DEV || joinedTouchQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_TOUCH, location.search),
-      joinedTouchMixed: import.meta.env.DEV && new URLSearchParams(location.search).get('qaJoinedTouchMixed') === '1',
-      bandBatch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaBandBatch') === '1',
-      joinedFinishDeferred: joinedFinishDeferredQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_FINISH_DEFERRED, window.location.search),
-      materialPresentation: false,
+      ...watercolorQaOptions(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_TOUCH, import.meta.env.VITE_QA_JOINED_FINISH_DEFERRED, window.location.search),
       diagLog,
       infinite: engineInfinite,
       // (#470) The sheet, in world units. The canvas is the viewport now, so
