@@ -84,3 +84,5 @@ Optional `captureFirstSolventInit:true` (requires firstOpSolventStages) records 
 `window.runFullClearFixture()` is a tiny 17x19 nonzero-upload → full-clear → immediate-copy → render-load gate, comparing original render clear and compute clear. Readback occurs only after the original queue completion.
 
 The full-clear arm now uses explicit backend create option diagnosticComputeFullClear, including the five constructor-owned field clears. The per-instance option is OFF by default; no prototype/global patch. computeFullClears includes constructor calls.
+
+`captureFirstTargetInit:true` requires firstOpSolventStages and forbids solvent init copies. It freezes layer/original/inkLoad immediately after first getOrCreate copy+clear in the original source encoder before raster, then maps after first normal drain. At first-op source/finish the expanded 40MiB-bounded role set also includes original/inkLoad/inkColor. This separates initial target/copy from live composite input corruption. Snapshot intervention remains explicit, not a fix or timing proof.
