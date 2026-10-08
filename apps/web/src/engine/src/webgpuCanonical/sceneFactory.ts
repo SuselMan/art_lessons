@@ -41,7 +41,7 @@ export class CanonicalSceneSession {
   this.paper = new CanonicalPaperPresentation(backend); this.wet = new CanonicalWetOverlayTexture(backend)
  }
  get isIdle() { return !this.failed && this.runner.isIdle }
- private fail(error: unknown) { this.failed = true; this.accepted = false; this.callbacks.onStatus(String(error)) }
+ private fail(error: unknown) { if (this.disposed) return; this.failed = true; this.accepted = false; this.callbacks.onStatus(String(error)) }
  attach(getSettings: () => CanonicalSceneSettings) {
   this.detach?.()
   const canvas = this.backend.options.canvas, input = new PointerInput(canvas)
@@ -94,8 +94,8 @@ export class CanonicalSceneSession {
   this.backend.device.removeEventListener('uncapturederror', this.gpuError)
   // Reset/unmount discards the entire debug device, including an active input;
   // it never fabricates a pen-up or writes an operation on behalf of the user.
-  if (this.runner.isIdle) this.runner.destroy()
-  this.wet.destroy(); this.backend.destroy()
+  const release = () => { this.wet.destroy(); this.backend.destroy() }
+  void this.runner.retire().then(release, release)
  }
 }
 
