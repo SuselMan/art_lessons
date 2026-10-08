@@ -1,6 +1,6 @@
 /** Runs real Room PointerInput handlers with coalesced in-page pen samples.
  * CPU submission onset is NOT measured physical touch-to-screen latency. */
-export async function runRoomPointerScenario(){
+export async function runRoomPointerScenario({onPhase=()=>{}}={}){
  const E=window.__engine,S=window.__roomStore.getState(),c=[...document.querySelectorAll('canvas')].find(n=>n.className.includes('canvas')&&n.width>500)
  if(!E||!c||getComputedStyle(c).pointerEvents==='none'||E._locked||!E._paper.loaded||E.gl.isContextLost())throw Error('Room not drawable')
  const r=c.getBoundingClientRect(),p=E._pointer,rows=[],frames=[],start=performance.now();let collecting=true,active=null,raf=0
@@ -14,13 +14,13 @@ export async function runRoomPointerScenario(){
  const stroke=async(name,pigment,pts,ms=500)=>{
   S.setToolSetting('watercolor','pigment',pigment);await frame();await frame()
   E.setTool('watercolor');E.setSize(400);E.setPencil(`normal:100:${Math.round(pigment*100)}:PB29:round`);E.setColor([.3,.15,.55])
-  const row={name,pigment,beforeDown:{settle:!!E._settle,settleNext:E._settle?.next??null,settleOps:E._settle?.ops.length??0,canonicalQueued:E._wcCanonical?.queuedRequestCount??null,locked:E._locked},downAt:performance.now(),firstDrawSubmitMs:null,firstDisplaySubmitMs:null};active=row
+  const row={name,pigment,beforeDown:{settle:!!E._settle,settleNext:E._settle?.next??null,settleOps:E._settle?.ops.length??0,canonicalQueued:E._wcCanonical?.queuedRequestCount??null,locked:E._locked},downAt:performance.now(),firstDrawSubmitMs:null,firstDisplaySubmitMs:null};active=row;onPhase(name)
   p._handleDown(event(...pts[0],row.downAt,1));row.downCpuMs=performance.now()-row.downAt;row.started=!!E._strokeId;row.gestureId=E._strokeId
   if(!row.started)throw Error('No actual pointer stroke')
   let last=row.downAt
   while(true){const now=await frame(),f=Math.min(1,(now-row.downAt)/ms),pos=f*(pts.length-1),i=Math.min(pts.length-2,Math.floor(pos)),k=pos-i,x=pts[i][0]+(pts[i+1][0]-pts[i][0])*k,y=pts[i][1]+(pts[i+1][1]-pts[i][1])*k
    const ev=event(x,y,now,1);ev.getCoalescedEvents=()=>[event(x,y,last+(now-last)/2,1),ev];p._handleMove(ev);last=now;if(f===1)break}
-  row.upAt=performance.now();p._handleUp(event(...pts.at(-1),row.upAt,0));row.upCpuMs=performance.now()-row.upAt;row.settleAfterUp=!!E._settle;active=null;rows.push(row)
+  row.upAt=performance.now();p._handleUp(event(...pts.at(-1),row.upAt,0));row.upCpuMs=performance.now()-row.upAt;row.settleAfterUp=!!E._settle;active=null;onPhase("between");rows.push(row)
  }
  try{
   await stroke('first-pigment',1,[[.42,.4],[.48,.57],[.54,.4],[.60,.57]],500)
