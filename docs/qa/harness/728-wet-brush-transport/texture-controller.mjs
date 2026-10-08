@@ -9,6 +9,9 @@ try{
  if(memory()<1700)throw Error('RAM preflight below1700MiB');target=await(await fetch(base+'/json/new?'+encodeURIComponent(url),{method:'PUT'})).json();ws=new WebSocket(target.webSocketDebuggerUrl);await new Promise((r,j)=>{ws.once('open',r);ws.once('error',j)});ws.on('message',raw=>{const x=JSON.parse(raw),p=pending.get(x.id);if(p){pending.delete(x.id);clearTimeout(p.t);x.error?p.reject(Error(x.error.message)):p.resolve(x.result)}});await send('Runtime.enable');await send('Page.bringToFront')
  timer=setInterval(()=>{try{if(memory()<500){aborted=true;report.error='RAM abort below500MiB';save();void close()}}catch(e){report.error=String(e);save();void close()}},3000)
  await evaluate('import("./run.js").then(m=>{window.__momentGate=m;return true})')
- report.ua=await evaluate('navigator.userAgent');for(const [transport,invalid]of [[false,false],[true,false],[true,true]]){if(aborted)throw Error('Memory abort');const result=await evaluate(`window.__momentGate.runMomentTextureGate(${transport},${invalid})`);report.arms.push(result);save();if(!result.valid)throw Error('Texture arm FAIL');memory()}
- const integer=await evaluate('window.__momentGate.runMomentGate()');report.integer=integer;report.valid=integer.valid&&report.arms.every(x=>x.valid);save();if(!report.valid)process.exitCode=1
+ report.ua=await evaluate('navigator.userAgent')
+ const cases=process.env.QA_INPLACE_COHORT==='1'?[[false,false,false,false],[false,false,true,false],[true,false,false,false],[true,false,true,false],[true,true,false,true],[true,true,true,true],[true,false,false,true],[true,false,true,true]]:[[false,false,false,false],[true,false,false,false],[true,true,false,false]]
+ for(const [transport,invalid,inPlace,partial]of cases){if(aborted)throw Error('Memory abort');const result=await evaluate(`window.__momentGate.runMomentTextureGate(${transport},${invalid},${inPlace},${partial})`);report.arms.push(result);save();if(!result.valid)throw Error('Texture arm FAIL');memory()}
+ report.valid=report.arms.every(x=>x.valid);save()
+
 }catch(e){report.error=String(e);report.valid=false;save();process.exitCode=1}finally{await close();report.afterCloseFreeMiB=memory();save();console.log(JSON.stringify({out,valid:report.valid,error:report.error,afterCloseFreeMiB:report.afterCloseFreeMiB,arms:report.arms}))}
