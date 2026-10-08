@@ -1,0 +1,8 @@
+import fs from'node:fs';import path from'node:path';
+const source=path.resolve('apps/web/src/engine/src/dabs/RibbonStrokePainter.ts'),out=path.resolve('temp/device-runs/RibbonStrokePainterCpuProfile.ts');
+const names=['prepareDrawableRibbonDabs','noteRibbonWetContacts','prepareRibbonDelivery','prepareRibbonHalo','prepareRibbonGestureScalars','buildRibbonBands','buildRibbonBandBatch'];let text=fs.readFileSync(source,'utf8');
+for(const name of names){let count=0;text=text.replace(/^import \{([^\n]+)\} from '([^']+)'/gm,(row,imports,spec)=>{if(!new RegExp('\\b'+name+'\\b').test(imports))return row;count++;return `import {${imports.replace(new RegExp('\\b'+name+'\\b'),name+' as original_'+name)}} from '${spec}'`});if(count!==1)throw Error('CPU stage import seam '+name)}
+text=text.replace(/from '([^']+)'/g,(row,spec)=>spec.startsWith('.')?`from '${path.relative(path.dirname(out),path.resolve(path.dirname(source),spec)).replaceAll(path.sep,'/')}'`:row);
+text+='\nexport const sourceCpuMetrics: Record<string,{calls:number,totalMs:number,maxMs:number,verticesBytes:number}> = {}\n';
+for(const name of names)text+=`function ${name}(...args: Parameters<typeof original_${name}>): ReturnType<typeof original_${name}> { const at=performance.now();const m=sourceCpuMetrics['${name}']??=( {calls:0,totalMs:0,maxMs:0,verticesBytes:0});m.calls++;try{const result=original_${name}(...args);if(result instanceof Float32Array)m.verticesBytes+=result.byteLength;return result}finally{const elapsed=performance.now()-at;m.totalMs+=elapsed;m.maxMs=Math.max(m.maxMs,elapsed)}}\n`;
+fs.writeFileSync(out,text);
