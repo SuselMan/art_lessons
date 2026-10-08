@@ -11,6 +11,8 @@ export function firstOutboundSchedule(trace){
  }
  if(calls.length!==141)throw Error('Actual outbound must contain141 steps')
  const first=calls[0],pressure=first[5].buffer,a=first[6].buffer
+ const copy=trace.ops.find(o=>o.index===38)?.events.at(-1)
+ if(copy?.[0]!=='fieldOp'||copy[1].buffer!==pressure||copy[2].buffer!==a||copy[3].buffer!==a||copy[4]!==1||copy[5]!==0)throw Error('Final pressure copy contract')
  for(let i=0;i<calls.length;i++){
   const e=calls[i]
   if(e[1].w!==1536||e[1].h!==1536||e[5].buffer!==(i%2?a:pressure)||e[6].buffer!==(i%2?pressure:a)||JSON.stringify(e.slice(7))!==JSON.stringify(first.slice(7))||JSON.stringify(e.slice(2,5))!==JSON.stringify(first.slice(2,5)))throw Error('Outbound chronology/recipe changed')
