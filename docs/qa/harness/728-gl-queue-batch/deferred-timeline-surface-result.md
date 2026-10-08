@@ -1,0 +1,17 @@
+# Deferred UP: третий DOWN переносит синхронный барьер
+
+ONE Surface actual Room diagnostic OFF/ON. Одинаковый рецепт: кисть400, round, water100/pigment100, pressure.8, восемь движений с двумя coalesced samples, первый штрих500мс → 200мс → второй500мс UP → немедленный третий450мс DOWN. Queue/mixed ON, только deferred false/true; строгие flags проверены до paint. Сэмплы рецепта фиксированы, однако это не доказательство равных финальных записанных операций или мокрого поля.
+
+ON перед третьим DOWN действительно держит `finish.gesture=2`, lease/job2. Третий DOWN вызывает `_completeSettle`: внутри завершается старый job2, `_resumeJoinedDeferred` создаёт job9, затем завершается job9, второй resume оставляет current=null. То есть один следующий DOWN синхронно досчитывает два канонических задания. В OFF те же барьеры выполнялись на UP второго и третьего штрихов.
+
+Измеренные instrumented интервалы: OFF UP2/UP3 832.3/715.7мс, вложенные completes743.7/673.6; DOWN3 2.9мс. ON UP2 111мс, DOWN3 1496.7мс, вложенный complete1492.5мс. Эти числа включают opt-in framebuffer readbacks и их GPU scheduling perturbation: не реальная задержка пера и не benchmark выигрыша. Причинный порядок и число jobs, напротив, наблюдены прямо.
+
+ROI привязан actual camera к world(535.27,473.86), target выбран по координатам;128×128 meaningful mask16384pixels. На ON после heldUP2 alpha sum3913297 → после первого resume3895658 → после второго3886406: около0.7% снижения. RGB меняется вместе с материалом. Резкое исчезновение/прозрачность в этом ROI не воспроизведено. Это ограниченный участок, не whole canvas; mask снимается по первому слою и сохраняется. GL0/context alive. Нельзя объявлять отзыв пользователя опровергнутым.
+
+Raw сохранён `temp/device-runs/queue-room-deferred-timeline-surface.json`; компактная хронология и роли рядом. Все own targets закрыты, Surface RELEASE/free1870MiB. Samsung не использовался и запрещён до явного разрешения. Defaults/5352 неизменны, deferred UP не продвигается.
+
+## Контракт следующего решения, без реализации
+
+Принцип — раздельное владение каноническим состоянием и живым представлением. FIFO canonical jobs сохраняют исходные Q8 операторы/порядок, а каждый новый source имеет отдельного владельца видимого материала. UP не должен менять его видимость; overlay удерживается до landing именно его gesture/sequence и атомарного handoff. Landing предыдущего job не вправе стирать следующий source или retiring его overlay. Новый DOWN не должен завершать FIFO ради одного mutable shared scratch.
+
+Это требует immutable finish/source captures для нескольких pending gestures и независимых presentation textures/leases, а не расширения singleton `_wcJoinedDeferred`. Не включать прежний async pencil/blank preview, не подменять материал догадкой, не пересчитывать физику. Explicit memory budget, cancellation/undo/layer deletion/reentry/peer ownership и field/RGBA parity обязательны. До отдельного решения owner-lifetime tests и framebuffer timeline, не переписывать движок на основании одной диагностики. Таблица переходов должна проверять source-visible-before-UP → held-visible → predecessor-land-does-not-erase → own-land-handoff, включая третий/четвёртый rapid DOWN.
