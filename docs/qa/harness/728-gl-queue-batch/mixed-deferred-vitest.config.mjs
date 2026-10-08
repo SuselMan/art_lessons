@@ -1,0 +1,1 @@
+export default {test:{include:['docs/qa/harness/728-gl-queue-batch/joinedMixedDeferred.test.ts','apps/web/src/engine/index.joinedTouch.test.ts','apps/web/src/engine/index.joinedDeferredFinish.test.ts'],environment:'node'}}

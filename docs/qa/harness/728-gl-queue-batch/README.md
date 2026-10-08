@@ -159,3 +159,23 @@ Review manifest содержит runtime SHA и query flags, private host/room U
 хранятся вне Git. Runtime unchanged, defaults OFF. Для смотрин проверять
 отдельно: foreground water→pigment, второй цвет касается мокрого первого,
 а также задержку UP/следующего DOWN. Filmstrip до сих пор не записан.
+
+### Следующий UP кандидат, пока CPU-only
+
+Никаких изменений source/runtime смотрин. Existing opt-in
+`qaJoinedFinishDeferred=1` совместно с joined/mixed сохраняет immutable
+successor finish и lease-owner при UP. Старый job завершается в обычной
+очереди; затем его complete запускает captured successor exactly once.
+Q8 passes/order не меняются, publication/checkpoint/export блокируются,
+пока held successor не готов. Это ещё не аппаратный proof качества/плавности.
+Третий DOWN при незавершённом successor сохраняет conservative drain,
+поэтому бесконечную цепочку без задержек этот кандидат не обещает.
+
+Новые CPU edge fixtures: water100/pigment0 → pigment100, queue ON;
+OFF/ON UP barrier, captured pigment profile/colour после изменения tool,
+ordered Dry с обоими accepted strokes, Undo pending owner/stale resume.
+Вместе с существующими joined/deferred suites: 27tests PASS.
+Команда из repo root:
+`npx vitest run --config docs/qa/harness/728-gl-queue-batch/mixed-deferred-vitest.config.mjs --maxWorkers=2`.
+MockGL не доказывает actual RGBA; next hardware требует separate passive
+Room cohort и same-input exact/history, после освобождения Surface.
