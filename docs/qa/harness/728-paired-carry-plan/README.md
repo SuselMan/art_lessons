@@ -73,3 +73,5 @@ CPU and GPU-role differences. This readback intervention perturbs scheduling and
 may mask/expose driver nondeterminism; timings must not be interpreted as normal.
 Default flags and input tape remain unchanged. A hash change localizes a role;
 this bounded stage gate deliberately does not report unsupported maxbyte counts.
+
+First-operation solvent localization: add `firstOpSolventStages:true` to the serial OFF/OFF `perOperationStages:true` gate with the original packed tape. At operation 1 only, capture solventBase, strokeSolvent and coverage alongside solventLoad/layer/colorBase/working pressure. All captured roles include top-down nonzero pixel bbox and nonzero byte count outside the union of actual production GL reveal rectangles for that operation. The union preserves original source commands; no extra pre-source capture/clear is inserted. A null reveal means every nonzero byte is outside. Readback perturbation remains explicit and bounded below 40 MiB per stage. This separates base initialization/copy, film raster and final solvent landing; coverage helps identify common source geometry changes.
