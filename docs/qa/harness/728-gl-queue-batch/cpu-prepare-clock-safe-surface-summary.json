@@ -1,0 +1,108 @@
+{
+  "scope": "ONE ClockSafe actualRoom400 staticCPU OFF/ON; queue/mixed/deferred ON; no readback during input, CPU probe perturbation; different RAF sample counts; fixed24quality separate601bf6be",
+  "valid": true,
+  "computedPassport": {
+    "apps/web/src/engine/index.ts": "ad8687731c626d52921c1cbef4a96fb2eddbf221f83cd42db62031cedb90d6d3",
+    "apps/web/src/engine/src/raster/CanonicalWatercolorSettlePlan.ts": "26243b596f983a1a897ca48481033f0c168930bb7e66fcf3247792f8e62b643b",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "400318b2dac513f4dbc17a156d70ca11207f9a85cbec169c0bf98d2b528c018b",
+    "temp/device-runs/CanonicalCpuContactsStatic.ts": "f8b060287b3fbec7baeb9d873cc10977e1d4acf362274df7e67f802f3a79bdea",
+    "temp/device-runs/CpuPrepareSettleQueue.ts": "d25e0c48c96ee2ea0fb12c5ea8b84defaef3746d185710788219edc73e954c04"
+  },
+  "minimumFreeMiB": 1055,
+  "rows": [
+    {
+      "cpuBatch": false,
+      "counts": {
+        "enabled": false,
+        "prepares": 4,
+        "captured": 4,
+        "fallback": 0,
+        "travel": [
+          20,
+          14,
+          9,
+          9
+        ],
+        "counts": {
+          "ticks": 0,
+          "units": 0,
+          "elapsedMs": 0,
+          "maxMs": 0
+        }
+      },
+      "elapsedMs": 9348.199999988079,
+      "maxRafMs": 83.20000000000073,
+      "over33": 28,
+      "flags": {
+        "solver": true,
+        "joinedTouch": true,
+        "joinedMixed": true,
+        "deferred": true,
+        "asyncFinish": false,
+        "material": false
+      },
+      "firstUP": [
+        {
+          "name": "prepare",
+          "cpuMs": 8.399999976158142,
+          "argumentStats": {
+            "travel": 20,
+            "foreign": null
+          }
+        },
+        {
+          "name": "_onEnd",
+          "cpuMs": 50.5,
+          "argumentStats": null
+        }
+      ]
+    },
+    {
+      "cpuBatch": true,
+      "counts": {
+        "enabled": true,
+        "prepares": 4,
+        "captured": 4,
+        "fallback": 0,
+        "travel": [
+          21,
+          14,
+          9,
+          9
+        ],
+        "counts": {
+          "ticks": 21,
+          "units": 44,
+          "elapsedMs": 69.89999997615814,
+          "maxMs": 8.5
+        }
+      },
+      "elapsedMs": 9223.300000011921,
+      "maxRafMs": 83.40000000000146,
+      "over33": 31,
+      "flags": {
+        "solver": true,
+        "joinedTouch": true,
+        "joinedMixed": true,
+        "deferred": true,
+        "asyncFinish": false,
+        "material": false
+      },
+      "firstUP": [
+        {
+          "name": "prepare",
+          "cpuMs": 7.400000035762787,
+          "argumentStats": {
+            "travel": 21,
+            "foreign": null
+          }
+        },
+        {
+          "name": "_onEnd",
+          "cpuMs": 47.799999952316284,
+          "argumentStats": null
+        }
+      ]
+    }
+  ]
+}
