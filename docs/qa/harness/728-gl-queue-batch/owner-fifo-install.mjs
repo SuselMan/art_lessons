@@ -1,3 +1,4 @@
+import {prewarmWetOverlayTexture} from './PrewarmWetOverlayTexture.mjs';
 import {watercolorWashSignature} from '../../../../apps/web/src/engine/src/presets/watercolorPresets.ts';
 import {RibbonStrokePainter as OwnerPainter} from '../../../../temp/owner-fifo-runtime/OwnerRibbonStrokePainter.ts';
 import {PresentationOwnerPrototype} from './PresentationOwnerPrototype.ts';
@@ -11,13 +12,14 @@ import {OwnedPresentationMorphBridge} from './OwnedPresentationMorphBridge.mjs';
 import {prewarmEngineRevealSlots} from './PrewarmedEngineRevealSlots.ts';
 const roles=['presentation','original','coverage','coverageFilm','pigmentLoad','pigmentBase','pigmentFilm','colourLoad','colourBase','colourFilm','solventLoad','solventBase','solventFilm'];
 /** QA runtime only: never imported by production or the existing 5352 review. */
-export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=()=>{},diagnosticLastOwnerMorph=false,diagnosticMaterialRebase=false,retainedPayloadBudgetBytes=16*1024*1024,revealBudgetBytes=diagnosticMaterialRebase?32*1024*1024:16*1024*1024,visualScratchBudgetBytes=8*1024*1024}={}){
+export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=()=>{},diagnosticLastOwnerMorph=false,diagnosticMaterialRebase=false,diagnosticPrewarmWetTexture=false,retainedPayloadBudgetBytes=16*1024*1024,revealBudgetBytes=diagnosticMaterialRebase?32*1024*1024:16*1024*1024,visualScratchBudgetBytes=8*1024*1024}={}){
  if(diagnosticMaterialRebase&&diagnosticLastOwnerMorph)throw Error('Choose one diagnostic morph mode');
  const page=e._pageSize();
  if(e._infinite||page.w!==1024||page.h!==1024||e._strokeLayerId||e._settle||e._wcCanonical.pending)throw Error('Owner FIFO requires idle bounded1024 Room');
  if(!e._minmaxExt)throw Error('Owner FIFO requires original MAX capability');
  const canonicalLayer=e._layers?.get(e._activeId);if(!canonicalLayer)throw Error('Owner FIFO requires loaded active layer');
  const canonicalTiles=e._ribbonPainterContext.resolveWithinSheet(canonicalLayer,{minX:0,minY:0,maxX:1024,maxY:1024});if(canonicalTiles.length!==1||canonicalTiles[0].originX||canonicalTiles[0].originY)throw Error('Owner prewarm requires one canonical tile');
+ const wetTexturePrewarm=diagnosticPrewarmWetTexture?prewarmWetOverlayTexture(e):null;
  const pool=new PrewarmedGlOwnerPool(e.gl,capacity,budgetBytes);
  const originalScratchPool=e._ribbonScratchPool;let revealPrewarm=null,visualScratchPrewarm=null;try{revealPrewarm=diagnosticLastOwnerMorph||diagnosticMaterialRebase?prewarmEngineRevealSlots({acquire:(w,h)=>e._revealPoolAcquire(w,h),release:f=>e._revealPoolRelease(f)},pool.physicalIdentities,revealBudgetBytes,diagnosticMaterialRebase?8:4):null;if(diagnosticMaterialRebase)visualScratchPrewarm=new ReservedVisualScratch({acquire:(w,h)=>originalScratchPool.acquire(w,h),release:f=>originalScratchPool.release(f)},new Set([...pool.physicalIdentities,...revealPrewarm.resources.map(r=>r.identity)]),visualScratchBudgetBytes)}catch(error){if(!e.gl.isContextLost())e.gl.finish();pool.disposeAfterFence();throw error}
  const coordinator=new PresentationOwnerPrototype({maxOwners:capacity,budgetBytes,detachFinish:finish=>Object.freeze({...finish})});
@@ -113,5 +115,5 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
   try{return originals.finish.call(e,scratch,...args)}finally{e._wcCanonical.enqueue=enqueue}
  };
  e._asyncLocalPreviewTiles=function(){const result=new Map(originals.previews.call(e));for(const token of coordinator.visible()){const owner=owners.get(token);if(owner&&!owner.presentationTransferred)result.set(token.layerId,[{buffer:owner.lease.fields.presentation,originX:0,originY:0}])}return result};
- return{trace,snapshot:()=>coordinator.snapshot(),prewarmedBytes:pool.bytes,prewarmedRevealBytes:revealPrewarm?.bytes??0,diagnosticLastOwnerMorph,diagnosticMaterialRebase,prewarmedVisualScratchBytes:visualScratchPrewarm?.bytes??0,retainedPayloadBudgetBytes,dispose(){if(disposed)return;disposed=true;e._wcCanonical.cancel(e.gl.isContextLost());coordinator.dispose();if(!e.gl.isContextLost())e.gl.finish();const active=coordinator.snapshot().active;if(active)coordinator.completeCancellation(active);visualScratchPrewarm?.disposeAfterFence();pool.disposeAfterFence();e._wcAsyncFinish=originals.asyncFinish;e._ribbonPainter=originalPainter;e._ribbonStrokeWork=originals.work;e._finishRibbonStroke=originals.finish;e._onStart=originals.start;e._asyncLocalPreviewTiles=originals.previews;e._wcCanonical.ctx.blocked=originals.blocked;if(morph)e._advanceWashReveal=originals.advance}};
+ return{trace,wetTexturePrewarm,diagnosticPrewarmWetTexture,snapshot:()=>coordinator.snapshot(),prewarmedBytes:pool.bytes,prewarmedRevealBytes:revealPrewarm?.bytes??0,diagnosticLastOwnerMorph,diagnosticMaterialRebase,prewarmedVisualScratchBytes:visualScratchPrewarm?.bytes??0,retainedPayloadBudgetBytes,dispose(){if(disposed)return;disposed=true;e._wcCanonical.cancel(e.gl.isContextLost());coordinator.dispose();if(!e.gl.isContextLost())e.gl.finish();const active=coordinator.snapshot().active;if(active)coordinator.completeCancellation(active);visualScratchPrewarm?.disposeAfterFence();pool.disposeAfterFence();e._wcAsyncFinish=originals.asyncFinish;e._ribbonPainter=originalPainter;e._ribbonStrokeWork=originals.work;e._finishRibbonStroke=originals.finish;e._onStart=originals.start;e._asyncLocalPreviewTiles=originals.previews;e._wcCanonical.ctx.blocked=originals.blocked;if(morph)e._advanceWashReveal=originals.advance}};
 }
