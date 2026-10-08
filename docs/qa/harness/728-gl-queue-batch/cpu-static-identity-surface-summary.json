@@ -1,0 +1,42 @@
+{
+  "sharedIdentity": true,
+  "rows": [
+    {
+      "enabled": false,
+      "events": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        "barrier",
+        "finish"
+      ],
+      "counts": {
+        "ticks": 0,
+        "units": 0,
+        "elapsedMs": 0,
+        "maxMs": 0
+      }
+    },
+    {
+      "enabled": true,
+      "events": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        "barrier",
+        "finish"
+      ],
+      "counts": {
+        "ticks": 2,
+        "units": 5,
+        "elapsedMs": 0.09999996423721313,
+        "maxMs": 0.09999996423721313
+      }
+    }
+  ],
+  "scope": "CPU-only queue with five tagged synthetic units; no GPU or actual Engine quality proof"
+}

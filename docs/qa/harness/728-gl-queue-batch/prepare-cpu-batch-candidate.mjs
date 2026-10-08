@@ -32,4 +32,5 @@ let plan=fs.readFileSync(path.join(dir,'CanonicalLazyContacts.ts'),'utf8');
 plan=plan.replace('import { contactPulseOp,','import { cpuPrepareOp, contactPulseOp,').replace("from '../../apps/web/src/engine/src/watercolor/WatercolorSettleQueue'","from './CpuPrepareSettleQueue'");
 for(const a of ['queuedContinuation.push(advanceField)','ops.push(advanceField)']){if(plan.split(a).length!==2)throw Error('CPU-only tag seam missing');plan=plan.replace(a,a.replace('advanceField','cpuPrepareOp(advanceField)'))}
 fs.writeFileSync(path.join(dir,'CanonicalCpuContacts.ts'),plan);
+fs.writeFileSync(path.join(dir,'CanonicalCpuContactsStatic.ts'),plan+'\nexport const diagnosticCpuTaggerIdentity = cpuPrepareOp\n');
 const sha=s=>createHash('sha256').update(s).digest('hex');fs.writeFileSync(path.join(dir,'cpu-prepare-edits.json'),JSON.stringify({sourceSHA:sha(baseline),queueSHA:sha(queue),planSHA:sha(plan),productionModified:false},null,2));
