@@ -4,7 +4,7 @@ import {GpuMethodTimer} from '../728-gpu-method-timer/timer.mjs'
 export async function runGpuCoverage(engine,{cohort='passes',everyNth=1,maxPending=256}={}){
  if(!['passes','transfers','raster'].includes(cohort))throw Error('Unknown coverage cohort')
  let timer,raf=0;const cpu={},restores=[],targets=[]
- const cpuWrap=(object,names)=>{for(const name of names){const original=object?.[name];if(typeof original!=='function')continue;const wrapped=function(...args){const start=performance.now();try{return original.apply(this,args)}finally{const c=cpu[name]??={calls:0,cpuMs:0};c.calls++;c.cpuMs+=performance.now()-start}};object[name]=wrapped;restores.push(()=>{if(object[name]===wrapped)object[name]=original})}}
+
  const wrap=(object,names)=>{const present=names.filter(n=>typeof object?.[n]==='function');targets.push({requested:names,present,missing:names.filter(n=>!present.includes(n))});if(present.length)timer.wrap(object,present)}
  const poll=()=>{timer?.poll();raf=requestAnimationFrame(poll)}
  try{
@@ -12,17 +12,17 @@ export async function runGpuCoverage(engine,{cohort='passes',everyNth=1,maxPendi
    if(phase==='start'){
     timer=new GpuMethodTimer(probe.gl,{everyNth,maxPending});
     // CPU API time is separate: a finish may wait for earlier unmeasured commands.
-    cpuWrap(probe.gl,['finish','flush','readPixels']);
+    targets.push({requested:['finish','flush','readPixels'],present:[],missing:['finish','flush','readPixels'],reason:'GL2 adapter caches bound methods; raw monkeypatch cannot faithfully intercept existing calls'});
     if(cohort==='passes')wrap(probe._watercolorPasses,['fieldOp','waterFrontStep','diffuseStep','brushPass','brushPair','carryPair','costDomainStep','wcResample','pigmentColor']);
     if(cohort==='transfers'){
      wrap(engine.AccumulationBuffer.prototype,['copyTo','copyRegionInto','clear','restorePixels','writePixels','restorePixelsRect']);
      // This cohort alone samples raw uploads, avoiding nested pass attribution.
-     wrap(probe.gl,['texImage2D','texSubImage2D','generateMipmap']);
+     targets.push({requested:['texImage2D','texSubImage2D','generateMipmap'],present:[],missing:['texImage2D','texSubImage2D','generateMipmap'],reason:'Do not wrap adapted GL proxy: override/raw recursion and bound-cache bypass'});
     }
     if(cohort==='raster'){
      wrap(probe._stamps,['paint']);
      // Unwrapped ribbon/source draws remain visible at the raw leaf boundary.
-     wrap(probe.gl,['drawArrays','drawElements','drawArraysInstanced','drawElementsInstanced']);
+     targets.push({requested:['drawArrays','drawElements','drawArraysInstanced','drawElementsInstanced'],present:[],missing:['drawArrays','drawElements','drawArraysInstanced','drawElementsInstanced'],reason:'Bound GL2 proxy methods cannot be faithfully monkeypatched after init'});
      wrap(probe,['_composeToFBO','_display']);
     }
     raf=requestAnimationFrame(poll)
