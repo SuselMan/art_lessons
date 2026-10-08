@@ -3,7 +3,7 @@ import crypto from 'node:crypto'
 import {createRequire} from 'node:module'
 import {execFileSync} from 'node:child_process'
 const require=createRequire(new URL('../../../../package.json',import.meta.url)),WebSocket=require('ws')
-const app=process.env.QA_APP,base=process.env.CDP_BASE,out=process.env.QA_OUT
+const app=process.env.QA_APP,base=process.env.CDP_BASE,out=process.env.QA_OUT,entry=process.env.QA_ENTRY_FILE?fs.readFileSync(process.env.QA_ENTRY_FILE,'utf8').trim():null
 if(!app||!base||!out||!process.env.QA_MANIFEST||new URL(app).port!=='5349')throw Error('Explicit frozen native QA_APP:5349, CDP_BASE and QA_OUT required')
 fs.mkdirSync(out,{recursive:true})
 const report={source:process.env.QA_SOURCE,stage:'preflight',errors:[],events:[],limitations:['Actual Room pointer/GL display test, not full parity','foreign wash/multitile explicit unsupported; no GPU duration from wall time']}
@@ -35,9 +35,9 @@ try{
   if(hash!==entry.sha256)throw Error('Actual HTTP source SHA differs '+path)
  }
  report.ramStart=memory();if(report.ramStart<500)throw Error('RAM below500MiB');save()
- const before=await(await fetch(base+'/json/list')).json(),ids=new Set(before.map(x=>x.id)),url=app+'/create?qaNativeOwned='+Date.now()
+ const before=await(await fetch(base+'/json/list')).json(),ids=new Set(before.map(x=>x.id)),url=entry??(app+'/create?qaNativeOwned='+Date.now())
  execFileSync('/home/suselman/.local/bin/home-devices',['adb','shell','am','start','-a','android.intent.action.VIEW','-d',url,'-p','com.android.chrome'],{encoding:'utf8',timeout:15000})
- for(let n=0;n<40&&!target;n++){const tabs=await(await fetch(base+'/json/list')).json();target=tabs.find(x=>!ids.has(x.id)&&x.url===url);if(!target)await new Promise(r=>setTimeout(r,250))}
+ for(let n=0;n<40&&!target;n++){const tabs=await(await fetch(base+'/json/list')).json();const fresh=tabs.filter(x=>!ids.has(x.id)&&(x.url===url||entry&&x.url.startsWith(new URL(entry).origin+'/')));if(fresh.length>1)throw Error('Ambiguous new targets; no user target selected');target=fresh[0];if(!target)await new Promise(r=>setTimeout(r,250))}
  if(!target?.id)throw Error('ADB created no demonstrably new own target; user tabs preserved')
  ws=new WebSocket(target.webSocketDebuggerUrl);await new Promise((r,j)=>{ws.once('open',r);ws.once('error',j)});ws.on('message',raw=>{const x=JSON.parse(raw),p=pending.get(x.id);if(p){pending.delete(x.id);clearTimeout(p.timer);x.error?p.reject(Error(x.error.message)):p.resolve(x.result)}else if(x.method==='Runtime.exceptionThrown'){report.errors.push(x.params.exceptionDetails.exception?.description??x.params.exceptionDetails.text);save()}})
  await send('Page.enable');await send('Runtime.enable');await send('Page.bringToFront')
@@ -48,7 +48,7 @@ try{
  await wait(()=>location.pathname.startsWith('/room/')&&!!window.__engine)
  report.created=await census();save();const room=await evaluate('location.origin+location.pathname')
  report.stage='native-init';save();await send('Page.navigate',{url:room+'?wcNative=1'})
- await wait(()=>!!window.__engine)
+ await wait(()=>{const button=[...document.querySelectorAll('button')].find(b=>/^(Join project|Войти в проект|Войти в комнату)$/.test(b.textContent.trim())&&!b.disabled);if(button){button.click();return false}return!!window.__engine})
  const secure=await census();if(!secure.secure||!secure.gpu){report.unsupported=secure;throw Error('Native WebGPU requires actual secure origin and navigator.gpu')}
  await evaluate(async()=>{await window.__engine.paperReady();return true});await idle();await wait(()=>!window.__engine._locked&&window.__roomStore?.getState().userId!=='local')
  report.stage='pigment-live';save();await stroke('normal:100:100:PB29:round',[[300,300],[320,300],[340,300],[360,300]])
