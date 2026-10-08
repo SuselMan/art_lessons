@@ -1,0 +1,142 @@
+{
+  "scope": "Read-only attribution; no shader/model changes, no hardware execution",
+  "evidence": [
+    {
+      "path": "temp/device-runs/inward2-legacy-4ec/report.json",
+      "rawSha256": "f3884620adc8c21bf606ec3dafc520c6833f5d29b4531376947fd76ff5729484",
+      "code": "4ec4d259c5a49c36c9bb4faf641c5e6865ed2f1e",
+      "checkpoint": 2,
+      "sourceFilter": "legacy mask LINEAR metadata, alternating NEAREST a",
+      "inputHashes": {
+        "pigment": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+        "coverageSource": "45feaa58e002e127f5d85bb607f733e5977f90e53db5a26694a45ba574266fc7",
+        "coverageField": "b6e964b3ad23708a40d25ecc68ab8c4daf91d651e2f01948e6787489dc8515bb"
+      },
+      "pressureSeedSha256": "d9c25185217f838a6afe0c05e93d6985993f084cc98f8ba5bbcc60aa5e19863d",
+      "inwardRecipe": {
+        "k": 0.9617441184796373,
+        "outwardSha256": "288caf3f8a39735b582e759b2f72dd4f295d5590674d8c59bfea7f11b3012e50",
+        "earlierBaseSha256": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "expectedSha256": "4371f7d02546ae4a1dfda32ef09a950101e30e590f534a17c1f5675c4da8057f",
+      "actualSha256": "4371f7d02546ae4a1dfda32ef09a950101e30e590f534a17c1f5675c4da8057f",
+      "channels": [
+        {
+          "changed": 0,
+          "max": 0,
+          "sum": 0
+        },
+        {
+          "changed": 0,
+          "max": 0,
+          "sum": 0
+        },
+        {
+          "changed": 0,
+          "max": 0,
+          "sum": 0
+        },
+        {
+          "changed": 0,
+          "max": 0,
+          "sum": 0
+        }
+      ],
+      "differences": []
+    },
+    {
+      "path": "temp/device-runs/inward11-manual-4ec/report.json",
+      "rawSha256": "683e0a1867eb6e94aa4a8071110fb19d60b11e9c99e19b3af51e7e4486e6d295",
+      "code": "4ec4d259c5a49c36c9bb4faf641c5e6865ed2f1e",
+      "checkpoint": 11,
+      "sourceFilter": "manual mask LINEAR metadata, alternating NEAREST a",
+      "inputHashes": {
+        "pigment": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+        "coverageSource": "45feaa58e002e127f5d85bb607f733e5977f90e53db5a26694a45ba574266fc7",
+        "coverageField": "b6e964b3ad23708a40d25ecc68ab8c4daf91d651e2f01948e6787489dc8515bb"
+      },
+      "pressureSeedSha256": "d9c25185217f838a6afe0c05e93d6985993f084cc98f8ba5bbcc60aa5e19863d",
+      "inwardRecipe": {
+        "k": 0.9617441184796373,
+        "outwardSha256": "288caf3f8a39735b582e759b2f72dd4f295d5590674d8c59bfea7f11b3012e50",
+        "earlierBaseSha256": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "expectedSha256": "1f786696b913e5fd261f565fe7af4d0f262d8f09e94f67101bb94f9154dfc5b6",
+      "actualSha256": "408008505a2ecdd27a8169ffe44c45e68630943635f936e9823fe64c44cb622e",
+      "channels": [
+        {
+          "changed": 3,
+          "max": 1,
+          "sum": 3
+        },
+        {
+          "changed": 0,
+          "max": 0,
+          "sum": 0
+        },
+        {
+          "changed": 0,
+          "max": 0,
+          "sum": 0
+        },
+        {
+          "changed": 0,
+          "max": 0,
+          "sum": 0
+        }
+      ],
+      "differences": [
+        {
+          "x": 683,
+          "y": 346,
+          "channel": 0,
+          "expected": 224,
+          "actual": 225
+        },
+        {
+          "x": 682,
+          "y": 347,
+          "channel": 0,
+          "expected": 228,
+          "actual": 229
+        },
+        {
+          "x": 683,
+          "y": 347,
+          "channel": 0,
+          "expected": 205,
+          "actual": 206
+        }
+      ]
+    }
+  ],
+  "earliestRemainingInterval": {
+    "afterCheckpoint": 2,
+    "throughCheckpoint": 11,
+    "operations": [
+      41,
+      42,
+      43
+    ],
+    "reason": "Two flat inward steps exact; subsequent nine relief steps have three R bytes differing by one. Earliest exact relief iteration is not recorded yet."
+  },
+  "nextProbe": {
+    "existingApi": "runPressureSeedOracle",
+    "options": "diagnosticInward.stopAfter=3, then4 only if separately allocated",
+    "sameInputsRequired": [
+      "inputHashes",
+      "pressureSeedSha256",
+      "inwardRecipe",
+      "paperSha256",
+      "frontRecipe"
+    ],
+    "sourceFilter": "legacy default; no manual or hardware sampler override",
+    "budget": "Reuse original coverage/pigment packet. No full source recapture. GL retires before native. Three bounded cell diagnostics are secondary to full checkpoint digest.",
+    "floatProbeStatus": "inwardFloatProbe.ts exists but is not wired into pressureSeedOracle; no actual float proof claimed."
+  },
+  "causalLimits": [
+    "Independent checkpoint evidence does not establish whole pressure-only earliest boundary without chronological field observation.",
+    "Three R bytes do not explain whole max36.",
+    "Mode6 rim COMMON-input G3254/max5 and brush14 max7 are separate larger downstream boundaries; errors cannot be summed as attribution."
+  ]
+}
