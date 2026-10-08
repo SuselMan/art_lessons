@@ -24,3 +24,34 @@ Reason — наблюдение результата, не вмешательс�
 
 CPUtests: исходные29 +4контрактных теста =33PASS; контроли cap4, synced8ms,
 class/upload barriers, drawing, cancel, равенство последовательныхQ8шагов.
+
+## Surface measured gate
+
+Frozen f9be0d84. Четыре собственные свежие страницы OFF/ON/ON/OFF:
+5895.9 / 2427.2 / 2476.6 / 6077.5 paint мс. Средние5986.7→2451.9,
+наблюдаемое уменьшениеwall≈59% в этой одной серии. ALL26fieldrecords,
+wholematerial, RGBA иtape совпали побайтно. Undo stroke-2 действительно
+изменил материал, redo восстановил точно во всех4arms. GLerrors0/lostfalse.
+Это whole fixedpackedreplay400/Fine, не обещание59%обычногоRoom или пера.
+
+334ticks→133/134; contact204/front70 сохраняются. Legacybarrier counter
+60→61 оставлен вreport, не скрыт: wrapper считает `advance()` даже без
+следующегооператора (completion), это неGPUpass count. Телаtick суммарно
+OFF135/137ms, ON96/124ms; P95OFF0.5ms/ON1.0–1.2. Synccallback272/271,
+CPUelapsed3.7/4.7ms — не доказательствофизическойGPUзавершённости.
+GapP95ON16.9–17ms, max64–70ms: разницачислаticks реальноизмерена,
+но отдельныепаузыещёесть. MaxbodyON26/38ms обусловлен втомчисле
+неbatchablebarrier/finish; лимит8ms ограничиваеттолькогруппыtaggedunits,
+однаатомарнаяоперацияможетпревыситьего.
+
+DefaultsOFF; передactualRoom включением нужны animation/sourcepreview,
+первый/следующийконтактпера, вода→пигмент, большойзигзаг, zoom, concurrent
+participants/undo/reentry нацелевыхустройствах. Изменениерасчёта не означает
+доказанноудовлетворительнуюанимациюпромежуточныхframes. Samsungнепроверен.
+RAM preflight≥1700, минимум1013MiB приabort500; послеclosefree1893MiB.
+Rawignoredtemp/device-runs/gl-queue-surface.json, compactsurface-summary.json.
+
+CPUverification:49tests (33queue +16frozenplan), app/harnessTypeScript иoxlint
+PASS. Отдельныйcontroller требуетGATE_URL, некоммититprivateURL, создаёт
+свежиесобственныестраницы, закрываетпослекакогоугодноисхода. Новыйstand
+используетсуществующийgallerypreviewсервисбезсменыdefault/production.
