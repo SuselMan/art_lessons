@@ -44,3 +44,31 @@ owner, 3 MiB на три owner; полный float preview ledger растёт �
 предложение двух полей недостаточно для feedback-free накопления. Float ADD
 blend не предполагается. Noise уже занимает texture unit7: fixed samplers
 должны использовать свободные units5/6 собственного composite-program.
+
+### Executable OFF packet
+
+`FINITE_PREVIEW=1` / `diagFinitePreview=1` включает Room-подключение вместе с
+EARLY_PREVIEW, DIRECT_PREVIEW и FLOAT_PREVIEW. ARTIFACT_PROBE одновременно
+запрещён. QA длительность явно 2000 ms активного времени; это 13 дискретных
+стадий, не доказательство гладкости. Freeze/перо останавливают clock, за rAF
+не больше одного transport stage; запоздавший tick не запускает burst.
+
+Программы: отдельный WC_DIFFUSE_FRAG без переписывания выражений; D/B импортированы
+из actual wetDiffusion.ts и умножаются на fractional budget. Для каждого stencil
+fraction=(world-radius-S1/world-radius-S8)^2. Это согласует flat-domain второй
+момент, **не** воспроизводит мелкую пространственную геометрию, paper samples,
+не-Q8 rounding или канонический transport побитово. Accumulator отдельным pass
+пишет fixedOld+sliceWeight*movingNew в distinct float destination без blending.
+Manual material читает fixed+mobileWeight*moving через единые paired weights на
+units5/6 (noise7 сохраняется). Источник/канонический endpoint не записываются.
+
+Extra4-field leases резервируются до первого input и очищаются при seal/UP;
+DOWN новых allocations/fences не добавляет. Release extra lease производится
+только вместе с retired preview по existing ALL-command idle certificate;
+land сам по себе не является certificate. Dispose вызывает существующий
+setup/shutdown finish вне DOWN. Флаг OFF не компилирует новые программы.
+
+Hardware ещё не запускался: first-step discontinuity, shader compile/FBO,
+parent handoff и SAME NEW tape original endpoint должны пройти отдельный ONE.
+Контроллер добавляет все новые модули, production shader source и constants в
+computed SHA passport и проверяет фактический finite flag до рисования.
