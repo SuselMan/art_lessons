@@ -1,0 +1,129 @@
+{
+  "experiment": "static",
+  "cachePrepNanoseconds": 1223217,
+  "cacheCounters": {
+    "prep": 1,
+    "hits": 41,
+    "fallbacks": 0
+  },
+  "dimensions": [
+    32,
+    32
+  ],
+  "perIteration": [
+    {
+      "iteration": 1,
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "iteration": 2,
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "iteration": 3,
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "iteration": 4,
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "iteration": 5,
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "iteration": 6,
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "iteration": 7,
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "iteration": 8,
+      "changed": 0,
+      "max": 0
+    }
+  ],
+  "exact": true,
+  "timestampAvailable": true,
+  "gpuNanoseconds": {
+    "baseline": [
+      1584698,
+      986167,
+      1327381,
+      1462568,
+      1331463,
+      3191687,
+      3217516,
+      2200176,
+      2773422,
+      1864042,
+      2536434,
+      1599886,
+      2588662,
+      1656112,
+      1373234,
+      1433739,
+      1367793,
+      1342532,
+      1329664,
+      1325356,
+      2022872,
+      1693667,
+      2279452,
+      1467768,
+      1450472,
+      1493938,
+      964013,
+      1416721,
+      1451639,
+      1620442,
+      2006522,
+      991775
+    ],
+    "lazy": [
+      926005,
+      825549,
+      765237,
+      844444,
+      1617288,
+      3033286,
+      1094809,
+      1424703,
+      902116,
+      769243,
+      681932,
+      1322258,
+      1230107,
+      853894,
+      1256254,
+      832753,
+      736354,
+      734144,
+      821967,
+      805997,
+      795445,
+      838323,
+      822351,
+      921659,
+      867537,
+      874225,
+      634915,
+      1369785,
+      959148,
+      868787,
+      992653,
+      785862
+    ]
+  },
+  "errors": [],
+  "limits": "Actual captured Q8 front input/coverage; same immutable paper/lattice, no foreignFilm; 171 repeated fixed stride gates, not a replacement planner schedule. Timestamp AB32 excludes readback and covers one front compute pass. Whole tape separately diagnostic OFF by default."
+}

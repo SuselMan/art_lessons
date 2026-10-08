@@ -97,3 +97,52 @@ fn fbm(p:vec2f)->f32 { return 0.63*wcNoise(p)+0.37*wcNoise(p*2.7+vec2f(31.4,17.9
  textureStore(output,vec2i(q),vec4f(min(best,u.coefficients.z)/u.coefficients.z,hj,source.b,1));
 }
 `;
+
+export const CANONICAL_CACHED_WATER_FRONT_WGSL = CANONICAL_PASS_HEADER + `
+override DIAGNOSTIC_LAZY_CLIMB:bool=false;
+override DIAGNOSTIC_STATIC_FRONT_CACHE:bool=false;
+@group(0) @binding(7) var staticFrontCache:texture_2d<f32>;
+fn lattice(p:vec2f)->f32 {
+ let wrapped=p-251.0*floor(p/251.0);
+ return textureLoad(noise,vec2i(wrapped),0).r;
+}
+fn wcNoise(p:vec2f)->f32 {
+ let i=floor(p);let f=fract(p);let interpolant=f*f*(3.0-2.0*f);
+ let a=lattice(i);let b=lattice(i+vec2f(1,0));let c=lattice(i+vec2f(0,1));let d=lattice(i+vec2f(1,1));
+ return mix(mix(a,b,interpolant.x),mix(c,d,interpolant.x),interpolant.y);
+}
+fn fbm(p:vec2f)->f32 { return 0.63*wcNoise(p)+0.37*wcNoise(p*2.7+vec2f(31.4,17.9)); }
+@compute @workgroup_size(8,8) fn main(@builtin(global_invocation_id) tid:vec3u) {
+ let q=tid.xy;if(any(q>=vec2u(u.resolution))){return;}
+ let px=vec2f(f32(q.x)+0.5,u.resolution.y-f32(q.y)-0.5);let uv=px/u.resolution;
+ let source=fieldAt(input,uv);var best=source.r*u.coefficients.z;var hj=0.0;
+ if(DIAGNOSTIC_STATIC_FRONT_CACHE){hj=textureLoad(staticFrontCache,vec2i(q),0).r;}else{hj=heightAt(px);}
+ var climb=0.0;var climbReady=false;
+ if(DIAGNOSTIC_STATIC_FRONT_CACHE){climb=textureLoad(staticFrontCache,vec2i(q),0).g;climbReady=true;}
+ else if(!DIAGNOSTIC_LAZY_CLIMB){climb=u.coefficients.x*(1.0+4.0*smoothstep(0.5,0.64,fbm((px+u.paperOrigin)*0.025+vec2f(41,7))));climbReady=true;}
+ for(var k=0;k<8;k++) {
+  let o=offset(k,false);let stride=u.coefficients.w;let uvj=uv+o*stride/u.resolution;
+  if(any(uvj<vec2f(0))||any(uvj>vec2f(1))){continue;}
+  let ci=fieldAt(input,uvj).r;if(ci>=0.999){continue;}
+  if(!climbReady){climb=u.coefficients.x*(1.0+4.0*smoothstep(0.5,0.64,fbm((px+u.paperOrigin)*0.025+vec2f(41,7))));climbReady=true;}
+  var len=1.41421356;if(k<4){len=1;}
+  var hi=0.0;
+  if(DIAGNOSTIC_STATIC_FRONT_CACHE){hi=textureLoad(staticFrontCache,vec2i(q)+vec2i(vec2f(o.x*stride,-o.y*stride)),0).r;}else{hi=heightAt(px+o*stride);}
+  let relief=max(u.coefficients.y*stride,stride+climb*(hj-hi));
+  let film=smoothstep(0.02,0.15,max(fieldAt(coverage,uv).a,u.wet.y*fieldLinear(foreignFilm,uv).r));
+  let edge=len*relief*mix(u.wet.x,1.0,film);best=min(best,ci*u.coefficients.z+edge);
+ }
+ textureStore(output,vec2i(q),vec4f(min(best,u.coefficients.z)/u.coefficients.z,hj,source.b,1));
+}
+`;
+
+
+/** Exact float intermediates, not physical Q8 storage. */
+export const CANONICAL_FRONT_CACHE_PREP_WGSL=CANONICAL_CACHED_WATER_FRONT_WGSL.slice(0,CANONICAL_CACHED_WATER_FRONT_WGSL.indexOf('@compute @workgroup_size')).replace('@group(0) @binding(7) var staticFrontCache:texture_2d<f32>;','@group(0) @binding(7) var staticFrontCache:texture_storage_2d<rg32float,write>;')+`
+@compute @workgroup_size(8,8) fn main(@builtin(global_invocation_id) tid:vec3u){
+ let q=tid.xy;if(any(q>=vec2u(u.resolution))){return;}
+ let px=vec2f(f32(q.x)+0.5,u.resolution.y-f32(q.y)-0.5);
+ let hj=heightAt(px);
+ let climb=u.coefficients.x*(1.0+4.0*smoothstep(0.5,0.64,fbm((px+u.paperOrigin)*0.025+vec2f(41,7))));
+ textureStore(staticFrontCache,vec2i(q),vec4f(hj,climb,0,0));
+}`;

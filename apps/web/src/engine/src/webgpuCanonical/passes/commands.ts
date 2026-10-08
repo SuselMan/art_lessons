@@ -18,6 +18,7 @@ export class CanonicalSettleCommands {
  private readonly domain:CanonicalCostDomainPass
  private readonly resample:CanonicalResamplePass
  constructor(device:GPUDevice){this.fields=new CanonicalFieldOps(device);this.transport=new CanonicalFieldPasses(device);this.domain=new CanonicalCostDomainPass(device);this.resample=new CanonicalResamplePass(device)}
+ get staticFrontCacheCounters(){return this.transport.staticCacheCounters}
  /** Encode exactly one original GPU primitive; caller owns scheduling and cleanup. */
  encode(ctx:CanonicalGpuContext,command:CanonicalSettleCommand):GPUBuffer{
   switch(command.kind){
