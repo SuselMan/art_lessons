@@ -84,3 +84,29 @@ neighbour-normalization отличаются, поэтому это не пол�
 первой пары16/15 (без дополнительного draw/readback), чтобы проверить rate,
 normalizeddir, band, plateau tau и sampler indices на реальном program. Пока
 аппаратно не запускался; коэффициенты остались прежними.
+
+Actual program probe также проверяет texture-unitbindings символическими ownrole
+labels, restoring ACTIVE_TEXTURE. Никаких secret/device fields. Для16 ожидаются
+oldC/fixedP/oldP/pressure/V, для15 oldP/fixedP/fixedP/pressure/V.
+`WC_CARRY_RIDGE=1` в literalshader делает capillarycapacity1 независимо отpaper
+height; missingworld не объясняет неподвижность этого carry. Реальные bindings
+ещё предстоит подтвердить, shader parameters не меняются.
+
+### Исправление оценки и парный диагностический packet
+
+Предыдущая оценка 3.5byte была ошибочной: она подставляла plateau weight
+в положительный gradient face. Для записанных R0→14/255, costMax16
+вес receiver=1.428767587, три plateau neighbours дают denominator193.428767587.
+Поток=.5*.35*80*1.428767587/193.428767587=0.102532681byte, ниже Q8 half-byte.
+Это условная алгебра ожидаемых uniforms, не аппаратный F32 результат.
+
+Новый opt-in primitive заранее выделяет четыре F32 поля (1MiB), проверяет
+реальный renderable Float32 FBO, копирует исходные Q8 P/C production mode1,
+затем выполняет обе пары на ОДНОМ ранее вычисленном Q8 pressure, с одинаковыми
+source/options/paper. Actual uniforms и texture bindings снимаются отдельно
+для Q8/F32. Суммы указаны в Q8-equivalent units. Positive gate требует
+неподвижный Q8 и расширившийся F32, неизменные восемь source SHA, нулевую
+массу вне мокрой области/в соседней луже и парность alpha. Drift записывается
+отдельно, без обещания строгой conservation. Только synthetic primitive;
+никакого Room/endpoint/performance claim. Release Float fields после knownidle
+в finally; hardware ещё не запускался.
