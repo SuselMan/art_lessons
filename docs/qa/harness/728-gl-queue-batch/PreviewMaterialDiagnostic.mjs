@@ -1,7 +1,7 @@
 import{previewManualMaterialShader}from'./PreviewManualMaterial.mjs';
 /** OFF64x64 material-only diagnostic. Same shader math through migration,
  * readback channels replace final RGB, NEVER bind result as a paint input.
- * Vertex resolution remains64; fragment source/world resolution remains1024.
+ * Physical target64; both uniform projection and source/world resolution1024.
  */
 export function previewMaterialDiagnosticShader(original,kind){
  if(!['plain','migration','colour'].includes(kind))throw Error('Explicit material diagnostic plane');

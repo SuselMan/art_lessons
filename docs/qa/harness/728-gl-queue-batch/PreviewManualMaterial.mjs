@@ -9,11 +9,11 @@ export function previewManualMaterialShader(source){
  return{source:rewritten.replace(marker,helper+marker),counts:{p,c}};
 }
 /** Compile only opt-in, own program, same production uniform binder/context. */
-export async function createPreviewManualMaterial(ribbon){
+export async function createPreviewManualMaterial(ribbon,{diagnosticKind=null}={}){
  const[{DAB_VERT,DAB_FRAG},{RibbonPasses},{getUniforms}]=await Promise.all([import('/src/engine/src/raster/shaders.ts'),import('/src/engine/src/raster/RibbonPasses.ts'),import('/src/engine/src/raster/utils.ts')]);
- const ctx=ribbon.ctx,gl=ctx.gl(),original=ctx.stamps(),fragment=previewManualMaterialShader(DAB_FRAG);let program=null;const shaders=[];
+ const ctx=ribbon.ctx,gl=ctx.gl(),original=ctx.stamps(),fragment=diagnosticKind?(await import('./PreviewMaterialDiagnostic.mjs')).previewMaterialDiagnosticShader(DAB_FRAG,diagnosticKind):previewManualMaterialShader(DAB_FRAG);let program=null;const shaders=[];
  try{for(const[type,source]of[[gl.VERTEX_SHADER,DAB_VERT],[gl.FRAGMENT_SHADER,fragment.source]]){const shader=gl.createShader(type);if(!shader)throw Error('Preview shader allocation');shaders.push(shader);gl.shaderSource(shader,source);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw Error('Preview compile: '+gl.getShaderInfoLog(shader))}program=gl.createProgram();if(!program)throw Error('Preview program allocation');for(const shader of shaders)gl.attachShader(program,shader);gl.bindAttribLocation(program,original.positionLoc,'a_position');gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error('Preview link: '+gl.getProgramInfoLog(program));
- const shadow={program,uniforms:getUniforms(gl,program,Object.keys(original.uniforms)),positionLoc:original.positionLoc,bindNoise:location=>original.bindNoise(location)},passes=new RibbonPasses({...ctx,stamps:()=>shadow});let disposed=false;
- return{passes,counts:fragment.counts,disposeAfterFence(){if(disposed)return;disposed=true;gl.deleteProgram(program)}}
+ const shadow={program,uniforms:getUniforms(gl,program,[...Object.keys(original.uniforms),...(diagnosticKind?['u_previewProbeOrigin']:[])]),positionLoc:original.positionLoc,bindNoise:location=>original.bindNoise(location)},passes=new RibbonPasses({...ctx,stamps:()=>shadow});let disposed=false;
+ return{passes,counts:fragment.counts,setProbeOrigin(origin){if(!diagnosticKind)throw Error('Not a diagnostic material program');gl.useProgram(program);gl.uniform2f(shadow.uniforms.u_previewProbeOrigin,origin[0],origin[1])},disposeAfterFence(){if(disposed)return;disposed=true;gl.deleteProgram(program)}}
  }catch(error){if(program)gl.deleteProgram(program);throw error}finally{for(const shader of shaders)gl.deleteShader(shader)}
 }
