@@ -11,7 +11,8 @@
   "preparedGlSourceDraw.test.ts",
   "TypedGlSourceReplayPrototype.ts",
   "OwnedGlSourceFields.ts",
-  "OwnedGlPreparedSource.ts"
+  "OwnedGlPreparedSource.ts",
+  "PrewarmedGlOwnerPool.ts"
  ],
  "exclude": []
 }

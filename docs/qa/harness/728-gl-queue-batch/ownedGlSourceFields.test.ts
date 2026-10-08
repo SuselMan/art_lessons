@@ -23,3 +23,12 @@ it('initializes only explicitly supplied roles, never promotes prior presentatio
  expect(borrowed.copyTo).toHaveBeenCalledTimes(1);expect(borrowed.copyTo).toHaveBeenCalledWith(owner.fields.presentation);expect(state.events.filter(e=>e.startsWith('clear:'))).toHaveLength(12)
  owner.release();expect(retire).toHaveBeenCalledWith(Object.values(owner.fields));expect(retire.mock.calls[0][0]).not.toContain(borrowed)
 })
+
+import{PrewarmedGlOwnerPool}from'./PrewarmedGlOwnerPool'
+it('prewarms all 156MiB before admission and allocates nothing on three DOWN leases',()=>{
+ state.events=[];const pool=new PrewarmedGlOwnerPool({}as WebGLRenderingContext,3,156*1024*1024)
+ expect(pool.bytes).toBe(156*1024*1024);expect(state.events.filter(e=>e.startsWith('allocate:'))).toHaveLength(39)
+ state.events=[];const a=pool.take(empty())!,b=pool.take(empty())!,c=pool.take(empty())!;expect(pool.take(empty())).toBeNull();expect(state.events.filter(e=>e.startsWith('allocate:'))).toEqual([])
+ expect(()=>pool.disposeAfterFence()).toThrow('active owner');a.release();a.release();expect(pool.free).toBe(1);const next=pool.take(empty())!;expect(next.fields).toBe(a.fields);expect(new Set([...b.resources,...c.resources,...next.resources].map(r=>r.identity)).size).toBe(39)
+ b.release();c.release();next.release();pool.disposeAfterFence();expect(state.events.filter(e=>e.startsWith('destroy:'))).toHaveLength(39)
+})
