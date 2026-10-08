@@ -11,7 +11,7 @@ import type { PencilPreset } from '../presets/pencilPresets'
 import type { RibbonStrokePainter,RibbonStrokePainterContext } from './RibbonStrokePainter'
 import { ribbonProfileFor,type RibbonProfile } from './ribbonProfile'
 import { ribbonWaterDelivery } from './ribbonStrokeMath'
-import { createCanonicalStrokeChunkState,prepareCanonicalStrokeChunk,type CanonicalDrawCommand,type CanonicalDrawPhase,type CanonicalPreparedUniforms } from './canonicalStrokeChunk'
+import { createCanonicalStrokeChunkState,prepareCanonicalStrokeChunk,buildCanonicalStrokeCommandsFromDelivery,type CanonicalDrawCommand,type CanonicalDrawPhase,type CanonicalPreparedUniforms } from './canonicalStrokeChunk'
 
 type Probe={_ribbonPainter:RibbonStrokePainter;_ribbonScratchPool:RibbonScratchPool;_layers:Map<string,ILayerBuffer>;_resolvePreset(t:string,p:string):PencilPreset}
 const goldenPath=new URL('./canonicalStrokeChunk.golden.json',import.meta.url),golden:Record<string,string>=existsSync(goldenPath)?JSON.parse(readFileSync(goldenPath,'utf8')):{}
@@ -29,10 +29,22 @@ describe('canonical CPU source draw commands',()=>{
   });
   const bandSpy=vi.spyOn(ctx,'drawRibbonBands').mockImplementation((dest,tile,vertices,mode,aa,cloud=0,gran=0,seed=[0,0],water=0,retain=0,combs=0,hairs=0,depth=null,pool=0,available=null)=>{if(!vertices.length)return;commands.push({kind:'ribbon',phase:mode==='coverage'?'coverage':phaseOf(dest,tile),batch:{vertices:vertices.slice(),inkBlend:film?'max':'add',uniforms:{aaPx:aa,washWater:water,waterRetain:retain,bristleCombs:combs,bristleInk:hairs,tau:depth??[0,0,0],worldOrigin:[tile.originX,-tile.originY||0],mottleSeed:seed,cloudDeposit:cloud,granDeposit:gran,poolBlot:pool,useAvailableWater:!!available}}})});
   const name=`normal:100:100:PB29:${nib}`,preset=probe._resolvePreset('watercolor',name),profile=ribbonProfileFor('watercolor',name,0),dabs:Dab[]=Array.from({length:count},(_,i)=>({x:15+i*10,y:i===2?35:25,size:size-i,pressure:i===count-1?.03:.8,aspectRatio:nib==='chisel'?2:1,angle:.7,opacity:1,tiltX:0,tiltY:0,t:Math.floor(i/2)*40}));
+  const observed:CanonicalDrawCommand[]=[];let observations=0
+  ctx.onPreparedWatercolorDelivery=request=>{
+   observations++
+   const snapshot=()=>JSON.stringify({water:scratch.waterUsed,pigment:scratch.pigmentUsed,dwell:scratch.dwellMs,travel:scratch.brushTravel,wet:scratch.wetContacts,kept:scratch.lastKept,surplus:scratch.surplusPigment})
+   const before=snapshot()
+   for(const tile of request.targets??[]){
+    const input={...request.input,tile}
+    const first=buildCanonicalStrokeCommandsFromDelivery(input),second=buildCanonicalStrokeCommandsFromDelivery(input)
+    expect(second.commands).toEqual(first.commands);observed.push(...first.commands)
+   }
+   expect(snapshot()).toBe(before)
+  }
   try{
    for(const _ of painter.paint(probe._layers.get('L')!,dabs,preset,name,profile,[.2,.1,.5],scratch,undefined,wet.slice(0,count),[1,2]))void _;
    const native=prepareCanonicalStrokeChunk(createCanonicalStrokeChunkState(),{dabs,preset,presetName:name,profile,color:[.2,.1,.5],wetProfile:wet.slice(0,count),strokeSeed:[1,2],tile:{originX:0,originY:0,buffer:{width:1024,height:1024}},film,segmentMode:segmented?'combined':false,options:{diagnosticWaterPolicy:painter.diagnosticWaterPolicy,diagnosticSharedFluid:painter.diagnosticSharedFluid,diagnosticLandingReservoir:painter.diagnosticLandingReservoir,diagnosticLandingPolicy:painter.diagnosticLandingPolicy,diagnosticCanonicalSettleRadius:painter.diagnosticCanonicalSettleRadius,diagnosticSolventField:segmented,diagnosticPigmentRecord:true}});
-   expect(native.commands).toEqual(commands);
+   expect(native.commands).toEqual(commands);expect(observed).toEqual(commands);expect(observations).toBe(segmented?commands.filter(c=>c.kind==='stamp'&&c.phase==='coverage').length:1);
    const key=`${nib}-${segmented}-${film}-${count}${size===12?'':'-400-'+wet}`,digest=hash(commands);if(process.env.WC_GENERATE_GOLDEN==='1'){golden[key]=digest;writeFileSync(goldenPath,JSON.stringify(golden,null,2)+'\n')}else expect(digest).toBe(golden[key]);
    if(count===1){expect(native.commands.some(c=>c.kind==='ribbon')).toBe(false);expect(native.commands.filter(c=>c.phase==='pigment'&&c.kind==='stamp')).toHaveLength(1)}
    expect(native.commands.filter(c=>c.kind==='stamp').every(c=>c.stamp.pressure===dabs.find(d=>d.x===c.stamp.center[0])?.pressure)).toBe(true);
