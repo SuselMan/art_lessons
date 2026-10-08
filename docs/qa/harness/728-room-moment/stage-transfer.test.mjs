@@ -2,3 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {chunkPlan,CHUNK_CHARS} from './stage-transfer.mjs'
 test('bounded base64 chunks preserve Q8 binary and padding',()=>{for(const n of [0,1,3,65535,65536,368640,1048576]){const data=Buffer.alloc(n);for(let i=0;i<n;i++)data[i]=i%256;const text=data.toString('base64'),chunks=chunkPlan(text.length);assert.ok(chunks.every(c=>c.length<=CHUNK_CHARS));assert.deepEqual(Buffer.concat(chunks.map(c=>Buffer.from(text.slice(c.offset,c.offset+c.length),'base64'))),data)}for(const n of [-1,2*1024*1024+1,NaN])assert.throws(()=>chunkPlan(n))})
+test('durable binary transfer ACK releases strings; failed publication rejected',async()=>{
+ const fs=await import('node:fs'),os=await import('node:os'),path=await import('node:path'),crypto=await import('node:crypto'),{transferStages}=await import('./stage-transfer.mjs')
+ const data=Buffer.from([0,1,127,255]),stage=()=>({stage:'test',byteLength:data.length,sha:crypto.createHash('sha256').update(data).digest('hex'),base64:data.toString('base64')})
+ const make=()=>Array.from({length:3},()=>({published:true,stages:Array.from({length:8},stage)})),prior=globalThis.window,dir=fs.mkdtempSync(path.join(os.tmpdir(),'moment-stage-test-'))
+ try{globalThis.window={__momentStageResults:make()};const result=await transferStages(async(fn,arg)=>fn(arg),dir);assert.equal(result.byteLength,96);assert.deepEqual(fs.readFileSync(dir+'/stage-0-0.bin'),data);assert.ok(globalThis.window.__momentStageResults.every(r=>r.stages.every(s=>!('base64'in s))));globalThis.window.__momentStageResults=make();globalThis.window.__momentStageResults[0].published=false;await assert.rejects(()=>transferStages(async(fn,arg)=>fn(arg),dir),/Incomplete/)}finally{globalThis.window=prior;fs.rmSync(dir,{recursive:true,force:true})}
+})
