@@ -14,6 +14,23 @@ const presetName = 'normal:100:15:PB29:round'
 const dabs: Dab[] = [0, 1, 2].map(i => ({ x: 20 + i * 6, y: 32, pressure: 0.7, tiltX: 0, tiltY: 0, size: 12, aspectRatio: 1, angle: 0, opacity: 1, t: i * 20 }))
 
 describe('auxiliary water source execution', () => {
+  it('prepares recorded foreign-water auxiliaries and merges before the primary native source without GL writes',()=>{
+    const {engine}=createTestEngine({paper:'flat'},{width:64,height:64});engine.initLayer('source')
+    const probe=engine as unknown as Probe,painter=probe._ribbonPainter,ctx=(painter as unknown as {ctx:RibbonStrokePainterContext}).ctx
+    const target=probe._layers.get('source')!,scratch=new RibbonStrokeScratch(probe._ribbonScratchPool,true,true)
+    const preset=probe._resolvePreset('watercolor',presetName),profile=ribbonProfileFor('watercolor',presetName,1),events:string[]=[]
+    scratch.foreignSources=[{gesture:'recorded-water',footprints:[{x:20,y:32,radius:30,aspect:1,angle:0}],chunks:[{id:'water0',preset:'normal:0:100:PB29:round',color:[.2,0,.6],dabs,wet:'000',seed:[3,4]}]}]
+    ctx.nativeWatercolorRouting=()=>true
+    ctx.routePreparedWatercolorDelivery=request=>{if(request.auxiliary){expect(request.auxiliary.recipient).toBe(scratch);expect(request.input.waterOnly).toBe(true);events.push('aux')}else events.push('primary');return true}
+    ctx.importNativeForeignWater=(recipient,actualTarget,gesture)=>{expect(recipient).toBe(scratch);expect(actualTarget).toBe(target);expect(gesture).toBe('recorded-water');events.push('merge')}
+    const nib=vi.spyOn(ctx,'drawRibbonNibPass'),field=vi.spyOn(ctx,'fieldOp')
+    try{
+      for(const v of painter.paint(target,dabs,preset,presetName,profile,[.2,0,.6],scratch,undefined,'fff',[1,2]))void v
+      expect(events).toEqual(['aux','aux','aux','merge','primary','primary','primary'])
+      expect(scratch.foreignImportedGestures.has('recorded-water')).toBe(true);expect(nib).not.toHaveBeenCalled();expect(field).not.toHaveBeenCalled()
+    }finally{delete ctx.nativeWatercolorRouting;delete ctx.routePreparedWatercolorDelivery;delete ctx.importNativeForeignWater;nib.mockRestore();field.mockRestore();scratch.destroy();engine.destroy()}
+  })
+
   it('routes prepared native material once per canonical segment and preserves finish without GL deposits',()=>{
     const {engine}=createTestEngine({paper:'flat'},{width:64,height:64});engine.initLayer('source')
     const probe=engine as unknown as Probe,painter=probe._ribbonPainter,ctx=(painter as unknown as {ctx:RibbonStrokePainterContext}).ctx

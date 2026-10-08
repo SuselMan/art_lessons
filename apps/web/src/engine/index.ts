@@ -1940,6 +1940,7 @@ export class PencilEngine implements PencilEngineAPI {
     scratchPool: () => this._ribbonScratchPool,
     resolveWaterPreset: name => this._resolvePreset('watercolor', name),
     nativeWatercolorRouting:()=>this._wcNativeEnabled,
+    importNativeForeignWater:(recipient,target,gesture)=>{if(!this._wcNative)throw new Error('Native Room is not initialized');this._wcNative.importForeign(recipient,target,gesture)},
     routePreparedWatercolorDelivery:(request,target)=>{
       if(!this._wcNative)throw new Error('Native Room watercolor is not initialized; await paperReady')
       return this._wcNative.consume(request,target,request.scratch===this._ribbonStrokeScratch?'live':this._wcNativeReplayTargets.has(target)||[...this._rebuildJobs.values()].some(job=>job.fresh===target)?'rebuild':'append')

@@ -48,6 +48,7 @@ export type RibbonLiveComposite = {
  * Build commands immediately from this recipe; do not retain mutable scratch/dab maps.
  * Observing does not route source ownership or skip legacy GPU work. */
 export interface PreparedRibbonCpuDelivery {
+ auxiliary?:{recipient:RibbonStrokeScratch;gesture:string}
  input:Omit<CanonicalPreparedDeliveryInput,'tile'>
  targets:readonly PaintTarget[]|null
  scratch:RibbonStrokeScratch
@@ -60,6 +61,7 @@ export interface RibbonStrokePainterContext {
   /** DEV executor ownership, only canonical watercolor; default delegates to GL. */
   nativeWatercolorRouting?():boolean
   routePreparedWatercolorDelivery?(request:PreparedRibbonCpuDelivery,target:ILayerBuffer):boolean
+  importNativeForeignWater?(recipient:RibbonStrokeScratch,target:ILayerBuffer,gesture:string):void
   dabPool(): WeakMap<Dab, number>
   scratchPool(): RibbonScratchPool
   resolveWaterPreset(name: string): PencilPreset
@@ -150,6 +152,7 @@ export class RibbonStrokePainter {
   private *importForeignWater(target: ILayerBuffer, scratch: RibbonStrokeScratch, dabs: Dab[], preset: PencilPreset, wetProfile?: string, sources = scratch.foreignSources ?? [], forgetOnExit?: () => boolean): Generator<number, void, void> {
     const contacts = dabs.flatMap((d, i) => wetAt(wetProfile, i) > 0
       ? [{ x: d.x, y: d.y, radius: d.size * 0.5 * preset.sizeMultiplier, aspect: Math.max(1, d.aspectRatio), angle: d.angle }] : [])
+    const native=this.ctx.nativeWatercolorRouting?.()===true
     const pool = this.ctx.scratchPool()
     for (const source of selectedForeignWaterSources(sources, contacts)) {
       if (scratch.foreignImportedGestures.has(source.gesture) || !source.chunks?.length) continue
@@ -162,10 +165,12 @@ export class RibbonStrokePainter {
         // Preserve the engine's recorded chunk film transitions exactly.
         // MAX is within a film; newFilm adds the next chunk to its saved base.
         for (const chunk of unique) {
-          yield* this.paintWaterSource(target, chunk.dabs, sourcePreset, first.preset, sourceProfile, chunk.color, aux, undefined, chunk.wet, chunk.seed, false, 256)
+          if(native)yield* this.paint(target, chunk.dabs, sourcePreset, first.preset, sourceProfile, chunk.color, aux, undefined, chunk.wet, chunk.seed, false, 256,{waterOnly:true,segmented:false,auxiliary:{recipient:scratch,gesture:source.gesture}})
+          else yield* this.paintWaterSource(target, chunk.dabs, sourcePreset, first.preset, sourceProfile, chunk.color, aux, undefined, chunk.wet, chunk.seed, false, 256)
           aux.releaseFilm()
           aux.newFilm()
         }
+        if(native){if(!this.ctx.importNativeForeignWater)throw new Error('Native foreign-water merge owner missing');this.ctx.importNativeForeignWater(scratch,target,source.gesture)}
         for (const [tile, donor] of aux.tileEntries()) {
           const recipient = scratch.getOrCreate(tile), temp = pool.acquire(tile.width, tile.height)
           try {
@@ -216,7 +221,7 @@ export class RibbonStrokePainter {
     deferComposite = false,
     /** (§17.70) See _ribbonDabsWork. */
     pieceTris = 0,
-    mode: Readonly<{ waterOnly: boolean; segmented: boolean; sourceCopySlices?: boolean; deferMaterial?: (request: PreparedRibbonMaterial) => void }> = { waterOnly: false, segmented: false },
+    mode: Readonly<{ waterOnly: boolean; segmented: boolean; sourceCopySlices?: boolean; auxiliary?:{recipient:RibbonStrokeScratch;gesture:string}; deferMaterial?: (request: PreparedRibbonMaterial) => void }> = { waterOnly: false, segmented: false },
   ): Generator<number, void, void> {
     const sourceCopySlices = pieceTris > 0 && (mode.sourceCopySlices ?? this.diagnosticSourceCopySlices)
     if (mode.deferMaterial) {
@@ -275,7 +280,7 @@ export class RibbonStrokePainter {
     }
     const importForeign = segmentMode && this.diagnosticForeignSolvent && this.diagnosticSolventField && !mode.waterOnly
     const nativeRoute=profile.normalizeDeposit&&this.ctx.nativeWatercolorRouting?.()===true
-    if (importForeign && !mode.deferMaterial && !nativeRoute) {
+    if (importForeign && !mode.deferMaterial) {
       yield* this.importForeignWater(target, scratch, dabs, preset, wetProfile)
     }
     if (segmentMode && this.diagnosticSharedFluid) profile = { ...profile, diagnosticReadFluid: true }
@@ -519,7 +524,7 @@ export class RibbonStrokePainter {
     const { deposits, waterByDab, pigmentByDab, acrossByDab, movingByDab,
       paperWetByDab, pigmentPoolByDab, excessByDab, puddleByDab, thinNibGain } = delivery
     if ((this.ctx.onPreparedWatercolorDelivery||this.ctx.routePreparedWatercolorDelivery) && profile.normalizeDeposit && !profile.stampFlow && !profile.brushStamp && profile.coverageInkMode === 6) {
-      const prepared:PreparedRibbonCpuDelivery={
+      const prepared:PreparedRibbonCpuDelivery={auxiliary:mode.auxiliary,
         input:{preset,presetName,profile,color,wetProfile,strokeSeed,film,segmentMode,segmented:mode.segmented,waterOnly:mode.waterOnly,
           drawable,previous:prevDab,wetOf,delivery,scalars:gestureScalars,
           materialEnabled:mode.deferMaterial?Number.isFinite(reachRect.minX):!!targets?.length,

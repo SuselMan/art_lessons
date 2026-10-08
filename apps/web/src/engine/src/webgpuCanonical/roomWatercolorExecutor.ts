@@ -63,6 +63,7 @@ export class CanonicalRoomWatercolorExecutor {
  private readonly finish:CanonicalSingleTileFinish
  private readonly planner:CanonicalWatercolorSettlePlan<CanonicalFieldBuffer,import('./settlePlanAdapter').CanonicalUploadSlot>
  private readonly accepted=new Set<string>()
+ private readonly foreignAux=new Map<string,{scratch:CanonicalTileScratch;source:CanonicalSourcePhaseExecutor}>()
  private retired=false
  private retirement:Promise<void>|null=null
  private readonly ready:Promise<void>
@@ -85,7 +86,6 @@ export class CanonicalRoomWatercolorExecutor {
   this.assertLive()
   if(!this.central.isIdle)throw new Error('Central Room owner must drain before source material mutation')
   assertRoomNativeChunkIdentity(chunk,this.layerId,this.generation)
-  if(chunk.metadata.foreignSources?.length)throw new Error('DEV Room native external wash import is not wired; no silent mixed backend')
   if(chunk.metadata.gesture< this.scratch.gesture)throw new Error('Native Room material chronology moved backwards')
   const key=`${chunk.strokeId}:${chunk.ordinal}`
   if(this.accepted.has(key))throw new Error('Prepared CPU delivery was routed twice in this generation')
@@ -99,6 +99,20 @@ export class CanonicalRoomWatercolorExecutor {
   this.adapter.runQuantum(ctx=>this.adapter.retain(this.source.execute(ctx.encoder,chunk.segment,chunk.materialGesture)))
   this.adapter.runQuantum(ctx=>this.adapter.retain(this.finish.encodeLive(ctx.encoder,chunk.live)))
   this.accepted.add(key)
+ }
+ emitForeignSegment(gesture:string,segment:PreparedSourceSegment,filmGesture:number):void {
+  this.assertLive()
+  let auxiliary=this.foreignAux.get(gesture)
+  if(!auxiliary){const scratch=new CanonicalTileScratch(this.pool,false,false);const source=new CanonicalSourcePhaseExecutor(this.backend,scratch,[this.target],{fieldOp:(out,a,b,mode,k,scissor)=>this.adapter.fieldOp(out,a,b,mode,k,{scissor:scissor?[...scissor]:undefined})});auxiliary={scratch,source};this.foreignAux.set(gesture,auxiliary)}
+  const source=auxiliary.source
+  this.adapter.runQuantum(ctx=>this.adapter.retain(source.execute(ctx.encoder,segment,filmGesture)))
+ }
+ importForeign(gesture:string):void {
+  this.assertLive()
+  const auxiliary=this.foreignAux.get(gesture)
+  if(!auxiliary)return // Canonical source was wholly outside this bounded tile.
+  this.adapter.runQuantum(()=>{const donor=auxiliary.scratch.peek(this.target.buffer);if(donor)this.source.importForeign(gesture,donor);auxiliary.scratch.destroy()})
+  this.foreignAux.delete(gesture)
  }
  prepareSettle(input:RoomNativeSettleInput):RoomNativeMaterialJob|null {
   this.assertLive()
@@ -138,6 +152,7 @@ export class CanonicalRoomWatercolorExecutor {
  }
  private async release(reason:Parameters<RoomNativeCentralOwner['cancel']>[0],cancelCentral:boolean) {
   if(cancelCentral)await this.central.cancel(reason);await this.backend.whenIdle()
+  for(const auxiliary of this.foreignAux.values())auxiliary.scratch.destroy();this.foreignAux.clear()
   this.adapter.disposeCarryOracle();this.planner.destroyTextures();this.scratch.tiles.destroy();this.target.buffer.destroy();this.fields.destroy();this.pool.destroy();this.bridge.destroy()
  }
  private assertLive(){if(this.retired)throw new Error('Native Room tile generation retired')}

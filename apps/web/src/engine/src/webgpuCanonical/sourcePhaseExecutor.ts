@@ -22,14 +22,14 @@ export class CanonicalSourcePhaseExecutor {
  readonly tile:CanonicalLayerTile
  private readonly backend:CanonicalWatercolorWebGpu
  private readonly passes:CanonicalSourcePassOwner
- private readonly imported=new Set<number>()
+ private readonly imported=new Set<number|string>()
  constructor(backend:CanonicalWatercolorWebGpu,scratch:CanonicalTileScratch,tiles:readonly CanonicalLayerTile[],passes:CanonicalSourcePassOwner){
   if(tiles.length!==1)throw new Error('Native source executor supports exactly one bounded tile; multi-tile delivery is not implemented')
   if(tiles[0].buffer.owner!==backend||scratch.pool.owner!==backend)throw new Error('Native source executor owner mismatch')
   this.backend=backend;this.scratch=scratch;this.tile=tiles[0];this.passes=passes
  }
  /** Donor must have been replayed from unique recorded foreign chunks through the same source protocol. */
- importForeign(gesture:number,donor:{coverage:CanonicalFieldBuffer;solventLoad?:CanonicalFieldBuffer|null}):void {
+ importForeign(gesture:number|string,donor:{coverage:CanonicalFieldBuffer;solventLoad?:CanonicalFieldBuffer|null}):void {
   if(this.imported.has(gesture))return
   const tile=this.tile.buffer,e=this.scratch.getOrCreate(tile)
   if(donor.coverage.width!==tile.width||donor.coverage.height!==tile.height||donor.coverage.owner!==this.backend)throw new Error('Foreign donor tile mismatch')
