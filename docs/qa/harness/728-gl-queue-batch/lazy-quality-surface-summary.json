@@ -1,0 +1,422 @@
+{
+  "scope": "Separate actual Engine fixed400 water\u2192pigment, queue/mixed/deferred ON; readback only after natural completion; ONE OFF/ON. No Room persistence proof.",
+  "valid": true,
+  "exact": true,
+  "minimumFreeMiB": 1222,
+  "rows": [
+    {
+      "lazy": false,
+      "counts": {
+        "enabled": false,
+        "prepares": 5,
+        "captured": 2,
+        "fallback": 3,
+        "travel": [
+          14,
+          12
+        ]
+      },
+      "fields": [
+        {
+          "label": "tile0:original",
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "nonzero": 0
+        },
+        {
+          "label": "tile0:coverage",
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "sha": "083934833a61732d8faf1a250d7918d8b6a5cfb949bf08ef477f64da0840233c",
+          "nonzero": 922719
+        },
+        {
+          "label": "tile0:inkLoad",
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "sha": "b5fb983c5b81bd05eb96a3f6372c13060c9f919c20034bc64e0f7120e09f80bf",
+          "nonzero": 1041256
+        },
+        {
+          "label": "tile0:inkColor",
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "sha": "0511382db31fe0218cb8e99f51a902a238cffd09fb85172ef96cfd738f74711f",
+          "nonzero": 1025347
+        },
+        {
+          "label": "tile0:inkDry",
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "sha": "9f8d9e5091b51370f27023c0fad8b1d4030eedceaa19f228730b8437f355ba0b",
+          "nonzero": 1041256
+        },
+        {
+          "label": "tile0:colorDry",
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "sha": "f0e3b05cb9638a37c456be37e20aa7c3570210a2dc62ecf654805a6a1783100c",
+          "nonzero": 1025347
+        },
+        {
+          "label": "tile0:solventLoad",
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "sha": "f16e0c46a8ff58f51a305b414b241c1a239fea145cfb4cf7150b9911fd378a14",
+          "nonzero": 560962
+        },
+        {
+          "label": "tile0:solventBase",
+          "absent": true
+        },
+        {
+          "label": "tile0:inkBase",
+          "absent": true
+        },
+        {
+          "label": "tile0:colorBase",
+          "absent": true
+        },
+        {
+          "label": "tile0:strokeInk",
+          "absent": true
+        },
+        {
+          "label": "tile0:strokeColor",
+          "absent": true
+        },
+        {
+          "label": "tile0:inkSettled",
+          "absent": true
+        },
+        {
+          "label": "tile0:colorSettled",
+          "absent": true
+        },
+        {
+          "label": "field0:a",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "09ff57dcdcfc74b02050660ef084f8f97e12f621dcd03dde526e81ea67922785",
+          "nonzero": 1041256
+        },
+        {
+          "label": "field0:b",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "608dbbe9646b0bc037446aae6b34f15345dcb0db8679eb558f3a3e07173149b0",
+          "nonzero": 565416
+        },
+        {
+          "label": "field0:c",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "bab70af0af8e3c40ea43193178b2a7bce767ba104f83bb4e47eedce17e0ab867",
+          "nonzero": 1041256
+        },
+        {
+          "label": "field0:ca",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "acd507dfb489f45cdb159107413fa50472d1764ea929297b0ec569a2858573c9",
+          "nonzero": 1025347
+        },
+        {
+          "label": "field0:cb",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "f4d419660b83e9398309fe6841079237ac6f4ab35ef0a58c4da9b02e872eb3fc",
+          "nonzero": 736876
+        },
+        {
+          "label": "field0:cc",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "59aea7c9347645f535ac4588d4c91549a26a9bee0569639238654c64a9c63fcf",
+          "nonzero": 1025347
+        },
+        {
+          "label": "field0:coverage",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "cb27ee22da819545503da016133679c46ed1b9ff142e5ff2c6190b98067649e0",
+          "nonzero": 922719
+        },
+        {
+          "label": "field0:mask",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "ac1f5c5aaf079c3d79ea34f14c09b6f73de2e1f0cd99adfe85bea8d5ff2c8836",
+          "nonzero": 935019
+        },
+        {
+          "label": "field0:pressure",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "f4d419660b83e9398309fe6841079237ac6f4ab35ef0a58c4da9b02e872eb3fc",
+          "nonzero": 736876
+        },
+        {
+          "label": "field0:band",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "00c58a8f66759bff344a8f19f5928b089696cc0603c47d400f39f5a62eb582ae",
+          "nonzero": 938106
+        }
+      ],
+      "whole": {
+        "sha": "808dc830cb4aa8c968b14d68adb38714103aeb1a1d57246541bcfb831f243fd8",
+        "alpha": 260307,
+        "width": 1024,
+        "height": 1024
+      },
+      "materialSHA": "50ad0f204b84b1ced4dafad145cf3dcef8898508b6712d71e8210bcdfca139a5",
+      "history": {
+        "undoMeaningful": true,
+        "redoExact": true
+      },
+      "gl": 0,
+      "model": {
+        "deferred": true,
+        "joined": true,
+        "mixed": true,
+        "async": false,
+        "material": false,
+        "rebase": true,
+        "split": false
+      },
+      "timing": {
+        "note": "CPU rAF callback wall intervals; not guaranteed display pixels",
+        "settleDurationMs": 2910.399999976158,
+        "maxRafMs": 104.80000001192093,
+        "over33": 12,
+        "over100": 1
+      }
+    },
+    {
+      "lazy": true,
+      "counts": {
+        "enabled": true,
+        "prepares": 5,
+        "captured": 2,
+        "fallback": 3,
+        "travel": [
+          14,
+          12
+        ]
+      },
+      "fields": [
+        {
+          "label": "tile0:original",
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "nonzero": 0
+        },
+        {
+          "label": "tile0:coverage",
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "sha": "083934833a61732d8faf1a250d7918d8b6a5cfb949bf08ef477f64da0840233c",
+          "nonzero": 922719
+        },
+        {
+          "label": "tile0:inkLoad",
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "sha": "b5fb983c5b81bd05eb96a3f6372c13060c9f919c20034bc64e0f7120e09f80bf",
+          "nonzero": 1041256
+        },
+        {
+          "label": "tile0:inkColor",
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "sha": "0511382db31fe0218cb8e99f51a902a238cffd09fb85172ef96cfd738f74711f",
+          "nonzero": 1025347
+        },
+        {
+          "label": "tile0:inkDry",
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "sha": "9f8d9e5091b51370f27023c0fad8b1d4030eedceaa19f228730b8437f355ba0b",
+          "nonzero": 1041256
+        },
+        {
+          "label": "tile0:colorDry",
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "sha": "f0e3b05cb9638a37c456be37e20aa7c3570210a2dc62ecf654805a6a1783100c",
+          "nonzero": 1025347
+        },
+        {
+          "label": "tile0:solventLoad",
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "sha": "f16e0c46a8ff58f51a305b414b241c1a239fea145cfb4cf7150b9911fd378a14",
+          "nonzero": 560962
+        },
+        {
+          "label": "tile0:solventBase",
+          "absent": true
+        },
+        {
+          "label": "tile0:inkBase",
+          "absent": true
+        },
+        {
+          "label": "tile0:colorBase",
+          "absent": true
+        },
+        {
+          "label": "tile0:strokeInk",
+          "absent": true
+        },
+        {
+          "label": "tile0:strokeColor",
+          "absent": true
+        },
+        {
+          "label": "tile0:inkSettled",
+          "absent": true
+        },
+        {
+          "label": "tile0:colorSettled",
+          "absent": true
+        },
+        {
+          "label": "field0:a",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "09ff57dcdcfc74b02050660ef084f8f97e12f621dcd03dde526e81ea67922785",
+          "nonzero": 1041256
+        },
+        {
+          "label": "field0:b",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "608dbbe9646b0bc037446aae6b34f15345dcb0db8679eb558f3a3e07173149b0",
+          "nonzero": 565416
+        },
+        {
+          "label": "field0:c",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "bab70af0af8e3c40ea43193178b2a7bce767ba104f83bb4e47eedce17e0ab867",
+          "nonzero": 1041256
+        },
+        {
+          "label": "field0:ca",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "acd507dfb489f45cdb159107413fa50472d1764ea929297b0ec569a2858573c9",
+          "nonzero": 1025347
+        },
+        {
+          "label": "field0:cb",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "f4d419660b83e9398309fe6841079237ac6f4ab35ef0a58c4da9b02e872eb3fc",
+          "nonzero": 736876
+        },
+        {
+          "label": "field0:cc",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "59aea7c9347645f535ac4588d4c91549a26a9bee0569639238654c64a9c63fcf",
+          "nonzero": 1025347
+        },
+        {
+          "label": "field0:coverage",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "cb27ee22da819545503da016133679c46ed1b9ff142e5ff2c6190b98067649e0",
+          "nonzero": 922719
+        },
+        {
+          "label": "field0:mask",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "ac1f5c5aaf079c3d79ea34f14c09b6f73de2e1f0cd99adfe85bea8d5ff2c8836",
+          "nonzero": 935019
+        },
+        {
+          "label": "field0:pressure",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "f4d419660b83e9398309fe6841079237ac6f4ab35ef0a58c4da9b02e872eb3fc",
+          "nonzero": 736876
+        },
+        {
+          "label": "field0:band",
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "sha": "00c58a8f66759bff344a8f19f5928b089696cc0603c47d400f39f5a62eb582ae",
+          "nonzero": 938106
+        }
+      ],
+      "whole": {
+        "sha": "808dc830cb4aa8c968b14d68adb38714103aeb1a1d57246541bcfb831f243fd8",
+        "alpha": 260307,
+        "width": 1024,
+        "height": 1024
+      },
+      "materialSHA": "50ad0f204b84b1ced4dafad145cf3dcef8898508b6712d71e8210bcdfca139a5",
+      "history": {
+        "undoMeaningful": true,
+        "redoExact": true
+      },
+      "gl": 0,
+      "model": {
+        "deferred": true,
+        "joined": true,
+        "mixed": true,
+        "async": false,
+        "material": false,
+        "rebase": true,
+        "split": false
+      },
+      "timing": {
+        "note": "CPU rAF callback wall intervals; not guaranteed display pixels",
+        "settleDurationMs": 3033.599999964237,
+        "maxRafMs": 117.69999998807907,
+        "over33": 10,
+        "over100": 2
+      }
+    }
+  ]
+}
