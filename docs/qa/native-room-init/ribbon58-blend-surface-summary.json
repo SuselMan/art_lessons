@@ -1,0 +1,677 @@
+{
+  "source": "90456c31ab44aa20de3e0a9aec4ccbed030bc26a",
+  "bundleSha256": "ddd2613203864cfc09e151fc4f33948ac8b0385f7bdfa85ef4784c05f54d9594",
+  "minAvailableMiB": 1594.6,
+  "valid": true,
+  "errors": [],
+  "rows": [
+    {
+      "index": 44,
+      "dither": true,
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            9,
+            9
+          ],
+          "gl": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "previousGl": [
+            0,
+            0,
+            6,
+            6
+          ]
+        }
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 4,
+        "max": 1,
+        "mean": 9.5367431640625e-07,
+        "exact": false
+      },
+      "ribbonDiagnostics": {
+        "rows": [
+          {
+            "triangle": 58,
+            "group": 0,
+            "quantity": "amplifiedAcross",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.0883788519131453,
+                "gl": 0.08875269226745917,
+                "nativeBytes": [
+                  22,
+                  159,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  22,
+                  184,
+                  127,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 1,
+            "quantity": "edge/3",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 1,
+                "gl": 1,
+                "nativeBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 2,
+            "quantity": "tip",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.001959025976599811,
+                "gl": 0.0019673110227174176,
+                "nativeBytes": [
+                  0,
+                  128,
+                  99,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  128,
+                  238,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 3,
+            "quantity": "amount",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.001959025976599811,
+                "gl": 0.0019673110227174176,
+                "nativeBytes": [
+                  0,
+                  128,
+                  99,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  128,
+                  238,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 4,
+            "quantity": "rawAcrossEncoded",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.23167438695874137,
+                "gl": 0.23167438695874137,
+                "nativeBytes": [
+                  59,
+                  79,
+                  3,
+                  255
+                ],
+                "glBytes": [
+                  59,
+                  79,
+                  3,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 5,
+            "quantity": "hair",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.32103105312770924,
+                "gl": 0.3210332584996974,
+                "nativeBytes": [
+                  82,
+                  47,
+                  23,
+                  255
+                ],
+                "glBytes": [
+                  82,
+                  47,
+                  60,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 6,
+            "quantity": "openingNoise",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.7807788122164495,
+                "gl": 0.780780361937306,
+                "nativeBytes": [
+                  199,
+                  225,
+                  30,
+                  255
+                ],
+                "glBytes": [
+                  199,
+                  225,
+                  56,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 7,
+            "quantity": "hairDrift",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.5317890961044488,
+                "gl": 0.5317889172905038,
+                "nativeBytes": [
+                  136,
+                  35,
+                  84,
+                  255
+                ],
+                "glBytes": [
+                  136,
+                  35,
+                  81,
+                  255
+                ]
+              }
+            ]
+          }
+        ],
+        "blendAudit": {
+          "rows": [
+            {
+              "value": 0.0019590260926634073,
+              "native": [
+                0,
+                0,
+                6,
+                6
+              ],
+              "gl": [
+                0,
+                0,
+                6,
+                6
+              ],
+              "idealUnquantized": 6.487797497073188,
+              "sourceByte": 0
+            },
+            {
+              "value": 0.0019673111382871866,
+              "native": [
+                0,
+                0,
+                7,
+                7
+              ],
+              "gl": [
+                0,
+                0,
+                7,
+                7
+              ],
+              "idealUnquantized": 6.4898604734335095,
+              "sourceByte": 1
+            },
+            {
+              "value": 0.0019607844296842813,
+              "native": [
+                0,
+                0,
+                6,
+                6
+              ],
+              "gl": [
+                0,
+                0,
+                6,
+                6
+              ],
+              "idealUnquantized": 6.488235322991386,
+              "sourceByte": 1
+            },
+            {
+              "value": 0.0019000000320374966,
+              "native": [
+                0,
+                0,
+                6,
+                6
+              ],
+              "gl": [
+                0,
+                0,
+                6,
+                6
+              ],
+              "idealUnquantized": 6.473100007977337,
+              "sourceByte": 0
+            },
+            {
+              "value": 0.002099999925121665,
+              "native": [
+                0,
+                0,
+                7,
+                7
+              ],
+              "gl": [
+                0,
+                0,
+                7,
+                7
+              ],
+              "idealUnquantized": 6.522899981355295,
+              "sourceByte": 1
+            }
+          ],
+          "scope": "One1px RGBA8 OVER, identical F32 source uniform and initial[0,0,6,6], DITHERdisabled, no watercolor. Boundary-only driver behavior, not generalized model parity."
+        },
+        "scope": "Single actual triangles; unchanged inputs/functions/varyings; diagnostic24-bit RGB quantization, alpha1 replacement, not exact float readback or production blend"
+      },
+      "validation": null
+    },
+    {
+      "index": 44,
+      "dither": false,
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            9,
+            9
+          ],
+          "gl": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "previousGl": [
+            0,
+            0,
+            6,
+            6
+          ]
+        }
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 4,
+        "max": 1,
+        "mean": 9.5367431640625e-07,
+        "exact": false
+      },
+      "ribbonDiagnostics": {
+        "rows": [
+          {
+            "triangle": 58,
+            "group": 0,
+            "quantity": "amplifiedAcross",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.0883788519131453,
+                "gl": 0.08875269226745917,
+                "nativeBytes": [
+                  22,
+                  159,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  22,
+                  184,
+                  127,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 1,
+            "quantity": "edge/3",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 1,
+                "gl": 1,
+                "nativeBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 2,
+            "quantity": "tip",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.001959025976599811,
+                "gl": 0.0019673110227174176,
+                "nativeBytes": [
+                  0,
+                  128,
+                  99,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  128,
+                  238,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 3,
+            "quantity": "amount",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.001959025976599811,
+                "gl": 0.0019673110227174176,
+                "nativeBytes": [
+                  0,
+                  128,
+                  99,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  128,
+                  238,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 4,
+            "quantity": "rawAcrossEncoded",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.23167438695874137,
+                "gl": 0.23167438695874137,
+                "nativeBytes": [
+                  59,
+                  79,
+                  3,
+                  255
+                ],
+                "glBytes": [
+                  59,
+                  79,
+                  3,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 5,
+            "quantity": "hair",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.32103105312770924,
+                "gl": 0.3210332584996974,
+                "nativeBytes": [
+                  82,
+                  47,
+                  23,
+                  255
+                ],
+                "glBytes": [
+                  82,
+                  47,
+                  60,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 6,
+            "quantity": "openingNoise",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.7807788122164495,
+                "gl": 0.780780361937306,
+                "nativeBytes": [
+                  199,
+                  225,
+                  30,
+                  255
+                ],
+                "glBytes": [
+                  199,
+                  225,
+                  56,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 7,
+            "quantity": "hairDrift",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.5317890961044488,
+                "gl": 0.5317889172905038,
+                "nativeBytes": [
+                  136,
+                  35,
+                  84,
+                  255
+                ],
+                "glBytes": [
+                  136,
+                  35,
+                  81,
+                  255
+                ]
+              }
+            ]
+          }
+        ],
+        "blendAudit": {
+          "rows": [
+            {
+              "value": 0.0019590260926634073,
+              "native": [
+                0,
+                0,
+                6,
+                6
+              ],
+              "gl": [
+                0,
+                0,
+                6,
+                6
+              ],
+              "idealUnquantized": 6.487797497073188,
+              "sourceByte": 0
+            },
+            {
+              "value": 0.0019673111382871866,
+              "native": [
+                0,
+                0,
+                7,
+                7
+              ],
+              "gl": [
+                0,
+                0,
+                7,
+                7
+              ],
+              "idealUnquantized": 6.4898604734335095,
+              "sourceByte": 1
+            },
+            {
+              "value": 0.0019607844296842813,
+              "native": [
+                0,
+                0,
+                6,
+                6
+              ],
+              "gl": [
+                0,
+                0,
+                6,
+                6
+              ],
+              "idealUnquantized": 6.488235322991386,
+              "sourceByte": 1
+            },
+            {
+              "value": 0.0019000000320374966,
+              "native": [
+                0,
+                0,
+                6,
+                6
+              ],
+              "gl": [
+                0,
+                0,
+                6,
+                6
+              ],
+              "idealUnquantized": 6.473100007977337,
+              "sourceByte": 0
+            },
+            {
+              "value": 0.002099999925121665,
+              "native": [
+                0,
+                0,
+                7,
+                7
+              ],
+              "gl": [
+                0,
+                0,
+                7,
+                7
+              ],
+              "idealUnquantized": 6.522899981355295,
+              "sourceByte": 1
+            }
+          ],
+          "scope": "One1px RGBA8 OVER, identical F32 source uniform and initial[0,0,6,6], DITHERdisabled, no watercolor. Boundary-only driver behavior, not generalized model parity."
+        },
+        "scope": "Single actual triangles; unchanged inputs/functions/varyings; diagnostic24-bit RGB quantization, alpha1 replacement, not exact float readback or production blend"
+      },
+      "validation": null
+    }
+  ]
+}
