@@ -1,3 +1,4 @@
+import {installNativeTipA,type NativeTipQaProof} from '../experiments/nativeTipContactQa'
 import {prepareMomentSegment,type MomentContactState} from '../experiments/wetBrushMomentRecipe'
 import {expandCanonicalPaperLa} from './paperExpansion'
 import type {PaperType} from '@grafetto/shared'
@@ -15,6 +16,7 @@ import {RoomNativeCentralAdapter} from './roomNativeCentralAdapter'
 import {canonicalSourceRevealRect} from './strokeScratchMetadata'
 
 export interface RoomNativeRuntimeContext {
+ diagnosticTipContactA?:boolean
  diagnosticMomentTransport?:boolean
  diagnosticMomentGpuAudit?:boolean
  diagnosticMomentVector?:boolean
@@ -28,6 +30,7 @@ export interface RoomNativeRuntimeContext {
 /** GPU executor extension of the existing PencilEngine. No extra input,
  * PaperWetness, socket callbacks or operation journal. */
 export class RoomNativeRuntime {
+ readonly tipContactQa:NativeTipQaProof
  private readonly backend:CanonicalWatercolorWebGpu
  private readonly ctx:RoomNativeRuntimeContext
  private readonly central:RoomNativeCentralAdapter
@@ -43,7 +46,7 @@ export class RoomNativeRuntime {
  private queued=false
  private finishScalars:PreparedRibbonCpuDelivery['input']['scalars']|null=null
  private retirements:Promise<void>[]=[]
- private constructor(backend:CanonicalWatercolorWebGpu,ctx:RoomNativeRuntimeContext){this.backend=backend;this.ctx=ctx;this.central=new RoomNativeCentralAdapter(ctx.fifo,ctx.changed)}
+ private constructor(backend:CanonicalWatercolorWebGpu,ctx:RoomNativeRuntimeContext){this.backend=backend;this.ctx=ctx;this.tipContactQa=installNativeTipA(backend,ctx.diagnosticTipContactA===true);this.central=new RoomNativeCentralAdapter(ctx.fifo,ctx.changed)}
  static async create(ctx:RoomNativeRuntimeContext){
   console.info('[native-room-init]','paper:load-start')
   const la=await getPaperBytes(ctx.paper),resolution=Math.sqrt(la.length/2)
@@ -52,7 +55,7 @@ export class RoomNativeRuntime {
   console.info('[native-room-init]','paper:expand-done',bytes.length)
   const canvas=document.createElement('canvas')
   const backend=await CanonicalWatercolorWebGpu.create({canvas,roomOwnedResources:true,onInitStage:stage=>console.info('[native-room-init]',stage),width:1024,height:1024,paper:{bytes,width:resolution,height:resolution,origin:[0,0],texSize:[ctx.paperWorld.w,ctx.paperWorld.h],scale:ctx.paperScale}})
-  return new RoomNativeRuntime(backend,ctx)
+  try{return new RoomNativeRuntime(backend,ctx)}catch(error){backend.destroy();throw error}
  }
  consume(request:PreparedRibbonCpuDelivery,target:ILayerBuffer,path:'live'|'append'|'rebuild'):boolean {
   if(this.retired)throw new Error('Native Room runtime retired')

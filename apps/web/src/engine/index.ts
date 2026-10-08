@@ -269,6 +269,8 @@ export interface PencilEngineOptions {
   diagnosticMomentTransport?: boolean
   diagnosticMomentGpuAudit?: boolean
   diagnosticMomentVector?: boolean
+  /** DEV-only native source rare-gap variant A, default literal. */
+  diagnosticTipContactA?: boolean
   asyncFinish?: boolean
   /** (#728) Build the three physical ribbon band arrays in one geometry walk. */
   bandBatch?: boolean
@@ -1857,6 +1859,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _wcMomentTransportEnabled=false
   private _wcMomentGpuAuditEnabled=false
   private _wcMomentVectorEnabled=false
+  private _wcTipContactAEnabled=false
   private _wcNative:RoomNativeRuntime|null=null
   private _wcNativeReady:Promise<void>|null=null
   private _wcNativeInitEpoch=0
@@ -2274,6 +2277,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._wcJoinedFinishDeferred = options.joinedFinishDeferred ?? false
     this._wcJoinedTouchMixed = options.joinedTouchMixed ?? false
     this._wcNativeEnabled=import.meta.env.DEV&&options.nativeWatercolor===true
+    this._wcTipContactAEnabled=import.meta.env.DEV&&options.diagnosticTipContactA===true
+    if(this._wcTipContactAEnabled&&!this._wcNativeEnabled)throw Error('DEV tipA requires nativeWatercolor')
     this._wcMomentTransportEnabled=import.meta.env.DEV&&options.diagnosticMomentTransport===true
     this._wcMomentVectorEnabled=import.meta.env.DEV&&options.diagnosticMomentVector===true
     if(this._wcMomentVectorEnabled&&!options.diagnosticMomentGpuAudit)throw Error('DEV moment vector requires GPU audit')
@@ -2711,7 +2716,7 @@ export class PencilEngine implements PencilEngineAPI {
     const epoch=this._wcNativeInitEpoch
     if(!this._wcNativeReady)this._wcNativeReady=this._paper.ready().then(async()=>{
       const {RoomNativeRuntime}=await import('./src/webgpuCanonical/roomNativeRuntime')
-      const runtime=await RoomNativeRuntime.create({diagnosticMomentVector:this._wcMomentVectorEnabled,diagnosticMomentGpuAudit:this._wcMomentGpuAuditEnabled,diagnosticMomentTransport:this._wcMomentTransportEnabled,fifo:this._wcCanonical,paper:this._paper.type,paperScale:this._paper.scale,paperWorld:this._paper.worldSize(),board:this._pageSize(),
+      const runtime=await RoomNativeRuntime.create({diagnosticTipContactA:this._wcTipContactAEnabled,diagnosticMomentVector:this._wcMomentVectorEnabled,diagnosticMomentGpuAudit:this._wcMomentGpuAuditEnabled,diagnosticMomentTransport:this._wcMomentTransportEnabled,fifo:this._wcCanonical,paper:this._paper.type,paperScale:this._paper.scale,paperWorld:this._paper.worldSize(),board:this._pageSize(),
         resolve:(target,bounds)=>this._resolveWithinSheet(target,this._wcSheetClamp(bounds)),layerId:target=>[...this._layers].find(([,buffer])=>buffer===target)?.[0]??[...this._rebuildJobs].find(([,job])=>job.fresh===target)?.[0]??this._wcNativeReplayTargets.get(target),changed:()=>this._scheduleDisplay(),failed:error=>{this._wcAsyncError=error}})
       if(this._destroyed||epoch!==this._wcNativeInitEpoch){await runtime.retire('unmount');return}
       this._wcNative=runtime
