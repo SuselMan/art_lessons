@@ -1,0 +1,323 @@
+{
+  "code": "c65c9834c45f6087ad7f65be5a107b4aded909a2",
+  "bundleSha256": "a10f3a90782f9a00e8e40f7e8a9808680af52d1f5120c32faa2e0621f03b6cfd",
+  "raw": "temp/device-runs/common-carry-pressure-c65/report.json",
+  "sourcePacketSha256": "1cf7698e3d2fa6a713a00dad8d2e7f0d05dbb7f74139c91096e366d74560e76f",
+  "producerCode": "5f2e8ddd7fea6ab096beb5322070c11100da69cf",
+  "operationSha256": "9f2b887738937d3c4cd440bfa7404c3620d2ba359cb11c1c0c167260ac03d411",
+  "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+  "actualSurface": true,
+  "valid": true,
+  "samplingCalls": {
+    "mode15": 14,
+    "mode16": 0,
+    "other": 270
+  },
+  "off": {
+    "raw": "temp/device-runs/common-partition-5f2/common/report.json",
+    "materialSha256": "ba981eac8bae86e355968895965397fc154aebeeff52baaffc443e2d00451ec4",
+    "comparison": {
+      "key": "material",
+      "w": 1024,
+      "h": 1024,
+      "comparedBytes": 4194304,
+      "changed": 49052,
+      "max": 36,
+      "mean": 0.01647663116455078,
+      "exact": false
+    }
+  },
+  "pressureOnly": {
+    "materialSha256": "4b7b57877609fd9575ed4103cd6644f109089765508c2ecd1ad53b29a53c29ef",
+    "comparison": {
+      "key": "material",
+      "w": 1024,
+      "h": 1024,
+      "comparedBytes": 4194304,
+      "changed": 42686,
+      "max": 36,
+      "mean": 0.014475822448730469,
+      "exact": false
+    }
+  },
+  "changedCountReductionPercent": 12.97806409524586,
+  "meanReductionPercent": 12.143311917578282,
+  "maxStill36": true,
+  "fields": [
+    {
+      "role": "a",
+      "dimensions": [
+        1536,
+        1536
+      ],
+      "filter": "nearest",
+      "glSha256": "98d12762caf119895915c3bf96c0031c27c4c257d1fbd2a4c846b424960c0b9d",
+      "offSha256": "ac261830f5216d4a0008ed6f4688e7436e08113a7c58fa3a0aa027abf7bf1112",
+      "pressureOnlySha256": "146914ce36963704dc694ed9689633fbba960e564af41a07c4baf2b69a86f671",
+      "exactVsGl": false,
+      "unchangedVsOff": false
+    },
+    {
+      "role": "b",
+      "dimensions": [
+        1536,
+        1536
+      ],
+      "filter": "nearest",
+      "glSha256": "eae79db22a324505fa52f750d1002346fcba56bc6c33a3730f87c285c0ea25a2",
+      "offSha256": "88a30266dc76d0cc34f8d81a7ef2cc02010a80ca15371a1c76598ea9f022ee39",
+      "pressureOnlySha256": "106a73f5849e4dc27fc52dfb4c772ebc821eb2f5061c9544c2aedecdfff8386e",
+      "exactVsGl": false,
+      "unchangedVsOff": false
+    },
+    {
+      "role": "c",
+      "dimensions": [
+        1536,
+        1536
+      ],
+      "filter": "nearest",
+      "glSha256": "1242b3994a65590dbb56d0dabec806fa9cca52814bdd941a6ebc5ce705cdafcc",
+      "offSha256": "572b46ee5fd1fc1a82532215c47094a8a08c2ab6294b6b514fa03a679b38ca64",
+      "pressureOnlySha256": "007c4858b9f6dcbd291b8ef203d238a5c6fec41e5a4d8c69783941b3e98ead42",
+      "exactVsGl": false,
+      "unchangedVsOff": false
+    },
+    {
+      "role": "ca",
+      "dimensions": [
+        1536,
+        1536
+      ],
+      "filter": "nearest",
+      "glSha256": "e6eb2f8887780f31a87ebe08028bce89928f678fef5a0f801b64ccc1cdd6a779",
+      "offSha256": "8355ba8e9c26a0aedea69b9deba63ab55ceb0a9b4d4a0a14f5e9801e02754c11",
+      "pressureOnlySha256": "976a3a2779063231fa5b6cb9b6da73524cefa29b7d41660040f64b173966337a",
+      "exactVsGl": false,
+      "unchangedVsOff": false
+    },
+    {
+      "role": "cb",
+      "dimensions": [
+        1536,
+        1536
+      ],
+      "filter": "nearest",
+      "glSha256": "ec38ffa5fed4e9041c69f66ee6067dfa906874a0257cc95f87b15c8d0ed721df",
+      "offSha256": "d0f25c306b9b660c1a632c4800e4251dfb6e9ac3dba9bc940b7d9324696706f0",
+      "pressureOnlySha256": "9f1c98c42385c9a03f5c8032154711c600d28c1b2ef3a62172fb57a480d2ba57",
+      "exactVsGl": false,
+      "unchangedVsOff": false
+    },
+    {
+      "role": "cc",
+      "dimensions": [
+        1536,
+        1536
+      ],
+      "filter": "nearest",
+      "glSha256": "97ed216e8d0b76cd8e8fff6aead6f8fabafe37376fcf37f6b791b17c10c7c1e3",
+      "offSha256": "d7a05355151883fe3dac5d7030ef6d5e644ac2ac85419ecb2f6461b34e266df5",
+      "pressureOnlySha256": "93b0dc2ae732da16fcae3554f74448bcd2636486b9240e2e59db651c3bee73d1",
+      "exactVsGl": false,
+      "unchangedVsOff": false
+    },
+    {
+      "role": "coverage",
+      "dimensions": [
+        1536,
+        1536
+      ],
+      "filter": "nearest",
+      "glSha256": "45f47d18000c9ed57012330cbecf9f5ab18f6ba593eaf3517d0c29a7cf44dacf",
+      "offSha256": "45f47d18000c9ed57012330cbecf9f5ab18f6ba593eaf3517d0c29a7cf44dacf",
+      "pressureOnlySha256": "45f47d18000c9ed57012330cbecf9f5ab18f6ba593eaf3517d0c29a7cf44dacf",
+      "exactVsGl": true,
+      "unchangedVsOff": true
+    },
+    {
+      "role": "mask",
+      "dimensions": [
+        1536,
+        1536
+      ],
+      "filter": "linear",
+      "glSha256": "b6e964b3ad23708a40d25ecc68ab8c4daf91d651e2f01948e6787489dc8515bb",
+      "offSha256": "b6e964b3ad23708a40d25ecc68ab8c4daf91d651e2f01948e6787489dc8515bb",
+      "pressureOnlySha256": "b6e964b3ad23708a40d25ecc68ab8c4daf91d651e2f01948e6787489dc8515bb",
+      "exactVsGl": true,
+      "unchangedVsOff": true
+    },
+    {
+      "role": "pressure",
+      "dimensions": [
+        1536,
+        1536
+      ],
+      "filter": "linear",
+      "glSha256": "fdac26f446070be61759497496a3c32f84c527ae3724e360fe93e27b492937e3",
+      "offSha256": "d3ccc8e53ce8c016caa0d33278f4c81dc94c0486d442616016a17c38bd9898c6",
+      "pressureOnlySha256": "ec2e2a9c4f863c0ee82bc03ae5d090131b6ffddd16f0eb821cd8fd1740602e90",
+      "exactVsGl": false,
+      "unchangedVsOff": false
+    },
+    {
+      "role": "band",
+      "dimensions": [
+        1536,
+        1536
+      ],
+      "filter": "nearest",
+      "glSha256": "45f47d18000c9ed57012330cbecf9f5ab18f6ba593eaf3517d0c29a7cf44dacf",
+      "offSha256": "45f47d18000c9ed57012330cbecf9f5ab18f6ba593eaf3517d0c29a7cf44dacf",
+      "pressureOnlySha256": "45f47d18000c9ed57012330cbecf9f5ab18f6ba593eaf3517d0c29a7cf44dacf",
+      "exactVsGl": true,
+      "unchangedVsOff": true
+    }
+  ],
+  "firstBoundary": {
+    "index": 1,
+    "traceExact": true,
+    "trace": [
+      {
+        "kind": "fieldOp",
+        "out": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "a": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "b": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "mode": 0,
+        "k": 1
+      },
+      {
+        "kind": "fieldOp",
+        "out": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "a": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "b": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "mode": 4,
+        "k": 0.002
+      },
+      {
+        "kind": "fieldOp",
+        "out": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "a": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "b": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "mode": 1,
+        "k": -1
+      }
+    ],
+    "rows": [
+      {
+        "role": "c",
+        "w": 1536,
+        "h": 1536,
+        "filter": "nearest",
+        "expectedSha256": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+        "actualSha256": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+        "channels": [
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          }
+        ],
+        "exact": true
+      },
+      {
+        "role": "cc",
+        "w": 1536,
+        "h": 1536,
+        "filter": "nearest",
+        "expectedSha256": "d2ee4703cd9698945ca7b9fe1689ea3095597eac1a0afd8dba00cac7894fdc43",
+        "actualSha256": "d2ee4703cd9698945ca7b9fe1689ea3095597eac1a0afd8dba00cac7894fdc43",
+        "channels": [
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          }
+        ],
+        "exact": true
+      }
+    ],
+    "scope": "One original operator boundary, two actual1536 Q8 fields; field filter checked. No whole solver/Room claim."
+  },
+  "errors": [],
+  "validation": null,
+  "lost": false,
+  "RAMMiB": {
+    "beforeAndSamples": [
+      2118.7,
+      1629.3
+    ],
+    "postOwnClose": 1984.9
+  },
+  "elapsedMs": 8594.346234,
+  "timingScope": "Controller wall: CDP input transfer, paper/backend setup, original solver, full material +10field digests and optional boundary readbacks; NOT GPU time, display latency or fair perf A/B",
+  "interpretation": "Improved residual count/mean, NOT wholeparity and no speedclaim. Coverage/mask/band finalSHA exact and unchanged; seven material/working fields differ from GL and change with pressure correction. SHA-only finalfield reads do not quantify eachfield pixelerror. Original ops0/1 boundary c/cc exact in THIS wholearm; earlier independent Surface inward11R3 and mode6G3254 witnesses remain possible upstream differences, not re-capturedhere. Tiny3R not wholemax36cause. Fourteenbrushcontact errorgrowthmax2->7 is separate actualcontrol, not full463phasecause.",
+  "default": "OFF QAonly; no appnative/GLmodel source changed vs5f2"
+}
