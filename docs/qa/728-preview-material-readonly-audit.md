@@ -95,3 +95,11 @@ ThinPrior (`:1618–1635`) стабилизирует цвет соседним 
 Budget: один own RGBA8 render field1024² =4MiB/lease; до3slots ещё12MiB, общий pool≈25.125MiB вместо13.125MiB. Один full1024 draw на update (чтения sourcecoverage+P+C), без CPU readback; стоимость аппаратно неизвестна. 128 output экономит память, но ломает обещание исходных Q8 across/standing, поэтому не выдавать его за preserved material geometry. Reset render field из immutable coverage при новом epoch; retirer/fence по тому же ledger.
 
 `preview-render-extension-oracle.mjs` PASS: исходное поле не меняется; water-only/zero-optical-depth не расширяются; outside нейтральное across; standing exact; non-C<=P.B vector принят; decoded ratios сохранены в пределах Q8. Это тест ограничений предложения, не доказательство натуральности или shader качества. Runtime/GPU не изменены.
+
+## 113 Q8 diffusion steps: независимый flat-paper контрпример
+
+`preview-diffusion-q8-audit.mjs` использует literal eight-neighbour king stencil, D=.09, fullwetgate, constantheight (B*dh=0), closededges. В вещественной арифметике4code-total сохраняется после113steps. При округлении каждого framebuffer write в ближайший u8 isolated4code→1code→0 за2steps: outgoing .36code каждому соседу округляются в0, centre1.12code→1; затем centre.28code→0. Поэтому математическая pair-conservation **до** записи не доказывает сохранение слабого P.A/P.B/C после повторных Q8 записей. Для255code пример печатает timeline; не выдавать его за actual бумагу/domain/driver rounding.
+
+Этот механизм и silhouette clipping независимы. Actual radial должен показать растёт ли область **ненулевых** P.B/C.A, где A/RGB округляются, и как это сопоставлено с final alpha. Для actual loss нужен total всех каналов128² до/после, не crop и не только радиус.
+
+`preview-render-extension-fixtures.json` — четыре компактных uniform-input bounded fixtures (old-zero/partial/full +water-only), source1024/preview128 NEAREST, no GPU/runtime invocation. Если radial опровергнет clipping, proposed arm отбрасывается. Во всех arms immutable coverage и canonical endpoint обязаны оставаться прежними.

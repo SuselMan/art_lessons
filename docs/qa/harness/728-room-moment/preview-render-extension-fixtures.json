@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "status": "fixture-only-waits-radial-proof",
+  "sourceSize": [
+    1024,
+    1024
+  ],
+  "previewSize": [
+    128,
+    128
+  ],
+  "origin": [
+    0,
+    0
+  ],
+  "rgbaFormat": "rgba8unorm",
+  "samplers": "nearest",
+  "armNames": [
+    "literal-source-coverage",
+    "proposed-owned-render-coverage"
+  ],
+  "maxOutputBytes": 4194304,
+  "cases": [
+    {
+      "id": "old-zero-wet",
+      "sourceCoverageUniformRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "previewPUniformRGBA": [
+        200,
+        0,
+        80,
+        255
+      ],
+      "previewCUniformRGBA": [
+        60,
+        20,
+        10,
+        100
+      ],
+      "probeWorldPixels": [
+        [
+          512,
+          512
+        ],
+        [
+          520,
+          512
+        ]
+      ],
+      "expectSourceUnchanged": true,
+      "expectCanonicalUnchanged": true
+    },
+    {
+      "id": "old-partial-wet",
+      "sourceCoverageUniformRGBA": [
+        80,
+        40,
+        220,
+        160
+      ],
+      "previewPUniformRGBA": [
+        200,
+        0,
+        80,
+        255
+      ],
+      "previewCUniformRGBA": [
+        60,
+        20,
+        10,
+        100
+      ],
+      "probeWorldPixels": [
+        [
+          512,
+          512
+        ],
+        [
+          520,
+          512
+        ]
+      ],
+      "expectSourceUnchanged": true,
+      "expectCanonicalUnchanged": true
+    },
+    {
+      "id": "old-full-wet",
+      "sourceCoverageUniformRGBA": [
+        128,
+        64,
+        220,
+        255
+      ],
+      "previewPUniformRGBA": [
+        200,
+        0,
+        80,
+        255
+      ],
+      "previewCUniformRGBA": [
+        60,
+        20,
+        10,
+        100
+      ],
+      "probeWorldPixels": [
+        [
+          512,
+          512
+        ],
+        [
+          520,
+          512
+        ]
+      ],
+      "expectSourceUnchanged": true,
+      "expectCanonicalUnchanged": true
+    },
+    {
+      "id": "outside-old-water-only",
+      "sourceCoverageUniformRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "previewPUniformRGBA": [
+        255,
+        0,
+        0,
+        255
+      ],
+      "previewCUniformRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "probeWorldPixels": [
+        [
+          512,
+          512
+        ],
+        [
+          520,
+          512
+        ]
+      ],
+      "expectSourceUnchanged": true,
+      "expectCanonicalUnchanged": true
+    }
+  ]
+}
