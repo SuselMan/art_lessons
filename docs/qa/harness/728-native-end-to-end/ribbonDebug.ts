@@ -1,3 +1,4 @@
+import {noisePointOracle} from './noisePointOracle'
 import {scalarBlendOracle} from './scalarBlendOracle'
 import {CANONICAL_RIBBON_WGSL} from '../../../../apps/web/src/engine/src/webgpuCanonical/deposit'
 import {RIBBON_FRAG} from '../../../../apps/web/src/engine/src/raster/shaders'
@@ -28,5 +29,5 @@ export async function ribbonDebug(owner:CanonicalWatercolorWebGpu,out:CanonicalF
  rows.push({triangle,group,quantity:['amplifiedAcross','edge/3','tip','amount','rawAcrossEncoded','hair','openingNoise','hairDrift'][group],points:points.map(p=>{const i=(p.yTop*1024+p.x)*4;return{...p,native:decode(bytes,i),gl:decode(gl,i),nativeBytes:Array.from(bytes.subarray(i,i+4)),glBytes:Array.from(gl.subarray(i,i+4))}})})
  }}finally{vb.destroy()}}
  }finally{u.destroy()}
- return{rows,blendAudit:await scalarBlendOracle(owner),scope:'Single actual triangles; unchanged inputs/functions/varyings; diagnostic24-bit RGB quantization, alpha1 replacement, not exact float readback or production blend'}
+ return{rows,blendAudit:await scalarBlendOracle(owner),noiseAudit:await noisePointOracle(owner),scope:'Single actual triangles; unchanged inputs/functions/varyings; diagnostic24-bit RGB quantization, alpha1 replacement, not exact float readback or production blend'}
 }

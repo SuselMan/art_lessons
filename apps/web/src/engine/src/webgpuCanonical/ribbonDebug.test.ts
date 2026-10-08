@@ -13,3 +13,7 @@ it('supplies identical F32 amounts straddling the measured source half-byte, whi
  expect(native*255).toBeLessThan(.5);expect(gl*255).toBeGreaterThan(.5)
  expect(6+249*native).toBeLessThan(6.5);expect(6+249*gl).toBeLessThan(6.5)
 })
+import {noisePointShaders} from '../../../../../../docs/qa/harness/728-native-end-to-end/noisePointOracle'
+it('supplied noise coordinate oracle has no interpolated varying and keeps literal lattice',()=>{
+ for(let i=0;i<8;i++){const s=noisePointShaders(i);expect(s.native).toContain('var<uniform> point:vec4f');expect(s.native).toContain('textureLoad(noiseTex');expect(s.gl).toContain('uniform vec2 p');expect(s.gl).toContain('mod(p, 251.0)');expect(s.gl).not.toContain('varying')}
+})
