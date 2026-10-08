@@ -39,6 +39,16 @@
       "result": "Surface: author и packed replay совпали. Native vs production GL max36, точность ещё не подтверждена. Progressive1536:12 состояний, final exact. Native400 grouped: differing solventLoad, gate false.",
       "limits": "Отдельный один холст, не Room и не профиль исходного графа. Samsung native timeout; CPU/GPU timing сравнения с GL пока неодинаковы.",
       "status": "Эксперимент, не production-кандидат"
+    },
+    {
+      "methods": [
+        "Plan.frontStep",
+        "Plan.diffuseStep"
+      ],
+      "name": "WebGPU: кеш статической высоты бумаги",
+      "result": "Surface: front GPU median4.325→2.851мс; diffuse1.114→0.786мс.171 промежуточных поля exact в каждом gate. Combined warm whole100 около8% быстрее,6author/6replay hashes одинаковые.",
+      "limits": "RG32FLOAT18MiB при1536; prep1.7мс отдельно. Один tile/layer/wash, не полный Room. DefaultOFF. Whole400 ещё нестабилен дажеOFF/OFF.",
+      "status": "Аппаратный выигрыш отдельного оператора; bounded whole100 PASS"
     }
   ]
 }
