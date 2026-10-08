@@ -1,0 +1,104 @@
+{
+  "scope": "QA only original first carry mode15 stride1 with COMMON GL ALL LIVE inputs; no band/hash alteration, no full solver or Room",
+  "recipe": {
+    "mode": 15,
+    "k": 0.5,
+    "dir": [
+      1,
+      1
+    ],
+    "band": [
+      0.9473981629095012,
+      1
+    ],
+    "size": [
+      3,
+      104.55908584594727
+    ],
+    "tau": [
+      0.45,
+      0.7,
+      0
+    ],
+    "origin": [
+      1,
+      0.35
+    ],
+    "path": false,
+    "additiveZeroFaces": false
+  },
+  "liveInputs": {
+    "mobile": "Frozen Surfaceop1 c844fc544.. nearest1536",
+    "pressure": "Actual GLoutward141288caf3.. linear1536"
+  },
+  "unusedBindings": "B/C/E/path/noise deliberately alias COMMONmobile in both APIs. mode15 non-colour/tau.z0/path absent reads no B/C/E/path/noise; this is a LIVE-input primitive oracle, not strict all-role owner topology test.",
+  "sourceDependency": "mode6 band not read by carry; no seededcandidate input. mode15 capillary samples D.G but source capillary mix(1,1,..) is constant. Preserve original body/no omission.",
+  "entry": "runPressureSeedOracle, diagnosticFirstCarry:true, front.steps141, inward/firstBand flags absent",
+  "software": {
+    "scope": "EXPLICIT synthetic64 firstcarry wiring only; modified fixture passport/dimensions, NOT actual Surface1536/model parity",
+    "channels": [
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      }
+    ],
+    "movementChannels": [
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      }
+    ],
+    "errors": [],
+    "glError": 0,
+    "validation": null
+  },
+  "guards": [
+    "original packet andmobileSHA beforeproducer",
+    "actual paperSHA before GL producer",
+    "outward141SHA guard before primitive",
+    "GLproducer retired -> GLprimitive retired -> native allocate",
+    "mobile nearest/pressurelinear1536 exactQ8/rows",
+    "no large arrays serialized"
+  ],
+  "budget": {
+    "preflightMiB": 1700,
+    "abortMiB": 500,
+    "deadlineSeconds": 120,
+    "arms": 1,
+    "GPU": "GLproducer~62MiB retire ->GLprimitive27MiB retire ->native27+read9MiB",
+    "CPUConservativeMiB": 160
+  },
+  "limits": "READY nothardwarePASS; firstactualoutput may identity/nonidentity, measured movement exposed. Nothing inferred about later carry,926brushpasses,final max36 or speed."
+}
