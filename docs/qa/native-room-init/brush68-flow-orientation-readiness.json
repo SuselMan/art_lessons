@@ -1,0 +1,662 @@
+{
+  "task": "#728: OFF paired flow orientation control",
+  "source": "09351c4cf6cda0be206a29440fabc115ce9a688d",
+  "status": "READY, actual software paired causal PASS; Surface comparison pending",
+  "softwareRaw": "temp/native-source-offline/pre-brush68-flow-software.json",
+  "software": [
+    {
+      "diagnosticRawGlFlow": false,
+      "flowOrientation": "world-top rows + reflected localUV",
+      "comparisons": [
+        {
+          "role": "a",
+          "channels": [
+            {
+              "changed": 226,
+              "max": 3,
+              "sum": 250
+            },
+            {
+              "changed": 226,
+              "max": 3,
+              "sum": 250
+            },
+            {
+              "changed": 226,
+              "max": 3,
+              "sum": 250
+            },
+            {
+              "changed": 226,
+              "max": 3,
+              "sum": 250
+            }
+          ],
+          "examples": [
+            {
+              "x": 334,
+              "y": 286,
+              "channel": 0,
+              "expected": 168,
+              "actual": 167
+            },
+            {
+              "x": 334,
+              "y": 286,
+              "channel": 1,
+              "expected": 168,
+              "actual": 167
+            },
+            {
+              "x": 334,
+              "y": 286,
+              "channel": 2,
+              "expected": 168,
+              "actual": 167
+            },
+            {
+              "x": 334,
+              "y": 286,
+              "channel": 3,
+              "expected": 168,
+              "actual": 167
+            },
+            {
+              "x": 335,
+              "y": 286,
+              "channel": 0,
+              "expected": 170,
+              "actual": 171
+            },
+            {
+              "x": 335,
+              "y": 286,
+              "channel": 1,
+              "expected": 170,
+              "actual": 171
+            },
+            {
+              "x": 335,
+              "y": 286,
+              "channel": 2,
+              "expected": 170,
+              "actual": 171
+            },
+            {
+              "x": 335,
+              "y": 286,
+              "channel": 3,
+              "expected": 170,
+              "actual": 171
+            },
+            {
+              "x": 325,
+              "y": 287,
+              "channel": 0,
+              "expected": 173,
+              "actual": 174
+            },
+            {
+              "x": 325,
+              "y": 287,
+              "channel": 1,
+              "expected": 173,
+              "actual": 174
+            },
+            {
+              "x": 325,
+              "y": 287,
+              "channel": 2,
+              "expected": 173,
+              "actual": 174
+            },
+            {
+              "x": 325,
+              "y": 287,
+              "channel": 3,
+              "expected": 173,
+              "actual": 174
+            },
+            {
+              "x": 326,
+              "y": 287,
+              "channel": 0,
+              "expected": 175,
+              "actual": 174
+            },
+            {
+              "x": 326,
+              "y": 287,
+              "channel": 1,
+              "expected": 175,
+              "actual": 174
+            },
+            {
+              "x": 326,
+              "y": 287,
+              "channel": 2,
+              "expected": 175,
+              "actual": 174
+            },
+            {
+              "x": 326,
+              "y": 287,
+              "channel": 3,
+              "expected": 175,
+              "actual": 174
+            },
+            {
+              "x": 327,
+              "y": 287,
+              "channel": 0,
+              "expected": 181,
+              "actual": 180
+            },
+            {
+              "x": 327,
+              "y": 287,
+              "channel": 1,
+              "expected": 181,
+              "actual": 180
+            },
+            {
+              "x": 327,
+              "y": 287,
+              "channel": 2,
+              "expected": 181,
+              "actual": 180
+            },
+            {
+              "x": 327,
+              "y": 287,
+              "channel": 3,
+              "expected": 181,
+              "actual": 180
+            },
+            {
+              "x": 328,
+              "y": 287,
+              "channel": 0,
+              "expected": 175,
+              "actual": 176
+            },
+            {
+              "x": 328,
+              "y": 287,
+              "channel": 1,
+              "expected": 175,
+              "actual": 176
+            },
+            {
+              "x": 328,
+              "y": 287,
+              "channel": 2,
+              "expected": 175,
+              "actual": 176
+            },
+            {
+              "x": 328,
+              "y": 287,
+              "channel": 3,
+              "expected": 175,
+              "actual": 176
+            },
+            {
+              "x": 340,
+              "y": 287,
+              "channel": 0,
+              "expected": 175,
+              "actual": 174
+            },
+            {
+              "x": 340,
+              "y": 287,
+              "channel": 1,
+              "expected": 175,
+              "actual": 174
+            },
+            {
+              "x": 340,
+              "y": 287,
+              "channel": 2,
+              "expected": 175,
+              "actual": 174
+            },
+            {
+              "x": 340,
+              "y": 287,
+              "channel": 3,
+              "expected": 175,
+              "actual": 174
+            },
+            {
+              "x": 341,
+              "y": 287,
+              "channel": 0,
+              "expected": 173,
+              "actual": 174
+            },
+            {
+              "x": 341,
+              "y": 287,
+              "channel": 1,
+              "expected": 173,
+              "actual": 174
+            },
+            {
+              "x": 341,
+              "y": 287,
+              "channel": 2,
+              "expected": 173,
+              "actual": 174
+            },
+            {
+              "x": 341,
+              "y": 287,
+              "channel": 3,
+              "expected": 173,
+              "actual": 174
+            }
+          ],
+          "expectedSha256": "981b8f735de1a7f3e36880f0c4914b7f131eade697d0a90c0f9beb228edc1ae4",
+          "actualSha256": "583dd54f66aefa3f14d4b5c1f7277f2ac4a5257c8762a769a02a4accea72d233",
+          "exact": false
+        },
+        {
+          "role": "cc",
+          "channels": [
+            {
+              "changed": 24,
+              "max": 1,
+              "sum": 24
+            },
+            {
+              "changed": 0,
+              "max": 0,
+              "sum": 0
+            },
+            {
+              "changed": 2,
+              "max": 1,
+              "sum": 2
+            },
+            {
+              "changed": 226,
+              "max": 3,
+              "sum": 250
+            }
+          ],
+          "examples": [
+            {
+              "x": 334,
+              "y": 286,
+              "channel": 3,
+              "expected": 168,
+              "actual": 167
+            },
+            {
+              "x": 335,
+              "y": 286,
+              "channel": 3,
+              "expected": 170,
+              "actual": 171
+            },
+            {
+              "x": 325,
+              "y": 287,
+              "channel": 3,
+              "expected": 173,
+              "actual": 174
+            },
+            {
+              "x": 326,
+              "y": 287,
+              "channel": 3,
+              "expected": 175,
+              "actual": 174
+            },
+            {
+              "x": 327,
+              "y": 287,
+              "channel": 3,
+              "expected": 181,
+              "actual": 180
+            },
+            {
+              "x": 328,
+              "y": 287,
+              "channel": 3,
+              "expected": 175,
+              "actual": 176
+            },
+            {
+              "x": 340,
+              "y": 287,
+              "channel": 3,
+              "expected": 175,
+              "actual": 174
+            },
+            {
+              "x": 341,
+              "y": 287,
+              "channel": 3,
+              "expected": 173,
+              "actual": 174
+            },
+            {
+              "x": 318,
+              "y": 288,
+              "channel": 3,
+              "expected": 179,
+              "actual": 178
+            },
+            {
+              "x": 319,
+              "y": 288,
+              "channel": 3,
+              "expected": 177,
+              "actual": 178
+            },
+            {
+              "x": 323,
+              "y": 288,
+              "channel": 3,
+              "expected": 169,
+              "actual": 168
+            },
+            {
+              "x": 324,
+              "y": 288,
+              "channel": 3,
+              "expected": 169,
+              "actual": 170
+            },
+            {
+              "x": 339,
+              "y": 288,
+              "channel": 3,
+              "expected": 173,
+              "actual": 172
+            },
+            {
+              "x": 340,
+              "y": 288,
+              "channel": 3,
+              "expected": 174,
+              "actual": 175
+            },
+            {
+              "x": 351,
+              "y": 288,
+              "channel": 3,
+              "expected": 191,
+              "actual": 190
+            },
+            {
+              "x": 352,
+              "y": 288,
+              "channel": 3,
+              "expected": 193,
+              "actual": 195
+            },
+            {
+              "x": 353,
+              "y": 288,
+              "channel": 3,
+              "expected": 197,
+              "actual": 196
+            },
+            {
+              "x": 319,
+              "y": 290,
+              "channel": 3,
+              "expected": 181,
+              "actual": 182
+            },
+            {
+              "x": 320,
+              "y": 290,
+              "channel": 3,
+              "expected": 176,
+              "actual": 175
+            },
+            {
+              "x": 323,
+              "y": 290,
+              "channel": 3,
+              "expected": 179,
+              "actual": 178
+            },
+            {
+              "x": 324,
+              "y": 290,
+              "channel": 3,
+              "expected": 179,
+              "actual": 180
+            },
+            {
+              "x": 326,
+              "y": 290,
+              "channel": 0,
+              "expected": 71,
+              "actual": 72
+            },
+            {
+              "x": 326,
+              "y": 290,
+              "channel": 3,
+              "expected": 175,
+              "actual": 176
+            },
+            {
+              "x": 327,
+              "y": 290,
+              "channel": 0,
+              "expected": 71,
+              "actual": 70
+            },
+            {
+              "x": 327,
+              "y": 290,
+              "channel": 3,
+              "expected": 176,
+              "actual": 175
+            },
+            {
+              "x": 328,
+              "y": 290,
+              "channel": 3,
+              "expected": 175,
+              "actual": 176
+            },
+            {
+              "x": 329,
+              "y": 290,
+              "channel": 3,
+              "expected": 171,
+              "actual": 170
+            },
+            {
+              "x": 330,
+              "y": 290,
+              "channel": 3,
+              "expected": 174,
+              "actual": 175
+            },
+            {
+              "x": 331,
+              "y": 290,
+              "channel": 3,
+              "expected": 177,
+              "actual": 176
+            },
+            {
+              "x": 334,
+              "y": 290,
+              "channel": 3,
+              "expected": 183,
+              "actual": 184
+            },
+            {
+              "x": 336,
+              "y": 290,
+              "channel": 3,
+              "expected": 167,
+              "actual": 166
+            },
+            {
+              "x": 341,
+              "y": 290,
+              "channel": 3,
+              "expected": 176,
+              "actual": 175
+            }
+          ],
+          "expectedSha256": "9aebd9a339b0bf62e534c446cda0fb21dff2fe5b47b7bf28b21ffb4ca0edca44",
+          "actualSha256": "0a515ba1d37479821fd7dce421ce974c46bef2927de95fa7d3764bb82d4fd077",
+          "exact": false
+        }
+      ],
+      "errors": [],
+      "lost": false,
+      "validation": null
+    },
+    {
+      "diagnosticRawGlFlow": true,
+      "flowOrientation": "GL-raw rows + direct localUV",
+      "comparisons": [
+        {
+          "role": "a",
+          "channels": [
+            {
+              "changed": 0,
+              "max": 0,
+              "sum": 0
+            },
+            {
+              "changed": 0,
+              "max": 0,
+              "sum": 0
+            },
+            {
+              "changed": 0,
+              "max": 0,
+              "sum": 0
+            },
+            {
+              "changed": 0,
+              "max": 0,
+              "sum": 0
+            }
+          ],
+          "examples": [],
+          "expectedSha256": "981b8f735de1a7f3e36880f0c4914b7f131eade697d0a90c0f9beb228edc1ae4",
+          "actualSha256": "981b8f735de1a7f3e36880f0c4914b7f131eade697d0a90c0f9beb228edc1ae4",
+          "exact": true
+        },
+        {
+          "role": "cc",
+          "channels": [
+            {
+              "changed": 0,
+              "max": 0,
+              "sum": 0
+            },
+            {
+              "changed": 0,
+              "max": 0,
+              "sum": 0
+            },
+            {
+              "changed": 0,
+              "max": 0,
+              "sum": 0
+            },
+            {
+              "changed": 0,
+              "max": 0,
+              "sum": 0
+            }
+          ],
+          "examples": [],
+          "expectedSha256": "9aebd9a339b0bf62e534c446cda0fb21dff2fe5b47b7bf28b21ffb4ca0edca44",
+          "actualSha256": "9aebd9a339b0bf62e534c446cda0fb21dff2fe5b47b7bf28b21ffb4ca0edca44",
+          "exact": true
+        }
+      ],
+      "errors": [],
+      "lost": false,
+      "validation": null
+    }
+  ],
+  "hardwareInput": "temp/device-runs/pre-brush68-4901-gl/packet.json",
+  "hardwarePacketSha256": "4409549e8d1a73b9a2d6fcbae999044fee8734183a165774b575ea0c4c616838",
+  "originalGlFields": [
+    {
+      "phase": "before",
+      "role": "a",
+      "width": 1536,
+      "height": 1536,
+      "filter": "nearest",
+      "sha256": "b14e2ed75b6240516f9c618b69d184a5270df5aa913ca53d542cc59bb9a1da8b"
+    },
+    {
+      "phase": "before",
+      "role": "cc",
+      "width": 1536,
+      "height": 1536,
+      "filter": "nearest",
+      "sha256": "b374770a0ce8a9ecbfef3a3bf9ec69cd9dd5099fdf931dae4ad0ec35be515412"
+    },
+    {
+      "phase": "before",
+      "role": "coverage",
+      "width": 1536,
+      "height": 1536,
+      "filter": "nearest",
+      "sha256": "64a8f8d3cc759f80597606d5b69f35a2593652d842c54042e37176f9b68e18d1"
+    },
+    {
+      "phase": "after",
+      "role": "a",
+      "width": 1536,
+      "height": 1536,
+      "filter": "nearest",
+      "sha256": "ab2aa158216c23046d8f862b0831980d23fed88a8cdbeebfccd3a6a0efc5bed3"
+    },
+    {
+      "phase": "after",
+      "role": "cc",
+      "width": 1536,
+      "height": 1536,
+      "filter": "nearest",
+      "sha256": "4791febbbd06b1e3e3cba1c543ae2a5cea2faacf0385fb9a6e2d1bb811e57087"
+    },
+    {
+      "phase": "after",
+      "role": "coverage",
+      "width": 1536,
+      "height": 1536,
+      "filter": "nearest",
+      "sha256": "64a8f8d3cc759f80597606d5b69f35a2593652d842c54042e37176f9b68e18d1"
+    }
+  ],
+  "rawFlowSha256": "3be5473ac4b1fbe38bc49c2ffc943126572e988416f5b9b3694cd6e511bee43b",
+  "unchangedBodyGuard": "2 unit tests: only flow sample expression replacement; raw/fraction/floor/capacity/store unchanged. Ideal mirrored interpolation same binary-coordinate test.",
+  "checks": [
+    "5 tests",
+    "Harness TypeScript",
+    "oxlint",
+    "Software baseline exact same previous SHAs, raw orientation ALLRGBA0"
+  ],
+  "hardwareBudget": {
+    "owners": "Two sequential native devices, GL producer already retired; no new GL render",
+    "gpuFieldMiBPerOwner": 45,
+    "readbackBytesPerOwner": 109728,
+    "preflightMiB": 1700,
+    "abortMiB": 500,
+    "hardSeconds": 120,
+    "retries": 0
+  },
+  "limits": "Software F32 orientation cause proven here; not Surface, full solver/Room, all GPU or performance proof. No production/runtime default changes."
+}
