@@ -1,0 +1,60 @@
+{
+  "issue": "#728 — Native Room first-use queue stall",
+  "scope": "QA-only, OFF-by-default experiment; no promised GPU duration or general cold-cache diagnosis",
+  "actualTimelineMs": {
+    "runtimeCreateStart": 6038,
+    "backendCreateStart": 6066.3,
+    "adapterSupportEnd": 6203.2,
+    "backendCreateEnd": 6560.9,
+    "runtimeCreateEnd": 6561.3,
+    "firstWaterStartMarker": 6893.9,
+    "ownerForStart": 7233,
+    "seedUploadCompletionRequested": 7258.5,
+    "ownerForEnd": 7258.6,
+    "sourcePreparedStart": 7258.9,
+    "sourceSubmit": 7271.3,
+    "liveCompositeEncode": [7271.4, 7272.9],
+    "liveCompositeSubmit": 7273,
+    "bridgeSubmit": 7274.2,
+    "allFourCompletionPromisesResolved": 10676.8,
+    "syncGlRestore": [10677.1, 10678],
+    "firstRafGap": [7282.5, 10665.7]
+  },
+  "known": [
+    "Owner constructor uploads existing GL seed and calls backend.whenIdle, preceding first source submit",
+    "Room-owned backend stamp/ribbon modules are lazy; new owner creates live composite and raw canvas bridge",
+    "FieldOps creates its first compute pipeline lazily during a source/settle call",
+    "Backend creation completion does not record shader/device compilation completion",
+    "All four queue completion promises resolving together cannot assign the stall to the bridge alone",
+    "Observed later canvas publications are mostly single-digit wall milliseconds; different workloads and shader first-use states"
+  ],
+  "nextInstrumentation": [
+    "Local bounded markers for createShaderModule/createRenderPipeline/createComputePipeline on THIS backend device only, descriptor label/entryPoint/codeSHA metadata; no code dumping",
+    "Record synchronous queue.onSubmittedWorkDone return separately from Promise completion",
+    "Record bounded first submits command labels/call site before first DOWN and source/composite/bridge submit chronology",
+    "Keep RAW CPU/Promise wall definitions; do not force finish, timestamps or readback into primary timeline"
+  ],
+  "warmupCandidate": {
+    "option": "DEV QA explicit opt-in only",
+    "phase": "After actual Fine LA/device readiness, before user DOWN",
+    "input": "Immutable captured canonical prepared source packet, size400 round normal water100/pigment70 with original scalar/geometry uniforms; no authoritative CPU delivery advance",
+    "owner": "Independent scratch/target fields and detached HTML WebGPU canvas sharing ONLY the existing backend device/paper/noise and reusable stamp/ribbon pipelines",
+    "commands": "Original source landing/available-water/old P+C carrier boundaries, pressure-only canonical mode15/16, exact live composite and canvas bridge formats; bounded one dispatch/draw per pipeline, not a full171-step dry job",
+    "output": "Never published into a real GL layer or visible canvas; no operation, userId, wash, delivery state, layer, paper wetness or history mutation",
+    "cleanup": "Drain once at readiness, retire ALL warmup-only fields/targets/transients after queue completion; preserve shared backend; cancellation blocks next quantum",
+    "costBudget": "Estimate1024 tile roles plus1536 pressure working fields below200MiB incremental GPU allocations; verify actual resource ledger and preflight1700/abort500 before hardware; no simultaneous real owner",
+    "proof": "Actual owner/material registries, GL layer pixels, packed journal and CPU delivery counters unchanged; warmup scratch belongs to a separate holder",
+    "limitation": "Owner-private composite/field pipelines recreated later may only benefit from implementation cache, not guaranteed same pipeline object. Warmup is an empirical latency shift, not a proved GPU optimization"
+  },
+  "experiment": {
+    "arms": "Separate fresh owned contexts, baseline versus opt-in; same prescribed four pointer geometry/settings and frozen source/paper passport",
+    "comparisons": [
+      "Total page-to-ready wall time and prewarm wall duration",
+      "First DOWN-to-source/publish wait proxies; rAF scheduling during readiness and drawing",
+      "Later publication waits, total scenario and end drain",
+      "Same packed replay endpoint control separately; new live strokes are NOT identical tapes"
+    ],
+    "tradeoff": "A3-second wait shifted into page readiness is not a3-second total loading improvement; report both load and drawing latency",
+    "hardware": "Not allocated by this plan; no driver cache clearing or Chrome restart"
+  }
+}
