@@ -13,3 +13,9 @@ test('constructor rollback, stale epoch and loss detach without rescheduling or 
  const loss=make();loss.r.seal(loss.owner);loss.setLost();const lossCount=scheduled;callback();assert.equal(loss.held.pending,undefined);assert.equal(scheduled,lossCount);assert.equal(loss.pool.active.size,1);loss.r.disposeAfterFence();assert.equal(loss.finish,0);assert.equal(loss.pool.active.size,0)
  }finally{globalThis.requestAnimationFrame=oldRAF;globalThis.cancelAnimationFrame=oldCancel}
 })
+test('factory post-domain failure destroys all21 resources/program after setup fence',async()=>{
+ const {createOwnedPreviewRuntime}=await import('./OwnedPreviewRuntime.mjs');let created=0,destroyed=0,programDisposed=0,finish=0;
+ const e={gl:{isContextLost:()=>false,finish:()=>finish++},_watercolorPasses:{ctx:{paperWorldSize:()=>{throw Error('paper metadata failed')}}}};
+ await assert.rejects(createOwnedPreviewRuntime(e,{}, {createBuffer:(width,height)=>{created++;return{texture:{},width,height,destroy:()=>destroyed++}},createDomain:async()=>({disposeAfterFence:()=>programDisposed++})}),/paper metadata/);
+ assert.equal(created,21);assert.equal(destroyed,21);assert.equal(programDisposed,1);assert.equal(finish,1)
+})
