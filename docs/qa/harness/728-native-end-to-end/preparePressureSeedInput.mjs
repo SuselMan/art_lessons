@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import crypto from 'node:crypto'
 import zlib from 'node:zlib'
-import {firstOutboundSchedule} from './frontSchedule.mjs'
+import {firstOutboundSchedule,firstInwardSchedule} from './frontSchedule.mjs'
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex')
 export function preparePressureSeedInput({partitionDir,stitchReport,tracePath}){
  const checkpointBytes=fs.readFileSync(partitionDir+'/checkpoint/checkpoint.json'),packet=JSON.parse(checkpointBytes),producer=JSON.parse(fs.readFileSync(partitionDir+'/producer/report.json')),common=JSON.parse(fs.readFileSync(partitionDir+'/common/report.json')),stitch=JSON.parse(fs.readFileSync(stitchReport)),traceBytes=fs.readFileSync(tracePath),trace=JSON.parse(traceBytes)
@@ -45,4 +45,11 @@ export function addInwardSeedRecipe(input,{tracePath,partitionDir,outboundReport
  const aliases=[...new Set(packet.payload.fields.filter(r=>r.presence==='field').map(r=>r.alias))],baseId=1001+aliases.indexOf(role.alias),bandOp=trace.ops.find(o=>o.index===1)?.events.find(e=>e[0]==='fieldOp'&&e[4]===4)
  if(!bandOp||bandOp[5]!==.002||bandOp[1].buffer!==e[0][6].d.buffer||!trace.ops[0].events.some(e=>e[0]==='region'&&e[1].buffer===baseId&&e[2].buffer===bandOp[2].buffer))throw Error('Actual empty earlier-band lineage')
  const result=addOutboundFrontRecipe(input,{tracePath});return{...result,front:{...result.front,inwardSeed:{k:e[0][5],outwardSha256:r.expectedSha256,earlierBaseSha256:chunk.rawSha256}}}
+}
+
+export function addInwardStepsRecipe(input,{tracePath,inwardSeedReport}){
+ const trace=JSON.parse(fs.readFileSync(tracePath)),schedule=firstInwardSchedule(trace),report=JSON.parse(fs.readFileSync(inwardSeedReport)),r=report.rows?.[0]?.report
+ if(!report.valid||!r?.exact||r.operator!=='inwardSeed'||r.mode!==12||r.expectedSha256!==r.actualSha256||r.producerCode!==input.producerCode||r.inputHashes.pigment!==input.pigment.sha256||r.inputHashes.coverageSource!==input.coverage.sha256||JSON.stringify(r.inwardRecipe)!==JSON.stringify(input.front?.inwardSeed)||r.glError!==0||r.lost||r.validation||r.errors?.length||!r.inwardStats?.inside||!r.inwardStats?.outside||trace.packetSha256!==input.checkpointSha256)throw Error('Actual common mode12/inward proof required')
+ for(const k of['x0','y0','scale','dryCost','stride'])if(schedule[k]!==input.front[k])throw Error('Inward world recipe differs')
+ return{...input,front:{...input.front,inwardSteps:11,inwardMaskSha256:r.expectedSha256}}
 }
