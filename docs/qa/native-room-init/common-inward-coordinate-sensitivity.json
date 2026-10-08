@@ -1,0 +1,96 @@
+{
+  "scope": "CPU IEEE F32 arithmetic sensitivity only; not actual GL interpolants, three device mismatch coordinates absent",
+  "width": 1536,
+  "formula": "uv=f32((x+.5)/1536); neighbor=f32(uv+f32(direction/1536)); p=f32(f32(neighbor*1536)-.5)",
+  "rows": [
+    {
+      "direction": -1,
+      "affectedCoordinates": 169,
+      "maxAbsoluteTexelDisplacement": 6.103515625e-05,
+      "firstExamples": [
+        {
+          "x": 1,
+          "deltaTexels": -2.9802322387695312e-08
+        },
+        {
+          "x": 2,
+          "deltaTexels": -1.1920928955078125e-07
+        },
+        {
+          "x": 3,
+          "deltaTexels": -2.384185791015625e-07
+        },
+        {
+          "x": 15,
+          "deltaTexels": -9.5367431640625e-07
+        },
+        {
+          "x": 27,
+          "deltaTexels": 1.9073486328125e-06
+        },
+        {
+          "x": 30,
+          "deltaTexels": 1.9073486328125e-06
+        },
+        {
+          "x": 51,
+          "deltaTexels": -3.814697265625e-06
+        },
+        {
+          "x": 54,
+          "deltaTexels": -3.814697265625e-06
+        }
+      ]
+    },
+    {
+      "direction": 0,
+      "affectedCoordinates": 0,
+      "maxAbsoluteTexelDisplacement": 0,
+      "firstExamples": []
+    },
+    {
+      "direction": 1,
+      "affectedCoordinates": 166,
+      "maxAbsoluteTexelDisplacement": 6.103515625e-05,
+      "firstExamples": [
+        {
+          "x": 14,
+          "deltaTexels": 9.5367431640625e-07
+        },
+        {
+          "x": 26,
+          "deltaTexels": -1.9073486328125e-06
+        },
+        {
+          "x": 29,
+          "deltaTexels": -1.9073486328125e-06
+        },
+        {
+          "x": 50,
+          "deltaTexels": 3.814697265625e-06
+        },
+        {
+          "x": 53,
+          "deltaTexels": 3.814697265625e-06
+        },
+        {
+          "x": 56,
+          "deltaTexels": 3.814697265625e-06
+        },
+        {
+          "x": 59,
+          "deltaTexels": 3.814697265625e-06
+        },
+        {
+          "x": 62,
+          "deltaTexels": 3.814697265625e-06
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "LINEAR sampling at nominal centers can use nearby texel weights due finite arithmetic; no proof this caused actualR3",
+    "GPU texture interpolation precision and GL varying precision differ from CPU recipe; do not assign actual bytes from this calculation",
+    "Default LEGACY nearest vs manual/hardware LINEAR arm is a diagnostic, not promoted runtime fix"
+  ]
+}
