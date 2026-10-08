@@ -46,3 +46,5 @@ Surface mixed400/Fine: отдельный passes cohort без ошибок и �
 2. Разобрать очередь: количество slices, ожидания rAF, GPU synchronization и onset; измерить до первого видимого пигмента отдельно от dry replay.
 3. GL2+batching проверять на реальных Room400/history/peer, сохранять default OFF до матрицы.
 4. WebGPU: следующий gate400 и exact source/settle material относительно GL, затем Undo/Redo/участники; первые Room40 функциональные PASS не доказывают ускорения.
+
+Расширенный профиль: [аппаратные данные](harness/728-gl-gpu-coverage/README.md). Baseline334ticks (contact204/front70/barrier60), tickbody сумма140.6ms/max46.3ms, фазы мазков2850/2900ms. Timestamp кадров в этом snapshot отсутствует, поэтому очередные интервалы нельзя назвать чистым CPU временем. Приоритет: bounded группировка нескольких исходных операций за кадр с сохранением каждой Q8 границы и обязательных barrier/presentation/admission контрактов; нужна OFF/ON quality+timing проверка. Измеренный9.2% предыдущего batching не означает предел новой группировки, но новый процент ещё неизвестен.
