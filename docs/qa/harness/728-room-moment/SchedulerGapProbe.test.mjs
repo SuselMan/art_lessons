@@ -1,0 +1,7 @@
+import test from'node:test';import assert from'node:assert/strict';import{installSchedulerGapProbe}from'./SchedulerGapProbe.mjs';
+test('CPU nested execution vs blocked frame gaps recorded separately, no GPU query',()=>{
+ let t=0,cb;const gl=new Proxy({},{get(){throw Error('GPU query forbidden')}}),e={gl,_locked:false,_wcCanonical:{requests:[{}],frame:1,work:null,advance(){t+=3}},_settleQueue:{tick(){t+=2}},_pointer:{_handleDown(){e._wcCanonical.advance();t+=4},_handleMove(){},_handleUp(){}}};
+ const down=e._pointer._handleDown,p=installSchedulerGapProbe(e,{now:()=>t,raf:f=>(cb=f,1),cancel(){}});cb(0);e._pointer._handleDown();e._settle={};cb(1500);
+ const rows=p.records;assert.equal(rows.find(r=>r.label==='PointerInput._handleDown').durationMs,7);assert.equal(rows.find(r=>r.label==='CanonicalFIFO.advance').durationMs,3);assert.equal(rows.find(r=>r.label==='CanonicalFIFO.advance').before.phase,'down');assert.equal(rows.at(-1).gapMs,1500);assert.equal(rows.at(-1).state.settle,true);p.restore();assert.equal(e._pointer._handleDown,down);
+});
+test('bounded records stop observation and restore after throwing methods',()=>{let cb,t=0;const e={_pointer:{_handleDown(){throw Error('input')}},_wcCanonical:{requests:[]}};const p=installSchedulerGapProbe(e,{limit:1,now:()=>++t,raf:f=>(cb=f,1),cancel(){}});assert.throws(()=>e._pointer._handleDown(),/input/);const n=t;assert.throws(()=>e._pointer._handleDown(),/input/);assert.equal(t,n);cb(10);assert.equal(p.records.length,1);p.restore()});
