@@ -1,0 +1,13 @@
+# Surface real-pointer400 timeline, 2026-10-08
+
+Evidence: root's `native-pointer400-surface-1791423488414.json`,8288 events,4 original operations; actual native scene PointerInput/DabSystem, baked Fine paper, existing factory options. No device was driven by this analysis. Primary timeline contains no readPixels or added completion fences. Reproduce analysis with `node analyze.mjs raw.json metrics.json`.
+
+Preparation took1362.3ms. Four accepted pen-downs were all idle at arrival, with event delivery0.6–1.6ms. Cold pigmented line: beginCPU19.6ms, first non-screen planner submission18.1ms after arrival, first screen submission37.1ms; source dependency completion46.5ms. Warm water line: beginCPU3ms, planner submission2.5ms, screen16.2ms. Pigment tap into water: beginCPU2.1ms, planner1.8ms, screen5.6ms. Second-color tap: beginCPU2.7ms, planner2.2ms, screen4.8ms. These are submission/presentation opportunities, not measured visible pigment latency.
+
+The larger remaining bottleneck is post-release job completion/admission:4751.7ms after cold line,4713.6ms after water line,1591ms after pigment tap,1585.6ms after second-color tap. The input gestures lasted1.76/1.79sec for lines and~74ms for taps. Session rejects further strokes until idle, but this recording never attempts a down during that blocked interval; there are no rejected statuses. This gate therefore confirms four successes, not pending-admission correctness or fluent overlapping strokes.
+
+CPU moves are inexpensive here: first line32 moves, median0.1ms/p954.3/max7.6; waterline32 moves median0/p952.2/max10.4. Release synchronous CPU is still sizeable for lines:69.6ms and43.4ms, versus3.2/1.9ms for taps. Submission callCPU p95~0.1ms/max0.2 throughout. There are620/663/182/174 submissions per stroke including presentation; completion waits median5.1/4.9/5.4/11.6ms, p95113.6/30/78.2/98.6ms. These overlapping promises must NOT have their totals interpreted as additive GPU time.
+
+Replay is separate from primary drawing: four exact recorded operations replay in12605.5ms,1466 total submissions, submissionCPU total41.3ms. This is bounded serial replay, not real Room load or a cache result.
+
+Limits: no GPU timestamp duration, screenshots/camera or first-visible proof; no Room/server/concurrency; instrumentation overhead included; no uninstrumented A/B performance control. A labelled planner submission includes scheduling/source/settle work and is not an isolated pigment kernel. Existing queue completion covers all earlier queued work, not a per-pass GPU timer. Hardware pass here is real Surface execution with no reported errors; it does not establish acceptable UX or production parity.
