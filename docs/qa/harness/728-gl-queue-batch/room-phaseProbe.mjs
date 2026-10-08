@@ -8,8 +8,9 @@ export function installRoomPhaseProbe(E,{maxRows=1024}={}){
   const wrapped=function(...args){const at=performance.now(),before=state(),parent=stack.at(-1)??null;stack.push(name);let error
    try{return original.apply(this,args)}catch(e){error=String(e);throw e}finally{stack.pop();put({name,parent,phase,at,cpuMs:performance.now()-at,before,after:state(),error})}}
   object[name]=wrapped;restores.push(()=>{if(object[name]===wrapped)object[name]=original});return true}
- const methods=['_onStart','_onMove','_onEnd','_completeSettle','_paintStrokeDabs','_paintDabs','_runSlice','_syncBuffersToLog','_makeLayerBuffer','_createBuffer','_destroyBuffer']
+ const methods=['_onStart','_onMove','_onEnd','_completeSettle','_paintStrokeDabs','_paintDabs','_runSlice','_syncBuffersToLog','_makeLayerBuffer','_createBuffer','_destroyBuffer','_paintRibbonDabs','_diffuseFieldFor','_display']
  const coverage=methods.map(name=>({name,installed:wrap(E,name)}))
+ for(const name of ['_handleDown','_handleMove','_handleUp'])coverage.push({name,installed:wrap(E._pointer,name)})
  // These calls are CPU/API intervals only. Existing finish semantics unchanged.
  const rawGl1=typeof WebGLRenderingContext!=='undefined'&&E.gl instanceof WebGLRenderingContext&&!(typeof WebGL2RenderingContext!=='undefined'&&E.gl instanceof WebGL2RenderingContext)
  if(rawGl1)for(const name of ['finish','flush','texImage2D','texSubImage2D'])coverage.push({name,installed:wrap(E.gl,name)})
