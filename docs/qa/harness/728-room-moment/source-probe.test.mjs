@@ -66,6 +66,15 @@ test('OFF source copies actual P/C after emit, survives until successful publica
  assert.deepEqual(window.__momentPreparedCensus[0].actualRecipe,activeRecipe)
  assert.equal(active.stages.find(s=>s.stage==='source-inkSettled').absent,undefined)
  assert(buffers.every(b=>b.destroyed));window.__restoreMomentStageProbe()
+
+ await install(true,{activeSnapshot:true,waterHistory:true,worldROI:[402,352,78,96]})
+ state.solventLoad={texture:'actualV'};state.foreignSolventLoad=null;state.solventGesture=8;e.scratch.foreignSources=[{gesture:'priorWater',footprints:[{}]}]
+ const origins=[];e.adapter.runQuantum=fn=>fn({encoder:{copyTextureToBuffer(a,b,size){origins.push({origin:a.origin,stride:b.bytesPerRow,size})}}})
+ e.emitPrepared({ordinal:8,strokeId:'common',metadata:{gesture:8},materialGesture:8,segment:{rect:[220,494,260,260],film:true,commands:[]}})
+ await e.publishCurrentToGl();const common=window.__momentStageResults[0]
+ assert.equal(common.stages.length,20);assert.deepEqual(common.capture,{x:182,y:82,width:78,height:96});assert(origins.every(o=>o.origin[0]===402&&o.origin[1]===352&&o.stride===512));assert.equal(common.stages.find(s=>s.stage==='source-solventLoad').byteLength,78*96*4);assert.equal(common.stages.find(s=>s.stage==='post-foreignSolventLoad').absent,true);assert.deepEqual(common.sourceMetadata.history.foreignSourcesKey,['priorWater'])
+ assert.throws(()=>e.emitPrepared({ordinal:9,segment:{rect:[0,924,100,100],commands:[]}}),/outside actual source/)
+ window.__restoreMomentStageProbe()
  await assert.rejects(install(false,{activeSnapshot:true}),/source-only/)
  delete globalThis.window
 })
