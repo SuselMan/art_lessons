@@ -182,3 +182,15 @@ Opt-in контроллера: `QA_SETTLE_BOUNDARY=1`, только сущест
 OwnV before/after-finish совпал во всех3 job: R=A466986/842237/1312331, G=B0. ForeignV и оба settled-слота отсутствуют всё время. Film/solvent epochs стабильны внутри job:1,2,3; параметр landedWet/wetPeak у воды0/0, у обоих последующих пигментных контактов1/1. WaterLevel/standing/water=1, spreadPx3, dwellMs0; параметры и seed на обеих границах равны. Таким образом прежняя вода для контакта2 действительно доступна через сохранённый общий ownV; отсутствие foreignV не означает отсутствие воды, а отсутствие settled не означает нулевой ранее нанесённый пигмент.
 
 Причина измеренной sourcepurple→baseyellow разницы теперь отнесена к интервалу canonical settle, а не к readonly публикации или копированию нового film. Какой оператор внутри settle перераспределяет эти мировые пиксели, данная проверка не разделяет; глобальная потеря/сохранение массы и натуральность этим не подтверждаются. `settle-causal-analysis.json` содержит отдельные observed/exact/absence статусы, signed Q8 разницы и связывание по actualgesture/commonROI; для последнего контакта nextbase честно не измерен.
+
+### Приоритетный контракт raw V против coverage (офлайн)
+
+Native raw `solventLoad` не имеет другой раскладки относительно production WebGL. В обоих случаях source-штамп получает opacity=`waterDose/4`, inkWater1, paperWet0, inkStrength0. Ribbon solvent vertices также имеют water1/paperWet0/strength0. Общая формула целевого P — `(amount*water,amount*wet,amount*strength,amount)` — поэтому raw V записан `(amount,0,0,amount)`. Источники: `RibbonStrokePainter.ts` solvent phase, `canonicalStrokeChunk.ts` solvent commands, `canonicalRibbonBands.ts` solvent vertices; GL `shaders.ts` DAB/RIBBON deposit и native `stamp.ts`/`deposit.ts`. Source-contract тест проверяет эти фактические рецепты и формулы, не GPU parity целой комнаты.
+
+| Связанный ресурс | R | G | B | A |
+|---|---|---|---|---|
+| raw solventLoad | водяная доза/4 |0|0| водяная доза/4 |
+| pigment inkLoad | amount×brush water |amount×paper wet|amount×pigment strength|amount |
+| coverage | across×coverage |poolness×coverage|available standing water×coverage|coverage |
+
+Следовательно `V.b/V.a` в consumer корректен только если texture binding действительно означает coverage/соответствующий prepared water-domain. Для raw solventLoad этот коэффициент равен0 при ненулевой воде. `V.r/V.a` raw V равен1 и **тоже не измеряет толщину**: сама доза хранится вA (с reservoir масштабом4), а относительная wetness/appearance относятся к другим ресурсам. Перед исправлением presentation-domain нужно проверить identity фактически связанной текстуры; нельзя переименовать канал или заменить input на основании имени переменной `V`. Runtime/шейдеры/defaults в этом аудите не менялись.
