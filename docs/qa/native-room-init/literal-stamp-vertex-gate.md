@@ -13,3 +13,13 @@ Exact gate OFF then ON: `runEndToEnd({size:100,timeoutMs:180000,coverageSequence
 Runnable Samsung controller `docs/qa/harness/728-native-end-to-end/samsung-literal-controller.mjs`: CDP9454, actualserial check, ownnewtabs, privateURLfile, HTTPbundleSHA+Finebytes passport, minimum1700MiB before each arm and500MiB abort, noChrome restart/cacheclearing/powerchange. Environment: GATE_URL_FILE,GATE_OUT,GATE_BUNDLE_SHA,GATE_CODE,FROZEN_PAPER_DIR. NoSurfaceaccess.
 
 Preflight15:15 local Samsung SM-T970 MemAvailable1088164kB (~1062.7MiB), below1700MiB. NativeGPU not started; no ownedtabs created. stay_on_while_plugged_in=7 unchanged. HistoricalGPUloss makes this gate unsafe until available memory recovers; do not force restart or close usertabs. This preflight is not a GPU failure or proof ofOOM.
+
+## Surface hardware result
+
+Frozen21027611 bundle SHAed6b4e5be654fc2b85c872e351e48fdd872748b82c655fb185769cfa177fab52, actual Intel Surface, OFF thenON. Between arms next1700MiB preflight refused at1619MiB; ownOFF tab closed, memory recovered1962MiB, only remainingON started. No usertabs touched. OwnON closed. Minimumduringrun1061.9MiB above500abort. No GPU/GL errors/contextloss.
+
+Exact same full tape JSON+SHA3000d237 and paperSHAaeaef351 in both arms. Main baseline100 reproduces43282bytes/max36 vsGL, author/replay exact0. Main is intentionally unaffected bycandidate, so equal mainhash is a control, not evidence that candidate fixes nothing globally. Actual candidate isolated selectedstamp9: accumulated1byte/max1 andblank1byte/max1, BOTHarms oracle output reports identical. Negative result for this primitive: change not promoted.
+
+Important localization: selectedstamp9 center408.86/365.55,radius45.07; mismatch onlyR at418/407, alpha exact. This primitive cannot cover historicalpressure246/243 coordinate566/396. The originalselected9 plan was too narrow for that pressure site. Next isolate relevant latercoveragecommand (previoussource notes alpha stamp17) or firstpressure-producing primitive; retain recordedcommandinput before fullmodel/artistictuning. CPUtrig diagnosticprepared separately for equalGL/WGSLsin/cos to distinguish raster/interpolation.
+
+Machine-readable summary `literal-stamp-surface-summary.json`; ignored raw under ownworktree `temp/device-runs/native-literal-surface/{actual,on-after-cleanup}/report.json`. Controller permitsGATE_ON_ONLY to resume a refused nextarm after RAM recovery without repeatingbaseline. Not a timingbenchmark, ordinaryRoom400 or wholecandidatefidelity proof.

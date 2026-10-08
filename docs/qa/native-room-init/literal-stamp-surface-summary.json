@@ -1,0 +1,96 @@
+{
+  "source": "2102761147ca10c0c294e4973b5b62c9c956ce54",
+  "bundleSha": "ed6b4e5be654fc2b85c872e351e48fdd872748b82c655fb185769cfa177fab52",
+  "sameTape": true,
+  "sameTapeSha": true,
+  "samePaperSha": true,
+  "scope": "One OFF/ON pair with RAM recovery pause, not performance or Room parity",
+  "off": {
+    "wholeLayer": {
+      "changed": 43282,
+      "max": 36,
+      "mean": 0.01488947868347168,
+      "exact": false
+    },
+    "authorVsNativeReplay": {
+      "changed": 0,
+      "max": 0,
+      "mean": 0,
+      "exact": true
+    },
+    "tapeSha256": "3000d2378db11c11b99010f35c9d99890cf5fa70e85b759e36bfc02985a47d56",
+    "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+    "nativeSha256": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d"
+  },
+  "on": {
+    "wholeLayer": {
+      "changed": 43282,
+      "max": 36,
+      "mean": 0.01488947868347168,
+      "exact": false
+    },
+    "authorVsNativeReplay": {
+      "changed": 0,
+      "max": 0,
+      "mean": 0,
+      "exact": true
+    },
+    "tapeSha256": "3000d2378db11c11b99010f35c9d99890cf5fa70e85b759e36bfc02985a47d56",
+    "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+    "nativeSha256": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d"
+  },
+  "oracleSame": true,
+  "selectedOff": {
+    "key": "coverage",
+    "w": 1024,
+    "h": 1024,
+    "comparedBytes": 4194304,
+    "changed": 1,
+    "max": 1,
+    "mean": 2.384185791015625e-07,
+    "exact": false
+  },
+  "selectedOn": {
+    "key": "coverage",
+    "w": 1024,
+    "h": 1024,
+    "comparedBytes": 4194304,
+    "changed": 1,
+    "max": 1,
+    "mean": 2.384185791015625e-07,
+    "exact": false
+  },
+  "blankOff": {
+    "key": "blank",
+    "w": 1024,
+    "h": 1024,
+    "comparedBytes": 4194304,
+    "changed": 1,
+    "max": 1,
+    "mean": 2.384185791015625e-07,
+    "exact": false
+  },
+  "blankOn": {
+    "key": "blank",
+    "w": 1024,
+    "h": 1024,
+    "comparedBytes": 4194304,
+    "changed": 1,
+    "max": 1,
+    "mean": 2.384185791015625e-07,
+    "exact": false
+  },
+  "errors": [
+    [],
+    []
+  ],
+  "gl": [
+    0,
+    0
+  ],
+  "lost": [
+    false,
+    false
+  ],
+  "minRamMiB": 1061.9
+}

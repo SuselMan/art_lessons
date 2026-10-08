@@ -17,7 +17,8 @@ try{
  const manifestResponse=await fetch(new URL('paper/manifest.json',url)),manifestBytes=Buffer.from(await manifestResponse.arrayBuffer()),manifest=JSON.parse(manifestBytes);report.paperManifestSha256=crypto.createHash('sha256').update(manifestBytes).digest('hex');const paperBytes=Buffer.from(await(await fetch(new URL('paper/'+manifest.assets.fine.texture,url))).arrayBuffer());report.paperAsset={name:manifest.assets.fine.texture,compressedSha256:crypto.createHash('sha256').update(paperBytes).digest('hex'),bytes:paperBytes.length};
  const frozen=fs.readFileSync(process.env.FROZEN_PAPER_DIR+'/'+manifest.assets.fine.texture);if(!frozen.equals(paperBytes))throw Error('Frozen Fine asset bytes differ');const localManifest=JSON.parse(fs.readFileSync(process.env.FROZEN_PAPER_DIR+'/manifest.json'));if(JSON.stringify(manifest.assets.fine)!==JSON.stringify(localManifest.assets.fine))throw Error('Frozen Fine catch LUT/entry differs');
  const initial=memory();report.memory.push({stage:'before-own-tab',availableMiB:initial});if(initial<1700)throw Error('Preflight below1700MiB');save();
- for(const [arm,enabled]of[false,true].entries()){
+ const arms=process.env.GATE_ON_ONLY==='1'?[true]:[false,true];report.armPlan=arms
+ for(const [arm,enabled]of arms.entries()){
   const free=memory();report.memory.push({stage:'arm-'+arm+'-preflight',availableMiB:free});if(free<1700)throw Error('Next arm preflight below1700MiB');report.stage='arm-'+arm+'-'+(enabled?'ON':'OFF')+'-load';save();await ownedPage(arm);
   report.preflight=await evaluate(()=>({secure:isSecureContext,gpu:!!navigator.gpu}));if(!report.preflight.secure||!report.preflight.gpu)throw Error('Secure WebGPU unsupported');save();
   await evaluate(()=>{window.__queueFrames=[];let prev=performance.now();window.__queueFrameActive=true;const frame=t=>{if(!window.__queueFrameActive)return;window.__queueFrames.push(t-prev);prev=t;requestAnimationFrame(frame)};requestAnimationFrame(frame)});
@@ -25,6 +26,6 @@ try{
   report.stage='arm-'+arm+'-'+(enabled?'ON':'OFF')+'-run';save();console.log(JSON.stringify({stage:report.stage,ownTarget:target.id}));const result=await evaluate(async enabled=>window.runEndToEnd({size:100,timeoutMs:180000,coverageSequence:true,coverageSameInputIndices:[9],coverageBlankSelected:true,diagnosticHardwareLinearInputs:true,diagnosticLiteralStampVertex:enabled}),enabled);clearInterval(monitor);
   report.rows.push({arm,enabled,report:result});save();console.log(JSON.stringify({arm,enabled,errors:result.errors,glError:result.glError,lost:result.lost,sequenceOracle:result.sequenceOracle}));await closeOwn();if(result.glError||result.lost||result.errors?.length)throw Error('Functional/GL gate failed');await new Promise(r=>setTimeout(r,1500));
  }
- report.valid=report.rows.length===2&&!report.memoryAbort&&!report.gpuAbort&&!report.errors.length;report.stage='complete';save();
+ report.valid=report.rows.length===arms.length&&!report.memoryAbort&&!report.gpuAbort&&!report.errors.length;report.stage='complete';save();
 }catch(e){report.error=String(e);report.failedAt=report.stage;report.stage='failed';report.valid=false;save();process.exitCode=1;try{if(target&&ws?.readyState===1){const s=await send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(out+'/failure.png',Buffer.from(s.data,'base64'))}}catch{}}
 finally{await closeOwn();save();console.log(JSON.stringify({stage:report.stage,valid:report.valid,rows:report.rows.length,error:report.error,out}))}
