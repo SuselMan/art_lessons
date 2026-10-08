@@ -14,7 +14,9 @@ export async function createOwnedPreviewRuntime(e,morph,{event=()=>{},budgetByte
 export function bindOwnedPreviewRuntime(e,morph,{pool,port,domain,event=()=>{}}){
  const states=new Map();let frame=null,disposed=false;
  const material=(s)=>{const f=s.owner.lease.fields,recipe=s.owner.source.chunks.at(-1)?.composite;if(!recipe)throw Error('Preview needs owned immutable composite recipe');const pending=s.transport.lease.pending;f.original.copyTo(pending);const bounds={minX:0,minY:0,maxX:1024,maxY:1024},tile={buffer:pending,originX:0,originY:0,contentRect:bounds},l=s.transport.lease,side=s.transport.front;
-  e._ribbonPasses.drawRibbonCompositeRect(tile,bounds,recipe.preset,recipe.profile,f.original,l.coverage,l[`p${side}`],l[`c${side}`],recipe.color,recipe.opacity,recipe.fieldSeed,recipe.spreadPx,recipe.fringeWater,recipe.migratePx,recipe.profile.normalizeDeposit?recipe.dabSpacing:0,recipe.strokeDir,recipe.bristleRadiusPx)
+  // Transport domain is support-only; production composite MUST read full readonly
+  // source coverage (across/pool/standing-water), never the overwritten128 domain.
+  e._ribbonPasses.drawRibbonCompositeRect(tile,bounds,recipe.preset,recipe.profile,f.original,f.coverage,l[`p${side}`],l[`c${side}`],recipe.color,recipe.opacity,recipe.fieldSeed,recipe.spreadPx,recipe.fringeWater,recipe.migratePx,recipe.profile.normalizeDeposit?recipe.dabSpacing:0,recipe.strokeDir,recipe.bristleRadiusPx)
  };
  const detach=s=>{const held=e._washReveals.get(s.owner.lease.fields.presentation);if(held?.pending===s.transport.lease.pending)held.pending=undefined};
  const retire=s=>{detach(s);s.fence=s.transport.retire();states.delete(s.owner.token);return s};
