@@ -1,0 +1,6 @@
+import test from'node:test';import assert from'node:assert/strict';import{PreviewFixedPool,FINITE_PREVIEW_TOTAL_BYTES}from'./PreviewFixedPool.mjs';
+test('three preinput allocations, bounded leases, once release, rollback rejects Q8',()=>{
+ let allocations=0,destroyed=0;const allocate=()=>({format:'rgba32f',bytes:1048576,fields:{p0:{texture:++allocations}},destroyAfterKnownIdle(){destroyed++}});
+ const p=new PreviewFixedPool({}, {budgetBytes:FINITE_PREVIEW_TOTAL_BYTES,createQ8(){},allocate});assert.equal(allocations,3);const leases=[p.take(),p.take(),p.take()];assert.equal(p.take(),null);assert.throws(()=>p.disposeAfterKnownIdle());assert.equal(allocations,3);assert.equal(leases[0].releaseAfterKnownIdle(),true);assert.equal(leases[0].releaseAfterKnownIdle(),false);for(const l of leases.slice(1))l.releaseAfterKnownIdle();p.disposeAfterKnownIdle();p.disposeAfterKnownIdle();assert.equal(destroyed,3);
+ let calls=0,releases=0;assert.throws(()=>new PreviewFixedPool({}, {budgetBytes:FINITE_PREVIEW_TOTAL_BYTES,createQ8(){},allocate:()=>({format:++calls===2?'rgba8':'rgba32f',bytes:1048576,fields:{},destroyAfterKnownIdle(){releases++}})}));assert.equal(releases,2);assert.equal(FINITE_PREVIEW_TOTAL_BYTES,18.375*1024*1024);
+});
