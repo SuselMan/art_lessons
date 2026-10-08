@@ -42,7 +42,7 @@ export interface CanonicalStrokeChunkInput {
 }
 /** Exact source command order per segment. Scheduling/base+film copies/foreign V import remain owner operations. */
 export function prepareCanonicalStrokeChunk(state:CanonicalStrokeChunkState,input:CanonicalStrokeChunkInput):{drawable:Dab[];commands:CanonicalDrawCommand[]} {
- const {preset,presetName,tile,options,film}=input
+ const {preset,presetName,options,film}=input
  if(!input.profile.normalizeDeposit || input.profile.stampFlow || input.profile.brushStamp || input.profile.coverageInkMode !== 6) throw new Error('Canonical chunk requires the production watercolor ribbon profile')
  const segmentMode=input.segmentMode
  if(segmentMode&&input.dabs.length>1&&!input.segmented){
@@ -62,6 +62,19 @@ export function prepareCanonicalStrokeChunk(state:CanonicalStrokeChunkState,inpu
  noteRibbonWetContacts(state,drawable,preset,wetOf)
  const scalars=state.gestureScalars??=prepareRibbonGestureScalars(drawable[0],preset,profile,presetName)
  const delivery=prepareRibbonDelivery(drawable,previous,preset,profile,state,wetOf,landedWet,segmentMode,!!input.segmented,film,{markerSegmentLength:ribbonSegmentLength,dabPool:()=>state.dabPool},options)
+ const result=buildCanonicalStrokeCommandsFromDelivery({...input,profile,drawable,previous,wetOf,scalars,delivery})
+ if(input.materialEnabled!==false&&!input.waterOnly)state.landedWet=landedWet
+ return result
+}
+/** Immutable recipe consumed per tile; does not advance delivery, clocks, wet contacts or scalar state. */
+export interface CanonicalPreparedDeliveryInput extends Omit<CanonicalStrokeChunkInput,'dabs'|'previous'> {
+ drawable:Dab[];previous?:Dab;wetOf:(dab:Dab)=>number
+ scalars:ReturnType<typeof prepareRibbonGestureScalars>
+ delivery:ReturnType<typeof prepareRibbonDelivery>
+}
+export function buildCanonicalStrokeCommandsFromDelivery(input:CanonicalPreparedDeliveryInput):{drawable:Dab[];commands:CanonicalDrawCommand[]} {
+ const {preset,tile,options,film,profile,drawable,previous,wetOf,scalars,delivery}=input
+ const segmentMode=input.segmentMode,commands:CanonicalDrawCommand[]=[]
  if(input.materialEnabled===false)return {drawable,commands}
  const {haloDabs,haloDoseByDab:haloDose,haloShedByDab:haloShed}=prepareRibbonHalo(drawable,scalars.spreadPx,true,delivery)
  const bands=prepareCanonicalRibbonBands({dabs:drawable,previous,sizeMultiplier:preset.sizeMultiplier,profile,film,segmented:!!segmentMode,solventField:options.diagnosticSolventField,wetOf,delivery:{water:delivery.waterByDab,pigment:delivery.pigmentByDab,excess:delivery.excessByDab,haloShed,paperWet:delivery.paperWetByDab,puddle:delivery.puddleByDab,pigmentPool:delivery.pigmentPoolByDab}})
@@ -99,6 +112,5 @@ export function prepareCanonicalStrokeChunk(state:CanonicalStrokeChunkState,inpu
   }
  }
  if(!input.waterOnly&&(input.hasInk??profile.ink))for(let i=0;i<haloDabs.length;i++){const dab=haloDabs[i],dose=haloDose.get(dab)??0;if(dose>0)stamp('halo',dab,{...profile,inkEdgeFalloff:1},delivery.deposits[i]*dose,delivery.waterByDab.get(dab)??0,delivery.paperWetByDab.get(dab)??0,inkStrength,delivery.acrossByDab.get(dab)??[0,1],true,1,0,mottle,null)}
- if(!input.waterOnly)state.landedWet=landedWet
  return {drawable,commands}
 }

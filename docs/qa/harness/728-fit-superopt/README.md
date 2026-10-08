@@ -46,8 +46,7 @@ from timed dispatch span. No WebGL/Room or full watercolor path is executed.
 SwiftShader32×40 loops16/repeats4 forward/reverse: all outputs exact,errors0.
 GPU timing baseline .577/.755ms; balanced .679/.765ms; chain .492/.709ms.
 These software measurements are small/noisy, do not establish a hardware win,
-and are recorded honestly in software-summary.json. Hardware benchmark pending
-parent-controlled device schedule, not run by this experiment yet.
+and are recorded honestly in software-summary.json. Parent-controlled actual Surface hardware benchmark completed; see hardware-summary.json.
 
 Amdahl: if measured local gain S applied to fraction f of full watercolor,
 whole speedup=1/((1−f)+f/S). Neither hardware S nor measured f is established.
@@ -58,3 +57,22 @@ Reproduce search with z3-solver installed outside Git, then:
 `PYTHONPATH=temp/superopt-deps python3 docs/qa/harness/728-fit-superopt/search.py docs/qa/harness/728-fit-superopt/search-result.json`.
 Software gate: `node docs/qa/harness/728-fit-superopt/check.mjs`.
 Static index/run.js are self-contained for parent trusted QA hosting.
+
+## Hardware closure: no demonstrated positive gain
+
+Actual Surface Chrome154;256²,32fit loops,16dispatches, timestamps available.
+Forward GPU spans (baseline/balanced/chain):2.359296/3.2768/7.733248ms.
+Reverse:all3reported2.359296ms. All six Q8 outputs share SHA256
+`aeb56ef0d5fe595bb1fa15bebbf1995cb6e3ca300ae5c3b575873bb95deaa9d2`,
+byte differences0/errors0. Root executed the hardware measurement; this agent
+only reviewed and compacted its raw report.
+
+No positive win was demonstrated. One forward/reverse sample, loop-amplified
+synthetic workload, exact repeated timestamp values and compile/warm state
+prevent a statistical equal-cost or regression conclusion. Compiler wall times
+are reported separately, not mistaken for shader execution. Search optimum is
+only within its grammar/cost model, not a strict whole-runtime lower bound.
+Expected whole gain remains zero for planning because there is no supported
+improvement to promote; this is NOT proof that all future GPU optimization has
+zero benefit. Experiment closed negative; production/default unchanged. No
+additional GPU loops were run to hunt for a favorable sample.

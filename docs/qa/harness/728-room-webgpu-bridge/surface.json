@@ -1,0 +1,75 @@
+{
+  "size": 1024,
+  "bytes": 4194304,
+  "samples": [
+    {
+      "mode": "readback",
+      "wallMs": 116.89999997615814,
+      "comparison": {
+        "different": 0,
+        "max": 0,
+        "alphaDifferent": 0
+      }
+    },
+    {
+      "mode": "canvas",
+      "wallMs": 33,
+      "comparison": {
+        "different": 0,
+        "max": 0,
+        "alphaDifferent": 0
+      }
+    },
+    {
+      "mode": "canvas",
+      "wallMs": 4.199999988079071,
+      "comparison": {
+        "different": 0,
+        "max": 0,
+        "alphaDifferent": 0
+      }
+    },
+    {
+      "mode": "readback",
+      "wallMs": 17.600000023841858,
+      "comparison": {
+        "different": 0,
+        "max": 0,
+        "alphaDifferent": 0
+      }
+    },
+    {
+      "mode": "readback",
+      "wallMs": 16.400000035762787,
+      "comparison": {
+        "different": 0,
+        "max": 0,
+        "alphaDifferent": 0
+      }
+    },
+    {
+      "mode": "canvas",
+      "wallMs": 6.899999976158142,
+      "comparison": {
+        "different": 0,
+        "max": 0,
+        "alphaDifferent": 0
+      }
+    }
+  ],
+  "stateBefore": {
+    "flip": false,
+    "premultiply": false,
+    "conversion": 37444
+  },
+  "errors": [],
+  "glError": 0,
+  "lost": false,
+  "scope": "raw premultiplied Q8 transfer to actual Room AccumulationBuffer; no watercolor/Room or first-visible proof; wall transfer incl queue wait, not GPU timestamp",
+  "limits": [
+    "Valid premultiplied fixture only; alpha-zero hidden RGB not tested by canvas path.",
+    "No first-source/progressive/final actual watercolor owner integration.",
+    "Browser may copy/convert across APIs; zero-copy unknown."
+  ],
+  "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+}

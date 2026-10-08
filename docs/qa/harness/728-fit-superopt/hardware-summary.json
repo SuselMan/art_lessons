@@ -1,0 +1,94 @@
+{
+  "device": "Surface",
+  "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+  "hardware": true,
+  "raw": "fit-superopt-surface-1791442112636.json",
+  "outcome": "No demonstrated positive GPU win; negative bounded experiment",
+  "rows": {
+    "forward": [
+      {
+        "name": "baseline",
+        "gpuMs": 2.359296,
+        "wallMs": 64.5,
+        "compileCpuWallMs": 62.5,
+        "sha256": "aeb56ef0d5fe595bb1fa15bebbf1995cb6e3ca300ae5c3b575873bb95deaa9d2",
+        "difference": {
+          "changed": 0,
+          "max": 0
+        }
+      },
+      {
+        "name": "enumeratedBalanced",
+        "gpuMs": 3.2768,
+        "wallMs": 6.300000011920929,
+        "compileCpuWallMs": 42.89999997615814,
+        "sha256": "aeb56ef0d5fe595bb1fa15bebbf1995cb6e3ca300ae5c3b575873bb95deaa9d2",
+        "difference": {
+          "changed": 0,
+          "max": 0
+        }
+      },
+      {
+        "name": "enumeratedChain",
+        "gpuMs": 7.733248,
+        "wallMs": 10.399999976158142,
+        "compileCpuWallMs": 43.09999996423721,
+        "sha256": "aeb56ef0d5fe595bb1fa15bebbf1995cb6e3ca300ae5c3b575873bb95deaa9d2",
+        "difference": {
+          "changed": 0,
+          "max": 0
+        }
+      }
+    ],
+    "reverse": [
+      {
+        "name": "enumeratedChain",
+        "gpuMs": 2.359296,
+        "wallMs": 7,
+        "compileCpuWallMs": 5.400000035762787,
+        "sha256": "aeb56ef0d5fe595bb1fa15bebbf1995cb6e3ca300ae5c3b575873bb95deaa9d2",
+        "difference": {
+          "changed": 0,
+          "max": 0
+        }
+      },
+      {
+        "name": "enumeratedBalanced",
+        "gpuMs": 2.359296,
+        "wallMs": 4.300000011920929,
+        "compileCpuWallMs": 1.800000011920929,
+        "sha256": "aeb56ef0d5fe595bb1fa15bebbf1995cb6e3ca300ae5c3b575873bb95deaa9d2",
+        "difference": {
+          "changed": 0,
+          "max": 0
+        }
+      },
+      {
+        "name": "baseline",
+        "gpuMs": 2.359296,
+        "wallMs": 5,
+        "compileCpuWallMs": 1.699999988079071,
+        "sha256": "aeb56ef0d5fe595bb1fa15bebbf1995cb6e3ca300ae5c3b575873bb95deaa9d2",
+        "difference": {
+          "changed": 0,
+          "max": 0
+        }
+      }
+    ]
+  },
+  "fixture": {
+    "width": 256,
+    "height": 256,
+    "loops": 32,
+    "repeats": 16,
+    "timestamp": true
+  },
+  "exact": true,
+  "errors": [],
+  "limitations": [
+    "One forward/reverse order; small sample, no statistical speed bound",
+    "32 loop amplification and16repeateddispatches are synthetic fit workload",
+    "Equal reverse timestamps show resolution/quantization/cold-state concerns, not exact equal physical cost",
+    "No whole watercolor f measured; no whole speedup or strict lower bound demonstrated"
+  ]
+}
