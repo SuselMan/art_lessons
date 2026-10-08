@@ -1,0 +1,10 @@
+/** SOURCE-only visual options. Canonical merged radius/context can differ. */
+export function previewCarrySourceOptions(chunks,constants,{maxFrontSteps=32}={}){
+ if(!chunks.length||!Number.isInteger(maxFrontSteps)||maxFrontSteps<1||maxFrontSteps>32)throw Error('Bounded source options');
+ let water=0,wet=0,standing=0,radiusPx=0;
+ for(const chunk of chunks){const fluid=chunk.composite.previewSourceFluid,geometry=chunk.composite.previewSourceGeometry;if(!fluid||!geometry||!Object.values(fluid).every(v=>Number.isFinite(v)&&v>=0&&v<=1)||!Number.isFinite(geometry.tipDiameter)||geometry.tipDiameter<=0)throw Error('Owned SOURCE fluid/geometry required');water=Math.max(water,fluid.waterLevel);standing=Math.max(standing,fluid.standingPeak);wet=Math.max(wet,fluid.landedWet,fluid.wetPeak,fluid.standingPeak);radiusPx=Math.max(radiusPx,geometry.tipDiameter*.5)}
+ const budgetPx=constants.watercolorSpreadBudget(radiusPx,water,wet)/8,costMax=budgetPx+4,requested=constants.watercolorFrontSteps(budgetPx,radiusPx/8,wet);
+ const options={stride:1,budgetPx,costMax,effectiveWet:wet,standing,rate:constants.WC_CARRY_RATE,pow:constants.WC_CARRY_POW,travel:constants.WC_CARRY_TRAVEL,dryCost:Math.max(constants.WC_FRONT_DRY_COST,budgetPx*constants.WC_FRONT_DRY_SHARE),climb:constants.WC_FRONT_CLIMB,floor:constants.WC_FRONT_FLOOR,wetLo:constants.WC_BLOOM_WET_LO,wetHi:constants.WC_BLOOM_WET_HI};
+ if(!Object.values(options).every(Number.isFinite)||budgetPx<=1.5)throw Error('SOURCE-only front budget too small/nonfinite');
+ return Object.freeze({options:Object.freeze(options),frontSteps:Math.min(maxFrontSteps,requested),requestedFrontSteps:requested,capped:requested>maxFrontSteps,worldRadiusPx:radiusPx,scope:'SOURCE-only visual; no canonical merged pressure equality'});
+}
