@@ -19,6 +19,6 @@ export function commonSourceShape<B extends SourceBuffer>(entry:SettlePlanTile<B
 }
 export function validateCommonSourcePayload(source:CommonSourceShape,recipient:CommonSourceShape){
  const shape=(s:CommonSourceShape)=>JSON.stringify({filmGesture:s.filmGesture,coverageFilmGesture:s.coverageFilmGesture,solventGesture:s.solventGesture,physicalBytes:s.physicalBytes,fields:s.fields.map(({bytes:_bytes,...field})=>field)})
- if(shape(source)!==shape(recipient))throw Error('Source ownership/null/alias/filter/film contract differs')
+ if(shape(source)!==shape(recipient)){const first=source.fields.find((f,i)=>JSON.stringify({...f,bytes:undefined})!==JSON.stringify({...recipient.fields[i],bytes:undefined}));throw Error('Source ownership/null/alias/filter/film contract differs: '+JSON.stringify(first?{role:first.role,source:{...first,bytes:undefined},recipient:{...recipient.fields[source.fields.indexOf(first)],bytes:undefined}}:{source:{filmGesture:source.filmGesture,coverageFilmGesture:source.coverageFilmGesture,solventGesture:source.solventGesture,physicalBytes:source.physicalBytes},recipient:{filmGesture:recipient.filmGesture,coverageFilmGesture:recipient.coverageFilmGesture,solventGesture:recipient.solventGesture,physicalBytes:recipient.physicalBytes}}))}
  for(const field of source.fields)if(field.presence==='field'&&(!field.bytes||field.bytes.length!==field.width!*field.height!*4))throw Error('Missing exact Q8 source payload')
 }

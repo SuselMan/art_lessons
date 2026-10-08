@@ -4,6 +4,7 @@ import {getPaperBytes} from '../../../../apps/web/src/engine/src/paper/paperLoad
 import {CanonicalWatercolorWebGpu} from '../../../../apps/web/src/engine/src/webgpuCanonical/backend'
 import {CanonicalBoundedSceneRunner} from '../../../../apps/web/src/engine/src/webgpuCanonical/boundedSceneRunner'
 import {captureActualGlSource,installCommonSourceImport,type CommonSourcePayload} from './commonSourceBoundary'
+import {commonSourceShape} from './commonSourceContract'
 import {withGlOwnerCleanup} from './glOwnerCleanup'
 import {compareStages} from './stages'
 const sourceOptions={diagnosticWaterPolicy:'bottomless',diagnosticSharedFluid:true,diagnosticLandingReservoir:true,diagnosticLandingPolicy:'fluid',diagnosticCanonicalSettleRadius:true,diagnosticSolventField:true,diagnosticPigmentRecord:true} as const
@@ -47,4 +48,13 @@ export async function runCommonSourceSolver({operation,checkpoint,commonSource}:
   }finally{control?.detach();try{await runner?.retire();await backend.device.queue.onSubmittedWorkDone().catch(()=>{})}finally{backend.destroy();surface.replaceChildren()}}
  }
  return{code:'__SOURCE_CODE__',operationSha256:await hash(new TextEncoder().encode(JSON.stringify(operation))),paperSha256:await hash(la),config:checkpoint.config,sourceManifest:manifest,sourcePhysicalBytes:payload!.physicalBytes,sourceMetadata:payload!.metadataJson,sourceScalars:payload!.scalarsJson,gl:{...gl,sha256:await hash(glBytes!),fields:glFields!},arms,limits:'One original100 operation; actualGL source ALL17named roles+target, strict null/alias/filter/film/CPUrequest check before native import; native source CPU delivery still runs once. Sequential owners, actual1536 solver. Diagnostic only; no Room/multiwash/performance claim.'}
+}
+/** Topology-only consumer: stops before planner ops/import, never claims solver equality.
+ * Producer and consumer passports are intentionally separate and both returned. */
+export async function inspectCommonSourceShape({operation,checkpoint}:{operation:StrokeOperation;checkpoint:CommonSourceCheckpoint}){
+ if(!/^[a-f0-9]{40}$/.test(checkpoint.code)||checkpoint.operationSha256!==await hash(new TextEncoder().encode(JSON.stringify(operation)))||!checkpoint.glOwnerRetired)throw Error('Invalid immutable producer checkpoint')
+ const la=await getPaperBytes('fine');if(await hash(la)!==checkpoint.paperSha256)throw Error('Paper differs');const side=Math.sqrt(la.length/2),paper=new Uint8Array(side*side*4);for(let i=0;i<la.length/2;i++){paper[i*4]=paper[i*4+1]=paper[i*4+2]=la[i*2];paper[i*4+3]=la[i*2+1]}
+ const canvas=document.createElement('canvas'),backend=await CanonicalWatercolorWebGpu.create({canvas,width:1024,height:1024,roomOwnedResources:true,paper:{bytes:paper,width:side,height:side,origin:[0,0],texSize:[checkpoint.config.paperWorld.w,checkpoint.config.paperWorld.h],scale:checkpoint.config.paperScale}})
+ let runner:CanonicalBoundedSceneRunner|undefined;let actual:unknown=null,calls=0
+ try{runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions,now:()=>operation.timestamp-1791400000000,timestamp:()=>operation.timestamp,operationId:()=>{throw Error('Preserve operation')}});const planner=(runner as any).planner;planner.ctx.gradientFibres=()=>checkpoint.config.gradientFibres;planner.ctx.ab=()=>({...checkpoint.config.ab});planner.prepare=(...args:any[])=>{calls++;const target=args[1][0].buffer,entry=args[0].peek(target);actual=commonSourceShape(entry,target);return null};runner.replay(operation);await runner.drain();if(calls!==1)throw Error('Unexpected prepare count');return{code:'__SOURCE_CODE__',producerCode:checkpoint.code,calls,expected:{...checkpoint.payload,fields:checkpoint.payload.fields.map(({bytes:_bytes,...f})=>f)},actual,scope:'Source topology only; no import and no solver ops or final quality claim'}}finally{try{await runner?.retire()}finally{backend.destroy()}}
 }
