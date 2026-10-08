@@ -19,9 +19,9 @@ test('sealed paired old-input ping-pong; active pen takes priority; original rol
 })
 test('cancel retains physical lease until matching fence, stale completion cannot publish',()=>{
  const f=fixture(), p=new SealedPreviewTransport({...f,token:7});p.seal();const work=p.begin(), fence=p.retire()
- assert.equal(f.releases,0);assert.equal(p.begin(),null);assert.equal(p.complete(work),false)
+ assert.equal(p.retire(),fence);assert.equal(f.releases,0);assert.equal(p.begin(),null);assert.equal(p.complete(work),false)
  assert.throws(()=>p.releaseAfterFence({token:7,epoch:0}));assert.equal(f.releases,0)
- p.releaseAfterFence(fence);assert.equal(f.releases,1);assert.equal(p.begin(),null);assert.equal(p.complete(work),false)
+ p.releaseAfterFence(fence);p.releaseAfterFence(fence);assert.equal(p.retire(),fence);assert.equal(f.releases,1);assert.equal(p.begin(),null);assert.equal(p.complete(work),false)
 })
 test('reject aliases/dimensions/missing physical ledger before any write',()=>{
  let f=fixture();f.lease.p1=f.lease.p0;assert.throws(()=>new SealedPreviewTransport({...f,token:1}))
