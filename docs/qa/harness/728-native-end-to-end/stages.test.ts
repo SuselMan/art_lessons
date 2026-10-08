@@ -32,3 +32,18 @@ test('brush oracle ignores stale outside scissor; top-row bytes respect bottom-u
  const diff=compareStages([clean],[poisoned])[0] as any;assert.equal(diff.changed,1);assert.equal(diff.comparedBytes,4)
  assert.equal((compareStages([clean],[{...clean,writtenRect:[0,1,1,1]}])[0] as any).writtenRectMismatch,true)
 })
+test('prediffuse coarse checkpoints skip basic outputs and stay in fixed one-shot budget',async()=>{
+ let id=0;const data=new Map<any,Uint8Array>(),owner:any={createField:(_label:any,width:number,height:number)=>{const field={width,height,texture:{id:id++},view:{}};data.set(field,new Uint8Array(width*height*4));return field},copyField:(a:any,b:any)=>data.set(b,data.get(a)!.slice()),readField:(f:any)=>Promise.resolve(data.get(f)!.slice()),destroyField:()=>{}}
+ const b=new CanonicalFieldBuffer(owner,2,2),entry={coverage:b,inkLoad:b,inkColor:b,solventLoad:b},scratch={peek:()=>entry}
+ const passes:any={fieldOp(){},waterFrontStep(){},diffuseStep(){},brushPass(){}}
+ const planner:any={prepare(){}}
+ const gate=captureStages({backend:owner,planner,adapter:passes} as any,true,192,'prediffuse')
+ planner.prepare(scratch,[{buffer:b}],{},0,50,1,0,1,0,0)
+ for(const mode of [0,10,12,11,6,15])passes.fieldOp(b,b,b,mode,0)
+ passes.diffuseStep({w:2,h:2},0,0,1,1024,1024,b,b,3,false,b,b)
+ const snapshots=await gate.read();assert.equal(snapshots.length,12)
+ assert(!snapshots.some(s=>s.key==='source:1:C'||s.key==='first:diffuse'))
+ assert(snapshots.some(s=>s.key==='coarse:mobileSplit'));assert.equal((gate.primitiveMetadata.diffuse as any).sourceRole,'pigment')
+ const before=gate.chronology.length;passes.fieldOp(b,b,b,0,0);assert.equal(gate.chronology.length,before)
+ gate.detach();gate.destroy()
+})

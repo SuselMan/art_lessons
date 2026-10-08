@@ -14,7 +14,7 @@ const frame=()=>new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()))
 const sourceOptions={diagnosticWaterPolicy:'bottomless',diagnosticSharedFluid:true,diagnosticLandingReservoir:true,diagnosticLandingPolicy:'fluid',diagnosticCanonicalSettleRadius:true,diagnosticSolventField:true,diagnosticPigmentRecord:true} as const
 function flip(bytes:Uint8Array,w:number,h:number){const out=new Uint8Array(bytes.length);for(let y=0;y<h;y++)out.set(bytes.subarray(y*w*4,(y+1)*w*4),(h-1-y)*w*4);return out}
 function difference(a:Uint8Array,b:Uint8Array){let changed=0,max=0,sum=0;for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);changed+=Number(d>0);max=Math.max(max,d);sum+=d}return{changed,max,mean:sum/a.length,exact:changed===0}}
-export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,stages=false}:{size?:100|400;allowLarge?:boolean;timeoutMs?:number;stages?:boolean}={}){
+export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,stages=false}:{size?:100|400;allowLarge?:boolean;timeoutMs?:number;stages?:boolean|'prediffuse'}={}){
  // Conservative soft policy, NOT available VRAM measurement. Full canonical1536 fields remain enabled.
  const memoryGiB=(navigator as Navigator&{deviceMemory?:number}).deviceMemory??null
  const estimatedPeakMiB=512
@@ -53,7 +53,7 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,st
  void replayBackend.device.lost.then(info=>{if(info.reason!=='destroyed')lost=true})
  let replayClock=1000
  const replayRunner=new CanonicalBoundedSceneRunner(replayBackend,{sourceOptions,now:()=>replayClock,timestamp:()=>1791400000000+replayClock,operationId:()=>{throw new Error('Replay must preserve original operation IDs')}})
- const nativeCapture=stages?captureStages(replayRunner,true):null
+ const nativeCapture=stages?captureStages(replayRunner,true,96*1024*1024,stages==='prediffuse'?'prediffuse':'basic'):null
  let nativeStages:Stage[]=[]
  let nativeReplay:Uint8Array
  const replayStarted=performance.now()
@@ -67,7 +67,7 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,st
  const glCanvas=document.createElement('canvas');glCanvas.width=1024;glCanvas.height=1024;surface.append(glCanvas)
  const engine=new PencilEngine(glCanvas,{paper:'fine',pageWidth:1024,pageHeight:1024,userId:'qa-native',joinedTouch:true,gradientFibres:true})
  const probe=engine as unknown as {_ribbonPainter:Record<string,unknown>;gl:WebGLRenderingContext;_settle:unknown;_rebuildJobs:Map<string,unknown>;_pendingRebuilds:Set<string>;_unsettledLayers:Set<string>;_layers:Map<string,ILayerBuffer>}
- const glCapture=stages?captureStages(engine,false):null
+ const glCapture=stages?captureStages(engine,false,96*1024*1024,stages==='prediffuse'?'prediffuse':'basic'):null
  let glStages:Stage[]=[]
  const wait=async()=>{let stable=0;const deadline=performance.now()+timeoutMs;while(stable<3){if(performance.now()>deadline)throw new Error('Full1536 GL settle timeout');if(probe.gl.isContextLost())throw new Error('GL context lost');await frame();stable=probe._settle||probe._rebuildJobs.size||probe._pendingRebuilds.size||probe._unsettledLayers.size?0:stable+1}}
  let legacy=new Uint8Array(1024*1024*4),renderer:string|null=null,glError=0
@@ -80,6 +80,6 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,st
   glStages=await glCapture?.read()??[]
   const ext=probe.gl.getExtension('WEBGL_debug_renderer_info');renderer=ext?String(probe.gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):null;glError=probe.gl.getError()
  }finally{glCapture?.detach();glCapture?.destroy();engine.destroy();surface.replaceChildren()}
- return{code:'__CODE__',size,stageComparison:stages?compareStages(nativeStages,glStages):null,stageMetadata:stages?{native:nativeCapture?.metadata,gl:glCapture?.metadata,nativePrimitives:nativeCapture?.primitiveMetadata,glPrimitives:glCapture?.primitiveMetadata}:null,memoryGiB,estimatedPeakMiB,nativeMs,nativeReplayMs,replayPreservedTape,nativeReplaySha256:await hash(nativeReplay!),authorVsNativeReplay:difference(native!,nativeReplay!),nativeReplayVsLegacy:difference(nativeReplay!,legacy),nativeReplayNonzero:nativeReplay!.some(x=>x!==0),legacyMs:performance.now()-glStarted,renderer,software:/swiftshader|llvmpipe/i.test(renderer??''),tape,tapeSha256:await hash(new TextEncoder().encode(JSON.stringify(tape))),paperSha256:await hash(la),nativeSha256:await hash(native!),legacySha256:await hash(legacy),wholeLayer:difference(native!,legacy),nativeNonzero:native!.some(x=>x!==0),legacyNonzero:legacy.some(x=>x!==0),errors,lost,glError,limitations:['Single1024 tile/layer/wash; serial settle; no Room/server/concurrency claim','Software difference is an observation, not hardware exactness','Final whole material layer; no claim of all transient fields parity','Native pointer event batches vs authoritative GL packed operation replay; batch-boundary discrepancy is detectable']}
+ return{code:'__CODE__',size,stageComparison:stages?compareStages(nativeStages,glStages):null,stageMetadata:stages?{native:nativeCapture?.metadata,gl:glCapture?.metadata,nativePrimitives:nativeCapture?.primitiveMetadata,glPrimitives:glCapture?.primitiveMetadata,nativeChronology:nativeCapture?.chronology,glChronology:glCapture?.chronology}:null,memoryGiB,estimatedPeakMiB,nativeMs,nativeReplayMs,replayPreservedTape,nativeReplaySha256:await hash(nativeReplay!),authorVsNativeReplay:difference(native!,nativeReplay!),nativeReplayVsLegacy:difference(nativeReplay!,legacy),nativeReplayNonzero:nativeReplay!.some(x=>x!==0),legacyMs:performance.now()-glStarted,renderer,software:/swiftshader|llvmpipe/i.test(renderer??''),tape,tapeSha256:await hash(new TextEncoder().encode(JSON.stringify(tape))),paperSha256:await hash(la),nativeSha256:await hash(native!),legacySha256:await hash(legacy),wholeLayer:difference(native!,legacy),nativeNonzero:native!.some(x=>x!==0),legacyNonzero:legacy.some(x=>x!==0),errors,lost,glError,limitations:['Single1024 tile/layer/wash; serial settle; no Room/server/concurrency claim','Software difference is an observation, not hardware exactness','Final whole material layer; no claim of all transient fields parity','Native pointer event batches vs authoritative GL packed operation replay; batch-boundary discrepancy is detectable']}
 }
 Object.assign(window,{runEndToEnd})

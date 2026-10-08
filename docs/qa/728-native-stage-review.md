@@ -9,8 +9,9 @@ firstdiffuse15668/max30, firstbrush4819/max197. Author→packed-native exact0.
 
 Hooks вызывают настоящие исходные методы, не обходят planner. Front destination
 — аргумент5; diffuse destination —7; brush output —5 в обеих ветках. Общий planner
-на первом paired diffusion вызывает **colour сначала**, потом pigment. Поэтому
-`first:diffuse` — C, а не P. Первый brush тоже определяется реальным source===color,
+при paired colour вызывает **colour сначала**, потом pigment. В выбранном
+одноцветном100 zigzag paints.size=1, colour=null: `first:diffuse` — P в обеих ветках.
+Прежняя формулировка о C была чрезмерным обобщением paired ветви. Первый brush тоже определяется реальным source===color,
 а не догадкой по названию. Prepare metadata не доказывает равенство всех inputs
 последующих fieldOps: они успевают изменить поля до первого diffuse.
 
@@ -24,15 +25,15 @@ brush. Новый oracle сравнивает только фактически 
 ## Минимальный следующий gate
 
 Тот же100 fixed tape, `runEndToEnd({size:100,stages:true})`, с расширенным observer:
-перед первым diffuse сохраняются source C и gate, затем output. Primitive metadata
+перед первым diffuse сохраняются source record и gate, затем output. Primitive metadata
 содержат field extent, origin, scale, paper size, radius/preparedRadius, knight,
 sourceRole и source/gate filter. Front/brush также сохраняют свои реальные scalar
 arguments/channel/rect. Ограничение snapshot памяти96MiB, readback после расчёта;
 это diagnostic observer, не timing benchmark.
 
-- Если input C/gate уже сильно различаются, firstdiffuse не установлен как первый
+- Если input record/gate уже сильно различаются, firstdiffuse не установлен как первый
   виновник; искать предыдущую remobilisation/front-band/fieldOp chronology.
-- Если input C/gate и prepared primitive metadata exact, а output нет, следующий
+- Если input record/gate и prepared primitive metadata exact, а output нет, следующий
   gate — один actual diffuse с **одинаковыми frozen inputs** на GL/native, тот же
   Fine baked/origin/S/radius/knight и all-channel output. Отдельный B=0 диагностический
   arm (не изменение модели) проверит влияние height/bilerp: не считать его proof
@@ -49,3 +50,12 @@ origin/texSize/radius formulas совпадают с WatercolorPasses по ис�
 Observer tests3PASS: сохранение аргументов/returns, copies immutable/readback deferred,
 restoration; missing/changed alpha/extents; scissor-only с poison/outside и Y conversion.
 Эти tests CPU-контракта не заменяют actual hardware stage gate.
+
+## Уточнение после refined Surface gate
+
+Root refined100: diffuseInput7211/max126, gate28/max58 уже отличаются;
+output15668/max30. Primitive args/filter/channel совпали, sourceRole=pigment.
+Written brush2252/max51 после исправления scissor oracle. Следовательно большая
+разница возникает ДО diffusion; manual paper bilerp в diffuse пока не локализован
+как причина. Следующий coarse cohort описан в harness README (`stages:'prediffuse'`),
+не смешивается с прежними snapshots, сохраняет тот же author control и physics.
