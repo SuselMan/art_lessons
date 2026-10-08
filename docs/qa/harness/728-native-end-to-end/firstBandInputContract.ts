@@ -13,3 +13,9 @@ export function validateFirstBandInputs(rows:readonly FirstBandSnapshot[],packet
  return true
 }
 export const FIRST_BAND_RECIPE=Object.freeze({worldOrigin:[0,40],worldScale:1,mode11:{k:1,band:[.9617441184796373,0],size:[.009563970380090697,1]},mode6:{k:1,band:[.9617441184796373,.75],size:[.009563970380090697,1/12],origin:[1,1],dir:[1,1],tau:[0,0,0],world:[0,-1576,1]}} as const)
+
+/** QA control changes only rimPatch gate; NEVER a candidate/default model fix. */
+export function firstBandDiagnosticWorld(mode:11|6,rimPatchOff?:true):readonly [number,number,number]{
+ if(rimPatchOff!==undefined&&(rimPatchOff!==true||mode!==6))throw Error('Rim patch control requires mode6')
+ return [0,-1576,rimPatchOff?0:1]
+}

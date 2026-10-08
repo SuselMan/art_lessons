@@ -1,0 +1,405 @@
+{
+  "code": "7dce9a297ec53dbaef8a6c5934b3d4b1a9a039fa",
+  "operator": "firstBandCommonInput",
+  "mode": 6,
+  "producerCode": "5f2e8ddd7fea6ab096beb5322070c11100da69cf",
+  "inputManifest": [
+    {
+      "role": "pressure",
+      "sha256": "288caf3f8a39735b582e759b2f72dd4f295d5590674d8c59bfea7f11b3012e50",
+      "filter": "linear",
+      "width": 1536,
+      "height": 1536,
+      "bytes": 9437184,
+      "rowConvention": "world-top",
+      "packetSha256": "1cf7698e3d2fa6a713a00dad8d2e7f0d05dbb7f74139c91096e366d74560e76f",
+      "sourceApi": "GL"
+    },
+    {
+      "role": "inward",
+      "sha256": "1f786696b913e5fd261f565fe7af4d0f262d8f09e94f67101bb94f9154dfc5b6",
+      "filter": "linear",
+      "width": 1536,
+      "height": 1536,
+      "bytes": 9437184,
+      "rowConvention": "world-top",
+      "packetSha256": "1cf7698e3d2fa6a713a00dad8d2e7f0d05dbb7f74139c91096e366d74560e76f",
+      "sourceApi": "GL"
+    },
+    {
+      "role": "coverage",
+      "sha256": "b6e964b3ad23708a40d25ecc68ab8c4daf91d651e2f01948e6787489dc8515bb",
+      "filter": "nearest",
+      "width": 1536,
+      "height": 1536,
+      "bytes": 9437184,
+      "rowConvention": "world-top",
+      "packetSha256": "1cf7698e3d2fa6a713a00dad8d2e7f0d05dbb7f74139c91096e366d74560e76f",
+      "sourceApi": "GL"
+    }
+  ],
+  "recipe": {
+    "worldOrigin": [
+      0,
+      40
+    ],
+    "worldScale": 1,
+    "mode11": {
+      "k": 1,
+      "band": [
+        0.9617441184796373,
+        0
+      ],
+      "size": [
+        0.009563970380090697,
+        1
+      ]
+    },
+    "mode6": {
+      "k": 1,
+      "band": [
+        0.9617441184796373,
+        0.75
+      ],
+      "size": [
+        0.009563970380090697,
+        0.08333333333333333
+      ],
+      "origin": [
+        1,
+        1
+      ],
+      "dir": [
+        1,
+        1
+      ],
+      "tau": [
+        0,
+        0,
+        0
+      ],
+      "world": [
+        0,
+        -1576,
+        1
+      ]
+    }
+  },
+  "glExtensionSha256": "45f47d18000c9ed57012330cbecf9f5ab18f6ba593eaf3517d0c29a7cf44dacf",
+  "nativeExecutedModes": [
+    6
+  ],
+  "commonExtensionFromGL": true,
+  "expectedSha256": "f941b86b56353fa9f77bb4598273d9d82495bb50d6a08576317d5aaceb575b79",
+  "actualSha256": "8c0e993022204af855ce59a45dfbc926ad22cc8f96bae530f05a4615d037fab1",
+  "channels": [
+    {
+      "changed": 3,
+      "max": 1,
+      "sum": 3
+    },
+    {
+      "changed": 3254,
+      "max": 5,
+      "sum": 5130
+    },
+    {
+      "changed": 19,
+      "max": 1,
+      "sum": 19
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    }
+  ],
+  "differences": [
+    {
+      "x": 324,
+      "y": 267,
+      "channel": 1,
+      "expected": 26,
+      "actual": 25
+    },
+    {
+      "x": 326,
+      "y": 267,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 327,
+      "y": 267,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 324,
+      "y": 268,
+      "channel": 1,
+      "expected": 26,
+      "actual": 25
+    },
+    {
+      "x": 326,
+      "y": 268,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 327,
+      "y": 268,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 328,
+      "y": 268,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 329,
+      "y": 268,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 330,
+      "y": 268,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 324,
+      "y": 269,
+      "channel": 1,
+      "expected": 26,
+      "actual": 25
+    },
+    {
+      "x": 326,
+      "y": 269,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 327,
+      "y": 269,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 328,
+      "y": 269,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 329,
+      "y": 269,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 330,
+      "y": 269,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 331,
+      "y": 269,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 325,
+      "y": 270,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 327,
+      "y": 270,
+      "channel": 1,
+      "expected": 28,
+      "actual": 27
+    },
+    {
+      "x": 328,
+      "y": 270,
+      "channel": 1,
+      "expected": 28,
+      "actual": 27
+    },
+    {
+      "x": 329,
+      "y": 270,
+      "channel": 1,
+      "expected": 28,
+      "actual": 27
+    },
+    {
+      "x": 330,
+      "y": 270,
+      "channel": 1,
+      "expected": 28,
+      "actual": 27
+    },
+    {
+      "x": 331,
+      "y": 270,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 332,
+      "y": 270,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 335,
+      "y": 270,
+      "channel": 1,
+      "expected": 26,
+      "actual": 25
+    },
+    {
+      "x": 336,
+      "y": 270,
+      "channel": 1,
+      "expected": 26,
+      "actual": 25
+    },
+    {
+      "x": 323,
+      "y": 271,
+      "channel": 1,
+      "expected": 26,
+      "actual": 25
+    },
+    {
+      "x": 325,
+      "y": 271,
+      "channel": 1,
+      "expected": 27,
+      "actual": 26
+    },
+    {
+      "x": 326,
+      "y": 271,
+      "channel": 1,
+      "expected": 28,
+      "actual": 27
+    },
+    {
+      "x": 327,
+      "y": 271,
+      "channel": 1,
+      "expected": 29,
+      "actual": 27
+    },
+    {
+      "x": 328,
+      "y": 271,
+      "channel": 1,
+      "expected": 29,
+      "actual": 28
+    },
+    {
+      "x": 329,
+      "y": 271,
+      "channel": 1,
+      "expected": 28,
+      "actual": 27
+    },
+    {
+      "x": 330,
+      "y": 271,
+      "channel": 1,
+      "expected": 28,
+      "actual": 27
+    }
+  ],
+  "differencesTruncated": true,
+  "exact": false,
+  "glOwnerRetired": true,
+  "glError": 0,
+  "errors": [],
+  "lost": false,
+  "validation": null,
+  "producerPassport": {
+    "inputHashes": {
+      "pigment": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+      "coverageSource": "45feaa58e002e127f5d85bb607f733e5977f90e53db5a26694a45ba574266fc7",
+      "coverageField": "b6e964b3ad23708a40d25ecc68ab8c4daf91d651e2f01948e6787489dc8515bb"
+    },
+    "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+    "checkpointSha256": "1cf7698e3d2fa6a713a00dad8d2e7f0d05dbb7f74139c91096e366d74560e76f",
+    "operationSha256": "9f2b887738937d3c4cd440bfa7404c3620d2ba359cb11c1c0c167260ac03d411",
+    "traceSha256": "f30a15e912c11297b310b7db05037cfe2dd211f28364f8305b8cd62072ff13a6",
+    "frontRecipe": {
+      "x0": 0,
+      "y0": 40,
+      "scale": 1,
+      "dryCost": 50.27954292297363,
+      "max": 104.55908584594727,
+      "climb": 30,
+      "floor": 0.85,
+      "stride": 1,
+      "paperWorld": {
+        "w": 1024,
+        "h": 1024
+      },
+      "paperScale": 1,
+      "pressureSeedSha256": "d9c25185217f838a6afe0c05e93d6985993f084cc98f8ba5bbcc60aa5e19863d",
+      "steps": 141,
+      "inwardSeed": {
+        "k": 0.9617441184796373,
+        "outwardSha256": "288caf3f8a39735b582e759b2f72dd4f295d5590674d8c59bfea7f11b3012e50",
+        "earlierBaseSha256": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "inwardSteps": 11,
+      "inwardMaskSha256": "9f44c7d06acd3b66e460cb7e806c59faeb4af74152d4739bb7a63de8f2a54eb2"
+    }
+  },
+  "scope": "Actual Surface selected mode6 ONLY on COMMON GL pressure141/inward11/coverage plus COMMON GL mode11 extension; not propagated native inward3R",
+  "runJsSha256": "10a760297ed5694d8e7972dfaf4840dde84a9ed45eb6727ebc4914d3ee85fe78",
+  "memoryPre": [
+    {
+      "stage": "before-own-tab",
+      "availableMiB": 2184.2
+    },
+    {
+      "stage": "arm-0-preflight",
+      "availableMiB": 2190.1
+    }
+  ],
+  "raw": "temp/device-runs/first-band-mode6-7dce/report.json",
+  "limits": [
+    "R3/max1,G3254/max5,B19/max1,A0; finalImage49052/max36 not attributed to this boundary yet",
+    "First32 mismatch records dominated byG; rareR/Bcoordinates not captured. Balanced8records/channel added for future runs only.",
+    "G = inside*(1-over)*rimPatch. Inputs common but native rim hash/inside arithmetic not separately measured; cause not proven.",
+    "Next OFF diagnostic world.z0 both APIs changes rimPatch gate only, explicitly NOT original model or proposed fix",
+    "No maxspread/carry/brush/finalRoom or performance claim"
+  ]
+}
