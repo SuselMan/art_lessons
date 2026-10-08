@@ -14,7 +14,7 @@ export async function replayOriginalGlControl({tape, targetLayerId, expectedBoar
   const original={...tape[i],layerId:targetLayerId}
   if(JSON.stringify(mapped[i])!==JSON.stringify(original))throw Error('Replay changes beyond explicit logical layer mapping')
  }
- for(const op of mapped){e.appendOperation(op,'remote');const end=performance.now()+timeoutMs;while(e._settle||e._settleQueue?.length||e._wcCanonical?.pending){if(e._wcAsyncError)throw e._wcAsyncError;if(performance.now()>end)throw Error('Original GL replay drain timeout');await new Promise(r=>setTimeout(r,25))}}
+ for(const op of mapped){e.appendOperation(op,'remote');const end=performance.now()+timeoutMs;while(e._settle||e._settleQueue?.length||e._opQueue?.length||e._wcCanonical?.pending){if(e._wcAsyncError)throw e._wcAsyncError;if(performance.now()>end)throw Error('Original GL replay drain timeout');await new Promise(r=>setTimeout(r,25))}}
  return {mapped,scope:'Same packed inputs; explicit layer-ID mapping; separate endpoint diagnostic, not timing comparison'}
 }
 /** Endpoint-only comparison. PNG is the engine export, not camera/UI screenshot. */
