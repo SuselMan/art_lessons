@@ -1,0 +1,71 @@
+{
+  "scope": "ONE reversed ON/OFF actual Room400, queue/mixed/deferred ON; CPU probe perturbed; no same-input timing claim",
+  "valid": true,
+  "rows": [
+    {
+      "lazy": true,
+      "counts": {
+        "enabled": true,
+        "prepares": 4,
+        "captured": 4,
+        "fallback": 0,
+        "travel": [
+          23,
+          14,
+          9,
+          9
+        ]
+      },
+      "elapsedMs": 9657.5,
+      "maxRafMs": 99.79999999999927,
+      "firstUP": [
+        {
+          "name": "prepare",
+          "cpuMs": 7.099999964237213,
+          "argumentStats": {
+            "travel": 23,
+            "foreign": null
+          }
+        },
+        {
+          "name": "_onEnd",
+          "cpuMs": 46.60000002384186,
+          "argumentStats": null
+        }
+      ]
+    },
+    {
+      "lazy": false,
+      "counts": {
+        "enabled": false,
+        "prepares": 4,
+        "captured": 4,
+        "fallback": 0,
+        "travel": [
+          23,
+          14,
+          9,
+          9
+        ]
+      },
+      "elapsedMs": 9102,
+      "maxRafMs": 100,
+      "firstUP": [
+        {
+          "name": "prepare",
+          "cpuMs": 49.10000002384186,
+          "argumentStats": {
+            "travel": 23,
+            "foreign": null
+          }
+        },
+        {
+          "name": "_onEnd",
+          "cpuMs": 86.60000002384186,
+          "argumentStats": null
+        }
+      ]
+    }
+  ],
+  "minimumFreeMiB": 1011
+}
