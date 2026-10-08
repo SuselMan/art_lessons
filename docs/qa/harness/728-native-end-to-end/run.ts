@@ -1,3 +1,5 @@
+import { coveragePrimitiveOracle } from './coverageOracle'
+import type { CanonicalDrawCommand } from '../../../../apps/web/src/engine/src/dabs/canonicalStrokeChunk'
 import { sameInputFrontOracle } from './frontOracle'
 import type { CanonicalSourcePhaseExecutor } from '../../../../apps/web/src/engine/src/webgpuCanonical/sourcePhaseExecutor'
 import { captureStages,compareStages,pressureCopyInvariant,correlateMode11,type Stage } from './stages'
@@ -16,12 +18,13 @@ const frame=()=>new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()))
 const sourceOptions={diagnosticWaterPolicy:'bottomless',diagnosticSharedFluid:true,diagnosticLandingReservoir:true,diagnosticLandingPolicy:'fluid',diagnosticCanonicalSettleRadius:true,diagnosticSolventField:true,diagnosticPigmentRecord:true} as const
 function flip(bytes:Uint8Array,w:number,h:number){const out=new Uint8Array(bytes.length);for(let y=0;y<h;y++)out.set(bytes.subarray(y*w*4,(y+1)*w*4),(h-1-y)*w*4);return out}
 function difference(a:Uint8Array,b:Uint8Array){let changed=0,max=0,sum=0;for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);changed+=Number(d>0);max=Math.max(max,d);sum+=d}return{changed,max,mean:sum/a.length,exact:changed===0}}
-function configureDiagnosticSampling(runner:CanonicalBoundedSceneRunner,enabled:boolean){
+function configureDiagnosticSampling(runner:CanonicalBoundedSceneRunner,enabled:boolean,captured?:CanonicalDrawCommand[]){
  runner.adapter.diagnosticHardwareLinearInputs=enabled
  // Keep landing/source commands on the frozen baseline. This private seam is diagnostic only.
  const source=(runner as unknown as {source:CanonicalSourcePhaseExecutor}).source
  const execute=source.execute.bind(source)
  source.execute=(...args:Parameters<CanonicalSourcePhaseExecutor['execute']>)=>{
+  if(captured)for(const command of args[1].commands)if(command.phase==='coverage'&&!captured.some(v=>v.kind===command.kind))captured.push(structuredClone(command))
   const previous=runner.adapter.diagnosticHardwareLinearInputs
   runner.adapter.diagnosticHardwareLinearInputs=false
   try{return execute(...args)}finally{runner.adapter.diagnosticHardwareLinearInputs=previous}
@@ -39,7 +42,7 @@ function diffPng(a:Uint8Array,b:Uint8Array){
  for(let i=0;i<a.length;i+=4){let d=0;for(let c=0;c<4;c++)d=Math.max(d,Math.abs(a[i+c]-b[i+c]));pixels[i]=Math.min(255,d*8);pixels[i+1]=0;pixels[i+2]=0;pixels[i+3]=255}
  canvas.getContext('2d')!.putImageData(new ImageData(pixels,1024,1024),0,0);return canvas.toDataURL('image/png')
 }
-export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,stages=false,suppliedTape,exportImages=false,diagnosticHardwareLinearInputs=false,frontIndex=1,sameInputFront=false}:{size?:100|400;allowLarge?:boolean;timeoutMs?:number;stages?:boolean|'prediffuse'|'coverage'|'pressure';suppliedTape?:readonly Operation[];exportImages?:boolean;diagnosticHardwareLinearInputs?:boolean;frontIndex?:number;sameInputFront?:boolean}={}){
+export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,stages=false,suppliedTape,exportImages=false,diagnosticHardwareLinearInputs=false,frontIndex=1,sameInputFront=false,coveragePrimitives=false}:{size?:100|400;allowLarge?:boolean;timeoutMs?:number;stages?:boolean|'prediffuse'|'coverage'|'pressure';suppliedTape?:readonly Operation[];exportImages?:boolean;diagnosticHardwareLinearInputs?:boolean;frontIndex?:number;sameInputFront?:boolean;coveragePrimitives?:boolean}={}){
  const tape:Operation[]=suppliedTape?structuredClone([...suppliedTape]):[];
  const layerId=tape.find(op=>op.type==='stroke')?.layerId??'L';
  if(suppliedTape&&(!tape.length||tape.some(op=>op.type!=='stroke'||op.tool!=='watercolor'||op.layerId!==layerId)))throw new Error('Captured comparison supports one nonempty watercolor layer only')
@@ -57,7 +60,8 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,st
  let lost=false;void backend.device.lost.then(info=>{if(info.reason!=='destroyed')lost=true})
  let time=1000,index=0
  const runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions,now:()=>time,timestamp:()=>1791400000000+time,operationId:()=>`fixed-operation-${index++}`,onLocalOperation:op=>tape.push(op)})
- configureDiagnosticSampling(runner,diagnosticHardwareLinearInputs)
+ const capturedCoverage:CanonicalDrawCommand[]=[]
+ configureDiagnosticSampling(runner,diagnosticHardwareLinearInputs,coveragePrimitives?capturedCoverage:undefined)
  let native:Uint8Array
  console.info('E2E native owner ready');const started=performance.now()
  try{
@@ -97,7 +101,12 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,st
  // Sequential owners: no simultaneous native+nativeReplay+GL1536 allocation.
  const glCanvas=document.createElement('canvas');glCanvas.width=1024;glCanvas.height=1024;surface.append(glCanvas)
  const engine=new PencilEngine(glCanvas,{paper:'fine',pageWidth:1024,pageHeight:1024,userId:'qa-native',joinedTouch:true,gradientFibres:true})
- const probe=engine as unknown as {_ribbonPainter:Record<string,unknown>;gl:WebGLRenderingContext;_settle:unknown;_rebuildJobs:Map<string,unknown>;_pendingRebuilds:Set<string>;_unsettledLayers:Set<string>;_layers:Map<string,ILayerBuffer>}
+ const probe=engine as unknown as {_ribbonPainter:Record<string,unknown>;_ribbonPasses:Record<string,(...args:unknown[])=>unknown>;gl:WebGLRenderingContext;_settle:unknown;_rebuildJobs:Map<string,unknown>;_pendingRebuilds:Set<string>;_unsettledLayers:Set<string>;_layers:Map<string,ILayerBuffer>}
+ const actualGlDither:Array<{method:string;phase:unknown;enabled:boolean}>=[]
+ if(coveragePrimitives)for(const name of ['drawRibbonNibPass','drawRibbonBands']){
+  const owner=probe._ribbonPasses,original=owner[name]
+  owner[name]=function(...args:unknown[]){const phase=args[name==='drawRibbonBands'?3:5];if(actualGlDither.length<200)actualGlDither.push({method:name,phase,enabled:probe.gl.isEnabled(probe.gl.DITHER)});return original.apply(this,args)}
+ }
  const glCapture=stages?captureStages(engine,false,96*1024*1024,stages==='pressure'?'pressure':stages==='coverage'?'coverage':stages==='prediffuse'?'prediffuse':'basic',frontIndex):null
  let glStages:Stage[]=[],frontExpected:Stage|undefined
  const wait=async()=>{let stable=0;const deadline=performance.now()+timeoutMs;while(stable<3){if(performance.now()>deadline)throw new Error('Full1536 GL settle timeout');if(probe.gl.isContextLost())throw new Error('GL context lost');await frame();stable=probe._settle||probe._rebuildJobs.size||probe._pendingRebuilds.size||probe._unsettledLayers.size?0:stable+1}}
@@ -113,6 +122,7 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,st
   const ext=probe.gl.getExtension('WEBGL_debug_renderer_info');renderer=ext?String(probe.gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):null;glError=probe.gl.getError()
  }finally{glCapture?.detach();glCapture?.destroy();engine.destroy();surface.replaceChildren()}
  const frontOracle=frontExpected?await sameInputFrontOracle(glStages,frontExpected,glCapture?.primitiveMetadata.selectedFront,paper,side):null
- return{frontOracle,images:exportImages?{nativeLayer:layerPng(nativeReplay!),productionGlLayer:layerPng(legacy),diff:diffPng(nativeReplay!,legacy)}:undefined,inputKind:suppliedTape?'supplied captured packed tape':'generated pointer fixture',code:'__CODE__',size,diagnosticHardwareLinearInputs,diagnosticSamplingScope:'Native settle only; source and GL baseline unchanged',frontIndex,pressureCopyInvariant:stages==='pressure'?{native:pressureCopyInvariant(nativeStages),gl:pressureCopyInvariant(glStages)}:null,mode11Correlation:stages==='coverage'?correlateMode11(nativeStages,glStages):null,stageComparison:stages?compareStages(nativeStages,glStages):null,stageMetadata:stages?{native:nativeCapture?.metadata,gl:glCapture?.metadata,nativePrimitives:nativeCapture?.primitiveMetadata,glPrimitives:glCapture?.primitiveMetadata,nativeChronology:nativeCapture?.chronology,glChronology:glCapture?.chronology}:null,memoryGiB,estimatedPeakMiB,nativeMs,nativeReplayMs,replayPreservedTape,nativeReplaySha256:await hash(nativeReplay!),authorVsNativeReplay:difference(native!,nativeReplay!),nativeReplayVsLegacy:difference(nativeReplay!,legacy),nativeReplayNonzero:nativeReplay!.some(x=>x!==0),legacyMs:performance.now()-glStarted,renderer,software:/swiftshader|llvmpipe/i.test(renderer??''),tape,tapeSha256:await hash(new TextEncoder().encode(JSON.stringify(tape))),paperSha256:await hash(la),nativeSha256:await hash(native!),legacySha256:await hash(legacy),wholeLayer:difference(native!,legacy),nativeNonzero:native!.some(x=>x!==0),legacyNonzero:legacy.some(x=>x!==0),errors,lost,glError,limitations:['Single1024 tile/layer/wash; serial settle; no Room/server/concurrency claim','Software difference is an observation, not hardware exactness','Final whole material layer; no claim of all transient fields parity','Native pointer event batches vs authoritative GL packed operation replay; batch-boundary discrepancy is detectable']}
+ const coverageOracle=coveragePrimitives?await coveragePrimitiveOracle(capturedCoverage,paper,side):null
+ return{actualGlDither,coverageOracle,frontOracle,images:exportImages?{nativeLayer:layerPng(nativeReplay!),productionGlLayer:layerPng(legacy),diff:diffPng(nativeReplay!,legacy)}:undefined,inputKind:suppliedTape?'supplied captured packed tape':'generated pointer fixture',code:'__CODE__',size,diagnosticHardwareLinearInputs,diagnosticSamplingScope:'Native settle only; source and GL baseline unchanged',frontIndex,pressureCopyInvariant:stages==='pressure'?{native:pressureCopyInvariant(nativeStages),gl:pressureCopyInvariant(glStages)}:null,mode11Correlation:stages==='coverage'?correlateMode11(nativeStages,glStages):null,stageComparison:stages?compareStages(nativeStages,glStages):null,stageMetadata:stages?{native:nativeCapture?.metadata,gl:glCapture?.metadata,nativePrimitives:nativeCapture?.primitiveMetadata,glPrimitives:glCapture?.primitiveMetadata,nativeChronology:nativeCapture?.chronology,glChronology:glCapture?.chronology}:null,memoryGiB,estimatedPeakMiB,nativeMs,nativeReplayMs,replayPreservedTape,nativeReplaySha256:await hash(nativeReplay!),authorVsNativeReplay:difference(native!,nativeReplay!),nativeReplayVsLegacy:difference(nativeReplay!,legacy),nativeReplayNonzero:nativeReplay!.some(x=>x!==0),legacyMs:performance.now()-glStarted,renderer,software:/swiftshader|llvmpipe/i.test(renderer??''),tape,tapeSha256:await hash(new TextEncoder().encode(JSON.stringify(tape))),paperSha256:await hash(la),nativeSha256:await hash(native!),legacySha256:await hash(legacy),wholeLayer:difference(native!,legacy),nativeNonzero:native!.some(x=>x!==0),legacyNonzero:legacy.some(x=>x!==0),errors,lost,glError,limitations:['Single1024 tile/layer/wash; serial settle; no Room/server/concurrency claim','Software difference is an observation, not hardware exactness','Final whole material layer; no claim of all transient fields parity','Native pointer event batches vs authoritative GL packed operation replay; batch-boundary discrepancy is detectable']}
 }
 Object.assign(window,{runEndToEnd})
