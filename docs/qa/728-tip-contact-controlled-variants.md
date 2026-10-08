@@ -173,3 +173,22 @@ minimum1099MiB. Evidence ignored `temp/fast-watercolor-night/room-tip-literal-pa
 The screenshot was inspected: the broad silhouette matches the retained A case,
 with subtly different internal grain. One paired stroke does not prove wet-mix,
 live latency, multiple layers or participant behavior.
+
+### Prepared independent wet-mix / active snapshot cohort (not run)
+
+Controller scenario `tip-wetmix`, A enabled but moment/carrier flags OFF. Three
+held400 contacts inside the same bounded origin tile: clear water(400,400), purple
+(350,400), yellow(450,400). Real store controls update water/pigment/color and
+normal `useToolSync`; readiness verifies UI and engine. No DryAll between contacts.
+Source owner failures are preserved and stop subsequent input, without overriding
+capacity/foreign import guards. The original error/unsupported result is evidence.
+
+Readonly observer crops96² native P/C, base, film and settled roles before/after
+successful GL publication, including explicit field absences. Publication is
+required to leave these eight native roles unchanged; this is not a transport or
+settle-snapshot physics claim. Three expected contacts produce approximately
+1.9MiB compact stage data.512² display ROI readbacks plus one final whole export
+and stages fit the32MiB diagnostic budget. Undo/Redo is excluded from this cohort
+(the paired single stroke already verified it), avoiding three additional whole
+exports. RAM guards1700/500 remain; no extra GPU fences or whole field audit.
+Seven controller regressions pass, syntax check passes; hardware not run.

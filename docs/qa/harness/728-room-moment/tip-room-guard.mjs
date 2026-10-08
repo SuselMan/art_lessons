@@ -1,8 +1,8 @@
-export function assertTipProof(enabled,census){
+export function assertTipProof(enabled,census,families=['stamp','ribbon']){
  if(census.tipEnabled!==enabled||census.tipProof?.enabled!==enabled)throw Error('Actual tip arm differs from requested arm')
  const modules=census.tipProof.modules
  if(!enabled){if(modules.length)throw Error('OFF arm patched shader');return}
- for(const family of ['stamp','ribbon'])if(!modules.some(m=>m.family===family&&m.baselineSha&&m.patchedSha&&m.baselineSha!==m.patchedSha))throw Error('Missing actual '+family+' source specialization SHA')
+ for(const family of families)if(!modules.some(m=>m.family===family&&m.baselineSha&&m.patchedSha&&m.baselineSha!==m.patchedSha))throw Error('Missing actual '+family+' source specialization SHA')
 }
 export function assertTipHistory({undoTarget,redoTarget,original,undone,redone}){
  if(!undoTarget||undoTarget.type!=='stroke'||redoTarget?.id!==undoTarget.id||redoTarget.type!=='stroke')throw Error('Undo/Redo did not select the same actual stroke')
