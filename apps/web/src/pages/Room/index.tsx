@@ -1,3 +1,4 @@
+import {watercolorReviewSettings} from './diagnostics/watercolorReviewSettings'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -345,7 +346,11 @@ function RoomEditor() {
   // shared by whatever tool happened to be active; it now lives at
   // `toolSettings.pencil.color` — the schema's per-tool slot — same value,
   // same behavior, just no longer a second parallel place settings live.
-  useState(() => useRoomStore.setState({ toolSettings: loadToolSettings(localStorage, id ?? '') }))
+  useState(() => {
+    const review = watercolorReviewSettings(loadToolSettings(localStorage, id ?? ''), location.search, import.meta.env.DEV)
+    useRoomStore.setState({ toolSettings: review.settings })
+    if (review.enabled) useRoomStore.getState().setTool('watercolor')
+  })
   const toolSettings = useRoomStore(s => s.toolSettings)
   const setToolSetting = useRoomStore(s => s.setToolSetting)
   // Floating tool panel's dragged-to position (#157) — same load-once-up-
@@ -736,6 +741,13 @@ function RoomEditor() {
     setToolSetting('watercolor', 'water', next.water)
     setToolSetting('watercolor', 'pigment', next.pigment)
   }, [watercolorMixName, setToolSetting])
+  // Review seed follows the mount-time named-mix shortcut; later user choices remain free.
+  useEffect(() => {
+    const review = watercolorReviewSettings(useRoomStore.getState().toolSettings, location.search, import.meta.env.DEV)
+    if (!review.enabled) return
+    setToolSetting('watercolor', 'water', 1)
+    setToolSetting('watercolor', 'pigment', 1)
+  }, [id, location.search, setToolSetting])
 
   // Read directly inside useViewport's native pointerdown listener — see
   // that hook's doc comment for why a ref (checked synchronously, before
