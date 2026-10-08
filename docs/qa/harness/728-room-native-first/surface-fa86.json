@@ -1,0 +1,359 @@
+{
+  "date": "2026-10-08",
+  "device": "Surface Intel Chrome154",
+  "source": "fa86fd7f",
+  "scope": "Actual ordinary native Room, first40 then separate fresh water-pigment40, no WebGL quality comparison",
+  "runs": [
+    {
+      "source": "fa86fd7f",
+      "scenario": "first40",
+      "complete": true,
+      "error": null,
+      "errors": [],
+      "export": {
+        "width": 1754,
+        "height": 2480,
+        "alpha": 2538,
+        "sha": "807de5aaed3508594badb6f3daf41a09e7ec2083b484c7bbf5a30bfd4ea0ab6e"
+      },
+      "memoryTimeline": [
+        {
+          "at": "2026-10-08T08:38:13.279Z",
+          "MiB": 2082.4140625,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T08:38:28.408Z",
+          "MiB": 1991.95703125,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T08:38:38.767Z",
+          "MiB": 1945.671875,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T08:38:47.929Z",
+          "MiB": 1549.125,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T08:38:58.267Z",
+          "MiB": 1804.40625,
+          "stage": "native-init"
+        },
+        {
+          "at": "2026-10-08T08:39:07.812Z",
+          "MiB": 1321.8125,
+          "stage": "first40"
+        }
+      ],
+      "sourceFileCount": 1138,
+      "paperSizing": {
+        "resolution": 2048,
+        "LABytes": 8388608,
+        "RGBABytes": 16777216,
+        "scope": "Expected production baked layout; actual preload byte count separately recorded"
+      },
+      "httpSource": [
+        {
+          "path": "apps/web/src/engine/index.ts",
+          "sha": "fba9aff57326807984478d75b8d9cf3a5081f7c9440dee4ef8da67958a32054c",
+          "status": 200
+        },
+        {
+          "path": "apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts",
+          "sha": "ed77e3e9d332a5863e5b2d19da34726f37dfbc95b17450a3de70157863810cbc",
+          "status": 200
+        },
+        {
+          "path": "apps/web/src/engine/src/webgpuCanonical/backend.ts",
+          "sha": "70ba01286f6cc55042799b93157b21a5b87ce0117a5178edd7fc7ea76578e649",
+          "status": 200
+        }
+      ],
+      "final": {
+        "secure": true,
+        "gpu": true,
+        "engine": true,
+        "native": true,
+        "ready": true,
+        "pending": false,
+        "error": null,
+        "ops": [
+          {
+            "type": "stroke",
+            "tool": "watercolor",
+            "state": "done",
+            "packedBytes": 1178,
+            "preset": "normal:100:100:PB29:round"
+          }
+        ],
+        "lost": false,
+        "gl": 0,
+        "nativeOwner": true
+      },
+      "stageCounts": {
+        "getPaperBytes:preload-start": 1,
+        "getPaperBytes:preload-end": 1,
+        "hooks:ready": 1,
+        "RoomNativeRuntime.create:start": 1,
+        "paper:load-start": 1,
+        "paper:expand-start": 1,
+        "paper:expand-done": 1,
+        "CanonicalWatercolorWebGpu.create:start": 1,
+        "adapter:request-start": 1,
+        "CanonicalWatercolorWebGpu.support:start": 1,
+        "CanonicalWatercolorWebGpu.support:end": 1,
+        "device:request-start": 1,
+        "device:request-done": 1,
+        "backend:start": 1,
+        "backend:material-resources": 1,
+        "backend:paper-noise": 1,
+        "backend:ready": 1,
+        "CanonicalWatercolorWebGpu.create:end": 1,
+        "RoomNativeRuntime.create:end": 1,
+        "source.consume:start": 15,
+        "source.consume:end": 15,
+        "source.ownerFor:start": 15,
+        "source.ownerFor:end": 15,
+        "source.emitPrepared:start": 15,
+        "source.emitPrepared:end": 15,
+        "source.publishCurrentToGl:start": 15,
+        "source.publishCurrentToGl:end": 15,
+        "source.finish:start": 1,
+        "source.finish:end": 1,
+        "source.prepareSettle:start": 1,
+        "source.prepareSettle:end": 1
+      },
+      "stageRejects": [],
+      "strokeObservations": [
+        {
+          "label": "pigment40",
+          "preset": "normal:100:100:PB29:round",
+          "live": {
+            "label": "pigment40-live",
+            "width": 1554,
+            "height": 1698,
+            "changed": 1445,
+            "purple": 833,
+            "sha": "bedb4661c74ef0fd0846ad7429d6ab244bc0621e0cc3a45d221e6d3b5826c2ce",
+            "gl": 0,
+            "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency",
+            "meaningfulPigmentVisible": true
+          },
+          "finalFrame": {
+            "label": "pigment40-final",
+            "width": 1554,
+            "height": 1698,
+            "changed": 1444,
+            "purple": 953,
+            "sha": "c929d61da49b982b57982b0082015b1b8955bc8bd21e168247525eee0553bb1e",
+            "gl": 0,
+            "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency",
+            "meaningfulPigmentVisible": true
+          },
+          "pendingAtLift": true
+        }
+      ]
+    },
+    {
+      "source": "fa86fd7f",
+      "scenario": "water-pigment40",
+      "complete": true,
+      "error": null,
+      "errors": [],
+      "export": {
+        "width": 1754,
+        "height": 2480,
+        "alpha": 1585,
+        "sha": "5a472911f75f09d36b363a29828b01fb20fa0ee670391c60f25679d160becb64"
+      },
+      "memoryTimeline": [
+        {
+          "at": "2026-10-08T08:39:57.979Z",
+          "MiB": 2036.921875,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T08:40:10.664Z",
+          "MiB": 1950.359375,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T08:40:20.586Z",
+          "MiB": 1931.52734375,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T08:40:30.810Z",
+          "MiB": 1843.2890625,
+          "stage": "preflight"
+        },
+        {
+          "at": "2026-10-08T08:40:40.677Z",
+          "MiB": 1742.73046875,
+          "stage": "native-init"
+        },
+        {
+          "at": "2026-10-08T08:40:50.363Z",
+          "MiB": 1803.2109375,
+          "stage": "native-init"
+        },
+        {
+          "at": "2026-10-08T08:41:01.067Z",
+          "MiB": 1086.1875,
+          "stage": "water-pigment40"
+        }
+      ],
+      "sourceFileCount": 1138,
+      "paperSizing": {
+        "resolution": 2048,
+        "LABytes": 8388608,
+        "RGBABytes": 16777216,
+        "scope": "Expected production baked layout; actual preload byte count separately recorded"
+      },
+      "httpSource": [
+        {
+          "path": "apps/web/src/engine/index.ts",
+          "sha": "fba9aff57326807984478d75b8d9cf3a5081f7c9440dee4ef8da67958a32054c",
+          "status": 200
+        },
+        {
+          "path": "apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts",
+          "sha": "ed77e3e9d332a5863e5b2d19da34726f37dfbc95b17450a3de70157863810cbc",
+          "status": 200
+        },
+        {
+          "path": "apps/web/src/engine/src/webgpuCanonical/backend.ts",
+          "sha": "70ba01286f6cc55042799b93157b21a5b87ce0117a5178edd7fc7ea76578e649",
+          "status": 200
+        }
+      ],
+      "final": {
+        "secure": true,
+        "gpu": true,
+        "engine": true,
+        "native": true,
+        "ready": true,
+        "pending": false,
+        "error": null,
+        "ops": [
+          {
+            "type": "stroke",
+            "tool": "watercolor",
+            "state": "done",
+            "packedBytes": 802,
+            "preset": "normal:0:100:PB29:round"
+          },
+          {
+            "type": "stroke",
+            "tool": "watercolor",
+            "state": "done",
+            "packedBytes": 962,
+            "preset": "normal:100:100:PB29:round"
+          }
+        ],
+        "lost": false,
+        "gl": 0,
+        "nativeOwner": true
+      },
+      "stageCounts": {
+        "getPaperBytes:preload-start": 1,
+        "getPaperBytes:preload-end": 1,
+        "hooks:ready": 1,
+        "RoomNativeRuntime.create:start": 1,
+        "paper:load-start": 1,
+        "paper:expand-start": 1,
+        "paper:expand-done": 1,
+        "CanonicalWatercolorWebGpu.create:start": 1,
+        "adapter:request-start": 1,
+        "CanonicalWatercolorWebGpu.support:start": 1,
+        "CanonicalWatercolorWebGpu.support:end": 1,
+        "device:request-start": 1,
+        "device:request-done": 1,
+        "backend:start": 1,
+        "backend:material-resources": 1,
+        "backend:paper-noise": 1,
+        "backend:ready": 1,
+        "CanonicalWatercolorWebGpu.create:end": 1,
+        "RoomNativeRuntime.create:end": 1,
+        "source.consume:start": 26,
+        "source.consume:end": 26,
+        "source.ownerFor:start": 26,
+        "source.ownerFor:end": 26,
+        "source.emitPrepared:start": 26,
+        "source.emitPrepared:end": 26,
+        "source.publishCurrentToGl:start": 26,
+        "source.publishCurrentToGl:end": 26,
+        "source.finish:start": 2,
+        "source.finish:end": 2,
+        "source.prepareSettle:start": 2,
+        "source.prepareSettle:end": 2
+      },
+      "stageRejects": [],
+      "strokeObservations": [
+        {
+          "label": "water40",
+          "preset": "normal:0:100:PB29:round",
+          "live": {
+            "label": "water40-live",
+            "width": 1554,
+            "height": 1698,
+            "changed": 582,
+            "purple": 135,
+            "sha": "7de36e4380255aef16efa6093570d5ed3ebfc96171caa32c2c813976edc409e8",
+            "gl": 0,
+            "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency",
+            "meaningfulPigmentVisible": true
+          },
+          "finalFrame": {
+            "label": "water40-final",
+            "width": 1554,
+            "height": 1698,
+            "changed": 653,
+            "purple": 172,
+            "sha": "b160728069569a2b97c215ba910a47ef14b708001bcde440be97c6225526cdc0",
+            "gl": 0,
+            "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency",
+            "meaningfulPigmentVisible": true
+          },
+          "pendingAtLift": true
+        },
+        {
+          "label": "pigment-on-water40",
+          "preset": "normal:100:100:PB29:round",
+          "live": {
+            "label": "pigment-on-water40-live",
+            "width": 1554,
+            "height": 1698,
+            "changed": 858,
+            "purple": 476,
+            "sha": "2c1de169734ab4132c15c95ea513aa08b1ba6a0912680a175d56a5483a13d683",
+            "gl": 0,
+            "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency",
+            "meaningfulPigmentVisible": true
+          },
+          "finalFrame": {
+            "label": "pigment-on-water40-final",
+            "width": 1554,
+            "height": 1698,
+            "changed": 858,
+            "purple": 544,
+            "sha": "c3bf362ff165ba239ac6c4cda3a4f70af9ae76c7821400d15b4ec8711e4db307",
+            "gl": 0,
+            "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency",
+            "meaningfulPigmentVisible": true
+          },
+          "pendingAtLift": true
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "No physical pen latency/FPS timing; synchronous diagnostic readbacks and paper preload have observer effects.",
+    "Pure-water framebuffer change can include cursor; purple classifier is NOT proof of water pigment content.",
+    "No meaningful Undo/Redo, reload, peers/multilayer,400 or Samsung gates.",
+    "Source/paper unchanged frozen passports verified; private URLs/raw outside Git."
+  ]
+}
