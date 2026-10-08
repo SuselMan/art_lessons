@@ -1,0 +1,105 @@
+{
+  "evidence": "native-captured-wet-surface-1791423144738.json",
+  "wetPresentation": [
+    {
+      "operationId": "4de2a8e8-3b67-41bc-a3c6-6fd23feadeed",
+      "origin": [
+        448,
+        480
+      ],
+      "width": 128,
+      "height": 128,
+      "clock": 21009814,
+      "dry": {
+        "changed": 0,
+        "max": 0
+      },
+      "wet": {
+        "changed": 0,
+        "max": 0
+      },
+      "nativeWetEffect": {
+        "changed": 33429,
+        "max": 14
+      },
+      "glWetEffect": {
+        "changed": 33429,
+        "max": 14
+      },
+      "errors": [],
+      "glError": 0,
+      "metadata": {
+        "materialSha256": "de2f256064a0af797747c2b97505dc0b9f3df0de4f489eac731c23ae9ca9cc31",
+        "coverageSha256": "ac369e1ab12a3b991374f8da61fab75ebe260b37db53cb3c5403d36aa7af7f06",
+        "wetSha256": "018a6d61d09432c8aabd9263207baee2226a3625ec687463ed9abf6379b53978",
+        "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+        "material": "premultRGBA8 topdown, GL upload flipped",
+        "coverage": "actual solver coverage channels, no presentation substitution",
+        "paper": "actual Fine raw asset rows LINEAR_REPEAT period1024 scale1",
+        "wet": "actual CPU overlay raw rows LINEAR_CLAMP",
+        "wetRect": [
+          216,
+          520,
+          712,
+          632
+        ],
+        "wetDims": [
+          62,
+          14
+        ],
+        "noise": "unused by PAPER_COMPOSE; no invented noise",
+        "camera": "identity unrotated, no sharp resample, no page boundary"
+      }
+    },
+    {
+      "operationId": "38d322a4-9e87-41d2-b703-84f6d133c8bf",
+      "origin": [
+        448,
+        480
+      ],
+      "width": 128,
+      "height": 128,
+      "clock": 21014222,
+      "dry": {
+        "changed": 0,
+        "max": 0
+      },
+      "wet": {
+        "changed": 0,
+        "max": 0
+      },
+      "nativeWetEffect": {
+        "changed": 41389,
+        "max": 23
+      },
+      "glWetEffect": {
+        "changed": 41389,
+        "max": 23
+      },
+      "errors": [],
+      "glError": 0,
+      "metadata": {
+        "materialSha256": "9e95d492c338fa1bae51b2bfb6facafe1806ebab9625f453c82ea938ec1f3f74",
+        "coverageSha256": "57e0d010c8a2f3e7ae1bc89cc331902779e0caef50921b585b1de5431720f4e6",
+        "wetSha256": "bead9c231d0039abed92e498c089744b25d96d13eff0e67e35d6a9735bc4c940",
+        "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+        "material": "premultRGBA8 topdown, GL upload flipped",
+        "coverage": "actual solver coverage channels, no presentation substitution",
+        "paper": "actual Fine raw asset rows LINEAR_REPEAT period1024 scale1",
+        "wet": "actual CPU overlay raw rows LINEAR_CLAMP",
+        "wetRect": [
+          216,
+          472,
+          712,
+          632
+        ],
+        "wetDims": [
+          62,
+          20
+        ],
+        "noise": "unused by PAPER_COMPOSE; no invented noise",
+        "camera": "identity unrotated, no sharp resample, no page boundary"
+      }
+    }
+  ]
+}
