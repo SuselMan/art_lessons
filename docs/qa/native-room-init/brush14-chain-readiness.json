@@ -1,0 +1,554 @@
+{
+  "code": "bd5d474001d2671b7b51356476b05405965601b1",
+  "scope": "Software SwiftShader ONLY, not Surface/Room/whole463contacts. Original14 contacts68..81 independent Q8 states.",
+  "softwareValid": true,
+  "raw": "temp/native-source-offline/brush14-chain-software.json",
+  "glCheckpoints": [
+    {
+      "pulse": 1,
+      "sha256": [
+        "981b8f735de1a7f3e36880f0c4914b7f131eade697d0a90c0f9beb228edc1ae4",
+        "9aebd9a339b0bf62e534c446cda0fb21dff2fe5b47b7bf28b21ffb4ca0edca44"
+      ]
+    },
+    {
+      "pulse": 4,
+      "sha256": [
+        "18b953a837c474e0555ab2a994ec180ca0cd3d6cbd9614df8bb6e9a1f2bdfa26",
+        "13b3a5fc5ffa00287a469ad012333e8e7475ec7ef14fb7fe881f771527419b5e"
+      ]
+    },
+    {
+      "pulse": 14,
+      "sha256": [
+        "e8c1363f3f08f5ab49d29c23e927bbfb66d2e9e6ebaf907cc29a455476966ca0",
+        "93c8a9a0be4e5b366ed2963c0548696258786c6452f7c63fda520f9e3e7e7c2d"
+      ]
+    }
+  ],
+  "comparisons": [
+    {
+      "role": "a",
+      "channels": [
+        {
+          "changed": 1069,
+          "max": 7,
+          "sum": 1696
+        },
+        {
+          "changed": 1069,
+          "max": 7,
+          "sum": 1696
+        },
+        {
+          "changed": 1069,
+          "max": 7,
+          "sum": 1696
+        },
+        {
+          "changed": 1069,
+          "max": 7,
+          "sum": 1696
+        }
+      ],
+      "examples": [
+        {
+          "x": 326,
+          "y": 286,
+          "channel": 0,
+          "expected": 173,
+          "actual": 172
+        },
+        {
+          "x": 326,
+          "y": 286,
+          "channel": 1,
+          "expected": 173,
+          "actual": 172
+        },
+        {
+          "x": 326,
+          "y": 286,
+          "channel": 2,
+          "expected": 173,
+          "actual": 172
+        },
+        {
+          "x": 326,
+          "y": 286,
+          "channel": 3,
+          "expected": 173,
+          "actual": 172
+        },
+        {
+          "x": 328,
+          "y": 286,
+          "channel": 0,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 328,
+          "y": 286,
+          "channel": 1,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 328,
+          "y": 286,
+          "channel": 2,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 328,
+          "y": 286,
+          "channel": 3,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 329,
+          "y": 286,
+          "channel": 0,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 329,
+          "y": 286,
+          "channel": 1,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 329,
+          "y": 286,
+          "channel": 2,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 329,
+          "y": 286,
+          "channel": 3,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 340,
+          "y": 286,
+          "channel": 0,
+          "expected": 162,
+          "actual": 161
+        },
+        {
+          "x": 340,
+          "y": 286,
+          "channel": 1,
+          "expected": 162,
+          "actual": 161
+        },
+        {
+          "x": 340,
+          "y": 286,
+          "channel": 2,
+          "expected": 162,
+          "actual": 161
+        },
+        {
+          "x": 340,
+          "y": 286,
+          "channel": 3,
+          "expected": 162,
+          "actual": 161
+        },
+        {
+          "x": 323,
+          "y": 287,
+          "channel": 0,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 323,
+          "y": 287,
+          "channel": 1,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 323,
+          "y": 287,
+          "channel": 2,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 323,
+          "y": 287,
+          "channel": 3,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 324,
+          "y": 287,
+          "channel": 0,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 324,
+          "y": 287,
+          "channel": 1,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 324,
+          "y": 287,
+          "channel": 2,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 324,
+          "y": 287,
+          "channel": 3,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 325,
+          "y": 287,
+          "channel": 0,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 325,
+          "y": 287,
+          "channel": 1,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 325,
+          "y": 287,
+          "channel": 2,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 325,
+          "y": 287,
+          "channel": 3,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 326,
+          "y": 287,
+          "channel": 0,
+          "expected": 173,
+          "actual": 172
+        },
+        {
+          "x": 326,
+          "y": 287,
+          "channel": 1,
+          "expected": 173,
+          "actual": 172
+        },
+        {
+          "x": 326,
+          "y": 287,
+          "channel": 2,
+          "expected": 173,
+          "actual": 172
+        },
+        {
+          "x": 326,
+          "y": 287,
+          "channel": 3,
+          "expected": 173,
+          "actual": 172
+        }
+      ],
+      "expectedSha256": "e8c1363f3f08f5ab49d29c23e927bbfb66d2e9e6ebaf907cc29a455476966ca0",
+      "actualSha256": "ba3657a0905fa4dcdcae0663abb86a24fc5a976e252054bee6b16bf7b2346ec5",
+      "exact": false
+    },
+    {
+      "role": "cc",
+      "channels": [
+        {
+          "changed": 835,
+          "max": 5,
+          "sum": 1096
+        },
+        {
+          "changed": 1005,
+          "max": 5,
+          "sum": 1430
+        },
+        {
+          "changed": 237,
+          "max": 2,
+          "sum": 268
+        },
+        {
+          "changed": 1069,
+          "max": 7,
+          "sum": 1696
+        }
+      ],
+      "examples": [
+        {
+          "x": 325,
+          "y": 286,
+          "channel": 0,
+          "expected": 66,
+          "actual": 67
+        },
+        {
+          "x": 326,
+          "y": 286,
+          "channel": 3,
+          "expected": 173,
+          "actual": 172
+        },
+        {
+          "x": 327,
+          "y": 286,
+          "channel": 0,
+          "expected": 70,
+          "actual": 69
+        },
+        {
+          "x": 328,
+          "y": 286,
+          "channel": 0,
+          "expected": 68,
+          "actual": 69
+        },
+        {
+          "x": 328,
+          "y": 286,
+          "channel": 3,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 329,
+          "y": 286,
+          "channel": 0,
+          "expected": 70,
+          "actual": 69
+        },
+        {
+          "x": 329,
+          "y": 286,
+          "channel": 3,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 340,
+          "y": 286,
+          "channel": 3,
+          "expected": 162,
+          "actual": 161
+        },
+        {
+          "x": 323,
+          "y": 287,
+          "channel": 3,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 324,
+          "y": 287,
+          "channel": 3,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 325,
+          "y": 287,
+          "channel": 0,
+          "expected": 69,
+          "actual": 70
+        },
+        {
+          "x": 325,
+          "y": 287,
+          "channel": 1,
+          "expected": 101,
+          "actual": 99
+        },
+        {
+          "x": 325,
+          "y": 287,
+          "channel": 3,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 326,
+          "y": 287,
+          "channel": 0,
+          "expected": 73,
+          "actual": 72
+        },
+        {
+          "x": 326,
+          "y": 287,
+          "channel": 3,
+          "expected": 173,
+          "actual": 172
+        },
+        {
+          "x": 327,
+          "y": 287,
+          "channel": 0,
+          "expected": 71,
+          "actual": 70
+        },
+        {
+          "x": 327,
+          "y": 287,
+          "channel": 1,
+          "expected": 99,
+          "actual": 100
+        },
+        {
+          "x": 327,
+          "y": 287,
+          "channel": 3,
+          "expected": 170,
+          "actual": 173
+        },
+        {
+          "x": 328,
+          "y": 287,
+          "channel": 1,
+          "expected": 98,
+          "actual": 97
+        },
+        {
+          "x": 328,
+          "y": 287,
+          "channel": 3,
+          "expected": 173,
+          "actual": 170
+        },
+        {
+          "x": 329,
+          "y": 287,
+          "channel": 0,
+          "expected": 68,
+          "actual": 69
+        },
+        {
+          "x": 329,
+          "y": 287,
+          "channel": 1,
+          "expected": 97,
+          "actual": 99
+        },
+        {
+          "x": 340,
+          "y": 287,
+          "channel": 0,
+          "expected": 69,
+          "actual": 70
+        },
+        {
+          "x": 342,
+          "y": 287,
+          "channel": 0,
+          "expected": 70,
+          "actual": 69
+        },
+        {
+          "x": 342,
+          "y": 287,
+          "channel": 3,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 343,
+          "y": 287,
+          "channel": 3,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 351,
+          "y": 287,
+          "channel": 0,
+          "expected": 75,
+          "actual": 74
+        },
+        {
+          "x": 314,
+          "y": 288,
+          "channel": 3,
+          "expected": 166,
+          "actual": 167
+        },
+        {
+          "x": 315,
+          "y": 288,
+          "channel": 3,
+          "expected": 174,
+          "actual": 175
+        },
+        {
+          "x": 317,
+          "y": 288,
+          "channel": 3,
+          "expected": 181,
+          "actual": 180
+        },
+        {
+          "x": 318,
+          "y": 288,
+          "channel": 3,
+          "expected": 180,
+          "actual": 179
+        },
+        {
+          "x": 323,
+          "y": 288,
+          "channel": 0,
+          "expected": 67,
+          "actual": 68
+        }
+      ],
+      "expectedSha256": "93c8a9a0be4e5b366ed2963c0548696258786c6452f7c63fda520f9e3e7e7c2d",
+      "actualSha256": "64c1dffb2ef8dd8e53b93de9865fefbf8e2449ee0d702bb238139d76b3073bf6",
+      "exact": false
+    }
+  ],
+  "glOwnerRetired": true,
+  "noPerContactReset": true,
+  "hardware": "NOT RUN: Surface reserved by parent",
+  "budget": {
+    "eachApiTexturesMiB": 45.004,
+    "totalReadbackBytes": 438912,
+    "inputPacketCompressedBytes": 86905,
+    "newProducer": false
+  },
+  "validation": {
+    "tests": 6,
+    "ts": true,
+    "lint": true
+  },
+  "interpretation": "Software first contact max3 grows to max7 after14; actual Surface first contact max2 does not establish Surface chain growth."
+}
