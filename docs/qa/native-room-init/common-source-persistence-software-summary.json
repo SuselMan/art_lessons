@@ -1,0 +1,49 @@
+{
+  "scope": "Offline actualGL source capture/persistence only; no native solver or Room PASS",
+  "code": "439294bc3d0b89cfad17c05ce785509aa13dc8c2",
+  "bundleSha256": "550758957d686b8e99a05ec5da4eb00c0d6ddd713ae57ccbd6fe63c60bd11656",
+  "checkpointSha256": "4c614568975e56d6c6e6d53130a3a72cb931590b0b78816377f0e613df97ad94",
+  "glOwnerRetired": true,
+  "gl": {
+    "error": 0,
+    "lost": false
+  },
+  "physicalSourceBytes": 50331648,
+  "uniqueSourceTextures": 12,
+  "durableChunks": 13,
+  "rawBytesIncludingGlFinal": 54525952,
+  "gzipBytesIncludingGlFinal": 1075338,
+  "config": {
+    "paperWorld": {
+      "w": 1024,
+      "h": 1024
+    },
+    "paperScale": 1,
+    "gradientFibres": true,
+    "supportsFilm": true,
+    "ab": {
+      "noSpread": false,
+      "noMigrate": false,
+      "noDiffuse": false,
+      "noCarry": false,
+      "opDry": false
+    },
+    "plannerFlags": {
+      "diagnosticCostDomainPaths": false,
+      "diagnosticReuseFlowStorage": false,
+      "diagnosticSkipInitialFlowUpload": false,
+      "diagnosticReuseFlowRaster": false,
+      "diagnosticDirectResample": false,
+      "diagnosticPackedCostPaths": false,
+      "diagnosticPlateauPhase": false,
+      "diagnosticAdditiveZeroFaces": false,
+      "diagnosticPureWaterPlan": false,
+      "diagnosticSkipZeroPigmentRim": false,
+      "diagnosticContactFieldCache": false
+    }
+  },
+  "operationSha256": "9f2b887738937d3c4cd440bfa7404c3620d2ba359cb11c1c0c167260ac03d411",
+  "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+  "actualRoleMetadataSha256": "9bff754770611d5c40a90e26e614095073fe16df60cb2cb969fbceb2c0c548d0",
+  "remaining": "Separate300sec software nativebaseline/common arms; historical43282/max36 is not aligned baseline."
+}
