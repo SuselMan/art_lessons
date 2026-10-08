@@ -1,0 +1,64 @@
+{
+  "valid": false,
+  "reason": "Unresolved second result-code token; strict postcheck failed after actual execution",
+  "verifiedFrozenBundle": "0655fa83cde777443ffbd62df23d46ca7e92b22a7d2f2a5a09b818093de1559b",
+  "verifiedProvenance": "3f7fadd3ac27e8a4ee88f01adb50ce8cc42d8bce",
+  "resultCode": "__SOURCE_CODE__",
+  "scope": "Exploratory source coverage only; not accepted hardware gate",
+  "checkpoints": [
+    {
+      "index": 37,
+      "kind": "stamp",
+      "substituted": false,
+      "nativeSha256": "36168b1e5f63afcda54655f1782399629220bc94270079432caf40515e92ec39",
+      "glSha256": "f5499a104c670394a121e70e6729344dac57bee3e339b1f8d08cc35a74cf0232",
+      "comparisonBeforeSubstitution": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 257,
+        "max": 5,
+        "mean": 7.009506225585938e-05,
+        "exact": false
+      }
+    },
+    {
+      "index": 44,
+      "kind": "ribbon",
+      "substituted": false,
+      "nativeSha256": "7db0c3303cd71a5e29e0354f4b1c32a261532355f7df356d4780b5a79576c6e7",
+      "glSha256": "536273d0942c7f0fb569d8764d07c6da6fb4e20429204cacc3a31b3cd07b571b",
+      "comparisonBeforeSubstitution": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 21,
+        "max": 1,
+        "mean": 5.0067901611328125e-06,
+        "exact": false
+      }
+    },
+    {
+      "index": 144,
+      "kind": "ribbon",
+      "substituted": false,
+      "nativeSha256": "243af86dbcc3963de99b6945f44d4e86518bd0d574ba5f78e4cc105fa7aee764",
+      "glSha256": "45feaa58e002e127f5d85bb607f733e5977f90e53db5a26694a45ba574266fc7",
+      "comparisonBeforeSubstitution": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 29,
+        "max": 1,
+        "mean": 6.9141387939453125e-06,
+        "exact": false
+      }
+    }
+  ],
+  "readbackBytes": 25165824,
+  "validation": null,
+  "errors": []
+}
