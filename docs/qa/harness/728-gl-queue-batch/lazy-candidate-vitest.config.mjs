@@ -1,0 +1,1 @@
+export default {test:{include:['docs/qa/harness/728-gl-queue-batch/lazyCapturedContacts.test.ts','apps/web/src/engine/src/watercolor/brushDragFieldWork.test.ts'],environment:'node',testTimeout:20000}}
