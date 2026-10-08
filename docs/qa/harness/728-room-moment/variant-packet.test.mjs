@@ -1,0 +1,5 @@
+import{test}from'node:test';import assert from'node:assert/strict';import crypto from'node:crypto';import{decodeVariantPacket}from'./variant-packet.mjs'
+const fixture=()=>{const b=Buffer.alloc(36864);return{errors:[],arms:[.7,.1,.02,0].flatMap(pressure=>['literal','A','B'].map(variant=>({pressure,variant,roi:{x:384,yTop:352,w:96,h:96},groups:['amount','coverage','contact'].map(group=>({group,byteLength:b.length,sha256:crypto.createHash('sha256').update(b).digest('hex'),base64:b.toString('base64')}))})))}}
+test('12arms36fields exact boundeddecode',()=>assert.equal(decodeVariantPacket(fixture()).reduce((s,g)=>s+g.bytes.length,0),1327104))
+test('wrong pressure or variant order reject',()=>{const p=fixture();p.arms[0].pressure=.4;assert.throws(()=>decodeVariantPacket(p),/pressure/);const q=fixture();q.arms[0].variant='B';assert.throws(()=>decodeVariantPacket(q),/Variant/)})
+test('mutated payload SHA rejects',()=>{const p=fixture();p.arms[0].groups[0].sha256='wrong';assert.throws(()=>decodeVariantPacket(p),/SHA/)})

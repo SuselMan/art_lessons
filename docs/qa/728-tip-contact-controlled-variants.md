@@ -17,3 +17,9 @@ Actual stamp Surface5f доказал: baseline P.B exact actual; nib255, hair �
 3. Actual rendering/baseline screenshots, затем Илья оценивает. Никаких production/default изменений, ON лишь diagnostic source specialization. Три arms serial; исходные source/paper/tape SHA и program patch SHA обязательны. Не запускать полный1536settle ради проверки локальной mask и не называть isolated лучшей всей акварелью.
 
 Архитектурный принцип: единый contact support для воды и пигмента; дозировка меняется до transport, существующая масса лежащей краски консервативно переносится отдельно. Не выводить naturalness из арифметического PASS. Active historical settled snapshot — независимый незавершённый контракт.
+
+## Исполняемый isolated packet
+
+`build-held-variants.mjs <newImmutableDirectory>` собирает callable `runHeldStampVariants`: literal/A/B ×pressure0.7/0.1/0.02/0,36draws с тремя выходами amount/coverage/contact. Actual геометрия фиксирована; не переделывается radius при слабом нажиме. Это проверка функции pressure, не полная геометрия подъёма. Literal shader неизменен; A/B меняют только функцию contact для всех source phases. Результаты36×36864=1,327,104decodedbytes; GPUtexture бюджет~8.3MiB, staging48KiB переиспользуется, нет1536solver.
+
+`held-variant-controller.mjs`: тот же ONE60с Surface1700/500, HTTPmanifest/SHA, exactpressure/order/budget, собственная страница. `analyze-held-variants.py <savedGate>` сохраняет ROI PB/water/coverage/contact карты, dose sum/delta, interior zeros/rows/critical pixels. Суммы строгоROI, не whole-stamp масса. До actual gate художественный вывод отсутствует. Source/golden8tests, strictTS, decoder3tests PASS. Lowpressure endpoints0.1/0.02 используют исходные параметры обоих вариантов; pressure0 полного отрыва должен оставлять0 для всех source outputs.

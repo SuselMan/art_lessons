@@ -1,7 +1,7 @@
 import { CANONICAL_STAMP_WGSL } from '../../../../apps/web/src/engine/src/webgpuCanonical/stamp'
 import type { CanonicalStamp } from '../../../../apps/web/src/engine/src/webgpuCanonical/types'
 
-export type HeldStampFactorGroup = 'contact' | 'modulation' | 'amount' | 'no-tip-counterfactual'
+export type HeldStampFactorGroup = 'contact' | 'modulation' | 'amount' | 'no-tip-counterfactual' | 'coverage'
 const anchor = 'var o:InkOut;o.pigment=vec4f(amount*u.paint.x,amount*wet,amount*u.paint.z,amount);o.color=vec4f(amount*u.paint.z*u.tau.xyz/4.0,amount*u.paint.z);return o;'
 const tipAnchor = 'amount*=wcTipContact(a,u.combs,world,wcTipPressure(u.contact.z,u.pose.z));'
 
@@ -10,6 +10,7 @@ export function heldStampFactorShader(group: HeldStampFactorGroup): string {
   if (CANONICAL_STAMP_WGSL.split(anchor).length !== 2 || CANONICAL_STAMP_WGSL.split(tipAnchor).length !== 2) {
     throw new Error('Held stamp diagnostic anchor changed')
   }
+  if(group === 'coverage')return CANONICAL_STAMP_WGSL
   let expression: string
   switch (group) {
     case 'contact': expression = 'vec4f(cov,wcHairField(a,u.combs,world),wcTipContact(a,u.combs,world,wcTipPressure(u.contact.z,u.pose.z)),depth)'; break
@@ -36,6 +37,7 @@ export const HELD_FACTOR_CHANNELS = {
   modulation: ['cloud/2', 'settling/2', 'filmBlot/2', 'availableWet'],
   amount: ['P.water', 'P.wet', 'P.pigment', 'P.amount'],
   'no-tip-counterfactual': ['P.water', 'P.wet', 'P.pigment', 'P.amount'],
+  coverage: ['acrossCoverage', 'pool', 'standingWater', 'contactCoverage'],
 } as const
 
 /** One 96² readback at a time; caller supplies owned production-size fields/noise.
@@ -43,6 +45,7 @@ export const HELD_FACTOR_CHANNELS = {
 export async function captureHeldStampFactors(
   device: GPUDevice, noise: GPUTextureView, availableCoverage: GPUTextureView,
   output: GPUTexture, stamp: CanonicalStamp = ACTUAL_FIRST_PURPLE_STAMP,
+  diagnostic: { transform?: (shader: string) => string; groups?: readonly HeldStampFactorGroup[] } = {},
 ) {
   const v = stamp.uniforms
   const uniform = device.createBuffer({ size: 160, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
@@ -59,9 +62,9 @@ export async function captureHeldStampFactors(
     ] })
     const pipelineLayout = device.createPipelineLayout({bindGroupLayouts:[layout]})
     const bind = device.createBindGroup({layout,entries:[{binding:0,resource:{buffer:uniform}},{binding:1,resource:availableCoverage},{binding:2,resource:noise}]})
-    for (const group of ['amount','contact','modulation','no-tip-counterfactual'] as const) {
-      const module = device.createShaderModule({code:heldStampFactorShader(group)})
-      const pipeline = device.createRenderPipeline({layout:pipelineLayout,vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'pigmentOnly',targets:[{format:'rgba8unorm'}]}})
+    for (const group of diagnostic.groups ?? ['amount','contact','modulation','no-tip-counterfactual'] as const) {
+      const module = device.createShaderModule({code:(diagnostic.transform ?? (s=>s))(heldStampFactorShader(group))})
+      const pipeline = device.createRenderPipeline({layout:pipelineLayout,vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:group==='coverage'?'coverage':'pigmentOnly',targets:[{format:'rgba8unorm'}]}})
       const encoder = device.createCommandEncoder()
       const pass = encoder.beginRenderPass({colorAttachments:[{view:output.createView(),loadOp:'clear',storeOp:'store',clearValue:[0,0,0,0]}]})
       pass.setPipeline(pipeline); pass.setBindGroup(0,bind); pass.setScissorRect(384,352,96,96); pass.draw(6); pass.end()
