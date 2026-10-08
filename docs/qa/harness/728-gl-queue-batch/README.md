@@ -202,3 +202,16 @@ No review source mutation. Optional user review is another Room URL with
 explicit `qaJoinedFinishDeferred=1`, not a default promotion. Third rapid DOWN
 and peer/layer/live-filmstrip remain bounded future gates. Surface released
 before further offline analysis.
+
+### First-UP CPU attribution (ONE Surface, all three opt-ins ON)
+
+1763rows/dropped0, errors0; first _onEnd95.5ms consists of final source
+_paintStrokeDabs30.4ms and _finishRibbonStroke53.8ms, with nested
+_diffuseWashOps50ms → plan.prepare49.6ms. prepare sees20 travel records,
+no foreign sources. Field allocation0.5ms, pooled acquire≈0; uploadFlow calls
+inside prepare0. Thus the measured expensive area is CPU plan/contact-raster
+construction, not measured upload/allocation. BrushDragContacts is the concrete
+eager source reader, but its pure function was not individually timed yet.
+MinRAM1252/release1852MiB. Raw `queue-room-first-up-surface.json`, compact
+`first-up-surface-summary.json`; nested inclusive durations must not be added.
+Review engine source remained unchanged; instance-only CPU wrappers.

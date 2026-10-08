@@ -5,12 +5,13 @@ export function installRoomPhaseProbe(E,{maxRows=1024}={}){
  const state=()=>({settle:!!E._settle,next:E._settle?.next??null,total:E._settle?.ops.length??null,lease:E._wcJoinedTouchLease===E._settle&&!!E._settle,gesture:E._strokeId??null,tool:E._opts?.tool??null,preset:E._opts?.pencilType??null})
  const put=row=>{if(rows.length<maxRows)rows.push(row);else dropped++}
  const wrap=(object,name)=>{const original=object?.[name];if(typeof original!=='function')return false
-  const wrapped=function(...args){const at=performance.now(),before=state(),parent=stack.at(-1)??null;stack.push(name);let error
-   try{return original.apply(this,args)}catch(e){error=String(e);throw e}finally{stack.pop();put({name,parent,phase,at,cpuMs:performance.now()-at,before,after:state(),error})}}
+  const wrapped=function(...args){const at=performance.now(),before=state(),parent=stack.at(-1)??null,argumentStats=name==='prepare'?{travel:(args[12]??args[0])?.brushTravel?.length??null,foreign:(args[12]??args[0])?.foreignSources?.length??null}:name==='uploadFlow'||name==='uploadForeign'?{width:args[1],height:args[2],bytes:args[3]?.byteLength??null}:name==='acquire'?{width:args[0],height:args[1]}:undefined;stack.push(name);let error
+   try{return original.apply(this,args)}catch(e){error=String(e);throw e}finally{stack.pop();put({name,parent,phase,at,cpuMs:performance.now()-at,before,after:state(),argumentStats,error})}}
   object[name]=wrapped;restores.push(()=>{if(object[name]===wrapped)object[name]=original});return true}
- const methods=['_onStart','_onMove','_onEnd','_completeSettle','_paintStrokeDabs','_paintDabs','_runSlice','_syncBuffersToLog','_makeLayerBuffer','_createBuffer','_destroyBuffer','_paintRibbonDabs','_diffuseFieldFor','_display']
+ const methods=['_onStart','_onMove','_onEnd','_completeSettle','_paintStrokeDabs','_paintDabs','_runSlice','_syncBuffersToLog','_makeLayerBuffer','_createBuffer','_destroyBuffer','_paintRibbonDabs','_diffuseFieldFor','_display','_finishRibbonStroke','_diffuseWashOps']
  const coverage=methods.map(name=>({name,installed:wrap(E,name)}))
  for(const name of ['_handleDown','_handleMove','_handleUp'])coverage.push({name,installed:wrap(E._pointer,name)})
+ for(const [object,name]of [[E._settlePlan,'prepare'],[E._settlePlan?.ctx?.uploads,'uploadFlow'],[E._settlePlan?.ctx?.uploads,'uploadForeign'],[E._ribbonScratchPool,'acquire']])coverage.push({name,installed:wrap(object,name)})
  // These calls are CPU/API intervals only. Existing finish semantics unchanged.
  const rawGl1=typeof WebGLRenderingContext!=='undefined'&&E.gl instanceof WebGLRenderingContext&&!(typeof WebGL2RenderingContext!=='undefined'&&E.gl instanceof WebGL2RenderingContext)
  if(rawGl1)for(const name of ['finish','flush','texImage2D','texSubImage2D'])coverage.push({name,installed:wrap(E.gl,name)})

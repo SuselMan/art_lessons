@@ -1,0 +1,180 @@
+{
+  "flags": {
+    "solver": true,
+    "joinedTouch": true,
+    "joinedMixed": true,
+    "deferred": true,
+    "asyncFinish": false,
+    "material": false
+  },
+  "sceneMs": 8986.899999976158,
+  "maxGapMs": 133.1999999999971,
+  "rowCount": 1763,
+  "dropped": 0,
+  "coverage": [
+    {
+      "name": "_onStart",
+      "installed": true
+    },
+    {
+      "name": "_onMove",
+      "installed": true
+    },
+    {
+      "name": "_onEnd",
+      "installed": true
+    },
+    {
+      "name": "_completeSettle",
+      "installed": true
+    },
+    {
+      "name": "_paintStrokeDabs",
+      "installed": true
+    },
+    {
+      "name": "_paintDabs",
+      "installed": true
+    },
+    {
+      "name": "_runSlice",
+      "installed": true
+    },
+    {
+      "name": "_syncBuffersToLog",
+      "installed": true
+    },
+    {
+      "name": "_makeLayerBuffer",
+      "installed": true
+    },
+    {
+      "name": "_createBuffer",
+      "installed": true
+    },
+    {
+      "name": "_destroyBuffer",
+      "installed": true
+    },
+    {
+      "name": "_paintRibbonDabs",
+      "installed": true
+    },
+    {
+      "name": "_diffuseFieldFor",
+      "installed": true
+    },
+    {
+      "name": "_display",
+      "installed": true
+    },
+    {
+      "name": "_finishRibbonStroke",
+      "installed": true
+    },
+    {
+      "name": "_diffuseWashOps",
+      "installed": true
+    },
+    {
+      "name": "_handleDown",
+      "installed": true
+    },
+    {
+      "name": "_handleMove",
+      "installed": true
+    },
+    {
+      "name": "_handleUp",
+      "installed": true
+    },
+    {
+      "name": "prepare",
+      "installed": true
+    },
+    {
+      "name": "uploadFlow",
+      "installed": true
+    },
+    {
+      "name": "uploadForeign",
+      "installed": true
+    },
+    {
+      "name": "acquire",
+      "installed": true
+    },
+    {
+      "name": "finish",
+      "installed": true
+    },
+    {
+      "name": "flush",
+      "installed": true
+    },
+    {
+      "name": "texImage2D",
+      "installed": true
+    },
+    {
+      "name": "texSubImage2D",
+      "installed": true
+    }
+  ],
+  "firstUp": [
+    {
+      "name": "_paintStrokeDabs",
+      "parent": "_onEnd",
+      "cpuMs": 30.399999976158142,
+      "argumentStats": null
+    },
+    {
+      "name": "_diffuseFieldFor",
+      "parent": "prepare",
+      "cpuMs": 0.5,
+      "argumentStats": null
+    },
+    {
+      "name": "prepare",
+      "parent": "_diffuseWashOps",
+      "cpuMs": 49.59999996423721,
+      "argumentStats": {
+        "travel": 20,
+        "foreign": null
+      }
+    },
+    {
+      "name": "_diffuseWashOps",
+      "parent": "_finishRibbonStroke",
+      "cpuMs": 50,
+      "argumentStats": null
+    },
+    {
+      "name": "_finishRibbonStroke",
+      "parent": "_onEnd",
+      "cpuMs": 53.80000001192093,
+      "argumentStats": null
+    },
+    {
+      "name": "_display",
+      "parent": "_onEnd",
+      "cpuMs": 3.900000035762787,
+      "argumentStats": null
+    },
+    {
+      "name": "_onEnd",
+      "parent": "_handleUp",
+      "cpuMs": 95.5,
+      "argumentStats": null
+    }
+  ],
+  "minimumRamMiB": 1252,
+  "releaseRamMiB": 1852,
+  "glError": 0,
+  "lost": false,
+  "limits": [
+    "One CPU-instrumented scene, nested inclusive timings overlap",
+    "prepare49.6ms measured; eager brushDragContacts suspected from source readers, not separately instrumented pure function",
+    "No queries/readback/fences added, no GPU or physical-screen latency attribution"
+  ]
+}
