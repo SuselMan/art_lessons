@@ -5,6 +5,7 @@ import {PrewarmedGlOwnerPool} from './PrewarmedGlOwnerPool.ts';
 import {OwnedGlPreparedSource} from './OwnedGlPreparedSource.ts';
 import {TypedGlSourceReplayPrototype} from './TypedGlSourceReplayPrototype.ts';
 import {createPreparedGlSourcePort} from './PreparedGlSourceDraw.ts';
+import {readOwnedVisibleProbe} from './OwnedVisibleProbe.mjs';
 import {ReservedVisualScratch} from './ReservedVisualScratch.mjs';
 import {OwnedPresentationMorphBridge} from './OwnedPresentationMorphBridge.mjs';
 import {prewarmEngineRevealSlots} from './PrewarmedEngineRevealSlots.ts';
@@ -27,6 +28,7 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
  const drawContext={gl:()=>e.gl,stamps:()=>e._stamps,paperTex:()=>e._paperTex,quadBuf:()=>e._quadBuf,minmaxExt:()=>e._minmaxExt};
  const trace=[];const event=(kind,data={})=>{if(trace.length<2048)trace.push({kind,at:performance.now(),...data})};
  const morph=diagnosticMaterialRebase?new OwnedPresentationMorphBridge(e,{event,scratch:visualScratchPrewarm}):null;
+ let probeCount=0;const probe=(owner,phase)=>{if(!globalThis.__ownerMorphProbe||probeCount>=16||!owner?.probePoint)return;const data=readOwnedVisibleProbe(e,owner,phase,morph?morph.visibleField(owner):owner.lease.fields.presentation);if(data){probeCount++;event('owned-visible-probe',data)}};
  const latest=layerId=>[...owners.values()].filter(o=>o.token.layerId===layerId&&coordinator.visible().includes(o.token)).at(-1);
  const mapFor=scratch=>{let map=byScratch.get(scratch);if(!map){map=new Map();byScratch.set(scratch,map)}return map};
  const cancelOwner=owner=>{
@@ -72,9 +74,9 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
   if(!(e._wcAsyncFinish&&defer&&scratch===e._ribbonStrokeScratch)){yield* originals.work.apply(e,arguments);return}
   yield* painter.paint(target,dabs,preset,presetName,profile,color,scratch,prev,wet,seed,defer,piece,{waterOnly:false,segmented:false,deferMaterial:request=>{
    if(!request.typedSource)throw Error('Prepared source capture missing');
-   const owner=ensureOwner(scratch,request,target),recipe=request.typedSource;
+   const owner=ensureOwner(scratch,request,target),recipe=request.typedSource;const stamp=recipe.commands.find(command=>command.kind==='stamp'&&command.phase==='pigment');if(stamp&&!owner.probePoint)owner.probePoint=[...stamp.stamp.center];
    const paint=()=>owner.source.paint({commands:recipe.commands,rect:recipe.rect,film:!!recipe.composite.profile.normalizeDeposit&&!!e._minmaxExt,waterOnly:false,composite:recipe.composite});if(morph)morph.paint(owner,recipe.composite.bounds,paint);else paint();
-   coordinator.publishSource(owner.token);e._markPaperDamage(recipe.composite.bounds);e._invalidateSplitCache();e._scheduleDisplay();event('publish',{sequence:owner.token.sequence});
+   coordinator.publishSource(owner.token);if(!owner.probedInitial){probe(owner,'first-source');owner.probedInitial=true}e._markPaperDamage(recipe.composite.bounds);e._invalidateSplitCache();e._scheduleDisplay();event('publish',{sequence:owner.token.sequence});
    e._holdAsyncScratch(scratch);
    e._wcCanonical.enqueue({execute:function*(){
     if(!owner.canonicalStarted){const head=coordinator.takeCanonical();if(head?.token!==owner.token)throw Error('Canonical FIFO owner order');owner.canonicalStarted=true;owner.version=landedVersion}
@@ -102,11 +104,11 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
    try{return originals.finish.call(e,scratch,...args)}finally{e._revealWash=reveal}
   }
   if(!owner||args[3])return originals.finish.call(e,scratch,...args);
-  coordinator.seal(owner.token,scratch.captureFinishMetadata());event('seal',{sequence:owner.token.sequence});
+  probe(owner,'sealed-source');coordinator.seal(owner.token,scratch.captureFinishMetadata());event('seal',{sequence:owner.token.sequence});
   const enqueue=e._wcCanonical.enqueue;e._wcCanonical.enqueue=function(request){return enqueue.call(this,{execute:function*(){yield* request.execute();if(morph){
      const layer=e._layers.get(owner.token.layerId),tile=e._ribbonPainterContext.resolveWithinSheet(layer,{minX:0,minY:0,maxX:1024,maxY:1024})[0],entry=scratch.peek(tile.buffer);if(!entry?.inkLoad||!entry.inkColor||!entry.solventLoad)throw Error('Read-only landed material roles missing');
      let fields={presentation:tile.buffer,original:entry.original,coverage:entry.coverage,pigmentLoad:entry.inkLoad,colourLoad:entry.inkColor,solventLoad:entry.solventLoad},predecessorGesture=owner.gesture;
-     for(const next of [...owners.values()].filter(next=>next.token.layerId===owner.token.layerId&&next.token.sequence>owner.token.sequence).sort((a,b)=>a.token.sequence-b.token.sequence)){morph.hold(next);next.source.rebaseFromPredecessor({ownerToken:next.source.rebaseToken,layerId:next.token.layerId,predecessorGesture,expectedEpoch:next.source.epoch,nextEpoch:next.source.epoch+1,fields});morph.rebaseStarted(next);fields=Object.fromEntries(['presentation','original','coverage','pigmentLoad','colourLoad','solventLoad'].map(role=>[role,next.lease.fields[role]]));predecessorGesture=next.gesture;event('material-rebase',{sequence:next.token.sequence,epoch:next.source.epoch})}
+     for(const next of [...owners.values()].filter(next=>next.token.layerId===owner.token.layerId&&next.token.sequence>owner.token.sequence).sort((a,b)=>a.token.sequence-b.token.sequence)){morph.hold(next);next.source.rebaseFromPredecessor({ownerToken:next.source.rebaseToken,layerId:next.token.layerId,predecessorGesture,expectedEpoch:next.source.epoch,nextEpoch:next.source.epoch+1,fields});morph.rebaseStarted(next);probe(next,'material-rebase');fields=Object.fromEntries(['presentation','original','coverage','pigmentLoad','colourLoad','solventLoad'].map(role=>[role,next.lease.fields[role]]));predecessorGesture=next.gesture;event('material-rebase',{sequence:next.token.sequence,epoch:next.source.epoch})}
     }landedVersion++;coordinator.land(owner.token);owners.delete(owner.token);e._invalidateSplitCache();e._scheduleDisplay();event('land',{sequence:owner.token.sequence,landedVersion})},cancel:lost=>{request.cancel(lost);cancelOwner(owner)}})};
   try{return originals.finish.call(e,scratch,...args)}finally{e._wcCanonical.enqueue=enqueue}
  };
