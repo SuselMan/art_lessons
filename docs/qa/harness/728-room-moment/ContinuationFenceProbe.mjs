@@ -9,9 +9,10 @@ export function installContinuationFenceProbe(engine,{limit=128,now=()=>performa
   Object.defineProperty(gl,name,{configurable:true,writable:true,value:wrapper});hooks.push(()=>{if(gl[name]!==wrapper)throw Error('Probe hook replaced '+name);if(had)Object.defineProperty(gl,name,descriptor);else delete gl[name]});
  }
  const wrapped=function(...args){
-  if(active)return original.apply(this,args);
+  if(active||rows.length>=limit)return original.apply(this,args);
+  const observeStart=now();
   const stack=new Error().stack??'',label=stack.includes('_runSlice')?'runSlice':stack.includes('_advanceAsyncCanonical')?'asyncCanonical':stack.includes('WatercolorSettleQueue')?'settleQueue':'unresolved';
-  const row={label,start:now(),beforeSerial:serial,calls:{},sincePreviousMs:previousEnd===null?null:now()-previousEnd,previousSerial:rows.at(-1)?.afterSerial??null};active=row;
+  const measuredStart=now();const row={label,observerSetupMs:measuredStart-observeStart,start:measuredStart,beforeSerial:serial,calls:{},sincePreviousMs:previousEnd===null?null:now()-previousEnd,previousSerial:rows.at(-1)?.afterSerial??null};active=row;
   try{return original.apply(this,args)}catch(error){row.error=String(error);throw error}finally{row.end=now();row.durationMs=row.end-row.start;row.afterSerial=serial;previousEnd=row.end;active=null;if(rows.length<limit)rows.push(row)}
  };
  engine._syncContinuationGpu=wrapped;
