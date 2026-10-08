@@ -1,0 +1,83 @@
+{
+  "scope": "ONE first actual front step with common proved pressure input, coverage, captured Fine LA and production251 lattice; pressure LINEAR/coverage NEAREST/paper LINEARrepeat. Default native source sampling unchanged. No full solver/Room/performance claim.",
+  "code": "65997c49b422cccef9f0d9e2699f2b99773de103",
+  "producerCode": "5f2e8ddd7fea6ab096beb5322070c11100da69cf",
+  "bundleSha256": "b98f39e089410f5c12e15fe1a8aa5552e25d325d62e46d0ffb9afeca3a997adb",
+  "functionalPass": true,
+  "primitiveExact": true,
+  "wholeParityPass": false,
+  "channels": [
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    }
+  ],
+  "expectedSha256": "461c0ed24ccebdbd76bb0e00feb8c03809d4f9463d6a5022be8f919ce377c8c7",
+  "actualSha256": "461c0ed24ccebdbd76bb0e00feb8c03809d4f9463d6a5022be8f919ce377c8c7",
+  "inputHashes": {
+    "pigment": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+    "coverageSource": "45feaa58e002e127f5d85bb607f733e5977f90e53db5a26694a45ba574266fc7",
+    "coverageField": "b6e964b3ad23708a40d25ecc68ab8c4daf91d651e2f01948e6787489dc8515bb"
+  },
+  "pressureSeedSha256": "d9c25185217f838a6afe0c05e93d6985993f084cc98f8ba5bbcc60aa5e19863d",
+  "frontRecipe": {
+    "x0": 0,
+    "y0": 40,
+    "scale": 1,
+    "dryCost": 50.27954292297363,
+    "max": 104.55908584594727,
+    "climb": 30,
+    "floor": 0.85,
+    "stride": 1,
+    "paperWorld": {
+      "w": 1024,
+      "h": 1024
+    },
+    "paperScale": 1,
+    "pressureSeedSha256": "d9c25185217f838a6afe0c05e93d6985993f084cc98f8ba5bbcc60aa5e19863d"
+  },
+  "sourceFilter": "legacy input LINEAR metadata",
+  "glDither": true,
+  "glError": 0,
+  "lost": false,
+  "errors": [],
+  "validation": null,
+  "memory": [
+    {
+      "stage": "before-own-tab",
+      "availableMiB": 2075.5
+    },
+    {
+      "stage": "arm-0-preflight",
+      "availableMiB": 2067.2
+    }
+  ],
+  "raw": {
+    "path": "temp/device-runs/first-front-6599/report.json",
+    "sha256": "df81976bc2b63b391ab79acac0c3b4d7d33a635dc0b604b060d779d2ff623799"
+  },
+  "softwareObservation": {
+    "scope": "same immutable Surface Q8 inputs but software GL/WGSL only",
+    "Rchanged": 2,
+    "Gchanged": 119058,
+    "max": 1,
+    "notReproducedOnSurface": true
+  },
+  "conclusion": "Real Surface first water-front step is exact on every RGBA channel; the software-only G-height difference did not reproduce. Source/stitch/initialpartition/pressureseed/firstfront are excluded for this fixed case. Whole final mismatch remains; next checkpoint must advance actual front chronology, then band/carry, rather than infer cause from software."
+}
