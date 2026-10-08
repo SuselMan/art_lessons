@@ -1,0 +1,7 @@
+# #728: границы следующего улучшения
+
+Staticfixed400 хвост:16 batchedCPUunits в7ticks, CPUelapsed38,3мс, max9,2мс. Дажеигнорируябарьеры, приcap4 минимумceil(16/4)=4ticks. Значитувеличениезаполнениятекущегопакета можеттеоретическиубрать неболее3CPUtickграниц (около50мс при60Гц). ЭтоНЕпредсказаниеwall: framecadence, ready/late, GPU/presentation ибарьеры меняютрасписание. Бюджет8мс повышатьвслепую нельзя: ужеесть9,2мсмягкийoverrun. WholeRoom сравнениепоканевалидно.
+
+Послеlazyprepare ввалидномOFF staticRoomfirstUP:_onEnd43,4мс, prepare5,1мс, _finishRibbonStroke8,1мс; максимальный_paintStrokeDabs29,2мс/_paintRibbonDabs26,6мс. Это вложенные интервалы, ихне суммировать. Наpurewater UP28,7мс, prepare0,7мс, finalsource22,8мс; pigmentoverwater UP36,4мс, prepare0вUP (deferred), finalsource33,1мс. Следующаяконкретная тяжёлаяобласть — финальныйsourceflush, неpoolacquire илиtexImage: внутриfirstphase acquireмакс0,2мс, texImageмакс0,1мс (этостоимостьAPI, НЕGPUtransfer).
+
+Исходники: index.ts6342–6379 `_onEnd` делает endStroke/taper/pooling/appendWatercolorLift, затем synchronous `_paintStrokeDabs`. index.ts7142–7155 `_paintRibbonDabs` целикомdrain существующий `_ribbonDabsWork` генератор. Делениеэтогоsourceflush накадры потенциальноускоряетUP, но требует сохранитьвидимыйживойконец, immutablefinishmetadata, publication/undoadmission иcopycapturebeforeuse. Нельзяпростоотложитьcapture/убратьsource илименятькончик: это повторитотвергнутые UIрегрессии. Пока это областьдляточной attribution отдельныхsourcepass/geometry; candidatecodeнеподготовлен, приростнеобещается.
