@@ -1,3 +1,5 @@
+import {carryMrt300} from './carryMrt'
+import type {SettlePlanFieldOptions} from '../watercolor/SettlePlanContracts'
 import {StaticPaperCache} from './staticPaperCache'
 import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_WATER_FRONT_INVARIANT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { diagnosticWebgl2Raw } from './diagnosticWebgl2'
@@ -79,6 +81,9 @@ export class WatercolorPasses {
   private _diffuseProg!: WebGLProgram
 
   /** WebGL2-only paired pulse experiment. Default OFF. */
+  diagnosticCarryMrt = false
+  readonly carryPairStats = {pairs:0,fallbacks:0,pixels:0}
+  private _carryMrt: {program:WebGLProgram;uniforms:Record<string,WebGLUniformLocation|null>;position:number;fbo:WebGLFramebuffer;checked:boolean}|null=null
   diagnosticBrushMrt = false
   readonly brushPairStats = { pairs: 0, fallbacks: 0, pixels: 0 }
   private _brushMrt: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number; fbo: WebGLFramebuffer; checked: boolean } | null = null
@@ -356,6 +361,57 @@ export class WatercolorPasses {
     out.endDraw(); gl.activeTexture(gl.TEXTURE0)
   }
 
+  warmCarryMrt():boolean {
+    const raw=diagnosticWebgl2Raw(this.gl)
+    if(!raw)return false
+    if(!this._carryMrt){
+      if(raw.getParameter(raw.MAX_DRAW_BUFFERS)<2||raw.getParameter(raw.MAX_COLOR_ATTACHMENTS)<2)return false
+      const program=createProgram(this.gl,DISPLAY_VERT,carryMrt300()),fbo=raw.createFramebuffer()
+      if(!fbo){raw.deleteProgram(program);throw Error('Carry MRT framebuffer unavailable')}
+      this._carryMrt={program,fbo,checked:false,uniforms:getUniforms(this.gl,program,[...Object.keys(this._fieldOpCarryUni),'u_colour']),position:raw.getAttribLocation(program,'a_position')}
+    }
+    return true
+  }
+
+  /** Optional adjacent legacy16(C) then15(P) replacement: same OLD P/C/cost,
+   * no copy or early ping-pong, two independent original expressions. */
+  carryPair(outPigment:AccumulationBuffer,pigment:AccumulationBuffer,outColor:AccumulationBuffer,color:AccumulationBuffer,fixed:AccumulationBuffer,k:number,opts:SettlePlanFieldOptions<AccumulationBuffer>):boolean {
+    const raw=diagnosticWebgl2Raw(this.gl)
+    if(!this.diagnosticCarryMrt||!raw||opts.additiveZeroFaces||!this.warmCarryMrt()){this.carryPairStats.fallbacks++;return false}
+    const inputs=[pigment,color,fixed,opts.d??fixed,opts.e??fixed,opts.path??fixed]
+    const outputs=[outPigment.texture,outColor.texture]
+    if(outputs[0]===outputs[1]||inputs.some(x=>outputs.includes(x.texture))||outPigment.width!==outColor.width||outPigment.height!==outColor.height||(opts.c&&opts.c!==pigment))throw Error('Carry MRT unsafe dependency/alias/dimensions')
+    const state=this._carryMrt!,u=state.uniforms
+    outColor.beginReplaceDraw();outPigment.beginReplaceDraw()
+    raw.bindFramebuffer(raw.FRAMEBUFFER,state.fbo)
+    raw.framebufferTexture2D(raw.FRAMEBUFFER,raw.COLOR_ATTACHMENT0,raw.TEXTURE_2D,outPigment.texture,0)
+    raw.framebufferTexture2D(raw.FRAMEBUFFER,raw.COLOR_ATTACHMENT1,raw.TEXTURE_2D,outColor.texture,0)
+    raw.drawBuffers([raw.COLOR_ATTACHMENT0,raw.COLOR_ATTACHMENT1])
+    try{
+      if(!state.checked){if(raw.checkFramebufferStatus(raw.FRAMEBUFFER)!==raw.FRAMEBUFFER_COMPLETE)throw Error('Carry MRT framebuffer incomplete');state.checked=true}
+      raw.useProgram(state.program);raw.bindBuffer(raw.ARRAY_BUFFER,this.ctx.screenBuf());raw.enableVertexAttribArray(state.position);raw.vertexAttribPointer(state.position,2,raw.FLOAT,false,0,0)
+      const textures=[pigment,fixed,pigment,opts.d??fixed,opts.e??fixed,opts.path??fixed,color],names=['u_a','u_b','u_c','u_d','u_e','u_path','u_colour']
+      for(let i=0;i<textures.length;i++){raw.activeTexture(raw.TEXTURE0+i);raw.bindTexture(raw.TEXTURE_2D,textures[i].texture);raw.uniform1i(u[names[i]],i)}
+      raw.uniform1f(u.u_k,k);raw.uniform1f(u.u_pathEnabled,opts.path?(opts.pathPacked?2:1):0)
+      raw.uniform2f(u.u_dir,opts.dir?opts.dir[0]/outPigment.width:0,opts.dir?opts.dir[1]/outPigment.height:0)
+      raw.uniform2fv(u.u_origin,opts.origin??[0,0]);raw.uniform2fv(u.u_size,opts.size??[outPigment.width,outPigment.height]);raw.uniform2fv(u.u_band,opts.band??[0,0]);raw.uniform3fv(u.u_tau,opts.tau??[0,0,0]);raw.uniform3fv(u.u_world,opts.world??[0,0,0])
+      if(opts.scissor){raw.enable(raw.SCISSOR_TEST);raw.scissor(...opts.scissor)}
+      raw.drawArrays(raw.TRIANGLES,0,6);this.carryPairStats.pairs++;this.carryPairStats.pixels+=opts.scissor?opts.scissor[2]*opts.scissor[3]:outPigment.width*outPigment.height
+      return true
+    }finally{
+      raw.disable(raw.SCISSOR_TEST);outPigment.endDraw();raw.activeTexture(raw.TEXTURE0)
+      raw.bindFramebuffer(raw.FRAMEBUFFER,state.fbo);raw.framebufferTexture2D(raw.FRAMEBUFFER,raw.COLOR_ATTACHMENT0,raw.TEXTURE_2D,null,0);raw.framebufferTexture2D(raw.FRAMEBUFFER,raw.COLOR_ATTACHMENT1,raw.TEXTURE_2D,null,0);raw.bindFramebuffer(raw.FRAMEBUFFER,null)
+    }
+  }
+
+  private releaseCarryMrt():void {
+    const state=this._carryMrt;if(!state)return
+    if(this.gl.getParameter(this.gl.CURRENT_PROGRAM)===state.program)this.gl.useProgram(null)
+    if(this.gl.isProgram?.(state.program)!==false)this.gl.deleteProgram(state.program)
+    const raw=diagnosticWebgl2Raw(this.gl);if(raw?.isFramebuffer(state.fbo))raw.deleteFramebuffer(state.fbo)
+    this._carryMrt=null
+  }
+
   warmBrushMrt(): boolean {
     const raw = diagnosticWebgl2Raw(this.gl)
     if (!raw) return false
@@ -559,6 +615,7 @@ export class WatercolorPasses {
     this._staticPaperCache?.destroy();this._staticPaperCache=null
     const { gl } = this
     this.releaseWaterFrontInvariant()
+    this.releaseCarryMrt()
     this.releaseBrushMrt()
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
     this._brushDragProg = createProgram(gl, DISPLAY_VERT, WC_BRUSH_DRAG_FRAG)
@@ -601,6 +658,7 @@ export class WatercolorPasses {
 
   destroy(): void {
     this._staticPaperCache?.destroy();this._staticPaperCache=null
+    this.releaseCarryMrt()
     this.releaseBrushMrt()
     this.releaseWaterFrontInvariant()
     // Deleting the currently bound program is deferred until it is unbound.

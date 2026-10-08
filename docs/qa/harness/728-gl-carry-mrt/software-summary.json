@@ -1,0 +1,220 @@
+{
+  "valid": true,
+  "rows": [
+    {
+      "w": 31,
+      "h": 29,
+      "iteration": 0,
+      "stride": 1,
+      "scissor": null,
+      "pigment": {
+        "changed": 0,
+        "max": 0
+      },
+      "colour": {
+        "changed": 0,
+        "max": 0
+      },
+      "transport": {
+        "changed": 958,
+        "max": 13
+      },
+      "stats": {
+        "pairs": 1,
+        "fallbacks": 0,
+        "pixels": 899
+      },
+      "glError": 0
+    },
+    {
+      "w": 31,
+      "h": 29,
+      "iteration": 1,
+      "stride": 2,
+      "scissor": null,
+      "pigment": {
+        "changed": 0,
+        "max": 0
+      },
+      "colour": {
+        "changed": 0,
+        "max": 0
+      },
+      "transport": {
+        "changed": 1968,
+        "max": 10
+      },
+      "stats": {
+        "pairs": 2,
+        "fallbacks": 0,
+        "pixels": 1798
+      },
+      "glError": 0
+    },
+    {
+      "w": 31,
+      "h": 29,
+      "iteration": 2,
+      "stride": 3,
+      "scissor": [
+        2,
+        3,
+        27,
+        23
+      ],
+      "pigment": {
+        "changed": 0,
+        "max": 0
+      },
+      "colour": {
+        "changed": 0,
+        "max": 0
+      },
+      "transport": {
+        "changed": 3004,
+        "max": 209
+      },
+      "stats": {
+        "pairs": 3,
+        "fallbacks": 0,
+        "pixels": 2419
+      },
+      "glError": 0
+    },
+    {
+      "w": 31,
+      "h": 29,
+      "iteration": 3,
+      "stride": 1,
+      "scissor": null,
+      "pigment": {
+        "changed": 0,
+        "max": 0
+      },
+      "colour": {
+        "changed": 0,
+        "max": 0
+      },
+      "transport": {
+        "changed": 1085,
+        "max": 15
+      },
+      "stats": {
+        "pairs": 4,
+        "fallbacks": 0,
+        "pixels": 3318
+      },
+      "glError": 0
+    },
+    {
+      "w": 32,
+      "h": 40,
+      "iteration": 0,
+      "stride": 1,
+      "scissor": null,
+      "pigment": {
+        "changed": 0,
+        "max": 0
+      },
+      "colour": {
+        "changed": 0,
+        "max": 0
+      },
+      "transport": {
+        "changed": 1360,
+        "max": 13
+      },
+      "stats": {
+        "pairs": 1,
+        "fallbacks": 0,
+        "pixels": 1280
+      },
+      "glError": 0
+    },
+    {
+      "w": 32,
+      "h": 40,
+      "iteration": 1,
+      "stride": 2,
+      "scissor": null,
+      "pigment": {
+        "changed": 0,
+        "max": 0
+      },
+      "colour": {
+        "changed": 0,
+        "max": 0
+      },
+      "transport": {
+        "changed": 2775,
+        "max": 10
+      },
+      "stats": {
+        "pairs": 2,
+        "fallbacks": 0,
+        "pixels": 2560
+      },
+      "glError": 0
+    },
+    {
+      "w": 32,
+      "h": 40,
+      "iteration": 2,
+      "stride": 3,
+      "scissor": [
+        2,
+        3,
+        28,
+        34
+      ],
+      "pigment": {
+        "changed": 0,
+        "max": 0
+      },
+      "colour": {
+        "changed": 0,
+        "max": 0
+      },
+      "transport": {
+        "changed": 4208,
+        "max": 205
+      },
+      "stats": {
+        "pairs": 3,
+        "fallbacks": 0,
+        "pixels": 3512
+      },
+      "glError": 0
+    },
+    {
+      "w": 32,
+      "h": 40,
+      "iteration": 3,
+      "stride": 1,
+      "scissor": null,
+      "pigment": {
+        "changed": 0,
+        "max": 0
+      },
+      "colour": {
+        "changed": 0,
+        "max": 0
+      },
+      "transport": {
+        "changed": 1580,
+        "max": 15
+      },
+      "stats": {
+        "pairs": 4,
+        "fallbacks": 0,
+        "pixels": 4792
+      },
+      "glError": 0
+    }
+  ],
+  "limitations": [
+    "Primitive actualGL2 only, not whole Room or device timing",
+    "Original Q8 boundaries retained; same-output software does not establish cross-GPU precision"
+  ],
+  "pageErrors": []
+}
