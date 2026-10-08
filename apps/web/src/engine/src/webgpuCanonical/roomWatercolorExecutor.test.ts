@@ -40,3 +40,14 @@ it('retirement during actual carrier read stops before transport or publishing t
  const task=owner.publishCurrentToGl();Object.assign(owner,{retired:true});resolve(new Uint8Array(4))
  await expect(task).rejects.toThrow('generation retired');expect(transport).not.toHaveBeenCalled();expect(published).not.toHaveBeenCalled()
 })
+
+describe('GPU-only carrier candidate',()=>{
+ for(const invalid of [0,1,2])it(`counter ${invalid} gates film rebase without CPU material reads`,async()=>{
+  Object.assign(globalThis,{GPUBufferUsage:{COPY_DST:1,MAP_READ:2},GPUMapMode:{READ:1}})
+  const owner=Object.create(CanonicalRoomWatercolorExecutor.prototype) as CanonicalRoomWatercolorExecutor,copy=vi.fn(),clear=vi.fn(),release=vi.fn(),publish=vi.fn(async()=>{})
+  const material={copyTo:copy,readBytes:vi.fn(()=>{throw Error('8MB observer')})},entry={inkLoad:material,inkColor:material,inkBase:{},colorBase:{},strokeInk:{clear},strokeColor:{clear},coverage:{}}
+  const read={mapAsync:async()=>{if(invalid===2)Object.assign(owner,{retired:true})},getMappedRange:()=>new Uint32Array([invalid]).buffer,unmap(){},destroy:vi.fn()}
+  Object.assign(owner,{diagnosticMomentGpuAudit:true,retired:false,pendingMoment:{chunk:{ordinal:0,segment:{rect:[0,0,1,1],film:true},momentRecipe:{},live:{}}},target:{buffer:{height:1,width:1}},scratch:{tiles:{peek:()=>entry}},backend:{device:{createBuffer:()=>read},whenIdle:async()=>{}},adapter:{retain(){},runQuantum(fn:(ctx:unknown)=>void){fn({encoder:{copyBufferToBuffer(){}}})}},momentSeam:{encodeAfterLanding:()=>({buffers:[],invalid:{},release})},finish:{encodeLive:()=>[]},momentReport:[],publishWithoutDrain:publish})
+  if(invalid===2)await expect(owner.publishCurrentToGl()).rejects.toThrow('generation retired');else await owner.publishCurrentToGl();expect(material.readBytes).not.toHaveBeenCalled();expect(copy).toHaveBeenCalledTimes(invalid?0:2);expect(clear).toHaveBeenCalledTimes(invalid?0:2);expect(release).toHaveBeenCalledOnce();expect(read.destroy).toHaveBeenCalledOnce();if(invalid!==2)expect(owner.momentReport[0]).toMatchObject({supported:!invalid,applied:!invalid,violations:invalid});else expect(publish).not.toHaveBeenCalled()
+ })
+})

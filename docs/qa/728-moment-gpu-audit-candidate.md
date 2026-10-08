@@ -1,0 +1,9 @@
+# #728: OFF-кандидат GPU audit / in-place moment transport
+
+Стенд5354/source1c9 неизменён. Новый вариант доступен только явным constructor option `diagnosticMomentGpuAudit`; текущие Room callers его не передают, defaults OFF. `MomentTextureInputs.diagnosticInPlace` также OFF.
+
+Pack считывает все ROI материалы/общую воду/contact и завершает отдельный compute pass. Он считает ВСЕ нарушения C≤P.B в глобальном atomic counter. Последующие четыре pair passes видят итоговый counter: любое нарушение сохраняет все records. Unpack читает storage buffer и пишет original P/C только в ROI; sampled P/C больше не bound в этом pass. Требуются sampled+storage usage, разные P/C и отдельные water/contact. P.R/G/A сохраняются буквальным integer pack/unpack; outsideROI не записывается. Никакого shader/model изменения.
+
+Исключаются CPU два полноразмерных material readbacks, четыре full-texture копии и два1024² scratch leases. Остаётся четырёхбайтовый counter readback/queue wait, поэтому это ещё наблюдаемый диагностический путь, не доказанная физическая latency. Film rebase выполняется отдельным owner quantum ТОЛЬКО после counter0 и assertLive. Invalid сохраняет старые film base/stroke buffers и публикует unchanged source с explicit unsupported report. Retirement после counter останавливает дальнейшую публикацию; destroyed leases не возвращаются в уже уничтоженный pool.
+
+Unit gates: OFF, sampled/storage alias guard, pack→4pair→unpack без full copies, один contact lease и deferred rebase, GPUcounter0/1 без CPU material чтения и conditional rebase. Hardware texture parity copy-vs-in-place, invalid wholeROI/outside preservation, actual multidab/replay всё ещё требуются; ускорение и художественные качества не заявляются.
