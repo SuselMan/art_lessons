@@ -1,3 +1,4 @@
+import {createOwnedPreviewRuntime} from './OwnedPreviewRuntime.mjs';
 import {readRetainedWater} from './RetainedWaterProbe.mjs';
 import {prewarmWetOverlayTexture} from './PrewarmWetOverlayTexture.mjs';
 import {watercolorWashSignature} from '../../../../apps/web/src/engine/src/presets/watercolorPresets.ts';
@@ -13,7 +14,8 @@ import {OwnedPresentationMorphBridge} from './OwnedPresentationMorphBridge.mjs';
 import {prewarmEngineRevealSlots} from './PrewarmedEngineRevealSlots.ts';
 const roles=['presentation','original','coverage','coverageFilm','pigmentLoad','pigmentBase','pigmentFilm','colourLoad','colourBase','colourFilm','solventLoad','solventBase','solventFilm'];
 /** QA runtime only: never imported by production or the existing 5352 review. */
-export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=()=>{},diagnosticLastOwnerMorph=false,diagnosticMaterialRebase=false,diagnosticPrewarmWetTexture=false,retainedPayloadBudgetBytes=16*1024*1024,revealBudgetBytes=diagnosticMaterialRebase?32*1024*1024:16*1024*1024,visualScratchBudgetBytes=8*1024*1024}={}){
+export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=()=>{},diagnosticLastOwnerMorph=false,diagnosticMaterialRebase=false,diagnosticPrewarmWetTexture=false,diagnosticEarlyPreview=false,previewBudgetBytes=13762560,retainedPayloadBudgetBytes=16*1024*1024,revealBudgetBytes=diagnosticMaterialRebase?32*1024*1024:16*1024*1024,visualScratchBudgetBytes=8*1024*1024}={}){
+ if(diagnosticEarlyPreview&&!diagnosticMaterialRebase)throw Error('Early preview requires owned material rebase');
  if(diagnosticMaterialRebase&&diagnosticLastOwnerMorph)throw Error('Choose one diagnostic morph mode');
  const page=e._pageSize();
  if(e._infinite||page.w!==1024||page.h!==1024||e._strokeLayerId||e._settle||e._wcCanonical.pending)throw Error('Owner FIFO requires idle bounded1024 Room');
@@ -31,10 +33,13 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
  const drawContext={gl:()=>e.gl,stamps:()=>e._stamps,paperTex:()=>e._paperTex,quadBuf:()=>e._quadBuf,minmaxExt:()=>e._minmaxExt};
  const trace=[];const event=(kind,data={})=>{if(trace.length<2048)trace.push({kind,at:performance.now(),...data})};
  const morph=diagnosticMaterialRebase?new OwnedPresentationMorphBridge(e,{event,scratch:visualScratchPrewarm}):null;
+ let preview=null,previewAdmissions=0;const previewReady=diagnosticEarlyPreview?createOwnedPreviewRuntime(e,morph,{event,budgetBytes:previewBudgetBytes,excluded:[...pool.physicalIdentities,...revealPrewarm.resources.map(r=>r.identity),...visualScratchPrewarm.resources.map(r=>r.identity),...canonicalTiles.map(t=>t.buffer.texture)]}).then(value=>{if(disposed){value.disposeAfterFence();return}preview=value;event('owned-preview-ready',{bytes:value.bytes})}):Promise.resolve();
+ const previewLost=()=>preview?.handleContextLoss();if(diagnosticEarlyPreview)e.gl.canvas.addEventListener('webglcontextlost',previewLost);
  let probeCount=0;const probe=(owner,phase)=>{if(globalThis.__ownerRetainedWaterProbe&&phase==='sealed-source')event('owned-retained-water',readRetainedWater(owner));if(!globalThis.__ownerMorphProbe||probeCount>=16||!owner?.probePoint)return;const data=readOwnedVisibleProbe(e,owner,phase,morph?morph.visibleField(owner):owner.lease.fields.presentation);if(data){probeCount++;event('owned-visible-probe',data)}};
  const latest=layerId=>[...owners.values()].filter(o=>o.token.layerId===layerId&&coordinator.visible().includes(o.token)).at(-1);
  const mapFor=scratch=>{let map=byScratch.get(scratch);if(!map){map=new Map();byScratch.set(scratch,map)}return map};
  const cancelOwner=owner=>{
+  preview?.retire(owner);
   if(!coordinator.cancel(owner.token))return;
   event('cancel',{sequence:owner.token.sequence});
   if(coordinator.snapshot().active===owner.token)queueMicrotask(()=>{if(coordinator.snapshot().active!==owner.token)return;if(!e.gl.isContextLost())e.gl.finish();coordinator.completeCancellation(owner.token);owners.delete(owner.token);event('cancel-fenced',{sequence:owner.token.sequence})});
@@ -65,6 +70,7 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
  e._wcCanonical.ctx.blocked=()=>originals.blocked()||coordinator.snapshot().owners[0]?.status==='drawing';
  e._onStart=function(...args){
   if(disposed)return;
+  if(diagnosticEarlyPreview&&(!preview||previewAdmissions>=3)){status('QA preview: максимум 3 мазка за сессию; перезайдите для новой проверки');event('preview-admission-backpressure');return}
   if(diagnosticLastOwnerMorph&&morphHold){const held=e._washReveals.get(morphHold.buffer);if(held&&e._revealHold(held,performance.now())>0){status('QA diagnostic morph: новый DOWN пока не поддержан; не пользовательский режим');event('diagnostic-morph-backpressure');return}morphHold=null}
   const open=e._wash,previous=[...owners.values()].at(-1);
   if(e._opts.tool!=='watercolor'&&!previous){e._wcAsyncFinish=false;return originals.start.apply(e,args)}
@@ -107,14 +113,14 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
    try{return originals.finish.call(e,scratch,...args)}finally{e._revealWash=reveal}
   }
   if(!owner||args[3])return originals.finish.call(e,scratch,...args);
-  probe(owner,'sealed-source');coordinator.seal(owner.token,scratch.captureFinishMetadata());event('seal',{sequence:owner.token.sequence});
+  probe(owner,'sealed-source');coordinator.seal(owner.token,scratch.captureFinishMetadata());event('seal',{sequence:owner.token.sequence});if(preview){preview.seal(owner);previewAdmissions++}
   const enqueue=e._wcCanonical.enqueue;e._wcCanonical.enqueue=function(request){return enqueue.call(this,{execute:function*(){yield* request.execute();if(morph){
      const layer=e._layers.get(owner.token.layerId),tile=e._ribbonPainterContext.resolveWithinSheet(layer,{minX:0,minY:0,maxX:1024,maxY:1024})[0],entry=scratch.peek(tile.buffer);if(!entry?.inkLoad||!entry.inkColor||!entry.solventLoad)throw Error('Read-only landed material roles missing');
      let fields={presentation:tile.buffer,original:entry.original,coverage:entry.coverage,pigmentLoad:entry.inkLoad,colourLoad:entry.inkColor,solventLoad:entry.solventLoad},predecessorGesture=owner.gesture;
-     for(const next of [...owners.values()].filter(next=>next.token.layerId===owner.token.layerId&&next.token.sequence>owner.token.sequence).sort((a,b)=>a.token.sequence-b.token.sequence)){morph.hold(next);next.source.rebaseFromPredecessor({ownerToken:next.source.rebaseToken,layerId:next.token.layerId,predecessorGesture,expectedEpoch:next.source.epoch,nextEpoch:next.source.epoch+1,fields});morph.rebaseStarted(next);probe(next,'material-rebase');fields=Object.fromEntries(['presentation','original','coverage','pigmentLoad','colourLoad','solventLoad'].map(role=>[role,next.lease.fields[role]]));predecessorGesture=next.gesture;event('material-rebase',{sequence:next.token.sequence,epoch:next.source.epoch})}
-    }landedVersion++;coordinator.land(owner.token);owners.delete(owner.token);e._invalidateSplitCache();e._scheduleDisplay();event('land',{sequence:owner.token.sequence,landedVersion})},cancel:lost=>{request.cancel(lost);cancelOwner(owner)}})};
+     for(const next of [...owners.values()].filter(next=>next.token.layerId===owner.token.layerId&&next.token.sequence>owner.token.sequence).sort((a,b)=>a.token.sequence-b.token.sequence)){preview?.beforeRebase(next);morph.hold(next);next.source.rebaseFromPredecessor({ownerToken:next.source.rebaseToken,layerId:next.token.layerId,predecessorGesture,expectedEpoch:next.source.epoch,nextEpoch:next.source.epoch+1,fields});morph.rebaseStarted(next);probe(next,'material-rebase');fields=Object.fromEntries(['presentation','original','coverage','pigmentLoad','colourLoad','solventLoad'].map(role=>[role,next.lease.fields[role]]));predecessorGesture=next.gesture;event('material-rebase',{sequence:next.token.sequence,epoch:next.source.epoch})}
+    }preview?.retire(owner);landedVersion++;coordinator.land(owner.token);owners.delete(owner.token);e._invalidateSplitCache();e._scheduleDisplay();event('land',{sequence:owner.token.sequence,landedVersion})},cancel:lost=>{request.cancel(lost);cancelOwner(owner)}})};
   try{return originals.finish.call(e,scratch,...args)}finally{e._wcCanonical.enqueue=enqueue}
  };
  e._asyncLocalPreviewTiles=function(){const result=new Map(originals.previews.call(e));for(const token of coordinator.visible()){const owner=owners.get(token);if(owner&&!owner.presentationTransferred)result.set(token.layerId,[{buffer:owner.lease.fields.presentation,originX:0,originY:0}])}return result};
- return{trace,wetTexturePrewarm,diagnosticPrewarmWetTexture,snapshot:()=>coordinator.snapshot(),prewarmedBytes:pool.bytes,prewarmedRevealBytes:revealPrewarm?.bytes??0,diagnosticLastOwnerMorph,diagnosticMaterialRebase,prewarmedVisualScratchBytes:visualScratchPrewarm?.bytes??0,retainedPayloadBudgetBytes,dispose(){if(disposed)return;disposed=true;e._wcCanonical.cancel(e.gl.isContextLost());coordinator.dispose();if(!e.gl.isContextLost())e.gl.finish();const active=coordinator.snapshot().active;if(active)coordinator.completeCancellation(active);visualScratchPrewarm?.disposeAfterFence();pool.disposeAfterFence();e._wcAsyncFinish=originals.asyncFinish;e._ribbonPainter=originalPainter;e._ribbonStrokeWork=originals.work;e._finishRibbonStroke=originals.finish;e._onStart=originals.start;e._asyncLocalPreviewTiles=originals.previews;e._wcCanonical.ctx.blocked=originals.blocked;if(morph)e._advanceWashReveal=originals.advance}};
+ return{trace,previewReady,diagnosticEarlyPreview,get prewarmedPreviewBytes(){return preview?.bytes??0},wetTexturePrewarm,diagnosticPrewarmWetTexture,snapshot:()=>coordinator.snapshot(),prewarmedBytes:pool.bytes,prewarmedRevealBytes:revealPrewarm?.bytes??0,diagnosticLastOwnerMorph,diagnosticMaterialRebase,prewarmedVisualScratchBytes:visualScratchPrewarm?.bytes??0,retainedPayloadBudgetBytes,dispose(){if(disposed)return;disposed=true;preview?.disposeAfterFence();if(diagnosticEarlyPreview)e.gl.canvas.removeEventListener('webglcontextlost',previewLost);e._wcCanonical.cancel(e.gl.isContextLost());coordinator.dispose();if(!e.gl.isContextLost())e.gl.finish();const active=coordinator.snapshot().active;if(active)coordinator.completeCancellation(active);visualScratchPrewarm?.disposeAfterFence();pool.disposeAfterFence();e._wcAsyncFinish=originals.asyncFinish;e._ribbonPainter=originalPainter;e._ribbonStrokeWork=originals.work;e._finishRibbonStroke=originals.finish;e._onStart=originals.start;e._asyncLocalPreviewTiles=originals.previews;e._wcCanonical.ctx.blocked=originals.blocked;if(morph)e._advanceWashReveal=originals.advance}};
 }
