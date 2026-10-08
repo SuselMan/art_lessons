@@ -1,0 +1,24 @@
+{
+  "softwareOnly": true,
+  "dither": false,
+  "pass": true,
+  "rows": [
+    {
+      "mode": 12,
+      "nativeSha256": "9aeab7ddfbb5a45b8706d83b1977b7d48a688e9a2e213c170ca86b9965022e1a",
+      "encodeCpuMs": 1.5,
+      "label": "12-LINEAR-245-246-empty-earlier",
+      "expectMismatch": false,
+      "samplingEffect": null,
+      "different": 0,
+      "maxByteDifference": 0,
+      "nonzero": 3072,
+      "changedFromInput": 2048,
+      "validation": null,
+      "glError": 0
+    }
+  ],
+  "scope": "Software32x32 mode12 LINEAR semantic threshold fixture245/246, empty earlier.R/earlier.A255. NOT actual captured outward141/paper/Surface/Room.",
+  "raw": "temp/native-source-offline/inward-small/field-oracle.json",
+  "generator": "Existing field-oracle-software.mjs narrowed to12 and alternating245/246 pressure.R"
+}

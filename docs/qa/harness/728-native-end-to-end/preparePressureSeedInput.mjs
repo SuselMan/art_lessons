@@ -36,3 +36,13 @@ export function addOutboundFrontRecipe(input,{tracePath}){
  for(const[k,v]of Object.entries(schedule.recipe))if(input.front[k]!==v)throw Error('Outbound shader recipe differs')
  return{...input,front:{...input.front,steps:schedule.steps}}
 }
+
+export function addInwardSeedRecipe(input,{tracePath,partitionDir,outboundReport}){
+ const trace=JSON.parse(fs.readFileSync(tracePath)),packet=JSON.parse(fs.readFileSync(partitionDir+'/checkpoint/checkpoint.json')),report=JSON.parse(fs.readFileSync(outboundReport)),r=report.rows?.[0]?.report,e=trace.ops.find(o=>o.index===39)?.events
+ if(!report.valid||!r?.exact||r.frontSteps!==141||r.expectedSha256!==r.actualSha256||r.producerCode!==input.producerCode||r.inputHashes.pigment!==input.pigment.sha256||r.pressureSeedSha256!==input.front?.pressureSeedSha256||e?.length!==1||e[0][0]!=='fieldOp'||e[0][4]!==12||e[0][5]!==.9617441184796373)throw Error('Actual outbound/mode12 proof')
+ const role=packet.payload.fields.find(r=>r.role==='inkBase');if(role?.presence!=='field'||role.width!==1024||role.height!==1024||role.filter!=='nearest')throw Error('Earlier base schema')
+ const name=`source-${role.alias}.rgba.gz`,chunk=packet.chunks.find(r=>r.name===name),gzip=fs.readFileSync(partitionDir+'/checkpoint/'+name),raw=zlib.gunzipSync(gzip,{maxOutputLength:4194304});if(!chunk||sha(gzip)!==chunk.gzipSha256||raw.length!==4194304||sha(raw)!==chunk.rawSha256||raw.some(b=>b!==0))throw Error('Earlier actual base must be empty Q8')
+ const aliases=[...new Set(packet.payload.fields.filter(r=>r.presence==='field').map(r=>r.alias))],baseId=1001+aliases.indexOf(role.alias),bandOp=trace.ops.find(o=>o.index===1)?.events.find(e=>e[0]==='fieldOp'&&e[4]===4)
+ if(!bandOp||bandOp[5]!==.002||bandOp[1].buffer!==e[0][6].d.buffer||!trace.ops[0].events.some(e=>e[0]==='region'&&e[1].buffer===baseId&&e[2].buffer===bandOp[2].buffer))throw Error('Actual empty earlier-band lineage')
+ const result=addOutboundFrontRecipe(input,{tracePath});return{...result,front:{...result.front,inwardSeed:{k:e[0][5],outwardSha256:r.expectedSha256,earlierBaseSha256:chunk.rawSha256}}}
+}
