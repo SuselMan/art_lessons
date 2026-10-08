@@ -76,9 +76,22 @@ export const CANONICAL_SINGLE_TEXTURE_BRUSH_WGSL=CANONICAL_TEXTURE_BRUSH_WGSL
   ' textureStore(outPigment,vec2i(q),clamp(select(P,C,u.output.x>.5)/255.0,vec4f(0),vec4f(1)));')
 export class CanonicalBrushContact {
  private readonly device: GPUDevice
- private readonly pipeline: GPUComputePipeline
+ private pairedPipeline:GPUComputePipeline|null=null
  private readonly singlePipeline:GPUComputePipeline
- constructor(device:GPUDevice) {this.device=device;const module=device.createShaderModule({label:'canonical paired Q8 brush contact',code:CANONICAL_TEXTURE_BRUSH_WGSL});this.pipeline=device.createComputePipeline({layout:'auto',compute:{module,entryPoint:'brush'}});const singleModule=device.createShaderModule({label:'canonical single Q8 brush contact',code:CANONICAL_SINGLE_TEXTURE_BRUSH_WGSL});this.singlePipeline=device.createComputePipeline({layout:'auto',compute:{module:singleModule,entryPoint:'brush'}})}
+ /** Room's planner never calls encode paired: defer that unused compiler job.
+  * Standalone diagnostic default keeps the previous eager paired→single order. */
+ constructor(device:GPUDevice,deferPaired=false) {
+  this.device=device
+  if(!deferPaired)this.pairedPipeline=this.createPairedPipeline()
+  const module=device.createShaderModule({label:'canonical single Q8 brush contact',code:CANONICAL_SINGLE_TEXTURE_BRUSH_WGSL})
+  this.singlePipeline=device.createComputePipeline({layout:'auto',compute:{module,entryPoint:'brush'}})
+ }
+ private createPairedPipeline(){
+  const module=this.device.createShaderModule({label:'canonical paired Q8 brush contact',code:CANONICAL_TEXTURE_BRUSH_WGSL})
+  return this.device.createComputePipeline({layout:'auto',compute:{module,entryPoint:'brush'}})
+ }
+ private get pipeline(){return this.pairedPipeline??=this.createPairedPipeline()}
+
  encode(ctx:CanonicalGpuContext,fields:{pigment:CanonicalGpuField;color:CanonicalGpuField;flow:CanonicalGpuField;water:CanonicalGpuField;outPigment:CanonicalGpuField;outColor:CanonicalGpuField},step:readonly[number,number],gain:number,flowRect:readonly[number,number,number,number],scissor?:readonly[number,number,number,number]):GPUBuffer[] {
   return withTransientGpuBuffers(retain=>{
   const f=fields;if([f.pigment,f.color,f.flow,f.water].some(a=>a.texture===f.outPigment.texture||a.texture===f.outColor.texture)||f.outPigment.texture===f.outColor.texture)throw new Error('Canonical brush requires distinct read/write fields')

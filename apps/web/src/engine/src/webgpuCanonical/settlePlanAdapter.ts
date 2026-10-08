@@ -45,7 +45,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  constructor(owner: CanonicalWatercolorWebGpu) {
   this.owner = owner
   this.commands = new CanonicalSettleCommands(owner.device)
-  this.brush = new CanonicalBrushContact(owner.device)
+  this.brush = new CanonicalBrushContact(owner.device,!!owner.options.roomOwnedResources)
   this.uploads = {
    create: () => ({ field: null, destroyed: false }),
    bindFlow: slot => { if (!slot || slot.destroyed) throw new Error('Native flow slot is unavailable') },
