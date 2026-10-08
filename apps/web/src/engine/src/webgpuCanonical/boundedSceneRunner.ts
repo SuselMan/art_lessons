@@ -33,6 +33,8 @@ export interface BoundedSceneOptions {
  diagnosticHardwareLinearInputs?:boolean
  /** OFF by default. Same solver with actual intermediate presentation; incompatible with grouped. */
  progressiveSettle?:boolean
+ /** OFF diagnostic: bounded original-op batches between presentation frames. */
+ diagnosticProgressiveQuantum?:{maxOps:number;cpuBudgetMs:number}
  onSettlePreview?():void
  yieldSettleFrame?():Promise<void>
  now():number;timestamp():number;operationId():string
@@ -54,6 +56,8 @@ export class CanonicalBoundedSceneRunner {
  private finish:CanonicalSingleTileFinish
  private readonly planner:CanonicalWatercolorSettlePlan<CanonicalFieldBuffer,CanonicalUploadSlot>
  private preview:CanonicalPlannerPreviewBridge
+ private progressiveQuantum:{maxOps:number;cpuBudgetMs:number}|null=null
+ readonly progressiveMetrics={ops:0,turns:0,yields:0,maxOpsInTurn:0,maxCpuTurnMs:0}
  private pendingSettle:Promise<void>|null=null
  private settleFailure:unknown
  private previewEnabled=false
@@ -73,8 +77,10 @@ export class CanonicalBoundedSceneRunner {
  private washId?:string
  private readonly geometry={dabSpacing:0}
  constructor(backend:CanonicalWatercolorWebGpu,options:BoundedSceneOptions){
+  this.options=options
+  if(options.diagnosticProgressiveQuantum)this.configureProgressiveQuantum(options.diagnosticProgressiveQuantum)
   if(options.progressiveSettle&&options.groupedSettleSubmission)throw new Error('Progressive and grouped native settle are incompatible')
-  this.backend=backend;this.options=options;this.adapter=new CanonicalPlanAdapter(backend);this.adapter.diagnosticPairedCarry=options.diagnosticPairedCarry===true;this.adapter.diagnosticCarryOracleIndex=options.diagnosticCarryOracleIndex;this.adapter.diagnosticHardwareLinearInputs=options.diagnosticHardwareLinearInputs===true;this.fieldOwner=new CanonicalPlanFieldOwner(backend);this.pool=new CanonicalScratchPool(backend)
+  this.backend=backend;this.adapter=new CanonicalPlanAdapter(backend);this.adapter.diagnosticPairedCarry=options.diagnosticPairedCarry===true;this.adapter.diagnosticCarryOracleIndex=options.diagnosticCarryOracleIndex;this.adapter.diagnosticHardwareLinearInputs=options.diagnosticHardwareLinearInputs===true;this.fieldOwner=new CanonicalPlanFieldOwner(backend);this.pool=new CanonicalScratchPool(backend)
   const buffer=new CanonicalFieldBuffer(backend,1024,1024,'linear','bounded native layer');buffer.clear()
   this.target={buffer,originX:0,originY:0,contentRect:null}
   this.scratch=new CanonicalStrokeScratchMetadata(new CanonicalTileScratch(this.pool),createCanonicalStrokeChunkState(),[this.target])
@@ -84,6 +90,12 @@ export class CanonicalBoundedSceneRunner {
   this.planner=new CanonicalWatercolorSettlePlan({fieldFor:(w,h,c)=>this.fieldOwner.fieldFor(w,h,c),paperWorldSize:()=>({w:backend.paper.texSize[0],h:backend.paper.texSize[1]}),pool:()=>this.pool,supportsFilm:()=>true,ab:()=>({noDiffuse:false,noCarry:false,opDry:false}),shouldPreview:()=>this.previewEnabled,passes:()=>this.adapter,uploads:this.adapter.uploads})
   this.gesture=new CanonicalWatercolorGesture({paperWet:this.paperWet,now:options.now,timestamp:options.timestamp,operationId:options.operationId,onPreparedChunk:chunk=>this.prepare(chunk),onLocalStroke:(op)=>options.onLocalOperation?.(op),onChunkBoundary:()=>{this.settle();this.scratch.newFilm();this.scratch.activateMaterialFilm(this.scratch.gesture)}})
  }
+ private configureProgressiveQuantum(config:{maxOps:number;cpuBudgetMs:number}|null){
+  if(config&&(!Number.isInteger(config.maxOps)||config.maxOps<1||config.maxOps>16||!Number.isFinite(config.cpuBudgetMs)||config.cpuBudgetMs<=0||config.cpuBudgetMs>12))throw new Error('Progressive quantum requires maxOps1..16 and CPUbudget(0,12]ms')
+  if(config&&!this.options.progressiveSettle)throw new Error('Progressive quantum requires progressive mode')
+  this.progressiveQuantum=config?{...config}:null
+ }
+ setDiagnosticProgressiveQuantum(config:{maxOps:number;cpuBudgetMs:number}|null){this.assertAlive();if(!this.isIdle)throw new Error('Configure progressive quantum only while idle');this.configureProgressiveQuantum(config)}
  get isIdle(){return !this.retired&&!this.resourcesReleased&&!this.active&&!this.busy}
  private assertAlive(){if(this.retired||this.resourcesReleased)throw new Error('Native scene has been retired')}
  async clear():Promise<void>{
@@ -167,11 +179,21 @@ export class CanonicalBoundedSceneRunner {
  }
  private async runProgressive(job:Parameters<typeof runCanonicalSettleJob>[1],composite:(ctx:CanonicalGpuContext)=>void):Promise<void>{
   try{
-   for(const op of job.ops){
-    if(this.retired)return
-    this.previewReady=false
-    this.adapter.runQuantum(ctx=>{this.activePreviewContext=ctx;try{op()}finally{this.activePreviewContext=null}})
-    if(this.previewReady&&!this.retired)this.options.onSettlePreview?.()
+   const iterator=job.ops[Symbol.iterator]();let item=iterator.next()
+   while(!item.done){
+    const config=this.progressiveQuantum,start=performance.now();let count=0
+    do{
+     if(this.retired)return
+     this.previewReady=false
+     const op=item.value
+     this.adapter.runQuantum(ctx=>{this.activePreviewContext=ctx;try{op()}finally{this.activePreviewContext=null}})
+     count++;this.progressiveMetrics.ops++
+     if(this.previewReady&&!this.retired)this.options.onSettlePreview?.()
+     item=iterator.next()
+     if(this.previewReady||this.retired)break
+    }while(!item.done&&config&&count<config.maxOps&&performance.now()-start<config.cpuBudgetMs)
+    this.progressiveMetrics.turns++;this.progressiveMetrics.maxOpsInTurn=Math.max(this.progressiveMetrics.maxOpsInTurn,count);this.progressiveMetrics.maxCpuTurnMs=Math.max(this.progressiveMetrics.maxCpuTurnMs,performance.now()-start)
+    this.progressiveMetrics.yields++
     await Promise.race([this.retiredSignal,this.options.yieldSettleFrame?.()??new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()))])
    }
    if(this.retired)return
