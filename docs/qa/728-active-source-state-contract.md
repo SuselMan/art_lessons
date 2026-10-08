@@ -96,3 +96,33 @@ reference целиком. Но такой результат не накапли
 
 До этих наблюдений/решения вариант R остаётся отдельным readonly экспериментом,
 не интеграционным патчем и не обещанием художественного улучшения.
+
+## Actual A wetmix: сохранённые наблюдения после ошибки transfer
+
+Один allocated5362 run завершил воду→фиолетовый→жёлтый, UI400/100% согласованы,
+moment OFF. Все три source publication успешны; GL0/context loss false/errors[].
+Полный gate формально FAIL: decoder ожидал3 source stages, observer вернул17.
+Это ошибка диагностического transfer, не runtime/физики. До закрытия страницы
+сохранены все3×17 metadata/SHA и отсутствие ресурсов; binary payload не перенесён.
+Offline проверка этих SHA доказывает равенство всех восьми pre/post ролей каждой
+публикации, включая absent inkSettled/colorSettled на всех трёх контактах.
+
+Observed epochs: первый materialGesture/gesture/filmGesture=1, затем2, затем3;
+до фиолетового filmGesture1, после2; до жёлтого2, после3. Observer metadata во всех
+случаях указывает `inkBase/colorBase` как технический выбор текущей gesture.
+Это не доказательство, что весь прежний пигмент неподвижен: отсутствующий отдельный
+settled ресурс и совпадающие epochs не определяют физический mobile budget.
+CPU fixture отдельно демонстрирует одинаковую epoch/absence структуру с двумя
+возможными historical snapshot и разным mobile; реальные суммы не придуманы.
+
+Окна между контактами различаются: первый/жёлтый global x402..497, фиолетовый
+x384..479 из-за clamp внутри source rect. Поэтому cross-contact SHA нельзя
+сравнивать как одинаковые пиксели. Следующий proof требует общего ROI (например,
+x402..479 ширина78, y352..447), сохранённого binary P/C/base/film и actual V/
+истории settle до нового контакта. Self pre/post публикации окна одинаковы.
+
+Decoder теперь явно поддерживает17-stage activeSnapshot schema, требует успешную
+публикацию и правильный порядок/absence. Полный Node transfer integration на3×17
+ролях96², с пустыми settled файлами и release ACK, PASS. Active binary budget3MiB;
+старый operator packet сохраняет свой прежний29MiB предел. Runtime5362 не меняли;
+аппаратного повтора не было.

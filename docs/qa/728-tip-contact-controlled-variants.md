@@ -192,3 +192,20 @@ and stages fit the32MiB diagnostic budget. Undo/Redo is excluded from this cohor
 (the paired single stroke already verified it), avoiding three additional whole
 exports. RAM guards1700/500 remain; no extra GPU fences or whole field audit.
 Seven controller regressions pass, syntax check passes; hardware not run.
+
+### Actual A wetmix: runtime наблюдения, transfer FAIL
+
+Ignored evidence `temp/fast-watercolor-night/room-tip-A-wetmix-surface-20261009`:
+all three intended held contacts executed, visible pure water and both pigments;
+export alpha69,361, SHA
+`bbb8c093c4604f8982e6b1eb1a3a63914142931138a8d8fd07cbec1ae2119421`.
+Actual stampA source proof, UI400/100% and GL0/no context loss/errors empty recorded.
+RAM preflight1974MiB/min1109MiB; own target closed; hard120s did not fire.
+
+Full verdict remains FAIL: transfer helper did not accept the17-stage active
+snapshot schema. Complete3×17 SHA/absence metadata survived and independently
+passed the readonly publication invariant, but binary field data did not transfer.
+The helper is fixed offline with full-schema/empty-resource/release tests; no
+hardware rerun. The final screenshot was inspected: two colors visibly overlap
+and transition through brown; no large straight white stripe in this picture.
+It is A-only, not paired literal wetmix superiority or proof of fluid dynamics.
