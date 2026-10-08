@@ -38,5 +38,13 @@ test('OFF source copies actual P/C after emit, survives until successful publica
  assert.equal(zero.stages.length,12);assert.deepEqual(zero.stages.map(s=>s.stage),['source-P','source-C','source-inkBase','source-colorBase','source-strokeInk','source-strokeColor','post-P','post-C','post-inkBase','post-colorBase','post-strokeInk','post-strokeColor'])
  for(let i=0;i<6;i++)assert.equal(zero.stages[i].sha,zero.stages[i+6].sha)
  assert(buffers.every(b=>b.destroyed));window.__restoreMomentStageProbe()
+ // Existing controller substitutes a CLONED zero recipe in oldEmit. The
+ // observer must inspect the actually delivered pending recipe, not input.
+ Executor.prototype.emitPrepared=function(chunk){this.pendingMoment={chunk:{...chunk,momentRecipe:{...chunk.momentRecipe,mixRate:0,advectionRate:0}}}}
+ await install(true,{zeroState:true});for(const role of ['inkBase','colorBase','strokeInk','strokeColor'])state[role]=null
+ e.emitPrepared({ordinal:5,strokeId:'water',metadata:{gesture:4},materialGesture:4,momentRecipe:{mixRate:64,advectionRate:32},segment:{rect:[270,494,260,260],film:false,waterOnly:true,commands:[]}})
+ await e.publishCurrentToGl();const water=window.__momentStageResults[0]
+ assert.equal(water.stages.filter(s=>s.absent).length,8);assert(water.stages.filter(s=>s.absent).every(s=>s.byteLength===0));assert.equal(window.__momentPreparedCensus[0].film,false);assert.deepEqual(window.__momentPreparedCensus[0].actualRecipe,{mixRate:0,advectionRate:0})
+ assert(buffers.every(b=>b.destroyed));window.__restoreMomentStageProbe()
  delete globalThis.window
 })
