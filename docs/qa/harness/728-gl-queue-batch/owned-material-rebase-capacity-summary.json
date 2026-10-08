@@ -1,0 +1,23 @@
+{
+  "scope": "One actual Surface source-only rebase gate; not Room/morph evidence",
+  "sourceCommit": "9933d17f",
+  "valid": false,
+  "phase": "retained source capture before rebase",
+  "failure": "Explicit retained source payload capacity: JSON indexed Float32 representation exceeded 2 MiB",
+  "gpuParityEvaluated": false,
+  "ownTargetClosed": true,
+  "preflightFreeMiB": 2071,
+  "afterCloseFreeMiB": 2035,
+  "raw": "temp/device-runs/owned-material-rebase-surface-9933.json",
+  "nextGate": "Binary-plus-descriptor accounting and explicit 16 MiB per-owner encoded payload budget, actual400 CPU corpus, then separately allocated corrected GPU arm",
+  "correctedCpuFixture": {
+    "brushSize": 400,
+    "dabs": 4,
+    "chunks": 4,
+    "commands": 28,
+    "encodedPayloadBytes": 759654,
+    "perOwnerEncodedBudgetBytes": 16777216,
+    "maximumThreeOwnerEncodedBudgetBytes": 50331648,
+    "actualHeapBound": false
+  }
+}
