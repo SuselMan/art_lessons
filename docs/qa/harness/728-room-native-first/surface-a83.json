@@ -1,0 +1,492 @@
+{
+  "source": "a83f501e",
+  "stage": "failed",
+  "error": "Error: Error: Native Room canonical task cancelled",
+  "errors": [],
+  "memoryTimeline": [
+    {
+      "at": "2026-10-08T08:25:02.156Z",
+      "MiB": 2082.60546875,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-08T08:25:14.744Z",
+      "MiB": 1941.56640625,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-08T08:25:25.063Z",
+      "MiB": 1867.3359375,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-08T08:25:34.688Z",
+      "MiB": 1577.08984375,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-08T08:25:44.743Z",
+      "MiB": 1737.73828125,
+      "stage": "native-init"
+    },
+    {
+      "at": "2026-10-08T08:25:54.768Z",
+      "MiB": 1271.578125,
+      "stage": "first-pigment-pen40"
+    }
+  ],
+  "initMarkers": [
+    {
+      "stage": "getPaperBytes:preload-start",
+      "ms": 15607.199999988079,
+      "receivedAt": "2026-10-08T08:25:50.571Z"
+    },
+    {
+      "stage": "getPaperBytes:preload-end",
+      "ms": 15607.599999964237,
+      "bytes": 8388608,
+      "receivedAt": "2026-10-08T08:25:50.648Z"
+    },
+    {
+      "stage": "hooks:ready",
+      "ms": 15607.599999964237,
+      "receivedAt": "2026-10-08T08:25:50.649Z"
+    },
+    {
+      "stage": "RoomNativeRuntime.create:start",
+      "ms": 16261,
+      "args": [
+        {
+          "paper": "fine",
+          "board": {
+            "w": 1754,
+            "h": 2480
+          },
+          "paperScale": 1,
+          "paperWorld": {
+            "w": 1754,
+            "h": 2480
+          }
+        }
+      ],
+      "receivedAt": "2026-10-08T08:25:51.242Z"
+    },
+    {
+      "stage": "paper:load-start",
+      "ms": 1791447951319.957,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:25:51.242Z"
+    },
+    {
+      "stage": "paper:expand-start",
+      "ms": 1791447951320.079,
+      "source": "native-room-init",
+      "values": [
+        8388608
+      ],
+      "receivedAt": "2026-10-08T08:25:51.243Z"
+    },
+    {
+      "stage": "paper:expand-done",
+      "ms": 1791447951347.314,
+      "source": "native-room-init",
+      "values": [
+        16777216
+      ],
+      "receivedAt": "2026-10-08T08:25:51.329Z"
+    },
+    {
+      "stage": "CanonicalWatercolorWebGpu.create:start",
+      "ms": 16289.099999964237,
+      "args": [
+        {
+          "paper": {
+            "width": 2048,
+            "height": 2048,
+            "bytes": 16777216
+          },
+          "width": 1024,
+          "height": 1024
+        }
+      ],
+      "receivedAt": "2026-10-08T08:25:51.331Z"
+    },
+    {
+      "stage": "adapter:request-start",
+      "ms": 1791447951347.874,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:25:51.331Z"
+    },
+    {
+      "stage": "CanonicalWatercolorWebGpu.support:start",
+      "ms": 16289.5,
+      "args": [],
+      "receivedAt": "2026-10-08T08:25:51.332Z"
+    },
+    {
+      "stage": "CanonicalWatercolorWebGpu.support:end",
+      "ms": 16375.699999988079,
+      "supported": true,
+      "receivedAt": "2026-10-08T08:25:51.361Z"
+    },
+    {
+      "stage": "device:request-start",
+      "ms": 1791447951434.223,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:25:51.362Z"
+    },
+    {
+      "stage": "device:request-done",
+      "ms": 1791447951607.458,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:25:51.512Z"
+    },
+    {
+      "stage": "backend:start",
+      "ms": 1791447951608.133,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:25:51.549Z"
+    },
+    {
+      "stage": "backend:material-resources",
+      "ms": 1791447951608.43,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:25:51.550Z"
+    },
+    {
+      "stage": "backend:paper-noise",
+      "ms": 1791447951628.759,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:25:51.551Z"
+    },
+    {
+      "stage": "backend:ready",
+      "ms": 1791447951628.856,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:25:51.551Z"
+    },
+    {
+      "stage": "CanonicalWatercolorWebGpu.create:end",
+      "ms": 16596.599999964237,
+      "receivedAt": "2026-10-08T08:25:51.592Z"
+    },
+    {
+      "stage": "RoomNativeRuntime.create:end",
+      "ms": 16596.799999952316,
+      "receivedAt": "2026-10-08T08:25:51.593Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 17077,
+      "receivedAt": "2026-10-08T08:25:52.110Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 17084.099999964237,
+      "receivedAt": "2026-10-08T08:25:52.111Z"
+    },
+    {
+      "stage": "source.ownerFor:start",
+      "ms": 17101.399999976158,
+      "receivedAt": "2026-10-08T08:25:52.112Z"
+    },
+    {
+      "stage": "source.ownerFor:end",
+      "ms": 17129.5,
+      "receivedAt": "2026-10-08T08:25:52.113Z"
+    },
+    {
+      "stage": "source.emitPrepared:start",
+      "ms": 17130.099999964237,
+      "commands": 4,
+      "ordinal": 0,
+      "receivedAt": "2026-10-08T08:25:52.114Z"
+    },
+    {
+      "stage": "source.emitPrepared:reject",
+      "ms": 17145.799999952316,
+      "error": "Error: Room-owned backend has no standalone material fields",
+      "receivedAt": "2026-10-08T08:25:52.114Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 19345.69999998808,
+      "receivedAt": "2026-10-08T08:25:54.769Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 19364.299999952316,
+      "receivedAt": "2026-10-08T08:25:54.770Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 19365.299999952316,
+      "receivedAt": "2026-10-08T08:25:54.771Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 19366.099999964237,
+      "receivedAt": "2026-10-08T08:25:54.771Z"
+    },
+    {
+      "stage": "source.ownerFor:start",
+      "ms": 19368.19999998808,
+      "receivedAt": "2026-10-08T08:25:54.772Z"
+    },
+    {
+      "stage": "source.ownerFor:end",
+      "ms": 19368.399999976158,
+      "receivedAt": "2026-10-08T08:25:54.772Z"
+    },
+    {
+      "stage": "source.emitPrepared:start",
+      "ms": 19368.599999964237,
+      "commands": 8,
+      "ordinal": 1,
+      "receivedAt": "2026-10-08T08:25:54.773Z"
+    },
+    {
+      "stage": "source.emitPrepared:reject",
+      "ms": 19372.69999998808,
+      "error": "Error: Room-owned backend has no standalone material fields",
+      "receivedAt": "2026-10-08T08:25:54.773Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 19871.099999964237,
+      "receivedAt": "2026-10-08T08:25:54.834Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 19871.69999998808,
+      "receivedAt": "2026-10-08T08:25:54.869Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 19872,
+      "receivedAt": "2026-10-08T08:25:54.870Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 19872.5,
+      "receivedAt": "2026-10-08T08:25:54.871Z"
+    },
+    {
+      "stage": "source.ownerFor:start",
+      "ms": 19873.299999952316,
+      "receivedAt": "2026-10-08T08:25:54.872Z"
+    },
+    {
+      "stage": "source.ownerFor:end",
+      "ms": 19873.5,
+      "receivedAt": "2026-10-08T08:25:54.872Z"
+    },
+    {
+      "stage": "source.emitPrepared:start",
+      "ms": 19873.5,
+      "commands": 8,
+      "ordinal": 3,
+      "receivedAt": "2026-10-08T08:25:54.872Z"
+    },
+    {
+      "stage": "source.emitPrepared:reject",
+      "ms": 19874.5,
+      "error": "Error: Room-owned backend has no standalone material fields",
+      "receivedAt": "2026-10-08T08:25:54.873Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 19975.599999964237,
+      "receivedAt": "2026-10-08T08:25:54.951Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 19977.299999952316,
+      "receivedAt": "2026-10-08T08:25:54.952Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 19978,
+      "receivedAt": "2026-10-08T08:25:54.953Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 19979.399999976158,
+      "receivedAt": "2026-10-08T08:25:54.954Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 19980,
+      "receivedAt": "2026-10-08T08:25:54.954Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 19981,
+      "receivedAt": "2026-10-08T08:25:54.955Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 19981.5,
+      "receivedAt": "2026-10-08T08:25:54.955Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 19982.599999964237,
+      "receivedAt": "2026-10-08T08:25:54.956Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 19983.099999964237,
+      "receivedAt": "2026-10-08T08:25:54.957Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 19984.19999998808,
+      "receivedAt": "2026-10-08T08:25:54.958Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 19984.69999998808,
+      "receivedAt": "2026-10-08T08:25:54.959Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 19985.599999964237,
+      "receivedAt": "2026-10-08T08:25:54.959Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 19986,
+      "receivedAt": "2026-10-08T08:25:54.959Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 19986.799999952316,
+      "receivedAt": "2026-10-08T08:25:54.960Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 19987.099999964237,
+      "receivedAt": "2026-10-08T08:25:54.984Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 19988,
+      "receivedAt": "2026-10-08T08:25:54.985Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 19988.399999976158,
+      "receivedAt": "2026-10-08T08:25:54.986Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 19989.399999976158,
+      "receivedAt": "2026-10-08T08:25:54.986Z"
+    },
+    {
+      "stage": "source.consume:start",
+      "ms": 19989.69999998808,
+      "receivedAt": "2026-10-08T08:25:54.987Z"
+    },
+    {
+      "stage": "source.consume:end",
+      "ms": 19990.599999964237,
+      "receivedAt": "2026-10-08T08:25:54.987Z"
+    },
+    {
+      "stage": "source.finish:start",
+      "ms": 19993.399999976158,
+      "receivedAt": "2026-10-08T08:25:54.988Z"
+    },
+    {
+      "stage": "source.finish:end",
+      "ms": 19994.799999952316,
+      "receivedAt": "2026-10-08T08:25:54.989Z"
+    },
+    {
+      "stage": "source.ownerFor:start",
+      "ms": 20035.899999976158,
+      "receivedAt": "2026-10-08T08:25:55.087Z"
+    },
+    {
+      "stage": "source.ownerFor:end",
+      "ms": 20036.099999964237,
+      "receivedAt": "2026-10-08T08:25:55.088Z"
+    },
+    {
+      "stage": "source.emitPrepared:start",
+      "ms": 20036.299999952316,
+      "commands": 8,
+      "ordinal": 5,
+      "receivedAt": "2026-10-08T08:25:55.089Z"
+    },
+    {
+      "stage": "source.emitPrepared:reject",
+      "ms": 20038.399999976158,
+      "error": "Error: Room-owned backend has no standalone material fields",
+      "receivedAt": "2026-10-08T08:25:55.089Z"
+    }
+  ],
+  "paperSizing": {
+    "resolution": 2048,
+    "LABytes": 8388608,
+    "RGBABytes": 16777216,
+    "scope": "Expected production baked layout; actual preload byte count separately recorded"
+  },
+  "httpSource": [
+    {
+      "path": "apps/web/src/engine/index.ts",
+      "sha": "fba9aff57326807984478d75b8d9cf3a5081f7c9440dee4ef8da67958a32054c",
+      "status": 200
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts",
+      "sha": "ed77e3e9d332a5863e5b2d19da34726f37dfbc95b17450a3de70157863810cbc",
+      "status": 200
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/backend.ts",
+      "sha": "70ba01286f6cc55042799b93157b21a5b87ce0117a5178edd7fc7ea76578e649",
+      "status": 200
+    }
+  ],
+  "failureCensus": {
+    "secure": true,
+    "gpu": true,
+    "engine": true,
+    "native": true,
+    "ready": true,
+    "pending": false,
+    "error": "Error: Native Room canonical task cancelled",
+    "ops": [
+      {
+        "type": "stroke",
+        "tool": "watercolor",
+        "state": "done",
+        "preset": "normal:100:100:PB29:round"
+      }
+    ],
+    "lost": false,
+    "gl": 0,
+    "nativeOwner": true
+  },
+  "observations": {
+    "realStrokeOperations": 1,
+    "nativeTrue": true,
+    "nativeReady": true,
+    "pageErrors": 0,
+    "emitPreparedCalls": 4,
+    "emitPreparedRejects": 4,
+    "stop": "No second stroke; owner/API error; not loss or memory abort",
+    "quality": "NOT validated; final export/screenshot gate not reached"
+  }
+}
