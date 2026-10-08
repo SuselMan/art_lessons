@@ -351,6 +351,36 @@ export class AccumulationBuffer {
     return pixels
   }
 
+  /** DEV bridge: replace an existing premultiplied Q8 layer tile from a
+   * dedicated WebGPU canvas. No paper/composite or model fallback is applied.
+   * Browser canvas conversion is not presumed byte exact; a hardware gate is
+   * required before this path is admitted by Room. */
+  restoreCanvasPixels(canvas: HTMLCanvasElement): void {
+    if (canvas.width !== this.width || canvas.height !== this.height
+      || this._storageWidth !== this.width || this._storageHeight !== this.height) {
+      throw new Error('Room GPU canvas bridge requires equal allocated tile dimensions')
+    }
+    const gl = this.gl
+    if (gl.isContextLost()) throw new Error('Room GPU canvas bridge WebGL context lost')
+    this._invalidateMips()
+    const binding = gl.getParameter(gl.TEXTURE_BINDING_2D) as WebGLTexture | null
+    const flip = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL) as boolean
+    const premultiply = gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL) as boolean
+    const conversion = gl.getParameter(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL) as number
+    try {
+      gl.bindTexture(gl.TEXTURE_2D, this._texture)
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
+      gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE)
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
+    } finally {
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, flip)
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, premultiply)
+      gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, conversion)
+      gl.bindTexture(gl.TEXTURE_2D, binding)
+    }
+  }
+
   restorePixels(pixels: Uint8Array): void {
     this._invalidateMips()
     const { gl, width, height } = this
