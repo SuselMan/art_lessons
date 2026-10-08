@@ -1,3 +1,5 @@
+import {installOwnedQaReuseHooks} from '../728-room-moment/OwnedQaReuseHooks.mjs';
+import {diagnosticWebgl2Raw} from '../../../../apps/web/src/engine/src/raster/diagnosticWebgl2.ts';
 import {createPreviewFloatProbe} from './PreviewFloatProbe.mjs';
 import {createPreviewRadialProbe} from './PreviewRadialProbe.mjs';
 import {ownedPreviewDisplayField} from './OwnedPreviewDisplayField.mjs';
@@ -18,13 +20,14 @@ import {OwnedPresentationMorphBridge} from './OwnedPresentationMorphBridge.mjs';
 import {prewarmEngineRevealSlots} from './PrewarmedEngineRevealSlots.ts';
 const roles=['presentation','original','coverage','coverageFilm','pigmentLoad','pigmentBase','pigmentFilm','colourLoad','colourBase','colourFilm','solventLoad','solventBase','solventFilm'];
 /** QA runtime only: never imported by production or the existing 5352 review. */
-export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=()=>{},diagnosticLastOwnerMorph=false,diagnosticMaterialRebase=false,diagnosticPrewarmWetTexture=false,diagnosticEarlyPreview=false,diagnosticDirectPreview=false,diagnosticLinearPreview=false,diagnosticFloatPreview=false,diagnosticArtifactProbe=false,diagnosticCurrentSourceSpacing=false,previewBudgetBytes=diagnosticFloatPreview?16121856:13762560,retainedPayloadBudgetBytes=16*1024*1024,revealBudgetBytes=diagnosticMaterialRebase?32*1024*1024:16*1024*1024,visualScratchBudgetBytes=8*1024*1024}={}){
+export function installOwnerFifo(e,{qaReuseOwners=false,capacity=3,budgetBytes=156*1024*1024,status=()=>{},diagnosticLastOwnerMorph=false,diagnosticMaterialRebase=false,diagnosticPrewarmWetTexture=false,diagnosticEarlyPreview=false,diagnosticDirectPreview=false,diagnosticLinearPreview=false,diagnosticFloatPreview=false,diagnosticArtifactProbe=false,diagnosticCurrentSourceSpacing=false,previewBudgetBytes=diagnosticFloatPreview?16121856:13762560,retainedPayloadBudgetBytes=16*1024*1024,revealBudgetBytes=diagnosticMaterialRebase?32*1024*1024:16*1024*1024,visualScratchBudgetBytes=8*1024*1024}={}){
  if(diagnosticArtifactProbe&&!diagnosticFloatPreview)throw Error('Artifact diagnostic requires float preview');
  if(diagnosticFloatPreview&&(!diagnosticDirectPreview||diagnosticLinearPreview))throw Error('Float requires direct manual reconstruction, no floatLINEAR');
  if(diagnosticLinearPreview&&!diagnosticDirectPreview)throw Error('Linear reconstruction requires direct preview');
  if(diagnosticDirectPreview&&!diagnosticEarlyPreview)throw Error('Direct preview requires early transport');
  if(diagnosticEarlyPreview&&!diagnosticMaterialRebase)throw Error('Early preview requires owned material rebase');
  if(diagnosticMaterialRebase&&diagnosticLastOwnerMorph)throw Error('Choose one diagnostic morph mode');
+ if(qaReuseOwners&&diagnosticWebgl2Raw(e.gl))throw Error('Reuse requires dynamic WebGL1 routes');
  const page=e._pageSize();
  if(e._infinite||page.w!==1024||page.h!==1024||e._strokeLayerId||e._settle||e._wcCanonical.pending)throw Error('Owner FIFO requires idle bounded1024 Room');
  if(!e._minmaxExt)throw Error('Owner FIFO requires original MAX capability');
@@ -43,9 +46,19 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
  const morph=diagnosticMaterialRebase?new OwnedPresentationMorphBridge(e,{event,scratch:visualScratchPrewarm}):null;
  const floatProbe=diagnosticFloatPreview?createPreviewFloatProbe(e):null;
  const radialProbe=globalThis.__ownerPreviewRadial?createPreviewRadialProbe(e):null;
+ let reuse=null,lostTeardown=false;
  let preview=null,previewAdmissions=0;const previewReady=diagnosticEarlyPreview?createOwnedPreviewRuntime(e,morph,{event,observe:radialProbe||floatProbe?r=>{radialProbe?.observe(r);floatProbe?.observe(r)}:null,directDisplay:diagnosticDirectPreview,materialLinear:diagnosticLinearPreview,floatTransport:diagnosticFloatPreview,artifactProbe:diagnosticArtifactProbe,currentSourceSpacing:diagnosticCurrentSourceSpacing,budgetBytes:previewBudgetBytes,excluded:[...pool.physicalIdentities,...revealPrewarm.resources.map(r=>r.identity),...visualScratchPrewarm.resources.map(r=>r.identity),...canonicalTiles.map(t=>t.buffer.texture)]}).then(value=>{if(disposed){value.disposeAfterFence();return}preview=value;event('owned-preview-ready',{bytes:value.bytes})}):Promise.resolve();
  if(diagnosticEarlyPreview)e._revealPoolRelease=guardOwnedPreviewRelease(originals.revealRelease,()=>preview);
- const previewLost=()=>preview?.handleContextLoss();if(diagnosticEarlyPreview)e.gl.canvas.addEventListener('webglcontextlost',previewLost);
+ const previewLost=()=>{
+  preview?.handleContextLoss();
+  if(!reuse||lostTeardown)return;
+  if(!e.gl.isContextLost())throw Error('Lost listener without actual loss');
+  lostTeardown=true;pool.closeLostGeneration();
+  reuse.destroyLostGeneration({stopProducers:()=>preview?.handleContextLoss(),cancelFutureJobs:()=>{e._wcCanonical.cancel(true);coordinator.dispose();const active=coordinator.snapshot().active;if(active)coordinator.completeCancellation(active)},destroyOldPool:()=>pool.destroyLostGeneration()});
+  owners.clear();preview?.disposeAfterFence();
+ };
+ if(diagnosticEarlyPreview||qaReuseOwners)e.gl.canvas.addEventListener('webglcontextlost',previewLost);
+ if(qaReuseOwners)reuse=installOwnedQaReuseHooks({engine:e,generation:1,mainFree:()=>pool.free,previewFree:()=>diagnosticEarlyPreview?(preview?.freeSlots??0):3,conservativeGl:true,syncSites:[{target:e,name:'_syncContinuationGpu'}]});
  let probeCount=0;const probe=(owner,phase)=>{if(globalThis.__ownerRetainedWaterProbe&&phase==='sealed-source')event('owned-retained-water',readRetainedWater(owner));if(!globalThis.__ownerMorphProbe||probeCount>=16||!owner?.probePoint)return;const data=readOwnedVisibleProbe(e,owner,phase,morph?morph.visibleField(owner):owner.lease.fields.presentation);if(data){probeCount++;event('owned-visible-probe',data)}};
  const latest=layerId=>[...owners.values()].filter(o=>o.token.layerId===layerId&&coordinator.visible().includes(o.token)).at(-1);
  const mapFor=scratch=>{let map=byScratch.get(scratch);if(!map){map=new Map();byScratch.set(scratch,map)}return map};
@@ -72,21 +85,24 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
   }
   const lease=pool.take(initial);if(!lease)throw Error('QA owner capacity exhausted before source');
   const source=new OwnedGlPreparedSource({lease,context:drawContext,ribbon:e._ribbonPasses,watercolor:e._watercolorPasses,retainForRebase:diagnosticMaterialRebase,retainedPayloadBudgetBytes,ownerToken:diagnosticMaterialRebase?{layerId,gesture}:undefined});
-  const admission=coordinator.admit(layerId,gesture,{...lease,release:()=>{if(owner)morph?.retire(owner);source.retire()}});if(!admission.accepted){source.retire();throw Error('QA owner admission '+admission.reason)}
+  const admission=coordinator.admit(layerId,gesture,{...lease,release:()=>{if(!reuse&&owner)morph?.retire(owner);source.retire()}});if(!admission.accepted){source.retire();throw Error('QA owner admission '+admission.reason)}
   owner={token:admission.token,gesture,scratch,lease,source,canonicalStarted:false};try{if(morph)morph.inherit(owner,parentBuffer)}catch(error){coordinator.cancel(owner.token);throw error}
+  if(reuse&&!reuse.track(owner,{detachPresentation:()=>{preview?.retire(owner);morph?.retire(owner);return{gpuWrites:false}},releasePreview:()=>{if(diagnosticEarlyPreview)preview.releaseRetiredOwnerAfterKnownIdle(owner)},hasFutureCpuJobs:()=>coordinator.snapshot().owners.some(entry=>entry.token===owner.token)}))throw Error('Reuse bundle capacity');
   map.set(gesture,owner);owners.set(owner.token,owner);event('admit',{sequence:owner.token.sequence,bytes:coordinator.snapshot().bytes});return owner;
  };
  if(morph)e._advanceWashReveal=function(buffer,reveal,now){const before=reveal.before;const result=originals.advance.call(e,buffer,reveal,now);morph.parentAdvanced(buffer,before,reveal.before,latest(reveal.layerId));return result};
  e._ribbonPainter=painter;e._wcAsyncFinish=true;
  e._wcCanonical.ctx.blocked=()=>originals.blocked()||coordinator.snapshot().owners[0]?.status==='drawing';
  e._onStart=function(...args){
-  if(disposed)return;
-  if(diagnosticEarlyPreview&&(!preview||previewAdmissions>=3)){status('QA preview: максимум 3 мазка за сессию; перезайдите для новой проверки');event('preview-admission-backpressure');return}
+  if(disposed||lostTeardown)return;
+  if(qaReuseOwners&&e._opts.tool!=='watercolor'){status('Reuse supports watercolor dynamic WebGL1 only');return}
+  if(diagnosticEarlyPreview&&(!preview||(!reuse&&previewAdmissions>=3))){status('QA preview: максимум 3 мазка за сессию; перезайдите для новой проверки');event('preview-admission-backpressure');return}
   if(diagnosticLastOwnerMorph&&morphHold){const held=e._washReveals.get(morphHold.buffer);if(held&&e._revealHold(held,performance.now())>0){status('QA diagnostic morph: новый DOWN пока не поддержан; не пользовательский режим');event('diagnostic-morph-backpressure');return}morphHold=null}
   const open=e._wash,previous=[...owners.values()].at(-1);
   if(e._opts.tool!=='watercolor'&&!previous){e._wcAsyncFinish=false;return originals.start.apply(e,args)}
   e._wcAsyncFinish=true;
   if(e._opts.tool!=='watercolor'||previous&&(!open||open.scratch!==previous.scratch||open.layerId!==e._activeId||open.signature!==watercolorWashSignature(e._opts.pencilType,e._opts.graphiteColor)||performance.now()-open.endedAt>1000)){status('QA: дождитесь завершения перед сменой слоя/краски или новым wash');event('scope-backpressure');return}
+  if(reuse&&!reuse.canAdmit()){status('Wait for existing GPU idle');return}
   if(pool.free===0){status('Очередь акварели заполнена: дождитесь завершения мазка');event('backpressure');return}
   status('');return originals.start.apply(e,args);
  };
@@ -133,5 +149,5 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
   try{return originals.finish.call(e,scratch,...args)}finally{e._wcCanonical.enqueue=enqueue}
  };
  e._asyncLocalPreviewTiles=function(){const result=new Map(originals.previews.call(e));for(const token of coordinator.visible()){const owner=owners.get(token);if(owner&&!owner.presentationTransferred)result.set(token.layerId,[{buffer:preview?.visibleField(owner)??ownedPreviewDisplayField(owner,morph,diagnosticEarlyPreview),originX:0,originY:0}])}return result};
- return{trace,radialProbe,floatProbe,get artifactProbe(){return preview?.artifactProbe??null},diagnosticArtifactProbe,diagnosticCurrentSourceSpacing,previewReady,diagnosticDirectPreview,diagnosticLinearPreview,diagnosticFloatPreview,diagnosticEarlyPreview,releasePreviewRetiredOwnerAfterKnownIdle:owner=>{if(!preview)throw Error('Preview not initialized');return preview.releaseRetiredOwnerAfterKnownIdle(owner)},get previewFreeSlots(){return preview?.freeSlots??0},get previewStats(){return preview?.stats??null},get prewarmedPreviewBytes(){return preview?.bytes??0},wetTexturePrewarm,diagnosticPrewarmWetTexture,snapshot:()=>coordinator.snapshot(),prewarmedBytes:pool.bytes,prewarmedRevealBytes:revealPrewarm?.bytes??0,diagnosticLastOwnerMorph,diagnosticMaterialRebase,prewarmedVisualScratchBytes:visualScratchPrewarm?.bytes??0,retainedPayloadBudgetBytes,dispose(){if(disposed)return;disposed=true;preview?.disposeAfterFence();if(diagnosticEarlyPreview)e.gl.canvas.removeEventListener('webglcontextlost',previewLost);e._wcCanonical.cancel(e.gl.isContextLost());coordinator.dispose();if(!e.gl.isContextLost())e.gl.finish();const active=coordinator.snapshot().active;if(active)coordinator.completeCancellation(active);visualScratchPrewarm?.disposeAfterFence();pool.disposeAfterFence();e._wcAsyncFinish=originals.asyncFinish;e._ribbonPainter=originalPainter;e._ribbonStrokeWork=originals.work;e._finishRibbonStroke=originals.finish;e._onStart=originals.start;e._asyncLocalPreviewTiles=originals.previews;e._wcCanonical.ctx.blocked=originals.blocked;if(morph)e._advanceWashReveal=originals.advance;if(diagnosticEarlyPreview)e._revealPoolRelease=originals.revealRelease}};
+ return{trace,radialProbe,floatProbe,get artifactProbe(){return preview?.artifactProbe??null},diagnosticArtifactProbe,diagnosticCurrentSourceSpacing,previewReady,diagnosticDirectPreview,diagnosticLinearPreview,diagnosticFloatPreview,diagnosticEarlyPreview,releasePreviewRetiredOwnerAfterKnownIdle:owner=>{if(!preview)throw Error('Preview not initialized');return preview.releaseRetiredOwnerAfterKnownIdle(owner)},get previewFreeSlots(){return preview?.freeSlots??0},get previewStats(){return preview?.stats??null},get prewarmedPreviewBytes(){return preview?.bytes??0},wetTexturePrewarm,diagnosticPrewarmWetTexture,snapshot:()=>coordinator.snapshot(),prewarmedBytes:pool.bytes,prewarmedRevealBytes:revealPrewarm?.bytes??0,diagnosticLastOwnerMorph,diagnosticMaterialRebase,prewarmedVisualScratchBytes:visualScratchPrewarm?.bytes??0,retainedPayloadBudgetBytes,dispose(){if(disposed)return;disposed=true;if(e.gl.isContextLost()&&reuse&&!lostTeardown)previewLost();if(diagnosticEarlyPreview||qaReuseOwners)e.gl.canvas.removeEventListener('webglcontextlost',previewLost);e._wcCanonical.cancel(e.gl.isContextLost());coordinator.dispose();const cert=reuse&&!lostTeardown?reuse.bundles.captureBeforeExistingSync():null;if(!e.gl.isContextLost()){e.gl.finish();if(reuse)reuse.bundles.afterExistingSyncReturns(cert,'gl.finish')}const active=coordinator.snapshot().active;if(active)coordinator.completeCancellation(active);if(reuse&&!lostTeardown){reuse.bundles.afterExistingSyncReturns(cert,'gl.finish');reuse.uninstallAfterKnownIdle()}preview?.disposeAfterFence();visualScratchPrewarm?.disposeAfterFence();if(!lostTeardown)pool.disposeAfterFence();e._wcAsyncFinish=originals.asyncFinish;e._ribbonPainter=originalPainter;e._ribbonStrokeWork=originals.work;e._finishRibbonStroke=originals.finish;e._onStart=originals.start;e._asyncLocalPreviewTiles=originals.previews;e._wcCanonical.ctx.blocked=originals.blocked;if(morph)e._advanceWashReveal=originals.advance;if(diagnosticEarlyPreview)e._revealPoolRelease=originals.revealRelease}};
 }
