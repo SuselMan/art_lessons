@@ -75,7 +75,7 @@ export function disposePrototype() {
   engine?.destroy(); engine = null
   document.querySelector('#surface')!.replaceChildren()
 }
-export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', paper = 'flat', schedule = 'baseline', pageWidth = 1024, skipSinglePaintColourSnapshot = false, verifyUndo = true, onPaintPhase }: { backend?: Backend; scenario?: string; paper?: PaperType; schedule?: BatchSchedule; pageWidth?:1024|2048; skipSinglePaintColourSnapshot?:boolean; verifyUndo?:boolean; onPaintPhase?:(phase:'start'|'end',engine:PencilEngine)=>void } = {}) {
+export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', paper = 'flat', schedule = 'baseline', pageWidth = 1024, skipSinglePaintColourSnapshot = false, verifyUndo = true, carryMrt = false, onPaintPhase }: { backend?: Backend; scenario?: string; paper?: PaperType; schedule?: BatchSchedule; pageWidth?:1024|2048; skipSinglePaintColourSnapshot?:boolean; verifyUndo?:boolean; carryMrt?:boolean; onPaintPhase?:(phase:'start'|'end',engine:PencilEngine)=>void } = {}) {
   disposePrototype()
   const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 1024
   document.querySelector('#surface')!.append(canvas)
@@ -85,6 +85,7 @@ export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', pa
   ;(window as unknown as { __prototypeEngine: PencilEngine }).__prototypeEngine = current
   await current.paperReady()
   probe._settlePlan.diagnosticSkipSinglePaintColourSnapshot=skipSinglePaintColourSnapshot && scenario!=='mixed400'
+  if(carryMrt){if(!probe._watercolorPasses.warmCarryMrt())throw Error('Carry MRT unavailable');probe._watercolorPasses.diagnosticCarryMrt=true}
   if (backend === 'mrt') {
     if (!probe._watercolorPasses.warmBrushMrt()) throw new Error('MRT unavailable')
     probe._watercolorPasses.diagnosticBrushMrt = true
@@ -122,7 +123,7 @@ export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', pa
   const report = { backend, scenario, paper, schedule, queue, tapeSha256, code: '__CODE__', initMs, paintMs, phaseMs,
     canvas: [canvas.width, canvas.height], renderer: ext ? probe.gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : null,
     glError: probe.gl.getError(), lost: probe.gl.isContextLost(), operations: current.getOperations().map(op => ({ id: op.id, type: op.type })),
-    fields, materialWholeLayer, rgbaSha256, colourSnapshot, pageWidth, skipSinglePaintColourSnapshot, verifyUndo, exportSize: [result.width, result.height], mrt: { ...probe._watercolorPasses.brushPairStats },
+    fields, materialWholeLayer, rgbaSha256, colourSnapshot, carryMrt, carryPair:{...probe._watercolorPasses.carryPairStats}, pageWidth, skipSinglePaintColourSnapshot, verifyUndo, exportSize: [result.width, result.height], mrt: { ...probe._watercolorPasses.brushPairStats },
     undo: { id: undo?.id, meaningful: JSON.stringify(undone) !== JSON.stringify(beforeUndo) },
     redo: { id: redo?.id, exact: JSON.stringify(redone) === JSON.stringify(beforeUndo) },
     limitations: ['No Room/socket/ACK/REST or human touch benchmark', 'Hash/readback/export follows timed paint; timings include driver/JS/RAF, not GPU timer', 'Field capture covers retained canonical scratch and named working slots, not every intermediate iteration', 'Undo/redo source timestamps vary; original tape hash is fixed'] }

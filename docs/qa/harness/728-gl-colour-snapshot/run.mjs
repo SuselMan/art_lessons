@@ -35,3 +35,19 @@ export async function runColourSnapshotArm(engine,{enabled=false,gpu=false}={}){
   timer?.poll();return{enabled,gpu,report,timer:timer?.report()??null}
  }finally{cancelAnimationFrame(raf);timer?.dispose();engine.disposePrototype()}
 }
+
+/** Cost survey only: actual existing separate carry draws, no MRT shader. */
+export async function runCarryBaselineArm(engine){
+ let timer,raf=0
+ const poll=()=>{timer?.poll();raf=requestAnimationFrame(poll)}
+ try{
+  const report=await engine.runPrototype({backend:'webgl2',scenario:'mixed400',paper:'fine',pageWidth:2048,verifyUndo:false,
+   onPaintPhase(phase,probe){
+    if(phase==='start'){timer=new GpuMethodTimer(probe.gl,{everyNth:1,maxPending:256});timer.wrap(probe._watercolorPasses,['fieldOp']);raf=requestAnimationFrame(poll)}
+    else for(const restore of timer?.restores.splice(0)??[])restore()
+   }})
+  const deadline=performance.now()+15000
+  while(timer?.pending.length&&performance.now()<deadline){timer.poll();await new Promise(r=>setTimeout(r,16))}
+  timer?.poll();return{report,timer:timer?.report()??null}
+ }finally{cancelAnimationFrame(raf);timer?.dispose();engine.disposePrototype()}
+}
