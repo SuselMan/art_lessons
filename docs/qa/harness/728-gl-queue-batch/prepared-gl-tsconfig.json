@@ -1,6 +1,16 @@
 {
- "extends":"../../../../apps/web/tsconfig.app.json",
- "compilerOptions":{"tsBuildInfoFile":"../../../../temp/device-runs/prepared-gl.tsbuildinfo"},
- "include":["../../../../temp/owner-fifo-runtime/OwnerRibbonStrokePainter.ts","../../../../temp/owner-fifo-runtime/PreparedSourceCommands.ts","PreparedGlSourceDraw.ts","preparedGlSourceCorpus.test.ts","preparedGlSourceDraw.test.ts","TypedGlSourceReplayPrototype.ts"],
- "exclude":[]
+ "extends": "../../../../apps/web/tsconfig.app.json",
+ "compilerOptions": {
+  "tsBuildInfoFile": "../../../../temp/device-runs/prepared-gl.tsbuildinfo"
+ },
+ "include": [
+  "../../../../temp/owner-fifo-runtime/OwnerRibbonStrokePainter.ts",
+  "../../../../temp/owner-fifo-runtime/PreparedSourceCommands.ts",
+  "PreparedGlSourceDraw.ts",
+  "preparedGlSourceCorpus.test.ts",
+  "preparedGlSourceDraw.test.ts",
+  "TypedGlSourceReplayPrototype.ts",
+  "OwnedGlSourceFields.ts"
+ ],
+ "exclude": []
 }
