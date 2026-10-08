@@ -138,3 +138,18 @@ settings objects. The new controller saves original packed author tape and can
 replay it in a fresh literal/A owner (`tip-replay`) with actual source proof and
 history gates; fresh Room pairing is pending allocated hardware and is not an
 exact-quality expectation because A deliberately changes contact.
+
+The actual5361 source stroke was exported read-only from the local QA Operation
+record through normal database credentials without displaying credentials:
+one stroke, packed1338characters,25canonical dabs. Recorded pressure ranges from
+approximately.713 to0, including the lift tail; first dab near(300,300), last
+near(574,355). Original preset is `normal:100:100:PB29:round`. Tape file SHA:
+`f2df90e9eff4ecc4cd78e8392192af44a17bd1d919c154c4df86c5761c674e0e`.
+The original author's image/history is retained; no author redraw occurred.
+
+Prepared fresh literal replay controller requires this exact tape file SHA before
+any device access, preserves stroke data except structural log sequence, creates
+the explicit original layer before append, and verifies real UI+engine400 settings.
+It records source proof, image changes (deliberate model difference, no expectation
+of exact literal/A equality) and meaningful Undo/Redo. Four controller semantic
+regressions pass. This paired Room hardware cohort has not run yet.

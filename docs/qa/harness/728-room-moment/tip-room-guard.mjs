@@ -9,3 +9,7 @@ export function assertTipHistory({undoTarget,redoTarget,original,undone,redone})
  if(original.sha===undone.sha||undone.alpha>=original.alpha)throw Error('Undo made no meaningful exported material change')
  if(redone.sha!==original.sha||redone.alpha!==original.alpha)throw Error('Redo did not restore exact exported material')
 }
+
+export function assertReviewSettings({ui,engine}){
+ if(ui.size!==400||ui.water!==1||ui.pigment!==1||ui.nib!=='round'||ui.pressureResponse!=='normal'||JSON.stringify(ui.color)!==JSON.stringify([.2,0,.6])||engine.size!==400||engine.preset!=='normal:100:100:PB29:round'||JSON.stringify(engine.color)!==JSON.stringify(ui.color))throw Error('Review UI and engine400 settings not synchronized')
+}
