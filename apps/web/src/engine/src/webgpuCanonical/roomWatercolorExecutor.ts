@@ -67,6 +67,7 @@ export class CanonicalRoomWatercolorExecutor {
  private readonly finish:CanonicalSingleTileFinish
  private readonly planner:CanonicalWatercolorSettlePlan<CanonicalFieldBuffer,import('./settlePlanAdapter').CanonicalUploadSlot>
  private readonly accepted=new Set<string>()
+ private readonly diagnosticMomentGpuAudit:boolean
  private momentSeam:WetBrushMomentSourceSeam|null=null
  private pendingMoment:{chunk:RoomNativePreparedChunk}|null=null
  readonly momentReport:{ordinal:number;supported:boolean;violations:number;maxExcess:number;examples:unknown[];applied:boolean}[]=[]
@@ -74,7 +75,7 @@ export class CanonicalRoomWatercolorExecutor {
  private retired=false
  private retirement:Promise<void>|null=null
  private readonly ready:Promise<void>
- constructor(backend:CanonicalWatercolorWebGpu,options:{tile:AccumulationBuffer;originX:number;originY:number;layerId:string;generation:number;delivery:Pick<CanonicalStrokeChunkState,'brushTravel'|'wetContacts'>;central:RoomNativeCentralOwner;bridgeMode:'readback'|'canvas';bridgeCanvas:HTMLCanvasElement}) {
+ constructor(backend:CanonicalWatercolorWebGpu,options:{tile:AccumulationBuffer;originX:number;originY:number;layerId:string;generation:number;delivery:Pick<CanonicalStrokeChunkState,'brushTravel'|'wetContacts'>;central:RoomNativeCentralOwner;bridgeMode:'readback'|'canvas';bridgeCanvas:HTMLCanvasElement;diagnosticMomentGpuAudit?:boolean}) {
   if(options.tile.width!==1024||options.tile.height!==1024||options.originX!==0||options.originY!==0)throw new Error('DEV Room native executor requires one origin-zero1024 tile; no silent GL fallback')
   if(!options.central.isIdle)throw new Error('Seed native Room tile only at a central idle boundary')
   this.backend=backend;this.glTile=options.tile;this.layerId=options.layerId;this.generation=options.generation;this.central=options.central;this.bridgeMode=options.bridgeMode
@@ -84,6 +85,7 @@ export class CanonicalRoomWatercolorExecutor {
   this.source=new CanonicalSourcePhaseExecutor(backend,this.scratch.tiles,[this.target],{fieldOp:(out,a,b,mode,k,scissor)=>this.adapter.fieldOp(out,a,b,mode,k,{scissor:scissor?[...scissor]:undefined})})
   this.finish=new CanonicalSingleTileFinish(backend,this.scratch.tiles,[this.target]);this.bridge=new CanonicalRoomTileBridge(backend.device,options.bridgeCanvas,1024,1024)
   this.planner=new CanonicalWatercolorSettlePlan({fieldFor:(w,h,c)=>this.fields.fieldFor(w,h,c),paperWorldSize:()=>({w:backend.paper.texSize[0],h:backend.paper.texSize[1]}),pool:()=>this.pool,supportsFilm:()=>true,ab:()=>({noDiffuse:false,noCarry:false,opDry:false}),shouldPreview:()=>false,passes:()=>this.adapter,uploads:this.adapter.uploads})
+  this.diagnosticMomentGpuAudit=options.diagnosticMomentGpuAudit===true
   backend.upload(this.target.buffer.field,canonicalTopRowsToGlRows(options.tile.readPixels(),1024,1024));this.ready=backend.whenIdle()
  }
  async seedReady(){await this.ready;this.assertLive()}
@@ -153,15 +155,37 @@ export class CanonicalRoomWatercolorExecutor {
    const e=this.scratch.tiles.peek(this.target.buffer),rect=chunk.segment.rect
    if(!e?.inkLoad||!e.inkColor||!rect)throw new Error('DEV moment actual source fields unavailable')
    // Diagnostics ONLY: readback gates precede new operator. No UX/perf claim.
-   const p=await e.inkLoad.readBytes(),c=await e.inkColor.readBytes();this.assertLive()
+   const p=this.diagnosticMomentGpuAudit?null:await e.inkLoad.readBytes(),c=this.diagnosticMomentGpuAudit?null:await e.inkColor.readBytes();this.assertLive()
    const [x,yGl,w,h]=rect,y=this.target.buffer.height-yGl-h
    const region=(bytes:Uint8Array)=>{const out=new Uint8Array(w*h*4);for(let row=0;row<h;row++)out.set(bytes.subarray(((y+row)*this.target.buffer.width+x)*4,((y+row)*this.target.buffer.width+x+w)*4),row*w*4);return out}
-   const audit=auditMomentRecords(region(p),region(c))
+   const audit=p&&c?auditMomentRecords(region(p),region(c)):{supported:true,violations:0,maxExcess:0,examples:[]}
    const observation={ordinal:chunk.ordinal,supported:audit.supported,violations:audit.violations,maxExcess:audit.maxExcess,examples:audit.examples,applied:false}
    if(audit.supported){
     this.momentSeam??=new WetBrushMomentSourceSeam(this.backend)
     let lease:ReturnType<WetBrushMomentSourceSeam['encodeAfterLanding']>|undefined,read:GPUBuffer|undefined
-    try{this.adapter.runQuantum(ctx=>{lease=this.momentSeam!.encodeAfterLanding(ctx.encoder,{scratch:this.scratch.tiles,tile:this.target.buffer,segment:chunk.segment,availableWater:e.coverage,materialGesture:chunk.materialGesture,recipe:chunk.momentRecipe!},true);this.adapter.retain(lease.buffers);read=this.backend.device.createBuffer({size:4,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});ctx.encoder.copyBufferToBuffer(lease.invalid!,0,read,0,4);this.adapter.retain(this.finish.encodeLive(ctx.encoder,chunk.live))});await this.backend.whenIdle();await read!.mapAsync(GPUMapMode.READ);const invalidPairs=new Uint32Array(read!.getMappedRange())[0];read!.unmap();if(invalidPairs)throw new Error(`DEV moment GPU carrier disagreed with actual CPU audit: ${invalidPairs}`);observation.applied=true}finally{read?.destroy();lease?.release()}
+    try{
+     this.adapter.runQuantum(ctx=>{
+      lease=this.momentSeam!.encodeAfterLanding(ctx.encoder,{scratch:this.scratch.tiles,tile:this.target.buffer,segment:chunk.segment,availableWater:e.coverage,materialGesture:chunk.materialGesture,recipe:chunk.momentRecipe!,diagnosticInPlace:this.diagnosticMomentGpuAudit},true)
+      this.adapter.retain(lease.buffers)
+      read=this.backend.device.createBuffer({size:4,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ})
+      ctx.encoder.copyBufferToBuffer(lease.invalid!,0,read,0,4)
+      this.adapter.retain(this.finish.encodeLive(ctx.encoder,chunk.live))
+     })
+     await this.backend.whenIdle();await read!.mapAsync(GPUMapMode.READ)
+     const invalidChannels=new Uint32Array(read!.getMappedRange())[0];read!.unmap();this.assertLive()
+     if(invalidChannels){
+      if(!this.diagnosticMomentGpuAudit)throw new Error(`DEV moment GPU carrier disagreed with actual CPU audit: ${invalidChannels}`)
+      observation.supported=false;observation.violations=invalidChannels
+     }else{
+      // Counter validation precedes continuation bookkeeping. Invalid or retired
+      // contacts must never absorb/clear the current production MAX film.
+      if(this.diagnosticMomentGpuAudit){
+       this.adapter.runQuantum(()=>{if(chunk.segment.film){e.inkLoad!.copyTo(e.inkBase!);e.inkColor!.copyTo(e.colorBase!);e.strokeInk!.clear();e.strokeColor!.clear()}})
+       await this.backend.whenIdle();this.assertLive()
+      }
+      observation.applied=true
+     }
+    }finally{read?.destroy();lease?.release()}
    }
    this.momentReport.push(observation)
    console.info('[native-moment-transport]',observation)

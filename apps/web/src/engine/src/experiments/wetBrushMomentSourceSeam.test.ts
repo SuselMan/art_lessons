@@ -21,5 +21,6 @@ describe('DEV positive source ownership and continuation',()=>{
   // Actual mode1 is base+film: a subsequent small MAX film starts from the
   // transported base, not the previous source total 90.
   f.entry.strokeInk.texture.values=[0,0,5,5];const next=f.entry.inkBase.texture.values.map((v,i)=>Math.min(255,v+f.entry.strokeInk.texture.values[i]));expect(next[2]).toBe(80);expect(next[2]).not.toBe(95);r.release();r.release();expect(f.events.filter(x=>x.startsWith('release:'))).toEqual(['release:lease1','release:lease2','release:lease3'])})
+ it('in-place candidate acquires only contact and defers all film bookkeeping until counter validation',()=>{const f=fixture(),r=f.seam.encodeAfterLanding(null as never,{...f.input,diagnosticInPlace:true} as never,true);expect(f.events).toEqual(['acquire:1','clear:lease1','currentCoverage','transport']);expect(f.entry.inkLoad.texture.values[2]).toBe(75);expect(f.entry.inkBase.texture.values[2]).toBe(20);expect(f.entry.strokeInk.texture.values[2]).toBe(70);r.release();expect(f.events.at(-1)).toBe('release:lease1')})
  it('rolls back both known leases when third acquire throws before any draw',()=>{const f=fixture(true);expect(()=>f.seam.encodeAfterLanding(null as never,f.input as never,true)).toThrow('third lease');expect(f.events).toEqual(['acquire:1','acquire:2','acquire:3','release:lease1','release:lease2'])})
 })
