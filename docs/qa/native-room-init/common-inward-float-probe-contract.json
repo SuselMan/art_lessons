@@ -1,0 +1,26 @@
+{
+  "scope": "OFF QA helper readiness; not wired into production or actual device run",
+  "module": "docs/qa/harness/728-native-end-to-end/inwardFloatProbe.ts",
+  "shader": "Exact canonical baseline front source anchors; original min expression and Q8 store retained",
+  "binding": 9,
+  "recordCellsFieldTop": [[683,346],[682,347],[683,347]],
+  "recordBytesPerStep": 192,
+  "recordLayout": "Three cells, four vec4f per cell; decode function maps16 named scalar fields",
+  "floatFields": ["initialCost","finalCost","height","climb","winnerDx","winnerDy","winnerCostNormalized","winnerRelief","winnerFilm","winnerEdge","winnerCandidate","winnerFound","uvX","uvY","winnerUvX","winnerUvY"],
+  "ownership": [
+    "Allocate one storage/copySrc buffer per captured step; immutable192bytes after that dispatch",
+    "Retain buffers until encoder submission and queue completion; do not overwrite same records before copying",
+    "Only selected q invocation writes each index; no atomics or global cross-invocation dependence",
+    "Readback at most11*192=2112bytes for this record set; field dimensions1536/Q8 outputs retained"
+  ],
+  "gatesBeforeInterpretation": [
+    "Baseline vs instrumented SAME input finalQ8 must remain exact on actual target, since compiler may change register/FMA choices even when source min/store unchanged",
+    "Actual selected stopAfter control must retain9f44 mode12 input and source/paper/coverage SHA",
+    "Software compile/pipeline PASS is only parser/binding readiness, not hardware float proof",
+    "WinnerFound0 means initial cost won; zero winner fields must not be interpreted as sampled neighbor values",
+    "GL rawfloat capture counterpart is not implemented yet; these are native-only intermediates until explicitly paired"
+  ],
+  "validation": {"unitTests":3,"harnessTypecheck":"PASS","oxlint":"PASS","softwareShaderCompilationMessages":[],"softwarePipelineValidationError":null},
+  "nextStopControls": {"existingFrozenCode":"4ec4d259c5a49c36c9bb4faf641c5e6865ed2f1e","stopAfter":[3,4],"sourceFilter":"OFF legacy","inputMode12Mask":"9f44c7d06acd3b66e460cb7e806c59faeb4af74152d4739bb7a63de8f2a54eb2"},
+  "limits": ["No Surface allocation used","No Samsung access","No cause claim for3Rbytes or final49052/max36","No production kernel/model/default changes"]
+}
