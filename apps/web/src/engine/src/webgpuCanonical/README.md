@@ -101,8 +101,8 @@ completion; film release остаётся у planner/scratch owner.
 премультиплицированный слой над бумагой через существующую сухую формулу
 `PAPER_COMPOSE_FRAG`: paper tone ±0.035, unpremultiply/clamp и graphite texture.
 Stored layer не меняется. Это одна плитка на весь viewport, bilinear.
-`wetPresentation`, rotation, sharp resample, desk/camera, многослойная сборка и
-морфинг не реализованы; соответствующие опции отвергаются явно. Нельзя называть
+Rotation, sharp resample, desk/camera, многослойная сборка и морфинг не
+реализованы; соответствующие опции отвергаются явно. Нельзя называть
 этот вывод полной презентацией обычной Room.
 
 Software finish fixture с ненулевым original и намеренно непригодными settled
@@ -118,3 +118,26 @@ Input содержит production profile/scalars/bounds и `inkSmoothPx` от �
 уже отложено кистью, без замены будущим сухим результатом и без opacity fade.
 Software fixture с smoothing2.5 и отличающимися live/dry records совпадает с
 настоящим GL composite по всем байтам; аппаратная эквивалентность не доказана.
+
+
+## Мокрый вид бумаги
+
+`CanonicalPaperPresentation` — общее имя того же класса, совместимое с сухими
+callers. `{paperColor, wetPresentation:true, wet}` принимает настоящую локальную
+production overlay карту: R=3x3 tent wetness, G=pool, A=5x5 body max, LINEAR.
+`CanonicalWetOverlayTexture.encode(encoder, visiblePaperWetnessSources, now)`
+строит её через CPU часть `_updateWetTexture` (CAP160, нулевой border,
+`wetOverlayPixels`) и пишет уникальным staging payload в тот же command stream.
+Вызывать внутри owner scope, освобождать buffers после GPU completion.
+Pending water видна без commit; solver water/coverage вместо этой карты не подходит.
+
+Шейдер переносит production grain flattening, damp/fresh/pool tone и ослабление
+серости над пигментом. WC_BEAD_ON/CAST/RELAX в текущем source равны0, поэтому
+ring/gloss/held члены алгебраически нулевые. Reveal и морфинг не подменяются opacity.
+Изменяется только display; канонические P/C, wet record и сухой слой не мутируют.
+
+Software wet display fixture (бумага и пигмент, настоящая prepared overlay):
+CPU reference max0, изменено67016 display bytes, GPU validation errors0.
+Headless screenshot не доказывает показ браузерным compositor: его canvas capture
+на этой конфигурации белый, поэтому отдельно проверяется настоящий canvas texture
+readback; аппаратный видимый canvas остаётся проверкой root.
