@@ -19,5 +19,5 @@ export function installOwnedMorphFilmstrip(engine,canvas,{anchorSequence=null,an
   }
   if(frames.length<maxFrames)id=raf(tick);else resolveDone();
  };
- id=raf(tick);const stop=()=>{stopped=true;cancel(id);return{frames,bytes,truncated:bytes>maxBytes,limitations:'Six post-UP rendered canvas thumbnails; readback perturbs queue/cadence, diagnostic display/readback, not onset or quality oracle'};};return{stop,async finish(){let timer;try{await Promise.race([done,new Promise(resolve=>{timer=setTimeout(resolve,3500)})]);return stop();}finally{clearTimeout(timer)}}};
+ id=raf(tick);const stop=()=>{stopped=true;cancel(id);return{frames,bytes,truncated:bytes>maxBytes,limitations:(handoff?'Three post-parent-land':'Six post-UP')+' rendered canvas thumbnails; readback perturbs queue/cadence, diagnostic display/readback, not onset or quality oracle'};};return{stop,async finish(){let timer;try{await Promise.race([done,new Promise(resolve=>{timer=setTimeout(resolve,3500)})]);return stop();}finally{clearTimeout(timer)}}};
 }
