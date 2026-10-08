@@ -1,0 +1,15 @@
+# Bounded native scene runner
+
+Base cd004b2a; dependencies metadata0cae4c20, finishff9789ac, live11f81ad6. Debug API, not Room/PencilEngineAPI.
+
+Pipeline: real CanonicalWatercolorGesture/PointerInput/DabSystem -> bake recorded dabs/wet -> codecDab float32 source precision -> single delivery advance per segment -> phase executor -> immediate production live composite -> source metadata -> original generic settle planner with production1536 fields -> job.finish plus final composite in one owner quantum -> queue drain.
+
+Only one1024 tile, one layer, one retained wash and serial jobs. Busy next-gesture input is explicitly rejected until drain, not delayed or ACKed. Source callbacks queue FIFO commands; partial chunk settle consumes its original film before next film. Recorded operations use original baked dabs; GPU prep uses codec precision and remaps standing keys to originals exactly like production. dabPool mapping intentionally remains production behavior. Replay reads original strokeDabs/wet/seed; same strokeId chunk retains depletion/lastKept with a new film, new stroke resets CPU clocks while preserving wash material/composite cache. Replayed PaperWetness restores age/radius/nominal fallback exactly as _noteReplayedWetness (without log filtering: caller supplies only authoritative active strokes).
+
+`sourceGeometry` retains production source bounds, previous-kept bridging, wetOf(previous)=0, halo bounds, cached first spacing, canonical radius option, composite pad and reachBounds. Tests compare noteFinish bounds/radius and revealRect against actual RibbonStrokePainter for round/chisel,12/400, dry/wet, previous/no previous (16cases). It supports one prepared segment; no approximate multi-dab metadata.
+
+Same scratch/PaperWetness persists across sequential clean water then pigment gestures. Tests use real CPU gesture/preparer and mocked GPU boundaries to verify nonzero recorded wet and ordering. They do not prove native pixel parity. Root must run actual whole-layer/P/C/coverage/water/undo/replay gates before promotion.
+
+API: attach(canvas,getStroke,transform,pressureMap=null):()=>void (real PointerInput), begin(PointerData,WatercolorGestureSettings,GestureProvenance), move/end(PointerData), replay(StrokeOperation), drain():Promise<void>, clear():Promise<void>, destroy(), isIdle getter; backend,target,scratch,paperWet exposed. Native scene canvas/paper renderer owned separately. clear requires no active gesture and drains GPU before retiring scratch; target buffer identity stays stable.
+
+Boundaries: source option flags are supplied explicitly, combined segment protocol/MAX film only; no foreign-donor selection/replay yet (same-wash water is supported). No multiple wash identities/layers, undo/redo log, transport/ACK, concurrent gestures/settles, lost-device recovery, camera, morph/reveal animation, or arbitrary outside-tile pointer. Raw presentation requires actual separate paper visibility API; no claim that raw pigment equals finished user canvas. begin keeps settings fixed within gesture.
