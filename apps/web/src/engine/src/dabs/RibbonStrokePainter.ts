@@ -530,9 +530,11 @@ export class RibbonStrokePainter {
       this.ctx.onPreparedWatercolorDelivery?.(prepared)
       if(nativeRoute){
         if(!this.ctx.routePreparedWatercolorDelivery?.(prepared,target))throw new Error('Native watercolor routing must consume prepared source; no GL fallback')
+        if(mode.waterOnly)return
         scratch.paints.add(color.join(','))
         scratch.noteFinish({target,preset,profile,color,opacity:drawable[0].opacity,bounds:reachBounds,fieldSeed,landedWet,wetPeak:wetPeakHere,radiusPx:nibRadius,dwellMs:scratch.dwellMs})
         scratch.diffusePending=true
+        target.markContentPainted(compositeBounds)
         return
       }
     }
