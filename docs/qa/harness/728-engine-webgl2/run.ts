@@ -6,6 +6,7 @@ import { PencilEngine } from '../../../../apps/web/src/engine/index'
 import type { Operation, StrokeOperation, Dab, PaperType } from '@grafetto/shared'
 import { AccumulationBuffer } from '../../../../apps/web/src/engine/src/buffers/AccumulationBuffer'
 import type { ILayerBuffer } from '../../../../apps/web/src/engine/src/buffers/ILayerBuffer'
+import type { WatercolorSettlePlan } from '../../../../apps/web/src/engine/src/raster/WatercolorSettlePlan'
 import { WatercolorPasses } from '../../../../apps/web/src/engine/src/raster/WatercolorPasses'
 
 // This diagnostic page owns its fetch mapping, engine and canvases. No Room,
@@ -19,7 +20,7 @@ window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
 export { PencilEngine, WatercolorPasses, AccumulationBuffer }
 
 type Backend = 'webgl1' | 'webgl2' | 'mrt'
-type Probe = { gl: WebGLRenderingContext; _settle: unknown; _rebuildJobs: Map<string, unknown>; _pendingRebuilds: Set<string>; _unsettledLayers: Set<string>; _layers: Map<string, ILayerBuffer>; _watercolorPasses: WatercolorPasses; _settleQueue: WatercolorSettleQueue }
+type Probe = { gl: WebGLRenderingContext; _settle: unknown; _rebuildJobs: Map<string, unknown>; _pendingRebuilds: Set<string>; _unsettledLayers: Set<string>; _layers: Map<string, ILayerBuffer>; _watercolorPasses: WatercolorPasses; _settleQueue: WatercolorSettleQueue; _settlePlan: WatercolorSettlePlan }
 let engine: PencilEngine | null = null
 const show = (value: unknown) => { const node = document.querySelector('#prototype-output'); if (node) node.textContent = JSON.stringify(value, null, 2) }
 const digest = async (bytes: Uint8Array) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes.slice().buffer))].map(x => x.toString(16).padStart(2, '0')).join('')
@@ -36,7 +37,12 @@ function tape(scenario: string): Operation[] {
     return [leg % 2 ? 760 - 500 * t : 260 + 500 * t, 320 + leg * 110 + 80 * t]
   })
   const ops: Operation[] = [{ id: 'layer-0', type: 'layer_add', userId: 'qa-webgl2', timestamp: clockBase, layerId: 'L', name: 'Prototype' }]
-  if (scenario === 'puddle') {
+  if (scenario === 'single400') {
+    ops.push(stroke('stroke-1', [[500,450],[800,450],[1100,450]], 100, [.2,.1,.5]))
+  } else if (scenario === 'mixed400') {
+    ops.push(stroke('stroke-1', [[500,450],[800,450],[1100,450]], 100, [.2,.1,.5]))
+    const mixed=stroke('stroke-2', [[500,450],[800,450],[1100,450]], 100, [.05,.5,.2], 'f');mixed.washId='wash-stroke-1';ops.push(mixed)
+  } else if (scenario === 'puddle') {
     ops.push(stroke('stroke-1', [[400, 450], [500, 450], [600, 450]], 0, [.2, .1, .5]))
     ops.push(stroke('stroke-2', [[470, 445], [500, 450], [530, 455]], 100, [.2, .1, .5], 'f'))
     ops.push(stroke('stroke-3', [[520, 450], [560, 460], [580, 455]], 100, [.05, .5, .2], 'f'))
@@ -69,15 +75,16 @@ export function disposePrototype() {
   engine?.destroy(); engine = null
   document.querySelector('#surface')!.replaceChildren()
 }
-export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', paper = 'flat', schedule = 'baseline' }: { backend?: Backend; scenario?: string; paper?: PaperType; schedule?: BatchSchedule } = {}) {
+export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', paper = 'flat', schedule = 'baseline', pageWidth = 1024, skipSinglePaintColourSnapshot = false, verifyUndo = true }: { backend?: Backend; scenario?: string; paper?: PaperType; schedule?: BatchSchedule; pageWidth?:1024|2048; skipSinglePaintColourSnapshot?:boolean; verifyUndo?:boolean } = {}) {
   disposePrototype()
   const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 1024
   document.querySelector('#surface')!.append(canvas)
   const started = performance.now()
-  engine = new PencilEngine(canvas, { diagnosticWebgl2: backend !== 'webgl1', paper, pageWidth: 1024, pageHeight: 1024, userId: 'qa-webgl2', joinedTouch: true, gradientFibres: true })
+  engine = new PencilEngine(canvas, { diagnosticWebgl2: backend !== 'webgl1', paper, pageWidth, pageHeight: 1024, userId: 'qa-webgl2', joinedTouch: true, gradientFibres: true })
   const current = engine, probe = current as unknown as Probe
   ;(window as unknown as { __prototypeEngine: PencilEngine }).__prototypeEngine = current
   await current.paperReady()
+  probe._settlePlan.diagnosticSkipSinglePaintColourSnapshot=skipSinglePaintColourSnapshot && scenario!=='mixed400'
   if (backend === 'mrt') {
     if (!probe._watercolorPasses.warmBrushMrt()) throw new Error('MRT unavailable')
     probe._watercolorPasses.diagnosticBrushMrt = true
@@ -89,6 +96,7 @@ export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', pa
   const tapeSha256 = await digest(new TextEncoder().encode(JSON.stringify(operations)))
   const phaseMs: number[] = [], startedPaint = performance.now()
   for (const operation of operations) {
+    if(scenario==='mixed400'&&operation.id==='stroke-2')probe._settlePlan.diagnosticSkipSinglePaintColourSnapshot=skipSinglePaintColourSnapshot
     const before = performance.now(); current.appendOperation(operation, 'remote'); await idle(probe); phaseMs.push(performance.now() - before)
   }
   await idle(probe)
@@ -102,16 +110,17 @@ export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', pa
   result.width = image.width; result.height = image.height
   const ctx = result.getContext('2d')!; ctx.drawImage(image, 0, 0); image.close()
   const rgbaSha256 = await digest(new Uint8Array(ctx.getImageData(0, 0, result.width, result.height).data.buffer))
-  const beforeUndo = await hashLayer(probe)
-  const undo = current.undo(); await idle(probe)
-  const undone = await hashLayer(probe)
-  const redo = current.redo(); await idle(probe)
-  const redone = await hashLayer(probe)
+  const colourSnapshot={...probe._settlePlan.colourSnapshotStats}
+  const beforeUndo = verifyUndo?await hashLayer(probe):materialWholeLayer
+  const undo = verifyUndo?current.undo():null; if(verifyUndo)await idle(probe)
+  const undone = verifyUndo?await hashLayer(probe):beforeUndo
+  const redo = verifyUndo?current.redo():null; if(verifyUndo)await idle(probe)
+  const redone = verifyUndo?await hashLayer(probe):beforeUndo
   const ext = probe.gl.getExtension('WEBGL_debug_renderer_info')
   const report = { backend, scenario, paper, schedule, queue, tapeSha256, code: '__CODE__', initMs, paintMs, phaseMs,
     canvas: [canvas.width, canvas.height], renderer: ext ? probe.gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : null,
     glError: probe.gl.getError(), lost: probe.gl.isContextLost(), operations: current.getOperations().map(op => ({ id: op.id, type: op.type })),
-    fields, materialWholeLayer, rgbaSha256, exportSize: [result.width, result.height], mrt: { ...probe._watercolorPasses.brushPairStats },
+    fields, materialWholeLayer, rgbaSha256, colourSnapshot, pageWidth, skipSinglePaintColourSnapshot, verifyUndo, exportSize: [result.width, result.height], mrt: { ...probe._watercolorPasses.brushPairStats },
     undo: { id: undo?.id, meaningful: JSON.stringify(undone) !== JSON.stringify(beforeUndo) },
     redo: { id: redo?.id, exact: JSON.stringify(redone) === JSON.stringify(beforeUndo) },
     limitations: ['No Room/socket/ACK/REST or human touch benchmark', 'Hash/readback/export follows timed paint; timings include driver/JS/RAF, not GPU timer', 'Field capture covers retained canonical scratch and named working slots, not every intermediate iteration', 'Undo/redo source timestamps vary; original tape hash is fixed'] }
