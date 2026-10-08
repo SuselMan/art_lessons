@@ -89,5 +89,14 @@
     "Screenshot alpha is canvas output, not material alpha",
     "RAF tape differs: prior actual4 parity applies to its own tape only",
     "Dense same-color scene makes visual changes subtle; full water/pigment/clipping matrix untested"
-  ]
+  ],
+  "anchorScope": {
+    "firstLandMs": 22607.7,
+    "firstFrameMs": 22608.4,
+    "firstFrameAfterLandMs": 0.7,
+    "lastFrameMs": 24718.2,
+    "secondLandMs": 24904,
+    "thirdLandMs": 26934.3,
+    "lastOwnerRevealCaptured": false
+  }
 }
