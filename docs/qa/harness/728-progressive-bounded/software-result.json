@@ -1,0 +1,31 @@
+{
+  "fullField1536": false,
+  "diff": 0,
+  "max": 0,
+  "original": "2f971e15",
+  "bounded": "2f971e15",
+  "frames": [
+    "dfaf4a07",
+    "bc97b46f",
+    "2f971e15"
+  ],
+  "distinct": 3,
+  "errors": [],
+  "blocked": true,
+  "metrics": {
+    "off": {
+      "ops": 75,
+      "turns": 75,
+      "yields": 75,
+      "maxOpsInTurn": 1,
+      "maxCpuTurnMs": 17.099999964237213
+    },
+    "on": {
+      "ops": 75,
+      "turns": 11,
+      "yields": 11,
+      "maxOpsInTurn": 8,
+      "maxCpuTurnMs": 1.5999999642372131
+    }
+  }
+}
