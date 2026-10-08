@@ -1,0 +1,7 @@
+import test from'node:test';import assert from'node:assert/strict';import{installContinuationFenceProbe}from'./ContinuationFenceProbe.mjs';
+test('existing readPixels fence attributed, no extra GPU calls, between-fence draw invalidates redundancy',()=>{
+ let time=0,reads=0,draws=0;const gl={readPixels(){reads++},drawArrays(){draws++},finish(){throw Error('unexpected finish')}};const engine={gl,_syncContinuationGpu(){gl.readPixels();time+=4}};const original=engine._syncContinuationGpu;
+ const p=installContinuationFenceProbe(engine,{now:()=>time});engine._syncContinuationGpu();engine._syncContinuationGpu();gl.drawArrays();engine._syncContinuationGpu();
+ assert.equal(reads,3);assert.equal(draws,1);assert.equal(p.rows[0].durationMs,4);assert.equal(p.rows[1].beforeSerial,p.rows[0].afterSerial);assert.notEqual(p.rows[2].beforeSerial,p.rows[1].afterSerial);assert.deepEqual(p.rows.map(r=>r.calls),[{readPixels:1},{readPixels:1},{readPixels:1}]);p.restore();assert.equal(engine._syncContinuationGpu,original);
+});
+test('throw preserves error, bounded records and restores instance methods',()=>{const gl={readPixels(){throw Error('lost')}};const fn=gl.readPixels,engine={gl,_syncContinuationGpu(){gl.readPixels()}};const p=installContinuationFenceProbe(engine,{limit:1,now:()=>0});assert.throws(()=>engine._syncContinuationGpu(),/lost/);assert.throws(()=>engine._syncContinuationGpu(),/lost/);assert.equal(p.rows.length,1);assert.match(p.rows[0].error,/lost/);p.restore();assert.equal(gl.readPixels,fn)});
