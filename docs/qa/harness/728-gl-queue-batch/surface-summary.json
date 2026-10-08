@@ -1,0 +1,229 @@
+{
+  "code": "f9be0d84",
+  "runJsSha256": "693565d67b86e0b2814c7c7e042106fea1ccfd104799cb2e766f21930280ec73",
+  "device": "Surface Intel Iris Xe",
+  "scenario": "mixed400/Fine/page2048x1024",
+  "all26FieldsMaterialRgbaTapeExact": true,
+  "allMeaningfulUndoExactRedo": true,
+  "rows": [
+    {
+      "enabled": false,
+      "paintMs": 5895.900000035763,
+      "phaseMs": [
+        29.30000001192093,
+        2866.899999976158,
+        2816.400000035763,
+        133.5999999642372
+      ],
+      "undo": {
+        "id": "stroke-2",
+        "meaningful": true
+      },
+      "redo": {
+        "id": "stroke-2",
+        "exact": true
+      },
+      "glError": 0,
+      "lost": false,
+      "ticks": 334,
+      "flags": {
+        "diagnosticSolverBatch": false,
+        "front": false,
+        "presentation": false,
+        "contact": false,
+        "continuation": false
+      },
+      "tagAdvanceCounts": {
+        "contact": 204,
+        "front": 70,
+        "presentation": 0,
+        "barrier": 60
+      },
+      "tickCpuWallSumMs": 135.20000004768372,
+      "tickMaxMs": 47.200000047683716,
+      "tickP95Ms": 0.5,
+      "gapP95Ms": 26.599999964237213,
+      "gapMaxMs": 61.30000001192093,
+      "syncCallbackCount": 0,
+      "syncCallbackCpuMs": 0,
+      "readyReasons": {
+        "completed-or-owner-changed": 3,
+        "advanced-pending": 331
+      },
+      "outsideOps": {
+        "contact": 0,
+        "front": 0,
+        "presentation": 0,
+        "barrier": 0
+      },
+      "outsideSyncCount": 0
+    },
+    {
+      "enabled": true,
+      "paintMs": 2427.199999988079,
+      "phaseMs": [
+        27,
+        1166.8999999761581,
+        1133.300000011921,
+        50.09999996423721
+      ],
+      "undo": {
+        "id": "stroke-2",
+        "meaningful": true
+      },
+      "redo": {
+        "id": "stroke-2",
+        "exact": true
+      },
+      "glError": 0,
+      "lost": false,
+      "ticks": 133,
+      "flags": {
+        "diagnosticSolverBatch": true,
+        "front": false,
+        "presentation": false,
+        "contact": false,
+        "continuation": false
+      },
+      "tagAdvanceCounts": {
+        "contact": 204,
+        "front": 70,
+        "presentation": 0,
+        "barrier": 61
+      },
+      "tickCpuWallSumMs": 96.10000038146973,
+      "tickMaxMs": 25.599999964237213,
+      "tickP95Ms": 1,
+      "gapP95Ms": 16.900000035762787,
+      "gapMaxMs": 69.80000001192093,
+      "syncCallbackCount": 272,
+      "syncCallbackCpuMs": 3.7000003457069397,
+      "readyReasons": {
+        "advanced-pending": 130,
+        "completed-or-owner-changed": 3
+      },
+      "outsideOps": {
+        "contact": 0,
+        "front": 0,
+        "presentation": 0,
+        "barrier": 0
+      },
+      "outsideSyncCount": 0
+    },
+    {
+      "enabled": true,
+      "paintMs": 2476.600000023842,
+      "phaseMs": [
+        26.80000001192093,
+        1183,
+        1166.4000000357628,
+        50.39999997615814
+      ],
+      "undo": {
+        "id": "stroke-2",
+        "meaningful": true
+      },
+      "redo": {
+        "id": "stroke-2",
+        "exact": true
+      },
+      "glError": 0,
+      "lost": false,
+      "ticks": 134,
+      "flags": {
+        "diagnosticSolverBatch": true,
+        "front": false,
+        "presentation": false,
+        "contact": false,
+        "continuation": false
+      },
+      "tagAdvanceCounts": {
+        "contact": 204,
+        "front": 70,
+        "presentation": 0,
+        "barrier": 61
+      },
+      "tickCpuWallSumMs": 123.60000044107437,
+      "tickMaxMs": 37.69999998807907,
+      "tickP95Ms": 1.199999988079071,
+      "gapP95Ms": 17,
+      "gapMaxMs": 64.20000004768372,
+      "syncCallbackCount": 271,
+      "syncCallbackCpuMs": 4.699999690055847,
+      "readyReasons": {
+        "advanced-pending": 131,
+        "completed-or-owner-changed": 3
+      },
+      "outsideOps": {
+        "contact": 0,
+        "front": 0,
+        "presentation": 0,
+        "barrier": 0
+      },
+      "outsideSyncCount": 0
+    },
+    {
+      "enabled": false,
+      "paintMs": 6077.5,
+      "phaseMs": [
+        28,
+        2866.199999988079,
+        2816.599999964237,
+        316.80000001192093
+      ],
+      "undo": {
+        "id": "stroke-2",
+        "meaningful": true
+      },
+      "redo": {
+        "id": "stroke-2",
+        "exact": true
+      },
+      "glError": 0,
+      "lost": false,
+      "ticks": 334,
+      "flags": {
+        "diagnosticSolverBatch": false,
+        "front": false,
+        "presentation": false,
+        "contact": false,
+        "continuation": false
+      },
+      "tagAdvanceCounts": {
+        "contact": 204,
+        "front": 70,
+        "presentation": 0,
+        "barrier": 60
+      },
+      "tickCpuWallSumMs": 136.80000013113022,
+      "tickMaxMs": 55.39999997615814,
+      "tickP95Ms": 0.5,
+      "gapP95Ms": 16.900000035762787,
+      "gapMaxMs": 56.89999997615814,
+      "syncCallbackCount": 0,
+      "syncCallbackCpuMs": 0,
+      "readyReasons": {
+        "completed-or-owner-changed": 3,
+        "advanced-pending": 331
+      },
+      "outsideOps": {
+        "contact": 0,
+        "front": 0,
+        "presentation": 0,
+        "barrier": 0
+      },
+      "outsideSyncCount": 0
+    }
+  ],
+  "offMeanPaintMs": 5986.700000017881,
+  "onMeanPaintMs": 2451.9000000059605,
+  "observedWallReductionFraction": 0.5904421467588761,
+  "minimumFreeMiB": 1013,
+  "limitations": [
+    "One OFF/ON/ON/OFF cohort; no Room/livepen/animation appearance claim",
+    "CPU sync callback elapsed is not measured hardware blocking interval",
+    "Tag counter wraps advance incl undefined-op completion, not a GPUpasscount; barrier60vs61 retained explicitly",
+    "No shader or Q8/order changes; diagnostic OFF default",
+    "Worst one atomic job/barrier can exceed8ms budget; budget applies eligible multi-op group only"
+  ]
+}
