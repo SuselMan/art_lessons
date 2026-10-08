@@ -1,14 +1,14 @@
 import type {CommonSourceCheckpoint} from './commonSourceRunner'
 const hash=async(bytes:Uint8Array)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes.slice().buffer)),v=>v.toString(16).padStart(2,'0')).join('')
 export interface CheckpointChunk {name:string;rawBytes:number;rawSha256:string;gzipBytes:number;gzipSha256:string}
-export interface PackedCommonSourceCheckpoint {code:string;operationSha256:string;paperSha256:string;glOwnerRetired:true;config:CommonSourceCheckpoint['config'];payload:Omit<CommonSourceCheckpoint['payload'],'fields'>&{fields:Array<Omit<CommonSourceCheckpoint['payload']['fields'][number],'bytes'>>};glFields:CommonSourceCheckpoint['glFields'];gl:CommonSourceCheckpoint['gl'];chunks:CheckpointChunk[]}
+export interface PackedCommonSourceCheckpoint {solverBoundary?:CommonSourceCheckpoint['solverBoundary'];code:string;operationSha256:string;paperSha256:string;glOwnerRetired:true;config:CommonSourceCheckpoint['config'];payload:Omit<CommonSourceCheckpoint['payload'],'fields'>&{fields:Array<Omit<CommonSourceCheckpoint['payload']['fields'][number],'bytes'>>};glFields:CommonSourceCheckpoint['glFields'];gl:CommonSourceCheckpoint['gl'];chunks:CheckpointChunk[]}
 /** Callback persists EACH gzip chunk before manifest returns; no bulk console output. */
 export async function persistCommonSourceCheckpoint(checkpoint:CommonSourceCheckpoint,write:(meta:CheckpointChunk,gzip:Uint8Array)=>Promise<void>):Promise<PackedCommonSourceCheckpoint>{
  if(!checkpoint.glOwnerRetired)throw Error('GL owner must retire before persistence/native allocation')
  const chunks:CheckpointChunk[]=[],stored=new Set<number>(),save=async(name:string,bytes:Uint8Array)=>{const gzip=new Uint8Array(await new Response(new Blob([bytes.slice().buffer]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer()),meta={name,rawBytes:bytes.length,rawSha256:await hash(bytes),gzipBytes:gzip.length,gzipSha256:await hash(gzip)};await write(meta,gzip);chunks.push(meta)}
  for(const f of checkpoint.payload.fields)if(f.presence==='field'&&!stored.has(f.alias!)){if(!f.bytes||f.bytes.length!==4194304)throw Error('Exact source bytes required');await save(`source-${f.alias}.rgba.gz`,f.bytes);stored.add(f.alias!)}
  await save('gl-final.rgba.gz',checkpoint.glBytes)
- return{code:checkpoint.code,operationSha256:checkpoint.operationSha256,paperSha256:checkpoint.paperSha256,glOwnerRetired:true,config:checkpoint.config,payload:{...checkpoint.payload,fields:checkpoint.payload.fields.map(({bytes:_bytes,...f})=>f)},glFields:checkpoint.glFields,gl:checkpoint.gl,chunks}
+ return{solverBoundary:checkpoint.solverBoundary,code:checkpoint.code,operationSha256:checkpoint.operationSha256,paperSha256:checkpoint.paperSha256,glOwnerRetired:true,config:checkpoint.config,payload:{...checkpoint.payload,fields:checkpoint.payload.fields.map(({bytes:_bytes,...f})=>f)},glFields:checkpoint.glFields,gl:checkpoint.gl,chunks}
 }
 async function inflateBounded(gzip:Uint8Array,expected:number){
  const reader=new Blob([gzip.slice().buffer]).stream().pipeThrough(new DecompressionStream('gzip')).getReader(),bytes=new Uint8Array(expected);let offset=0

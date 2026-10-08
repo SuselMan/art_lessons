@@ -124,3 +124,16 @@ Literal stamp vertex OFF diagnostic: `runEndToEnd({size:100,coverageSequence:tru
 CPU trig OFF diagnostic: same selected-stamp blank/accumulated gate with `diagnosticCpuStampTrig:true`. GL and native isolated oracle vertex programs receive the identical CPU `Math.fround(Math.cos(Math.fround(angle)))` and sin values. This isolates shader transcendental implementation from raster interpolation. Main author/replay unchanged; this is not a proposed production CPU trig optimization. Sequence result explicitly records both diagnostic flags.
 
 Source-only fixed fixture gate (no full1536 author/settle/replay GPU): `window.runSourceCoverage({operation:fixture.operation,indices:[23,25,27,28,30,35,37,38,39,40,41,42,43,44]})`, with original `sourceReplay.fixture.json`. Shared per-dab CPU helper reconstructs145commands; actualSurface selected9 uniforms are a frozen exact regression. Every selectedprimitive receives previousGLcoverage, unchanged source profile/zero-seed/Finepaper; output records fixedworldtile probes572/435,565/436,566/436 and perprimitive metadata. `cpuTrig:true` is separate diagnostic; `blank:true` requires exactlyoneindex. Default this narrow gate runs onlyDITHER ON (alreadyexcluded elsewhere), explicit Room-owned backend avoids unused standalone28MiB andcanvas setup. This is source primitive isolation, not arbitrary room replay or fullmodel equivalence.
+
+Solver boundary cohort (diagnostic only): `SOLVER_BOUNDARY_INDEX=0` captures
+`a/ca` immediately after the original job's `ops[0]`; index1 captures `c/cc`
+but is a separate follow-up after the first result. All source roles/flags stay
+immutable. Run producer then common, separate owned pages, using the existing
+Surface controller. Each boundary retains two actual1536×1536 Q8 buffers
+(18MiB); their gzip payloads/checksums/filter/actual copy-resample rectangles are
+part of the durable checkpoint manifest. Source13chunk guards remain unchanged.
+GL retires before compression/persistence and any native allocation. SHA and
+bounded decompression validate before creating nativeGPU. CPU comparisons return
+R/G/B/A changed-count/max/sum separately; diagnostic queries/copies are excluded
+from performance claims. Hardware remains pending until a separately allocated
+Surface slot. Maximum per-stage deadline120s, preflight1700MiB/abort500MiB.
