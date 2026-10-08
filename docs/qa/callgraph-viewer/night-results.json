@@ -30,6 +30,15 @@
       "result": "Surface direct/reverse: replay21179→19547 и20957→19424мс, около7–8%; поля/whole exact, Undo/Redo PASS. Presentation отдельно без эффекта. Samsung19781vs23696мс (16.5%),fields/whole/UndoRedo exact.",
       "limits": "Fixed replay, дополнительные GPU sync. Не ускорение GPU-оператора; live/Room gates ещё нужны, default OFF.",
       "status": "Аппаратно7–8% Surface,16.5% Samsung"
+    },
+    {
+      "methods": [
+        "Plan.prepare"
+      ],
+      "name": "Канонический WebGPU QA",
+      "result": "Surface: author и packed replay совпали. Native vs production GL max36, точность ещё не подтверждена. Progressive1536:12 состояний, final exact. Native400 grouped: differing solventLoad, gate false.",
+      "limits": "Отдельный один холст, не Room и не профиль исходного графа. Samsung native timeout; CPU/GPU timing сравнения с GL пока неодинаковы.",
+      "status": "Эксперимент, не production-кандидат"
     }
   ]
 }
