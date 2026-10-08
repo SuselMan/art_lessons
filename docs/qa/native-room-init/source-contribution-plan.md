@@ -1,0 +1,9 @@
+# Source-only contribution control
+
+Исходный scope: unchanged original78 packed dabs →145 coverage commands, tile1024 origin0, Fine paper, film/MAX, zero dry-landing seed. Никаких P/C, фронта, осадка, Room или400/performance claims. runSourceContribution({operation:fixture.operation,substitutions:[]}) исполняет все команды; финальные native/GL SHA и сравнение в oracle.finalArms. GL DITHER ON остаётся фиксированным.
+
+Контрольные arms: [] baseline; [44] заменяет accumulated coverage после выбранного ribbon на exact GL bytes; [37] аналогично выбранному stamp; [37,44] совместно. Подстановка всего accumulated поля удаляет ВСЕ более ранние ошибки, поэтому улучшение после44 нельзя приписывать только FBM44. Следующие mismatches после44 показывают независимый остаток. Для first-divergence attribution используются ранее сохранённые same-previous-input44 и37, а не этот accumulated repair.
+
+Это QA OFF function, не runtime hybrid. Persistent GL framebuffer и две неизменённые production shader programs сохраняют все145 Q8 writes; native submission order тот же. Readback только checkpoints37/44/144:2×4MiB×3=24MiB наarm; подстановка upload4MiB. Между checkpoint нет readback, transient buffers/scopes освобождаются только после native queue completion. Замена иных индексов отказывается, чтобы не расширить traffic случайно. Availability-consuming source явно отказана. Экспортируются hashes/counts, не полные поля. Timing этого harness НЕ оценивает реальный bridge или GPU/плавность. Нет новых paper копий.
+
+Перед аппаратным запуском: immutable bundle computedSHA/provenance/Fine HTTP match, original operationSHA, RAM1700/500, own tab only. Controller GATE_API=contribution, GATE_OPTIONS_FILE={operation,substitutions}, те же source-code passport и completion/error guards. Каждый arm требует отдельного согласованного device slot; hardware пока не запускался.

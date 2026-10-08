@@ -1,3 +1,4 @@
+import {sourceContribution} from './sourceContribution'
 import {replaySourceCoverage} from './sourceReplay'
 import {sourceCommandManifest} from './sourceManifest'
 import {diffuseHeightOracle} from './diffuseHeightOracle'
@@ -168,4 +169,9 @@ export async function runSourceCoverage({operation,indices,blank=false,cpuTrig=f
  for(let i=0;i<la.length/2;i++){paper[i*4]=paper[i*4+1]=paper[i*4+2]=la[i*2];paper[i*4+3]=la[i*2+1]}
  return{code:'__SOURCE_CODE__',operationSha256:await hash(new TextEncoder().encode(JSON.stringify(operation))),paperSha256:await hash(la),sourceCommands:sourceCommandManifest(commands),oracle:await coverageSequenceOracle(commands,paper,side,indices,false,undefined,blank,literalVertex,cpuTrig,probeSites,!ditherBoth,debugRibbonTriangles,ribbonFmaOctave),limits:'Original fixed100 zero-seed single dry-landing source fixture; no settle/Room/performance claim'}
 }
-Object.assign(window,{runEndToEnd,runSourceCoverage})
+export async function runSourceContribution({operation,substitutions=[]}:{operation:import('@grafetto/shared').StrokeOperation;substitutions?:number[]}){
+ const commands=replaySourceCoverage(operation,sourceOptions),la=await getPaperBytes('fine'),side=Math.sqrt(la.length/2),paper=new Uint8Array(side*side*4)
+ for(let i=0;i<la.length/2;i++){paper[i*4]=paper[i*4+1]=paper[i*4+2]=la[i*2];paper[i*4+3]=la[i*2+1]}
+ return{code:'__SOURCE_CODE__',operationSha256:await hash(new TextEncoder().encode(JSON.stringify(operation))),paperSha256:await hash(la),sourceCommands:sourceCommandManifest(commands),oracle:await sourceContribution(commands,paper,side,substitutions),limits:'All original coverage commands only; GL Q8 coverage replacement immediately after selected command; no P/C/settle or Room fidelity/performance claim. Readbacks and recreated GL contexts invalidate timing comparisons.'}
+}
+Object.assign(window,{runEndToEnd,runSourceCoverage,runSourceContribution})
