@@ -1,0 +1,31 @@
+{
+  "scope": "Strict ALLsource import/readback; no solver ops or final quality claim",
+  "producerCode": "439294bc3d0b89cfad17c05ce785509aa13dc8c2",
+  "consumerCode": "43e8f2c337fefa96faa4ae463f8bd881c6254a9e",
+  "consumerBundleSha256": "357daf42c312719f91c33296e95b82d3cb11e877a7d63b7637f2a1e68f1d5ed2",
+  "checkpointSha256": "4c614568975e56d6c6e6d53130a3a72cb931590b0b78816377f0e613df97ad94",
+  "softwareValid": true,
+  "errors": [],
+  "prepareCalls": 1,
+  "importCalls": 1,
+  "uploadedBytes": 50331648,
+  "uniqueInputBuffers": 12,
+  "allQ8InputsExact": true,
+  "inputHashManifestSha256": "b94aa7a043494cffe84d46a7c04026c53f2c643fca6f71e4dcd34ddba6c97f08",
+  "solverOpsExecuted": 0,
+  "wholeSolverSoftware": {
+    "baseline": {
+      "valid": false,
+      "deadlineSeconds": 300,
+      "error": "Error: Bounded baseline timeout",
+      "resultReturned": false
+    },
+    "common": {
+      "valid": false,
+      "deadlineSeconds": 300,
+      "error": "Error: Bounded common timeout",
+      "resultReturned": false
+    }
+  },
+  "interpretation": "Actual native ALLsource import/readback is exact to immutableGL source. No solver/finalRoom/performance claim; bounded software solver arms did not return."
+}
