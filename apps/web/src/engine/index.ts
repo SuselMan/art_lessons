@@ -1851,6 +1851,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _wcNative:RoomNativeRuntime|null=null
   private _wcNativeReady:Promise<void>|null=null
   private _wcNativeInitEpoch=0
+  private readonly _wcNativeReplayTargets=new WeakMap<ILayerBuffer,string>()
   private _wcAsyncFinish = false
   private _wcAsyncError: unknown = null
   private readonly _wcAsyncPeerStreams = new Map<string, {
@@ -1941,7 +1942,7 @@ export class PencilEngine implements PencilEngineAPI {
     nativeWatercolorRouting:()=>this._wcNativeEnabled,
     routePreparedWatercolorDelivery:(request,target)=>{
       if(!this._wcNative)throw new Error('Native Room watercolor is not initialized; await paperReady')
-      return this._wcNative.consume(request,target,request.scratch===this._ribbonStrokeScratch?'live':[...this._rebuildJobs.values()].some(job=>job.fresh===target)?'rebuild':'append')
+      return this._wcNative.consume(request,target,request.scratch===this._ribbonStrokeScratch?'live':this._wcNativeReplayTargets.has(target)||[...this._rebuildJobs.values()].some(job=>job.fresh===target)?'rebuild':'append')
     },
     infinite: () => this._infinite,
     minmaxExt: () => this._minmaxExt,
@@ -2694,7 +2695,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(!this._wcNativeReady)this._wcNativeReady=this._paper.ready().then(async()=>{
       const {RoomNativeRuntime}=await import('./src/webgpuCanonical/roomNativeRuntime')
       const runtime=await RoomNativeRuntime.create({fifo:this._wcCanonical,paper:this._paper.type,paperScale:this._paper.scale,paperWorld:this._paper.worldSize(),board:this._pageSize(),
-        resolve:(target,bounds)=>this._resolveWithinSheet(target,this._wcSheetClamp(bounds)),layerId:target=>[...this._layers].find(([,buffer])=>buffer===target)?.[0]??[...this._rebuildJobs].find(([,job])=>job.fresh===target)?.[0],changed:()=>this._scheduleDisplay(),failed:error=>{this._wcAsyncError=error}})
+        resolve:(target,bounds)=>this._resolveWithinSheet(target,this._wcSheetClamp(bounds)),layerId:target=>[...this._layers].find(([,buffer])=>buffer===target)?.[0]??[...this._rebuildJobs].find(([,job])=>job.fresh===target)?.[0]??this._wcNativeReplayTargets.get(target),changed:()=>this._scheduleDisplay(),failed:error=>{this._wcAsyncError=error}})
       if(this._destroyed||epoch!==this._wcNativeInitEpoch){await runtime.retire('unmount');return}
       this._wcNative=runtime
     }).catch(error=>{this._wcAsyncError=error;throw error})
@@ -4739,6 +4740,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[]): void {
+    if(this._wcNativeEnabled)this._wcNativeReplayTargets.set(buf,layerId)
     // #144: `buf`'s own tile count while this method is repopulating it is a
     // meaningless, in-flux intermediate value (e.g. restoring a checkpoint's
     // tiles can momentarily exceed what the final done-history actually
