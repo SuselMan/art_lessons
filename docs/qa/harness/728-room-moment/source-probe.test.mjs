@@ -28,5 +28,15 @@ test('OFF source copies actual P/C after emit, survives until successful publica
  e.emitPrepared({ordinal:3,strokeId:'original',segment:{rect:[270,494,260,260]}})
  await assert.rejects(e.publishCurrentToGl(),/publication failed/)
  assert.equal(window.__momentStageResults[0].published,false);assert(buffers.every(b=>b.destroyed));window.__restoreMomentStageProbe()
+ // Zero-state census owns six real source fields and six postpublication
+ // fields; buffers remain diagnostic and are released after mapping.
+ Executor.prototype.publishCurrentToGl=originalPublish;await install(true,{zeroState:true})
+ const state={};for(const role of ['inkLoad','inkColor','inkBase','colorBase','strokeInk','strokeColor'])state[role]={texture:role}
+ e.scratch.tiles.peek=()=>state
+ e.emitPrepared({ordinal:4,strokeId:'original',metadata:{gesture:3},materialGesture:3,momentRecipe:{mixRate:0,advectionRate:0},segment:{rect:[270,494,260,260],film:true,commands:[]}})
+ await e.publishCurrentToGl();const zero=window.__momentStageResults[0]
+ assert.equal(zero.stages.length,12);assert.deepEqual(zero.stages.map(s=>s.stage),['source-P','source-C','source-inkBase','source-colorBase','source-strokeInk','source-strokeColor','post-P','post-C','post-inkBase','post-colorBase','post-strokeInk','post-strokeColor'])
+ for(let i=0;i<6;i++)assert.equal(zero.stages[i].sha,zero.stages[i+6].sha)
+ assert(buffers.every(b=>b.destroyed));window.__restoreMomentStageProbe()
  delete globalThis.window
 })
