@@ -84,3 +84,23 @@ it('progressive settle blocks begin and waits for yielded job before drain/repla
 it('rejects simultaneous grouped and progressive modes before allocating resources',()=>{
  expect(()=>fixture(true,true)).toThrow('incompatible')
 })
+it('retirement interrupts a never-resolving progressive frame, disposes once and skips finish',async()=>{
+ trace.events=[];const {runner,settings,pointer}=fixture(false,true,()=>new Promise<void>(()=>{}))
+ runner.begin(pointer(440,0),settings,{strokeId:'cancel-pending',layerId:'L',userId:'u'});runner.end(pointer(450,40))
+ expect(()=>runner.destroy()).toThrow('Drain')
+ const first=runner.retire(),second=runner.retire();expect(second).toBe(first);await first
+ expect(trace.events.filter(e=>e==='dispose')).toHaveLength(1)
+ expect(trace.events).not.toContain('settleFinish');expect(trace.events).not.toContain('composite')
+ expect(()=>runner.begin(pointer(440,90),settings,{strokeId:'late',layerId:'L',userId:'u'})).toThrow('retired')
+ expect(()=>runner.replay({tool:'watercolor'} as any)).toThrow('retired')
+ runner.destroy();expect(trace.events.filter(e=>e==='destroyTextures')).toHaveLength(1)
+})
+it('active owner retirement creates no synthetic pen-up or recorded operation',async()=>{
+ trace.events=[];const {runner,settings,pointer,operations}=fixture()
+ runner.begin(pointer(440,0),settings,{strokeId:'cancel-active',layerId:'L',userId:'u'})
+ expect(()=>runner.end(pointer(-1,40))).toThrow('outside')
+ expect(()=>runner.destroy()).toThrow('Drain');const before=operations.length
+ await runner.retire();expect(operations).toHaveLength(before)
+ expect(()=>runner.end(pointer(450,40))).toThrow('retired');expect(()=>runner.move(pointer(450,20))).toThrow('retired')
+ expect(trace.events).not.toContain('settleFinish');runner.destroy()
+})

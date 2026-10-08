@@ -55,6 +55,12 @@ export class CanonicalBoundedSceneRunner {
  private activePreviewContext:CanonicalGpuContext|null=null
  private previewReady=false
  private settings?:WatercolorGestureSettings
+ private retired=false
+ private resourcesReleased=false
+ private readonly detachInputs=new Set<()=>void>()
+ private cancelYield!:()=>void
+ private readonly retiredSignal=new Promise<void>(resolve=>{this.cancelYield=resolve})
+ private retirement:Promise<void>|null=null
  private active=false
  private busy=false
  private replayStrokeId?:string
@@ -73,8 +79,10 @@ export class CanonicalBoundedSceneRunner {
   this.planner=new CanonicalWatercolorSettlePlan({fieldFor:(w,h,c)=>this.fieldOwner.fieldFor(w,h,c),paperWorldSize:()=>({w:backend.paper.texSize[0],h:backend.paper.texSize[1]}),pool:()=>this.pool,supportsFilm:()=>true,ab:()=>({noDiffuse:false,noCarry:false,opDry:false}),shouldPreview:()=>this.previewEnabled,passes:()=>this.adapter,uploads:this.adapter.uploads})
   this.gesture=new CanonicalWatercolorGesture({paperWet:this.paperWet,now:options.now,timestamp:options.timestamp,operationId:options.operationId,onPreparedChunk:chunk=>this.prepare(chunk),onLocalStroke:(op)=>options.onLocalOperation?.(op),onChunkBoundary:()=>{this.settle();this.scratch.newFilm();this.scratch.activateMaterialFilm(this.scratch.gesture)}})
  }
- get isIdle(){return !this.active&&!this.busy}
+ get isIdle(){return !this.retired&&!this.resourcesReleased&&!this.active&&!this.busy}
+ private assertAlive(){if(this.retired||this.resourcesReleased)throw new Error('Native scene has been retired')}
  async clear():Promise<void>{
+  this.assertAlive()
   if(this.active)throw new Error('Finish the active native gesture before clearing')
   await this.drain();this.scratch.tiles.destroy();this.target.buffer.clear();this.paperWet.clear();this.geometry.dabSpacing=0;this.replayStrokeId=undefined;this.layerId=undefined;this.washId=undefined
   this.scratch=new CanonicalStrokeScratchMetadata(new CanonicalTileScratch(this.pool),createCanonicalStrokeChunkState(),[this.target])
@@ -82,9 +90,10 @@ export class CanonicalBoundedSceneRunner {
   this.finish=new CanonicalSingleTileFinish(this.backend,this.scratch.tiles,[this.target]);this.preview=new CanonicalPlannerPreviewBridge(this.backend,this.scratch.tiles,this.target);await this.backend.device.queue.onSubmittedWorkDone()
  }
  attach(canvas:HTMLCanvasElement,getStroke:()=>{settings:WatercolorGestureSettings;provenance:GestureProvenance},transform:(x:number,y:number)=>{x:number;y:number},pressureMap:PressureMap|null=null):()=>void {
+  this.assertAlive()
   const input=new PointerInput(canvas);input.setTransform(transform);input.setPressureMap(pressureMap)
   input.on('start',event=>{const stroke=getStroke();this.begin(event,stroke.settings,stroke.provenance)}).on('move',event=>this.move(event)).on('end',event=>this.end(event))
-  return()=>input.destroy()
+  const detach=()=>{input.destroy();this.detachInputs.delete(detach)};this.detachInputs.add(detach);return detach
  }
  private guardOwner(layerId:string,washId?:string){
   if(this.layerId!==undefined&&this.layerId!==layerId||this.washId!==undefined&&washId!==undefined&&this.washId!==washId)throw new Error('Native debug scene supports one layer and one retained wash only')
@@ -92,13 +101,14 @@ export class CanonicalBoundedSceneRunner {
  }
  private guardPoint(e:PointerData){if(e.x<0||e.y<0||e.x>=1024||e.y>=1024)throw new Error('Native debug scene does not support input outside its single tile')}
  begin(e:PointerData,settings:WatercolorGestureSettings,provenance:GestureProvenance):void {
+  this.assertAlive()
   if(this.active||this.busy)throw new Error('Native debug scene is busy; concurrent gestures are unsupported')
   this.guardPoint(e);this.guardOwner(provenance.layerId,provenance.washId);this.settings={...settings,color:[...settings.color],nibAngle:{...settings.nibAngle}};this.resetGesture();this.active=true
   this.gesture.begin(e,settings,provenance)
  }
- move(e:PointerData):void {this.guardPoint(e);if(!this.active)throw new Error('No active native gesture');this.gesture.move(e)}
- end(e:PointerData):void {this.guardPoint(e);if(!this.active)throw new Error('No active native gesture');this.gesture.end(e);this.active=false;this.settle();this.busy=true}
- async drain():Promise<void>{await this.pendingSettle;await this.backend.device.queue.onSubmittedWorkDone();if(this.settleFailure){const failure=this.settleFailure;this.settleFailure=undefined;throw failure}this.busy=false}
+ move(e:PointerData):void {this.assertAlive();this.guardPoint(e);if(!this.active)throw new Error('No active native gesture');this.gesture.move(e)}
+ end(e:PointerData):void {this.assertAlive();this.guardPoint(e);if(!this.active)throw new Error('No active native gesture');this.gesture.end(e);this.active=false;this.settle();this.busy=true}
+ async drain():Promise<void>{this.assertAlive();await this.pendingSettle;this.assertAlive();await this.backend.device.queue.onSubmittedWorkDone();if(this.settleFailure){const failure=this.settleFailure;this.settleFailure=undefined;throw failure}this.busy=false}
  private resetGesture(){
   this.scratch.beginStroke(()=>{
    const cached=this.scratch.delivery.gestureScalars
@@ -146,21 +156,24 @@ export class CanonicalBoundedSceneRunner {
   const composite=(ctx:CanonicalGpuContext)=>{this.adapter.retain(this.finish.encode(ctx.encoder,{settleComplete:true,...compositeMetadata,settledGesture:this.scratch.gesture,materialGesture:this.scratch.materialGesture,bounds:job.compositeDomain}))}
   if(!progressive){runCanonicalSettleJob(this.adapter,job,composite,this.options.groupedSettleSubmission===true);return}
   this.busy=true
-  this.pendingSettle=this.runProgressive(job,composite).catch(error=>{this.settleFailure=error}).finally(()=>{this.previewEnabled=false;this.activePreviewContext=null})
+  this.pendingSettle=this.runProgressive(job,composite).catch(error=>{if(!this.retired)this.settleFailure=error}).finally(()=>{this.previewEnabled=false;this.activePreviewContext=null})
  }
  private async runProgressive(job:Parameters<typeof runCanonicalSettleJob>[1],composite:(ctx:CanonicalGpuContext)=>void):Promise<void>{
   try{
    for(const op of job.ops){
+    if(this.retired)return
     this.previewReady=false
     this.adapter.runQuantum(ctx=>{this.activePreviewContext=ctx;try{op()}finally{this.activePreviewContext=null}})
-    if(this.previewReady)this.options.onSettlePreview?.()
-    await (this.options.yieldSettleFrame?.()??new Promise<void>(resolve=>requestAnimationFrame(()=>resolve())))
+    if(this.previewReady&&!this.retired)this.options.onSettlePreview?.()
+    await Promise.race([this.retiredSignal,this.options.yieldSettleFrame?.()??new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()))])
    }
-   this.adapter.runQuantum(ctx=>{job.finish();composite(ctx)});this.options.onSettlePreview?.()
+   if(this.retired)return
+   this.adapter.runQuantum(ctx=>{job.finish();composite(ctx)});if(!this.retired)this.options.onSettlePreview?.()
   }finally{this.adapter.runQuantum(()=>job.dispose())}
 
  }
  replay(operation:StrokeOperation):void {
+  this.assertAlive()
   if(this.active||this.busy)throw new Error('Native debug scene is busy')
   if(operation.tool!=='watercolor')throw new Error('Native debug replay supports only watercolor')
   this.guardOwner(operation.layerId,operation.washId)
@@ -175,5 +188,16 @@ export class CanonicalBoundedSceneRunner {
   if(age<WET_DRY_MS){const at=this.options.now()-age,preset=presetForTool('watercolor',operation.preset),water=watercolorMixFromPreset(operation.preset).water;for(const dab of dabs)this.paperWet.deposit(operation.layerId,dab.x,dab.y,dab.size*.5*preset.sizeMultiplier*Math.max(dab.aspectRatio,1),prepared.standing.get(dab)??water,at,false,prepared.dabPool.get(dab)??0)}
   this.settle();this.busy=true
  }
- destroy(){if(this.active||this.busy)throw new Error('Drain native scene before destroy');this.planner.destroyTextures();this.scratch.tiles.destroy();this.target.buffer.destroy();this.fieldOwner.destroy();this.pool.destroy()}
+ /** Whole-owner cancellation. Never synthesizes pen-up or an operation. Call
+  * before backend.destroy: cancellation disposes the CPU job in its live scope.
+  * Texture retirement stays deferred by the backend's existing scope owner. */
+ retire():Promise<void>{
+  if(this.retirement)return this.retirement
+  this.retired=true;this.cancelYield();for(const detach of [...this.detachInputs])detach()
+  this.retirement=(async()=>{try{await this.pendingSettle}finally{this.releaseResources();this.active=false;this.busy=false;this.settleFailure=undefined}})()
+  return this.retirement
+ }
+ private releaseResources(){if(this.resourcesReleased)return;this.resourcesReleased=true;for(const detach of [...this.detachInputs])detach();this.planner.destroyTextures();this.scratch.tiles.destroy();this.target.buffer.destroy();this.fieldOwner.destroy();this.pool.destroy()}
+ destroy(){if(this.active||this.busy)throw new Error('Drain native scene before destroy');this.releaseResources()}
+
 }
