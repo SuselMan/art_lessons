@@ -247,7 +247,6 @@ export class CanonicalWatercolorSettlePlan<B extends SettlePlanBuffer<B>, T> {
     if (skipColourSnapshot) {
       this.colourSnapshotStats.skipped++
       this.colourSnapshotStats.storageBytesAvoided += field.w * field.h * 4
-      this.colourSnapshotStats.copyPixelsAvoided += field.w * field.h
     }
     const snapshots = new Map<B, { ink: B; color: B | null }>()
     // The settle's rect in the field's GL cells, for the interpolation's clamp.
@@ -390,6 +389,7 @@ export class CanonicalWatercolorSettlePlan<B extends SettlePlanBuffer<B>, T> {
       }
       if (a0) field.b.copyTo(a0)
       if (ca0) field.cb.copyTo(ca0)
+      else if (skipColourSnapshot) this.colourSnapshotStats.copyPixelsAvoided += field.w * field.h
     })
     // Queue.start executes the first entry at the chunk boundary. Uploads
     // belong to that same entry: putting them ahead of the stitch lets the
