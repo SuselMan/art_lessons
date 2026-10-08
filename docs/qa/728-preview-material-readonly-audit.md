@@ -49,3 +49,19 @@ Fixture material теперь отдельно проверяет frozen6aeec405
 **Явное ограничение max3**: retire не возвращает физическую preview lease в очередь новых admission до session dispose. Undo/Redo/layer_delete не сбрасывают previewAdmissions. Tape water stroke→pigment stroke→third stroke→Undo→fourth stroke упрётся в capacity несмотря на освобождённую логическую картинку. Это заявленный bounded-session контур, не готовая непрерывная UX; не приглашать пользователя к неограниченному рисованию с этим флагом. Проверку следует ограничить≤3 author admissions; replay history не считать новым разрешением переполнить owner pool.
 
 Восемь source inputs не пишутся этими paths: preview outputs отдельные, guard обращается только к pending identity. Fixture не утверждает нулевых canonical writes со стороны самого rebuild/solver — они ожидаемы и принадлежат другому владельцу.
+
+## Конкретный кандидат снятия session-cap без fence на DOWN
+
+Не использовать owner.land как сертификат GPU idle: land вызывается внутри generator до выхода `_advanceAsyncCanonical`, а финальные preview composite/presentation могли быть отправлены позже предыдущего fence. Удаление pending — логическое снятие ссылки, не GPU completion.
+
+Без нового finish на DOWN можно переиспользовать уже существующие точки синхронизации:
+
+- `index.ts:8344–8357`: `_advanceAsyncCanonical` вызывает `_syncContinuationGpu()` **после work.next**, включая done/land. При default путь `:4628` вызывает gl.finish; при completion-clock — GpuBudgetFence.sync. Сертификат допустим только после успешного возврата, live context/current request.
+- `WatercolorSettleQueue.ts:237–248`: syncGpu после каждого batched pulse; аналогично сертификат только после возврата. `ctx.syncGpu` (`index.ts:1898`) — gl.finish.
+- cancellation installer: после retire/cancel и existing gl.finish в microtask. Эта точка допустима только вне input/DOWN; не добавлять cancellation ради освобождения cap.
+
+Предлагаемый узкий контракт `preview.noteCompletedBoundary(contextGeneration,submittedSerial)` вызывается синхронно сразу после **существующей** доказанной синхронизации. lastReferenceSerial обновляется после каждой preview initialize/step/composite и чтения pending при reveal/presentation, прежде чем команда может встретить следующую boundary. retire сначала detach pending/удаляет tick state; дальше releaseAfterFence только если lastReferenceSerial≤completedSerial и generation совпадает. Синхронизация не разрешает освобождать ещё attached state. Между certificate и release не await/rAF; новые submit получают новый serial. Потеря контекста закрывает старое поколение, старые lease не идут в новый context pool.
+
+Existing pool уже поддерживает idempotent lease.release→available; transport releaseAfterFence проверяет token/epoch. Нужен drain retired (удалять released entries), а не dispose всего pool. Installer previewAdmissions должен стать количеством **активных/retired-not-completed** slots, а не lifetime-total; DOWN только pool.take/strict backpressure. Без certificate четвёртый admission отклоняется. Если canonical заблокирован и все3 slot retired, capacity может временно сохраняться: это честный bounded backpressure, не повод вставлять finish на DOWN.
+
+Node `preview-idle-reuse-audit.mjs` PASS на actual pool/transport: cap4 отклоняется до idle; land/retire не достаточно; partial certificate освобождает только2 из3; четвёртый lease не alias pending третьего; поздние команды не покрываются старым certificate; повторный drain не удваивает release. Это **план и CPU ledger**, runtime не изменён и реальный coverage всех GPU read paths серийным счётчиком ещё требует интеграционного теста.
