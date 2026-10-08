@@ -1,0 +1,135 @@
+{
+  "scope": "Linux Node pure CPU builder; generated scalar object-removal only. No GPU/fullRoom time or command submission proof.",
+  "node": "v20.20.2",
+  "exact": true,
+  "fixtures": 100,
+  "encodedBytesCompared": 61459200,
+  "orderedFloat32SHA": "e238954c8f2644be0666511a901de88152df20d0438524a121974700b754ac39",
+  "passport": {
+    "source": "apps/web/src/engine/src/dabs/markerRibbon.ts",
+    "sourceSHA": "c33fd2cb000a53fa7c4778f12129cc953e84f65384eecb640e69a136da9290b6",
+    "candidateSHA": "472f3b9a74be20c6cbfa4fc846f6b09825bba0b30fc5d4ec429bae5ec24167c1",
+    "productionModified": false,
+    "removedObjectsPerBody": 64
+  },
+  "timedFixtures": 13,
+  "repeats": 8,
+  "warmRounds": 5,
+  "rows": [
+    {
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "baseline": {
+        "ms": 148.622611,
+        "length": 15814656
+      },
+      "candidate": {
+        "ms": 155.64016500000002,
+        "length": 15814656
+      }
+    },
+    {
+      "order": [
+        "candidate",
+        "baseline"
+      ],
+      "candidate": {
+        "ms": 148.30220499999996,
+        "length": 15814656
+      },
+      "baseline": {
+        "ms": 140.67537900000002,
+        "length": 15814656
+      }
+    },
+    {
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "baseline": {
+        "ms": 140.6990189999999,
+        "length": 15814656
+      },
+      "candidate": {
+        "ms": 141.65059300000007,
+        "length": 15814656
+      }
+    },
+    {
+      "order": [
+        "candidate",
+        "baseline"
+      ],
+      "candidate": {
+        "ms": 138.5511150000002,
+        "length": 15814656
+      },
+      "baseline": {
+        "ms": 137.27271699999983,
+        "length": 15814656
+      }
+    },
+    {
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "baseline": {
+        "ms": 143.4738699999998,
+        "length": 15814656
+      },
+      "candidate": {
+        "ms": 143.08398499999976,
+        "length": 15814656
+      }
+    },
+    {
+      "order": [
+        "candidate",
+        "baseline"
+      ],
+      "candidate": {
+        "ms": 138.60308499999974,
+        "length": 15814656
+      },
+      "baseline": {
+        "ms": 138.34560800000008,
+        "length": 15814656
+      }
+    },
+    {
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "baseline": {
+        "ms": 135.0299769999997,
+        "length": 15814656
+      },
+      "candidate": {
+        "ms": 138.43493499999977,
+        "length": 15814656
+      }
+    },
+    {
+      "order": [
+        "candidate",
+        "baseline"
+      ],
+      "candidate": {
+        "ms": 140.91749200000004,
+        "length": 15814656
+      },
+      "baseline": {
+        "ms": 172.22105499999998,
+        "length": 15814656
+      }
+    }
+  ],
+  "medianBaselineMs": 140.68719899999996,
+  "medianCandidateMs": 141.28404250000006,
+  "medianRatio": 1.0042423440387074
+}
