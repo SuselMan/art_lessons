@@ -35,3 +35,32 @@ it('conservative active transport does not justify declaring the whole current l
  expect(mobile.reduce((a,b)=>a+b,0)).toBe(100)
  expect(rebasedMobile).toEqual([0,0])
 })
+it('a historical snapshot must be captured before FIRST transport, not refreshed per live chunk',()=>{
+ const history=[20,0],load=[100,0],transported=[75,25]
+ const mobile=(laid:number[],settled:number[])=>laid.map((v,i)=>Math.max(0,v-settled[i]))
+ const snapshot=[...history]
+ const continuation=[...transported]
+ history[0]=continuation[0];history[1]=continuation[1] // technical continuation rebase
+ expect(snapshot).toEqual([20,0])
+ expect(mobile(transported,snapshot)).toEqual([55,25])
+ expect(mobile(transported,history)).toEqual([0,0])
+ // Changing chunk partition must not replace an already retained snapshot.
+ const retain=(prior:number[]|null,current:number[])=>prior??[...current]
+ expect(retain(snapshot,continuation)).toBe(snapshot)
+ expect(retain(null,continuation)).toEqual([75,25]) // rejected late-capture example
+ expect(load.reduce((a,b)=>a+b,0)).toBe(transported.reduce((a,b)=>a+b,0))
+})
+it('neither fixed nor jointly transported optical snapshots automatically conserve positive clamped mobile',()=>{
+ const laid=[100,0],settled=[0,100]
+ const positive=(a:number[],b:number[])=>a.reduce((sum,v,i)=>sum+Math.max(0,v-b[i]),0)
+ const mixedLaid=[50,50],mixedSettled=[50,50]
+ expect(laid.reduce((a,b)=>a+b,0)).toBe(mixedLaid.reduce((a,b)=>a+b,0))
+ expect(settled.reduce((a,b)=>a+b,0)).toBe(mixedSettled.reduce((a,b)=>a+b,0))
+ expect(positive(laid,settled)).toBe(100)
+ expect(positive(mixedLaid,settled)).toBe(50)
+ expect(positive(mixedLaid,mixedSettled)).toBe(0)
+ // Signed differences sum to zero in BOTH states; clamp discards the negative
+ // half. Conservation of raw records alone is not a mobile-budget proof.
+ expect(laid.reduce((s,v,i)=>s+v-settled[i],0)).toBe(0)
+ expect(mixedLaid.reduce((s,v,i)=>s+v-mixedSettled[i],0)).toBe(0)
+})
