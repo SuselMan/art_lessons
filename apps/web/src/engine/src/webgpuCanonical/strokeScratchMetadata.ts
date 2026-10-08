@@ -21,9 +21,9 @@ export function canonicalSourceRevealRect(tile:CanonicalLayerTile,bounds:Canonic
 }
 /** CPU metadata + real native resource owner, structurally satisfies generic settle planner.
  * Delivery formulas remain in the unchanged CPU preparer; GPU source phases remain separate. */
-export class CanonicalStrokeScratchMetadata implements SettlePlanScratch<CanonicalFieldBuffer> {
+export class CanonicalStrokeScratchMetadata<D extends Pick<CanonicalStrokeChunkState,'brushTravel'|'wetContacts'> = CanonicalStrokeChunkState> implements SettlePlanScratch<CanonicalFieldBuffer> {
  readonly tiles:CanonicalTileScratch
- readonly delivery:CanonicalStrokeChunkState
+ readonly delivery:D
  readonly tile:CanonicalLayerTile
  gesture=0
  private material:number|null=null
@@ -35,7 +35,7 @@ export class CanonicalStrokeScratchMetadata implements SettlePlanScratch<Canonic
  pigmentInputsKnownZero=true
  private storage:CanonicalScratchBounds|null|undefined=null
  private finish:CanonicalFinishContext|null=null
- constructor(tiles:CanonicalTileScratch,delivery:CanonicalStrokeChunkState,boundedTiles:readonly CanonicalLayerTile[]){
+ constructor(tiles:CanonicalTileScratch,delivery:D,boundedTiles:readonly CanonicalLayerTile[]){
   if(boundedTiles.length!==1)throw new Error('Native scratch metadata requires exactly one bounded tile')
   if(boundedTiles[0].buffer.owner!==tiles.pool.owner)throw new Error('Native scratch metadata owner mismatch')
   this.tiles=tiles;this.delivery=delivery;this.tile=boundedTiles[0]
