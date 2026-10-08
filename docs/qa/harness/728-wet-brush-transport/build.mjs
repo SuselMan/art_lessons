@@ -1,0 +1,2 @@
+import {build} from 'esbuild';import fs from 'node:fs';import path from 'node:path';
+const out=process.env.QA_OUT;if(!out)throw Error('Explicit persistent QA_OUT required');fs.mkdirSync(out,{recursive:true});await build({entryPoints:[new URL('./run.ts',import.meta.url).pathname],outfile:path.join(out,'run.js'),bundle:true,format:'esm',target:'es2022',sourcemap:false});fs.copyFileSync(new URL('./index.html',import.meta.url),path.join(out,'index.html'));
