@@ -2224,7 +2224,7 @@
           "risk": "Fusing проходов меняет RGBA8 округление; рост shader ломал Adreno compiler."
         }
       ],
-      "speedup": "No isolated/full-engine hardware gain accepted.",
+      "speedup": "Carry GPU ~32% in one diagnostic series; whole gain not found.",
       "reviewBasis": "Исходник6aa14a43, измеренный сценарий, статические ссылки; не доказательство полной эквивалентности.",
       "mathematicalArgument": "Замена A→tmp→B на swap exact только если все дальнейшие consumers используют обновлённый handle и нет владельца, ожидающего старыйhandle. Algebraic fusion не сохраняет Q(f(Q(g(x))))=Q(f(g(x))) в общем случае дляRG​BA8.",
       "historicalProposalStatus": "proposal",
@@ -2232,9 +2232,9 @@
         "date": "2026-10-08",
         "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
         "backendScope": "See evidence; GL and native are not interchangeable",
-        "note": "Native port/LINEAR diagnostic improves sampled carry input matching, but native vsGL final not exact. No production fusion or mode-count reduction.",
-        "evidence": "../728-night-2026-10-08.md",
-        "wholeGain": "No isolated/full-engine hardware gain accepted.",
+        "note": "GL2 carry15/16 MRT exact26fields/material/RGBA/tape Surface; sampled carry95.65→65.34GPUms, whole OFF/ON/ON/OFF no gain. Separate shader/per-stepQ8, defaultOFF; no Samsung gate.",
+        "evidence": "../harness/728-gl-carry-mrt/README.md",
+        "wholeGain": "No whole gain:5817.5/6601.9/5881.8/5871.1ms; GPU local timings from separate arms.",
         "productionReady": false
       }
     },

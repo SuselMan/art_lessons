@@ -25,7 +25,7 @@ Statuses refer to named candidates, not exhaustive research. Historical source/m
 | Queue.complete | implemented | No independent measured whole gain. |
 | Queue.scheduleTick | pending | Not measured. |
 | Plan.prepare | implemented | No independent whole preparation gain. |
-| Passes.fieldOp | implemented | No isolated/full-engine hardware gain accepted. |
+| Passes.fieldOp | implemented | Carry MRT exact; sampled GPU95.65→65.34ms, no whole gain. |
 | Passes.waterFrontStep | validated | Native operator34% is not GL/Room/whole34%. |
 | Passes.wcResample | implemented | No accepted whole gain. |
 | Passes.diffuseStep | validated | Native only; no Room400 gain claim. |
