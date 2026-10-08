@@ -134,3 +134,28 @@ scheduling или непокрытый task остаются возможны. �
 probe не измерено. Generator resume/pool internals отдельно не покрыты.
 Inclusive nested CPU durations не суммировать. rAF timestamp не равен
 моменту исполнения callback и не показывает реальную задержку экрана.
+
+### Joined mixed: локализация и отдельный exact gate
+
+ONE actual Room pair, queue ON, joinedTouch ON, deferred/async/material OFF.
+Mixed OFF water→pigment400: первые rAF до +82.5ms, затем +482.5ms (gap400ms).
+Mixed ON: 27rAF до +465.8ms, максимальный gap в этой фазе33.3ms. Captured
+finish/lease сохраняет старый водный job; DOWN не досылает его153+операций.
+OFF DOWN10ms/complete6.6ms, ON DOWN5.8ms; старый drain теперь происходит
+при UP15.7ms, весь UP55.7ms. Scene6688→6904ms, ускорение whole не доказано:
+работа перенесена с живого ведения кисти к отрыву. Общий maxgap400ms остаётся.
+ONE instrumental pair не доказывает стабильность/физическую pixel-onset.
+
+Отдельный static no-React fixture `mixedQuality.mjs`: те же fixed400 water→pigment
+inputs, queueON/deferredFALSE/mixedOFF→ON. Нет post-DOWN pixel probe старого
+joined-mixed harness; hash/readback/export только после natural idle.
+24 named roles (14 tile/10 working), wholeRGBA и packed material EXACT.
+Meaningful Undo и exact Redo прошли обеих arms. Это24, не прежний26-role gate,
+не full peer/layers/reentry proof. GLerrors0; minRAM1460/free2074MiB.
+Static DOM host устранил два harness-only failed starts (missing surface и
+SPA navigation); failed raw сохранены. Итог raw `queue-mixed-quality-surface.json`.
+
+Review manifest содержит runtime SHA и query flags, private host/room URL
+хранятся вне Git. Runtime unchanged, defaults OFF. Для смотрин проверять
+отдельно: foreground water→pigment, второй цвет касается мокрого первого,
+а также задержку UP/следующего DOWN. Filmstrip до сих пор не записан.

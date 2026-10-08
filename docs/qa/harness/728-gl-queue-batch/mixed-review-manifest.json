@@ -1,0 +1,18 @@
+{
+  "kind": "isolated-DEV-review",
+  "runtimeSourceCommit": "ca9f8bc2",
+  "query": {
+    "qaJoinedTouch": "1",
+    "qaSolverBatch": "1",
+    "qaJoinedTouchMixed": "1"
+  },
+  "defaultsUnchanged": true,
+  "runtimeFiles": {
+    "apps/web/src/engine/index.ts": "ad8687731c626d52921c1cbef4a96fb2eddbf221f83cd42db62031cedb90d6d3",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "400318b2dac513f4dbc17a156d70ca11207f9a85cbec169c0bf98d2b528c018b",
+    "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "278d5482a2c5103387554228d61c01a0b1e3d58280be6077e8168ec8ab48bb82",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e"
+  },
+  "qualityRoleCount": 24,
+  "knownLimit": "UP/drain/between-stroke gaps remain; no peer gate"
+}
