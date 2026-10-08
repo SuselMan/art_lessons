@@ -37,3 +37,12 @@
 - Native foreign-water auxiliary импорт реализован по прежней CPU chronology/modes20/1; вода→пигмент40 в Room завершилась без ошибок, exact material/GL parity ещё не доказана. Production build исключает backend explicit DEV guard; default flags OFF.
 
 Подробности carry MRT: [26fields exact / whole gain отсутствует](harness/728-gl-carry-mrt/README.md).
+
+### Приоритет после расширенного аппаратного профиля
+
+Surface mixed400/Fine: отдельный passes cohort без ошибок и с exact26fields/material/RGBA. WaterFront252 вызова /687.57GPUms, fieldOp215/372.83, diffuse39/83.93, brush408/81.30, resample40/9.63. Это затраты, а не ожидаемые проценты ускорения. Отдельные transfers: clear44/11.14, copyTo22/7.04, copyRegion444/11.53GPUms. Складывать независимые cohorts и вычитать их из wall нельзя. Raw GL uploads/draws и CPU finish не покрыты из-за bound adaptedGL proxy; профиль не исчерпывает критический путь.
+
+1. Оптимизировать front с неизменными sampling/Float32/Q8; отклонённый GL paper cache не возвращать без exact gate.
+2. Разобрать очередь: количество slices, ожидания rAF, GPU synchronization и onset; измерить до первого видимого пигмента отдельно от dry replay.
+3. GL2+batching проверять на реальных Room400/history/peer, сохранять default OFF до матрицы.
+4. WebGPU: следующий gate400 и exact source/settle material относительно GL, затем Undo/Redo/участники; первые Room40 функциональные PASS не доказывают ускорения.
