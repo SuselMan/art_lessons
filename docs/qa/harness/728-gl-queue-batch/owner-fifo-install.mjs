@@ -79,7 +79,7 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
     for(const [role,key]of[['solventLoad','load'],['solventBase','base'],['solventFilm','film']])Object.defineProperty(f,role,{get(){solvent??=scratch.solventFilm(tile.buffer);return solvent[key]}});
     new TypedGlSourceReplayPrototype({segments:[{commands:recipe.commands,rect:recipe.rect}],expectedPredecessorVersion:owner.version,film:!!recipe.composite.profile.normalizeDeposit&&!!e._minmaxExt,captureRunningCoverage:false,initializeMaterialFilm:false,initializeSolventFilm:false}).execute(createPreparedGlSourcePort({bindCurrentCanonical:()=>({landedVersion,fields:f}),tile,context:drawContext,ribbon:e._ribbonPasses,watercolor:e._watercolorPasses,presetHardness:preset.hardness}));
     const c=recipe.composite;e._drawRibbonCompositeRect(tile,c.bounds,c.preset,c.profile,entry.original,entry.coverage,entry.inkLoad,entry.inkColor,c.color,c.opacity,c.fieldSeed,c.spreadPx,c.fringeWater,c.migratePx,c.profile.normalizeDeposit?c.dabSpacing:0,c.strokeDir,c.bristleRadiusPx);
-    e._releaseAsyncScratch(scratch,false);event('canonical-source',{sequence:owner.token.sequence});yield 0;
+    target.markContentPainted(c.bounds);e._releaseAsyncScratch(scratch,false);event('canonical-source',{sequence:owner.token.sequence});yield 0;
    },cancel:lost=>{request.cancel(lost);e._releaseAsyncScratch(scratch,lost);cancelOwner(owner)}});
   }});
  };
