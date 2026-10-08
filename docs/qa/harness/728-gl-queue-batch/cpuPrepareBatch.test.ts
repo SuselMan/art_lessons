@@ -49,3 +49,12 @@ it('missing finish metadata keeps eager fallback without any CPU tag',async()=>{
  const job=p.prepare(f.scratch,[{buffer:f.tile,originX:0,originY:0}],{minX:0,minY:0,maxX:f.width,maxY:f.width},.6,200,1,.8,1,.8)!;
  expect(job.ops.some(op=>diagnosticSettleOpTag(op)==='cpu-prepare')).toBe(false);job.dispose();p.destroyTextures();
 })
+it('dynamic CPU continuation insertion retains the class but stops before upload',()=>{
+ const f=fixture(),events:number[]=[];const ops:Array<()=>void>=[()=>{}];
+ const make=(n:number):(()=>void)=>cpuPrepareOp(()=>{events.push(n);if(n<5){const child=make(n+1),wrapper=()=>child();inheritSettleOpTags(child,wrapper);ops.splice(f.q.current!.next,0,wrapper)}});
+ ops.push(make(1),()=>events.push(99));f.q.start(f.scratch,ops,()=>{});f.frame();expect(events).toEqual([1,2,3,4]);f.frame();expect(events).toEqual([1,2,3,4,5]);f.frame();expect(events.at(-1)).toBe(99)
+})
+it('soft 8ms budget stops after one existing overrun without crossing upload',()=>{
+ const f=fixture(),events:string[]=[];f.q.start(f.scratch,[()=>{},cpuPrepareOp(()=>{events.push('cpu');f.advance(9)}),cpuPrepareOp(()=>events.push('next')),()=>events.push('upload')],()=>{});
+ f.frame();expect(events).toEqual(['cpu']);expect(f.q.diagnosticCpuPrepareCounts.maxMs).toBe(9);f.q.cancel()
+})
