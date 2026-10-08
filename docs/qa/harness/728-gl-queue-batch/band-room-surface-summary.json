@@ -1,0 +1,86 @@
+{
+  "sourcePassport": {
+    "apps/web/src/engine/index.ts": "ad8687731c626d52921c1cbef4a96fb2eddbf221f83cd42db62031cedb90d6d3",
+    "apps/web/src/engine/src/raster/CanonicalWatercolorSettlePlan.ts": "26243b596f983a1a897ca48481033f0c168930bb7e66fcf3247792f8e62b643b",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "400318b2dac513f4dbc17a156d70ca11207f9a85cbec169c0bf98d2b528c018b",
+    "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "2b62d469fd8175b74cefc937fd748668e5f0367109c9cc9c8103d53f3f576c96",
+    "apps/web/src/engine/src/dabs/ribbonBandBatch.ts": "7055c1a68a307bdef4c141cc984188753bcc1b4f57077abdab6310b50631b5d8",
+    "apps/web/src/engine/src/dabs/markerRibbon.ts": "c33fd2cb000a53fa7c4778f12129cc953e84f65384eecb640e69a136da9290b6"
+  },
+  "valid": true,
+  "scope": "ONE Surface actual Room alternating OFF then ON, queue/mixed/deferred ON both, passive CPU markers, no during-drawing readbacks; flag verified, no hardware builder call instrumentation",
+  "rows": [
+    {
+      "band": false,
+      "actualBand": false,
+      "elapsedMs": 8953.5,
+      "frameMax": 83.29999999999927,
+      "frameP95": 33.29999999999927,
+      "over33": 29,
+      "gl": 0,
+      "lost": false,
+      "gestures": [
+        {
+          "name": "first-pigment",
+          "downCpuMs": 39.89999997615814,
+          "upCpuMs": 73.69999998807907,
+          "firstDrawSubmitMs": 20.399999976158142
+        },
+        {
+          "name": "second-pigment-during-settle",
+          "downCpuMs": 5.800000011920929,
+          "upCpuMs": 32.10000002384186,
+          "firstDrawSubmitMs": 2.899999976158142
+        },
+        {
+          "name": "pure-water",
+          "downCpuMs": 4.299999952316284,
+          "upCpuMs": 32.5,
+          "firstDrawSubmitMs": 2
+        },
+        {
+          "name": "pigment-over-water",
+          "downCpuMs": 3.800000011920929,
+          "upCpuMs": 37.09999996423721,
+          "firstDrawSubmitMs": 1.699999988079071
+        }
+      ]
+    },
+    {
+      "band": true,
+      "actualBand": true,
+      "elapsedMs": 8899.299999952316,
+      "frameMax": 83.29999999999927,
+      "frameP95": 33.20000000000073,
+      "over33": 28,
+      "gl": 0,
+      "lost": false,
+      "gestures": [
+        {
+          "name": "first-pigment",
+          "downCpuMs": 38.39999997615814,
+          "upCpuMs": 60.5,
+          "firstDrawSubmitMs": 19.19999998807907
+        },
+        {
+          "name": "second-pigment-during-settle",
+          "downCpuMs": 5.700000047683716,
+          "upCpuMs": 32.69999998807907,
+          "firstDrawSubmitMs": 2.800000011920929
+        },
+        {
+          "name": "pure-water",
+          "downCpuMs": 4.5,
+          "upCpuMs": 25.399999976158142,
+          "firstDrawSubmitMs": 2.5
+        },
+        {
+          "name": "pigment-over-water",
+          "downCpuMs": 3.699999988079071,
+          "upCpuMs": 26.69999998807907,
+          "firstDrawSubmitMs": 1.699999988079071
+        }
+      ]
+    }
+  ]
+}
