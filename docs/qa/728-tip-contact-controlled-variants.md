@@ -23,3 +23,10 @@ Actual stamp Surface5f доказал: baseline P.B exact actual; nib255, hair �
 `build-held-variants.mjs <newImmutableDirectory>` собирает callable `runHeldStampVariants`: literal/A/B ×pressure0.7/0.1/0.02/0,36draws с тремя выходами amount/coverage/contact. Actual геометрия фиксирована; не переделывается radius при слабом нажиме. Это проверка функции pressure, не полная геометрия подъёма. Literal shader неизменен; A/B меняют только функцию contact для всех source phases. Результаты36×36864=1,327,104decodedbytes; GPUtexture бюджет~8.3MiB, staging48KiB переиспользуется, нет1536solver.
 
 `held-variant-controller.mjs`: тот же ONE60с Surface1700/500, HTTPmanifest/SHA, exactpressure/order/budget, собственная страница. `analyze-held-variants.py <savedGate>` сохраняет ROI PB/water/coverage/contact карты, dose sum/delta, interior zeros/rows/critical pixels. Суммы строгоROI, не whole-stamp масса. До actual gate художественный вывод отсутствует. Source/golden8tests, strictTS, decoder3tests PASS. Lowpressure endpoints0.1/0.02 используют исходные параметры обоих вариантов; pressure0 полного отрыва должен оставлять0 для всех source outputs.
+
+
+## Actual Surface paired gate e61
+
+Capture PASS,12arms/36fields, GPUerrors[], own page закрыта; pre2147.8MiB/post1943.9MiB. Raw `temp/fast-watercolor-night/held-stamp-variants-surface-20261008`. Literal pressure0.7 полный P exact предыдущему5f(actualPB exact). В ROI исходный PBsum504362. A добавляет4506PB/water units (+0.8934%),256изменённых пикселей/max49; B9580 (+1.8994%),465/max55. У обоих interior zeroPB3→0. Critical A8/7/6, B7/6/5 вместо0/0/0. Coverage sum reference1915613→A1941872/B1970134. Это изменение контакта/дозировки, не потеря массы transport.
+
+При pressure0.1/0.02/0 PB exact literal для обоих вариантов. All36RGBA comparison low endpoints отдельно подтверждается hashes; pressure0 PB полностью0. A выбран для следующего диагностического moving proof как меньшее вмешательство/меньшая прибавка дозы, **не художественно лучший вариант**. Геометрический nib edge не менялся; отсутствует доказательство full-stroke naturalness/dry/replay.
