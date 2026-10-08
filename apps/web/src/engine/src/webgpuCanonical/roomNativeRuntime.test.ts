@@ -13,3 +13,14 @@ it('boundary retirement releases the old owner without cancelling later queued s
  runtime.invalidateAtBoundary('clear')
  expect(retire).toHaveBeenCalledWith('clear',false);expect(cancel).not.toHaveBeenCalled()
 })
+it('foreign-water merge checks the captured recipient and actual layer target before material writes',()=>{
+ const recipient={},layer={},anotherLayer={},merge=vi.fn()
+ const runtime=Reflect.construct(RoomNativeRuntime,[{}, {fifo:{},changed:vi.fn()}]) as RoomNativeRuntime
+ const state=runtime as unknown as {scratch:unknown;targetLayer:unknown;owner:unknown;foreignPrepared:WeakMap<object,Set<string>>;central:unknown}
+ state.scratch=recipient;state.targetLayer=layer;state.owner={importForeign:merge};state.foreignPrepared.set(recipient,new Set(['water']))
+ state.central={enqueueSource:(emit:()=>void)=>emit()}
+ expect(()=>runtime.importForeign(recipient as never,anotherLayer as never,'water')).toThrow('recipient layer/generation mismatch')
+ expect(merge).not.toHaveBeenCalled()
+ runtime.importForeign(recipient as never,layer as never,'water');expect(merge).toHaveBeenCalledWith('water')
+ runtime.importForeign(recipient as never,anotherLayer as never,'wholly-off-tile');expect(merge).toHaveBeenCalledTimes(1)
+})
