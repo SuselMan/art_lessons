@@ -62,3 +62,17 @@ parity/performance remain UNKNOWN, not failed or passed. Software is not a devic
 substitute. check.mjs now enforces a default300000ms budget (fourth CLI argument
 overrides it), logs GROUPAB stages, and saves timeout/failure evidence. Hardware
 root owns the next Samsung/Surface sequential run. No device was used by this agent.
+
+For localization only, `runGroupedAB({size:400,allowLarge:true,captureSolvent:true})`
+captures solventBase/solventLoad/strokeSolvent at source-before-settle and after
+finish for each replay operation. Copies are submitted immediately at each queue
+boundary; mapping/hashing follows afterward. Returned solventCheckpoints contain
+bounded hashes/dimensions/nonzero and byte differences, not raw arrays. This adds
+readback submissions and perturbs timing: use the default captureSolvent=false
+for performance. Missing checkpoint/role and any differing byte fail the gate.
+
+To build the SAME runner with only pre-scissor kernels frozen:
+`DISPATCH_BASELINE=9d6f41f1 node docs/qa/harness/728-native-grouped-ab/build.mjs temp/native-grouped-ab-old`.
+Build current separately, then pass the exact returned packed tape into both
+pages. Compare equivalent OFF rows, all retained roles and solvent checkpoints;
+this isolates old/new dispatch from grouping. Never suppress solventLoad.

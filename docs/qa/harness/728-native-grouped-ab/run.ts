@@ -13,9 +13,9 @@ const hash=async(bytes:Uint8Array)=>Array.from(new Uint8Array(await crypto.subtl
 const diff=(a:Uint8Array,b:Uint8Array)=>{if(a.length!==b.length)throw new Error('Capture dimensions changed');let changed=0,max=0,total=0;for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);changed+=+(d>0);max=Math.max(max,d);total+=d}return{changed,max,total}}
 interface Counts {submits:number;commandBuffers:number;submitCpuMs:number;quanta:number;encodeCpuMs:number}
 interface RoleCapture {width:number;height:number;nonzero:number;sha256:string;difference:ReturnType<typeof diff>}
-interface RunRow {grouped:boolean;metrics:Record<'source'|'live'|'prepare'|'settle',Counts>;replayCpuMs:number;waitWallMs:number;wallMs:number;readbackWallMs:number;roles:Record<string,RoleCapture>;errors:string[];lost:boolean}
+interface RunRow {grouped:boolean;metrics:Record<'source'|'live'|'prepare'|'settle',Counts>;replayCpuMs:number;waitWallMs:number;wallMs:number;readbackWallMs:number;roles:Record<string,RoleCapture>;solventCheckpoints:Record<string,RoleCapture>;errors:string[];lost:boolean}
 const count=():Counts=>({submits:0,commandBuffers:0,submitCpuMs:0,quanta:0,encodeCpuMs:0})
-export async function runGroupedAB({size=100,allowLarge=false,tape:provided,groupedFirst=false}:{size?:100|400;allowLarge?:boolean;tape?:StrokeOperation[];groupedFirst?:boolean}={}){
+export async function runGroupedAB({size=100,allowLarge=false,tape:provided,groupedFirst=false,captureSolvent=false}:{captureSolvent?:boolean;size?:100|400;allowLarge?:boolean;tape?:StrokeOperation[];groupedFirst?:boolean}={}){
  const memoryGiB=(navigator as Navigator&{deviceMemory?:number}).deviceMemory??null
  if(size===400&&(!allowLarge||memoryGiB!==null&&memoryGiB<4))return{skipped:true,reason:'400 needs allowLarge and >=4GiB reported memory when present',memoryGiB}
  const la=await getPaperBytes('fine'),side=Math.sqrt(la.length/2),paper=new Uint8Array(side*side*4)
@@ -52,6 +52,7 @@ export async function runGroupedAB({size=100,allowLarge=false,tape:provided,grou
   }finally{await author.destroy()}
  }
  if(!tape.length||tape.some(op=>op.type!=='stroke'||op.tool!=='watercolor'||!op.dabsPacked))throw new Error('Requires nonempty canonical packed watercolor tape')
+ if(captureSolvent&&tape.length>8)throw new Error('Solvent localization is bounded to eight packed operations')
  const tapeSha256=await hash(new TextEncoder().encode(JSON.stringify(tape)))
  const baseline=new Map<string,{bytes:Uint8Array;width:number;height:number}>(),rows:RunRow[]=[]
  for(const grouped of groupedFirst?[true,false]:[false,true]){
@@ -61,7 +62,20 @@ export async function runGroupedAB({size=100,allowLarge=false,tape:provided,grou
   const metrics={source:count(),live:count(),prepare:count(),settle:count()}
   // QA-only inspection/instrumentation. Source metadata/solver values unchanged.
   const internals=runner as unknown as {source:{execute:(...args:any[])=>GPUBuffer[]};finish:{encodeLive:(...args:any[])=>GPUBuffer[]};planner:{prepare:(...args:any[])=>unknown};settle:()=>void}
-  const settle=internals.settle.bind(runner);internals.settle=()=>{phase='settle';try{return settle()}finally{phase='source'}}
+  let replayIndex=0
+  const pendingSolvent:Array<{key:string;width:number;height:number;bytes:Promise<Uint8Array>}>=[]
+  const capture= (stage:string)=>{
+   if(!captureSolvent)return
+   const entry=runner.scratch.peek(runner.target.buffer)
+   for(const role of ['solventBase','solventLoad','strokeSolvent'] as const){const b=entry?.[role];if(!b)continue
+    // readBytes submits its copy immediately before yielding: queue chronology
+    // freezes this boundary before subsequent settle writes. Exclude counters.
+    const hooked=backend.device.queue.submit
+    backend.device.queue.submit=submit
+    try{pendingSolvent.push({key:`${replayIndex}.${stage}.${role}`,width:b.width,height:b.height,bytes:b.readBytes()})}finally{backend.device.queue.submit=hooked}
+   }
+  }
+  const settle=internals.settle.bind(runner);internals.settle=()=>{capture('source');phase='settle';try{const result=settle();capture('finish');return result}finally{phase='source'}}
   const execute=internals.source.execute.bind(internals.source);internals.source.execute=(...args)=>{phase='source';return execute(...args)}
   const live=internals.finish.encodeLive.bind(internals.finish);internals.finish.encodeLive=(...args)=>{phase='live';return live(...args)}
   const prepare=internals.planner.prepare.bind(internals.planner);internals.planner.prepare=(...args)=>{phase='prepare';return prepare(...args)}
@@ -79,7 +93,7 @@ export async function runGroupedAB({size=100,allowLarge=false,tape:provided,grou
    await runner.drain();for(const m of Object.values(metrics))Object.assign(m,count())
    backend.device.pushErrorScope('validation')
    const started=performance.now()
-   for(const operation of tape){timestamp=operation.timestamp;now+=100;const t=performance.now();runner.replay(structuredClone(operation));replayCpuMs+=performance.now()-t;const waiting=performance.now();await runner.drain();waitWallMs+=performance.now()-waiting;progress('replay drained '+(grouped?'ON':'OFF')+' '+operation.id)}
+   for(const operation of tape){replayIndex++;timestamp=operation.timestamp;now+=100;const t=performance.now();runner.replay(structuredClone(operation));replayCpuMs+=performance.now()-t;const waiting=performance.now();await runner.drain();waitWallMs+=performance.now()-waiting;progress('replay drained '+(grouped?'ON':'OFF')+' '+operation.id)}
    wallMs=performance.now()-started;progress('readback '+(grouped?'ON':'OFF'))
    if(!field)throw new Error('No canonical settle field captured')
    const capturedField=field as CanonicalSettleField
@@ -96,14 +110,21 @@ export async function runGroupedAB({size=100,allowLarge=false,tape:provided,grou
     const control=baseline.get(role);if(!control||control.width!==buffer.width||control.height!==buffer.height)throw new Error('Role/dimension mismatch '+role)
     roles[role]={width:buffer.width,height:buffer.height,nonzero,sha256:await hash(bytes),difference:diff(control.bytes,bytes)}
    }
-   if(rows.length&&Object.keys(buffers).length!==baseline.size)throw new Error('Different retained role count')
+   if(rows.length&&Object.keys(buffers).length!==[...baseline.keys()].filter(k=>!k.startsWith('checkpoint.')).length)throw new Error('Different retained role count')
+   const solventCheckpoints:Record<string,RoleCapture>={}
+   for(const checkpoint of pendingSolvent){const bytes=await checkpoint.bytes,key='checkpoint.'+checkpoint.key
+    if(!rows.length)baseline.set(key,{bytes,width:checkpoint.width,height:checkpoint.height})
+    const control=baseline.get(key);if(!control)throw new Error('Missing solvent checkpoint '+key)
+    solventCheckpoints[checkpoint.key]={width:checkpoint.width,height:checkpoint.height,nonzero:bytes.reduce((n,v)=>n+ +(v!==0),0),sha256:await hash(bytes),difference:diff(control.bytes,bytes)}
+   }
+   if(rows.length&&pendingSolvent.length!==Object.keys(rows[0].solventCheckpoints).length)throw new Error('Different solvent checkpoint count')
    readbackWallMs=performance.now()-readStarted
    const validation=await backend.device.popErrorScope();if(validation)run.errors.push(validation.message)
-   rows.push({grouped,metrics,replayCpuMs,waitWallMs,wallMs,readbackWallMs,roles,errors:[...run.errors],lost:run.lost})
+   rows.push({grouped,metrics,replayCpuMs,waitWallMs,wallMs,readbackWallMs,roles,solventCheckpoints,errors:[...run.errors],lost:run.lost})
   }finally{queue.submit=submit;await run.destroy()}
  }
  surface.replaceChildren()
- const exact=rows.length===2&&rows.every(row=>!row.errors.length&&!row.lost&&Object.values(row.roles).every(r=>r.difference.changed===0))&&['layer','tile.inkLoad','tile.inkColor','tile.coverage'].every(role=>rows[0].roles[role]?.nonzero)
- return{code:'__CODE__',order:rows.map(row=>row.grouped?'ON':'OFF'),size,memoryGiB,tape,tapeSha256,paperSha256:await hash(la),rows,exact,limitations:['Native OFF/ON internal equivalence, not GL parity or Room integration','Full1536 fields, single1024 tile/layer/wash; owners sequential','Capture after last canonical operation only; no intermediate history','wallMs excludes readback, hashing, setup and untimed pointer authoring','encodeCpuMs/replayCpuMs are CPU wall intervals, not shader GPU time; waitWallMs is completion wait','Grouping defaults OFF in runner; harness explicitly enables second run']}
+ const exact=rows.length===2&&rows.every(row=>!row.errors.length&&!row.lost&&[...Object.values(row.roles),...Object.values(row.solventCheckpoints)].every(r=>r.difference.changed===0))&&['layer','tile.inkLoad','tile.inkColor','tile.coverage'].every(role=>rows[0].roles[role]?.nonzero)
+ return{code:'__CODE__',order:rows.map(row=>row.grouped?'ON':'OFF'),size,captureSolvent,timingPerturbedByCapture:captureSolvent,memoryGiB,tape,tapeSha256,paperSha256:await hash(la),rows,exact,limitations:['Native OFF/ON internal equivalence, not GL parity or Room integration','Full1536 fields, single1024 tile/layer/wash; owners sequential','Capture after last canonical operation only; no intermediate history','wallMs excludes readback, hashing, setup and untimed pointer authoring','encodeCpuMs/replayCpuMs are CPU wall intervals, not shader GPU time; waitWallMs is completion wait','Grouping defaults OFF in runner; harness explicitly enables second run']}
 }
 Object.assign(window,{runGroupedAB})

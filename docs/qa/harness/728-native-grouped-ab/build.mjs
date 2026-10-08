@@ -9,9 +9,9 @@ const code=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()+(ex
 await mkdir(out,{recursive:true})
 await build({entryPoints:[entry],outfile:path.join(out,'run.js'),bundle:true,format:'esm',target:'es2020',sourcemap:true,
   alias:{'@grafetto/shared':path.join(root,'packages/shared/src/index.ts')},define:{'import.meta.env.DEV':'false','import.meta.env.PROD':'true'},
-  plugins:[{name:'raw-text',setup(b){b.onResolve({filter:/\?raw$/},args=>({path:path.resolve(args.resolveDir,args.path.slice(0,-4)),namespace:'raw-text'}));b.onLoad({filter:/.*/,namespace:'raw-text'},async args=>({contents:await readFile(args.path,'utf8'),loader:'text'}))}}]})
+  plugins:[...(process.env.DISPATCH_BASELINE?[{name:'frozen-dispatch',setup(b){b.onLoad({filter:/(?:brush|fieldOps)\.ts$/},args=>({contents:execFileSync('git',['show',process.env.DISPATCH_BASELINE+':'+path.relative(root,args.path)],{encoding:'utf8'}),loader:'ts'}))}}]:[]),{name:'raw-text',setup(b){b.onResolve({filter:/\?raw$/},args=>({path:path.resolve(args.resolveDir,args.path.slice(0,-4)),namespace:'raw-text'}));b.onLoad({filter:/.*/,namespace:'raw-text'},async args=>({contents:await readFile(args.path,'utf8'),loader:'text'}))}}]})
 let js=await readFile(path.join(out,'run.js'),'utf8');await writeFile(path.join(out,'run.js'),js.replace('__CODE__',code))
 await cp(path.join(root,'docs/qa/harness/728-native-grouped-ab/index.html'),path.join(out,'index.html'))
 await cp(paper,path.join(out,'paper'),{recursive:true})
-await writeFile(path.join(out,'provenance.json'),JSON.stringify({code,build:'esbuild bundle actual native runner, no Room',paperAssets:paper},null,2))
+await writeFile(path.join(out,'provenance.json'),JSON.stringify({code,dispatchBaseline:process.env.DISPATCH_BASELINE??null,build:'esbuild bundle actual native runner, no Room',paperAssets:paper},null,2))
 console.log(out)
