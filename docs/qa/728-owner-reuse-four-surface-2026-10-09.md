@@ -2,7 +2,7 @@
 
 ONE guarded run frozen ROOT413bc92e. Source7 raw SHA verified; immutable paper7 reused. Own incognito closed, device released. RAM pre2221/min1363/post1668MiB; no RAM abort or WebGL-loss evidence. Two resource console errors403/404, pageerror0. No retry.
 
-Actual result FAIL: fourth PointerInput DOWN rejected. Failure screenshot badge identifies existing cross-wash scope guard. Three earlier handlers started. The probe waited only canAdmit (one safely released slot), while older owners were still present and wash.endedAt was more than1s old. The existing guard correctly rejects crossing wash while older owners show. This is not evidence of unsafe slot reuse, but FOUR admission proof is still open.
+Actual result FAIL: fourth PointerInput DOWN rejected. Failure screenshot badge identifies existing cross-wash scope guard. Three earlier handlers started. The probe waited only canAdmit (one safely released slot), while older owners may still be present. The rejected branch checks tool/scratch/layer/signature or wash age>1s; age is the likely explanation, but exact subpredicate was not captured. The existing guard remains intact; no predicate is bypassed. This is not evidence of unsafe slot reuse, but FOUR admission proof is still open.
 
 The failed probe returned no partial tape/rows because its promise threw; this instrumentation loss is explicit. Screenshot/report remain under persistent temp. There is no same-tape endpoint proof or barehistory-count success claim.
 

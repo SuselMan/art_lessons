@@ -12,15 +12,15 @@ export async function runOwnerReuseFour({deadlineMs=90000}={}){
  const check=()=>{if(performance.now()>end)throw Error('Four-stroke bounded deadline');if(E._contextLost||E.gl.isContextLost()||O.reuseDiagnostics.lost)throw Error('Stale/lost generation')};
  const event=(x,y,buttons)=>{const r=canvas.getBoundingClientRect(),ev={clientX:r.left+r.width*x,clientY:r.top+r.height*y,pressure:.8,tiltX:0,tiltY:0,twist:0,width:1,height:1,pointerType:'pen',pointerId:728,isPrimary:true,button:0,buttons,timeStamp:performance.now(),target:canvas,currentTarget:canvas,preventDefault(){},stopPropagation(){},getCoalescedEvents(){return[ev]},getPredictedEvents(){return[]}};return ev};
  try{
-  S.setToolSetting('watercolor','size',400);S.setToolSetting('watercolor','water',1);S.setToolSetting('watercolor','pigment',1);await frame();await frame();
+  S.setTool('watercolor');S.setToolSetting('watercolor','color',[.3,.15,.55]);S.setToolSetting('watercolor','nib','round');S.setToolSetting('watercolor','pressureResponse','normal');S.setToolSetting('watercolor','size',400);S.setToolSetting('watercolor','water',1);S.setToolSetting('watercolor','pigment',1);await frame();await frame();
   E.setTool('watercolor');E.setSize(400);E.setPencil('normal:100:100:PB29:round');E.setColor([.3,.15,.55]);
   for(let i=0;i<4;i++){
-   check();if(i===3){while(!O.reuseDiagnostics.canAdmit||E._wcCanonical.pending||E._settle||O.snapshot().owners.length){check();publish();await frame()}if(syncs===0)throw Error('No existing idle return before fourth');}
+   check();if(E._opts.tool!=='watercolor'||E._opts.size!==400||E._opts.pencilType!=='normal:100:100:PB29:round')throw Error('Actual same settings changed before DOWN');if(i===3){while(!O.reuseDiagnostics.canAdmit||E._wcCanonical.pending||E._settle||O.snapshot().owners.length){check();publish();await frame()}if(syncs===0)throw Error('No existing idle return before fourth');}
    const before=structuredClone(O.reuseDiagnostics),finishBefore=finishes,syncBefore=syncs;inFlight={ordinal:i,before,phase:'down'};publish();phase='down';E._pointer._handleDown(event(.46+i*.018,.47,1));phase='move';
    const started=!!E._strokeId;if(!started){publish();throw Error('Actual DOWN rejected at '+i)};
    for(let k=1;k<=3;k++){await frame();check();E._pointer._handleMove(event(.46+i*.018+.012*k,.47+.008*k,1));}
    inFlight.phase='up';publish();E._pointer._handleUp(event(.46+i*.018+.036,.494,0));phase='between';
-   rows.push({ordinal:i,before,afterUp:structuredClone(O.reuseDiagnostics),started,downFinish:finishes-finishBefore,existingSyncReturns:syncs-syncBefore,settings:{size:E._opts.size,preset:E._opts.pencilType,color:E._opts.graphiteColor,layerId:E._activeId}});inFlight=null;publish();
+   rows.push({ordinal:i,before,afterUp:structuredClone(O.reuseDiagnostics),started,downFinish:finishes-finishBefore,existingSyncReturns:syncs-syncBefore,settings:{tool:E._opts.tool,size:E._opts.size,preset:E._opts.pencilType,color:E._opts.graphiteColor,layerId:E._activeId}});inFlight=null;publish();
   }
   while(E._wcCanonical.pending||E._settle||E._rebuildJobs.size){check();await frame()}
   const tape=E.getOperations().filter(o=>o.type==='stroke').map(o=>structuredClone(o));if(tape.length!==4||JSON.stringify(tape).length>65536)throw Error('Bounded four original strokes required');
