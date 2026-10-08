@@ -1,3 +1,5 @@
+import { consistentNoiseShader,type ConsistentNoiseVariant } from './consistentNoise'
+import { DAB_FRAG,RIBBON_FRAG } from '../../../../apps/web/src/engine/src/raster/shaders'
 import { stampDebug } from './stampDebug'
 import type { CanonicalDrawCommand } from '../../../../apps/web/src/engine/src/dabs/canonicalStrokeChunk'
 import { CanonicalWatercolorWebGpu } from '../../../../apps/web/src/engine/src/webgpuCanonical/backend'
@@ -24,7 +26,7 @@ export async function coveragePrimitiveOracle(commands:readonly CanonicalDrawCom
 }
 
 /** Ordered Q8 blend oracle; no changes to production source state or draw grouping. */
-export async function coverageSequenceOracle(commands:readonly CanonicalDrawCommand[],paper:Uint8Array,side:number,sameInputIndices?:readonly number[],debugStamps=false){
+export async function coverageSequenceOracle(commands:readonly CanonicalDrawCommand[],paper:Uint8Array,side:number,sameInputIndices?:readonly number[],debugStamps=false,consistentNoise?:ConsistentNoiseVariant){
  if(sameInputIndices&&(!sameInputIndices.length||sameInputIndices.some(i=>!Number.isInteger(i)||i<0||i>=commands.length)))throw new Error('Same-input indices must identify actual ordered commands')
  if(!commands.length||commands.length>200)throw new Error('Coverage sequence must contain 1..200 complete commands')
  for(const command of commands){const u=command.kind==='ribbon'?command.batch.uniforms:command.stamp.uniforms;if(u.useAvailableWater)throw new Error('Coverage sequence requires captured availability for this command; blank substitution refused')}
@@ -40,13 +42,14 @@ export async function coverageSequenceOracle(commands:readonly CanonicalDrawComm
   if(selected)owner.device.queue.writeTexture({texture:out.texture},seed.slice(),{bytesPerRow:1024*4},[1024,1024])
   const owned=owner.encodeOwnerCommands(encoder,()=>{if(index===0){out.clear();empty.clear()}buffers=command.kind==='ribbon'?owner.encodePreparedRibbon(encoder,command.batch,'coverage',targets):owner.encodePreparedStamp(encoder,command.stamp,'coverage',targets)})
   owner.device.queue.submit([encoder.finish()]);const bytes=await out.readBytes();owned.release();buffers.forEach(b=>b.destroy())
-  expected=command.kind==='ribbon'?ribbonGlOracle(command.batch,1024,1024,dither,expected,true).coverage:stampGlOracle(command.stamp,1024,1024,dither,expected,true).coverage
+  expected=command.kind==='ribbon'?ribbonGlOracle(command.batch,1024,1024,dither,expected,true,consistentNoise?consistentNoiseShader(RIBBON_FRAG,consistentNoise):undefined).coverage:stampGlOracle(command.stamp,1024,1024,dither,expected,true,consistentNoise?consistentNoiseShader(DAB_FRAG,consistentNoise):undefined).coverage
   const comparison=compareStages([{key:'coverage',w:1024,h:1024,bytes}],[{key:'coverage',w:1024,h:1024,bytes:expected}])[0]
+  const changedChannels=[0,0,0,0];for(let i=0;i<bytes.length;i++)if(bytes[i]!==expected[i])changedChannels[i%4]++
   const pixels=[];if(selected)for(let i=0;i<bytes.length&&pixels.length<64;i+=4)if(bytes.subarray(i,i+4).some((v,c)=>v!==expected[i+c]))pixels.push({x:i/4%1024,yTop:Math.floor(i/4/1024),initialGl:Array.from(seed.subarray(i,i+4)),native:Array.from(bytes.subarray(i,i+4)),gl:Array.from(expected.subarray(i,i+4))})
-  const debug=debugStamps&&selected&&dither&&command.kind==='stamp'?await stampDebug(owner,out,command.stamp,[{x:457,yTop:372},...pixels.slice(0,4).map(p=>({x:p.x,yTop:p.yTop}))]):null
+  const debug=debugStamps&&selected&&dither&&command.kind==='stamp'?await stampDebug(owner,out,command.stamp,[{x:457,yTop:372},...pixels.slice(0,4).map(p=>({x:p.x,yTop:p.yTop}))],consistentNoise):null
   if(debug)owner.device.queue.writeTexture({texture:out.texture},bytes.slice(),{bytesPerRow:1024*4},[1024,1024])
-  rows.push({debug,index:index++,kind:command.kind,dither,sameInput:selected,pixels,stamp:selected&&command.kind==='stamp'?command.stamp:null,vertexCount:command.kind==='ribbon'?command.batch.vertices.length/11:null,vertexBytesSha256:command.kind==='ribbon'?Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',command.batch.vertices.slice().buffer)),v=>v.toString(16).padStart(2,'0')).join(''):null,comparison,validation:(await owner.device.popErrorScope())?.message??null})
+  rows.push({debug,index:index++,kind:command.kind,dither,changedChannels,sameInput:selected,pixels,stamp:selected&&command.kind==='stamp'?command.stamp:null,vertexCount:command.kind==='ribbon'?command.batch.vertices.length/11:null,vertexBytesSha256:command.kind==='ribbon'?Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',command.batch.vertices.slice().buffer)),v=>v.toString(16).padStart(2,'0')).join(''):null,comparison,validation:(await owner.device.popErrorScope())?.message??null})
   if(sameInputIndices&&index>Math.max(...sameInputIndices))break
  }}}finally{out.destroy();empty.destroy();owner.destroy()}
- return{sameInputIndices:sameInputIndices??null,commands:commands.length,rows,firstDifferenceOn:rows.find(r=>r.dither&&(!('exact' in r.comparison)||!r.comparison.exact))??null,firstDifferenceOff:rows.find(r=>!r.dither&&(!('exact' in r.comparison)||!r.comparison.exact))??null,errors,selectedGate:sameInputIndices?'Selected commands receive exact same previous GL coverage; nonselected later comparisons are not independent accumulated baseline':null,scope:'All captured coverage commands in original order; independent native/GL accumulation starting from identical zero Q8. Availability-consuming commands explicitly refused. GL context recreated between commands with lossless Q8 upload, no resample; not full compound source executor parity.'}
+ return{diagnosticGlNoise:consistentNoise??null,sameInputIndices:sameInputIndices??null,commands:commands.length,rows,firstDifferenceOn:rows.find(r=>r.dither&&(!('exact' in r.comparison)||!r.comparison.exact))??null,firstDifferenceOff:rows.find(r=>!r.dither&&(!('exact' in r.comparison)||!r.comparison.exact))??null,errors,selectedGate:sameInputIndices?'Selected commands receive exact same previous GL coverage; nonselected later comparisons are not independent accumulated baseline':null,scope:'All captured coverage commands in original order; independent native/GL accumulation starting from identical zero Q8. Availability-consuming commands explicitly refused. GL context recreated between commands with lossless Q8 upload, no resample; not full compound source executor parity.'}
 }

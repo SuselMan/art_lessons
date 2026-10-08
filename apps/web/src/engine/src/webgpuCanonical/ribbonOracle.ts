@@ -2,13 +2,13 @@ import { RIBBON_VERT, RIBBON_FRAG, DAB_VERT, DAB_FRAG } from '../raster/shaders'
 import noiseAsset from '../raster/watercolorNoise.txt?raw'
 import type { CanonicalRibbonBatch, CanonicalStamp } from './types'
 /** Diagnostic only: production GL program, exact prepared triangle/uniform input. */
-export function ribbonGlOracle(batch: CanonicalRibbonBatch, width: number, height: number, diagnosticDither?:boolean,initialCoverage?:Uint8Array,coverageOnly=false) {
+export function ribbonGlOracle(batch: CanonicalRibbonBatch, width: number, height: number, diagnosticDither?:boolean,initialCoverage?:Uint8Array,coverageOnly=false,diagnosticFragment?:string) {
  const canvas = document.createElement('canvas'); canvas.width=width;canvas.height=height
  const gl=canvas.getContext('webgl',{antialias:false,preserveDrawingBuffer:true});if(!gl)throw new Error('WebGL oracle unavailable')
  if(diagnosticDither!==undefined){if(diagnosticDither)gl.enable(gl.DITHER);else gl.disable(gl.DITHER)}
  const max=gl.getExtension('EXT_blend_minmax');if(batch.inkBlend==='max'&&!max)throw new Error('WebGL MAX oracle unavailable')
  const compile=(type:number,code:string)=>{const shader=gl.createShader(type)!;gl.shaderSource(shader,code);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(shader)||'GL shader');return shader}
- const program=gl.createProgram()!;gl.attachShader(program,compile(gl.VERTEX_SHADER,RIBBON_VERT));gl.attachShader(program,compile(gl.FRAGMENT_SHADER,RIBBON_FRAG));gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program)||'GL link');gl.useProgram(program)
+ const program=gl.createProgram()!;gl.attachShader(program,compile(gl.VERTEX_SHADER,RIBBON_VERT));gl.attachShader(program,compile(gl.FRAGMENT_SHADER,diagnosticFragment??RIBBON_FRAG));gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program)||'GL link');gl.useProgram(program)
  const texture=(w:number,h:number,bytes?:Uint8Array,luminance=false)=>{const t=gl.createTexture()!;gl.bindTexture(gl.TEXTURE_2D,t);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);const fmt=luminance?gl.LUMINANCE:gl.RGBA;gl.texImage2D(gl.TEXTURE_2D,0,fmt,w,h,0,fmt,gl.UNSIGNED_BYTE,bytes??null);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);return t}
  const initial=initialCoverage?new Uint8Array(initialCoverage.length):undefined;if(initialCoverage){if(initialCoverage.length!==width*height*4)throw new Error('Initial coverage dimensions mismatch');for(let y=0;y<height;y++)initial!.set(initialCoverage.subarray(y*width*4,(y+1)*width*4),(height-1-y)*width*4)}
  const coverage=texture(width,height,initial),empty=texture(width,height),noise=texture(251,251,Uint8Array.from(atob(noiseAsset),c=>c.charCodeAt(0)),true)

@@ -1,3 +1,4 @@
+import { consistentNoiseShader,type ConsistentNoiseVariant } from './consistentNoise'
 import { CANONICAL_STAMP_WGSL } from '../../../../apps/web/src/engine/src/webgpuCanonical/stamp'
 import { DAB_FRAG } from '../../../../apps/web/src/engine/src/raster/shaders'
 import { stampGlOracle } from '../../../../apps/web/src/engine/src/webgpuCanonical/ribbonOracle'
@@ -30,7 +31,7 @@ export function stampDebugShaders(group:number){
  const gp=group>=3?'vec2 hp=vec2(acrossN*u_bristleCombs,wcFbm((gl_FragCoord.xy+u_paperOrigin)*.0012+vec2(71,13))*.9)+vec2(3,29);vec2 hi=floor(hp);vec2 hf=fract(hp);vec2 hu=hf*hf*(3.0-2.0*hf);':''
  return{native:CANONICAL_STAMP_WGSL.replace(nativeReturn,np+'return '+native+';'),gl:DAB_FRAG.replace(glReturn,gp+'gl_FragColor = '+gl+';')}
 }
-export async function stampDebug(owner:CanonicalWatercolorWebGpu,out:CanonicalFieldBuffer,stamp:CanonicalStamp,points:readonly {x:number;yTop:number}[]){
+export async function stampDebug(owner:CanonicalWatercolorWebGpu,out:CanonicalFieldBuffer,stamp:CanonicalStamp,points:readonly {x:number;yTop:number}[],consistentNoise?:ConsistentNoiseVariant){
  const v=stamp.uniforms,u=owner.device.createBuffer({size:160,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST})
  owner.device.queue.writeBuffer(u,0,new Float32Array([1024,1024,...v.worldOrigin,...v.mottleSeed,v.aaPx,v.washWater,v.waterRetain,v.bristleCombs,v.bristleInk,v.cloudDeposit,v.granDeposit,v.poolBlot,+v.useAvailableWater,0,...v.tau,0,...stamp.center,stamp.radius,stamp.aspect,stamp.angle,+(stamp.nibShape==='roundedBox'),stamp.cornerRadius,stamp.opacity,stamp.inkWater,stamp.paperWet,stamp.inkStrength,stamp.puddle,...stamp.acrossLocal,stamp.pressure,stamp.inkEdge,stamp.inkClip,stamp.pigmentPool,0,0]))
  const groups=[],layout=owner.device.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,buffer:{type:'uniform'}},{binding:2,visibility:GPUShaderStage.FRAGMENT,texture:{sampleType:'float'}}]}),pipelineLayout=owner.device.createPipelineLayout({bindGroupLayouts:[layout]})
@@ -38,8 +39,8 @@ export async function stampDebug(owner:CanonicalWatercolorWebGpu,out:CanonicalFi
   const shaders=stampDebugShaders(group),module=owner.device.createShaderModule({code:shaders.native}),pipeline=owner.device.createRenderPipeline({layout:pipelineLayout,vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'coverage',targets:[{format:'rgba8unorm'}]}})
   const bind=owner.device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:u}},{binding:2,resource:owner.noise.view}]})
   const encoder=owner.device.createCommandEncoder(),pass=encoder.beginRenderPass({colorAttachments:[{view:out.field.view,loadOp:'clear',storeOp:'store',clearValue:[0,0,0,0]}]});pass.setPipeline(pipeline);pass.setBindGroup(0,bind);pass.draw(6);pass.end();owner.device.queue.submit([encoder.finish()])
-  const bytes=await out.readBytes(),expected=stampGlOracle(stamp,1024,1024,false,undefined,true,shaders.gl).coverage
+  const bytes=await out.readBytes(),expected=stampGlOracle(stamp,1024,1024,false,undefined,true,consistentNoiseShader(shaders.gl,consistentNoise)).coverage
   groups.push({group,channels:[['acrossEncoded','hair','opening','tipContact'],['nibCoverage','tipPressure','worldX/1024','worldY/1024'],['localXEncoded','localYEncoded','openingNoise','hairDrift'],['localY*1e5+.5','across*1e5+.5','hairXFract','hairXFloor/16'],['lattice00','lattice10','lattice01','lattice11'],['octave1','octave2','hairYFract','smoothHairXFract'],['rowMix0','rowMix1','octave1','hairFbm']][group],points:points.map(p=>{const i=(p.yTop*1024+p.x)*4;return{...p,native:Array.from(bytes.subarray(i,i+4)),gl:Array.from(expected.subarray(i,i+4))}})})
  }}finally{u.destroy()}
- return{groups,scope:'RGBA8 encoded diagnostic intermediates; production shader output only replaced, geometry/uniforms/functions unchanged. Q8 observations cannot prove sub-byte float equivalence.'}
+ return{diagnosticGlNoise:consistentNoise??null,groups,scope:'RGBA8 encoded diagnostic intermediates; production shader output only replaced, geometry/uniforms/functions unchanged. Q8 observations cannot prove sub-byte float equivalence.'}
 }
