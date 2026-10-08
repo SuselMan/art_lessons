@@ -211,3 +211,23 @@ Native brush: независимая цепочка 14 контактов на S
 P до max7 (1912 ячеек), C до max7. Это подтверждает накопление Q8 расхождения,
 но не объясняет весь Room. Следующий bounded float/floor контроль проверит
 арифметику без epsilon или изменения исходных формул.
+
+### Следующая контрольная точка: direct preview, interpolation, Float32
+
+- Direct material preview: на Surface изменение видно до canonical land,
+  MAX RGB49 на 116ms вместо прежних MAX2. Исходный движок на **той же новой
+  ленте** дал exact сухой PNG/redo. На раннем изображении обнаружена 128-cell
+  решётка, поэтому вариант не готов к художественной оценке.
+- Paired LINEAR только при display уменьшил внутреннюю решётку, но оставил
+  ступенчатую пурпурную кромку. Handoff 0→58ms MAX3, 0→181ms MAX6, лишь два
+  пикселя изменились больше5; полного исчезновения нет. Это другая новая
+  лента: её исходный endpoint отдельно пока не подтверждён.
+- Actual Surface Float32 render/read capability PASS, четыре собственных
+  FBO, readback64bytes; это не скорость или качество модели. OFF typed
+  pool/transport готов, бюджет15.375MiB; основной runtime пока не переключён.
+- WebGPU pressure-only whole контроль на той же common source уменьшил
+  число отличных RGBA значений49052→42686; max36 сохранился. Полной парности
+  модели нет, wall time с readbacks/setup не является perf A/B.
+- Reuse: generic preview coordinator недостаточен для снятия лимита3 Room
+  admissions. Нужен общий certificate main+preview+presentation и отсутствие
+  будущих CPU-производителей. Готовы отрицательные fixtures, wiring впереди.
