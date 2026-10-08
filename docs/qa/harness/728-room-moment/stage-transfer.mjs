@@ -5,7 +5,7 @@ export function chunkPlan(length){if(!Number.isInteger(length)||length<0||length
 /** Small CDP replies; one artifact/contact at a time, explicit ACK releases page strings. */
 export async function transferStages(evaluate,out){
  const meta=await evaluate(()=>window.__momentStageResults.map(r=>({...r,stages:r.stages.map(({base64,...s})=>({...s,encodedLength:base64.length}))})))
- if(meta.length!==3||meta.some(r=>r.stages.length!==8))throw Error('Incomplete bounded stage cohort')
+ if(meta.length!==3||meta.some(r=>!r.published||r.observerError||r.stages.length!==8))throw Error('Incomplete bounded stage cohort')
  let total=0
  for(let i=0;i<meta.length;i++)for(let j=0;j<meta[i].stages.length;j++){
   const s=meta[i].stages[j],file=`stage-${i}-${j}.bin`,fd=fs.openSync(out+'/'+file,'wx'),hash=crypto.createHash('sha256');let bytes=0
