@@ -21,3 +21,11 @@ CPU corpus расширен actual packed400 материалами70/38/33dabs:
 После исправления CDP startup один actual same-packed original прогон завершился, GL0/lostfalse. Original third-stroke/load SHA и original redo SHA полностью совпали (`45dc5b…`), также совпали с owner-after-redo. Original undo SHA совпал с owner-after-undo (`1d2280…`). Отличается только owner-before-history (`5a639d…`). Значит ошибка локализована в owner canonical execution/finish для данного tape, не в original history restore. Pre2080/min1561/afterclose1950MiB.
 
 Затем source audit обнаружил двойной consuming capture: coordinator.seal вызывал `captureCanonicalFinish()`, который сбрасывает `diffusePending=false`; original async finish вызывал capture повторно и мог пропустить solver. Coordinator переводится на non-consuming `captureFinishMetadata()`. Это конкретный доказанный CPU lifecycle gap; исправленный GPU результат ещё не измерен.
+
+## Corrected finish actual Room PASS
+
+После non-consuming seal один actual Room rapid3 Surface прогон: DOWN2 7.2мс, DOWN3 2.6мс, оба без `_completeSettle` и без texture allocation. Первый DOWN38.7мс и1allocation ещё отдельно исследуется. CPU submission не first scanned-out pigment.
+
+Dry→Undo изменяет target осмысленно; Redo восстанавливает тот же target SHA `a82430…`, dimensions1024²/nonzero777078. GL0/lostfalse. Real solver теперь выполнен; canonical scene elapsed8014.6мс, rAFp9517/max116.8мс. Старый solver-skipped tail непригоден для speed comparison. Pre2061/min961/afterclose1983MiB.
+
+Новый полный packed tape восстановлен и сохранён локально, SHA `7a9dbeeb381c1515857bffc4ddf6781aa20fa26ebcf88aba7a2a89c0ad25a660`. Explicit standalone original comparison этого нового tape остаётся следующим gate. Full UX/morphing не готовы, defaultsOFF.
