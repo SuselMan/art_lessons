@@ -110,7 +110,7 @@ export class CanonicalRoomWatercolorExecutor {
  importForeign(gesture:string):void {
   this.assertLive()
   const auxiliary=this.foreignAux.get(gesture)
-  if(!auxiliary)return // Canonical source was wholly outside this bounded tile.
+  if(!auxiliary)throw new Error('Native foreign-water merge has no prepared donor')
   this.adapter.runQuantum(()=>{const donor=auxiliary.scratch.peek(this.target.buffer);if(donor)this.source.importForeign(gesture,donor);auxiliary.scratch.destroy()})
   this.foreignAux.delete(gesture)
  }
@@ -151,9 +151,11 @@ export class CanonicalRoomWatercolorExecutor {
   return this.retirement
  }
  private async release(reason:Parameters<RoomNativeCentralOwner['cancel']>[0],cancelCentral:boolean) {
-  if(cancelCentral)await this.central.cancel(reason);await this.backend.whenIdle()
+  if(cancelCentral)await this.central.cancel(reason)
+  try{await this.backend.whenIdle()}finally{
   for(const auxiliary of this.foreignAux.values())auxiliary.scratch.destroy();this.foreignAux.clear()
   this.adapter.disposeCarryOracle();this.planner.destroyTextures();this.scratch.tiles.destroy();this.target.buffer.destroy();this.fields.destroy();this.pool.destroy();this.bridge.destroy()
+  }
  }
  private assertLive(){if(this.retired)throw new Error('Native Room tile generation retired')}
 }

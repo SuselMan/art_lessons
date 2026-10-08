@@ -29,6 +29,8 @@ export class RoomNativeRuntime {
  private owner:CanonicalRoomWatercolorExecutor|null=null
  private scratch:RibbonStrokeScratch|null=null
  private tile:PaintTarget|null=null
+ private targetLayer:ILayerBuffer|null=null
+ private readonly foreignPrepared=new WeakMap<RibbonStrokeScratch,Set<string>>()
  private generation=0
  private ordinal=0
  private retired=false
@@ -58,26 +60,28 @@ export class RoomNativeRuntime {
   const film=request.input.film,waterOnly=request.input.waterOnly===true
   if(request.auxiliary){
    const auxiliary=request.auxiliary
+   let prepared=this.foreignPrepared.get(auxiliary.recipient);if(!prepared){prepared=new Set();this.foreignPrepared.set(auxiliary.recipient,prepared)}prepared.add(auxiliary.gesture)
    this.queued=true
-   this.central.enqueueSource(()=>{const owner=this.ownerFor(auxiliary.recipient,tile,layerId);owner.emitForeignSegment(auxiliary.gesture,{commands,rect:canonicalSourceRevealRect(owner.target,bounds),film,waterOnly:true},metadata.gesture)},async()=>{})
+   this.central.enqueueSource(()=>{const owner=this.ownerFor(auxiliary.recipient,tile,layerId,target);owner.emitForeignSegment(auxiliary.gesture,{commands,rect:canonicalSourceRevealRect(owner.target,bounds),film,waterOnly:true},metadata.gesture)},async()=>{})
    return true
   }
   this.finishScalars=scalars
   // Freeze command geometry and metadata NOW, before subsequent CPU delivery advances.
   this.queued=true
   this.central.enqueueSource(()=>{
-   const owner=this.ownerFor(scratch,tile,layerId);sourceOwner=owner
+   const owner=this.ownerFor(scratch,tile,layerId,target);sourceOwner=owner
    owner.emitPrepared({path,layerId,generation:this.generation,strokeId:`cpu-gesture-${metadata.gesture}`,ordinal,segment:{commands,rect:canonicalSourceRevealRect(owner.target,bounds),film,waterOnly},materialGesture:metadata.gesture,metadata,live})
   },async()=>{if(sourceOwner)await sourceOwner.publishCurrentToGl()})
   return true
  }
- importForeign(recipient:RibbonStrokeScratch,_target:ILayerBuffer,gesture:string):void {
+ importForeign(recipient:RibbonStrokeScratch,target:ILayerBuffer,gesture:string):void {
+  if(!this.foreignPrepared.get(recipient)?.has(gesture))return // Every selected auxiliary source was wholly off this tile.
   this.queued=true
-  this.central.enqueueSource(()=>{if(this.scratch===recipient)this.owner?.importForeign(gesture)},async()=>{})
+  this.central.enqueueSource(()=>{if(this.scratch!==recipient||this.targetLayer!==target||!this.owner)throw new Error('Native foreign-water recipient layer/generation mismatch');this.owner.importForeign(gesture)},async()=>{})
  }
- private ownerFor(scratch:RibbonStrokeScratch,tile:PaintTarget,layerId:string){
-  if(this.owner&&(this.scratch!==scratch||this.tile?.buffer!==tile.buffer)){this.retirements.push(this.owner.retire('rebuild',false));this.owner=null}
-  if(!this.owner){this.generation++;this.scratch=scratch;this.tile=tile;this.owner=new CanonicalRoomWatercolorExecutor(this.backend,{tile:tile.buffer,originX:tile.originX,originY:tile.originY,layerId,generation:this.generation,delivery:scratch,central:this.central,bridgeMode:'canvas',bridgeCanvas:document.createElement('canvas')})}
+ private ownerFor(scratch:RibbonStrokeScratch,tile:PaintTarget,layerId:string,targetLayer:ILayerBuffer){
+  if(this.owner&&(this.scratch!==scratch||this.tile?.buffer!==tile.buffer||this.targetLayer!==targetLayer)){this.trackRetirement(this.owner.retire('rebuild',false));this.owner=null}
+  if(!this.owner){this.generation++;this.scratch=scratch;this.tile=tile;this.targetLayer=targetLayer;this.owner=new CanonicalRoomWatercolorExecutor(this.backend,{tile:tile.buffer,originX:tile.originX,originY:tile.originY,layerId,generation:this.generation,delivery:scratch,central:this.central,bridgeMode:'canvas',bridgeCanvas:document.createElement('canvas')})}
   return this.owner
  }
  finish(scratch:RibbonStrokeScratch,metadata:RibbonFinishMetadata):void {
@@ -100,17 +104,18 @@ export class RoomNativeRuntime {
  /** Tool/wash changes land preceding packets, then retire material ownership.
   * Destructive restore/rebuild cancels preceding packets and prevents late upload. */
  invalidateAtBoundary(reason:'clear'|'rebuild'|'snapshot'|'context-loss'):void {
-  const old=this.owner;this.owner=null;this.scratch=null;this.tile=null;this.finishScalars=null
-  if(old)this.retirements.push(old.retire(reason,false))
+  const old=this.owner;this.owner=null;this.scratch=null;this.tile=null;this.targetLayer=null;this.finishScalars=null
+  if(old)this.trackRetirement(old.retire(reason,false))
  }
  invalidate(reason:'clear'|'rebuild'|'snapshot'|'context-loss',cancel=false):void {
   const release=()=>{this.invalidateAtBoundary(reason);return null}
   if(cancel){this.ctx.fifo.cancel(reason==='context-loss');release()}
   else void this.central.admitFactory(release).catch(e=>{if(!this.retired)this.ctx.failed(e)})
  }
+ private trackRetirement(promise:Promise<void>){this.retirements.push(promise.catch(error=>{if(!this.retired)this.ctx.failed(error)}))}
  async retire(reason:'clear'|'rebuild'|'snapshot'|'context-loss'|'unmount'){
   if(this.retired)return;this.retired=true
-  if(this.owner)this.retirements.push(this.owner.retire(reason));else if(this.queued)await this.central.cancel(reason)
+  if(this.owner)this.trackRetirement(this.owner.retire(reason));else if(this.queued)await this.central.cancel(reason)
   await Promise.allSettled(this.retirements);this.backend.destroy()
  }
 }
