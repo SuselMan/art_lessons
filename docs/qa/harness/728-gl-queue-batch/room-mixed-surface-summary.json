@@ -1,0 +1,171 @@
+{
+  "ordinaryRoom": [
+    {
+      "mixed": false,
+      "flags": {
+        "solver": true,
+        "joinedTouch": true,
+        "joinedMixed": false,
+        "deferred": false,
+        "asyncFinish": false,
+        "material": false
+      },
+      "elapsedMs": 6688.300000011921,
+      "waterPigment": {
+        "beforeDown": {
+          "settle": true,
+          "settleNext": 34,
+          "settleOps": 187,
+          "canonicalQueued": 0,
+          "locked": false
+        },
+        "downCpuMs": 10,
+        "upCpuMs": 44.69999998807907,
+        "frameCount": 6,
+        "maxFrameGapMs": 400.0,
+        "over33": 1,
+        "drains": [
+          {
+            "parent": "_onStart",
+            "cpuMs": 6.600000023841858,
+            "before": {
+              "settle": true,
+              "next": 34,
+              "total": 187,
+              "lease": false,
+              "gesture": null,
+              "tool": "watercolor",
+              "preset": "normal:100:100:PB29:round"
+            },
+            "after": {
+              "settle": false,
+              "next": null,
+              "total": null,
+              "lease": false,
+              "gesture": null,
+              "tool": "watercolor",
+              "preset": "normal:100:100:PB29:round"
+            }
+          }
+        ]
+      },
+      "sceneMaxGapMs": 533.2999999999993,
+      "sceneOver33": 27,
+      "glError": 0,
+      "lost": false
+    },
+    {
+      "mixed": true,
+      "flags": {
+        "solver": true,
+        "joinedTouch": true,
+        "joinedMixed": true,
+        "deferred": false,
+        "asyncFinish": false,
+        "material": false
+      },
+      "elapsedMs": 6903.599999964237,
+      "waterPigment": {
+        "beforeDown": {
+          "settle": true,
+          "settleNext": 30,
+          "settleOps": 187,
+          "canonicalQueued": 0,
+          "locked": false
+        },
+        "downCpuMs": 5.800000011920929,
+        "upCpuMs": 55.69999998807907,
+        "frameCount": 27,
+        "maxFrameGapMs": 33.29999999999927,
+        "over33": 1,
+        "drains": [
+          {
+            "parent": "_onEnd",
+            "cpuMs": 15.699999988079071,
+            "before": {
+              "settle": true,
+              "next": 54,
+              "total": 187,
+              "lease": true,
+              "gesture": "jPU-G3Ww-I",
+              "tool": "watercolor",
+              "preset": "normal:100:100:PB29:round"
+            },
+            "after": {
+              "settle": false,
+              "next": null,
+              "total": null,
+              "lease": false,
+              "gesture": "jPU-G3Ww-I",
+              "tool": "watercolor",
+              "preset": "normal:100:100:PB29:round"
+            }
+          }
+        ]
+      },
+      "sceneMaxGapMs": 400.1000000000022,
+      "sceneOver33": 28,
+      "glError": 0,
+      "lost": false
+    }
+  ],
+  "quality": {
+    "exact": true,
+    "valid": true,
+    "config": {
+      "queue": true,
+      "deferred": false,
+      "joined": true,
+      "mixed": "OFF/ON"
+    },
+    "roles": 24,
+    "roleLabels": [
+      "tile0:original",
+      "tile0:coverage",
+      "tile0:inkLoad",
+      "tile0:inkColor",
+      "tile0:inkDry",
+      "tile0:colorDry",
+      "tile0:solventLoad",
+      "tile0:solventBase",
+      "tile0:inkBase",
+      "tile0:colorBase",
+      "tile0:strokeInk",
+      "tile0:strokeColor",
+      "tile0:inkSettled",
+      "tile0:colorSettled",
+      "field0:a",
+      "field0:b",
+      "field0:c",
+      "field0:ca",
+      "field0:cb",
+      "field0:cc",
+      "field0:coverage",
+      "field0:mask",
+      "field0:pressure",
+      "field0:band"
+    ],
+    "history": [
+      {
+        "mixed": false,
+        "undoMeaningful": true,
+        "redoExact": true
+      },
+      {
+        "mixed": true,
+        "undoMeaningful": true,
+        "redoExact": true
+      }
+    ],
+    "wholeSha": "808dc830cb4aa8c968b14d68adb38714103aeb1a1d57246541bcfb831f243fd8",
+    "materialSha": "50ad0f204b84b1ced4dafad145cf3dcef8898508b6712d71e8210bcdfca139a5"
+  },
+  "releaseRamMiB": 2074,
+  "limits": [
+    "One instrumented actualRoom OFF/ON pair; not physical stylus or scanned-out pigment onset",
+    "Mixed moves old job synchronous drain from DOWN to UP; total scene speed not improved",
+    "24 inspected named roles plus wholeRGBA/material exact in fixed-input standalone fixture; not all transient textures or full Room peer/layers matrix",
+    "No live filmstrip; pure water/pigment presets explicit, no AFTER-DOWN pixel synchronization",
+    "Both configs still have long between-stroke/UP frame gaps; default unchanged OFF"
+  ]
+}
