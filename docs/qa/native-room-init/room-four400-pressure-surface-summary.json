@@ -1,0 +1,206 @@
+{
+  "scope": "Actual ordinary Grafetto Room on Surface; functional source/publish only, no replay/undo/perceptual-quality/performance PASS",
+  "sourceHead": "731733c908245b80caf7c172823019f5f3e949e4",
+  "rawPath": "temp/device-runs/room-four400-pressure731/report.json",
+  "rawSha256": "712990d9cddbf3ecca4e5def46430581a70847fbeba5ff50a990d698c47c369a",
+  "screenshotPath": "temp/device-runs/room-four400-pressure731/four400.png",
+  "screenshotSha256": "5f3eb52eb928b23fa95b0c4da3ce64177440ff55731bce09fbc40350830278f9",
+  "functional": {
+    "fourOriginalPackedOperations": 4,
+    "native": true,
+    "ready": true,
+    "errors": [],
+    "gl": 0,
+    "contextLost": false,
+    "pressureControl": {
+      "requested": true,
+      "final": {
+        "enabled": true,
+        "counters": {
+          "mode15": 64,
+          "mode16": 16,
+          "other": 344
+        }
+      }
+    },
+    "onlyOwnedTargetClosed": true,
+    "ownedIncognitoDisposed": true
+  },
+  "memoryMiB": {
+    "pre": 2200.03515625,
+    "minObserved": 1083.140625,
+    "post": 2029.4375
+  },
+  "strokeWall": [
+    {
+      "label": "water400",
+      "ms": 8604.938269000002
+    },
+    {
+      "label": "pigment70-on-water400",
+      "ms": 2427.218141000001
+    },
+    {
+      "label": "colorA70-400",
+      "ms": 4058.3815730000024
+    },
+    {
+      "label": "colorB70-400",
+      "ms": 2436.6649680000046
+    }
+  ],
+  "rafScheduling": {
+    "samples": 656,
+    "medianMs": 16.699999999999818,
+    "p95Ms": 50.0,
+    "maxMs": 3033.199999999999,
+    "limits": "rAF scheduling intervals, not physical pen latency, rendered FPS, or GPU execution time"
+  },
+  "methodWallAggregates": {
+    "CanonicalWatercolorWebGpu.create": {
+      "calls": 1,
+      "sumMs": 461.30000001192093,
+      "maxMs": 461.30000001192093,
+      "medianMs": 461.30000001192093
+    },
+    "CanonicalWatercolorWebGpu.support": {
+      "calls": 1,
+      "sumMs": 145.30000001192093,
+      "maxMs": 145.30000001192093,
+      "medianMs": 145.30000001192093
+    },
+    "RoomNativeRuntime.create": {
+      "calls": 1,
+      "sumMs": 496.2000000476837,
+      "maxMs": 496.2000000476837,
+      "medianMs": 496.2000000476837
+    },
+    "source.consume": {
+      "calls": 22,
+      "sumMs": 47.800000071525574,
+      "maxMs": 6.899999976158142,
+      "medianMs": 1.699999988079071
+    },
+    "source.emitPrepared": {
+      "calls": 22,
+      "sumMs": 58.19999998807907,
+      "maxMs": 16.399999976158142,
+      "medianMs": 2.0
+    },
+    "source.finish": {
+      "calls": 4,
+      "sumMs": 1.699999988079071,
+      "maxMs": 1.0,
+      "medianMs": 0.25
+    },
+    "source.ownerFor": {
+      "calls": 22,
+      "sumMs": 31.700000047683716,
+      "maxMs": 26.700000047683716,
+      "medianMs": 0.20000001788139343
+    },
+    "source.prepareSettle": {
+      "calls": 4,
+      "sumMs": 37.8999999165535,
+      "maxMs": 29.099999964237213,
+      "medianMs": 3.899999976158142
+    },
+    "source.publishCurrentToGl": {
+      "calls": 22,
+      "sumMs": 3901.5000001192093,
+      "maxMs": 3080.0,
+      "medianMs": 8.050000011920929
+    }
+  },
+  "largestSpans": [
+    {
+      "name": "source.publishCurrentToGl",
+      "startMs": 7496.299999952316,
+      "endMs": 10576.299999952316,
+      "wallMs": 3080.0
+    },
+    {
+      "name": "RoomNativeRuntime.create",
+      "startMs": 6168.299999952316,
+      "endMs": 6664.5,
+      "wallMs": 496.2000000476837
+    },
+    {
+      "name": "CanonicalWatercolorWebGpu.create",
+      "startMs": 6202.399999976158,
+      "endMs": 6663.699999988079,
+      "wallMs": 461.30000001192093
+    },
+    {
+      "name": "source.publishCurrentToGl",
+      "startMs": 12510.199999988079,
+      "endMs": 12791.299999952316,
+      "wallMs": 281.0999999642372
+    },
+    {
+      "name": "source.publishCurrentToGl",
+      "startMs": 16215.299999952316,
+      "endMs": 16417.69999998808,
+      "wallMs": 202.4000000357628
+    },
+    {
+      "name": "source.publishCurrentToGl",
+      "startMs": 19849,
+      "endMs": 20044.599999964237,
+      "wallMs": 195.5999999642372
+    },
+    {
+      "name": "CanonicalWatercolorWebGpu.support",
+      "startMs": 6202.699999988079,
+      "endMs": 6348,
+      "wallMs": 145.30000001192093
+    },
+    {
+      "name": "source.prepareSettle",
+      "startMs": 13065.699999988079,
+      "endMs": 13094.799999952316,
+      "wallMs": 29.099999964237213
+    }
+  ],
+  "colorProvenance": {
+    "packedColors": [
+      [
+        0.2,
+        0,
+        0.6
+      ],
+      [
+        0.2,
+        0,
+        0.6
+      ],
+      [
+        0.2,
+        0,
+        0.6
+      ],
+      [
+        0.9,
+        0.1,
+        0.05
+      ]
+    ],
+    "decodedDabCounts": [
+      17,
+      1,
+      17,
+      1
+    ],
+    "redOperation": "setColor succeeded in actual packed operation; no equal-dose two-color comparison",
+    "image": "All visible material mainly purple; red one-dab and blue17-dab inputs not comparable",
+    "codePath": "Runtime request.input.color → shared builder pigmentAbsorption(color) → per-command tau. Composite reads colorDry/inkColor, no last RGB fallback. Actual source command tau not captured yet."
+  },
+  "limitations": [
+    "NOT smooth: first water CDP draw+drain8.6s; first publish3.08s aligns rAF gap3.033s.",
+    "Async publication includes queue completion/canvas bridge/GL restore; these sections not individually instrumented, so cannot attribute to GPU compiler or GL upload.",
+    "Init aggregate durations nested, do not add them.",
+    "End screenshot/export readbacks occur after primary timeline only.",
+    "No replay, undo/redo, multi-tile, non-origin or multiplayer validation.",
+    "No historical43282 comparison: same-source pressure-only standalone result is separate from actual Room author."
+  ]
+}
