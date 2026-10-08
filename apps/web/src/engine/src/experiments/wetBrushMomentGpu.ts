@@ -1,3 +1,4 @@
+import {MOMENT_VECTOR_GPU_WGSL} from './wetBrushMomentVectorGpu'
 import {exchangeMomentPair} from './wetBrushMomentRecipe'
 /** DEV new physics only. Q8 integer storage keeps every P.B / C sum exact.
  * Input layout per pixel: P.rgba, C.rgba, commonWetQ8, actualContactQ8.
@@ -49,14 +50,15 @@ export function packMomentRecords(p:Uint8Array,c:Uint8Array,wet:Uint8Array,conta
  * Dispatches preserve pair order; no fusion, implicit readback, or fences. */
 export class WetBrushMomentGpu {
  private pipeline:GPUComputePipeline|null=null
- constructor(privateDevice:GPUDevice){this.device=privateDevice}
+ constructor(privateDevice:GPUDevice,diagnosticVector=false){this.device=privateDevice;this.diagnosticVector=diagnosticVector}
+ private readonly diagnosticVector:boolean
  private readonly device:GPUDevice
  encode(encoder:GPUCommandEncoder,source:GPUBuffer,target:GPUBuffer,invalid:GPUBuffer,pass:MomentGpuPass,enabled=false):GPUBuffer[] {
   if(!enabled)return[]
   if(source===target)throw Error('Moment pair requires ping-pong buffers')
   const {width,height,axis,parity,mixRate,advectionRate,direction}=pass
   if(![width,height,mixRate,advectionRate,direction].every(Number.isInteger)||width<1||height<1||width*height>1024*1024||mixRate<0||mixRate>255||advectionRate<0||advectionRate>255||Math.abs(direction)>256)throw Error('Bounded moment dispatch required')
-  this.pipeline??=this.device.createComputePipeline({layout:'auto',compute:{module:this.device.createShaderModule({code:MOMENT_GPU_WGSL}),entryPoint:'main'}})
+  this.pipeline??=this.device.createComputePipeline({layout:'auto',compute:{module:this.device.createShaderModule({code:this.diagnosticVector?MOMENT_VECTOR_GPU_WGSL:MOMENT_GPU_WGSL}),entryPoint:'main'}})
   const uniform=this.device.createBuffer({size:32,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});const values=new Uint32Array([width,height,axis,parity,mixRate,advectionRate,0,0]);new Int32Array(values.buffer)[6]=direction;this.device.queue.writeBuffer(uniform,0,values)
   const bind=this.device.createBindGroup({layout:this.pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:source}},{binding:1,resource:{buffer:target}},{binding:2,resource:{buffer:uniform}},{binding:3,resource:{buffer:invalid}}]})
   const cp=encoder.beginComputePass();cp.setPipeline(this.pipeline);cp.setBindGroup(0,bind);cp.dispatchWorkgroups(Math.ceil(width*height/64));cp.end();return[uniform]

@@ -36,7 +36,8 @@ export class WetBrushMomentTextureOwner {
  private readonly operator:WetBrushMomentGpu
  private pack:GPUComputePipeline|null=null
  private unpack:GPUComputePipeline|null=null
- constructor(device:GPUDevice){this.device=device;this.operator=new WetBrushMomentGpu(device)}
+ private readonly diagnosticVector:boolean
+ constructor(device:GPUDevice,diagnosticVector=false){this.device=device;this.diagnosticVector=diagnosticVector;this.operator=new WetBrushMomentGpu(device,diagnosticVector)}
  encode(encoder:GPUCommandEncoder,input:MomentTextureInputs,enabled=false):{buffers:GPUBuffer[];invalid:GPUBuffer|null;pairPasses:number} {
   if(!enabled)return{buffers:[],invalid:null,pairPasses:0}
   const {pigment,color,availableWater,contact,outputPigment,outputColor,rect,recipe}=input
@@ -51,7 +52,7 @@ export class WetBrushMomentTextureOwner {
   const d=this.device,buffers:GPUBuffer[]=[],make=(size:number,usage:GPUBufferUsageFlags)=>{const b=d.createBuffer({size,usage});buffers.push(b);return b}
   const a=make(width*height*40,GPUBufferUsage.STORAGE),b=make(width*height*40,GPUBufferUsage.STORAGE),invalid=make(4,GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST),u=make(16,GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST)
   d.queue.writeBuffer(u,0,new Uint32Array([x,y,width,height]));encoder.clearBuffer(invalid)
-  this.pack??=d.createComputePipeline({layout:'auto',compute:{module:d.createShaderModule({code:PACK}),entryPoint:'main'}})
+  this.pack??=d.createComputePipeline({layout:'auto',compute:{module:d.createShaderModule({code:this.diagnosticVector?PACK.replace('if(cc[k]>pp.b){atomicAdd(&invalid,1u);}',''):PACK}),entryPoint:'main'}})
   this.unpack??=d.createComputePipeline({layout:'auto',compute:{module:d.createShaderModule({code:UNPACK}),entryPoint:'main'}})
   const execute=(pipeline:GPUComputePipeline,entries:GPUBindGroupEntry[])=>{const cp=encoder.beginComputePass();cp.setPipeline(pipeline);cp.setBindGroup(0,d.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries}));cp.dispatchWorkgroups(Math.ceil(width*height/64));cp.end()}
   execute(this.pack,[...textures.slice(0,4).map((t,binding)=>({binding,resource:t.createView()})),{binding:4,resource:{buffer:a}},{binding:5,resource:{buffer:invalid}},{binding:6,resource:{buffer:u}}])
