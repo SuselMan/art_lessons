@@ -55,3 +55,45 @@ CPU verification: 49 tests (33 queue +16 frozen plan), app/harness TypeScript и
 PASS. Отдельный controller требует GATE_URL, не коммитит private URL, создаёт
 свежие собственные страницы, закрывает после любого исхода. Новый stand
 использует существующий gallery preview сервис без смены default/production.
+
+## Обычная Room на Surface
+
+Изолированный QA backend4558/PG55549, собственный DEV frontend5352;
+два свежих проекта Fine1024×1024. `qaJoinedTouch=1`, остальные mixed,
+deferred, asyncFinish и materialPresentation OFF. `qaSolverBatch=0/1`
+применяется только в DEV constructor; production query его не включает.
+
+Четыре реальные PointerInput последовательности внутри страницы: мокрый
+пигмент400, второй DOWN примерно200мс послеUP при ещё активном settle,
+вода без пигмента400, затем пигмент поверх неё. Это синтетические события
+в штатных обработчиках Room, не измерение настоящего касания физическим
+стилусом. Elapsed сцены10931.5→6650.8мс (наблюдаемые39% в однойOFF/ON серии).
+Dry через штатную кнопку; клавиатурныеUndo действительно меняют материал,
+Redo точно восстанавливают; перезаход после восстановления7serverops
+сохранил тот же материал у обоих. InitialOFFreentry observer ошибочно прочёл
+новыйengine с0ops доbackfill, исправленный bounded readonly reentry gate
+прошёл; первоначальный false raw сохранён, не выдан за сбой модели.
+
+**Плавность не прошла полностью.** Pigment-over-water даёт активный gap
+533.4мсOFF/450мсON. Second-pigment при active settle: OFFmax16.8мс,
+ONmax83.5мс (дваgap>33); возможный риск, пока один cohort, не статистический
+регресс. Общие18→24gap>33 нельзя сравнивать без длительности/фазы: ON сцена
+короче. Source остаётся живым, но частота промежуточного показа меняется.
+Только финальныеPNG сняты; animation filmstrip во время рисования не снят,
+поэтому «нет карандаш→пигмент артефакта» или хорошее морфирование не доказаны.
+
+First DRAW/DISPLAY отмечены CPU submission timestamps. При наличии старого
+settle первыйdraw может быть его drain до нового пигмента! Быстрые9–17мс
+DOWN не означают мгновенный видимый цвет. Дальнейший offline probe
+`room-phaseProbe.mjs` отдельно ограничивает onStart/completeSettle/onMove/
+source/runSlice/GL1upload/finish CPU интервалы, без query/readback/new fence.
+Он ещё не выполнялся на устройстве. Полусекундныйgap может соответствовать
+GPUочереди после синхронной отправки старого job, но причина этим trace ещё
+не доказана. Нужен фазовый замер, а не произвольная замена шейдера.
+
+Peer не добавлялся под RAM guard, Samsung обычная Room не проверен.
+Все собственные страницы закрыты, post-release free2002MiB. Raw
+`temp/device-runs/queue-room-{surface,reentry-surface}.json`, compact
+`room-surface-summary.json`; source flags имеют отдельныйcommitca9f8bc2.
+Defaults OFF до live/animation проверки. Заключение — быстрее завершение
+канонической сцены, ещё не решение всех проблем отзывчивости.
