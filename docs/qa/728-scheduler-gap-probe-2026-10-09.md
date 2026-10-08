@@ -1,0 +1,9 @@
+# OFF CPU/scheduler diagnostic READY
+
+До768 bounded CPU records, instance hooks only: реальные PointerInput DOWN/MOVE/UP, Engine start/move/end/async canonical/slice/finish/display, CanonicalFIFO enqueue/advance/cancel, SettleQueue start/tick/advance/complete. Отдельный rAF sampler: timestamp/gap и cached CPU-state. Никаких GPU API, extra fence/state queries, console или сборки Error.stack. После лимита hooks только delegate. Nested inclusive durations нельзя суммировать.
+
+CPU-state читает существующие private FIFO requests/work/frame, engine drawing/settle/opQueue/rebuild/locked/lost. Не читает FIFO.pending getter (он вызывает blocked/gl.isContextLost). Это версия-зависимый диагностический контракт, missing fields явны. Каждая call start/end имеет phase/down/move/up; restore в finally после scenario. rAF gap сам по себе не доказывает GPU latency: возможен долгий JS, driver stall, scheduler throttling либо намеренное ожидание.
+
+Существующий scenario ждёт3rAF между DOWN иUP, а перед четвёртым ждёт complete idle. Поэтому интервал1.5s между fences не объявляется задержкой появления пигмента. Минимальный следующий dataset: pointer inclusive CPU duration; Engine nested own approximated difference; first `_display` после DOWN; settle tick/advance duration; queued/blocked frames; явный first3 vs fourth idle-wait. Display return — frame submission, не физическая видимость/pen latency. FIFO requests waiting while settle=true означают declared serialization, но длительность solver должна подтверждаться отдельными calls. GPU время без timestamp/readback не выводится.
+
+CPU fixtures2PASS: forbidden GPU Proxy доказывает отсутствие query; nested7/3ms отдельно от1500ms rAF gap; limit/throw/restore. Runtime/prod не изменены. Перед hardware требуется отдельный immutable packet/controller opt-in и allocation;5366 старыйfreeze не меняется.
