@@ -45,6 +45,7 @@ describe('actual production CPU source to prepared GL ordered API corpus',()=>{
     if(capturedIndex<0)expect(requests.map(request=>request.typedSource.foreignImport.wetProfile).join('')).toBe(wetProfile??'')
     for(const request of requests){expect(request.typedSource.foreignImport.enabled).toBe(segmented&&generated.diagnosticForeignSolvent&&generated.diagnosticSolventField);expect(request.typedSource.foreignImport.dabs.length).toBe(segmented?1:count)}
     expect(commands.length).toBe(beforeCommands);expect(resolve).not.toHaveBeenCalled()
+    expect(ownScratch.diffusePending).toBe(true);ownScratch.captureFinishMetadata();expect(ownScratch.diffusePending).toBe(true);expect(ownScratch.captureCanonicalFinish()?.diffusePending).toBe(true);expect(ownScratch.diffusePending).toBe(false)
     for(const request of requests)request.cancel(false)
    }finally{resolve.mockRestore();ownScratch.destroy()}
 

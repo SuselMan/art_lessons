@@ -86,7 +86,7 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
  e._finishRibbonStroke=function(scratch,...args){
   const owner=mapFor(scratch).get(scratch.gesture);
   if(!owner||args[3])return originals.finish.call(e,scratch,...args);
-  coordinator.seal(owner.token,scratch.captureCanonicalFinish());event('seal',{sequence:owner.token.sequence});
+  coordinator.seal(owner.token,scratch.captureFinishMetadata());event('seal',{sequence:owner.token.sequence});
   const enqueue=e._wcCanonical.enqueue;e._wcCanonical.enqueue=function(request){return enqueue.call(this,{execute:function*(){yield* request.execute();landedVersion++;coordinator.land(owner.token);owners.delete(owner.token);e._invalidateSplitCache();e._scheduleDisplay();event('land',{sequence:owner.token.sequence,landedVersion})},cancel:lost=>{request.cancel(lost);cancelOwner(owner)}})};
   try{return originals.finish.call(e,scratch,...args)}finally{e._wcCanonical.enqueue=enqueue}
  };
