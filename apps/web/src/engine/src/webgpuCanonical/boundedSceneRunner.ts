@@ -27,6 +27,7 @@ export interface BoundedSceneOptions {
  /** Diagnostic only: same serial passes/Q8 order, fewer submissions. Default false. */
  groupedSettleSubmission?:boolean
  diagnosticPairedCarry?:boolean
+ diagnosticCarryOracleIndex?:number
  diagnosticHardwareLinearInputs?:boolean
  /** OFF by default. Same solver with actual intermediate presentation; incompatible with grouped. */
  progressiveSettle?:boolean
@@ -71,7 +72,7 @@ export class CanonicalBoundedSceneRunner {
  private readonly geometry={dabSpacing:0}
  constructor(backend:CanonicalWatercolorWebGpu,options:BoundedSceneOptions){
   if(options.progressiveSettle&&options.groupedSettleSubmission)throw new Error('Progressive and grouped native settle are incompatible')
-  this.backend=backend;this.options=options;this.adapter=new CanonicalPlanAdapter(backend);this.adapter.diagnosticPairedCarry=options.diagnosticPairedCarry===true;this.adapter.diagnosticHardwareLinearInputs=options.diagnosticHardwareLinearInputs===true;this.fieldOwner=new CanonicalPlanFieldOwner(backend);this.pool=new CanonicalScratchPool(backend)
+  this.backend=backend;this.options=options;this.adapter=new CanonicalPlanAdapter(backend);this.adapter.diagnosticPairedCarry=options.diagnosticPairedCarry===true;this.adapter.diagnosticCarryOracleIndex=options.diagnosticCarryOracleIndex;this.adapter.diagnosticHardwareLinearInputs=options.diagnosticHardwareLinearInputs===true;this.fieldOwner=new CanonicalPlanFieldOwner(backend);this.pool=new CanonicalScratchPool(backend)
   const buffer=new CanonicalFieldBuffer(backend,1024,1024,'linear','bounded native layer');buffer.clear()
   this.target={buffer,originX:0,originY:0,contentRect:null}
   this.scratch=new CanonicalStrokeScratchMetadata(new CanonicalTileScratch(this.pool),createCanonicalStrokeChunkState(),[this.target])
@@ -199,7 +200,7 @@ export class CanonicalBoundedSceneRunner {
   this.retirement=(async()=>{try{await this.pendingSettle}finally{this.releaseResources();this.active=false;this.busy=false;this.settleFailure=undefined}})()
   return this.retirement
  }
- private releaseResources(){if(this.resourcesReleased)return;this.resourcesReleased=true;for(const detach of [...this.detachInputs])detach();this.planner.destroyTextures();this.scratch.tiles.destroy();this.target.buffer.destroy();this.fieldOwner.destroy();this.pool.destroy()}
+ private releaseResources(){if(this.resourcesReleased)return;this.resourcesReleased=true;for(const detach of [...this.detachInputs])detach();this.adapter.disposeCarryOracle();this.planner.destroyTextures();this.scratch.tiles.destroy();this.target.buffer.destroy();this.fieldOwner.destroy();this.pool.destroy()}
  destroy(){if(this.active||this.busy)throw new Error('Drain native scene before destroy');this.releaseResources()}
 
 }

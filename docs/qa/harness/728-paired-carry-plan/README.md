@@ -35,3 +35,25 @@ exclude final readbacks/hashes; actual source/live/prepare/settle phases separat
 
 Strict harness/app typecheck and source lint pass. Full1536 software run deliberately
 not performed; root controls actual hardware gates. No Room or speed claim.
+
+400 regression localization (options OFF by default):
+
+* `controlRepeat:true` runs OFF/OFF on the SAME tape. This establishes native
+  serial repeatability separately and does not claim paired equivalence.
+* `oraclePairIndex:0` (zero-based, up to128) selects ONE actual paired call in the
+  ON run. The current real GPU inputs are snapshot-copied at that exact command
+  boundary. Distinct shadow outputs first copy the prior output bytes so outside
+  scissor matches; paired executes, then ORIGINAL16→15 executes on those SAME OLD
+  inputs into shadows, then both results are copied to immutable readback buffers.
+  Mapping/hashing happens after runner.drain. Returns dimensions/filter/identity/
+  uniforms and bounded input/output hashes plus P/C byte differences. No synthetic
+  fixture or delayed re-read of mutable inputs. Oracle mismatch fails exact gate.
+  Stage snapshots limited128MiB and2048 extents. Destructor/exception cleanup
+  retires shadows through owner scope and releases snapshots. Diagnostic copies
+  and shadow passes perturb timing and can perturb driver behavior, so performance
+  results from this run must not be used. Default serial remains the baseline.
+
+Example: `runPairedCarryAB({size:400,allowLarge:true,tape,hardwareLinear:true,
+controlRepeat:true})`, then SAME tape with `controlRepeat:false,oraclePairIndex:0`.
+If the selected pair is not exercised the harness throws, rather than false-pass.
+Whole final roles remain checked even when a local pair oracle passes.

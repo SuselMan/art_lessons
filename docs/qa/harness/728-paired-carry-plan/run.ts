@@ -13,10 +13,12 @@ const hash=async(bytes:Uint8Array)=>Array.from(new Uint8Array(await crypto.subtl
 const diff=(a:Uint8Array,b:Uint8Array)=>{if(a.length!==b.length)throw new Error('Capture dimensions changed');let changed=0,max=0,total=0;for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);changed+=+(d>0);max=Math.max(max,d);total+=d}return{changed,max,total}}
 interface Counts {submits:number;commandBuffers:number;submitCpuMs:number;quanta:number;encodeCpuMs:number}
 interface RoleCapture {width:number;height:number;nonzero:number;sha256:string;difference:ReturnType<typeof diff>}
-interface RunRow {paired:boolean;metrics:Record<'source'|'live'|'prepare'|'settle',Counts>;replayCpuMs:number;waitWallMs:number;wallMs:number;readbackWallMs:number;roles:Record<string,RoleCapture>;solventCheckpoints:Record<string,RoleCapture>;errors:string[];lost:boolean;pairedCarryCalls:number}
+interface RunRow {paired:boolean;metrics:Record<'source'|'live'|'prepare'|'settle',Counts>;replayCpuMs:number;waitWallMs:number;wallMs:number;readbackWallMs:number;roles:Record<string,RoleCapture>;solventCheckpoints:Record<string,RoleCapture>;errors:string[];lost:boolean;pairedCarryCalls:number;carryOracle:Awaited<ReturnType<CanonicalBoundedSceneRunner['adapter']['readCarryOracle']>>}
 const count=():Counts=>({submits:0,commandBuffers:0,submitCpuMs:0,quanta:0,encodeCpuMs:0})
-export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,pairedFirst=false,captureSolvent=false,hardwareLinear=false,progressive=false}:{hardwareLinear?:boolean;progressive?:boolean;captureSolvent?:boolean;size?:100|400;allowLarge?:boolean;tape?:StrokeOperation[];pairedFirst?:boolean}={}){
+export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,pairedFirst=false,captureSolvent=false,hardwareLinear=false,progressive=false,controlRepeat=false,oraclePairIndex}:{controlRepeat?:boolean;oraclePairIndex?:number;hardwareLinear?:boolean;progressive?:boolean;captureSolvent?:boolean;size?:100|400;allowLarge?:boolean;tape?:StrokeOperation[];pairedFirst?:boolean}={}){
  if(progressive&&captureSolvent)throw new Error('Solvent source/finish captures require serial synchronous settle; progressive final-role gate remains supported')
+ if(controlRepeat&&oraclePairIndex!==undefined)throw new Error('OFF/OFF repeat has no paired oracle; run separately')
+ if(oraclePairIndex!==undefined&&(!Number.isInteger(oraclePairIndex)||oraclePairIndex<0||oraclePairIndex>128))throw new Error('Bounded actual oracle pair index invalid')
  const memoryGiB=(navigator as Navigator&{deviceMemory?:number}).deviceMemory??null
  if(size===400&&(!allowLarge||memoryGiB!==null&&memoryGiB<4))return{skipped:true,reason:'400 needs allowLarge and >=4GiB reported memory when present',memoryGiB}
  const la=await getPaperBytes('fine'),side=Math.sqrt(la.length/2),paper=new Uint8Array(side*side*4)
@@ -30,7 +32,7 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
   const backend=await CanonicalWatercolorWebGpu.create({canvas,width:1024,height:1024,paper:{bytes:paper,width:side,height:side,origin:[0,0],texSize:[1024,1024],scale:1}})
   const errors:string[]=[];backend.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));let lost=false
   void backend.device.lost.then(info=>{if(info.reason!=='destroyed')lost=true})
-  const runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions,groupedSettleSubmission:false,diagnosticPairedCarry:paired,diagnosticHardwareLinearInputs:hardwareLinear,progressiveSettle:progressive,now:()=>now,timestamp:()=>timestamp,operationId:()=>`paired-fixed-${index++}`,onLocalOperation:op=>{if(record){if(op.type!=='stroke')throw new Error('Nonstroke capture');tape.push(structuredClone(op))}}})
+  const runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions,groupedSettleSubmission:false,diagnosticPairedCarry:paired,diagnosticCarryOracleIndex:paired?oraclePairIndex:undefined,diagnosticHardwareLinearInputs:hardwareLinear,progressiveSettle:progressive,now:()=>now,timestamp:()=>timestamp,operationId:()=>`paired-fixed-${index++}`,onLocalOperation:op=>{if(record){if(op.type!=='stroke')throw new Error('Nonstroke capture');tape.push(structuredClone(op))}}})
   const destroy=async()=>{try{await runner.drain();runner.destroy()}finally{backend.destroy();canvas.remove()}}
   return{backend,runner,errors,get lost(){return lost},destroy}
  }
@@ -57,7 +59,7 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
  if(captureSolvent&&tape.length>8)throw new Error('Solvent localization is bounded to eight packed operations')
  const tapeSha256=await hash(new TextEncoder().encode(JSON.stringify(tape)))
  const baseline=new Map<string,{bytes:Uint8Array;width:number;height:number}>(),rows:RunRow[]=[]
- for(const paired of pairedFirst?[true,false]:[false,true]){
+ for(const paired of controlRepeat?[false,false]:pairedFirst?[true,false]:[false,true]){
   progress('create replay '+(paired?'ON':'OFF'));now=1000;const run=await create(paired)
   const {runner,backend}=run
   let phase:'source'|'live'|'prepare'|'settle'='source'
@@ -120,13 +122,15 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
     solventCheckpoints[checkpoint.key]={width:checkpoint.width,height:checkpoint.height,nonzero:bytes.reduce((n,v)=>n+ +(v!==0),0),sha256:await hash(bytes),difference:diff(control.bytes,bytes)}
    }
    if(rows.length&&pendingSolvent.length!==Object.keys(rows[0].solventCheckpoints).length)throw new Error('Different solvent checkpoint count')
+   const carryOracle=await runner.adapter.readCarryOracle()
+   if(paired&&oraclePairIndex!==undefined&&!carryOracle)throw new Error('Selected actual carry pair was not exercised')
    readbackWallMs=performance.now()-readStarted
    const validation=await backend.device.popErrorScope();if(validation)run.errors.push(validation.message)
-   rows.push({paired,metrics,replayCpuMs,waitWallMs,wallMs,readbackWallMs,roles,solventCheckpoints,errors:[...run.errors],lost:run.lost,pairedCarryCalls:runner.adapter.pairedCarryCalls})
+   rows.push({paired,metrics,replayCpuMs,waitWallMs,wallMs,readbackWallMs,roles,solventCheckpoints,errors:[...run.errors],lost:run.lost,pairedCarryCalls:runner.adapter.pairedCarryCalls,carryOracle})
   }finally{queue.submit=submit;await run.destroy()}
  }
  surface.replaceChildren()
- const exact=rows.some(row=>row.paired&&row.pairedCarryCalls>0)&&rows.length===2&&rows.every(row=>!row.errors.length&&!row.lost&&[...Object.values(row.roles),...Object.values(row.solventCheckpoints)].every(r=>r.difference.changed===0))&&['layer','tile.inkLoad','tile.inkColor','tile.coverage'].every(role=>rows[0].roles[role]?.nonzero)
- return{code:'__CODE__',order:rows.map(row=>row.paired?'ON':'OFF'),size,hardwareLinear,progressive,captureSolvent,timingPerturbedByCapture:captureSolvent,memoryGiB,tape,tapeSha256,paperSha256:await hash(la),rows,exact,limitations:['Native OFF/ON internal equivalence, not GL parity or Room integration','Full1536 fields, single1024 tile/layer/wash; owners sequential','Capture after last canonical operation only; no intermediate history','wallMs excludes readback, hashing, setup and untimed pointer authoring','encodeCpuMs/replayCpuMs are CPU wall intervals, not shader GPU time; waitWallMs is completion wait','Paired carry defaults OFF; grouped submissions disabled in both arms']}
+ const exact=(controlRepeat||rows.some(row=>row.paired&&row.pairedCarryCalls>0))&&rows.length===2&&rows.every(row=>!row.errors.length&&!row.lost&&(!row.carryOracle||row.carryOracle.exact)&&[...Object.values(row.roles),...Object.values(row.solventCheckpoints)].every(r=>r.difference.changed===0))&&['layer','tile.inkLoad','tile.inkColor','tile.coverage'].every(role=>rows[0].roles[role]?.nonzero)
+ return{code:'__CODE__',order:rows.map(row=>row.paired?'ON':'OFF'),size,controlRepeat,oraclePairIndex,timingPerturbedByOracle:oraclePairIndex!==undefined,hardwareLinear,progressive,captureSolvent,timingPerturbedByCapture:captureSolvent,memoryGiB,tape,tapeSha256,paperSha256:await hash(la),rows,exact,limitations:['Native OFF/ON internal equivalence, not GL parity or Room integration','Full1536 fields, single1024 tile/layer/wash; owners sequential','Capture after last canonical operation only; no intermediate history','wallMs excludes readback, hashing, setup and untimed pointer authoring','encodeCpuMs/replayCpuMs are CPU wall intervals, not shader GPU time; waitWallMs is completion wait','Paired carry defaults OFF; grouped submissions disabled in both arms']}
 }
 Object.assign(window,{runPairedCarryAB})
