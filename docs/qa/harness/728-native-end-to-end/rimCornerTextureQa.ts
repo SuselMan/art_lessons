@@ -9,7 +9,8 @@ export function rimCornerQaRecipe(){return buildRimHashCornerTable({width:1536,h
 /** QA ONLY: identical seeded Float32 lattice corners, unchanged noise interpolation,
  * two-octave frequencies and thresholds. Spatial pattern differs from polynomial. */
 export function rimCornerQaShaders(table:ReturnType<typeof rimCornerQaRecipe>){
- if(table.seed!==RIM_CORNER_QA_SEED||table.width<2||table.height<2||table.values.length!==table.width*table.height)throw Error('Shared seeded QA corner table required')
+ const expected=rimCornerQaRecipe()
+ if(table.seed!==RIM_CORNER_QA_SEED||table.width!==expected.width||table.height!==expected.height||table.origin[0]!==expected.origin[0]||table.origin[1]!==expected.origin[1]||JSON.stringify(table.domain)!==JSON.stringify(expected.domain)||table.values.length!==expected.values.length||table.values.some((value,i)=>value!==expected.values[i]))throw Error('Shared seeded QA corner table required')
  const gs=WC_FIELD_OP_FRAG.indexOf('  float wcRimHash(vec2 p)'),ge=WC_FIELD_OP_FRAG.indexOf('  float wcRimNoise(',gs),ws=CANONICAL_FIELD_OPS_WGSL.indexOf('fn rimHash('),we=CANONICAL_FIELD_OPS_WGSL.indexOf('fn rimNoise(',ws)
  if(gs<0||ge<gs||ws<0||we<ws)throw Error('Original rim hash anchors required')
  const [x,y]=table.origin
@@ -18,6 +19,7 @@ export function rimCornerQaShaders(table:ReturnType<typeof rimCornerQaRecipe>){
  return {gl,native}
 }
 export function uploadGlRimCorners(gl:WebGLRenderingContext,table:ReturnType<typeof rimCornerQaRecipe>){
+ rimCornerQaShaders(table)
  if(!gl.getExtension('OES_texture_float'))throw Error('Explicit unsupported float corner texture')
  const texture=gl.createTexture();if(!texture)throw Error('QA corner texture allocation')
  gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE,table.width,table.height,0,gl.LUMINANCE,gl.FLOAT,table.values)

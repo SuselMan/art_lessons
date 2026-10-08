@@ -16,5 +16,5 @@ it('all actual first/second octave corners remain within identical noise-row tab
  const wp=[f(f(x+.5)*f(.012)),f(f(1536-y-.5-1576)*f(.012))]
  for(const [a,b]of[wp,[f(f(wp[0]*f(2.7))+f(31.4)),f(f(wp[1]*f(2.7))+f(17.9))]])for(const dy of[0,1])for(const dx of[0,1])expect(Number.isFinite(sampleRimHashCorner(t,Math.floor(a)+dx,Math.floor(b)+dy))).toBe(true)
  }
- expect(()=>rimCornerQaShaders({...t,seed:1})).toThrow()
+ expect(()=>rimCornerQaShaders({...t,seed:1})).toThrow();expect(()=>rimCornerQaShaders({...t,origin:[0,-35]})).toThrow();const altered=t.values.slice();altered[0]=.5;expect(()=>rimCornerQaShaders({...t,values:altered})).toThrow()
 })
