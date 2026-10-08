@@ -1,0 +1,122 @@
+{
+  "frames": [
+    {
+      "at": 20643.5,
+      "elapsed": 26,
+      "changedPixels": 0,
+      "changedPixelsOver5": 0,
+      "maxRGBDelta": 0,
+      "paintMaskSymmetricDifference": 0
+    },
+    {
+      "at": 20737.899999976158,
+      "elapsed": 120.39999997615814,
+      "changedPixels": 154,
+      "changedPixelsOver5": 0,
+      "maxRGBDelta": 1,
+      "paintMaskSymmetricDifference": 0
+    },
+    {
+      "at": 20932.099999964237,
+      "elapsed": 314.5999999642372,
+      "changedPixels": 242,
+      "changedPixelsOver5": 0,
+      "maxRGBDelta": 1,
+      "paintMaskSymmetricDifference": 0
+    },
+    {
+      "at": 21339.5,
+      "elapsed": 722,
+      "changedPixels": 658,
+      "changedPixelsOver5": 0,
+      "maxRGBDelta": 1,
+      "paintMaskSymmetricDifference": 0
+    },
+    {
+      "at": 21832.299999952316,
+      "elapsed": 1214.7999999523163,
+      "changedPixels": 1174,
+      "changedPixelsOver5": 0,
+      "maxRGBDelta": 1,
+      "paintMaskSymmetricDifference": 0
+    },
+    {
+      "at": 22732.299999952316,
+      "elapsed": 2114.7999999523163,
+      "changedPixels": 2534,
+      "changedPixelsOver5": 0,
+      "maxRGBDelta": 1,
+      "paintMaskSymmetricDifference": 0
+    }
+  ],
+  "paintMaskDefinition": "max(RGB)-min(RGB)>20 and min(RGB)<200; RGB output, not material alpha",
+  "scope": "Rendered post-UP thumbnails. Diagnostic display/readback, not physical latency or working-field parity.",
+  "assessment": "UX FAIL: no pigment motion from UP to predecessor land. All six frames max RGB delta1; shape/no-over5 result alone does not validate faint-dot mask.",
+  "seal2Ms": 20617.5,
+  "materialReveal2Ms": 22805.5,
+  "upToRevealMs": 2188.0,
+  "landTimeline": [
+    {
+      "kind": "land",
+      "at": 22806,
+      "sequence": 1,
+      "landedVersion": 1
+    },
+    {
+      "kind": "land",
+      "at": 23566.399999976158,
+      "sequence": 2,
+      "landedVersion": 2
+    }
+  ],
+  "lastFrameBeforeRevealMs": 73.20000004768372,
+  "history": {
+    "before": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 27902,
+      "sha": "2d0ae2e0fb84972d3424c3ebf96f97732be4d68e30df38c7d4fc18b7f314ed4e"
+    },
+    "undone": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 0,
+      "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+    },
+    "redone": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 27902,
+      "sha": "2d0ae2e0fb84972d3424c3ebf96f97732be4d68e30df38c7d4fc18b7f314ed4e"
+    },
+    "meaningful": true,
+    "exact": true,
+    "glError": 0,
+    "lost": false,
+    "limitations": [
+      "Final target exact history gate; working scratch fields are not asserted across rebuild",
+      "Readback AFTER measured drawing only"
+    ]
+  },
+  "actualSizes": [
+    400,
+    70
+  ],
+  "actualPresets": [
+    "normal:100:0:PB29:round",
+    "normal:100:100:PB29:round"
+  ],
+  "packedTapeSHA": "749b66c922530e0f48b178d665ed6416b285fd9942e9a36cb535c6f7cf8592eb",
+  "memoryPreMinPostMiB": [
+    2011,
+    837,
+    1936
+  ],
+  "limitations": [
+    "Original same-packed two-op comparator not run yet",
+    "Framebuffer thumbnails/capture alter timing",
+    "First 26ms after seal and post-reveal after2188ms not captured",
+    "First DOWN no GL name allocation, storage upload remains dynamic",
+    "No full UX readiness claim"
+  ]
+}
