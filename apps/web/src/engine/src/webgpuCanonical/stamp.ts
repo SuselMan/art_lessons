@@ -1,3 +1,4 @@
+import { withTransientGpuBuffers } from './transientBuffers'
 /// <reference types="@webgpu/types" />
 import { CANONICAL_NOISE_WGSL } from './noise'
 import type { CanonicalGpuField, CanonicalRasterPhase, CanonicalStamp } from './types'
@@ -68,7 +69,8 @@ export class CanonicalStampDeposit {
   this.single=Object.fromEntries((['pigmentOnly','colorOnly'] as const).flatMap(entryPoint=>(['max','add'] as const).map(mode=>{const blend:GPUBlendState={color:{operation:mode,srcFactor:'one',dstFactor:'one'},alpha:{operation:mode,srcFactor:'one',dstFactor:'one'}};return[entryPoint+mode,device.createRenderPipeline({layout:'auto',vertex,fragment:{module,entryPoint,targets:[{format:'rgba8unorm',blend}]}})]})))
  }
  encode(encoder:GPUCommandEncoder,stamp:CanonicalStamp,coverage:CanonicalGpuField,blank:CanonicalGpuField,pigment:CanonicalGpuField,color:CanonicalGpuField,phase:CanonicalRasterPhase='all'):GPUBuffer[] {
-  const v=stamp.uniforms,u=this.device.createBuffer({size:160,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST})
+  return withTransientGpuBuffers(retain=>{
+  const v=stamp.uniforms,u=retain(this.device.createBuffer({size:160,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}))
   this.device.queue.writeBuffer(u,0,new Float32Array([coverage.width,coverage.height,...v.worldOrigin,...v.mottleSeed,v.aaPx,v.washWater,v.waterRetain,v.bristleCombs,v.bristleInk,v.cloudDeposit,v.granDeposit,v.poolBlot,+v.useAvailableWater,0,...v.tau,0,...stamp.center,stamp.radius,stamp.aspect,stamp.angle,+(stamp.nibShape==='roundedBox'),stamp.cornerRadius,stamp.opacity,stamp.inkWater,stamp.paperWet,stamp.inkStrength,stamp.puddle,...stamp.acrossLocal,stamp.pressure,stamp.inkEdge,stamp.inkClip,stamp.pigmentPool,0,0]))
   const encode=(pipeline:GPURenderPipeline,read:CanonicalGpuField,writes:CanonicalGpuField[])=>{
    // Coverage entry does not statically use binding1; auto layout omits it.
@@ -82,5 +84,7 @@ export class CanonicalStampDeposit {
   if(phase==='pigment')encode(this.single['pigmentOnly'+stamp.inkBlend],coverage,[pigment])
   if(phase==='color')encode(this.single['colorOnly'+stamp.inkBlend],coverage,[color])
   return[u]
+ 
+  })
  }
 }

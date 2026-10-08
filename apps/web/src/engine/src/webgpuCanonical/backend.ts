@@ -141,20 +141,20 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   if (!batch.vertices.length) return
   const encoder = this.device.createCommandEncoder({ label: 'canonical prepared ribbon' })
   const transient = this.deposit.encode(encoder, batch, this.fields.coverage, this.fields.water, this.fields.pigment, this.fields.color,phase)
-  this.device.queue.submit([encoder.finish()]); void this.device.queue.onSubmittedWorkDone().finally(() => transient.forEach(buffer => buffer.destroy()))
+  this.device.queue.submit([encoder.finish()]); void this.device.queue.onSubmittedWorkDone().then(() => transient.forEach(buffer => buffer.destroy()), () => transient.forEach(buffer => buffer.destroy()))
  }
  appendPreparedStamp(stamp: CanonicalStamp,phase:CanonicalRasterPhase='all') {
   if (this.destroyed) throw new Error('Canonical WebGPU backend destroyed')
   const encoder=this.device.createCommandEncoder({label:'canonical prepared nib stamp'})
   const transient=this.stamps.encode(encoder,stamp,this.fields.coverage,this.fields.water,this.fields.pigment,this.fields.color,phase)
-  this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().finally(()=>transient.forEach(buffer=>buffer.destroy()))
+  this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().then(()=>transient.forEach(buffer=>buffer.destroy()),()=>transient.forEach(buffer=>buffer.destroy()))
  }
  brushContact(step:readonly[number,number],gain:number,flowRect:readonly[number,number,number,number]) {
   const encoder=this.device.createCommandEncoder({label:'canonical Q8 brush pulse'})
   const ctx={device:this.device,encoder,nearest:this.nearest,linear:this.linear}
   const transient=this.brush.encode(ctx,{pigment:this.fields.pigment,color:this.fields.color,flow:this.fields.flow,water:this.fields.water,outPigment:this.brushOut[0],outColor:this.brushOut[1]},step,gain,flowRect)
   for(const [out,into] of [[this.brushOut[0],this.fields.pigment],[this.brushOut[1],this.fields.color]])encoder.copyTextureToTexture({texture:out.texture},{texture:into.texture},[into.width,into.height])
-  this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().finally(()=>transient.forEach(buffer=>buffer.destroy()))
+  this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().then(()=>transient.forEach(buffer=>buffer.destroy()),()=>transient.forEach(buffer=>buffer.destroy()))
  }
  copyRegion(src:CanonicalGpuField,dst:CanonicalGpuField,srcOrigin:readonly[number,number],dstOrigin:readonly[number,number],size:readonly[number,number],encoder?:GPUCommandEncoder) {
   const values=[...srcOrigin,...dstOrigin,...size];if(values.some(v=>!Number.isInteger(v)||v<0))throw new Error('Canonical copy requires nonnegative integer pixel coordinates')
@@ -177,7 +177,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
  }
  clearField(field:CanonicalGpuField,rect?:readonly[number,number,number,number]) {
   if(this.activeEncoder){this.activeBuffers.push(...this.encodeClearField(this.activeEncoder,field,rect));return}
-  const encoder=this.device.createCommandEncoder(),transient=this.encodeClearField(encoder,field,rect);this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().finally(()=>transient.forEach(buffer=>buffer.destroy()))
+  const encoder=this.device.createCommandEncoder(),transient=this.encodeClearField(encoder,field,rect);this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().then(()=>transient.forEach(buffer=>buffer.destroy()),()=>transient.forEach(buffer=>buffer.destroy()))
  }
  clear() {
   const encoder = this.device.createCommandEncoder()
@@ -196,7 +196,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
  compositeInto(original: CanonicalGpuField, out: CanonicalGpuField, uniforms: CanonicalCompositeUniforms) {
   const encoder=this.device.createCommandEncoder({label:'canonical watercolor composite'})
   const transient=this.composite.encode(encoder,this.fields,original,this.paper.field,this.noise,out,uniforms)
-  this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().finally(()=>transient.forEach(buffer=>buffer.destroy()))
+  this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().then(()=>transient.forEach(buffer=>buffer.destroy()),()=>transient.forEach(buffer=>buffer.destroy()))
  }
  present(out?: CanonicalGpuField) { if (!out) throw new Error('Canonical presentation requires the composited layer field');this.presentField(out) }
  settle(): never { throw new Error('Canonical watercolor settle schedule is not ported yet') }
@@ -219,5 +219,5 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   for (const name of names) this.upload(this.fields[name], snapshot.fields[name])
  }
  whenIdle() { return this.device.queue.onSubmittedWorkDone() }
- destroy() { if (this.destroyed) return; this.destroyed = true; for (const field of this.ownedFields) field.texture.destroy(); this.ownedFields.clear(); this.context.unconfigure(); this.device.destroy() }
+ destroy() { if (this.destroyed) return; this.destroyed = true; for (const field of this.ownedFields) field.texture.destroy(); this.ownedFields.clear(); for(const field of this.pendingRetired)field.texture.destroy(); this.pendingRetired.clear(); this.activeRetired.forEach(field=>field.texture.destroy()); this.activeRetired=[]; this.activeBuffers.forEach(buffer=>buffer.destroy()); this.activeBuffers=[]; this.context.unconfigure(); this.device.destroy() }
 }
