@@ -1,0 +1,1188 @@
+{
+  "softwareOnly": true,
+  "valid": true,
+  "bundleSha256": "dba4619fe2964d92b2be87e9058c8ece58a2e8cdb5363bc17f986aedd7936245",
+  "rows": [
+    {
+      "scenario": "single400",
+      "meaningful": true,
+      "fieldsExact": true,
+      "materialExact": true,
+      "exportExact": true,
+      "tapeExact": true,
+      "exercised": true,
+      "valid": true,
+      "arms": [
+        {
+          "code": "1291f59013db58781a54fed48be42a49299998ec + dirty",
+          "backend": "webgl1",
+          "scenario": "single400",
+          "paper": "fine",
+          "pageWidth": 2048,
+          "paintMs": 3082.699999988079,
+          "phaseMs": [
+            110.69999998807907,
+            2871.5,
+            52.39999997615814
+          ],
+          "colourSnapshot": {
+            "skipped": 0,
+            "storageBytesAvoided": 0,
+            "copyPixelsAvoided": 0
+          },
+          "glError": 0,
+          "lost": false,
+          "tapeSha256": "37013bfbcedfd77c442a34ed816f6e6110482533d583a2bba8f8ca546f3a6e55",
+          "materialWholeLayer": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "rgbaSha256": "72743fb7593ea893a698b2a3f91854ab90aa85d2330f8a53a2bc0751276092fc"
+            },
+            {
+              "x": 1024,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "rgbaSha256": "b7714a1d664ef608c293bfeb5451c6b6dbf385baa6de5f7a8fe32deb8d68e09f"
+            }
+          ],
+          "rgbaSha256": "6ce3fe0b16747e26a14d7fbc56da3eda9f75126a8f78ce50b05763e52e5b54ed",
+          "exportSize": [
+            2048,
+            1024
+          ],
+          "fieldCoverage": {
+            "pigment": true,
+            "colour": true,
+            "water": true,
+            "height": true,
+            "cov": true,
+            "nonemptyRequiredRoles": true,
+            "mrtExercised": false
+          },
+          "fields": [
+            {
+              "key": "replay:wash-stroke-1:tile0:inkLoad",
+              "role": "P",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "1739891b7167f16009b563541bf206f3130ea30d582cdf816a27074750ec55f6"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:inkColor",
+              "role": "C",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "f3d0c67090611ff1538c58604ec922b73688b1f7e7344cf02ae27d08fd407689"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:coverage",
+              "role": "cov",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "d782ce2e8c9d3918eabafbd4a86ece36cdb30fec44a6e27d6a9d7a66247d91f0"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:coverage.a",
+              "role": "water",
+              "width": 1024,
+              "height": 1024,
+              "channels": 1,
+              "byteLength": 1048576,
+              "sha256": "c6956a6fb759e1824efae8e9d04cc64ba80393e19a9cc26de4bd03b6cb7f1166"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:inkDry",
+              "role": "inkDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "e628cfaf4e7c49d3b71f624a60174a6bd0e42c2e416aa9c9daf9fefafad57859"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:colorDry",
+              "role": "colorDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "a38cf746e0db0f352cd2df565bb58343d99fe82088d01c4d1da227a40bf163f0"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:solventLoad",
+              "role": "solventLoad",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "36355c219840127157ebed669c04aff2c3e7570c47fd62e755b5b5b66441e31c"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:inkLoad",
+              "role": "P",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "12d7371317457f036a6d230602aa9df80bd2685dde480a8df959c09ba1d9a0b2"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:inkColor",
+              "role": "C",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "8d1c7439b41f9149773a2807b9055babeb5f637e31224487eed76bb0c7bfd697"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:coverage",
+              "role": "cov",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "5090ca47929cd4d7e567730f16e12587bda40394bd948513dbc1606d35cc9935"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:coverage.a",
+              "role": "water",
+              "width": 1024,
+              "height": 1024,
+              "channels": 1,
+              "byteLength": 1048576,
+              "sha256": "2bdf5352f9f298cf054ad2957301094d090cd176f6fabc9bd201ac4bdd7eaa1a"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:inkDry",
+              "role": "inkDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "3925f06ac9eaaf7de4f88b3817e74d1391f56cb28568a5741c7d05357b19b007"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:colorDry",
+              "role": "colorDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "97831dc714caa8637340fa78c9ddccc844bbe1e2f1fff5b0e17519dd12614bcd"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:solventLoad",
+              "role": "solventLoad",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "6a31e887202054be97ee04a92390a3f92d6a31704cf4a630efcaf63c4b769224"
+            },
+            {
+              "key": "field0:a",
+              "role": "working:a",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "b2db924082fa5b53a72d28bb382c8c39a2136103035663486cb6cf04df0e8173"
+            },
+            {
+              "key": "field0:b",
+              "role": "working:b",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "01cfdb8f3caa7892c0a9a312cf5d7a390dd4866bc222143e4db524bfe30a9d88"
+            },
+            {
+              "key": "field0:c",
+              "role": "working:c",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "10a57490441b2743915e82b2abc65bf134d36847398d6635c80caaae057379a1"
+            },
+            {
+              "key": "field0:ca",
+              "role": "working:ca",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "a1e6c47ab89e06c6657d2501ea5f8a3e76a601537b36748370e5a77236f294f7"
+            },
+            {
+              "key": "field0:cb",
+              "role": "working:cb",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "c3612659d28bd82648f92c6572a88f71f796e841b61e1646bd75ee01c42686f6"
+            },
+            {
+              "key": "field0:cc",
+              "role": "working:cc",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "f70a7fa62925c948fb0bd29499189ce1561347f8d1c8152599944d0cf487fee7"
+            },
+            {
+              "key": "field0:coverage",
+              "role": "working:coverage",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "19d7d2806a45fcf4a2f4d8b6ec1864c21b1562960e0267e35f86ea1ccd8cdfc8"
+            },
+            {
+              "key": "field0:mask",
+              "role": "working:mask",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "81ebab0ab0e09e6b55627809527087762fa40851834da3ee06565d500391ce7c"
+            },
+            {
+              "key": "field0:pressure",
+              "role": "working:pressure",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "c3612659d28bd82648f92c6572a88f71f796e841b61e1646bd75ee01c42686f6"
+            },
+            {
+              "key": "field0:band",
+              "role": "working:band",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "06232774634089dc3c644f941ed5c6e3ff12a897537a5de70de5c9568b984f3d"
+            },
+            {
+              "key": "paper:nativeTexture.r",
+              "role": "h",
+              "width": 2048,
+              "height": 2048,
+              "channels": 1,
+              "byteLength": 4194304,
+              "sha256": "e59ea6fafc9c21dac73fd31d7e7ebb9e86ad5545af46b6b3b1605a5ce84955fb"
+            },
+            {
+              "key": "paper:nativeTexture.a",
+              "role": "paperCatch",
+              "width": 2048,
+              "height": 2048,
+              "channels": 1,
+              "byteLength": 4194304,
+              "sha256": "a9ac8c5960a7f162ff398ec674ea87da17fbe64ad065cea36401fbc9276eaa20"
+            }
+          ]
+        },
+        {
+          "code": "1291f59013db58781a54fed48be42a49299998ec + dirty",
+          "backend": "webgl1",
+          "scenario": "single400",
+          "paper": "fine",
+          "pageWidth": 2048,
+          "paintMs": 2989.599999964237,
+          "phaseMs": [
+            4.899999976158142,
+            2886.100000023842,
+            47.19999998807907
+          ],
+          "colourSnapshot": {
+            "skipped": 1,
+            "storageBytesAvoided": 9437184,
+            "copyPixelsAvoided": 2359296
+          },
+          "glError": 0,
+          "lost": false,
+          "tapeSha256": "37013bfbcedfd77c442a34ed816f6e6110482533d583a2bba8f8ca546f3a6e55",
+          "materialWholeLayer": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "rgbaSha256": "72743fb7593ea893a698b2a3f91854ab90aa85d2330f8a53a2bc0751276092fc"
+            },
+            {
+              "x": 1024,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "rgbaSha256": "b7714a1d664ef608c293bfeb5451c6b6dbf385baa6de5f7a8fe32deb8d68e09f"
+            }
+          ],
+          "rgbaSha256": "6ce3fe0b16747e26a14d7fbc56da3eda9f75126a8f78ce50b05763e52e5b54ed",
+          "exportSize": [
+            2048,
+            1024
+          ],
+          "fieldCoverage": {
+            "pigment": true,
+            "colour": true,
+            "water": true,
+            "height": true,
+            "cov": true,
+            "nonemptyRequiredRoles": true,
+            "mrtExercised": false
+          },
+          "fields": [
+            {
+              "key": "replay:wash-stroke-1:tile0:inkLoad",
+              "role": "P",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "1739891b7167f16009b563541bf206f3130ea30d582cdf816a27074750ec55f6"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:inkColor",
+              "role": "C",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "f3d0c67090611ff1538c58604ec922b73688b1f7e7344cf02ae27d08fd407689"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:coverage",
+              "role": "cov",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "d782ce2e8c9d3918eabafbd4a86ece36cdb30fec44a6e27d6a9d7a66247d91f0"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:coverage.a",
+              "role": "water",
+              "width": 1024,
+              "height": 1024,
+              "channels": 1,
+              "byteLength": 1048576,
+              "sha256": "c6956a6fb759e1824efae8e9d04cc64ba80393e19a9cc26de4bd03b6cb7f1166"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:inkDry",
+              "role": "inkDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "e628cfaf4e7c49d3b71f624a60174a6bd0e42c2e416aa9c9daf9fefafad57859"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:colorDry",
+              "role": "colorDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "a38cf746e0db0f352cd2df565bb58343d99fe82088d01c4d1da227a40bf163f0"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:solventLoad",
+              "role": "solventLoad",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "36355c219840127157ebed669c04aff2c3e7570c47fd62e755b5b5b66441e31c"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:inkLoad",
+              "role": "P",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "12d7371317457f036a6d230602aa9df80bd2685dde480a8df959c09ba1d9a0b2"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:inkColor",
+              "role": "C",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "8d1c7439b41f9149773a2807b9055babeb5f637e31224487eed76bb0c7bfd697"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:coverage",
+              "role": "cov",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "5090ca47929cd4d7e567730f16e12587bda40394bd948513dbc1606d35cc9935"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:coverage.a",
+              "role": "water",
+              "width": 1024,
+              "height": 1024,
+              "channels": 1,
+              "byteLength": 1048576,
+              "sha256": "2bdf5352f9f298cf054ad2957301094d090cd176f6fabc9bd201ac4bdd7eaa1a"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:inkDry",
+              "role": "inkDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "3925f06ac9eaaf7de4f88b3817e74d1391f56cb28568a5741c7d05357b19b007"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:colorDry",
+              "role": "colorDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "97831dc714caa8637340fa78c9ddccc844bbe1e2f1fff5b0e17519dd12614bcd"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:solventLoad",
+              "role": "solventLoad",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "6a31e887202054be97ee04a92390a3f92d6a31704cf4a630efcaf63c4b769224"
+            },
+            {
+              "key": "field0:a",
+              "role": "working:a",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "b2db924082fa5b53a72d28bb382c8c39a2136103035663486cb6cf04df0e8173"
+            },
+            {
+              "key": "field0:b",
+              "role": "working:b",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "01cfdb8f3caa7892c0a9a312cf5d7a390dd4866bc222143e4db524bfe30a9d88"
+            },
+            {
+              "key": "field0:c",
+              "role": "working:c",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "10a57490441b2743915e82b2abc65bf134d36847398d6635c80caaae057379a1"
+            },
+            {
+              "key": "field0:ca",
+              "role": "working:ca",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "a1e6c47ab89e06c6657d2501ea5f8a3e76a601537b36748370e5a77236f294f7"
+            },
+            {
+              "key": "field0:cb",
+              "role": "working:cb",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "c3612659d28bd82648f92c6572a88f71f796e841b61e1646bd75ee01c42686f6"
+            },
+            {
+              "key": "field0:cc",
+              "role": "working:cc",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "f70a7fa62925c948fb0bd29499189ce1561347f8d1c8152599944d0cf487fee7"
+            },
+            {
+              "key": "field0:coverage",
+              "role": "working:coverage",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "19d7d2806a45fcf4a2f4d8b6ec1864c21b1562960e0267e35f86ea1ccd8cdfc8"
+            },
+            {
+              "key": "field0:mask",
+              "role": "working:mask",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "81ebab0ab0e09e6b55627809527087762fa40851834da3ee06565d500391ce7c"
+            },
+            {
+              "key": "field0:pressure",
+              "role": "working:pressure",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "c3612659d28bd82648f92c6572a88f71f796e841b61e1646bd75ee01c42686f6"
+            },
+            {
+              "key": "field0:band",
+              "role": "working:band",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "06232774634089dc3c644f941ed5c6e3ff12a897537a5de70de5c9568b984f3d"
+            },
+            {
+              "key": "paper:nativeTexture.r",
+              "role": "h",
+              "width": 2048,
+              "height": 2048,
+              "channels": 1,
+              "byteLength": 4194304,
+              "sha256": "e59ea6fafc9c21dac73fd31d7e7ebb9e86ad5545af46b6b3b1605a5ce84955fb"
+            },
+            {
+              "key": "paper:nativeTexture.a",
+              "role": "paperCatch",
+              "width": 2048,
+              "height": 2048,
+              "channels": 1,
+              "byteLength": 4194304,
+              "sha256": "a9ac8c5960a7f162ff398ec674ea87da17fbe64ad065cea36401fbc9276eaa20"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": "mixed400",
+      "meaningful": true,
+      "fieldsExact": true,
+      "materialExact": true,
+      "exportExact": true,
+      "tapeExact": true,
+      "exercised": true,
+      "valid": true,
+      "arms": [
+        {
+          "code": "1291f59013db58781a54fed48be42a49299998ec + dirty",
+          "backend": "webgl1",
+          "scenario": "mixed400",
+          "paper": "fine",
+          "pageWidth": 2048,
+          "paintMs": 5746.800000011921,
+          "phaseMs": [
+            13.600000023841858,
+            2816.599999964237,
+            2816.600000023842,
+            53
+          ],
+          "colourSnapshot": {
+            "skipped": 0,
+            "storageBytesAvoided": 0,
+            "copyPixelsAvoided": 0
+          },
+          "glError": 0,
+          "lost": false,
+          "tapeSha256": "6b3ea872c3b9990e77b928996b7903ee246ee24a14ea753e65e80f3d0e8c0911",
+          "materialWholeLayer": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "rgbaSha256": "40da12942fb8705e77d235075d0ecd45aaffb1656b4bdc14ed68526a9adcaf0e"
+            },
+            {
+              "x": 1024,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "rgbaSha256": "8122ad861c9798d5c0f98b49777a46cecdac68ece095357b81aaf4077b8a24b6"
+            }
+          ],
+          "rgbaSha256": "0d646a56e86db80f451db05d762d27362e085c46480e22e36ad15e5af2dae13d",
+          "exportSize": [
+            2048,
+            1024
+          ],
+          "fieldCoverage": {
+            "pigment": true,
+            "colour": true,
+            "water": true,
+            "height": true,
+            "cov": true,
+            "nonemptyRequiredRoles": true,
+            "mrtExercised": false
+          },
+          "fields": [
+            {
+              "key": "replay:wash-stroke-1:tile0:inkLoad",
+              "role": "P",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "3bbff4d48ee9ccbbea730108207e0919b8d3045e37c96827ec60c9fb0bcd5842"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:inkColor",
+              "role": "C",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "c63bf027d398303accc5fc966406073568712213ccdb3e12d1a7511acd72389c"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:coverage",
+              "role": "cov",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "7b55278c7f5d33c7327d989a4bca4d19c268e33ea8696a3daeb4e09ad1d8f767"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:coverage.a",
+              "role": "water",
+              "width": 1024,
+              "height": 1024,
+              "channels": 1,
+              "byteLength": 1048576,
+              "sha256": "e3356654112945c0c7df7a10cfffd721ade60e930219e8a5ceb4a9e62df31756"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:inkDry",
+              "role": "inkDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "a4ceff6da7f89adf81bcffad43b29421aa5fdb564294d8e1287a4f01b3d6968c"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:colorDry",
+              "role": "colorDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "22d1e55d578cf014b6d5f105784a3ff9c2de32ff13f55f6fc838501773f14813"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:solventLoad",
+              "role": "solventLoad",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "2f28535020a980f22334dd3cc5fb84f91e237c0458cc6ec7b8a62284db1f277d"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:inkLoad",
+              "role": "P",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "e87384c309e5e643607aee9c195c046b13a17c0f4184c9317b84db2cf65c0579"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:inkColor",
+              "role": "C",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "f0b02a6221bbe397187e212fa7015bd790938f0c09f4d2616a1b6caeb71e1a62"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:coverage",
+              "role": "cov",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "b50ea9793e3fd4ba296dca1078d9c7a1dd50012d24fb96fdb8054750ff3c5961"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:coverage.a",
+              "role": "water",
+              "width": 1024,
+              "height": 1024,
+              "channels": 1,
+              "byteLength": 1048576,
+              "sha256": "9c628605bc1a0500872ffa90c954d89f64574bcacea409cde0b20fb8ef40809b"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:inkDry",
+              "role": "inkDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "40760359f9f14825c90aace0e80155f35a3527981c4b21255378ee23d6add7a0"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:colorDry",
+              "role": "colorDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "dac910d59fdbc740033b4f0977b9a8b2f33ea236a7165b998df4e7baca9905f0"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:solventLoad",
+              "role": "solventLoad",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "4194875463303573223e0e56e162adcf4b399748027fa8866a256f147603a4dc"
+            },
+            {
+              "key": "field0:a",
+              "role": "working:a",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "80309805ed8186c36840b980a7eecc8d65c933c1c851c7a585356e69108ae377"
+            },
+            {
+              "key": "field0:b",
+              "role": "working:b",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "1151e374efd1871a2ec4641ad7d059896ecf88febdbb2163060d3ff0a76643c8"
+            },
+            {
+              "key": "field0:c",
+              "role": "working:c",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "58863e860c0b218c15d64a0c2b772ecf9786c37dd4767d672ec1fd350ace14cd"
+            },
+            {
+              "key": "field0:ca",
+              "role": "working:ca",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "d733024b621f91450b7e73c0904b3fe188b45d515282c94a76f33b09507783bb"
+            },
+            {
+              "key": "field0:cb",
+              "role": "working:cb",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "c291db7d12ffd2d32c75d2c0d552d204fa3f33ef80d79bbc016b260b96a9fc18"
+            },
+            {
+              "key": "field0:cc",
+              "role": "working:cc",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "f86ea43ad9c782986dc0de9c66437a22096342c5517217b4c5c0897a68955a23"
+            },
+            {
+              "key": "field0:coverage",
+              "role": "working:coverage",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "038507ff845d6ab51d014abd9db08a02701d7be8976533d2fdd78b130a3d0408"
+            },
+            {
+              "key": "field0:mask",
+              "role": "working:mask",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "d50c6402e88abe44603047af9dd296f0e5fe49efd908fb7f21fd0b05b48ec2a5"
+            },
+            {
+              "key": "field0:pressure",
+              "role": "working:pressure",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "c291db7d12ffd2d32c75d2c0d552d204fa3f33ef80d79bbc016b260b96a9fc18"
+            },
+            {
+              "key": "field0:band",
+              "role": "working:band",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "448cb7d4f27b919dc6bdc6a109fe170260ab505efe297918a11cad3b6ec624fa"
+            },
+            {
+              "key": "paper:nativeTexture.r",
+              "role": "h",
+              "width": 2048,
+              "height": 2048,
+              "channels": 1,
+              "byteLength": 4194304,
+              "sha256": "e59ea6fafc9c21dac73fd31d7e7ebb9e86ad5545af46b6b3b1605a5ce84955fb"
+            },
+            {
+              "key": "paper:nativeTexture.a",
+              "role": "paperCatch",
+              "width": 2048,
+              "height": 2048,
+              "channels": 1,
+              "byteLength": 4194304,
+              "sha256": "a9ac8c5960a7f162ff398ec674ea87da17fbe64ad065cea36401fbc9276eaa20"
+            }
+          ]
+        },
+        {
+          "code": "1291f59013db58781a54fed48be42a49299998ec + dirty",
+          "backend": "webgl1",
+          "scenario": "mixed400",
+          "paper": "fine",
+          "pageWidth": 2048,
+          "paintMs": 5725.299999952316,
+          "phaseMs": [
+            8.799999952316284,
+            2817.7000000476837,
+            2800.699999988079,
+            49.40000003576279
+          ],
+          "colourSnapshot": {
+            "skipped": 0,
+            "storageBytesAvoided": 0,
+            "copyPixelsAvoided": 0
+          },
+          "glError": 0,
+          "lost": false,
+          "tapeSha256": "6b3ea872c3b9990e77b928996b7903ee246ee24a14ea753e65e80f3d0e8c0911",
+          "materialWholeLayer": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "rgbaSha256": "40da12942fb8705e77d235075d0ecd45aaffb1656b4bdc14ed68526a9adcaf0e"
+            },
+            {
+              "x": 1024,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "rgbaSha256": "8122ad861c9798d5c0f98b49777a46cecdac68ece095357b81aaf4077b8a24b6"
+            }
+          ],
+          "rgbaSha256": "0d646a56e86db80f451db05d762d27362e085c46480e22e36ad15e5af2dae13d",
+          "exportSize": [
+            2048,
+            1024
+          ],
+          "fieldCoverage": {
+            "pigment": true,
+            "colour": true,
+            "water": true,
+            "height": true,
+            "cov": true,
+            "nonemptyRequiredRoles": true,
+            "mrtExercised": false
+          },
+          "fields": [
+            {
+              "key": "replay:wash-stroke-1:tile0:inkLoad",
+              "role": "P",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "3bbff4d48ee9ccbbea730108207e0919b8d3045e37c96827ec60c9fb0bcd5842"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:inkColor",
+              "role": "C",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "c63bf027d398303accc5fc966406073568712213ccdb3e12d1a7511acd72389c"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:coverage",
+              "role": "cov",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "7b55278c7f5d33c7327d989a4bca4d19c268e33ea8696a3daeb4e09ad1d8f767"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:coverage.a",
+              "role": "water",
+              "width": 1024,
+              "height": 1024,
+              "channels": 1,
+              "byteLength": 1048576,
+              "sha256": "e3356654112945c0c7df7a10cfffd721ade60e930219e8a5ceb4a9e62df31756"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:inkDry",
+              "role": "inkDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "a4ceff6da7f89adf81bcffad43b29421aa5fdb564294d8e1287a4f01b3d6968c"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:colorDry",
+              "role": "colorDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "22d1e55d578cf014b6d5f105784a3ff9c2de32ff13f55f6fc838501773f14813"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile0:solventLoad",
+              "role": "solventLoad",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "2f28535020a980f22334dd3cc5fb84f91e237c0458cc6ec7b8a62284db1f277d"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:inkLoad",
+              "role": "P",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "e87384c309e5e643607aee9c195c046b13a17c0f4184c9317b84db2cf65c0579"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:inkColor",
+              "role": "C",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "f0b02a6221bbe397187e212fa7015bd790938f0c09f4d2616a1b6caeb71e1a62"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:coverage",
+              "role": "cov",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "b50ea9793e3fd4ba296dca1078d9c7a1dd50012d24fb96fdb8054750ff3c5961"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:coverage.a",
+              "role": "water",
+              "width": 1024,
+              "height": 1024,
+              "channels": 1,
+              "byteLength": 1048576,
+              "sha256": "9c628605bc1a0500872ffa90c954d89f64574bcacea409cde0b20fb8ef40809b"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:inkDry",
+              "role": "inkDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "40760359f9f14825c90aace0e80155f35a3527981c4b21255378ee23d6add7a0"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:colorDry",
+              "role": "colorDry",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "dac910d59fdbc740033b4f0977b9a8b2f33ea236a7165b998df4e7baca9905f0"
+            },
+            {
+              "key": "replay:wash-stroke-1:tile1:solventLoad",
+              "role": "solventLoad",
+              "width": 1024,
+              "height": 1024,
+              "channels": 4,
+              "byteLength": 4194304,
+              "sha256": "4194875463303573223e0e56e162adcf4b399748027fa8866a256f147603a4dc"
+            },
+            {
+              "key": "field0:a",
+              "role": "working:a",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "80309805ed8186c36840b980a7eecc8d65c933c1c851c7a585356e69108ae377"
+            },
+            {
+              "key": "field0:b",
+              "role": "working:b",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "1151e374efd1871a2ec4641ad7d059896ecf88febdbb2163060d3ff0a76643c8"
+            },
+            {
+              "key": "field0:c",
+              "role": "working:c",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "58863e860c0b218c15d64a0c2b772ecf9786c37dd4767d672ec1fd350ace14cd"
+            },
+            {
+              "key": "field0:ca",
+              "role": "working:ca",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "d733024b621f91450b7e73c0904b3fe188b45d515282c94a76f33b09507783bb"
+            },
+            {
+              "key": "field0:cb",
+              "role": "working:cb",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "c291db7d12ffd2d32c75d2c0d552d204fa3f33ef80d79bbc016b260b96a9fc18"
+            },
+            {
+              "key": "field0:cc",
+              "role": "working:cc",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "f86ea43ad9c782986dc0de9c66437a22096342c5517217b4c5c0897a68955a23"
+            },
+            {
+              "key": "field0:coverage",
+              "role": "working:coverage",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "038507ff845d6ab51d014abd9db08a02701d7be8976533d2fdd78b130a3d0408"
+            },
+            {
+              "key": "field0:mask",
+              "role": "working:mask",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "d50c6402e88abe44603047af9dd296f0e5fe49efd908fb7f21fd0b05b48ec2a5"
+            },
+            {
+              "key": "field0:pressure",
+              "role": "working:pressure",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "c291db7d12ffd2d32c75d2c0d552d204fa3f33ef80d79bbc016b260b96a9fc18"
+            },
+            {
+              "key": "field0:band",
+              "role": "working:band",
+              "width": 1536,
+              "height": 1536,
+              "channels": 4,
+              "byteLength": 9437184,
+              "sha256": "448cb7d4f27b919dc6bdc6a109fe170260ab505efe297918a11cad3b6ec624fa"
+            },
+            {
+              "key": "paper:nativeTexture.r",
+              "role": "h",
+              "width": 2048,
+              "height": 2048,
+              "channels": 1,
+              "byteLength": 4194304,
+              "sha256": "e59ea6fafc9c21dac73fd31d7e7ebb9e86ad5545af46b6b3b1605a5ce84955fb"
+            },
+            {
+              "key": "paper:nativeTexture.a",
+              "role": "paperCatch",
+              "width": 2048,
+              "height": 2048,
+              "channels": 1,
+              "byteLength": 4194304,
+              "sha256": "a9ac8c5960a7f162ff398ec674ea87da17fbe64ad065cea36401fbc9276eaa20"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "pageErrors": [],
+  "limitations": [
+    "SwiftShader software only, not Surface/Samsung parity or performance",
+    "paintMs is submission/RAF wall, expensive completion readbacks excluded: not GPU elapsed time",
+    "No Room/network/live pointer/undo claim; fixed tape fields/material/export gate only",
+    "Original source candidate1291f590; frozen diagnostic harness subsequently5676f9e0; counter cancellation followupe692e6f2 does not change full-run values"
+  ]
+}
