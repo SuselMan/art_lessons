@@ -64,14 +64,14 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
   if(!(e._wcAsyncFinish&&defer&&scratch===e._ribbonStrokeScratch)){yield* originals.work.apply(e,arguments);return}
   yield* painter.paint(target,dabs,preset,presetName,profile,color,scratch,prev,wet,seed,defer,piece,{waterOnly:false,segmented:false,deferMaterial:request=>{
    if(!request.typedSource)throw Error('Prepared source capture missing');
-   const owner=ensureOwner(scratch,request,target),recipe=request.typedSource,capturedDabs=structuredClone(dabs);
+   const owner=ensureOwner(scratch,request,target),recipe=request.typedSource;
    owner.source.paint({commands:recipe.commands,rect:recipe.rect,film:!!recipe.composite.profile.normalizeDeposit&&!!e._minmaxExt,waterOnly:false,composite:recipe.composite});
    coordinator.publishSource(owner.token);e._markPaperDamage(recipe.composite.bounds);e._invalidateSplitCache();e._scheduleDisplay();event('publish',{sequence:owner.token.sequence});
    e._holdAsyncScratch(scratch);
    e._wcCanonical.enqueue({execute:function*(){
     if(!owner.canonicalStarted){const head=coordinator.takeCanonical();if(head?.token!==owner.token)throw Error('Canonical FIFO owner order');owner.canonicalStarted=true;owner.version=landedVersion}
     scratch.activateMaterialFilm(request.metadata.gesture);
-    if(request.metadata.foreignSources?.length)yield* painter.importForeignWater(target,scratch,capturedDabs,preset,wet,request.metadata.foreignSources);
+    if(recipe.foreignImport.enabled)yield* painter.importForeignWater(target,scratch,recipe.foreignImport.dabs,preset,recipe.foreignImport.wetProfile,request.metadata.foreignSources??[]);
     const tiles=e._ribbonPainterContext.resolveWithinSheet(target,recipe.composite.bounds);if(tiles.length!==1)throw Error('Canonical source escaped tile');const tile=tiles[0];
     const entry=scratch.getOrCreate(tile.buffer),film=scratch.filmBuffers(tile.buffer);if(!film?.strokeColor||!film.colorBase||!entry.inkColor||!entry.inkLoad)throw Error('Canonical P/C source fields missing');
     const running=scratch.runningCoverage(tile.buffer);let solvent;
