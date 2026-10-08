@@ -121,3 +121,20 @@ native1024/serial limitations remain; water→pigment and additional colors were
 not tested in this run. UI sliders retain their store values while this diagnostic
 controller uses real engine setters; the screenshot sliders are not a parameter
 passport. Production/default contact remains literal.
+
+### Review packet preparation
+
+The saved literal/A full-settle images have a compact side-by-side review page
+with zoom, tested at1100px and390px (no horizontal overflow). Private room URLs
+are supplied in ignored `rooms.json`, never repository source. Two fresh1024²
+review rooms were created through the normal local backend `create_room` ACK,
+not by modifying identity, permissions or databases directly.
+
+DEV-only `wcReview400=1&wcNative=1` seeds real room-store watercolor settings
+(size400/round/normal/water100%/pigment100%/purple), including UI and normal
+`useToolSync`; the one-shot seed follows the mount-time mix shortcut. Subsequent
+user slider/mix choices remain free. Production and ordinary rooms keep original
+settings objects. The new controller saves original packed author tape and can
+replay it in a fresh literal/A owner (`tip-replay`) with actual source proof and
+history gates; fresh Room pairing is pending allocated hardware and is not an
+exact-quality expectation because A deliberately changes contact.
