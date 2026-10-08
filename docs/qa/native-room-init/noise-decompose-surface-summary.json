@@ -1,0 +1,1548 @@
+{
+  "scope": "Surface supplied-coordinate RGB24 diagnostics; not full model parity",
+  "rows": [
+    {
+      "quantity": "lattice00",
+      "pointRole": "drift",
+      "point": [
+        71.68699645996094,
+        13.706199645996094
+      ],
+      "native": [
+        119,
+        119,
+        119,
+        255
+      ],
+      "gl": [
+        119,
+        119,
+        119,
+        255
+      ],
+      "nativeDecoded": 0.4666666666666667,
+      "glDecoded": 0.4666666666666667
+    },
+    {
+      "quantity": "lattice00",
+      "pointRole": "hair",
+      "point": [
+        -4.666445255279541,
+        29.47861099243164
+      ],
+      "native": [
+        17,
+        17,
+        17,
+        255
+      ],
+      "gl": [
+        17,
+        17,
+        17,
+        255
+      ],
+      "nativeDecoded": 0.06666666666666667,
+      "glDecoded": 0.06666666666666667
+    },
+    {
+      "quantity": "lattice00",
+      "pointRole": "opening",
+      "point": [
+        42.15250015258789,
+        96.29650115966797
+      ],
+      "native": [
+        253,
+        253,
+        253,
+        255
+      ],
+      "gl": [
+        253,
+        253,
+        253,
+        255
+      ],
+      "nativeDecoded": 0.9921568627450981,
+      "glDecoded": 0.9921568627450981
+    },
+    {
+      "quantity": "lattice00",
+      "pointRole": "hairSecondSequential",
+      "point": [
+        18.80059814453125,
+        97.49225616455078
+      ],
+      "native": [
+        156,
+        156,
+        156,
+        255
+      ],
+      "gl": [
+        156,
+        156,
+        156,
+        255
+      ],
+      "nativeDecoded": 0.611764705882353,
+      "glDecoded": 0.611764705882353
+    },
+    {
+      "quantity": "lattice00",
+      "pointRole": "hairSecondFused",
+      "point": [
+        18.80059814453125,
+        97.49224853515625
+      ],
+      "native": [
+        156,
+        156,
+        156,
+        255
+      ],
+      "gl": [
+        156,
+        156,
+        156,
+        255
+      ],
+      "nativeDecoded": 0.611764705882353,
+      "glDecoded": 0.611764705882353
+    },
+    {
+      "quantity": "lattice10",
+      "pointRole": "drift",
+      "point": [
+        71.68699645996094,
+        13.706199645996094
+      ],
+      "native": [
+        54,
+        54,
+        54,
+        255
+      ],
+      "gl": [
+        54,
+        54,
+        54,
+        255
+      ],
+      "nativeDecoded": 0.21176470588235294,
+      "glDecoded": 0.21176470588235294
+    },
+    {
+      "quantity": "lattice10",
+      "pointRole": "hair",
+      "point": [
+        -4.666445255279541,
+        29.47861099243164
+      ],
+      "native": [
+        106,
+        106,
+        106,
+        255
+      ],
+      "gl": [
+        106,
+        106,
+        106,
+        255
+      ],
+      "nativeDecoded": 0.41568627450980394,
+      "glDecoded": 0.41568627450980394
+    },
+    {
+      "quantity": "lattice10",
+      "pointRole": "opening",
+      "point": [
+        42.15250015258789,
+        96.29650115966797
+      ],
+      "native": [
+        44,
+        44,
+        44,
+        255
+      ],
+      "gl": [
+        44,
+        44,
+        44,
+        255
+      ],
+      "nativeDecoded": 0.17254901960784313,
+      "glDecoded": 0.17254901960784313
+    },
+    {
+      "quantity": "lattice10",
+      "pointRole": "hairSecondSequential",
+      "point": [
+        18.80059814453125,
+        97.49225616455078
+      ],
+      "native": [
+        170,
+        170,
+        170,
+        255
+      ],
+      "gl": [
+        170,
+        170,
+        170,
+        255
+      ],
+      "nativeDecoded": 0.6666666666666666,
+      "glDecoded": 0.6666666666666666
+    },
+    {
+      "quantity": "lattice10",
+      "pointRole": "hairSecondFused",
+      "point": [
+        18.80059814453125,
+        97.49224853515625
+      ],
+      "native": [
+        170,
+        170,
+        170,
+        255
+      ],
+      "gl": [
+        170,
+        170,
+        170,
+        255
+      ],
+      "nativeDecoded": 0.6666666666666666,
+      "glDecoded": 0.6666666666666666
+    },
+    {
+      "quantity": "lattice01",
+      "pointRole": "drift",
+      "point": [
+        71.68699645996094,
+        13.706199645996094
+      ],
+      "native": [
+        232,
+        232,
+        232,
+        255
+      ],
+      "gl": [
+        232,
+        232,
+        232,
+        255
+      ],
+      "nativeDecoded": 0.9098039215686274,
+      "glDecoded": 0.9098039215686274
+    },
+    {
+      "quantity": "lattice01",
+      "pointRole": "hair",
+      "point": [
+        -4.666445255279541,
+        29.47861099243164
+      ],
+      "native": [
+        52,
+        52,
+        52,
+        255
+      ],
+      "gl": [
+        52,
+        52,
+        52,
+        255
+      ],
+      "nativeDecoded": 0.20392156862745098,
+      "glDecoded": 0.20392156862745098
+    },
+    {
+      "quantity": "lattice01",
+      "pointRole": "opening",
+      "point": [
+        42.15250015258789,
+        96.29650115966797
+      ],
+      "native": [
+        41,
+        41,
+        41,
+        255
+      ],
+      "gl": [
+        41,
+        41,
+        41,
+        255
+      ],
+      "nativeDecoded": 0.1607843137254902,
+      "glDecoded": 0.1607843137254902
+    },
+    {
+      "quantity": "lattice01",
+      "pointRole": "hairSecondSequential",
+      "point": [
+        18.80059814453125,
+        97.49225616455078
+      ],
+      "native": [
+        1,
+        1,
+        1,
+        255
+      ],
+      "gl": [
+        1,
+        1,
+        1,
+        255
+      ],
+      "nativeDecoded": 0.00392156862745098,
+      "glDecoded": 0.00392156862745098
+    },
+    {
+      "quantity": "lattice01",
+      "pointRole": "hairSecondFused",
+      "point": [
+        18.80059814453125,
+        97.49224853515625
+      ],
+      "native": [
+        1,
+        1,
+        1,
+        255
+      ],
+      "gl": [
+        1,
+        1,
+        1,
+        255
+      ],
+      "nativeDecoded": 0.00392156862745098,
+      "glDecoded": 0.00392156862745098
+    },
+    {
+      "quantity": "lattice11",
+      "pointRole": "drift",
+      "point": [
+        71.68699645996094,
+        13.706199645996094
+      ],
+      "native": [
+        216,
+        216,
+        216,
+        255
+      ],
+      "gl": [
+        216,
+        216,
+        216,
+        255
+      ],
+      "nativeDecoded": 0.8470588235294118,
+      "glDecoded": 0.8470588235294118
+    },
+    {
+      "quantity": "lattice11",
+      "pointRole": "hair",
+      "point": [
+        -4.666445255279541,
+        29.47861099243164
+      ],
+      "native": [
+        191,
+        191,
+        191,
+        255
+      ],
+      "gl": [
+        191,
+        191,
+        191,
+        255
+      ],
+      "nativeDecoded": 0.7490196078431373,
+      "glDecoded": 0.7490196078431373
+    },
+    {
+      "quantity": "lattice11",
+      "pointRole": "opening",
+      "point": [
+        42.15250015258789,
+        96.29650115966797
+      ],
+      "native": [
+        138,
+        138,
+        138,
+        255
+      ],
+      "gl": [
+        138,
+        138,
+        138,
+        255
+      ],
+      "nativeDecoded": 0.5411764705882353,
+      "glDecoded": 0.5411764705882353
+    },
+    {
+      "quantity": "lattice11",
+      "pointRole": "hairSecondSequential",
+      "point": [
+        18.80059814453125,
+        97.49225616455078
+      ],
+      "native": [
+        65,
+        65,
+        65,
+        255
+      ],
+      "gl": [
+        65,
+        65,
+        65,
+        255
+      ],
+      "nativeDecoded": 0.2549019607843137,
+      "glDecoded": 0.2549019607843137
+    },
+    {
+      "quantity": "lattice11",
+      "pointRole": "hairSecondFused",
+      "point": [
+        18.80059814453125,
+        97.49224853515625
+      ],
+      "native": [
+        65,
+        65,
+        65,
+        255
+      ],
+      "gl": [
+        65,
+        65,
+        65,
+        255
+      ],
+      "nativeDecoded": 0.2549019607843137,
+      "glDecoded": 0.2549019607843137
+    },
+    {
+      "quantity": "fracX",
+      "pointRole": "drift",
+      "point": [
+        71.68699645996094,
+        13.706199645996094
+      ],
+      "native": [
+        175,
+        222,
+        255,
+        255
+      ],
+      "gl": [
+        175,
+        222,
+        255,
+        255
+      ],
+      "nativeDecoded": 0.6869964413044716,
+      "glDecoded": 0.6869964413044716
+    },
+    {
+      "quantity": "fracX",
+      "pointRole": "hair",
+      "point": [
+        -4.666445255279541,
+        29.47861099243164
+      ],
+      "native": [
+        85,
+        99,
+        215,
+        255
+      ],
+      "gl": [
+        85,
+        99,
+        215,
+        255
+      ],
+      "nativeDecoded": 0.3335547049972239,
+      "glDecoded": 0.3335547049972239
+    },
+    {
+      "quantity": "fracX",
+      "pointRole": "opening",
+      "point": [
+        42.15250015258789,
+        96.29650115966797
+      ],
+      "native": [
+        39,
+        10,
+        63,
+        255
+      ],
+      "gl": [
+        39,
+        10,
+        63,
+        255
+      ],
+      "nativeDecoded": 0.15250010207296028,
+      "glDecoded": 0.15250010207296028
+    },
+    {
+      "quantity": "fracX",
+      "pointRole": "hairSecondSequential",
+      "point": [
+        18.80059814453125,
+        97.49225616455078
+      ],
+      "native": [
+        204,
+        243,
+        255,
+        255
+      ],
+      "gl": [
+        204,
+        243,
+        255,
+        255
+      ],
+      "nativeDecoded": 0.8005981326459726,
+      "glDecoded": 0.8005981326459726
+    },
+    {
+      "quantity": "fracX",
+      "pointRole": "hairSecondFused",
+      "point": [
+        18.80059814453125,
+        97.49224853515625
+      ],
+      "native": [
+        204,
+        243,
+        255,
+        255
+      ],
+      "gl": [
+        204,
+        243,
+        255,
+        255
+      ],
+      "nativeDecoded": 0.8005981326459726,
+      "glDecoded": 0.8005981326459726
+    },
+    {
+      "quantity": "fracY",
+      "pointRole": "drift",
+      "point": [
+        71.68699645996094,
+        13.706199645996094
+      ],
+      "native": [
+        180,
+        201,
+        127,
+        255
+      ],
+      "gl": [
+        180,
+        201,
+        127,
+        255
+      ],
+      "nativeDecoded": 0.706199628484227,
+      "glDecoded": 0.706199628484227
+    },
+    {
+      "quantity": "fracY",
+      "pointRole": "hair",
+      "point": [
+        -4.666445255279541,
+        29.47861099243164
+      ],
+      "native": [
+        122,
+        134,
+        63,
+        255
+      ],
+      "gl": [
+        122,
+        134,
+        63,
+        255
+      ],
+      "nativeDecoded": 0.4786109613544322,
+      "glDecoded": 0.4786109613544322
+    },
+    {
+      "quantity": "fracY",
+      "pointRole": "opening",
+      "point": [
+        42.15250015258789,
+        96.29650115966797
+      ],
+      "native": [
+        75,
+        231,
+        127,
+        255
+      ],
+      "gl": [
+        75,
+        231,
+        127,
+        255
+      ],
+      "nativeDecoded": 0.2965011177361678,
+      "glDecoded": 0.2965011177361678
+    },
+    {
+      "quantity": "fracY",
+      "pointRole": "hairSecondSequential",
+      "point": [
+        18.80059814453125,
+        97.49225616455078
+      ],
+      "native": [
+        126,
+        4,
+        127,
+        255
+      ],
+      "gl": [
+        126,
+        4,
+        127,
+        255
+      ],
+      "nativeDecoded": 0.4922561342868885,
+      "glDecoded": 0.4922561342868885
+    },
+    {
+      "quantity": "fracY",
+      "pointRole": "hairSecondFused",
+      "point": [
+        18.80059814453125,
+        97.49224853515625
+      ],
+      "native": [
+        126,
+        3,
+        255,
+        255
+      ],
+      "gl": [
+        126,
+        3,
+        255,
+        255
+      ],
+      "nativeDecoded": 0.4922485048919025,
+      "glDecoded": 0.4922485048919025
+    },
+    {
+      "quantity": "noise",
+      "pointRole": "drift",
+      "point": [
+        71.68699645996094,
+        13.706199645996094
+      ],
+      "native": [
+        189,
+        25,
+        93,
+        255
+      ],
+      "gl": [
+        189,
+        25,
+        93,
+        255
+      ],
+      "nativeDecoded": 0.7386683069865887,
+      "glDecoded": 0.7386683069865887
+    },
+    {
+      "quantity": "noise",
+      "pointRole": "hair",
+      "point": [
+        -4.666445255279541,
+        29.47861099243164
+      ],
+      "native": [
+        62,
+        203,
+        209,
+        255
+      ],
+      "gl": [
+        62,
+        203,
+        209,
+        255
+      ],
+      "nativeDecoded": 0.24529750617131627,
+      "glDecoded": 0.24529750617131627
+    },
+    {
+      "quantity": "noise",
+      "pointRole": "opening",
+      "point": [
+        42.15250015258789,
+        96.29650115966797
+      ],
+      "native": [
+        199,
+        225,
+        30,
+        255
+      ],
+      "gl": [
+        199,
+        225,
+        30,
+        255
+      ],
+      "nativeDecoded": 0.7807788122164495,
+      "glDecoded": 0.7807788122164495
+    },
+    {
+      "quantity": "noise",
+      "pointRole": "hairSecondSequential",
+      "point": [
+        18.80059814453125,
+        97.49225616455078
+      ],
+      "native": [
+        115,
+        50,
+        43,
+        255
+      ],
+      "gl": [
+        115,
+        50,
+        43,
+        255
+      ],
+      "nativeDecoded": 0.4499842792740035,
+      "glDecoded": 0.4499842792740035
+    },
+    {
+      "quantity": "noise",
+      "pointRole": "hairSecondFused",
+      "point": [
+        18.80059814453125,
+        97.49224853515625
+      ],
+      "native": [
+        115,
+        50,
+        126,
+        255
+      ],
+      "gl": [
+        115,
+        50,
+        126,
+        255
+      ],
+      "nativeDecoded": 0.4499892264598147,
+      "glDecoded": 0.4499892264598147
+    },
+    {
+      "quantity": "fbm",
+      "pointRole": "drift",
+      "point": [
+        71.68699645996094,
+        13.706199645996094
+      ],
+      "native": [
+        136,
+        35,
+        84,
+        255
+      ],
+      "gl": [
+        136,
+        35,
+        84,
+        255
+      ],
+      "nativeDecoded": 0.5317890961044488,
+      "glDecoded": 0.5317890961044488
+    },
+    {
+      "quantity": "fbm",
+      "pointRole": "hair",
+      "point": [
+        -4.666445255279541,
+        29.47861099243164
+      ],
+      "native": [
+        82,
+        47,
+        32,
+        255
+      ],
+      "gl": [
+        82,
+        47,
+        63,
+        255
+      ],
+      "nativeDecoded": 0.3210315895695442,
+      "glDecoded": 0.32103343731364237
+    },
+    {
+      "quantity": "fbm",
+      "pointRole": "opening",
+      "point": [
+        42.15250015258789,
+        96.29650115966797
+      ],
+      "native": [
+        161,
+        14,
+        218,
+        255
+      ],
+      "gl": [
+        161,
+        14,
+        218,
+        255
+      ],
+      "nativeDecoded": 0.6291329043586793,
+      "glDecoded": 0.6291329043586793
+    },
+    {
+      "quantity": "fbm",
+      "pointRole": "hairSecondSequential",
+      "point": [
+        18.80059814453125,
+        97.49225616455078
+      ],
+      "native": [
+        79,
+        220,
+        212,
+        255
+      ],
+      "gl": [
+        79,
+        220,
+        212,
+        255
+      ],
+      "nativeDecoded": 0.31196333837290635,
+      "glDecoded": 0.31196333837290635
+    },
+    {
+      "quantity": "fbm",
+      "pointRole": "hairSecondFused",
+      "point": [
+        18.80059814453125,
+        97.49224853515625
+      ],
+      "native": [
+        79,
+        221,
+        12,
+        255
+      ],
+      "gl": [
+        79,
+        221,
+        9,
+        255
+      ],
+      "nativeDecoded": 0.3119666762332127,
+      "glDecoded": 0.31196649741926774
+    },
+    {
+      "quantity": "secondX/128",
+      "pointRole": "drift",
+      "point": [
+        71.68699645996094,
+        13.706199645996094
+      ],
+      "native": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "gl": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "nativeDecoded": 1,
+      "glDecoded": 1
+    },
+    {
+      "quantity": "secondX/128",
+      "pointRole": "hair",
+      "point": [
+        -4.666445255279541,
+        29.47861099243164
+      ],
+      "native": [
+        37,
+        153,
+        231,
+        255
+      ],
+      "gl": [
+        37,
+        153,
+        231,
+        255
+      ],
+      "nativeDecoded": 0.14687962215421332,
+      "glDecoded": 0.14687962215421332
+    },
+    {
+      "quantity": "secondX/128",
+      "pointRole": "opening",
+      "point": [
+        42.15250015258789,
+        96.29650115966797
+      ],
+      "native": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "gl": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "nativeDecoded": 1,
+      "glDecoded": 1
+    },
+    {
+      "quantity": "secondX/128",
+      "pointRole": "hairSecondSequential",
+      "point": [
+        18.80059814453125,
+        97.49225616455078
+      ],
+      "native": [
+        164,
+        82,
+        190,
+        255
+      ],
+      "gl": [
+        164,
+        82,
+        190,
+        255
+      ],
+      "nativeDecoded": 0.6418875838451138,
+      "glDecoded": 0.6418875838451138
+    },
+    {
+      "quantity": "secondX/128",
+      "pointRole": "hairSecondFused",
+      "point": [
+        18.80059814453125,
+        97.49224853515625
+      ],
+      "native": [
+        164,
+        82,
+        190,
+        255
+      ],
+      "gl": [
+        164,
+        82,
+        190,
+        255
+      ],
+      "nativeDecoded": 0.6418875838451138,
+      "glDecoded": 0.6418875838451138
+    },
+    {
+      "quantity": "secondY/128",
+      "pointRole": "drift",
+      "point": [
+        71.68699645996094,
+        13.706199645996094
+      ],
+      "native": [
+        109,
+        208,
+        63,
+        255
+      ],
+      "gl": [
+        109,
+        208,
+        63,
+        255
+      ],
+      "nativeDecoded": 0.4289588587855612,
+      "glDecoded": 0.4289588587855612
+    },
+    {
+      "quantity": "secondY/128",
+      "pointRole": "hair",
+      "point": [
+        -4.666445255279541,
+        29.47861099243164
+      ],
+      "native": [
+        194,
+        252,
+        8,
+        255
+      ],
+      "gl": [
+        194,
+        252,
+        7,
+        255
+      ],
+      "nativeDecoded": 0.7616582370792768,
+      "glDecoded": 0.7616581774746285
+    },
+    {
+      "quantity": "secondY/128",
+      "pointRole": "opening",
+      "point": [
+        42.15250015258789,
+        96.29650115966797
+      ],
+      "native": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "gl": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "nativeDecoded": 1,
+      "glDecoded": 1
+    },
+    {
+      "quantity": "secondY/128",
+      "pointRole": "hairSecondSequential",
+      "point": [
+        18.80059814453125,
+        97.49225616455078
+      ],
+      "native": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "gl": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "nativeDecoded": 1,
+      "glDecoded": 1
+    },
+    {
+      "quantity": "secondY/128",
+      "pointRole": "hairSecondFused",
+      "point": [
+        18.80059814453125,
+        97.49224853515625
+      ],
+      "native": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "gl": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "nativeDecoded": 1,
+      "glDecoded": 1
+    },
+    {
+      "quantity": "secondNoise",
+      "pointRole": "drift",
+      "point": [
+        71.68699645996094,
+        13.706199645996094
+      ],
+      "native": [
+        45,
+        246,
+        6,
+        255
+      ],
+      "gl": [
+        45,
+        246,
+        6,
+        255
+      ],
+      "nativeDecoded": 0.17953528043838027,
+      "glDecoded": 0.17953528043838027
+    },
+    {
+      "quantity": "secondNoise",
+      "pointRole": "hair",
+      "point": [
+        -4.666445255279541,
+        29.47861099243164
+      ],
+      "native": [
+        115,
+        50,
+        43,
+        255
+      ],
+      "gl": [
+        115,
+        50,
+        126,
+        255
+      ],
+      "nativeDecoded": 0.4499842792740035,
+      "glDecoded": 0.4499892264598147
+    },
+    {
+      "quantity": "secondNoise",
+      "pointRole": "opening",
+      "point": [
+        42.15250015258789,
+        96.29650115966797
+      ],
+      "native": [
+        94,
+        244,
+        240,
+        255
+      ],
+      "gl": [
+        94,
+        244,
+        240,
+        255
+      ],
+      "nativeDecoded": 0.3709249717548473,
+      "glDecoded": 0.3709249717548473
+    },
+    {
+      "quantity": "secondNoise",
+      "pointRole": "hairSecondSequential",
+      "point": [
+        18.80059814453125,
+        97.49225616455078
+      ],
+      "native": [
+        19,
+        179,
+        78,
+        255
+      ],
+      "gl": [
+        19,
+        179,
+        78,
+        255
+      ],
+      "nativeDecoded": 0.07695472699133915,
+      "glDecoded": 0.07695472699133915
+    },
+    {
+      "quantity": "secondNoise",
+      "pointRole": "hairSecondFused",
+      "point": [
+        18.80059814453125,
+        97.49224853515625
+      ],
+      "native": [
+        19,
+        179,
+        88,
+        255
+      ],
+      "gl": [
+        19,
+        179,
+        78,
+        255
+      ],
+      "nativeDecoded": 0.07695532303782243,
+      "glDecoded": 0.07695472699133915
+    },
+    {
+      "quantity": "weightedFirst",
+      "pointRole": "drift",
+      "point": [
+        71.68699645996094,
+        13.706199645996094
+      ],
+      "native": [
+        119,
+        33,
+        230,
+        255
+      ],
+      "gl": [
+        119,
+        33,
+        230,
+        255
+      ],
+      "nativeDecoded": 0.46536102684503955,
+      "glDecoded": 0.46536102684503955
+    },
+    {
+      "quantity": "weightedFirst",
+      "pointRole": "hair",
+      "point": [
+        -4.666445255279541,
+        29.47861099243164
+      ],
+      "native": [
+        39,
+        143,
+        195,
+        255
+      ],
+      "gl": [
+        39,
+        143,
+        195,
+        255
+      ],
+      "nativeDecoded": 0.15453738895281488,
+      "glDecoded": 0.15453738895281488
+    },
+    {
+      "quantity": "weightedFirst",
+      "pointRole": "opening",
+      "point": [
+        42.15250015258789,
+        96.29650115966797
+      ],
+      "native": [
+        125,
+        236,
+        139,
+        255
+      ],
+      "gl": [
+        125,
+        236,
+        139,
+        255
+      ],
+      "nativeDecoded": 0.49189063858334053,
+      "glDecoded": 0.49189063858334053
+    },
+    {
+      "quantity": "weightedFirst",
+      "pointRole": "hairSecondSequential",
+      "point": [
+        18.80059814453125,
+        97.49225616455078
+      ],
+      "native": [
+        72,
+        146,
+        206,
+        255
+      ],
+      "gl": [
+        72,
+        146,
+        206,
+        255
+      ],
+      "nativeDecoded": 0.28349007865727416,
+      "glDecoded": 0.28349007865727416
+    },
+    {
+      "quantity": "weightedFirst",
+      "pointRole": "hairSecondFused",
+      "point": [
+        18.80059814453125,
+        97.49224853515625
+      ],
+      "native": [
+        72,
+        147,
+        2,
+        255
+      ],
+      "gl": [
+        72,
+        147,
+        2,
+        255
+      ],
+      "nativeDecoded": 0.2834931780989872,
+      "glDecoded": 0.2834931780989872
+    },
+    {
+      "quantity": "weightedSecond",
+      "pointRole": "drift",
+      "point": [
+        71.68699645996094,
+        13.706199645996094
+      ],
+      "native": [
+        17,
+        1,
+        110,
+        255
+      ],
+      "gl": [
+        17,
+        1,
+        110,
+        255
+      ],
+      "nativeDecoded": 0.06642806925940926,
+      "glDecoded": 0.06642806925940926
+    },
+    {
+      "quantity": "weightedSecond",
+      "pointRole": "hair",
+      "point": [
+        -4.666445255279541,
+        29.47861099243164
+      ],
+      "native": [
+        42,
+        159,
+        92,
+        255
+      ],
+      "gl": [
+        42,
+        159,
+        123,
+        255
+      ],
+      "nativeDecoded": 0.16649414101208096,
+      "glDecoded": 0.16649598875617913
+    },
+    {
+      "quantity": "weightedSecond",
+      "pointRole": "opening",
+      "point": [
+        42.15250015258789,
+        96.29650115966797
+      ],
+      "native": [
+        35,
+        34,
+        78,
+        255
+      ],
+      "gl": [
+        35,
+        34,
+        78,
+        255
+      ],
+      "nativeDecoded": 0.13724220617069044,
+      "glDecoded": 0.13724220617069044
+    },
+    {
+      "quantity": "weightedSecond",
+      "pointRole": "hairSecondSequential",
+      "point": [
+        18.80059814453125,
+        97.49225616455078
+      ],
+      "native": [
+        7,
+        74,
+        6,
+        255
+      ],
+      "gl": [
+        7,
+        74,
+        6,
+        255
+      ],
+      "nativeDecoded": 0.028473259715632183,
+      "glDecoded": 0.028473259715632183
+    },
+    {
+      "quantity": "weightedSecond",
+      "pointRole": "hairSecondFused",
+      "point": [
+        18.80059814453125,
+        97.49224853515625
+      ],
+      "native": [
+        7,
+        74,
+        9,
+        255
+      ],
+      "gl": [
+        7,
+        74,
+        6,
+        255
+      ],
+      "nativeDecoded": 0.028473438529577167,
+      "glDecoded": 0.028473259715632183
+    },
+    {
+      "quantity": "explicitFmaFbm",
+      "pointRole": "drift",
+      "point": [
+        71.68699645996094,
+        13.706199645996094
+      ],
+      "native": [
+        136,
+        35,
+        84,
+        255
+      ],
+      "gl": [
+        136,
+        35,
+        84,
+        255
+      ],
+      "nativeDecoded": 0.5317890961044488,
+      "glDecoded": 0.5317890961044488
+    },
+    {
+      "quantity": "explicitFmaFbm",
+      "pointRole": "hair",
+      "point": [
+        -4.666445255279541,
+        29.47861099243164
+      ],
+      "native": [
+        82,
+        47,
+        32,
+        255
+      ],
+      "gl": [
+        82,
+        47,
+        63,
+        255
+      ],
+      "nativeDecoded": 0.3210315895695442,
+      "glDecoded": 0.32103343731364237
+    },
+    {
+      "quantity": "explicitFmaFbm",
+      "pointRole": "opening",
+      "point": [
+        42.15250015258789,
+        96.29650115966797
+      ],
+      "native": [
+        161,
+        14,
+        218,
+        255
+      ],
+      "gl": [
+        161,
+        14,
+        218,
+        255
+      ],
+      "nativeDecoded": 0.6291329043586793,
+      "glDecoded": 0.6291329043586793
+    },
+    {
+      "quantity": "explicitFmaFbm",
+      "pointRole": "hairSecondSequential",
+      "point": [
+        18.80059814453125,
+        97.49225616455078
+      ],
+      "native": [
+        79,
+        220,
+        212,
+        255
+      ],
+      "gl": [
+        79,
+        220,
+        212,
+        255
+      ],
+      "nativeDecoded": 0.31196333837290635,
+      "glDecoded": 0.31196333837290635
+    },
+    {
+      "quantity": "explicitFmaFbm",
+      "pointRole": "hairSecondFused",
+      "point": [
+        18.80059814453125,
+        97.49224853515625
+      ],
+      "native": [
+        79,
+        221,
+        12,
+        255
+      ],
+      "gl": [
+        79,
+        221,
+        9,
+        255
+      ],
+      "nativeDecoded": 0.3119666762332127,
+      "glDecoded": 0.31196649741926774
+    }
+  ],
+  "exact": 61,
+  "total": 70,
+  "errors": []
+}
