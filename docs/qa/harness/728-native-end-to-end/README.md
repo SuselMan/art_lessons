@@ -70,9 +70,23 @@ output differences relative to the clean author control in this same scenario.
 Node controller invariants (not GPU pixel proof):
 `npx tsx --test docs/qa/harness/728-native-end-to-end/stages.test.ts`.
 
-Stage oracle revision: first diffuse is normally the COLOR leg, not pigment.
+Stage oracle revision: paired mixed-colour diffusion starts with COLOR; the
+selected single-colour100 scenario starts with PIGMENT (colour=null).
 Additional copies preserve first diffuse input and water gate BEFORE execution;
 primitive metadata identifies actual channel, filters and prepared stencil. Brush
 comparison now restricts to the written production scissor; stale outside output
 bytes are excluded, and unequal scissor rectangles reject comparison. Full final
 layer remains unrestricted. See `../../728-native-stage-review.md`.
+
+Coarse binary localization BEFORE diffusion: `runEndToEnd({size:100,stages:'prediffuse'})`.
+Alternative cohort, not added on top of basic snapshots: sourceP/coverage/V,
+first mobile split(mode0), frontSeed(mode10), outwardPressure when mode12 seeds
+inward, extendedCoverage(mode11), band(mode6), firstCarry input/output(mode15),
+first diffuse input/gate. Approx93MiB for one1024/1536 job, hard96MiB cap.
+Basic firstfront/diffuseoutput/brush and sourceC are omitted in this cohort.
+`stageMetadata.nativeChronology/glChronology` record at most512 real ordered
+field/front/absorption/resample primitives, mode/scalars and logical buffer roles
+until first diffusion. Buffer roles are identified from actual source scratch and
+planner fieldFor; no guessed CPU physics or new settle steps. A differing coarse
+checkpoint localizes an interval; earlier operator inputs still need an isolated
+same-input gate before fixing any shader. Use100, not multiple jobs/400 yet.
