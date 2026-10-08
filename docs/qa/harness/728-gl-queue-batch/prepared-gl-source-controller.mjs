@@ -11,7 +11,7 @@ const computedPassport=Object.fromEntries(passportPaths.map(p=>[p,createHash('sh
 try{
  for(const fixture of [{nib:'round',segment:true,film:true},{nib:'chisel',segment:true,film:true},{nib:'round',segment:false,film:false}]){
   for(const arm of [{prepared:false,negative:false},{prepared:true,negative:false},...(fixture.nib==='round'&&fixture.segment?[{prepared:true,negative:true}]:[])]){
-   const deadline=Date.now()+60000;let free=freeMiB();while(free<1700&&Date.now()<deadline){await new Promise(r=>setTimeout(r,2000));free=freeMiB()}memory.push({stage:'preflight',freeMiB:free});if(free<1700)throw Error('preflight below1700');
+   const free=freeMiB();memory.push({stage:'preflight',freeMiB:free});if(free<1700)throw Error('preflight below1700');
    await ownedPage(origin+'/qa-joined-quality.html');await send('Page.bringToFront');console.log(JSON.stringify({ownTarget:target.id,fixture,arm,freeMiB:free}));
    interval=setInterval(()=>{if(busy)return;busy=true;try{const free=freeMiB();memory.push({stage:'monitor',freeMiB:free});if(free<500){memoryAbort='below500';closeOwn().catch(()=>{})}}finally{busy=false}},5000);
    await wait(()=>evaluate('document.readyState!=="loading"'));await evaluate(()=>{const root=document.createElement('div');root.id='surface';document.body.replaceChildren(root)});
