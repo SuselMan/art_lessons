@@ -4,3 +4,8 @@ export function prepareFixedTape(tape){
  const stroke=tape[0]
  return {layer:{type:'layer_add',id:'qa-vector-fixture-layer',layerId:stroke.layerId,name:'Original tape fixture',userId:stroke.userId,timestamp:stroke.timestamp-1},tape}
 }
+/** Server/log sequence is structural fixture bookkeeping, not stroke content. */
+export function equalOriginalStrokeParams(expected,actual){
+ const normalize=tape=>tape.map(({seq,...stroke})=>stroke)
+ return JSON.stringify(normalize(expected))===JSON.stringify(normalize(actual))
+}
