@@ -1,0 +1,85 @@
+{
+  "valid": true,
+  "tapeSHA": "7a9dbeeb381c1515857bffc4ddf6781aa20fa26ebcf88aba7a2a89c0ad25a660",
+  "passport": {
+    "apps/web/src/engine/index.ts": "ad8687731c626d52921c1cbef4a96fb2eddbf221f83cd42db62031cedb90d6d3",
+    "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "2b62d469fd8175b74cefc937fd748668e5f0367109c9cc9c8103d53f3f576c96",
+    "apps/web/src/engine/src/dabs/canonicalStrokeChunk.ts": "d5bfd4ed0f1896c39dd3fa21232b9cc5c92d96c799cb686dfbc4af26b2334197",
+    "apps/web/src/engine/src/raster/RibbonPasses.ts": "5c4b67290da13fa4eb2db648ff798eb92b8b3074aa4b79f948bb8d05ec22839e",
+    "docs/qa/harness/728-gl-queue-batch/PreparedGlSourceDraw.ts": "1a64ba13e061977c3440dd334acc35e784e7a6ba983f300debd6fb86d832c5e1",
+    "docs/qa/harness/728-gl-queue-batch/ownerOriginalReplay.mjs": "271488d656250bf01e012dd99824b9a605cbd97abbd6ae95636fc8f9a2fc977a"
+  },
+  "flags": {
+    "gradientFibres": true,
+    "joinedTouch": false,
+    "deferred": false,
+    "async": false,
+    "solver": true
+  },
+  "stages": [
+    {
+      "type": "stroke",
+      "id": "3YMYf0ggPi",
+      "target": {
+        "width": 1024,
+        "height": 1024,
+        "nonzero": 746305,
+        "sha": "ed5aeb17ef828ad54ebf279b945af07e637a9f865299ad8eb7edbc9094abee4b"
+      }
+    },
+    {
+      "type": "stroke",
+      "id": "RUVwsUBK8J",
+      "target": {
+        "width": 1024,
+        "height": 1024,
+        "nonzero": 775287,
+        "sha": "2fddea04661785c9a6d84e209f81e9ba3474dda4154ca9ac9af9827d8677f603"
+      }
+    },
+    {
+      "type": "stroke",
+      "id": "f_78Rw-pdY",
+      "target": {
+        "width": 1024,
+        "height": 1024,
+        "nonzero": 777078,
+        "sha": "a82430ae55a73c4e735e2ee2cd1ff985bb1241879c71c34506d7504e87000bc2"
+      }
+    },
+    {
+      "type": "operation_undo",
+      "id": "S0Jr1Wno17",
+      "target": {
+        "width": 1024,
+        "height": 1024,
+        "nonzero": 775287,
+        "sha": "2fddea04661785c9a6d84e209f81e9ba3474dda4154ca9ac9af9827d8677f603"
+      }
+    },
+    {
+      "type": "operation_redo",
+      "id": "0TnT8xeDNS",
+      "target": {
+        "width": 1024,
+        "height": 1024,
+        "nonzero": 777078,
+        "sha": "a82430ae55a73c4e735e2ee2cd1ff985bb1241879c71c34506d7504e87000bc2"
+      }
+    }
+  ],
+  "comparison": {
+    "ownerFinalEqualsOriginalFinal": true,
+    "ownerUndoEqualsOriginalUndo": true,
+    "ownerRedoEqualsOriginalRedo": true,
+    "originalLoadEqualsOriginalRedo": true
+  },
+  "memory": {
+    "preMiB": 1927,
+    "minMiB": 1487,
+    "afterCloseMiB": 1978
+  },
+  "glError": 0,
+  "lost": false,
+  "scope": "Target SHA exact for sameactual packed tape/load/undo/redo; no all-working-field parity or morphology proof"
+}

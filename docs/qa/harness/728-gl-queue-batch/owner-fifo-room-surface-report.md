@@ -29,3 +29,5 @@ CPU corpus расширен actual packed400 материалами70/38/33dabs:
 Dry→Undo изменяет target осмысленно; Redo восстанавливает тот же target SHA `a82430…`, dimensions1024²/nonzero777078. GL0/lostfalse. Real solver теперь выполнен; canonical scene elapsed8014.6мс, rAFp9517/max116.8мс. Старый solver-skipped tail непригоден для speed comparison. Pre2061/min961/afterclose1983MiB.
 
 Новый полный packed tape восстановлен и сохранён локально, SHA `7a9dbeeb381c1515857bffc4ddf6781aa20fa26ebcf88aba7a2a89c0ad25a660`. Explicit standalone original comparison этого нового tape остаётся следующим gate. Full UX/morphing не готовы, defaultsOFF.
+
+Новый same-packed original comparator завершился: originalafter3 == ownerfinal == ownerredo SHA `a82430…`; originalundo == ownerundo SHA `2fddea…`. Dimensions/nonzero/hash одинаковы. GL0/lostfalse; flagsmatched gradientFibres=true, originalasync/joined/deferredOFF, queueON. Pre1927/min1487/afterclose1978MiB. Это подтверждённый target/load/history gate для actualrapid3; все working fields/морфинг не проверены.
