@@ -23,3 +23,9 @@ Exact same full tape JSON+SHA3000d237 and paperSHAaeaef351 in both arms. Main ba
 Important localization: selectedstamp9 center408.86/365.55,radius45.07; mismatch onlyR at418/407, alpha exact. This primitive cannot cover historicalpressure246/243 coordinate566/396. The originalselected9 plan was too narrow for that pressure site. Next isolate relevant latercoveragecommand (previoussource notes alpha stamp17) or firstpressure-producing primitive; retain recordedcommandinput before fullmodel/artistictuning. CPUtrig diagnosticprepared separately for equalGL/WGSLsin/cos to distinguish raster/interpolation.
 
 Machine-readable summary `literal-stamp-surface-summary.json`; ignored raw under ownworktree `temp/device-runs/native-literal-surface/{actual,on-after-cleanup}/report.json`. Controller permitsGATE_ON_ONLY to resume a refused nextarm after RAM recovery without repeatingbaseline. Not a timingbenchmark, ordinaryRoom400 or wholecandidatefidelity proof.
+
+## Pressure field is transport cost, not pen pressure
+
+Read-only actual `native-coverage-linear-surface-1791422250467.json` chronology: outward WATER_FRONT141 calls atmax104.55908584594727, sourcepressure LINEAR alternating temporaryaNEAREST; inwardcalls142–152 max12. Mode11 reads resulting outwardcost. Thus pressure246/243 concerns the relaxed cost field, not directly stamp.penPressure. A primitive trig test is useful only upstream, not a direct pressure-cost oracle.
+
+Existing frozen210 next callable localization: `runEndToEnd({size:100,stages:'pressure',frontIndex:141,sameInputFront:true,diagnosticHardwareLinearInputs:true})`. This reexecutes native kernel with actual immutable GLinput/coverage for the last outward iteration. Earlier first-front exact only checkedindex1. If141same-inputexact, inspect seed/source or earlieriterfirstdivergence; ifnotexact, isolate actualfront math/sampling first. No newmodel/artistictuning, and no hardwarelaunch for this proposednextgate.
