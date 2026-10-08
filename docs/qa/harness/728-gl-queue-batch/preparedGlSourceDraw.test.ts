@@ -27,6 +27,7 @@ it('direct stamp binding matches the existing program ordered calls without reco
   ribbon.drawRibbonNibPass(dest,tile,dab,preset,p,command.inkMode,.42,phase==='coverage',.73,[-.2,.98],.28,.81,[12,-7],clip?coverage:null,2.3,.6,color?tau:null,.64,.35)
   if(phase!=='coverage')dest.endDraw()
   const original=trace;trace=[];drawPreparedGlSource(command,dest,coverage,tile,ctx,ribbon,.63);expect(trace).toEqual(original)
+  trace=[];if(phase==='coverage')dest.beginDraw();else if(blend==='max')dest.beginMaxDraw({MAX_EXT:32776});else dest.beginAdditiveDraw();drawPreparedGlSource(command,dest,coverage,tile,ctx,ribbon,.63,false);dest.endDraw();expect(trace).toEqual(original)
  }
 })
 

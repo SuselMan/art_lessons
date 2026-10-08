@@ -5,7 +5,7 @@ import type { RibbonPasses,RibbonPassesContext } from '../../../../apps/web/src/
 
 /** QA opt-in binder; reuses existing stamp/ribbon programs, no Dab or dose reconstruction. */
 export function drawPreparedGlSource(command:CanonicalDrawCommand,destination:AccumulationBuffer,
- coverage:AccumulationBuffer,tile:PaintTarget,context:RibbonPassesContext,ribbon:RibbonPasses,presetHardness:number):void {
+ coverage:AccumulationBuffer,tile:PaintTarget,context:RibbonPassesContext,ribbon:RibbonPasses,presetHardness:number,ownStampTarget=true):void {
  const uniforms=command.kind==='stamp'?command.stamp.uniforms:command.batch.uniforms
  if(uniforms.worldOrigin[0]!==tile.originX||uniforms.worldOrigin[1]!==(-tile.originY||0))throw Error('Prepared source tile origin mismatch')
  const colour=command.phase==='color'
@@ -15,9 +15,9 @@ export function drawPreparedGlSource(command:CanonicalDrawCommand,destination:Ac
   return
  }
  const gl=context.gl(),s=command.stamp,stamps=context.stamps(),u=stamps.uniforms
- if(command.phase==='coverage')destination.beginDraw()
+ if(ownStampTarget){if(command.phase==='coverage')destination.beginDraw()
  else if(s.inkBlend==='max'){const ext=context.minmaxExt();if(!ext)throw Error('Prepared MAX requires original capability');destination.beginMaxDraw(ext)}
- else destination.beginAdditiveDraw()
+ else destination.beginAdditiveDraw()}
  try{
   gl.useProgram(stamps.program);stamps.bindNoise(u.u_wcNoiseTex)
   gl.uniform2f(u.u_resolution,destination.width,destination.height)
@@ -35,7 +35,7 @@ export function drawPreparedGlSource(command:CanonicalDrawCommand,destination:Ac
   gl.uniform1f(u.u_washWater,uniforms.washWater);gl.uniform1f(u.u_waterRetain,uniforms.waterRetain);gl.uniform1f(u.u_inkStrength,s.inkStrength)
   gl.uniform1f(u.u_bristleCombs,uniforms.bristleCombs);gl.uniform1f(u.u_bristleInk,uniforms.bristleInk);gl.uniform1f(u.u_depthWrite,colour?1:0)
   gl.uniform3fv(u.u_tau,colour?[...uniforms.tau]:[0,0,0]);gl.drawArrays(gl.TRIANGLES,0,6)
- }finally{destination.endDraw()}
+ }finally{if(ownStampTarget)destination.endDraw()}
 }
 
 /** Actual GL operations behind the typed replay port; invocation remains QA-only. */
