@@ -1,6 +1,6 @@
 /** QA comparison only. Original engine path, supplied actual packed tape, no snapshots. */
 export async function runOwnerOriginalReplay(input){
- const expectedStrokes=input.expectedStrokes??3;if(![3,4].includes(expectedStrokes)||!Array.isArray(input.tape)||input.tape.filter(o=>o.type==='stroke').length!==expectedStrokes)throw Error('Exact bounded packed tape required');
+ const expectedStrokes=input.expectedStrokes??3;if(![2,3,4].includes(expectedStrokes)||!Array.isArray(input.tape)||input.tape.filter(o=>o.type==='stroke').length!==expectedStrokes)throw Error('Exact bounded packed tape required');
  for(const [index,op]of input.tape.filter(o=>o.type==='stroke').entries())if(!op.dabsPacked||!(op.preset==='normal:100:100:PB29:round'||input.allowWaterFirst===true&&index===0&&op.preset==='normal:100:0:PB29:round'))throw Error('Captured packed material required');
  const {PencilEngine}=await import(input.engineUrl),canvas=document.createElement('canvas');canvas.width=canvas.height=1024;document.getElementById('surface').replaceChildren(canvas);
  const actor=input.tape.find(o=>o.type==='stroke').userId,layerId=input.tape.find(o=>o.type==='stroke').layerId;
