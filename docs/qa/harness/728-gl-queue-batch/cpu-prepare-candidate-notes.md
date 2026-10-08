@@ -1,0 +1,7 @@
+# #728: отдельный CPU_PREPARE diagnostic
+
+Кандидат создаётся только в temp: отдельные queue/plan, не меняет исходник или frozen review5352/5353. Pure CPU tag ставится исключительно на advanceField: next() CPUрастра и создание замыканий contactOps. Создание GPUтекстуры/upload живёт в следующем отдельном нетегированном замыкании. Capture/copy/upload/GPUcontact/front не получают CPUtag.
+
+В одном on-time post-lift tick допускается до4 соседних CPUunits, проверка elapsed>=8мс после каждой, isDrawing и owneralive после каждой. Активное перо/lateframe оставляют прежнее однопорционное поведение. Физический GPUbatch, syncGpu и Q8порядок неизменны. CPU-only advance раньше не вызывал syncGpu: новый CPUblock также не создаёт fence. Лимит8мс мягкий: одна существующая порция может перешагнуть его; никакого обещания hard realtime.
+
+Три CPUтеста прошли:4units не пересекают следующую upload/contact границу, начало активного пера останавливает пакет, wrapper наследует отдельныйCPUtag, cancel закрываетowner и не завершаетего. Counters ticks/units/elapsed/maxMs позволяют отличить реальное batching от пустой метки. Аппаратная/fieldparity ещё НЕ проверена; defaultsOFF. Fresh QAinstaller использует настоящие captured production contexts. Консервативно оставляет presentation-действия движка, созданные старым модулем, барьерами: presentationBatchEnabledOFF в нужном cohort. Переход по queue/plan разрешён только до первогоgesture.
