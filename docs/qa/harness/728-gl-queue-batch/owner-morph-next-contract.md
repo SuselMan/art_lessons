@@ -53,3 +53,15 @@ CPU tests cover mutation after capture, stale/foreign/future callbacks, alias re
 ### Capacity gate correction
 
 The first actual400 GPU arm stopped before rebase because the earlier 2 MiB JSON-digit cap was exceeded. This is an invalid capacity arm, not a GPU parity failure. Retained payload accounting now counts typed-array binary bytes plus serialized options/descriptors, with an explicit configurable 16 MiB default per retained owner. It avoids serializing every Float32 element as an indexed decimal JSON property. This bounds encoded payload, not heap usage; 3 retained owners imply at most 48 MiB encoded payload in addition to the unchanged 156 MiB GPU ledger. Actual400 coverage must be measured before Room wiring.
+
+## OFF Room material-rebase morph wiring
+
+`diagnosticMaterialRebase` is mutually exclusive with the earlier last-owner reject diagnostic. It retains immutable source inputs with explicit 16 MiB/owner encoded-payload budget; canonical FIFO uses its original recipes and never reads presentation outputs. Owned finish lookup uses the captured finish gesture, not the newest live scratch gesture.
+
+After a predecessor lands, younger presentation owners replay sequentially against real read-only scratch material (original/coverage/P/C/V). Each newer owner reads the preceding rebased owner's material, preventing lost overlapping updates. Token/epoch checks remain mandatory. A per-owner progressive reveal eases onto the rebased source result. The last owner transfers its actual visible reveal into the original canonical reveal before retirement; old retirement drops only its own reveal copies.
+
+During canonical progress, the existing visual expression `clamp(ownedKept + newParentVisible - oldParentVisible, 0, 1)` updates only the latest owned reveal. New source paint uses the existing `_revealBeforeBatch/_revealAfterBatch` visual mechanism so it appears immediately. This RGBA transition is an explicitly approximate presentation effect: channel clipping/rounding can differ from a physical material recomposite. It does not change canonical P/C/V/coverage or stored operations. No new DOWN is rejected because a reveal exists; capacity3 and cross-wash admission guards remain explicit.
+
+Setup prewarms 8 existing engine reveal slots (32 MiB), and reserves 2 nearest visual scratch fields (8 MiB) outside input, in addition to the 156 MiB source ledger. The reserved fields are held out of the canonical pool, preventing another job from consuming the warm slots before a new DOWN. They return to their original pool only after the ownership fence. The encoded CPU payload cap is additional, and not a JavaScript heap bound.
+
+CPU state/resource tests establish correct sequential base epochs, captured gesture lookup, immediate visual bracketing, new admission during reveal, old/new retirement isolation, and reserved scratch capacity/fence restoration. Actual Room GPU quality, clipping timeline, allocations, and latency are still pending. The next bounded fixture uses 100 ms between the first two strokes and a fourth new-color DOWN during an active reveal, then Dry/Undo/Redo and same-packed original replay.
