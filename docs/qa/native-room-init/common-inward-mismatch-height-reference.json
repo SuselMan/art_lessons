@@ -810,7 +810,7 @@
   ],
   "limits": [
     "Ideal native center transform yields half-texel bilerp weights .5/.5 here; GL interpolated UV precision not captured.",
-    "Raw scalar height comparison does not include FBM climb or cost neighbors; no cause or FMA claim.",
+    "Raw scalar height comparison and appended double FBM references do not include actual predecessor costs; no cause or FMA claim.",
     "Q8 G exact does not establish equal prequantized GPU height.",
     "CPU DOUBLE FBM and relief references appended; they are neither measured GL/WGSL values nor F32 threshold proof.",
     "Actual film smoothstep and predecessor costs absent; minimumWetEdgeCost is full-wet factor1, not actual chosen edge."
