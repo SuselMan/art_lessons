@@ -2,6 +2,7 @@ import { prepareRibbonHalo } from './ribbonHalo'
 import { prepareRibbonGestureScalars } from './ribbonGestureScalars'
 import { prepareDrawableRibbonDabs, noteRibbonWetContacts } from './ribbonDrawable'
 import { prepareRibbonDelivery } from './ribbonDelivery'
+import type { CanonicalPreparedDeliveryInput } from './canonicalStrokeChunk'
 import { canonicalMajorRadius } from '../watercolor/canonicalRadius'
 import { selectedForeignWaterSources } from '../watercolor/foreignWater'
 import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
@@ -43,7 +44,19 @@ export type RibbonLiveComposite = {
     bristleRadiusPx: number
   }
 
+/** Synchronous observer after the single logical delivery advance, before tile GPU phases.
+ * Build commands immediately from this recipe; do not retain mutable scratch/dab maps.
+ * Observing does not route source ownership or skip legacy GPU work. */
+export interface PreparedRibbonCpuDelivery {
+ input:Omit<CanonicalPreparedDeliveryInput,'tile'>
+ targets:readonly PaintTarget[]|null
+ scratch:RibbonStrokeScratch
+ bounds:{minX:number;minY:number;maxX:number;maxY:number}
+ compositeBounds:{minX:number;minY:number;maxX:number;maxY:number}
+ landedWet:number;wetPeak:number;strokeDir:[number,number]
+}
 export interface RibbonStrokePainterContext {
+  onPreparedWatercolorDelivery?(request:PreparedRibbonCpuDelivery):void
   dabPool(): WeakMap<Dab, number>
   scratchPool(): RibbonScratchPool
   resolveWaterPreset(name: string): PencilPreset
@@ -368,7 +381,8 @@ export class RibbonStrokePainter {
     const landedWet = scratch.finishContext?.landedWet ?? wetAt(wetProfile, 0)
     const wetPeakHere = wetPeak(wetProfile)
     noteRibbonWetContacts(scratch, drawable, preset, wetOf)
-    const { spreadPx, water: fringeWater, migratePx, fieldSeed, bristleRadiusPx } = scratch.compositeScalars(() => prepareRibbonGestureScalars(drawable[0], preset, profile, presetName))
+    const gestureScalars = scratch.compositeScalars(() => prepareRibbonGestureScalars(drawable[0], preset, profile, presetName))
+    const { spreadPx, water: fringeWater, migratePx, fieldSeed, bristleRadiusPx } = gestureScalars
 
     // (#468 v4, ADR 011 §4.4) The composite rect a *live* batch redraws, padded
     // past the dabs it just painted.
@@ -497,10 +511,19 @@ export class RibbonStrokePainter {
     // scalar cannot produce that arc at all.
     const inkStrength = profile.normalizeDeposit ? profile.pigmentStrength : 1
     const mottleSeed = strokeSeed ?? [0, 0]
+    const delivery = this.prepareDelivery(drawable, prevDab, preset, profile, scratch, wetOf, landedWet, segmentMode, mode.segmented, film)
     const { deposits, waterByDab, pigmentByDab, acrossByDab, movingByDab,
-      paperWetByDab, pigmentPoolByDab, excessByDab, puddleByDab, thinNibGain } = this.prepareDelivery(
-      drawable, prevDab, preset, profile, scratch, wetOf, landedWet, segmentMode, mode.segmented, film,
-    )
+      paperWetByDab, pigmentPoolByDab, excessByDab, puddleByDab, thinNibGain } = delivery
+    if (this.ctx.onPreparedWatercolorDelivery && profile.normalizeDeposit && !profile.stampFlow && !profile.brushStamp && profile.coverageInkMode === 6) {
+      this.ctx.onPreparedWatercolorDelivery({
+        input:{preset,presetName,profile,color,wetProfile,strokeSeed,film,segmentMode,segmented:mode.segmented,waterOnly:mode.waterOnly,
+          drawable,previous:prevDab,wetOf,delivery,scalars:gestureScalars,
+          materialEnabled:mode.deferMaterial?Number.isFinite(reachRect.minX):!!targets?.length,
+          options:{diagnosticWaterPolicy:this.diagnosticWaterPolicy,diagnosticSharedFluid:this.diagnosticSharedFluid,diagnosticLandingReservoir:this.diagnosticLandingReservoir,
+            diagnosticLandingPolicy:this.diagnosticLandingPolicy,diagnosticCanonicalSettleRadius:this.diagnosticCanonicalSettleRadius,diagnosticSolventField:this.diagnosticSolventField,diagnosticPigmentRecord:this.diagnosticPigmentRecord}},
+        targets,scratch,bounds:{...bounds},compositeBounds:{...compositeBounds},landedWet,wetPeak:wetPeakHere,strokeDir,
+      })
+    }
     // (#536, §17.63) Only now. Everything above is the gesture's bookkeeping -
     // the brush's water and pigment clocks, the landing and its dwell, the dab
     // spacing, the direction, the composite's scalars from the first dab - and
