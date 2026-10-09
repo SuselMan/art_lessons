@@ -522,5 +522,19 @@ it('queued history callback failure never rolls back accepted control; unrelated
 })
 it('queued local history uses existing rAF drain without forcing pending settle',async()=>{
  const e=await setup(false),frames=new Map<number,FrameRequestCallback>();let id=0;vi.stubGlobal('requestAnimationFrame',(fn:FrameRequestCallback)=>{frames.set(++id,fn);return id});vi.stubGlobal('cancelAnimationFrame',()=>{})
- try{e['_queuedLocalHistoryDev']=true;const emit=vi.fn();e['_onLocalOperation']=emit;e.undo();const intent=e['_pendingLocalHistoryId'];const drain=vi.spyOn(e as unknown as {_completeSettle():void},'_completeSettle');frames.get(e['_opDrainRaf'])!(performance.now());expect(drain).not.toHaveBeenCalled();expect(emit).not.toHaveBeenCalled();expect(e['_pendingLocalHistoryId']).toBe(intent);e['_completeSettle']();frames.get(e['_opDrainRaf'])!(performance.now());expect(emit).toHaveBeenCalledOnce();expect(emit.mock.calls[0][0].id).toBe(intent);expect(e.getQueuedHistoryStatus()?.state).toBe('applied')}finally{vi.unstubAllGlobals()}
+ try{e['_queuedLocalHistoryDev']=true;const emit=vi.fn();e['_onLocalOperation']=emit;e.undo();const intent=e['_pendingLocalHistoryId'];const drain=vi.spyOn(e as unknown as {_completeSettle():void},'_completeSettle');frames.get(e['_opDrainRaf'])!(performance.now());expect(drain).not.toHaveBeenCalled();expect(emit).not.toHaveBeenCalled();expect(e['_pendingLocalHistoryId']).toBe(intent);e['_completeSettle']();frames.get(e['_opDrainRaf'])!(performance.now());expect(emit).toHaveBeenCalledOnce();expect(emit.mock.calls[0][0].id).toBe(intent);expect(e.getQueuedHistoryStatus()?.state).toBe('accepted')}finally{vi.unstubAllGlobals()}
+})
+
+it('queued history constructor remains default OFF and enables only explicit ordinary DEV arm',()=>{
+ const off=createTestEngine(),on=createTestEngine({diagnosticQueuedHistory:true});engines.push(off.engine,on.engine);expect(off.engine['_queuedLocalHistoryDev']).toBe(false);expect(on.engine['_queuedLocalHistoryDev']).toBe(true);expect(on.engine.getQueuedHistoryStatus()).toBeNull()
+})
+it('explicit no-context-loss recovery repairs canonical journal before remote FIFO resumes',async()=>{
+ const e=await setup(false);e['_queuedLocalHistoryDev']=true;const source=e.undo()!,emit=vi.fn();e['_onLocalOperation']=emit;e['_completeSettle']();const q=e['_opQueue'].shift()!,failure=vi.spyOn(e as unknown as {_applyHistoryChange(op:typeof source):void},'_applyHistoryChange').mockImplementation(()=>{throw Error('repair failed')});expect(()=>e['_applyQueuedOperation'](q.op,q.source)).toThrow();failure.mockRestore()
+ const peer=makeStroke('peer','L',[dab(4,4)],{tool:'pencil',preset:'HB'});e.appendOperation(peer,'remote');expect(e['_opDrainRaf']).toBe(0);expect(await e.exportPNG(true)).toBeNull();expect(await e.recoverQueuedHistoryMaterial()).toBe(true);e['_flushOpQueue']();expect(e.getOperations().some(o=>o.id===source.id)).toBe(true);expect(e.getOperations().filter(o=>o.id===peer.id)).toHaveLength(1);expect(emit).not.toHaveBeenCalled();expect(e['_localHistoryFailure']).toBeNull()
+})
+it('queued history reports acceptance separately from unfinished material repair',async()=>{
+ const e=await setup(false);e['_queuedLocalHistoryDev']=true;e.undo();e['_completeSettle']();const q=e['_opQueue'].shift()!,original=e['_applyHistoryChange'].bind(e)
+ vi.spyOn(e as unknown as {_applyHistoryChange(op:Parameters<typeof original>[0]):void},'_applyHistoryChange').mockImplementation(op=>{original(op);e['_rebuildJobs'].set('publication-witness',{} as never)})
+ try{e['_applyQueuedOperation'](q.op,q.source);expect(e.getQueuedHistoryStatus()).toMatchObject({state:'accepted',materialIdle:false})}finally{e['_rebuildJobs'].delete('publication-witness')}
+ expect(e.getQueuedHistoryStatus()).toMatchObject({state:'accepted',materialIdle:true})
 })

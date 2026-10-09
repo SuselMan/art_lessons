@@ -184,6 +184,38 @@ export class OperationLog {
     }
   }
 
+  private _historyTransactions = new WeakMap<object, { revision: number; states: Array<{ entry: LogEntry; state: OperationState }> }>()
+  /** Opaque, owner-bound witness; no asynchronous journal work may intervene. */
+  captureHistoryStates(targetOpId: string): object {
+    const target = this._entries.find(e => e.op.id === targetOpId)
+    if (!target) throw Error('History target missing')
+    const op = target.op, gesture = op.type === 'stroke' ? op.strokeId : undefined
+    const states = this._entries.filter(e => e === target || gesture && e.op.type === 'stroke' && e.op.userId === op.userId && e.op.strokeId === gesture).map(entry => ({ entry, state: entry.state }))
+    const checkpoint = Object.freeze({})
+    this._historyTransactions.set(checkpoint, { revision: this._revision, states })
+    return checkpoint
+  }
+  /** Exact delta rollback for an unemitted, unconfirmed synchronous control. */
+  rollbackUnemittedHistory(control: Operation, checkpoint: object): void {
+    const captured = this._historyTransactions.get(checkpoint)
+    if (!captured || this._revision < captured.revision || this._revision > captured.revision + 2) throw Error('Stale or foreign history transaction')
+    const { states } = captured
+    if (control.type !== 'operation_undo' && control.type !== 'operation_redo') throw Error('History control required')
+    if (!states.some(s => s.entry.op.id === control.targetOpId) || states.some(s => !this._entries.includes(s.entry) || s.entry.op.userId !== control.userId)) throw Error('History transaction ownership changed')
+    const own = this._entries.find(e => e.op.id === control.id)
+    if (!own && this._revision !== captured.revision) throw Error('Intervening journal mutation')
+    if (own && (!own.pending || own.op.type !== control.type || !('targetOpId' in own.op) || own.op.targetOpId !== control.targetOpId)) throw Error('Accepted history transaction cannot roll back')
+    if (own) own.state = 'gone'
+    for (const { entry, state } of states) {
+      if (entry.state === state) continue
+      if (entry.state === 'done') this._bumpPixelOpCount(entry.op, -1)
+      if (state === 'done') this._bumpPixelOpCount(entry.op, 1)
+      entry.state = state
+    }
+    this._historyTransactions.delete(checkpoint)
+    this._revision++ // Monotonic invalidation; seq/pending/confirmed region remain intact.
+  }
+
   /** Appends a new operation. The author's `undone` entries become `gone`:
    *  a linear log cannot express history branching, so a new action makes the
    *  undone branch unreachable and redo past it impossible.

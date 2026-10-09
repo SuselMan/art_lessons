@@ -287,6 +287,8 @@ export interface PencilEngineOptions {
   joinedFinishDeferred?: boolean
   /** DEV-only OFF: retain an owned predecessor snapshot through mixed input. */
   joinedTouchSnapshotLease?: boolean
+  /** DEV-only exact local history FIFO prototype; no production effect. */
+  diagnosticQueuedHistory?: boolean
   /** Diagnostic OFF: preserve prior material ownership across RGB/preset change. */
   joinedTouchMixed?: boolean
   /** Experimental bounded live watercolor material presentation. */
@@ -2292,6 +2294,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._settleQueue.diagnosticSolverBatchEnabled = options.diagnosticSolverBatch ?? false
     this._wcJoinedFinishDeferred = options.joinedFinishDeferred ?? false
     this._wcJoinedTouchSnapshotLease = import.meta.env.DEV && options.joinedTouchSnapshotLease === true
+    if (import.meta.env.DEV && options.diagnosticQueuedHistory && (options.asyncFinish || options.nativeWatercolor || options.joinedFinishDeferred || options.joinedTouchMixed)) throw Error('Queued history requires ordinary product-model arm')
+    this._queuedLocalHistoryDev = import.meta.env.DEV && options.diagnosticQueuedHistory === true
     this._wcJoinedTouchMixed = options.joinedTouchMixed ?? false
     this._wcNativeEnabled=import.meta.env.DEV&&options.nativeWatercolor===true
     this._wcFirstLiveWarmupEnabled=import.meta.env.DEV&&options.diagnosticFirstLiveWarmup===true
@@ -2818,18 +2822,37 @@ export class PencilEngine implements PencilEngineAPI {
   // DEV-only prototype: no UI/query rollout. Intent remains unaccepted until FIFO material application.
   private _queuedLocalHistoryDev = false
   private _pendingLocalHistoryId: string | null = null
-  private _localHistoryOutcome: { id: string; state: 'queued' | 'applied' | 'cancelled' | 'failed'; reason?: string } | null = null
+  private _localHistoryOutcome: { id: string; state: 'queued' | 'accepted' | 'cancelled' | 'failed'; reason?: string } | null = null
   private _localHistoryFailure: string | null = null
+  private _localHistoryFailedLayers = new Set<string>()
   /** DEV read-only status; no UI rollout. */
-  getQueuedHistoryStatus(): Readonly<{ id: string; state: 'queued' | 'applied' | 'cancelled' | 'failed'; reason?: string }> | null {
-    return import.meta.env.DEV && this._localHistoryOutcome ? { ...this._localHistoryOutcome } : null
+  getQueuedHistoryStatus(): Readonly<{ id: string; state: 'queued' | 'accepted' | 'cancelled' | 'failed'; reason?: string; materialIdle: boolean }> | null {
+    return import.meta.env.DEV && this._localHistoryOutcome ? { ...this._localHistoryOutcome, materialIdle: !this._localHistoryFailure && !this._pendingLocalHistoryId && !this._settle && !this._wcCanonical.pending && !this._rebuildJobs.size && !this._opQueue.length && !this._contextLost && !this._destroyed } : null
   }
+  /** Explicit DEV recovery from the retained canonical journal; no rAF spin or implicit context-loss cure. */
+  async recoverQueuedHistoryMaterial(): Promise<boolean> {
+    if (!import.meta.env.DEV || !this._localHistoryFailure || this._destroyed || this._contextLost || this._strokeLayerId || this._settle || this._wcCanonical.pending || this._rebuildJobs.size) return false
+    const request = this._localHistoryOutcome?.id
+    try {
+      for (const id of this._localHistoryFailedLayers) this._rebuildLayer(id)
+      const deadline = performance.now() + 10000
+      while (this._rebuildJobs.size || this._settle || this._wcCanonical.pending) {
+        if (this._destroyed || this._contextLost || this._localHistoryOutcome?.id !== request || performance.now() >= deadline) return false
+        await new Promise<void>(resolve => setTimeout(resolve, 16))
+      }
+      if (this._destroyed || this._contextLost || this._localHistoryOutcome?.id !== request) return false
+      this._localHistoryFailedLayers.clear()
+      this._localHistoryFailure = null
+      this._scheduleOpDrain()
+      return true
+    } catch { return false }
+  }
+
   private _cancelPendingLocalHistory(): void {
     const id = this._pendingLocalHistoryId
     if (id) this._localHistoryOutcome = { id, state: 'cancelled' }
     if (id) this._opQueue = this._opQueue.filter(q => !(q.source === 'local' && q.op.id === id))
     this._pendingLocalHistoryId = null
-    this._localHistoryFailure = null
   }
   private _applyQueuedOperation(op: Operation, source: OperationSource): void {
     if (this._pendingLocalHistoryId === op.id && op.type === 'operation_undo') {
@@ -2837,19 +2860,25 @@ export class PencilEngine implements PencilEngineAPI {
       if (target && 'layerId' in target && typeof target.layerId === 'string') this._paperWet.forgetLayer(target.layerId)
     }
     const ownsIntent = this._pendingLocalHistoryId === op.id
+    const historyStates = ownsIntent && (op.type === 'operation_undo' || op.type === 'operation_redo') ? this._log.captureHistoryStates(op.targetOpId) : []
     const callback = this._onLocalOperation
     let accepted = false
     const markAccepted = (emitted: Operation) => { if (emitted.id === op.id) accepted = true; callback?.(emitted) }
     if (ownsIntent) this._onLocalOperation = markAccepted
     try {
       this._appendOperationNow(op, source)
-      if (this._pendingLocalHistoryId === op.id) this._localHistoryOutcome = { id: op.id, state: 'applied' }
+      if (this._pendingLocalHistoryId === op.id) this._localHistoryOutcome = { id: op.id, state: 'accepted' }
     } catch (error) {
       if (this._pendingLocalHistoryId === op.id) {
         // Control was never emitted if ordinary material application threw.
-        const logged = accepted ? null : this._log.revoke(op.id)
-        if (logged?.type === 'operation_undo') this._log.applyRedo(logged.targetOpId, logged.userId)
-        else if (logged?.type === 'operation_redo') this._log.applyUndo(logged.targetOpId, logged.userId)
+        this._localHistoryFailure = String(error)
+        this._localHistoryOutcome = { id: op.id, state: 'failed', reason: String(error) }
+        if (this._opDrainRaf) { cancelAnimationFrame(this._opDrainRaf); this._opDrainRaf = 0 }
+        if (!accepted) this._log.rollbackUnemittedHistory(op, historyStates)
+        if (op.type === 'operation_undo' || op.type === 'operation_redo') {
+          const target = this._log.entries.find(entry => entry.op.id === op.targetOpId)?.op
+          if (target) for (const id of this._log.gestureLayerIds(target)) this._localHistoryFailedLayers.add(id)
+        }
         this._localHistoryFailure = String(error)
         this._localHistoryOutcome = { id: op.id, state: 'failed', reason: String(error) }
       }
@@ -2890,7 +2919,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** (§17.58) One queued operation per frame, and only once the settle ahead
    *  of it has landed on its own. */
   private _scheduleOpDrain(): void {
-    if (this._opDrainRaf || typeof requestAnimationFrame !== 'function') return
+    if (this._localHistoryFailure || this._opDrainRaf || typeof requestAnimationFrame !== 'function') return
     this._opDrainRaf = requestAnimationFrame(() => {
       this._opDrainRaf = 0
       if (!this._opQueue.length || this._destroyed) return
