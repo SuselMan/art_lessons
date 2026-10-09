@@ -1,0 +1,3 @@
+/** Network diagnostic only. Does not classify, suppress, or authorize errors. */
+export function resourceFailureRecord(event){const r=event.response;if(!r||r.status<400)return null;let u;try{u=new URL(r.url)}catch{return{requestId:event.requestId,status:r.status,url:'invalid-url'}}const queryRedacted=!!u.search;u.search='';u.hash='';return{requestId:event.requestId,status:r.status,url:u.toString(),pathname:u.pathname,mimeType:r.mimeType??null,resourceType:event.type??null,queryRedacted}}
+export function recordResourceFailure(records,event,limit=32){const row=resourceFailureRecord(event);if(row&&records.length<limit)records.push(row);return row}
