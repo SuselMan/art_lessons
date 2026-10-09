@@ -75,3 +75,5 @@ Follow-up: bounded per-field NumberMap проверен и отклонён: ful
 
 - [x] Isolated actual Surface256 freshnormal20/100 replay+guarded modelpromotion: exact fullOperation/fullrawWet/PNGdecodedRGBA, GL0/errorsdrop0, source6/paper3passport. Source c92; scopedquality only, **не latency/Room/foreignwash/GPUowner protocol**. См. `728-gl-wet-replay-c92-surface-result.md`.
 - [ ] Runtime queued watercolor admission/immutable GPUowner/foreignwash/livemerge/fullUI+performance остаются HOLD. На quota30% новые проверки/реализация/устройства остановлены; manual5381/shared4558 сохранены, ownedresources отсутствуют.
+
+- [x] Actual Engine retained FIFO negative boundary: 2 целевых CPU теста PASS — earlyUP сохраняется без source dispatch до predecessor marker, own pending request отвергается, targeted cancel сохраняет predecessor. CPU marker не GPU publication; positive runtime integration HOLD. См. `728-gl-retained-fifo-admission-boundary.md`.
