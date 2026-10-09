@@ -1,3 +1,4 @@
+import {capturedStageReceipt,validateCapturedIdentity} from './OwnedBeforeCarryCapture.mjs';
 import {actual128DonorFractions,liftActual128Fractions,applyLiftedPairedDriver} from './Actual128PairedDriverAdapter.mjs';
 import {hashSmallPairedSnapshot} from './CaptureSmallPairedDriver.mjs';
 const sha=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
@@ -14,7 +15,7 @@ export async function runCapturedPairedCandidate(snapshot,{sourceHead,stage,subt
  const errors=masses[0].map((m,c)=>Math.abs(m-masses[1][c]));if(errors.some((e,c)=>e>1e-10*Math.max(1,masses[0][c])))throw Error('Paired mass gate failed');
  const passport={...await hashSmallPairedSnapshot(snapshot,subtle),sourceHead,stage};
  // Async hashing must not allow stale state to be promoted.
- const current=currentPassport?.();if(!current||['ownerSequence','epoch','passStep','passStride','packedSha','paperSha'].some(k=>current[k]!==p[k])||current.sourceHead!==sourceHead||current.stage!==stage)throw Error('Stale snapshot after hashing');
+ const current=currentPassport?.();const receipt=capturedStageReceipt(snapshot);if(receipt){validateCapturedIdentity(snapshot,current);if(receipt.sourceHead!==sourceHead||receipt.stage!==stage||['epoch','passStep','passStride'].some(k=>receipt[k]!==p[k]))throw Error('Receipt passport mismatch');}else if(!current||['ownerSequence','epoch','passStep','passStride','packedSha','paperSha'].some(k=>current[k]!==p[k])||current.sourceHead!==sourceHead||current.stage!==stage)throw Error('Stale snapshot after hashing');
  if(Object.keys(passport.rawSha256).length!==6||!Object.values(passport.rawSha256).every(sha))throw Error('Incomplete raw hash passport');
  return{result,passport,promotion:{allowed:true,kind:'bounded-diagnostic-evidence',bytes:p.bytes,massErrors:errors,changedValues:changed},limitations:snapshot.limitations};
 }

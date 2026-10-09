@@ -38,3 +38,18 @@ test('positive executor refuses overdraw and escaped endpoint before evidence pr
  fractions[0]=0;fractions[1]=.2;assert.throws(()=>applyLiftedPairedDriver({source,side,lift}),/escaped/);
  fractions[1]=NaN;assert.throws(()=>applyLiftedPairedDriver({source,side,lift}),/fraction/);
 });
+test('owned before-carry receipt permits later pass progression but rejects changed source epoch',async()=>{
+ const {installOwnedBeforeCarryCapture,validateCapturedIdentity}=await import('./OwnedBeforeCarryCapture.mjs');let passStep=1,canonicalCalls=0,captured;
+ const base={ownerSequence:2,epoch:0,passStride:1,packedSha:'a'.repeat(64),paperSha:'b'.repeat(64),sourceHead:'head'};
+ const passes={fieldOp(){canonicalCalls++;passStep++;return 42}};const original=passes.fieldOp;
+ const installed=installOwnedBeforeCarryCapture({passes,enabled:true,describe:()=>({...base,passStep}),capture:()=>({passport:{...base,passStep}}),onCaptured:r=>{captured=r}});
+ assert.equal(passes.fieldOp(null,null,null,15,.5),42);assert.equal(canonicalCalls,1);assert.equal(installed.armed,false);assert.equal(passes.fieldOp,original);assert.equal(captured.receipt.passStep,1);assert.equal(passStep,2);
+ assert.equal(validateCapturedIdentity(captured.snapshot,{...base,passStep:9}).epoch,0);
+ assert.throws(()=>validateCapturedIdentity(captured.snapshot,{...base,epoch:1}),/identity/);
+ installed.dispose();
+});
+test('diagnostic exception never prevents canonical carry',async()=>{
+ const {installOwnedBeforeCarryCapture}=await import('./OwnedBeforeCarryCapture.mjs');let calls=0,observed;const passes={fieldOp(){calls++}};
+ installOwnedBeforeCarryCapture({passes,enabled:true,describe:()=>({ownerSequence:2}),capture(){throw Error('capture failure')},onCaptured:r=>{observed=r}});
+ passes.fieldOp(null,null,null,15,.5);assert.equal(calls,1);assert.match(observed.error.message,/capture failure/);
+});
