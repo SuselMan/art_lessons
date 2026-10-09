@@ -402,8 +402,8 @@ export class SnapshotIO {
       else if (op.type === 'operation_redo') scratch.applyRedo(op.targetOpId, op.userId)
       else if (op.type === 'operation_revoke') scratch.revoke(op.targetOpId)
     }
-    log.prependHistorical(scratch.entries)
-    this._historicalGestureUnresolved = log.reconcileHistoricalGestures(ops.map(op => op.id))
+    this._historicalGestureUnresolved = log.prependHistoricalReconciled(scratch.entries)
+    if (this._historicalGestureUnresolved.length) return // Entire page unaccepted: no replay/publication exposure.
     this._historicalEntryCount += scratch.entries.length
     // (#479) These operations are now in the log, and a restored layer's
     // pinned checkpoint already holds the pixels of whichever of them predate

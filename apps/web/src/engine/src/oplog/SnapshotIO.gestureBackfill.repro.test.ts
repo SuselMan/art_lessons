@@ -81,7 +81,29 @@ it('unknown prefix undo witness cannot revive held undone state', () => {
   const log = new OperationLog(); fold(log, [B]); log.applyUndo('B', 'u') // Missing historical control in this bounded log.
   const io = absorb(log, [A])
   expect(io.historicalGestureUnresolved()).toHaveLength(1)
-  expect(states(log)).toEqual([['A', 'done'], ['B', 'undone']])
-  expect(log.reconcileHistoricalGestures(['A'])).toHaveLength(1)
-  expect(log.pixelOpDoneCount('L')).toBe(1)
+  expect(states(log)).toEqual([['B', 'undone']])
+  expect(log.pixelOpDoneCount('L')).toBe(0)
+})
+
+it('older historical Undo is not a witness for authoritative later held undone chunk', () => {
+  const later = { ...B, seq: 3 }, oldUndo = { ...U, seq: 2, targetOpId: 'A' }
+  const log = new OperationLog(); fold(log, [later]); log.applyUndo('B', 'u') // Actual later control remains outside known bounded readset.
+  const prior = log.entries.map(e => ({ ...e, op: { ...e.op } })), revision = log.revision
+  const io = absorb(log, [A, oldUndo])
+  expect(log.entries).toEqual(prior); expect(log.revision).toBe(revision)
+  expect(log.entries.find(e => e.op.id === 'B')?.state).toBe('undone')
+  expect(io.historicalGestureUnresolved()).toHaveLength(1)
+  expect(log.pixelOpDoneCount('L')).toBe(0)
+  expect(log.layerPixelOps('L')).toHaveLength(0)
+})
+
+it('uncertain page is not checkpoint-covered/preloaded or counted; retry succeeds when witness arrives', () => {
+  const log = new OperationLog(); fold(log, [B]); log.applyUndo('B', 'u')
+  const covered = vi.fn(), preload = vi.fn(), ctx = { log: () => log, checkpoints: () => ({ markCovered: covered }), preloadImages: preload } as unknown as SnapshotIOContext
+  const io = new SnapshotIO(ctx); io.absorbHistorical([A])
+  expect(covered).not.toHaveBeenCalled(); expect(preload).not.toHaveBeenCalled(); expect(log.entries).toHaveLength(1)
+  io.absorbHistorical([A, U])
+  expect(io.historicalGestureUnresolved()).toEqual([]); expect(states(log)).toEqual([['A', 'undone'], ['B', 'undone']]); expect(log.pixelOpDoneCount('L')).toBe(0)
+  expect(covered).toHaveBeenCalledOnce(); expect(preload).toHaveBeenCalledOnce()
+  io.absorbHistorical([A, U]); expect(covered).toHaveBeenCalledOnce(); expect(preload).toHaveBeenCalledOnce(); expect(log.pixelOpDoneCount('L')).toBe(0)
 })
