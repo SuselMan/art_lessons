@@ -254,6 +254,18 @@ export async function restoreRoomState(
     useRoomStore.getState().setPalette(state.palette)
     useRoomStore.getState().setRoomFrozen(state.frozen)
 
+    // A join through enterBoard resets the stream before parking room_state;
+    // it never visits the handler's same-board watermark update. Remember the
+    // successfully restored server boundary here too, so reconnect does not
+    // overwrite live pixels with older snapshots and skip their deduped tail.
+    // A failed transfer/replay must not claim history this engine lacks.
+    if (engine && failed === 0) {
+      deps.latestKnownSeqRef.current = tailOperations.reduce(
+        (seq, op) => Math.max(seq, op.seq ?? 0),
+        Math.max(deps.latestKnownSeqRef.current, latestSnapshotSeq ?? 0),
+      )
+    }
+
     if (engine && restoredFromSnapshot && latestSnapshotSeq !== null) {
       void deps.backfillHistory(deps.boardId, engine, latestSnapshotSeq)
     }

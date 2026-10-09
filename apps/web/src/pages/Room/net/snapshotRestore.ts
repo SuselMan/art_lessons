@@ -158,11 +158,12 @@ export function retryDelayMs(attempt: number): number {
   return Math.min(400 * 2 ** attempt, 3000)
 }
 
-/** Statuses worth asking about again. Everything else is an answer rather than
- *  a blip: a 403 or a 404 says the same thing four times over, and spending
- *  three more round trips to hear it only delays the honest failure. */
+/** Snapshot routes require a live room participant. A reconnect briefly
+ * removes that membership until join_room completes, so 403 can be transient
+ * here. Retries remain bounded and never bypass the server's access check.
+ * A 404 still means the immutable snapshot is unavailable. */
 function isRetriableStatus(status: number): boolean {
-  return status === 408 || status === 429 || status >= 500
+  return status === 403 || status === 408 || status === 429 || status >= 500
 }
 
 /** One try at producing a value. `retriable` is the attempt's own judgement —
@@ -292,16 +293,26 @@ export async function restoreLatestSnapshot(
     const dependencyHistory: Operation[] = []
     if (sink.restoreHistory) {
       const coverage = new Map(body.layers.map(layer => [layer.layerId, layer.seq]))
+      // Each bitmap covers its own layer, not the structural watermark.
+      // A quiet layer can have an older checkpoint forever; room_state
+      // already carries its uncovered tail. Only a discarded/absent bitmap
+      // needs a prefix here (e.g. an undo invalidated it after room_state).
       const missing = Object.values(layerState.items).filter(item => item.kind === 'layer'
-        && (coverage.get(item.id) ?? 0) < body.seq).map(item => item.id)
+        && !coverage.has(item.id)).map(item => item.id)
       for (const id of body.historyLayers ?? []) if (!missing.includes(id)) missing.push(id)
       if (body.replayStructure && !missing.length) missing.push('background')
       if (missing.length) {
         let cursor = body.seq + 1 // inclusive snapshot structural boundary
         while (cursor > 0) {
-          const page = await api('GET /api/rooms/:roomId/operations', {
-            params: { roomId }, query: { beforeSeq: cursor, limit: HISTORY_PAGE_LIMIT, layerIds: missing.join(',') },
-          })
+          const page = await withRetry<Operation[]>(async () => {
+            try {
+              return { ok: true, value: await api('GET /api/rooms/:roomId/operations', {
+                params: { roomId }, query: { beforeSeq: cursor, limit: HISTORY_PAGE_LIMIT, layerIds: missing.join(',') },
+              }) }
+            } catch (error) {
+              return { ok: false, retriable: !(error instanceof ApiError) || isRetriableStatus(error.status), error }
+            }
+          }, sleep)
           if (!page.length) break
           const oldest = page[0].seq ?? 0
           if (oldest >= cursor) throw new Error('snapshot dependency history cursor did not advance')

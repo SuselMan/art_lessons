@@ -512,6 +512,57 @@ describe('index coverage invalidated after room_state (#728)', () => {
     expect(history).toHaveBeenCalledWith(prefix)
     expect(requested.filter(u => u.includes('/operations')).map(u => new URL(u, 'http://qa').searchParams.get('beforeSeq'))).toEqual(['6', '3'])
   })
+  it('opens independently checkpointed layers without re-fetching their covered history (#739)', async () => {
+    const state: LayerState = {
+      ...ONE_LAYER_STATE,
+      items: {
+        ...ONE_LAYER_STATE.items,
+        ink: { kind: 'layer', id: 'ink', name: 'Ink', opacity: 1, visible: true },
+      },
+      rootOrder: ['ink', 'background'],
+    }
+    const bytes = await compressLayerTiles(encodeLayerTiles([]))
+    const fetch = mockRestoreFetch({ seq: 106000, layerState: state, layers: [
+      { layerId: 'background', seq: 78000, hash: 'paper' },
+      { layerId: 'ink', seq: 99500, hash: 'ink' },
+    ] }, { 'background/78000': bytes, 'ink/99500': bytes })
+    const { sink, applied } = recordingSink()
+    const history = vi.fn().mockResolvedValue(undefined)
+    expect((await restoreLatestSnapshot('old-room', { ...sink, restoreHistory: history })).status).toBe('restored')
+    expect(applied.map(layer => layer.coveredSeq)).toEqual([78000, 99500])
+    expect(history).not.toHaveBeenCalled()
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+      '/api/rooms/old-room/snapshots/index',
+      '/api/rooms/old-room/snapshots/background/78000',
+      '/api/rooms/old-room/snapshots/ink/99500',
+    ])
+  })
+  it('retries the same dependency page when reconnect temporarily removes room membership (#739)', async () => {
+    const urls: string[] = []
+    let attempts = 0
+    const op: Operation = { id: 'ink', seq: 3, type: 'stroke', userId: 'A', timestamp: 3,
+      layerId: 'background', tool: 'pencil', preset: 'HB', color: [0, 0, 0], dabs: [] }
+    global.fetch = vi.fn(async (url: string) => {
+      if (url.endsWith('/snapshots/index')) return { status: 200, ok: true, json: async () => ({
+        seq: 5, layerState: ONE_LAYER_STATE, layers: [],
+      }) }
+      urls.push(url)
+      if (++attempts === 1) return { status: 403, ok: false, json: async () => ({ error: 'forbidden' }) }
+      return { status: 200, ok: true, json: async () => url.includes('beforeSeq=6') ? [op] : [] }
+    }) as unknown as typeof fetch
+    const history = vi.fn().mockResolvedValue(undefined)
+    expect((await restoreLatestSnapshot('rejoin', { ...recordingSink().sink, restoreHistory: history }, { sleep: noSleep })).status).toBe('restored')
+    expect(urls[0]).toBe(urls[1])
+    expect(history).toHaveBeenCalledWith([op])
+  })
+  it('stops after bounded retries when snapshot access remains forbidden (#739)', async () => {
+    const fetch = vi.fn().mockResolvedValue({ status: 403, ok: false, json: async () => ({ error: 'forbidden' }) })
+    global.fetch = fetch
+    const { sink, begun } = recordingSink()
+    expect((await restoreLatestSnapshot('denied', sink, { sleep: noSleep })).status).toBe('failed')
+    expect(fetch).toHaveBeenCalledTimes(SNAPSHOT_FETCH_ATTEMPTS)
+    expect(begun).toEqual([])
+  })
   it('never requests heavy prefix history for fully covered safe layers', async () => {
     const fetch = mockRestoreFetch({ seq: 5, layerState: ONE_LAYER_STATE, layers: [{ layerId: 'background', seq: 5, hash: 'x' }] }, {
       'background/5': await compressLayerTiles(encodeLayerTiles([])),
