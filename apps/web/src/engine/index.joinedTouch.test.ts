@@ -418,3 +418,31 @@ it('mixed owned loss discards captured commands and cannot replay a stale job on
   e.destroy()
   for (const command of commands) expect(command).not.toHaveBeenCalled()
 })
+
+it('peer Undo and Redo queued during mixed input keep their exact target and FIFO application', async () => {
+  const e = await setup(true, false, 'normal:100:0:PB29:round', true)
+  const raf = globalThis.requestAnimationFrame, cancel = globalThis.cancelAnimationFrame
+  const frames: FrameRequestCallback[] = []
+  globalThis.requestAnimationFrame = fn => { frames.push(fn); return frames.length }
+  globalThis.cancelAnimationFrame = () => {}
+  try {
+    e.setPencil('normal:100:100:PB29:round'); simulateStrokeStart(e, 24, 32)
+    expect(e['_wcJoinedTouchLease']).not.toBeNull()
+    const peer = makeStroke('peer', 'L', [dab(12, 12)])
+    const undo = { id: 'peer-undo-lease', type: 'operation_undo' as const, userId: 'peer', timestamp: 1, targetOpId: peer.id }
+    const redo = { id: 'peer-redo-lease', type: 'operation_redo' as const, userId: 'peer', timestamp: 2, targetOpId: peer.id }
+    const applied: string[] = []; e['_onQueuedOperationApplied'] = op => applied.push(op.id)
+    for (const op of [peer, undo, redo]) e.appendOperation(op, 'remote')
+    expect(e['_opQueue'].map(q => q.op.id)).toEqual([peer.id, undo.id, redo.id])
+    // Accepted history can already be reflected while pixel application is queued.
+    expect(applied).toEqual([])
+    simulateStrokeEnd(e, 40, 32); e['_completeSettle']()
+    let n = 0; while (e['_opQueue'].length && n++ < 100) frames.shift()?.(performance.now())
+    expect(n).toBeLessThan(100)
+    expect(applied).toEqual([peer.id, undo.id, redo.id])
+    expect(e['_log'].entries.find(entry => entry.op.id === peer.id)?.state).toBe('done')
+    const controls = e.getOperations().filter(op => op.id === undo.id || op.id === redo.id)
+    expect(controls.map(op => 'targetOpId' in op ? op.targetOpId : null)).toEqual([peer.id, peer.id])
+    expect(e['_wcJoinedTouchLease']).toBeNull()
+  } finally { globalThis.requestAnimationFrame = raf; globalThis.cancelAnimationFrame = cancel }
+})

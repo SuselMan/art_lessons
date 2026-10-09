@@ -2,7 +2,7 @@
 
 Runtime остаётся без новых изменений до ручной оценки. Manual frontend5381, shared backend4558 и пустая комната уже доступны; Surface не занимать без allocator.
 
-CPU realEngine: 21/21 PASS. К существующим export/snapshot prefix guards, Undo/Redo, FIFO двух peer strokes, естественному completion, cancel/destroy добавлены реальные смешанные owned scenarios: mid-input Dry обнуляет wet cells, помечает dryAtPenUp, UP освобождает lease и следующий штрих создаёт другую wash; context loss снимает old job с очереди, destroy не воспроизводит captured source commands. WeakMap presence при удерживаемом job не является утечкой, а direct watercolorDryAll не публикует network paper_dry: это отдельные обязанности Room.
+CPU realEngine: 22/22 PASS. К существующим export/snapshot prefix guards, Undo/Redo, FIFO двух peer strokes, естественному completion, cancel/destroy добавлены реальные смешанные owned scenarios: mid-input Dry обнуляет wet cells, помечает dryAtPenUp, UP освобождает lease и следующий штрих создаёт другую wash; context loss снимает old job с очереди, destroy не воспроизводит captured source commands. Дополнительно peer stroke→Undo→Redo queued при active lease сохраняет FIFO pixel-application callbacks и exact targetOpId; redo возвращает peer entry в done. Accepted history может отражаться ещё до pixel application, поэтому getOperations presence не служит доказательством ранней отрисовки. App/SW typecheck PASS. WeakMap presence при удерживаемом job не является утечкой, а direct watercolorDryAll не публикует network paper_dry: это отдельные обязанности Room.
 
 Следующий bounded browser multi-peer cohort — только после allocation:
 
