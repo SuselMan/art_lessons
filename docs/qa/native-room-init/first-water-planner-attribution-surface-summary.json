@@ -1,0 +1,103 @@
+{
+  "issue": "#728",
+  "source": "92e0626a3dbe60388c556fa38067d6a018f6a90c",
+  "complete": true,
+  "ownClosed": true,
+  "ramMiB": {
+    "pre": 2133.6328125,
+    "min": 1027.1875,
+    "post": 1976.8203125
+  },
+  "traceBytes": 8370709,
+  "dataLossOccurred": false,
+  "markerOverflow": false,
+  "quantumCount": 200,
+  "pipelineCreateCount": 19,
+  "maxPipelineDescriptorCpuMs": 0.10000002384185791,
+  "blockedBoundary": {
+    "id": 71,
+    "startMs": 15281.400000035763,
+    "endMs": 15281.400000035763,
+    "wallCpuMs": 0,
+    "passes": [
+      {
+        "family": "waterFrontStep"
+      },
+      {
+        "family": "waterFrontStep"
+      },
+      {
+        "family": "waterFrontStep"
+      },
+      {
+        "family": "waterFrontStep"
+      }
+    ],
+    "passOverflow": false,
+    "outcome": "fulfilled",
+    "queueSubmitIds": [
+      66
+    ],
+    "queueCompletionIds": [
+      68
+    ]
+  },
+  "previousBoundary": {
+    "id": 70,
+    "startMs": 15281.300000011921,
+    "endMs": 15281.400000035763,
+    "wallCpuMs": 0.10000002384185791,
+    "passes": [
+      {
+        "family": "waterFrontStep"
+      },
+      {
+        "family": "waterFrontStep"
+      },
+      {
+        "family": "waterFrontStep"
+      },
+      {
+        "family": "waterFrontStep"
+      }
+    ],
+    "passOverflow": false,
+    "outcome": "fulfilled",
+    "queueSubmitIds": [
+      65
+    ],
+    "queueCompletionIds": [
+      67
+    ]
+  },
+  "decoder": {
+    "wallMs": 1021.123,
+    "browserMs": [
+      15758.91,
+      16780.033
+    ],
+    "handler": "WebGPUDecoderImpl",
+    "putOffset": 1968
+  },
+  "rafGap": {
+    "browserMs": [
+      15711.8,
+      16778.5
+    ],
+    "ms": 1066.7
+  },
+  "nextAblation": {
+    "originalJobOperationIndex": 33,
+    "expectedTag": "front",
+    "expectedPasses": 4,
+    "onlyFirstMaterialJob": true,
+    "scope": "asynchronous queue completion before/after selected original operation, no shader/Q8 change"
+  },
+  "limits": [
+    "Completion68 boundary is observed queue fence association, not a uniquely traced hardware dispatch ID",
+    "Shared CrGpuMain put_offset does not alone prove originating client",
+    "31st four-front quantum maps to job operation33 for this frozen recipe; next packet asserts actual tag",
+    "Pipeline descriptor CPU<=0.1ms does not establish actual pipeline compilation duration",
+    "No net readiness/smoothness gain claim; timeline observer/cold state differ across gates"
+  ]
+}
