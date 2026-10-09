@@ -18,3 +18,7 @@ CPU-only real prepare integration PASS: observer ON/OFF дают одинако�
 До runtime candidate нужен CPU oracle против неизменённого brushDragFieldWork (генератор содержит исходную формулу), adversarial radii/angles/direction/water/crop и полный Uint8 byte compare. Только после baseline-vs-candidate CPU workload benchmark можно обещать ожидаемый gain; JIT может уже hoist часть выражений, поэтому сейчас процента нет. Если CPU gain мал, следующий substantive путь перенос exact CPU contact raster в GPU — отдельное решение с сохранением ordered Float32 accumulation/rounding, не часть этой атрибуции.
 
 RELEASE Surface: owned context disposed, frontend5382/forward9455 остановлены; postRAM1924MiB. gl-prep-leaf400-5382 finished=true, standard privileged guard cleanup у root. Manual5381/backend4558 не изменены. Новых аппаратных повторов не было.
+
+## CPU hoist prototype outcome
+
+Неподключённый `BrushDragHoisted.ts` прошёл 64 детерминированных adverse cases против production и неизменённого generator oracle. Warm VPS alternating benchmark 12 dabs/512×512: median baseline 5.186 ms, hoisted 5.061 ms (2.4% nominal). Один короткий CPU прогон с шумом не доказывает значимый gain; этого недостаточно, чтобы решать 76ms Surface raster. Prototype не подключён к runtime. Более сильный следующий кандидат должен уменьшать число cell visits/exp или переносить CPU raster, с отдельным exact oracle; простого algebraic hoist недостаточно.
