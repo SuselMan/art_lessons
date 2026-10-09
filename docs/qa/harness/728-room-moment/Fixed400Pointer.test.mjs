@@ -1,0 +1,10 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {continuousPenStroke} from './ContinuousPenStroke.mjs';import{fixed400Tape}from'./Fixed400Tape.mjs';
+function fixture(fail){const samples=[],canvas={setPointerCapture(){},releasePointerCapture(){}};const e={_strokeId:null,_locked:false,_paper:{loaded:true},gl:{isContextLost:()=>false},_wcCanonical:{pending:false},_rebuildJobs:new Set(),_pointer:{_transform:(x,y)=>({x,y}),_handleDown(ev){e._strokeId='random';if(fail==='down')throw Error('down');},_handleMove(ev){samples.push(...ev.getCoalescedEvents());},_handleUp(){e._strokeId=null;if(fail)throw Error('up');}}};return{e,canvas,samples};}
+test('indexed PointerInput dispatch preserves geometry, IDs and real clocks',async()=>{
+ const raf=globalThis.requestAnimationFrame;let i=0;globalThis.requestAnimationFrame=cb=>cb(performance.now()+2000+(i++)*20);
+ try{const a=fixture(),b=fixture(),clock=performance.now;for(const f of[a,b]){const r=await continuousPenStroke(f.e,f.canvas,{deadline:performance.now()+100000,tape:fixed400Tape()[0]});assert.equal(r.strokeId,'QAwater001');assert.equal(r.frames.length,108);assert.equal(f.samples.length,216);assert.equal(f.e._strokeId,null);assert.ok('value'in Object.getOwnPropertyDescriptor(f.e,'_strokeId'));}assert.deepEqual(a.samples.map(s=>[s.clientX,s.clientY,s.pressure]),b.samples.map(s=>[s.clientX,s.clientY,s.pressure]));assert.equal(performance.now,clock);}finally{globalThis.requestAnimationFrame=raf;}
+});
+test('DOWN and cleanup UP throws still restore descriptor and capture',async()=>{
+ for(const fail of['down','up']){const f=fixture(fail),cap=f.canvas.setPointerCapture,release=f.canvas.releasePointerCapture,raf=globalThis.requestAnimationFrame;globalThis.requestAnimationFrame=cb=>cb(performance.now()+5000);try{await assert.rejects(continuousPenStroke(f.e,f.canvas,{deadline:performance.now()+100000,tape:fixed400Tape()[0]}));assert.equal(f.canvas.setPointerCapture,cap);assert.equal(f.canvas.releasePointerCapture,release);assert.ok('value'in Object.getOwnPropertyDescriptor(f.e,'_strokeId'));assert.equal(f.e._strokeId,null);}finally{globalThis.requestAnimationFrame=raf;}}
+});
