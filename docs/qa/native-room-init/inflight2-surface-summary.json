@@ -1,0 +1,82 @@
+{
+  "issue": 728,
+  "source": "92e0626a3dbe60388c556fa38067d6a018f6a90c",
+  "scope": "Actual ordinary native Room, diagnostic inflight2 plus timeline+planner observer; new live tape, not SAME packed endpoint proof",
+  "rawPrivate": "temp/device-runs/room-firstwater-inflight2-92",
+  "complete": true,
+  "errors": [],
+  "cleanup": {
+    "ownTargetCloseRequested": true,
+    "ownedContextDisposed": true
+  },
+  "ramMiB": {
+    "pre": 2091.51953125,
+    "post": 1910.98828125
+  },
+  "jobCensus": [
+    {
+      "stage": "inflight.job:finish",
+      "ms": 15263.599999964237,
+      "jobId": 1,
+      "originalStepCalls": 177,
+      "peak": 2,
+      "limit": 2,
+      "blockedCalls": 978
+    },
+    {
+      "stage": "inflight.job:finish",
+      "ms": 28898.899999976158,
+      "jobId": 2,
+      "originalStepCalls": 93,
+      "peak": 2,
+      "limit": 2,
+      "blockedCalls": 556
+    },
+    {
+      "stage": "inflight.job:finish",
+      "ms": 33029.89999997616,
+      "jobId": 3,
+      "originalStepCalls": 178,
+      "peak": 2,
+      "limit": 2,
+      "blockedCalls": 887
+    },
+    {
+      "stage": "inflight.job:finish",
+      "ms": 37996.59999996424,
+      "jobId": 4,
+      "originalStepCalls": 177,
+      "peak": 2,
+      "limit": 2,
+      "blockedCalls": 888
+    }
+  ],
+  "firstWater": {
+    "downMs": 10021.899999976158,
+    "finishMs": 15263.6,
+    "downToFinishWallMs": 5241.700000023842,
+    "traceExtractionMs": 11016.0,
+    "rAFMaxGapMs": 1083.3,
+    "firstPublicationWallMs": 89.30000000000109
+  },
+  "stall": {
+    "sharedCrGpuMainFlushMs": 1102.909,
+    "firstPendingOperationIndex": 62,
+    "quantum101": [
+      "field11",
+      "field1",
+      "field6",
+      "field5x6"
+    ],
+    "nextOperationIndex": 63,
+    "quantum102": [
+      "field15x4"
+    ],
+    "quantumCpuMs": [
+      1.1,
+      1.8
+    ]
+  },
+  "conclusion": "NEGATIVE performance control: material queue cap2 works, all original operations retained, but ~1s main scheduling gap persists at later field/carry boundary. Earlier deep front backlog alone is not established cause. Driver/compilation versus execution remains unresolved; shared decoder wall is not physical GPU duration. Do not enable by default.",
+  "next": "Bounded isolated op62/63 fence or cold field-pipeline first-use warm diagnostic, then same packed tape native baseline/bounded endpoint; no skipped Q8 operators."
+}
