@@ -4930,5 +4930,11 @@
     "wetHashesEqual": true,
     "historyIdsEqual": false,
     "limitation": "Actual elapsed/cadence differ; fixed order and one sample, no gain conclusion"
+  },
+  "coverageLimits": {
+    "uploadFlow": 30,
+    "uploadForeign": 0,
+    "hardwareForeignStencilByteProof": false,
+    "CPUForeignStencilFactoryCase": "prior PASS; separate scope"
   }
 }

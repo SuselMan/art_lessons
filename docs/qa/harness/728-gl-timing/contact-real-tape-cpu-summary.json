@@ -1,0 +1,790 @@
+{
+  "scope": "VPS CPU exact recorded canonical contact producer replay; not natural UP timing or physical device",
+  "fixtureSHA": "f3c81b4c5a7e987d60510a2625f41de4375fc5866cc859cca2024c661fd162e1",
+  "inputExact": true,
+  "actualCanonicalFlowSequenceExact": true,
+  "strokes": [
+    {
+      "strokeId": "QAwater001",
+      "dabCount": 104,
+      "drawableCount": 31,
+      "travelCount": 30,
+      "groups": [
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 203,
+            "y": 115,
+            "w": 458,
+            "h": 370
+          },
+          "cellCount": 10695,
+          "boundingPixelDabUpper": 21390,
+          "census": {
+            "width": 115,
+            "height": 93,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12902,
+            "touchedCells": 8447,
+            "overlapRecomputed": 4455,
+            "maxDabsAtCell": 2,
+            "outputCells": 10695,
+            "floatScratchBytes": 128340
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 379,
+            "y": 115,
+            "w": 397,
+            "h": 370
+          },
+          "cellCount": 9300,
+          "boundingPixelDabUpper": 18600,
+          "census": {
+            "width": 100,
+            "height": 93,
+            "activeDabs": 2,
+            "candidateCells": 17020,
+            "expCalls": 12948,
+            "touchedCells": 7110,
+            "overlapRecomputed": 5838,
+            "maxDabsAtCell": 2,
+            "outputCells": 9300,
+            "floatScratchBytes": 111600
+          }
+        },
+        {
+          "dabCount": 1,
+          "rect": {
+            "x": 415,
+            "y": 210,
+            "w": 370,
+            "h": 369
+          },
+          "cellCount": 8649,
+          "boundingPixelDabUpper": 8649,
+          "census": {
+            "width": 93,
+            "height": 93,
+            "activeDabs": 1,
+            "candidateCells": 8464,
+            "expCalls": 6485,
+            "touchedCells": 6485,
+            "overlapRecomputed": 0,
+            "maxDabsAtCell": 1,
+            "outputCells": 8649,
+            "floatScratchBytes": 103788
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 415,
+            "y": 298,
+            "w": 370,
+            "h": 381
+          },
+          "cellCount": 8928,
+          "boundingPixelDabUpper": 17856,
+          "census": {
+            "width": 93,
+            "height": 96,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12970,
+            "touchedCells": 6758,
+            "overlapRecomputed": 6212,
+            "maxDabsAtCell": 2,
+            "outputCells": 8928,
+            "floatScratchBytes": 107136
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 318,
+            "y": 315,
+            "w": 457,
+            "h": 370
+          },
+          "cellCount": 10695,
+          "boundingPixelDabUpper": 21390,
+          "census": {
+            "width": 115,
+            "height": 93,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12934,
+            "touchedCells": 8461,
+            "overlapRecomputed": 4473,
+            "maxDabsAtCell": 2,
+            "outputCells": 10695,
+            "floatScratchBytes": 128340
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 142,
+            "y": 315,
+            "w": 457,
+            "h": 370
+          },
+          "cellCount": 10695,
+          "boundingPixelDabUpper": 21390,
+          "census": {
+            "width": 115,
+            "height": 93,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12934,
+            "touchedCells": 8461,
+            "overlapRecomputed": 4473,
+            "maxDabsAtCell": 2,
+            "outputCells": 10695,
+            "floatScratchBytes": 128340
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 115,
+            "y": 315,
+            "w": 378,
+            "h": 464
+          },
+          "cellCount": 11020,
+          "boundingPixelDabUpper": 22040,
+          "census": {
+            "width": 95,
+            "height": 116,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12839,
+            "touchedCells": 8550,
+            "overlapRecomputed": 4289,
+            "maxDabsAtCell": 2,
+            "outputCells": 11020,
+            "floatScratchBytes": 132240
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 115,
+            "y": 498,
+            "w": 370,
+            "h": 381
+          },
+          "cellCount": 8928,
+          "boundingPixelDabUpper": 17856,
+          "census": {
+            "width": 93,
+            "height": 96,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12970,
+            "touchedCells": 6758,
+            "overlapRecomputed": 6212,
+            "maxDabsAtCell": 2,
+            "outputCells": 8928,
+            "floatScratchBytes": 107136
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 125,
+            "y": 515,
+            "w": 457,
+            "h": 370
+          },
+          "cellCount": 10695,
+          "boundingPixelDabUpper": 21390,
+          "census": {
+            "width": 115,
+            "height": 93,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12934,
+            "touchedCells": 8461,
+            "overlapRecomputed": 4473,
+            "maxDabsAtCell": 2,
+            "outputCells": 10695,
+            "floatScratchBytes": 128340
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 301,
+            "y": 515,
+            "w": 457,
+            "h": 370
+          },
+          "cellCount": 10695,
+          "boundingPixelDabUpper": 21390,
+          "census": {
+            "width": 115,
+            "height": 93,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12934,
+            "touchedCells": 8461,
+            "overlapRecomputed": 4473,
+            "maxDabsAtCell": 2,
+            "outputCells": 10695,
+            "floatScratchBytes": 128340
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 407,
+            "y": 421,
+            "w": 378,
+            "h": 464
+          },
+          "cellCount": 11020,
+          "boundingPixelDabUpper": 22040,
+          "census": {
+            "width": 95,
+            "height": 116,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12839,
+            "touchedCells": 8550,
+            "overlapRecomputed": 4289,
+            "maxDabsAtCell": 2,
+            "outputCells": 11020,
+            "floatScratchBytes": 132240
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 415,
+            "y": 325,
+            "w": 370,
+            "h": 377
+          },
+          "cellCount": 8835,
+          "boundingPixelDabUpper": 17670,
+          "census": {
+            "width": 93,
+            "height": 95,
+            "activeDabs": 2,
+            "candidateCells": 15860,
+            "expCalls": 12096,
+            "touchedCells": 6581,
+            "overlapRecomputed": 5515,
+            "maxDabsAtCell": 2,
+            "outputCells": 8835,
+            "floatScratchBytes": 106020
+          }
+        },
+        {
+          "dabCount": 4,
+          "rect": {
+            "x": 440,
+            "y": 293,
+            "w": 320,
+            "h": 344
+          },
+          "cellCount": 6880,
+          "boundingPixelDabUpper": 27520,
+          "census": {
+            "width": 80,
+            "height": 86,
+            "activeDabs": 4,
+            "candidateCells": 19780,
+            "expCalls": 14876,
+            "touchedCells": 4988,
+            "overlapRecomputed": 9888,
+            "maxDabsAtCell": 4,
+            "outputCells": 6880,
+            "floatScratchBytes": 82560
+          }
+        },
+        {
+          "dabCount": 3,
+          "rect": {
+            "x": 490,
+            "y": 270,
+            "w": 220,
+            "h": 236
+          },
+          "cellCount": 3245,
+          "boundingPixelDabUpper": 9735,
+          "census": {
+            "width": 55,
+            "height": 59,
+            "activeDabs": 3,
+            "candidateCells": 7038,
+            "expCalls": 5229,
+            "touchedCells": 2321,
+            "overlapRecomputed": 2908,
+            "maxDabsAtCell": 3,
+            "outputCells": 3245,
+            "floatScratchBytes": 38940
+          }
+        }
+      ],
+      "totals": {
+        "candidateCells": 220514,
+        "expCalls": 167890,
+        "touchedCells": 100392,
+        "overlapRecomputed": 67498,
+        "outputCells": 130280,
+        "floatScratchBytes": 1563360
+      },
+      "overlapFraction": 0.4020370480671869
+    },
+    {
+      "strokeId": "QApigmt002",
+      "dabCount": 104,
+      "drawableCount": 31,
+      "travelCount": 30,
+      "groups": [
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 203,
+            "y": 115,
+            "w": 458,
+            "h": 370
+          },
+          "cellCount": 10695,
+          "boundingPixelDabUpper": 21390,
+          "census": {
+            "width": 115,
+            "height": 93,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12902,
+            "touchedCells": 8447,
+            "overlapRecomputed": 4455,
+            "maxDabsAtCell": 2,
+            "outputCells": 10695,
+            "floatScratchBytes": 128340
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 379,
+            "y": 115,
+            "w": 397,
+            "h": 370
+          },
+          "cellCount": 9300,
+          "boundingPixelDabUpper": 18600,
+          "census": {
+            "width": 100,
+            "height": 93,
+            "activeDabs": 2,
+            "candidateCells": 17020,
+            "expCalls": 12948,
+            "touchedCells": 7110,
+            "overlapRecomputed": 5838,
+            "maxDabsAtCell": 2,
+            "outputCells": 9300,
+            "floatScratchBytes": 111600
+          }
+        },
+        {
+          "dabCount": 1,
+          "rect": {
+            "x": 415,
+            "y": 210,
+            "w": 370,
+            "h": 369
+          },
+          "cellCount": 8649,
+          "boundingPixelDabUpper": 8649,
+          "census": {
+            "width": 93,
+            "height": 93,
+            "activeDabs": 1,
+            "candidateCells": 8464,
+            "expCalls": 6485,
+            "touchedCells": 6485,
+            "overlapRecomputed": 0,
+            "maxDabsAtCell": 1,
+            "outputCells": 8649,
+            "floatScratchBytes": 103788
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 415,
+            "y": 298,
+            "w": 370,
+            "h": 381
+          },
+          "cellCount": 8928,
+          "boundingPixelDabUpper": 17856,
+          "census": {
+            "width": 93,
+            "height": 96,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12970,
+            "touchedCells": 6758,
+            "overlapRecomputed": 6212,
+            "maxDabsAtCell": 2,
+            "outputCells": 8928,
+            "floatScratchBytes": 107136
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 318,
+            "y": 315,
+            "w": 457,
+            "h": 370
+          },
+          "cellCount": 10695,
+          "boundingPixelDabUpper": 21390,
+          "census": {
+            "width": 115,
+            "height": 93,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12934,
+            "touchedCells": 8461,
+            "overlapRecomputed": 4473,
+            "maxDabsAtCell": 2,
+            "outputCells": 10695,
+            "floatScratchBytes": 128340
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 142,
+            "y": 315,
+            "w": 457,
+            "h": 370
+          },
+          "cellCount": 10695,
+          "boundingPixelDabUpper": 21390,
+          "census": {
+            "width": 115,
+            "height": 93,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12934,
+            "touchedCells": 8461,
+            "overlapRecomputed": 4473,
+            "maxDabsAtCell": 2,
+            "outputCells": 10695,
+            "floatScratchBytes": 128340
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 115,
+            "y": 315,
+            "w": 378,
+            "h": 464
+          },
+          "cellCount": 11020,
+          "boundingPixelDabUpper": 22040,
+          "census": {
+            "width": 95,
+            "height": 116,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12839,
+            "touchedCells": 8550,
+            "overlapRecomputed": 4289,
+            "maxDabsAtCell": 2,
+            "outputCells": 11020,
+            "floatScratchBytes": 132240
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 115,
+            "y": 498,
+            "w": 370,
+            "h": 381
+          },
+          "cellCount": 8928,
+          "boundingPixelDabUpper": 17856,
+          "census": {
+            "width": 93,
+            "height": 96,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12970,
+            "touchedCells": 6758,
+            "overlapRecomputed": 6212,
+            "maxDabsAtCell": 2,
+            "outputCells": 8928,
+            "floatScratchBytes": 107136
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 125,
+            "y": 515,
+            "w": 457,
+            "h": 370
+          },
+          "cellCount": 10695,
+          "boundingPixelDabUpper": 21390,
+          "census": {
+            "width": 115,
+            "height": 93,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12934,
+            "touchedCells": 8461,
+            "overlapRecomputed": 4473,
+            "maxDabsAtCell": 2,
+            "outputCells": 10695,
+            "floatScratchBytes": 128340
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 301,
+            "y": 515,
+            "w": 457,
+            "h": 370
+          },
+          "cellCount": 10695,
+          "boundingPixelDabUpper": 21390,
+          "census": {
+            "width": 115,
+            "height": 93,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12934,
+            "touchedCells": 8461,
+            "overlapRecomputed": 4473,
+            "maxDabsAtCell": 2,
+            "outputCells": 10695,
+            "floatScratchBytes": 128340
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 407,
+            "y": 421,
+            "w": 378,
+            "h": 464
+          },
+          "cellCount": 11020,
+          "boundingPixelDabUpper": 22040,
+          "census": {
+            "width": 95,
+            "height": 116,
+            "activeDabs": 2,
+            "candidateCells": 16928,
+            "expCalls": 12839,
+            "touchedCells": 8550,
+            "overlapRecomputed": 4289,
+            "maxDabsAtCell": 2,
+            "outputCells": 11020,
+            "floatScratchBytes": 132240
+          }
+        },
+        {
+          "dabCount": 2,
+          "rect": {
+            "x": 415,
+            "y": 325,
+            "w": 370,
+            "h": 377
+          },
+          "cellCount": 8835,
+          "boundingPixelDabUpper": 17670,
+          "census": {
+            "width": 93,
+            "height": 95,
+            "activeDabs": 2,
+            "candidateCells": 15860,
+            "expCalls": 12096,
+            "touchedCells": 6581,
+            "overlapRecomputed": 5515,
+            "maxDabsAtCell": 2,
+            "outputCells": 8835,
+            "floatScratchBytes": 106020
+          }
+        },
+        {
+          "dabCount": 4,
+          "rect": {
+            "x": 440,
+            "y": 293,
+            "w": 320,
+            "h": 344
+          },
+          "cellCount": 6880,
+          "boundingPixelDabUpper": 27520,
+          "census": {
+            "width": 80,
+            "height": 86,
+            "activeDabs": 4,
+            "candidateCells": 19780,
+            "expCalls": 14876,
+            "touchedCells": 4988,
+            "overlapRecomputed": 9888,
+            "maxDabsAtCell": 4,
+            "outputCells": 6880,
+            "floatScratchBytes": 82560
+          }
+        },
+        {
+          "dabCount": 3,
+          "rect": {
+            "x": 490,
+            "y": 270,
+            "w": 220,
+            "h": 236
+          },
+          "cellCount": 3245,
+          "boundingPixelDabUpper": 9735,
+          "census": {
+            "width": 55,
+            "height": 59,
+            "activeDabs": 3,
+            "candidateCells": 7038,
+            "expCalls": 5229,
+            "touchedCells": 2321,
+            "overlapRecomputed": 2908,
+            "maxDabsAtCell": 3,
+            "outputCells": 3245,
+            "floatScratchBytes": 38940
+          }
+        }
+      ],
+      "totals": {
+        "candidateCells": 220514,
+        "expCalls": 167890,
+        "touchedCells": 100392,
+        "overlapRecomputed": 67498,
+        "outputCells": 130280,
+        "floatScratchBytes": 1563360
+      },
+      "overlapFraction": 0.4020370480671869
+    }
+  ],
+  "warm": {
+    "OFF": {
+      "samples": [
+        24.106627000000117,
+        25.211026000000174,
+        24.232419000000164,
+        20.529727000000094,
+        20.746915000000172,
+        20.61152500000003,
+        21.918375999999853,
+        20.58522499999981
+      ],
+      "medianMs": 21.332645500000012,
+      "minMs": 20.529727000000094,
+      "maxMs": 25.211026000000174
+    },
+    "ON": {
+      "samples": [
+        23.389308000000028,
+        23.373088000000052,
+        21.73054500000012,
+        20.068656999999803,
+        20.006962000000158,
+        20.038907999999992,
+        20.046367000000146,
+        19.829766999999947
+      ],
+      "medianMs": 20.057511999999974,
+      "minMs": 19.829766999999947,
+      "maxMs": 23.389308000000028
+    }
+  },
+  "cold": {
+    "OFF": {
+      "samples": [
+        64.26466000000005,
+        74.94839999999999,
+        79.09026799999992
+      ],
+      "medianMs": 74.94839999999999,
+      "minMs": 64.26466000000005,
+      "maxMs": 79.09026799999992
+    },
+    "ON": {
+      "samples": [
+        67.88867899999991,
+        70.1440439999999,
+        113.59833400000002
+      ],
+      "medianMs": 70.1440439999999,
+      "minMs": 67.88867899999991,
+      "maxMs": 113.59833400000002
+    }
+  },
+  "verdict": "Exact canonical CPU workload/30 GPU uploads reconstructed. Warm modest benefit; cold noisy. Does not establish Surface UP acceleration; defaultOFF.",
+  "workspaceMode": "none; actual plan diagnosticReuseFlowRaster=false and no Engine/Room wiring",
+  "sourceSHA": [
+    {
+      "name": "brushDrag",
+      "sha": "febf13b5d339df09c04bcaae38773bf7412abc772f06e4a0002240926adef206"
+    },
+    {
+      "name": "brushDragHoisted",
+      "sha": "bc3187f4f73d8aa37d39b9591a389527b1e1b409d2e73bd6300964c822a24ed9"
+    }
+  ],
+  "identityFullGatePassed": true,
+  "negativePreset": {
+    "inputExact": false,
+    "flowSequenceExact": true,
+    "processExit": 1,
+    "scope": "Different pigment preset may leave geometric flow equal; full input contract still rejects"
+  },
+  "repeatWarm": {
+    "OFF": {
+      "samples": [
+        24.548316000000113,
+        25.000012000000197,
+        24.705378999999994,
+        22.365894000000026,
+        20.86696699999993,
+        21.049097999999958,
+        22.705220999999938,
+        20.829017999999905
+      ],
+      "medianMs": 22.53555749999998
+    },
+    "ON": {
+      "samples": [
+        25.643002999999908,
+        24.973246000000017,
+        22.746660999999904,
+        20.577541999999994,
+        20.275659000000132,
+        20.038049,
+        21.199341000000004,
+        20.209419000000025
+      ],
+      "medianMs": 20.8884415
+    }
+  },
+  "privateFixtureIdentifier": "contact-hoist-6pbY2G4A-ops.json",
+  "hardwareForeignUploads": 0,
+  "naturalRasterAttribution": "Canonical counts/packed/flow workload equal; natural live prep span includes foreign stencil and execution state not captured.12\u219221ms cause unknown, not evidence of different recorded workload."
+}

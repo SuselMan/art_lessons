@@ -1,6 +1,6 @@
 # Contact hoist: качество PASS, ускорение не подтверждено
 
-Source6e5fd7a7, ONE Surface OFF/ON, ordinary Vite/shared prebundleOFF, boot import fix и mixed lease/timing одинаковы. Оба constructor/query gates прошли, OFF Roomproducer0/ON28, canonicalquality0/28. Canonical replay использовал один immutable OFF recorded tape с теми же packed dabs, wet, IDs/seed/preset/color. Все10 field roles1536×1536 и resident material1024×1024, wholeRGBA1024×1024 (453591 alpha pixels),30 ordered flow/foreign uploads bytehash совпали. GL0/lossfalse/errors0. Это аппаратный exactquality PASS выбранного сценария, не доказательство всех вариантов.
+Source6e5fd7a7, ONE Surface OFF/ON, ordinary Vite/shared prebundleOFF, boot import fix и mixed lease/timing одинаковы. Оба constructor/query gates прошли, OFF Roomproducer0/ON28, canonicalquality0/28. Canonical replay использовал один immutable OFF recorded tape с теми же packed dabs, wet, IDs/seed/preset/color. Все10 field roles1536×1536 и resident material1024×1024, wholeRGBA1024×1024 (453591 alpha pixels),30 ordered uploadFlow bytehash совпали; uploadForeign=0, поэтому аппаратный foreign-stencil coverage этот сценарий не проверил (CPU factory stencil case проверен отдельно). GL0/lossfalse/errors0. Это аппаратный exactquality PASS выбранного сценария, не доказательство всех вариантов.
 
 Natural CPU (последовательные разные contexts, один замер, без GPU/physical visible claim):
 
