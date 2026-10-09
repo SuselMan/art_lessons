@@ -2037,6 +2037,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _glTiming: BoundedGlTiming | null = null
   /** Export only after input; times describe CPU submission, not visible pixels. */
   getDiagnosticGlTiming() { return this._glTiming?.export() ?? null }
+  getDiagnosticGlTimingStats() { return this._glTiming?.stats() ?? null }
 
   private _displaySuspendDepth = 0
   /** (#381) Layers whose rebuild was deferred by the current suspendDisplay
@@ -2294,6 +2295,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
     this.canvas = canvas
+    if (import.meta.env.DEV && options.diagnosticGlTiming && (options.nativeWatercolor || options.asyncFinish || options.joinedFinishDeferred || options.joinedTouchMixed || options.materialPresentation)) throw Error('GL timing requires ordinary synchronous product-model arm')
     if (import.meta.env.DEV && options.diagnosticGlTiming === true) {
       this._glTiming = new BoundedGlTiming()
       this._ribbonPainter.diagnosticTiming = this._glTiming
@@ -6155,8 +6157,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _onStart(e: PointerData): void {
     const timing = this._glTiming
     if (!timing) return this._onStartUntimed(e)
-    timing.beginInput()
-    return timing.measure('input-down-through-display', () => this._onStartUntimed(e))
+    timing.beginInput(this._userId, this._activeId)
+    try { return timing.measure('input-down-through-display', () => this._onStartUntimed(e)) }
+    finally { timing.endInput() }
   }
 
   private _onStartUntimed(e: PointerData): void {
@@ -6321,6 +6324,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
     }
     this._strokeId = nanoid(10)
+    this._glTiming?.setStrokeId(this._strokeId)
     this._wcAsyncLocalStroke = this._wcAsyncFinish && this._strokeTool !== 'watercolor' ? this._strokeId : null
     if (this._wcAsyncLocalStroke) this._wcAsyncLocalTools.set(this._wcAsyncLocalStroke, { layers: new Map(), ended: false, queued: 0 })
     // (#429) `_liveLastEmitAt = 0` on purpose, not `performance.now()`: it

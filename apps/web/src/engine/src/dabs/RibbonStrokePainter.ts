@@ -259,7 +259,7 @@ export class RibbonStrokePainter {
         })
       }
       this.ctx.drawRibbonNibPass(...args)
-      if (args[5] === 7) this.diagnosticTiming?.firstPigment()
+      if (args[5] === 7 && args[6] > 0 && (args[11] ?? 0) > 0) this.diagnosticTiming?.firstPigment()
     }
     const sourceBands = (...args: Parameters<RibbonStrokePainterContext['drawRibbonBands']>): void => {
       if (scratch.trackRunningSource) {
@@ -267,7 +267,6 @@ export class RibbonStrokePainter {
         scratch.runningSourceCommands.push(() => this.ctx.drawRibbonBands(...saved))
       }
       this.ctx.drawRibbonBands(...args)
-      if (args[3] === 'ink' || args[3] === 'ink-max') this.diagnosticTiming?.firstPigment()
     }
     const sourceField = (...args: Parameters<RibbonStrokePainterContext['fieldOp']>): void => {
       if (scratch.trackRunningSource) {

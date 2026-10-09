@@ -1,9 +1,9 @@
 # ONE GL400: план допуска к замеру
 
-Статус: OFFLINE, не готов к аппаратному запуску. База timing a5562f7d.
+Статус: OFFLINE. Три prerequisites реализованы, CPU preflight PASS; аппаратный запуск только после allocation и review. База timing a5562f7d + follow-up.
 Manual5381 и xvnlQGhW не используются. Нет нового frontend/backend/device.
 
-До запуска нужны три узких исправления:
+Реализованные prerequisites (проверить actual served bytes до запуска):
 
 1. Ordinary Room DEV option должна реально передать diagnosticGlTiming в constructor;
    проверять фактический engine observer и source/parser SHA, а не наличие query.
@@ -60,3 +60,13 @@ Durable artifact сохранить ДО assert/finish; partial stage/last await
 Finally bounded own context/forward/frontend cleanup; RELEASE сразу независимо
 от offline анализа. Итог — CPU submission attribution одного сценария, не
 physical stylus latency и не общая оценка ускорения.
+
+
+## Подготовленный contextless gate
+
+`docs/qa/harness/728-gl-timing/GlTiming400Gate.mjs` принимает actual exported
+ring/stats и ожидаемые два stroke IDs, user/layer, actual pending-before-second.
+Проверяет positive owned source→display→DOWN end, lease decision, dropped/errors0
+и отсутствие противоречия lease+drain. 4 negative/positive Node tests PASS.
+Тесты runtime parser→actual Engine constructor и zero-pigment water PASS.
+Это допускающий контракт, не исполненный hardware controller.
