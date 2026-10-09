@@ -32,3 +32,8 @@ export async function runMixedLeaseSameInput({engineUrl,enabled}){
  }finally{if(originalStart)e._settleQueue.start=originalStart;e.destroy()}
 }
 export function compareMixedLeaseArms(a,b){return !!(a&&b&&!a.enabled&&b.enabled&&a.proof.predecessorPending&&b.proof.predecessorPending&&a.proof.downDrains>0&&a.proof.leaseAdmissions===0&&b.proof.downDrains===0&&b.proof.leaseAdmissions===1&&b.proof.sourceCommands>0&&a.clockProof.realBudgetCalls>0&&b.clockProof.realBudgetCalls>0&&a.clockProof.frameClockAdvance>0&&b.clockProof.frameClockAdvance>0&&a.inputSHA===b.inputSHA&&a.semanticHistorySHA===b.semanticHistorySHA&&JSON.stringify(a.semanticHistory)===JSON.stringify(b.semanticHistory)&&a.fields.length===25&&b.fields.length===25&&JSON.stringify(a.fields)===JSON.stringify(b.fields)&&JSON.stringify(a.whole)===JSON.stringify(b.whole)&&!a.glError&&!b.glError&&!a.lost&&!b.lost)}
+/** Compact fail localization only; never relaxes the equality gate. */
+export function mixedLeaseDifferences(a,b){
+ if(!a||!b)return{incompleteArms:true};const left=new Map(a.fields.map(f=>[f.label,f])),right=new Map(b.fields.map(f=>[f.label,f]));
+ return{admissions:[a.proof,b.proof].map(p=>({pending:p.predecessorPending,leases:p.leaseAdmissions,downDrains:p.downDrains,upDrains:p.upDrains,sourceCommands:p.sourceCommands})),inputEqual:a.inputSHA===b.inputSHA,semanticHistoryEqual:a.semanticHistorySHA===b.semanticHistorySHA,wetProfiles:[a.rawHistory,b.rawHistory].map(ops=>ops.map(o=>o.wet??'')),fieldMismatches:[...new Set([...left.keys(),...right.keys()])].filter(label=>JSON.stringify(left.get(label))!==JSON.stringify(right.get(label))),wholeEqual:JSON.stringify(a.whole)===JSON.stringify(b.whole),glErrors:[a.glError,b.glError],lost:[a.lost,b.lost]};
+}
