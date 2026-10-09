@@ -1,0 +1,6 @@
+/** Screenshots of own page only, bounded bytes, durable write BEFORE ACK. */
+export function collectWetVisualFrames(page,{write,maximumBytes=24*1024*1024}={}){
+ let busy=false,stopped=false,total=0,error=null;const frames=[];
+ const poll=async()=>{if(busy||stopped||error)return;busy=true;try{const t=await page.evaluate(()=>{const x=window.__physicalWetCheckpoint;return x&&!x.ack?{index:x.index,ordinal:x.ordinal,requestedDelay:x.requestedDelay,upEnd:x.upEnd,requestedAt:x.requestedAt}:null});if(!t||frames.some(x=>x.index===t.index))return;if(frames.length>=3)throw Error('Three-frame bound');const png=await page.screenshot({type:'png',fullPage:false});if(png.byteLength>8*1024*1024||total+png.byteLength>maximumBytes)throw Error('Wet screenshot byte budget');await write(t,png);total+=png.byteLength;frames.push({...t,bytes:png.byteLength});await page.evaluate(index=>{if(window.__physicalWetCheckpoint?.index===index)window.__physicalWetCheckpoint.ack=true},t.index)}catch(e){error=String(e)}finally{busy=false}};
+ const timer=setInterval(()=>void poll(),50);return{frames,get error(){return error},get totalBytes(){return total},async stop(){stopped=true;clearInterval(timer);while(busy)await new Promise(r=>setTimeout(r,5))}};
+}
