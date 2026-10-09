@@ -15,3 +15,9 @@ Failure: exact request outcome failed сохраняется, pending не ис�
 Ограничения: пока API null busy и internal request outcome; UI pending indicator не подключён. Prototype не решает стоимость history repair после natural boundary; цель — не forceddrain в click. Требуется root review error rollback/meta journal/confirmation race и real rAF protocol прежде UI/device rollout.
 
 Outcome `accepted` не означает published: `materialIdle` отдельный conservative witness jobs/settle/canonical/queue/context lifecycle. Snapshot serverwatermark readiness остаётся отдельным существующим контрактом. Backfilled mixedstate fixture использует prependHistorical API; underlying SnapshotIO inconsistency не исправлялась.
+
+## Async repair error boundary
+
+DEV prototype tracks request→affected layers and exact RebuildJob identity. Only those jobs gain an error catcher; OFF and foreign jobs retain original throwing behavior. Accepted repair keeps new source/controls/publication gated until owners finish. A failed owned job stops queued drain rAF, retains the accepted control (no rollback), cancels only its own timer/buffers using existing rebuild cancellation, and cancels a settle only when that exact job owns it. Status becomes failed. Explicit recovery reconstructs affected canonical layers, retaining remoteFIFO; failure-epoch guard refuses recovery if its new job fails again. Loss/destroy release owner map and preserve accepted journal.
+
+Validation: whole targeted suite50 PASS (34 engine +2 exact-log transaction +14 parser), then added loss/destroy async lifecycle test1 PASS (engine now35); app TypeScript PASS. Actual sliced job fixture validates accepted→async exception→failed→no loop→remoteFIFO→explicit recovery; OFF rethrows same sentinel and keeps original job. Lifecycle fixture forces slicing to keep an actual owned job pending through loss/destroy. No hardware/GPU/performance claim, no manual stand opt-in.

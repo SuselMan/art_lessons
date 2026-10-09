@@ -2824,7 +2824,10 @@ export class PencilEngine implements PencilEngineAPI {
   private _pendingLocalHistoryId: string | null = null
   private _localHistoryOutcome: { id: string; state: 'queued' | 'accepted' | 'cancelled' | 'failed'; reason?: string } | null = null
   private _localHistoryFailure: string | null = null
+  private _localHistoryFailureEpoch = 0
   private _localHistoryFailedLayers = new Set<string>()
+  private _queuedHistoryRepairOwners = new Map<string, string>()
+  private _queuedHistoryJobOwners = new WeakMap<RebuildJob, string>()
   /** DEV read-only status; no UI rollout. */
   getQueuedHistoryStatus(): Readonly<{ id: string; state: 'queued' | 'accepted' | 'cancelled' | 'failed'; reason?: string; materialIdle: boolean }> | null {
     return import.meta.env.DEV && this._localHistoryOutcome ? { ...this._localHistoryOutcome, materialIdle: !this._localHistoryFailure && !this._pendingLocalHistoryId && !this._settle && !this._wcCanonical.pending && !this._rebuildJobs.size && !this._opQueue.length && !this._contextLost && !this._destroyed } : null
@@ -2833,15 +2836,17 @@ export class PencilEngine implements PencilEngineAPI {
   async recoverQueuedHistoryMaterial(): Promise<boolean> {
     if (!import.meta.env.DEV || !this._localHistoryFailure || this._destroyed || this._contextLost || this._strokeLayerId || this._settle || this._wcCanonical.pending || this._rebuildJobs.size) return false
     const request = this._localHistoryOutcome?.id
+    const failureEpoch = this._localHistoryFailureEpoch
     try {
-      for (const id of this._localHistoryFailedLayers) this._rebuildLayer(id)
+      for (const id of this._localHistoryFailedLayers) { if (request) this._queuedHistoryRepairOwners.set(id, request); this._rebuildLayer(id); if (!this._rebuildJobs.has(id)) this._queuedHistoryRepairOwners.delete(id) }
       const deadline = performance.now() + 10000
       while (this._rebuildJobs.size || this._settle || this._wcCanonical.pending) {
         if (this._destroyed || this._contextLost || this._localHistoryOutcome?.id !== request || performance.now() >= deadline) return false
         await new Promise<void>(resolve => setTimeout(resolve, 16))
       }
-      if (this._destroyed || this._contextLost || this._localHistoryOutcome?.id !== request) return false
+      if (this._destroyed || this._contextLost || this._localHistoryOutcome?.id !== request || this._localHistoryFailureEpoch !== failureEpoch) return false
       this._localHistoryFailedLayers.clear()
+      for (const [id, owner] of this._queuedHistoryRepairOwners) if (owner === request) this._queuedHistoryRepairOwners.delete(id)
       this._localHistoryFailure = null
       this._scheduleOpDrain()
       return true
@@ -2864,7 +2869,13 @@ export class PencilEngine implements PencilEngineAPI {
     const callback = this._onLocalOperation
     let accepted = false
     const markAccepted = (emitted: Operation) => { if (emitted.id === op.id) accepted = true; callback?.(emitted) }
-    if (ownsIntent) this._onLocalOperation = markAccepted
+    if (ownsIntent) {
+      this._onLocalOperation = markAccepted
+      if (op.type === 'operation_undo' || op.type === 'operation_redo') {
+        const target = this._log.entries.find(entry => entry.op.id === op.targetOpId)?.op
+        if (target) for (const id of this._log.gestureLayerIds(target)) this._queuedHistoryRepairOwners.set(id, op.id)
+      }
+    }
     try {
       this._appendOperationNow(op, source)
       if (this._pendingLocalHistoryId === op.id) this._localHistoryOutcome = { id: op.id, state: 'accepted' }
@@ -2884,6 +2895,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
       throw error
     } finally {
+      if (ownsIntent) for (const [id, request] of this._queuedHistoryRepairOwners) if (request === op.id && !this._rebuildJobs.has(id)) this._queuedHistoryRepairOwners.delete(id)
       if (ownsIntent && this._onLocalOperation === markAccepted) this._onLocalOperation = callback
       if (this._pendingLocalHistoryId === op.id) this._pendingLocalHistoryId = null
     }
@@ -2925,7 +2937,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (!this._opQueue.length || this._destroyed) return
       // Not under this user's own pen either: a peer's operation lands in
       // 30-280 ms on the iPad, and the stroke in hand would stutter by it.
-      if (!this._localHistoryFailure && !this._settle && !this._strokeLayerId && !(this._wcAsyncFinish && this._wcCanonical.pending)) {
+      if (!this._localHistoryFailure && !this._queuedHistoryRepairOwners.size && !this._settle && !this._strokeLayerId && !(this._wcAsyncFinish && this._wcCanonical.pending)) {
         const { op, source } = this._opQueue.shift()!
         this._applyQueuedOperation(op, source)
       }
@@ -3429,7 +3441,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  everyone else's canvas from this one. Returns the affected operation
    *  (e.g. the stroke), same contract as before. */
   undo(): Operation | null {
-    if (this._pendingLocalHistoryId || this._localHistoryFailure) return null // Explicit busy rejection: no second target selection.
+    if (this._pendingLocalHistoryId || this._localHistoryFailure || this._queuedHistoryRepairOwners.size) return null // Explicit busy rejection: no second target selection.
     if (this._wcAsyncFinish && this._strokeLayerId) return null
     const target = this._log.undoTarget(this._userId)
     if (!target) return null
@@ -3459,7 +3471,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Symmetric with `undo()` — see its docstring. */
   redo(): Operation | null {
-    if (this._pendingLocalHistoryId || this._localHistoryFailure) return null // Explicit busy rejection: no second target selection.
+    if (this._pendingLocalHistoryId || this._localHistoryFailure || this._queuedHistoryRepairOwners.size) return null // Explicit busy rejection: no second target selection.
     if (this._wcAsyncFinish && this._strokeLayerId) return null
     const target = this._log.redoTarget(this._userId)
     if (!target) return null
@@ -4244,7 +4256,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  slow/offline first load makes the gap real. */
   async exportPNG(transparent = false): Promise<Blob | null> {
     await this._paper.ready()
-    if (this._pendingLocalHistoryId || this._localHistoryFailure) return null
+    if (this._pendingLocalHistoryId || this._localHistoryFailure || this._queuedHistoryRepairOwners.size) return null
     if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._strokeLayerId) return null
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
     return this._exporter.exportPNG(transparent)
@@ -4252,7 +4264,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   async exportReviewImage(): Promise<import('./src/export/Exporter').ReviewExport | null> {
     await this._paper.ready()
-    if (this._pendingLocalHistoryId || this._localHistoryFailure) return null
+    if (this._pendingLocalHistoryId || this._localHistoryFailure || this._queuedHistoryRepairOwners.size) return null
     if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._strokeLayerId) return null
     if (this._destroyed || this._contextLost) return null
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
@@ -4263,7 +4275,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  the work is Exporter's (#494). */
   async bakePreview(maxSide = 320): Promise<Blob | null> {
     await this._paper.ready()
-    if (this._pendingLocalHistoryId || this._localHistoryFailure) return null
+    if (this._pendingLocalHistoryId || this._localHistoryFailure || this._queuedHistoryRepairOwners.size) return null
     if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._strokeLayerId) return null
     if (this._destroyed || this._contextLost) return null
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
@@ -4275,6 +4287,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._continuationGpuFence?.release()
     this._continuationGpuFence = null
     this._cancelPendingLocalHistory()
+    this._queuedHistoryRepairOwners.clear()
     this._opQueue = [] // (§17.58)
     if (this._opDrainRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._opDrainRaf)
     this._destroyed = true
@@ -4635,12 +4648,32 @@ export class PencilEngine implements PencilEngineAPI {
     const job: RebuildJob = { layerId, fresh, chunks: new Map(), cp: best?.cp ?? null, start: best?.start ?? 0, applied: [], timer: 0, part: null }
     if (best) this._seedWashes(best.cp, fresh, job.chunks) // (§17.56)
     this._rebuildJobs.set(layerId, job)
+    const historyOwner = this._queuedHistoryRepairOwners.get(layerId)
+    if (historyOwner) this._queuedHistoryJobOwners.set(job, historyOwner)
     job.timer = setTimeout(() => this._stepRebuildJob(job), 0)
   }
 
   /** One slice: re-check the job still describes the log (an undo meanwhile
    *  restarts it), replay for ~12 ms, and swap once caught up. */
   private _stepRebuildJob(job: RebuildJob): void {
+    const owner = this._queuedHistoryJobOwners.get(job)
+    if (!import.meta.env.DEV || !this._queuedLocalHistoryDev || !owner) { this._stepRebuildJobNow(job); return }
+    try { this._stepRebuildJobNow(job) } catch (error) {
+      if (this._rebuildJobs.get(job.layerId) !== job || this._queuedHistoryRepairOwners.get(job.layerId) !== owner) throw error
+      this._localHistoryFailureEpoch++
+      this._localHistoryFailure = String(error)
+      this._localHistoryOutcome = { id: owner, state: 'failed', reason: String(error) }
+      this._localHistoryFailedLayers.add(job.layerId)
+      if (this._opDrainRaf) { cancelAnimationFrame(this._opDrainRaf); this._opDrainRaf = 0 }
+      if (this._settle && this._jobOwnsSettle(job)) this._cancelSettle()
+      this._cancelRebuildJob(job.layerId)
+      this._queuedHistoryRepairOwners.delete(job.layerId)
+      // Already accepted local control is preserved; failed material is explicitly gated.
+    }
+    if (this._rebuildJobs.get(job.layerId) !== job && this._queuedHistoryRepairOwners.get(job.layerId) === owner && !this._rebuildJobs.has(job.layerId)) this._queuedHistoryRepairOwners.delete(job.layerId)
+  }
+
+  private _stepRebuildJobNow(job: RebuildJob): void {
     job.timer = 0
     if (this._rebuildJobs.get(job.layerId) !== job || this._destroyed) return
     if (this._contextLost) { job.timer = setTimeout(() => this._stepRebuildJob(job), 100); return }
@@ -5218,6 +5251,7 @@ export class PencilEngine implements PencilEngineAPI {
     e.preventDefault()
     this._wcNative?.invalidate('context-loss',true)
     this._contextLost = true
+    this._queuedHistoryRepairOwners.clear()
     this._cancelPendingLocalHistory()
     // Packed checkpoint pixels survive loss; carried wash snapshots are GL
     // buffers and cannot seed a restored context. Drop the whole mid-wash
@@ -5411,7 +5445,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  checks the log itself when the checkpoint is used (crossesWash). */
   private _checkpointBeforeWash(layerId: string, washId: string, userId: string, now: number, opId?: string): void {
     if (this._contextLost || this._destroyed) return
-    if (this._pendingLocalHistoryId || this._localHistoryFailure) return
+    if (this._pendingLocalHistoryId || this._localHistoryFailure || this._queuedHistoryRepairOwners.size) return
     if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._wcJoinedTouchLease === this._settle) return
     if (this._wcAsyncFinish && this._wcCanonical.pending) return
     if (this._rebuildJobs.has(layerId) || this._pendingRebuilds.has(layerId)) return
@@ -5596,7 +5630,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _takeCheckpoint(layerId: string): void {
-    if (this._pendingLocalHistoryId || this._localHistoryFailure) return
+    if (this._pendingLocalHistoryId || this._localHistoryFailure || this._queuedHistoryRepairOwners.size) return
     if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._wcJoinedTouchLease === this._settle) return
     if (this.isSnapshotHistoryRepairPending(layerId)) return
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
@@ -5687,7 +5721,7 @@ export class PencilEngine implements PencilEngineAPI {
   // may be baked right now stays here (its quiet/settled context functions):
   // that is the replay and wash machinery's question, not the snapshot's.
   bakeNetworkSnapshot(layerId: string): Uint8Array | null {
-    if (this._pendingLocalHistoryId || this._localHistoryFailure) return null
+    if (this._pendingLocalHistoryId || this._localHistoryFailure || this._queuedHistoryRepairOwners.size) return null
     if (this._wcJoinedDeferred || this._wcJoinedRecoveryLayers.has(layerId)) return null
     return this._snapshotIO.bake(layerId)
   }
@@ -5738,7 +5772,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   bakeLayerByFullReplay(layerId: string): Uint8Array | null {
-    if (this._pendingLocalHistoryId || this._localHistoryFailure) return null
+    if (this._pendingLocalHistoryId || this._localHistoryFailure || this._queuedHistoryRepairOwners.size) return null
     if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._strokeLayerId) return null
     return this._snapshotIO.bakeByFullReplay(layerId)
   }
@@ -6101,7 +6135,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _onStart(e: PointerData): void {
-    if (this._pendingLocalHistoryId || this._localHistoryFailure) return // FIFO intent owns this boundary; reject new source, no forced drain.
+    if (this._pendingLocalHistoryId || this._localHistoryFailure || this._queuedHistoryRepairOwners.size) return // FIFO intent owns this boundary; reject new source, no forced drain.
 
     // (§17.58) Peers' queued watercolour stays queued: landing it here was a
     // one-second hitch on the iPad right at the pen's touch. It lands after
