@@ -1,0 +1,54 @@
+{
+  "issue": "#728",
+  "source": "92e0626a3dbe60388c556fa38067d6a018f6a90c",
+  "complete": true,
+  "ownClosed": true,
+  "rawTraceBytes": 7325219,
+  "dataLossOccurred": false,
+  "memoryMiB": {
+    "pre": 2083.6796875,
+    "min": 997.2578125,
+    "post": 1922.80078125
+  },
+  "firstDownBrowserMs": 10077.800000011921,
+  "actualTraceDownMarkUs": 481557340971,
+  "browserToTraceOffsetMs": 481547263.171,
+  "rafGap": {
+    "browserMs": [
+      12224.9,
+      13341.6
+    ],
+    "ms": 1116.7000000000007
+  },
+  "decoderSpan": {
+    "name": "CommandBufferService:PutChanged",
+    "handler": "WebGPUDecoderImpl",
+    "putOffset": 1968,
+    "wallMs": 1062.437,
+    "browserMs": [
+      12273.07999998331,
+      13335.51699998331
+    ],
+    "pid": 8612,
+    "tid": 4100
+  },
+  "firstBridge": {
+    "browserMs": [
+      10179.400000035763,
+      10216.400000035763
+    ],
+    "wallMs": 37.0
+  },
+  "overlappingCompletionCount": 52,
+  "oldestOverlappingCompletionStart": 11780.199999988079,
+  "completionReleaseStartBrowserMs": 13334.900000035763,
+  "submitsWithinDecoderSpan": 0,
+  "limits": [
+    "GPU process decoder CPU/native wall span is not physical GPU execution time",
+    "Shared CrGpuMain; exact originating encoder/channel not proven from put_offset alone",
+    "Nested shader compiler/Dawn events absent; compile vs driver synchronization/execution remains unknown",
+    "Trace recorded after readiness before first DOWN; extraction6.1s after first idle changes total scenario wall",
+    "Multiple pending completions share queue fence;52waits do not mean52independent GPU durations",
+    "User timing mark/browser read clocks within same callback, no physical display timestamp"
+  ]
+}
