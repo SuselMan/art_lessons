@@ -462,3 +462,21 @@ it('ordinary sender start after an unfinished remote water op must drain its pre
   e['_completeSettle']()
   expect(e.getOperations().filter(op => op.type === 'stroke').some(op => op.id === remote.id)).toBe(true)
 })
+it('ordinary undo completes pending material before network emission; failing drain has not emitted', async () => {
+  const e = await setup(false)
+  const target = e.getOperations().filter(op => op.type === 'stroke').at(-1)!
+  expect(e.peekUndo()).toBeNull()
+  const order: string[] = []
+  const drain = e['_completeSettle'].bind(e), history = e['_applyHistoryChange'].bind(e)
+  vi.spyOn(e as unknown as { _completeSettle(): void }, '_completeSettle').mockImplementation(() => { order.push('drain:begin'); drain(); order.push('drain:end') })
+  vi.spyOn(e as unknown as { _applyHistoryChange(op: typeof target): void }, '_applyHistoryChange').mockImplementation(op => { order.push('history:begin'); history(op); order.push('history:end') })
+  e['_onLocalOperation'] = op => { if (op.type === 'operation_undo') { expect(op.targetOpId).toBe(target.id); order.push('network:undo') } }
+  expect(e.undo()?.id).toBe(target.id)
+  expect(order.indexOf('drain:end')).toBeGreaterThan(-1)
+  expect(order.indexOf('drain:end')).toBeLessThan(order.indexOf('history:begin'))
+  expect(order.indexOf('history:end')).toBeLessThan(order.indexOf('network:undo'))
+  const f = await setup(false), emit = vi.fn(); f['_onLocalOperation'] = emit
+  vi.spyOn(f as unknown as { _completeSettle(): void }, '_completeSettle').mockImplementation(() => { throw Error('CPU drain sentinel') })
+  expect(() => f.undo()).toThrow('CPU drain sentinel'); expect(emit).not.toHaveBeenCalled()
+  expect(f.getOperations().some(op => op.type === 'operation_undo')).toBe(false)
+})
