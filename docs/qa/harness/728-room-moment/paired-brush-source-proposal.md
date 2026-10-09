@@ -94,3 +94,22 @@ sourcebinding identities1..5 теже, workgroupdispatch5×3 identical при cl
 Pair outputsbinding6/7 exactdestinations. Actual shader module strings differonly
 uniformselector/outputbinding/store substitution. Это source/encoding witness, неGPU
 execution/precision/parity. Surface/Shadercompiler/realdevice в этом тесте отсутствуют.
+
+## Независимый source review фактического native candidate
+
+Read-only native worktree review `e799b7bc` + isolated controller `1d414e80`, после
+admission correction `0d8d817f`: PASS. Найденный blocker standOptIn deferred1 bypass
+и direct constructor mixed/deferred закрыт до GPUinit; query/native defaults unchanged.
+Chain parser→Engine→Runtime→каждый executor generation→adapter intact. Livebackendledger,
+все canonical P/C/coverage/output dims+Q8formats/filteridentity, nonalias и originalpulse
+rect/scissor/scalars проверяются до encoding. Pair returns true/counter increments лишь
+после успешного encode. OFF возвращаетfalse без resourceinspection/allocations.
+Обаcopyback/present и chronologicalpulse cadence остаются planner-owned.
+Isolated controller требует cacheOFFboth, sourceA preparation unchanged,210 actualpaired
+vs420singles, immutablepacked/source/paper passports, per-operation fiveQ8roles+endpoint.
+Это review допуска к ONE hardware gate; actualpaired precision/quality/performance ещё
+не подтверждены. WGSL unchanged vs previousnative commit; existing pipelinepreparation/
+DEV timestamp labels не являются новым math change. Node-only fakeGPU probe из385
+для latestnative timestamplabels требует Vite/Vitest import.meta.env, поэтому его
+старый Node PASS нельзя повторно рекламировать как выполненный наlatestnative source.
+Нативные файлы/устройства reviewer не менял.
