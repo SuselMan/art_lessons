@@ -23,7 +23,7 @@ export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: str
  const diagnosticMomentVector=flag('wcMomentVector')
  const diagnosticMomentGpuAudit=flag('wcMomentGpuAudit')
  const nativeWatercolor=flag('wcNative'),diagnosticMomentTransport=flag('wcMomentTransport')
- if(diagnosticNativeBrushPair){if(!nativeWatercolor)throw Error('wcNativeBrushPair requires wcNative=1');for(const name of ['wcGl2','wcMrt','wcFrontBatch','qaJoinedFinishDeferred','qaJoinedTouchMixed','wcMixedLease','wcQueuedHistory','wcMomentTransport','wcMomentGpuAudit','wcMomentVector'])if(flag(name))throw Error('Separate native paired brush arm '+name)}
+ if(diagnosticNativeBrushPair){if(joinedFinishDeferredQaEnabled(dev,deferred,search))throw Error('Native paired brush excludes deferred finish');if(!nativeWatercolor)throw Error('wcNativeBrushPair requires wcNative=1');for(const name of ['wcGl2','wcMrt','wcFrontBatch','qaJoinedFinishDeferred','qaJoinedTouchMixed','wcMixedLease','wcQueuedHistory','wcMomentTransport','wcMomentGpuAudit','wcMomentVector'])if(flag(name))throw Error('Separate native paired brush arm '+name)}
  if(diagnosticSourcePrecompile&&(!nativeWatercolor||diagnosticFirstLiveWarmup||diagnosticRawCanvasWarmup||diagnosticTipContactA))throw new Error('wcSourcePrecompile requires wcNative=1 and dispatch warm/tip flags OFF')
  if(diagnosticAsyncObservedFields&&!nativeWatercolor)throw new Error('wcAsyncObservedFields requires wcNative=1')
  if(diagnosticFirstLiveWarmup&&!nativeWatercolor)throw new Error('wcFirstLiveWarmup requires wcNative=1')

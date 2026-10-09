@@ -1,3 +1,4 @@
+import {assertNativeBrushPairOptions} from './src/webgpuCanonical/nativeBrushPairOptions'
 import type {RoomNativeRuntime} from './src/webgpuCanonical/roomNativeRuntime'
 import { ribbonDabTouchesTile } from './src/dabs/dabWorldHalfExtents'
 import { ribbonSegmentLength } from './src/dabs/ribbonDrawable'
@@ -2305,7 +2306,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._wcCarryHardwarePressureEnabled=import.meta.env.DEV&&options.diagnosticCarryHardwarePressure===true
     if(this._wcCarryHardwarePressureEnabled&&!this._wcNativeEnabled)throw Error('DEV carry pressure sampling requires nativeWatercolor')
     this._wcNativeBrushPairEnabled=import.meta.env.DEV&&options.diagnosticNativeBrushPair===true
-    if(this._wcNativeBrushPairEnabled&&(!this._wcNativeEnabled||options.diagnosticWebgl2||options.diagnosticBrushMrt||options.diagnosticFrontBatch||options.diagnosticMomentTransport||options.diagnosticMomentGpuAudit||options.diagnosticMomentVector))throw Error('Native paired brush requires separate original native runtime')
+    assertNativeBrushPairOptions(this._wcNativeBrushPairEnabled,this._wcNativeEnabled,options)
     this._wcSourcePrecompileEnabled=import.meta.env.DEV&&options.diagnosticSourcePrecompile===true
     if(this._wcSourcePrecompileEnabled&&(!this._wcNativeEnabled||options.diagnosticFirstLiveWarmup||options.diagnosticRawCanvasWarmup||options.diagnosticTipContactA))throw Error('Exact source preparation requires native and no dispatch warm/tip variants')
     this._wcAsyncObservedFieldsEnabled=import.meta.env.DEV&&options.diagnosticAsyncObservedFields===true
