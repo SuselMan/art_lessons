@@ -133,3 +133,29 @@ tuning. It does not prove actualRoom preview quality, canonical equivalence
 or speed. Readback perturbs timing; no latency/performance claim. Next OFF
 Room port must use captured source fluid options, leased pressure pair, finite
 budget and pen priority, while canonical eight sources remain readonly.
+
+### Executable OFF Room packet
+
+`CARRY_PREVIEW=1` maps to `diagCarryPreview=1`; requires finite+float+direct+
+early+material-rebase and forbids artifact/floatLINEAR. Budget18.75MiB includes
+six preinput Q8 pressure fields (+.375MiB), no field allocation at seal/DOWN.
+Every owner receives immutable captured source fluid/geometry options. Source
+coverage1024 seeds the cost; readonly retained solvent1024 gates carry;
+preview-domain128 gates front, never replaces render coverage.
+
+First eligible tick runs seed10/front1/pair16+15; later ticks front1+pair until
+16 carry ticks. Requested front count is reported; this visual-only cap16 can
+truncate production requested count and does not claim canonical pressure.
+Both P/C read the same old P and same evolved pressure. Each tick then completes
+ONE transport ticket, binds fixed+moving material and schedules display. Finite
+clock timestamps advance while paused through carry/pen/hidden/older-owner,
+preventing catchup. After carry, existing finite13 settling stages resume.
+Noise sampler7 and canonical fields/shaders/options remain unchanged.
+
+CPU runtime integration proves first-tick material submission, pen/hidden guards,
+no finite catchup after long pause, stable allocation count, detached retirement
+and pressure release once only after caller's shared GPU-idle certificate.
+This is NOT physical first-pixel/frame-budget proof. ActualRoom movie/history/
+NEW-tape original endpoint still require the next separately allocated hardware
+cohort. Controller passport includes pressure/session/contract/source-options/
+port and production constants; report CPUsubmit timing is not GPU timing.

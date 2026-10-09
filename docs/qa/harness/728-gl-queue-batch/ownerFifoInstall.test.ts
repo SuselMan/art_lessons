@@ -45,3 +45,7 @@ it('new DOWN during canonical reveal remains admitted and brackets immediate vis
  shared.calls=[];const{e,owner,scratch,requests,status}=fixture({diagnosticMaterialRebase:true});e._onStart({});e._finishRibbonStroke(scratch);e._strokeLayerId=null;while(requests.length){const work=requests.shift().execute();while(!work.next().done){}}
  expect(e._washReveals.size).toBeGreaterThan(0);e._onStart({});expect(scratch.gesture).toBe(2);expect(shared.calls.filter(x=>x==='visual-before')).toHaveLength(2);expect(shared.calls.filter(x=>x==='visual-after')).toHaveLength(2);expect(status).toHaveBeenLastCalledWith('');expect(owner.trace.some((x:any)=>x.kind==='owned-reveal-inherit')).toBe(true);owner.dispose();
 })
+it('rejects carry without all explicit finite float presentation prerequisites before any engine allocation',()=>{
+ expect(()=>installOwnerFifo({} as any,{diagnosticCarryPreview:true})).toThrow(/Carry requires/)
+ expect(()=>installOwnerFifo({} as any,{diagnosticCarryPreview:true,diagnosticFinitePreview:true,diagnosticFloatPreview:true,diagnosticEarlyPreview:true,diagnosticDirectPreview:true,diagnosticArtifactProbe:true})).toThrow(/Carry requires/)
+})
