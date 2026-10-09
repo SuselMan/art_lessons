@@ -1,0 +1,100 @@
+{
+  "source": "f2738e5b388e9a86500cdc24565769688e642ff4",
+  "scope": "ONE actual A ON; JS entries, not physical first pixel/GPU duration or causal gain",
+  "readyAtMs": 24165.099999964237,
+  "phases": [
+    {
+      "label": "long-water400",
+      "downAt": 24707.80000001192,
+      "nextPendingAtDown": false,
+      "nextSettlingAtDown": false,
+      "downToSourceEntryWallMs": 64.79999995231628,
+      "downToCanvasPublicationEntryWallMs": 170.79999995231628,
+      "scope": "Own-stroke source JS entry; next canvas publication call may include prior work, not physical first pixel or GPU duration"
+    },
+    {
+      "label": "pigment-on-long-water400",
+      "downAt": 33080.69999998808,
+      "nextPendingAtDown": true,
+      "nextSettlingAtDown": false,
+      "downToSourceEntryWallMs": 970.8999999761581,
+      "downToCanvasPublicationEntryWallMs": 979.6000000238419,
+      "scope": "Own-stroke source JS entry; next canvas publication call may include prior work, not physical first pixel or GPU duration"
+    }
+  ],
+  "seedBridgeCosts": [
+    {
+      "phase": "readPixels",
+      "wallMs": 16.100000023841858,
+      "ok": true,
+      "bytes": 0,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T11:52:36.125Z"
+    },
+    {
+      "phase": "rowFlip",
+      "wallMs": 4,
+      "ok": true,
+      "bytes": 4194304,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T11:52:36.125Z"
+    },
+    {
+      "phase": "uploadEnqueue",
+      "wallMs": 0.6000000238418579,
+      "ok": true,
+      "bytes": 4194304,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T11:52:36.126Z"
+    },
+    {
+      "phase": "queueAck",
+      "wallMs": 23.599999964237213,
+      "ok": true,
+      "bytes": 0,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T11:52:36.128Z"
+    }
+  ],
+  "final": {
+    "gl": 0,
+    "lost": false,
+    "error": null,
+    "native": true,
+    "ready": true
+  },
+  "export": {
+    "width": 1754,
+    "height": 2480,
+    "alpha": 120494,
+    "purple": 120493,
+    "sha": "9811b905a8b344667d29d7f844a2c528836c5aa381fa8c5fc2440d391e44e093",
+    "pngSha256": "9011798c3f84de0fd5d133a66345db12c9d875f24257349a94b9e39ce2201f7e",
+    "pngBytes": 385609,
+    "comparisonReady": true
+  },
+  "rafEvidence": "Unavailable: primaryRaf omitted by promotion whitelist before disposable cleanup. No rAF claim.",
+  "windows": [
+    {
+      "label": "long-water400",
+      "downToUpMs": 7138.699999988079,
+      "downToConsumeMs": 17.19999998807907,
+      "consumeToSourceMs": 47.59999996423721,
+      "upToFirstSourceMs": -7073.900000035763,
+      "sourceCalls": 15
+    },
+    {
+      "label": "pigment-on-long-water400",
+      "downToUpMs": 822.3999999761581,
+      "downToConsumeMs": 2.300000011920929,
+      "consumeToSourceMs": 968.5999999642372,
+      "upToFirstSourceMs": 148.5,
+      "sourceCalls": 1
+    }
+  ],
+  "candidate": "Next source entered Runtime.consume after 2.3 ms but waited 968.6 ms before emitPrepared while canonical pending was true. Central FIFO ordered prior material/publication is a candidate; no task-specific GPU attribution in this capture."
+}
