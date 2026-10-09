@@ -1,0 +1,21 @@
+{
+ "source":"552f3411d3e7b113bb13cffb743a174e30df5199",
+ "verdict":"INVALID_CAPTURE_WINDOW",
+ "scope":"One actual Surface A15/existing3 run; no GPU ranking or endpoint quality proof",
+ "adapterRequestedTimestampFeature":true,
+ "actualDeviceTimestampFeature":true,
+ "actualRuntimeConstructorCalls":1,
+ "readyAtMs":20906.299999952316,
+ "firstDownAtMs":21544.799999952316,
+ "selectedWindow":{"request":0,"startMs":21354.599999964237,"endMs":21354.69999998808,"empty":true},
+ "cause":"Capture selected the first empty material boundary before first DOWN, rather than the first nonempty material job after input",
+ "actualStrokeCount":2,
+ "recordedConsoleErrors":0,
+ "gpuTimestampRowsRead":0,
+ "endpointChecked":false,
+ "ownedContextDisposed":true,
+ "postCleanupRamMiB":2006.234375,
+ "referenceReusable":false,
+ "durableEvidence":"temp/device-runs/native-timestamp-552f-promoted-20261009",
+ "next":"Arm at first actual pointerdown capture event, skip empty material candidates, record only first nonempty job; tests before any new allocated hardware run"
+}
