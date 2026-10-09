@@ -83,12 +83,13 @@
     "ownFrontendForwardControllerStopped": true,
     "afterReleaseFreeMiB": 1981.54296875,
     "resourceId": "native-private-copy-5a",
-    "finish": "marked finished; protected process-reference guard, root audit needed"
+    "finish": "root privileged guarded tool removed resource"
   },
   "limitations": [
     "Physical swapchain memory unknown; 64x64 does not verify 1024x1024 budget",
     "No owner-local admission, immutable material or publication-version authority implemented",
     "Existing2ACK complete before readbacks; no timestamp/throughput/latency benchmark",
     "Node transport lingered after successful own context cleanup; only own controller was terminated after durable report"
-  ]
+  ],
+  "independentAudit": "Residual PASS:6 source hashes, served/browser equality, independently reproduced patterns/endpoint SHA"
 }
