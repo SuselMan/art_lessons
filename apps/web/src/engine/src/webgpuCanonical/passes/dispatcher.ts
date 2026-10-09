@@ -1,3 +1,4 @@
+import {frontFilmHoistShader} from './frontFilmHoist'
 import {preparedObservedFieldPipeline} from './observedFieldPreload'
 import {frontSamplingShader,type CanonicalFrontSourceSampling} from './frontSampling'
 import {CanonicalStaticFrontCache} from './staticFrontCache'
@@ -14,15 +15,15 @@ export class CanonicalFieldPasses {
   private readonly device: GPUDevice
   constructor(device: GPUDevice) { this.device = device }
   retireStaticCache(defer:(cleanup:()=>void)=>void){this.staticCache?.retire(defer)}
-  private pipeline(kind: 'diffuse' | 'waterFront',lazyClimb=false,staticCache=false,sourceSampling?:CanonicalFrontSourceSampling) {
-    let pipeline = this.pipelines.get(kind+':'+lazyClimb+':'+staticCache+':'+(sourceSampling??'legacy'))
+  private pipeline(kind: 'diffuse' | 'waterFront',lazyClimb=false,staticCache=false,sourceSampling?:CanonicalFrontSourceSampling,filmHoist=false) {
+    let pipeline = this.pipelines.get(kind+':'+lazyClimb+':'+staticCache+':'+(sourceSampling??'legacy')+':'+filmHoist)
     if (!pipeline) {
-      pipeline = (!lazyClimb&&!staticCache&&!sourceSampling?preparedObservedFieldPipeline(this.device,kind,kind==='diffuse'?CANONICAL_DIFFUSE_WGSL:CANONICAL_WATER_FRONT_WGSL):undefined)??this.device.createComputePipeline({ label: 'Canonical ' + kind, layout: 'auto', compute: { module: this.device.createShaderModule({ label: 'Canonical ' + kind, code: kind === 'diffuse' ? (staticCache?CANONICAL_CACHED_DIFFUSE_WGSL:CANONICAL_DIFFUSE_WGSL) : frontSamplingShader(staticCache?CANONICAL_CACHED_WATER_FRONT_WGSL:CANONICAL_WATER_FRONT_WGSL,sourceSampling) }), entryPoint: 'main',constants:kind==='waterFront'?staticCache?{DIAGNOSTIC_LAZY_CLIMB:0,DIAGNOSTIC_STATIC_FRONT_CACHE:1}:{DIAGNOSTIC_LAZY_CLIMB:lazyClimb?1:0}:undefined } })
-      this.pipelines.set(kind+':'+lazyClimb+':'+staticCache+':'+(sourceSampling??'legacy'), pipeline)
+      pipeline = (!lazyClimb&&!staticCache&&!sourceSampling&&!filmHoist?preparedObservedFieldPipeline(this.device,kind,kind==='diffuse'?CANONICAL_DIFFUSE_WGSL:CANONICAL_WATER_FRONT_WGSL):undefined)??this.device.createComputePipeline({ label: 'Canonical ' + kind, layout: 'auto', compute: { module: this.device.createShaderModule({ label: 'Canonical ' + kind, code: kind === 'diffuse' ? (staticCache?CANONICAL_CACHED_DIFFUSE_WGSL:CANONICAL_DIFFUSE_WGSL) : frontFilmHoistShader(frontSamplingShader(staticCache?CANONICAL_CACHED_WATER_FRONT_WGSL:CANONICAL_WATER_FRONT_WGSL,sourceSampling),filmHoist) }), entryPoint: 'main',constants:kind==='waterFront'?staticCache?{DIAGNOSTIC_LAZY_CLIMB:0,DIAGNOSTIC_STATIC_FRONT_CACHE:1}:{DIAGNOSTIC_LAZY_CLIMB:lazyClimb?1:0}:undefined } })
+      this.pipelines.set(kind+':'+lazyClimb+':'+staticCache+':'+(sourceSampling??'legacy')+':'+filmHoist, pipeline)
     }
     return pipeline
   }
-  private dispatch(ctx: CanonicalGpuContext, resources: CanonicalPassResources, kind: 'diffuse' | 'waterFront', coefficients: readonly [number, number, number, number], wet: readonly [number, number, number, number], noise?: CanonicalGpuField, foreignFilm?: CanonicalGpuField,lazyClimb=false,timestampWrites?:GPUComputePassTimestampWrites,staticCache=false,cachePrepTimestampWrites?:GPUComputePassTimestampWrites,sourceSampling?:CanonicalFrontSourceSampling) {
+  private dispatch(ctx: CanonicalGpuContext, resources: CanonicalPassResources, kind: 'diffuse' | 'waterFront', coefficients: readonly [number, number, number, number], wet: readonly [number, number, number, number], noise?: CanonicalGpuField, foreignFilm?: CanonicalGpuField,lazyClimb=false,timestampWrites?:GPUComputePassTimestampWrites,staticCache=false,cachePrepTimestampWrites?:GPUComputePassTimestampWrites,sourceSampling?:CanonicalFrontSourceSampling,filmHoist=false) {
     if (ctx.device !== this.device) throw new Error('Canonical device mismatch')
     for (const input of [resources.a, resources.coverage, resources.paper.field, foreignFilm, noise]) if (input?.texture === resources.out.texture) throw new Error('Canonical output aliases input')
     if (resources.a.width !== resources.out.width || resources.a.height !== resources.out.height || resources.coverage.width !== resources.out.width || resources.coverage.height !== resources.out.height) throw new Error('Canonical field dimensions mismatch')
@@ -32,7 +33,7 @@ export class CanonicalFieldPasses {
     try {
     this.device.queue.writeBuffer(uniform, 0, uniforms)
     const cache=staticCache?(this.staticCache??=new CanonicalStaticFrontCache(this.device)).getOrEncode(ctx,resources,noise!,kind==='diffuse'?[0,0,0,coefficients[2]]:coefficients,kind==='diffuse'?packPassUniforms(resources,[0,0,0,coefficients[2]],wet):uniforms,cachePrepTimestampWrites,kind==='diffuse'):null
-    const pipeline = this.pipeline(kind,lazyClimb,!!cache,sourceSampling)
+    const pipeline = this.pipeline(kind,lazyClimb,!!cache,sourceSampling,filmHoist)
     // Auto layouts strip statically unused bindings. Diffusion has no foreign/noise.
     const entries: GPUBindGroupEntry[] = [
       { binding: 0, resource: resources.a.view }, { binding: 1, resource: resources.coverage.view },
@@ -61,9 +62,9 @@ export class CanonicalFieldPasses {
     if (!(radius >= 1) || !Number.isInteger(radius)) throw new Error('Canonical diffusion radius must be prepared integer field radius')
     return this.dispatch(ctx, resources, 'diffuse', [d, b, radius, knight ? 1 : 0], [0, 0, 0, 0],options.noise,undefined,false,options.timestampWrites,options.diagnosticStaticHeightCache??false,options.cachePrepTimestampWrites)
   }
-  waterFront(ctx: CanonicalGpuContext, resources: CanonicalPassResources, noise: CanonicalGpuField, params: { dryCost: number; costMax: number; climb: number; floor: number; stride: number; foreignFilm?: CanonicalGpuField;diagnosticSourceFilter?:CanonicalFrontSourceSampling;diagnosticLazyClimb?:boolean;timestampWrites?:GPUComputePassTimestampWrites;diagnosticStaticCache?:boolean;cachePrepTimestampWrites?:GPUComputePassTimestampWrites }) {
+  waterFront(ctx: CanonicalGpuContext, resources: CanonicalPassResources, noise: CanonicalGpuField, params: { dryCost: number; costMax: number; climb: number; floor: number; stride: number; foreignFilm?: CanonicalGpuField;diagnosticSourceFilter?:CanonicalFrontSourceSampling;diagnosticLazyClimb?:boolean;diagnosticFilmHoist?:boolean;timestampWrites?:GPUComputePassTimestampWrites;diagnosticStaticCache?:boolean;cachePrepTimestampWrites?:GPUComputePassTimestampWrites }) {
     if (!(params.costMax > 0) || !(params.stride >= 1)) throw new Error('Canonical front invalid cost/stride')
-    return this.dispatch(ctx, resources, 'waterFront', [params.climb, params.floor, params.costMax, params.stride], [params.dryCost, params.foreignFilm ? 1 : 0, params.diagnosticSourceFilter&&resources.a.filter==='linear'?1:0, 0], noise, params.foreignFilm,params.diagnosticLazyClimb??false,params.timestampWrites,params.diagnosticStaticCache??false,params.cachePrepTimestampWrites,params.diagnosticSourceFilter)
+    return this.dispatch(ctx, resources, 'waterFront', [params.climb, params.floor, params.costMax, params.stride], [params.dryCost, params.foreignFilm ? 1 : 0, params.diagnosticSourceFilter&&resources.a.filter==='linear'?1:0, 0], noise, params.foreignFilm,params.diagnosticLazyClimb??false,params.timestampWrites,params.diagnosticStaticCache??false,params.cachePrepTimestampWrites,params.diagnosticSourceFilter,import.meta.env.DEV&&params.diagnosticFilmHoist===true)
   }
 }
 export function packPassUniforms(resources: CanonicalPassResources, coefficients: readonly [number, number, number, number], wet: readonly [number, number, number, number]) {
