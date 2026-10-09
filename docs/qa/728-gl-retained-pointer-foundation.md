@@ -40,3 +40,27 @@ cancel, throw restoration, nested immutability/plain-data fail-closed.
 
 Следующий узкий шаг: admission-aware `_onStart` adapter + actual Engine parity
 fixture; только после этого оценивать runtime source queue. Default/runtime OFF.
+
+## Actual Engine seam — ограниченный сухой pencil-path
+
+Добавлен DEV constructor-only `diagnosticPointerAdmission`, без Room/query и
+без автоматического PointerInput подключения. Оpaque packet привязан к данному
+Engine WeakMap, exact layer buffer и journal revision. Captured opts/ruler/nib/
+tilt/stroke ID применяются только на время существующего handler и возвращаются
+в finally. Receipt wall time передаётся явно на каждый sample; global clocks не
+заменяются. Это сохраняет operation timestamp receipt, не delayed execution.
+
+Actual Engine tests сравнивают исходный synchronous pencil-handler и retained
+handler: exact packed geometry/pressure, color/preset/IDs/actor/layer/seq после
+смены tool/size/layer. Raw timestamps сознательно разные: original использует
+реальный Date.now, diagnostic использует fixture receipt wall time 1002;
+последний проверяется отдельно, никакой нормализации original metadata нет.
+Actual FIFO + actual Engine проверяет owner→source→Undo→Dry с ранним UP.
+
+Watercolor, wet/ribbon/open wash/pending solver, changed journal/layer/paper scale,
+OFF, destroyed owner отвергаются. PaperWetness не snapshotable текущим API:
+достаточный fork должен сохранить committed+pending cells, drained set, peak,
+bounds и исходные cell timestamps. Кроме DOWN нужны времена каждого generated
+batch/sampleUnderNib/deposit/UP commit. Это отдельный wet HOLD, не dry parity.
+Код не претендует на GPU immutable material или отсутствие частичных material
+изменений при исключении handler: packet инвалидируется, recovery не реализован.

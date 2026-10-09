@@ -58,3 +58,6 @@ Follow-up: bounded per-field NumberMap проверен и отклонён: ful
 
 - [x] Retained pointer admission CPU foundation: actual PointerInput/coalesced samples + actual FIFO, immutable DOWN packet, explicit overflow/cancel; 14 combined tests + app TS PASS. Runtime OFF.
 - [ ] Actual Engine admitted-context integration / packed wet-ID parity: HOLD — current start reads mutable clock/wet/wash/constraints and generates IDs. Packet-only tests не доказывают Engine parity или UX gain. Подробнее: `728-gl-retained-pointer-foundation.md`.
+
+- [x] DEV internal actual Engine admission seam: dry pencil packed/pressure/ID/context equality after tool/layer change; actual FIFO→source→Undo/Dry, failure finally, stale/OFF/destroy guards. No query/runtime activation.
+- [ ] Watercolor admitted-context parity remains HOLD: nonserializable PaperWetness needs full fork and per-batch receipt times, not only DOWN. Existing stencil/film owners are not frozen by this seam.

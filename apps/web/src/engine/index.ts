@@ -254,6 +254,8 @@ export function previewDabShape(
 const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 
 export interface PencilEngineOptions {
+  /** CPU-only internal admission seam; no Room/query activation. */
+  diagnosticPointerAdmission?: boolean
   /** Isolated WebGL2 compatibility/MRT prototype; default OFF, no fallback. */
   diagnosticWebgl2?: boolean
   /** QA-only constructor opt-ins; defaults remain OFF. */
@@ -1520,6 +1522,10 @@ interface CarriedWash { key: string; userId: string; washStrokeId: string | unde
 export class PencilEngine implements PencilEngineAPI {
   private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext
+  private _diagnosticPointerAdmission = false
+  private _admittedPointerStrokeId: string | null = null
+  private _admittedPointerTimestamp: number | null = null
+  private _admissionPackets = new WeakMap<object, { opts: EngineOpts; layerId: string; target: unknown; ruler: RulerLine | null; nibAngle: number; nibAnchor: NibAnchor; tilt: TiltResponse; strokeId: string; revision: number }>()
   private _opts: EngineOpts
   private _grainMode: number | undefined
   private _charcoalGrainMode: number | undefined
@@ -2295,6 +2301,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _dabs: DabSystem
 
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
+    this._diagnosticPointerAdmission = import.meta.env.DEV && options.diagnosticPointerAdmission === true
     this.canvas = canvas
     if (import.meta.env.DEV && options.diagnosticHoistedContactRaster && (options.nativeWatercolor || options.asyncFinish || options.joinedFinishDeferred || options.joinedTouchMixed || options.materialPresentation)) throw Error('Hoisted contact raster requires ordinary GL arm')
     this._settlePlan.diagnosticHoistedContactRaster = import.meta.env.DEV && options.diagnosticHoistedContactRaster === true
@@ -6158,6 +6165,48 @@ export class PencilEngine implements PencilEngineAPI {
       && (!owned.dryCtx || owned.dryCtx !== job.scratch.dryCtx))
   }
 
+  /** Internal CPU seam. Wet/ribbon capture is unsupported, never opts-only replay. */
+  diagnosticCapturePointerAdmission(strokeId: string): object {
+    if (!this._diagnosticPointerAdmission || !strokeId || this._opts.tool !== 'pencil'
+      || !this._activeId || this._strokeLayerId || this._settle || this._wash
+      || this._wcCanonical.pending || this._contextLost || this._destroyed)
+      throw Error('Pointer admission unsupported material/owner state')
+    const packet = Object.freeze({})
+    this._admissionPackets.set(packet, { opts: structuredClone(this._opts), layerId: this._activeId,
+      target: this._layers.get(this._activeId), ruler: this._ruler ? structuredClone(this._ruler) : null,
+      nibAngle: this._nibAngleRadians, nibAnchor: this._nibAnchor, tilt: structuredClone(this._tiltResponse), strokeId, revision: this._log.revision })
+    if (!this._layers.has(this._activeId)) throw Error('Pointer admission missing layer')
+    return packet
+  }
+
+  diagnosticDispatchPointerAdmission(packet: object, kind: 'start' | 'move' | 'end', e: PointerData, receiptWallTime: number): void {
+    if (!Number.isFinite(receiptWallTime)) throw Error('Pointer admission invalid receipt time')
+    const owned = this._admissionPackets.get(packet)
+    if (!this._diagnosticPointerAdmission || !owned || this._destroyed || this._contextLost
+      || this._layers.get(owned.layerId) !== owned.target || this._log.revision !== owned.revision || this._settle || this._wash
+      || this._wcCanonical.pending || this._paper.scale !== owned.opts.paperScale
+      || kind === 'start' && !!this._strokeLayerId || kind !== 'start' && this._strokeId !== owned.strokeId)
+      throw Error('Pointer admission stale/unsupported owner')
+    const previous = { opts: this._opts, active: this._activeId, ruler: this._ruler,
+      nibAngle: this._nibAngleRadians, nibAnchor: this._nibAnchor, tilt: this._tiltResponse, id: this._admittedPointerStrokeId, timestamp: this._admittedPointerTimestamp }
+    this._opts = structuredClone(owned.opts); this._activeId = owned.layerId; this._ruler = owned.ruler
+    this._nibAngleRadians = owned.nibAngle; this._nibAnchor = owned.nibAnchor; this._tiltResponse = owned.tilt
+    this._admittedPointerStrokeId = owned.strokeId; this._admittedPointerTimestamp = receiptWallTime
+    try {
+      if (kind === 'start') this._onStart(e)
+      else if (kind === 'move') this._onMove(e)
+      else this._onEnd(e)
+    } catch (error) {
+      this._admissionPackets.delete(packet)
+      throw error
+    } finally {
+      this._opts = previous.opts; this._activeId = previous.active; this._ruler = previous.ruler
+      this._nibAngleRadians = previous.nibAngle; this._nibAnchor = previous.nibAnchor; this._tiltResponse = previous.tilt
+      this._admittedPointerStrokeId = previous.id; this._admittedPointerTimestamp = previous.timestamp
+      if (kind === 'end') this._admissionPackets.delete(packet)
+    }
+  }
+
   private _onStart(e: PointerData): void {
     const timing = this._glTiming
     if (!timing) return this._onStartUntimed(e)
@@ -6327,7 +6376,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._wash = null
       this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
     }
-    this._strokeId = nanoid(10)
+    this._strokeId = this._admittedPointerStrokeId ?? nanoid(10)
     this._glTiming?.setStrokeId(this._strokeId)
     this._wcAsyncLocalStroke = this._wcAsyncFinish && this._strokeTool !== 'watercolor' ? this._strokeId : null
     if (this._wcAsyncLocalStroke) this._wcAsyncLocalTools.set(this._wcAsyncLocalStroke, { layers: new Map(), ended: false, queued: 0 })
@@ -6735,7 +6784,7 @@ export class PencilEngine implements PencilEngineAPI {
         const op: Operation = {
           id: nanoid(10), type: 'stroke', userId: this._userId,
           layerId: targetId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
-          dabsPacked, timestamp: Date.now(),
+          dabsPacked, timestamp: this._admittedPointerTimestamp ?? Date.now(),
           ...(this._strokeId ? { strokeId: this._strokeId } : {}),
           ...(this._washId ? { washId: this._washId } : {}),
           // (#536) Only when there was something to see: most strokes land on
@@ -7188,7 +7237,7 @@ export class PencilEngine implements PencilEngineAPI {
       const op: Operation = {
         id: nanoid(10), type: 'stroke', userId: this._userId,
         layerId: targetId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
-        dabsPacked, timestamp: Date.now(),
+        dabsPacked, timestamp: this._admittedPointerTimestamp ?? Date.now(),
         ...(this._strokeId ? { strokeId: this._strokeId } : {}),
         // (#536) The wash too, exactly as _onEnd stamps it: replay groups a
         // chunk by washId ?? strokeId, so a chunk without it landed in a
