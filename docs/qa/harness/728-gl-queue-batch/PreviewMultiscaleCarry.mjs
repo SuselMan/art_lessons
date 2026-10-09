@@ -4,6 +4,7 @@ export function previewMultiscaleCarry({passes,seed,pressure,water,pathLease,inp
  const{targets:t,options:o,source:s}=input,[first,second]=pathLease.fields;
  const inputs=[pressure,water,t.oldP,t.oldC,t.fixedP,s.solventLoad],outputs=[first,second,t.outP,t.outC];
  if(new Set([...inputs,...outputs].map(f=>f.texture)).size!==inputs.length+outputs.length)throw Error('Multiscale input/output alias');
+ if([pressure,water,...outputs,t.oldP,t.oldC,t.fixedP].some(f=>f.width!==128||f.height!==128)||![o.budgetPx,o.costMax,o.rate,o.pow,o.travel,o.effectiveWet,o.wetLo,o.wetHi].every(Number.isFinite)||o.rate<0||o.rate>1||o.costMax<=0||o.budgetPx<=1.5||o.wetHi<=o.wetLo)throw Error('Multiscale dimensions/options');
  const band=(o.budgetPx-1.5)/o.costMax;seed.draw(first,pressure,water,band);let mask=first,next=second,reductions=0;
  for(let distance=1;distance<stride;distance*=2){passes.costDomainStep(next,mask,[0,0,128,128],band,distance);[mask,next]=[next,mask];reductions++}
  const opts={path:mask,d:pressure,e:s.solventLoad,dir:[stride,stride],band:[band,o.effectiveWet],size:[o.pow,o.costMax],origin:[stride,o.travel],tau:[o.wetLo,o.wetHi,1]};
