@@ -17,5 +17,5 @@ export async function runSchedulingControllerFixture(file){
   await collectSchedulingPostInput({report,combinedInteractive:true,factorInteractive:true,expectedShaderSHA:sha,idle:async()=>events.push('idle'),backendIdle:async()=>events.push('existingACK'),readMetadata:()=>send('Runtime.evaluate'),snapshot:async()=>({rows:[]}),inputSnapshot:async()=>({rows:[]}),save})
   report.complete=true
  }catch(error){report.error=String(error);process.exitCode=1}
- finally{await finalizeController({closeOwn:async()=>{descriptors.installed=false;events.push('restore');report.restored=!descriptors.installed;save()},ws:{close:()=>events.push('close')},pending});report.pendingCleared=pending.size===0;save()}
+ finally{try{await finalizeController({closeOwn:async()=>{descriptors.installed=false;events.push('restore');report.restored=!descriptors.installed;if(spec.closeError)throw Error('mock closeOwn failure');if(spec.saveError)throw Error('mock cleanup save failure');save()},ws:{close:()=>events.push('close')},pending})}catch(error){report.cleanupError=String(error);report.error??=String(error);process.exitCode=1}report.pendingCleared=pending.size===0;save()}
 }
