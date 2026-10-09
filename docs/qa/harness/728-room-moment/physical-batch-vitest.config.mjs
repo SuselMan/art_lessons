@@ -1,1 +1,1 @@
-import{defineConfig}from'vitest/config';export default defineConfig({test:{include:['docs/qa/harness/728-room-moment/physicalBatchTwo.actual.test.ts'],environment:'node'}});
+import{defineConfig}from'vitest/config';export default defineConfig({test:{include:['docs/qa/harness/728-room-moment/physicalBatchTwo.actual.test.ts','docs/qa/harness/728-room-moment/physicalBatchTwo.existing.test.ts'],environment:'node'}});
