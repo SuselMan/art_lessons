@@ -1,0 +1,47 @@
+{
+  "source": "d5e9709ae2e54215339a648d75f6072e9581d0ee",
+  "scope": "Existing serial d5 run only; no new hardware",
+  "warmWallMs": 4182.299999999999,
+  "parts": [
+    {
+      "name": "Imports, packet/field/buffer preparation, encode and synchronous pipeline construction before first submission",
+      "wallMs": 226.1000000119202
+    },
+    {
+      "name": "Source + live composite first queue completion",
+      "wallMs": 3881.899999976158
+    },
+    {
+      "name": "Raw canvas bridge queue completion",
+      "wallMs": 61.60000002384186
+    },
+    {
+      "name": "Detached scope retirement queue completion",
+      "wallMs": 0.40000003576278687
+    },
+    {
+      "name": "Other boundaries, raw bridge creation, scope assertions and hashing",
+      "wallMs": 12.299999952316284
+    }
+  ],
+  "sourceLiveQueueWallShare": 0.9281734930483607,
+  "ledger": {
+    "RGBA8Fields": 9,
+    "width": 1024,
+    "height": 1024,
+    "bytes": 37748736,
+    "MiB": 36,
+    "vertexBytes": 61776,
+    "transientBufferBytes": 64304,
+    "sharedResourceDeltaBytes": 4,
+    "glPublished": false,
+    "plannerWarmed": false,
+    "pressureDispatched": false
+  },
+  "limitations": [
+    "Queue completion wall conflates driver compilation, queue backlog, execution and synchronization; not physical GPU duration",
+    "Pre-submit interval has no finer measured source/pipeline/alloc breakdown",
+    "9 fields use 37.75 MB decimal or 36 MiB",
+    "Warm source coverage/pigment/color is synthetic; no claim all real nib/preset pipeline variants covered"
+  ]
+}
