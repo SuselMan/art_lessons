@@ -16,7 +16,7 @@ try{
  await wait(()=>evaluate('document.readyState!=="loading"'));await wait(()=>evaluate('window.__ownerOriginalPageReady===true'));
  await evaluate(()=>{const root=document.createElement('div');root.id='surface';document.body.replaceChildren(root)});
  const moduleUrl='/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/'+(process.env.SMALL_POSITIVE_GPU==='1'?'runActualPositivePairedGpu.mjs':'ownedMaterialRebaseGpu.mjs');
- const report=await evaluate(async({url,input})=>{const m=await import(url);return input.small?m.runStandaloneActualPositiveGpu():m.runOwnedMaterialRebaseGpu()},{url:moduleUrl,input:{small:process.env.SMALL_POSITIVE_GPU==='1'}});rows.push(report);
+ const report=await evaluate(async({url,input})=>{const m=await import(url);return input.small?m.runStandaloneActualPositiveGpu({evidenceBase:input.evidenceBase}):m.runOwnedMaterialRebaseGpu()},{url:moduleUrl,input:{small:process.env.SMALL_POSITIVE_GPU==='1',evidenceBase:'/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/actual-paired-evidence/'}});rows.push(report);
  result={computedPassport,rows,memory,memoryAbort,browserEvents,valid:!memoryAbort&&report.valid};fs.writeFileSync(out,JSON.stringify(result,null,2));
 }catch(e){result={computedPassport,rows,memory,memoryAbort,browserEvents,error:String(e),valid:false};fs.writeFileSync(out,JSON.stringify(result,null,2));process.exitCode=1}
 finally{clearInterval(interval);await closeOwn();console.log(JSON.stringify({out,valid:result.valid,error:result.error}))}
