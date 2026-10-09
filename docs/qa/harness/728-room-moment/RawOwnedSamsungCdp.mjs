@@ -1,10 +1,11 @@
 import{createRequire}from'node:module';import{execFile}from'node:child_process';import{promisify}from'node:util';
 const require=createRequire(new URL('../../../../package.json',import.meta.url)),WebSocket=require('ws');
+export function permitsColdOwnBootstrap(stdout){if(typeof stdout!=='string'||!stdout.includes('Num       RefCount'))throw Error('Actual successful /proc/net/unix census required');if(stdout.includes('chrome_devtools'))throw Error('Existing DevTools socket must not be bypassed');return true}
 /** Existing cached CDP forward; only newly-created target may be closed. */
 export class RawOwnedSamsungCdp{
  constructor(base){const u=new URL(base);if(!['127.0.0.1','localhost'].includes(u.hostname)||u.port!=='9454')throw Error('Cached Samsung forward9454 required');this.base=base;this.next=0;this.pending=new Map();this.events=[]}
  async open(url){
-  const before=new Set((await(await fetch(this.base+'/json/list')).json()).map(x=>x.id));
+  let before;try{before=new Set((await(await fetch(this.base+'/json/list')).json()).map(x=>x.id));this.bootstrap={cold:false}}catch(error){const{stdout}=await promisify(execFile)('/home/suselman/.local/bin/home-devices',['adb','shell','cat','/proc/net/unix'],{timeout:10000});permitsColdOwnBootstrap(stdout);before=new Set();this.bootstrap={cold:true,actualChromeSocketAbsent:true,scope:'Own explicit QA intent starts Chrome; no restart/wake/power or existing target operation'}};
   const launch=new URL(url);launch.searchParams.set('qaOwnedContinuous',Date.now()+'-'+Math.random().toString(16).slice(2));await promisify(execFile)('/home/suselman/.local/bin/home-devices',['adb','shell','am','start','-a','android.intent.action.VIEW','-d',launch.href,'-p','com.android.chrome'],{timeout:20000});const deadline=Date.now()+10000;let target;while(Date.now()<deadline){const tabs=await(await fetch(this.base+'/json/list')).json(),own=tabs.filter(x=>!before.has(x.id)&&x.url===launch.href);if(own.length>1)throw Error('Ambiguous own target');if(own.length===1){target=own[0];break}await new Promise(r=>setTimeout(r,200))}if(!target)throw Error('No newly created own target; preexisting tabs untouched');this.target=target;
   this.ws=new WebSocket(target.webSocketDebuggerUrl);await new Promise((r,j)=>{this.ws.once('open',r);this.ws.once('error',j)});
   this.ws.on('message',raw=>{const x=JSON.parse(raw),p=this.pending.get(x.id);if(p){clearTimeout(p.timer);this.pending.delete(x.id);x.error?p.reject(Error(x.error.message)):p.resolve(x.result)}else{if(this.events.length<256)this.events.push(x);this.onEvent?.(x)}});

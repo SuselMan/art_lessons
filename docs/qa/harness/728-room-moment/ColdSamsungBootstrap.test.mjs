@@ -1,0 +1,2 @@
+import test from'node:test';import assert from'node:assert/strict';import{permitsColdOwnBootstrap}from'./RawOwnedSamsungCdp.mjs';
+test('cold bootstrap requires actual census and rejects existing DevTools',()=>{assert.equal(permitsColdOwnBootstrap('Num       RefCount Protocol Flags Type St Inode Path\n000: foo'),true);assert.throws(()=>permitsColdOwnBootstrap(''));assert.throws(()=>permitsColdOwnBootstrap('Num       RefCount\n @chrome_devtools_remote'));assert.throws(()=>permitsColdOwnBootstrap(null))});
