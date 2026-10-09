@@ -2808,7 +2808,7 @@ export class PencilEngine implements PencilEngineAPI {
     // sees the operation before it is painted; strictly in arrival order; and
     // everything else, and everything that reads the engine's state, lands the
     // queue first (_flushOpQueue).
-    if (this._pendingLocalHistoryId || this._localHistoryFailure || this._shouldQueue(op, source)) {
+    if (this._pendingLocalHistoryId || this._localHistoryFailure || this._queuedHistoryRepairOwners.size || this._shouldQueue(op, source)) {
       this._opQueue.push({ op, source })
       this._scheduleOpDrain()
       return
@@ -2830,7 +2830,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _queuedHistoryJobOwners = new WeakMap<RebuildJob, string>()
   /** DEV read-only status; no UI rollout. */
   getQueuedHistoryStatus(): Readonly<{ id: string; state: 'queued' | 'accepted' | 'cancelled' | 'failed'; reason?: string; materialIdle: boolean }> | null {
-    return import.meta.env.DEV && this._localHistoryOutcome ? { ...this._localHistoryOutcome, materialIdle: !this._localHistoryFailure && !this._pendingLocalHistoryId && !this._settle && !this._wcCanonical.pending && !this._rebuildJobs.size && !this._opQueue.length && !this._contextLost && !this._destroyed } : null
+    return import.meta.env.DEV && this._localHistoryOutcome ? { ...this._localHistoryOutcome, materialIdle: !this._localHistoryFailure && !this._pendingLocalHistoryId && !this._settle && !this._wcCanonical.pending && !this._rebuildJobs.size && !this._pendingRebuilds.size && !this._queuedHistoryRepairOwners.size && !this._opQueue.length && !this._contextLost && !this._destroyed } : null
   }
   /** Explicit DEV recovery from the retained canonical journal; no rAF spin or implicit context-loss cure. */
   async recoverQueuedHistoryMaterial(): Promise<boolean> {
@@ -2920,9 +2920,10 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** (§17.58) Applies every queued operation now, in order. */
   private _flushOpQueue(): void {
-    if ((this._pendingLocalHistoryId || this._localHistoryFailure) && !this._contextLost && !this._destroyed) { this._scheduleOpDrain(); return }
+    if ((this._pendingLocalHistoryId || this._localHistoryFailure || this._queuedHistoryRepairOwners.size) && !this._contextLost && !this._destroyed) { this._scheduleOpDrain(); return }
     if (this._wcAsyncFinish && this._wcCanonical.pending && !this._contextLost && !this.gl.isContextLost()) { this._scheduleOpDrain(); return }
     while (this._opQueue.length) {
+      if (!this._contextLost && !this._destroyed && (this._pendingLocalHistoryId || this._localHistoryFailure || this._queuedHistoryRepairOwners.size)) { this._scheduleOpDrain(); return }
       const { op, source } = this._opQueue.shift()!
       this._applyQueuedOperation(op, source)
     }
@@ -4601,7 +4602,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._forgetWashesOf(job.fresh) // (§17.68)
     job.fresh.destroy()
     // A restart makes its washes again straight away - from these.
-    if (!restarting) this._endPoolHold()
+    if (!restarting) {
+      const owner = this._queuedHistoryJobOwners.get(job)
+      if (owner && this._queuedHistoryRepairOwners.get(layerId) === owner) this._queuedHistoryRepairOwners.delete(layerId)
+      this._endPoolHold()
+    }
   }
 
   /** (§17.70) The pool's hold for rebuilds ends with the last of them. */
