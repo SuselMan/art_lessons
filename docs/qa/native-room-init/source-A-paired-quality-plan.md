@@ -31,3 +31,13 @@ Report startup wall, replay wall and seed phase costs separately. Fixed arm orde
 and driver cache prohibit a causal performance claim. No additional fences are
 introduced. Keep shared backend running; stop only owned frontend, forward and
 contexts, then finish the registered disposable.
+
+## Runnable offline-gated mode
+
+The existing pair entry now accepts `QA_PAIR_MODE=source-A`. It selects the long
+reference, records two packed operations, sets full/raw warm OFF, then runs OFF
+and ON with existing3 ON in both. Source A passports are required before context
+creation; ON readiness uses the same reviewed preparation helper and the fixed
+selected HIT subset. A dedicated assertion in the existing proof module rejects
+wrong warm/mode/input/material/seed/descriptor/HIT and missing owned cleanup.
+Node CPU tests pass; no hardware result exists for this mode yet.

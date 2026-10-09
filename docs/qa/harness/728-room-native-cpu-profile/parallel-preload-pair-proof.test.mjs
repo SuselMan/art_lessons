@@ -15,3 +15,20 @@ test('same source/paper/packed material endpoint pair separates startup and repl
 test('changed inputs/source/material, missing cleanup and compile identities fail closed',()=>{
  for(const mutate of [r=>{r[2].source='other'},r=>{r[2].browserSource[0].path='wrong'},r=>{r[1].replay.mapped[0].dabsPacked='changed'},r=>{r[2].export.sha='other'},r=>{r[1].ownedContextDisposed=false},r=>{r[1].memoryError='ssh unavailable'},r=>{r[2].actualPreparation.pressure.shaderSHA='other'},r=>{r[2].actualPreparation.consumed.observed[0].hits=0}]){const rows=fixture();mutate(rows);assert.throws(()=>assertParallelPreloadPair(...rows))}
 })
+
+import {assertSourcePrecompilePair} from './parallel-preload-pair-proof.mjs'
+function sourceFixture(){
+ const [ref,off,on]=fixture(),hash='a'.repeat(64)
+ const required=['stamp:false:false:coverage','ribbon:coverage','canonicalCompositeRecipe','canonicalRawCanvasRecipe','pairedBrush','singleBrush']
+ const passport=Array.from({length:15},(_,i)=>({key:required[i]??'unused'+i,kind:i<12?'render':'compute',shaderSHA:hash,descriptorSHA:hash}))
+ const ready={dispatches:0,fieldBytes:0,resourceBefore:[{bytes:16}],resourceAfter:[{bytes:16}],proofs:passport.map(p=>({...p,completed:true}))}
+ for(const r of [ref,off,on]){r.source='b'.repeat(40);r.scenario='water-pigment400-long';r.packedTape=r.packedTape.slice(0,2);r.sourcePipelinePassport=structuredClone(passport);r.sourceRequiredKeys=[...required]}
+ ref.sourcePreparation={ready};off.replay.mapped=off.replay.mapped.slice(0,2);on.replay.mapped=on.replay.mapped.slice(0,2)
+ for(const r of [off,on]){r.scheduler={actualPreload:true,sourcePrecompile:r===on,fullWarm:false,rawWarm:false,inflightLimit:0,asyncPressure:false};r.actualPreparation=structuredClone(on.actualPreparation)}
+ on.sourcePreparation={ready:structuredClone(ready),consumed:required.map(key=>({key,completed:true,hits:1}))}
+ return[ref,off,on]
+}
+test('source A exact long two-op pair leaves existing3 ON',()=>assert.equal(assertSourcePrecompilePair(...sourceFixture()).rows.length,2))
+test('source A rejects wrong mode/warm/ops/seed/HIT/passports',()=>{
+ for(const mutate of [r=>r[1].scheduler.actualPreload=false,r=>r[2].scheduler.fullWarm=true,r=>r[2].scheduler.rawWarm=true,r=>r[1].replay.mapped[0].dabsPacked='other',r=>r[2].sourcePreparation.ready.fieldBytes=4,r=>r[2].sourcePreparation.ready.resourceAfter=[],r=>r[2].sourcePreparation.consumed[1].hits=0,r=>r[1].actualPreparation.consumed.pressure.hits=0,r=>r[2].sourcePipelinePassport[0].descriptorSHA='f'.repeat(64),r=>r[0].scenario='four400',r=>r[1].export.sha='wrong',r=>r[2].sourceRequiredKeys.pop()]){const rows=sourceFixture();mutate(rows);assert.throws(()=>assertSourcePrecompilePair(...rows))}
+})
