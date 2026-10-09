@@ -24,7 +24,11 @@ export class WatercolorCanonicalFIFO {
   private activeCapability: object | null = null
   private capabilities: WeakMap<object, { request: CanonicalWatercolorRequest; epoch: number }> | null = null
   private readonly ctx: CanonicalWatercolorFIFOContext
-  constructor(ctx: CanonicalWatercolorFIFOContext, private readonly diagnosticExecutionCapability = false) { this.ctx = ctx }
+  private readonly diagnosticExecutionCapability: boolean
+  constructor(ctx: CanonicalWatercolorFIFOContext, diagnosticExecutionCapability = false) {
+    this.ctx = ctx
+    this.diagnosticExecutionCapability = import.meta.env.DEV && diagnosticExecutionCapability === true
+  }
   /** Diagnostic-only synchronous witness; never changes pending/ready semantics. */
   isSoleExecutingOwner(capability: object): boolean {
     const owned = this.capabilities?.get(capability)

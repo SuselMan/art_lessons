@@ -56,3 +56,14 @@ it('does not emit a capability on the ordinary constructor path', () => {
   const f = fixture(cap => expect(cap).toBeUndefined(), false)
   f.queue.enqueue(request()); f.tick()
 })
+
+it('ignores requested capability in production without allocating diagnostic state', () => {
+  vi.stubEnv('DEV', false)
+  try {
+    const f = fixture(cap => expect(cap).toBeUndefined(), true)
+    f.queue.enqueue(request()); f.tick()
+    expect(f.queue.isSoleExecutingOwner({})).toBe(false)
+    expect((f.queue as any).capabilities).toBeNull()
+    expect((f.queue as any).activeCapability).toBeNull()
+  } finally { vi.unstubAllEnvs() }
+})
