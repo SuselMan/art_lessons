@@ -1,6 +1,6 @@
 /** Passive bounded CDP network census. Never retain headers, cookies, query or full URLs. */
 export function navigationTrace(cdp,qaOrigin,{limit=128}={}){
- limit=Math.max(1,Math.min(1024,Math.floor(limit)||128));
+ limit=Math.max(1,Math.min(4096,Math.floor(limit)||128));
  const pending=new Map(),rows=[];let dropped=0;
  const location=value=>{try{const u=new URL(value);return{originClass:u.origin===qaOrigin?'QA':'other',pathname:u.pathname}}catch{return{originClass:'invalid',pathname:'invalid'}}};
  const record=row=>{if(rows.length<limit)rows.push(row);else dropped++};
