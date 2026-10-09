@@ -95,10 +95,11 @@ function key(cx: number, cy: number): number {
 /** Opaque schema-version token; not a live content revision or merge authority. */
 export interface DiagnosticWetSnapshot { readonly version: 1; readonly cellCount: number; readonly recordCount: number }
 
-/** Opaque one-use validation capability; grants no installation or merge. */
+/** Opaque one-use capability for DEV model validation/promotion only. */
 export interface DiagnosticWetAuthority { readonly version: 1; readonly snapshot: DiagnosticWetSnapshot }
 
 export class PaperWetness {
+  private static readonly _diagnosticForkOrigins = new WeakMap<PaperWetness, DiagnosticWetSnapshot>()
   private static readonly _diagnosticAuthorities = new WeakMap<object, {owner: PaperWetness; revision: number}>()
   private _diagnosticMutationRevision = 0
   private _diagnosticAuthorityArmed = false
@@ -121,6 +122,26 @@ export class PaperWetness {
       throw Error('Unknown, consumed, foreign or changed wet authority')
   }
 
+  /** DEV CPU model only. No Engine publication/GPU readiness guarantee. */
+  promoteDiagnosticFork(token: DiagnosticWetAuthority, fork: PaperWetness): void {
+    this.validateDiagnosticAuthority(token)
+    if (PaperWetness._diagnosticForkOrigins.get(fork) !== token.snapshot
+      || fork._pending.size || fork._drained.size)
+      throw Error('Foreign or unfinished wet fork')
+    // Bound and prepare all allocation before touching live state. No callbacks/clocks.
+    let records = fork._layers.size
+    for (const cells of fork._layers.values()) records += cells.size
+    if (records > 65536) throw Error('Wet promotion capacity exceeded')
+    const prepared = fork._copyDiagnosticState()
+    this._layers = prepared._layers
+    this._pending = prepared._pending
+    this._drained = prepared._drained
+    this._peak = prepared._peak
+    this._peakAt = prepared._peakAt
+    this._box = prepared._box
+    this._invalidateDiagnosticAuthority()
+  }
+
   private static readonly _diagnosticSnapshots = new WeakMap<object, PaperWetness>()
   /** DEV CPU proof only. No clock read, decay, prune, live restore or merge. */
   captureDiagnosticSnapshot(maxRecords = 8192): DiagnosticWetSnapshot {
@@ -139,7 +160,9 @@ export class PaperWetness {
     if (!import.meta.env.DEV) throw Error('Wet snapshot is DEV-only')
     const state = PaperWetness._diagnosticSnapshots.get(token)
     if (!state || token.version !== 1) throw Error('Unknown wet snapshot')
-    return state._copyDiagnosticState()
+    const fork = state._copyDiagnosticState()
+    PaperWetness._diagnosticForkOrigins.set(fork, token)
+    return fork
   }
   private _copyDiagnosticState(): PaperWetness {
     const copy = new PaperWetness()
@@ -151,7 +174,7 @@ export class PaperWetness {
     return copy
   }
 
-  private readonly _layers = new Map<string, Map<number, WetCell>>()
+  private _layers = new Map<string, Map<number, WetCell>>()
   /** (#536) Water the gesture in progress has laid but not yet committed.
    *
    *  Two maps rather than one because the two readers want different answers.
@@ -161,10 +184,10 @@ export class PaperWetness {
    *  only when the pen lifts is not what wetting paper looks like.
    *
    *  Merged into the committed map at pen-up (commitPending). */
-  private readonly _pending = new Map<string, Map<number, WetCell>>()
+  private _pending = new Map<string, Map<number, WetCell>>()
   /** (#536) Cells the gesture in progress has already drunk from, so a stroke
    *  drinks from each patch of paper once. See drain() for why once matters. */
-  private readonly _drained = new Set<string>()
+  private _drained = new Set<string>()
   /** The wettest thing on the paper and when it got that way, tracked as it is
    *  written rather than searched for.
    *
