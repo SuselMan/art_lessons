@@ -1,0 +1,174 @@
+{
+  "source": "f24fec826fe7548cb2dc9e0a59752260238dda8b",
+  "scope": "ONE observer trace; no causal speedup, no physical first-pixel or GPU duration",
+  "readyAtMs": 24073.19999998808,
+  "phases": [
+    {
+      "label": "long-water400",
+      "downAt": 24676.600000023842,
+      "nextPendingAtDown": false,
+      "nextSettlingAtDown": false,
+      "downToSourceEntryWallMs": 60.69999998807907,
+      "downToCanvasPublicationEntryWallMs": 134.29999995231628,
+      "scope": "Own-stroke source JS entry; next canvas publication call may include prior work, not physical first pixel or GPU duration"
+    },
+    {
+      "label": "pigment-on-long-water400",
+      "downAt": 34465.69999998808,
+      "nextPendingAtDown": true,
+      "nextSettlingAtDown": false,
+      "downToSourceEntryWallMs": 697.4000000357628,
+      "downToCanvasPublicationEntryWallMs": 737.6000000238419,
+      "scope": "Own-stroke source JS entry; next canvas publication call may include prior work, not physical first pixel or GPU duration"
+    }
+  ],
+  "final": {
+    "gl": 0,
+    "lost": false,
+    "error": null,
+    "native": true,
+    "ready": true
+  },
+  "export": {
+    "width": 1754,
+    "height": 2480,
+    "alpha": 119987,
+    "purple": 119986,
+    "sha": "36cdb9d5ad19a3d70716eed99b88f5fb21b08cd9a992d624d35d2a08805513df",
+    "pngSha256": "4832983b80a526e5ecac760d4ee5e685a7f9bc9fea8373c716c774a85bb63443",
+    "pngBytes": 384069,
+    "comparisonReady": true
+  },
+  "seedBridgeCosts": [
+    {
+      "phase": "readPixels",
+      "wallMs": 15.699999988079071,
+      "ok": true,
+      "bytes": 0,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T12:07:19.329Z"
+    },
+    {
+      "phase": "rowFlip",
+      "wallMs": 3.699999988079071,
+      "ok": true,
+      "bytes": 4194304,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T12:07:19.330Z"
+    },
+    {
+      "phase": "uploadEnqueue",
+      "wallMs": 0.800000011920929,
+      "ok": true,
+      "bytes": 4194304,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T12:07:19.331Z"
+    },
+    {
+      "phase": "queueAck",
+      "wallMs": 14.699999988079071,
+      "ok": true,
+      "bytes": 0,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T12:07:19.331Z"
+    }
+  ],
+  "nextSourceRequest": 17,
+  "previousMaterialRequest": 16,
+  "sourceAdmissionToExecutionMs": 696.0,
+  "remainingPriorMaterialUntilPublishMs": 407.69999998807907,
+  "priorPublicationWallMs": 260.89999997615814,
+  "publicationCompleteToNextExecuteMs": 27.400000035762787,
+  "remainingStepCount": 158,
+  "remainingStepEntryWallSumMs": 29.19999986886978,
+  "nextDownToFirstConsumeMs": 1.300000011920929,
+  "raf": {
+    "scope": "rAF callbacks overlap DOWN\u2192source execute; observer adds CPU scalar clock overhead",
+    "count": 39,
+    "maxGapMs": 33.299999999995634,
+    "over33": 4
+  },
+  "priorMaterialTimeline": [
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "admitted",
+      "at": 32835.89999997616,
+      "queued": 8,
+      "label": "long-water400",
+      "strokeId": "_JrWJ3X-Ne"
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "prepare:start",
+      "at": 33213.30000001192,
+      "queued": 1,
+      "label": "long-water400",
+      "strokeId": "_JrWJ3X-Ne"
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "prepare:done",
+      "at": 33257.69999998808,
+      "queued": 1,
+      "label": "long-water400",
+      "strokeId": "_JrWJ3X-Ne"
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "finish:start",
+      "at": 34872.89999997616,
+      "queued": 2,
+      "label": "long-water400",
+      "strokeId": "_JrWJ3X-Ne"
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "finish:done",
+      "at": 34874.80000001192,
+      "queued": 2,
+      "label": "long-water400",
+      "strokeId": "_JrWJ3X-Ne"
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "publish:start",
+      "at": 34874.80000001192,
+      "queued": 2,
+      "label": "long-water400",
+      "strokeId": "_JrWJ3X-Ne"
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "publish:done",
+      "at": 35135.69999998808,
+      "queued": 2,
+      "label": "long-water400",
+      "strokeId": "_JrWJ3X-Ne"
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "complete",
+      "at": 35147.39999997616,
+      "queued": 2,
+      "label": "long-water400",
+      "strokeId": "_JrWJ3X-Ne"
+    }
+  ],
+  "cause": "Previous material request holds canonical FIFO through remaining steps and publication. Step entry walls are CPU submission, not GPU cost; elapsed phase includes scheduling. Publication wait also includes queue completion/canvas and scheduling. No isolated duration attribution below these phases.",
+  "previousPublishToGlImportEntryWallMs": 260.5,
+  "previousGlImportEntryWallMs": 0.19999998807907104,
+  "previousImportReturnToPublicationDoneMs": 0.19999998807907104,
+  "bridgeAttribution": "Actual canvas bridge, not mapAsync/readback. submitCanvas encodes raw output draw and awaits original queue.onSubmittedWorkDone before restoreCanvasPixels. Existing markers locate almost all publication wall BEFORE GL import. Encode vs GPU queue drain vs async scheduling not separated."
+}
