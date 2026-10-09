@@ -363,3 +363,28 @@ Production/main не изменены. Новые варианты остают�
   не запускается; диагностика controller lifecycle продолжается.
 - Все три агента имеют следующий шаг; аппаратные проверки строго
   последовательны. Main/push/deploy не выполнялись.
+
+### Контрольная точка: 09 октября, 03:45
+
+- Full first-LIVE warm на Surface: первый publish49.1ms вместо raw-only
+  3710.9ms; подготовка4183.5ms доDOWN. Это перенос ожидания в ready,
+  не total latency gain. Первый водный drain всё ещё даёт rAF~1.1s.
+- CPU профиль центральной части gap:96.6%idle, нет непрерывного JS1s.
+  Browser trace показывает совпадающий WebGPUDecoderImpl
+  CommandBufferService:PutChanged1062.437ms. Это decoder wall span,
+  не physicalGPUtime и не доказанная компиляция shader. Атрибуция
+  отправленных проходов продолжается; сыройtrace приватный0600.
+- Изолированный multiscale Float32: support61→191, относительная
+  ошибка массы3.39e−9; pairedC/P одинаковы, drygap barrier/соседняя
+  лужа/source8readonly PASS. Q8support61→178 с потерей массы0.492%.
+  Room opt-in подключён OFF;11 session/lifecycle testsPASS. Room
+  аппаратный результат пока не получен.
+- Batch2: несколько OFF одинаковых endpoint/material/25roles.
+  ON пока не выполнен: сначала missingfavicon, затем второйCDP
+  handshake. Datafavicon исправлен, одинtransport+дваowncontexts
+  проверен6tests. AsyncRAM guard сохраняетdeadline и responsive loop.
+- Остановлены шесть собственных supersededQA Vite (5364–5369),
+  исходники/результаты сохранены, registry обновлён. VPSavailableRAM
+  выросла976→1836MiB; пользовательские серверы не затрагивались.
+- Все три направления продолжаются, hardware сериализован.
+  Main/push/deploy не выполнялись, готовность для Ильи не заявлена.
