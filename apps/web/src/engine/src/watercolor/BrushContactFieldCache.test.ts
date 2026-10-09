@@ -11,6 +11,20 @@ function exact(actual: ReturnType<BrushContactFieldCache['contacts']>, expected:
 }
 
 describe('bounded exact CPU contact field cache', () => {
+  it('keeps suspended solver payloads exact through another owner, cache reset and reuse', () => {
+    const cache = new BrushContactFieldCache()
+    const expected = brushDragContacts(travel, rect)
+    const suspended = cache.contacts(travel, rect)
+    const replay = cache.contacts(travel, rect)
+    expect(suspended[0].field.pixels).not.toBe(replay[0].field.pixels)
+    replay[0].field.pixels.fill(99)
+    cache.contacts(travel.map(d => ({ ...d, water: .2, angle: -.7 })), rect)
+    cache.clear() // context loss/destroy must not invalidate already owned CPU bytes
+    exact(suspended, expected)
+    exact(cache.contacts(travel, rect), expected)
+    exact(suspended, expected)
+  })
+
   it('reuses cloned inputs without sharing mutable payloads with the owner', () => {
     const cache = new BrushContactFieldCache()
     const expected = brushDragContacts(travel, rect)
