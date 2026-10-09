@@ -1,3 +1,4 @@
+import{withControlledInputClock}from'./ControlledInputClock.mjs';
 import{driveMixedLeaseInput,mixedLeaseInput,normalizedMixedHistory}from'./MixedLeaseInput.mjs';
 const hash=async bytes=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(v=>v.toString(16).padStart(2,'0')).join('');
 const digest=value=>hash(new TextEncoder().encode(JSON.stringify(value)));
@@ -6,17 +7,16 @@ export async function runMixedLeaseSameInput({engineUrl,enabled}){
  if(typeof enabled!=='boolean')throw Error('Explicit OFF/ON required');
  const{PencilEngine}=await import(engineUrl),canvas=document.createElement('canvas');canvas.width=canvas.height=128;document.getElementById('surface').replaceChildren(canvas);
  const e=new PencilEngine(canvas,{paper:'fine',pageWidth:128,pageHeight:128,userId:'mixed-input-actor',gradientFibres:true});
- let originalStart;const scratches=new Set(),date=Date.now,now=performance.now.bind(performance),descriptor=Object.getOwnPropertyDescriptor(performance,'now');let clockInstalled=false;
+ let originalStart;const scratches=new Set(),now=performance.now.bind(performance);
  try{
   await e.paperReady();e.appendOperation({id:'mixed-layer',type:'layer_add',userId:'mixed-input-actor',layerId:'L',timestamp:1791490000000,name:'QA'},'remote');e.setActiveLayer('L');e.setCompositeOrder([{id:'L',opacity:1}]);e.setLocked(false);
   e._wcJoinedTouch=true;e._wcJoinedTouchMixed=false;e._wcJoinedFinishDeferred=false;
   // Fail if the source silently opts into other experimental material paths.
   if(e._wcAsyncFinish||e._wcMaterialPresentation||e._wcNative||e._settlePlan.splitQuanta)throw Error('Unexpected experimental model');
   originalStart=e._settleQueue.start;e._settleQueue.start=function(s,...args){scratches.add(s);return originalStart.call(this,s,...args)};
-  let tick=0;Date.now=()=>1791490000000;Object.defineProperty(performance,'now',{configurable:true,value:()=>tick});clockInstalled=true;
-  const wallStart=now(),proof=driveMixedLeaseInput(e,{enabled,clock:at=>{tick=at}});const inputWallMs=now()-wallStart;
-  // Finish with same logical time; avoid OFF physical wait altering paper decay.
-  tick=100;e._completeSettle();Date.now=date;if(descriptor)Object.defineProperty(performance,'now',descriptor);else delete performance.now;clockInstalled=false;
+  const wallStart=now(),controlled=withControlledInputClock(e,({clock,timeOrigin})=>driveMixedLeaseInput(e,{enabled,clock,timeOrigin})),proof=controlled.result,inputWallMs=now()-wallStart;
+  // Queue drains and frame scheduling always see real performance clock.
+  e._completeSettle();const beforeFrame=performance.now();await new Promise(requestAnimationFrame);const afterFrame=performance.now();if(!(afterFrame>beforeFrame)||controlled.realBudgetCalls<1)throw Error('Real scheduler clock proof failed');
   const end=now()+60000;while(e._settle||e._wcCanonical.pending||e._rebuildJobs.size||e._unsettledLayers.size){if(now()>end)throw Error('Canonical idle deadline');await new Promise(requestAnimationFrame)}
   if(e._fieldReleaseTimer){clearTimeout(e._fieldReleaseTimer);e._fieldReleaseTimer=0}
   const ops=structuredClone(e.getOperations().filter(o=>o.type==='stroke'));if(ops.length!==2||ops.some(o=>!o.dabsPacked))throw Error('Two genuine packed author operations required');
@@ -28,7 +28,7 @@ export async function runMixedLeaseSameInput({engineUrl,enabled}){
   if(fields.length!==25||!fields.some(f=>f.label==='scratch:inkLoad'&&f.nonzero>0)||!fields.some(f=>f.label==='scratch:coverage'&&f.nonzero>0))throw Error('Meaningful 25-role fields required');
   const blob=await e.exportPNG(true);if(!blob)throw Error('Export missing');const image=await createImageBitmap(blob),output=document.createElement('canvas');output.width=image.width;output.height=image.height;const ctx=output.getContext('2d');ctx.drawImage(image,0,0);image.close();const rgba=ctx.getImageData(0,0,output.width,output.height).data;let alphaNonzero=0;for(let i=3;i<rgba.length;i+=4)alphaNonzero+=rgba[i]!==0;if(!alphaNonzero)throw Error('Empty export');const whole={width:output.width,height:output.height,sha:await hash(rgba),alphaNonzero};output.width=output.height=0;
   const semanticHistory=normalizedMixedHistory(ops);
-  return{enabled,proof,inputSHA:await digest(proof.effectiveInputs),semanticHistory,semanticHistorySHA:await digest(semanticHistory),rawHistory:ops,fields,whole,glError:e.gl.getError(),lost:e.gl.isContextLost(),inputWallMs,scope:'Controlled model-clock overlapping real pointer pipeline. ID bijection only; wet and packed dabs exact. Wall timing is diagnostic, not natural continuous pen experience.'};
- }finally{Date.now=date;if(clockInstalled){if(descriptor)Object.defineProperty(performance,'now',descriptor);else delete performance.now}if(originalStart)e._settleQueue.start=originalStart;e.destroy()}
+  return{enabled,proof,inputSHA:await digest(proof.effectiveInputs),semanticHistory,semanticHistorySHA:await digest(semanticHistory),rawHistory:ops,fields,whole,glError:e.gl.getError(),lost:e.gl.isContextLost(),inputWallMs,clockProof:{realBudgetCalls:controlled.realBudgetCalls,frameClockAdvance:afterFrame-beforeFrame},scope:'Controlled model-clock overlapping real pointer pipeline. ID bijection only; wet and packed dabs exact. Wall timing is diagnostic, not natural continuous pen experience.'};
+ }finally{if(originalStart)e._settleQueue.start=originalStart;e.destroy()}
 }
-export function compareMixedLeaseArms(a,b){return !!(a&&b&&!a.enabled&&b.enabled&&a.proof.predecessorPending&&b.proof.predecessorPending&&a.proof.downDrains>0&&a.proof.leaseAdmissions===0&&b.proof.downDrains===0&&b.proof.leaseAdmissions===1&&b.proof.sourceCommands>0&&a.inputSHA===b.inputSHA&&a.semanticHistorySHA===b.semanticHistorySHA&&JSON.stringify(a.semanticHistory)===JSON.stringify(b.semanticHistory)&&a.fields.length===25&&b.fields.length===25&&JSON.stringify(a.fields)===JSON.stringify(b.fields)&&JSON.stringify(a.whole)===JSON.stringify(b.whole)&&!a.glError&&!b.glError&&!a.lost&&!b.lost)}
+export function compareMixedLeaseArms(a,b){return !!(a&&b&&!a.enabled&&b.enabled&&a.proof.predecessorPending&&b.proof.predecessorPending&&a.proof.downDrains>0&&a.proof.leaseAdmissions===0&&b.proof.downDrains===0&&b.proof.leaseAdmissions===1&&b.proof.sourceCommands>0&&a.clockProof.realBudgetCalls>0&&b.clockProof.realBudgetCalls>0&&a.clockProof.frameClockAdvance>0&&b.clockProof.frameClockAdvance>0&&a.inputSHA===b.inputSHA&&a.semanticHistorySHA===b.semanticHistorySHA&&JSON.stringify(a.semanticHistory)===JSON.stringify(b.semanticHistory)&&a.fields.length===25&&b.fields.length===25&&JSON.stringify(a.fields)===JSON.stringify(b.fields)&&JSON.stringify(a.whole)===JSON.stringify(b.whole)&&!a.glError&&!b.glError&&!a.lost&&!b.lost)}

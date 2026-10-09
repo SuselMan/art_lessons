@@ -267,17 +267,15 @@ it('same input overlapping mixed harness admits ON only and preserves packed his
   // Browser and CPU fixture share the actual pointer pipeline driver.
   // @ts-expect-error QA JavaScript helper intentionally has no app declaration.
   const { driveMixedLeaseInput, normalizedMixedHistory } = await import('../../../../docs/qa/harness/728-room-moment/MixedLeaseInput.mjs')
+  // @ts-expect-error QA JavaScript clock helper.
+  const { withControlledInputClock } = await import('../../../../docs/qa/harness/728-room-moment/ControlledInputClock.mjs')
   const histories: unknown[] = []
   for (const enabled of [false, true]) {
     const { engine: e } = createTestEngine({ userId: 'a' }, { width: 128, height: 128 })
     engines.push(e); e.appendOperation(makeLayerAdd('a', 'L'))
     e.setCompositeOrder([{ id: 'L', opacity: 1 }]); e.setActiveLayer('L'); await paperReady(e)
     e['_wcJoinedTouch'] = true
-    const date = vi.spyOn(Date, 'now').mockReturnValue(1791490000000)
-    let tick = performance.now()
-    const now = vi.spyOn(performance, 'now').mockImplementation(() => tick)
-    try {
-      const proof = driveMixedLeaseInput(e, { enabled, clock: (at: number) => { tick = at } })
+    const { result: proof } = withControlledInputClock(e, ({ clock, timeOrigin }: { clock: (at: number) => void; timeOrigin: number }) => driveMixedLeaseInput(e, { enabled, clock, timeOrigin }))
       expect(proof.predecessorPending).toBe(true)
       expect(proof.leaseAdmissions).toBe(enabled ? 1 : 0)
       expect(proof.downDrains > 0).toBe(!enabled)
@@ -286,7 +284,6 @@ it('same input overlapping mixed harness admits ON only and preserves packed his
       expect(ops).toHaveLength(2)
       expect(ops.map(op => op.preset)).toEqual(['normal:100:0:PB29:round', 'normal:100:100:PB29:round'])
       histories.push(normalizedMixedHistory(ops))
-    } finally { now.mockRestore(); date.mockRestore() }
   }
   expect(histories[1]).toEqual(histories[0])
 })

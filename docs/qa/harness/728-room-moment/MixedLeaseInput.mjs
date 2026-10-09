@@ -3,14 +3,14 @@ export const mixedLeaseInput = Object.freeze([
  {preset:'normal:100:0:PB29:round', points:[{x:40,y:64,timeStamp:10},{x:64,y:64,timeStamp:26},{x:88,y:64,timeStamp:42}]},
  {preset:'normal:100:100:PB29:round', points:[{x:64,y:64,timeStamp:58},{x:76,y:64,timeStamp:74},{x:88,y:64,timeStamp:90}]},
 ]);
-export function driveMixedLeaseInput(e, {enabled, clock=()=>{}, afterSecondDown=()=>{}}){
+export function driveMixedLeaseInput(e, {enabled, clock=()=>{}, timeOrigin=0, afterSecondDown=()=>{}}){
  if(typeof enabled!=='boolean'||e._wcJoinedTouch!==true||e._wcJoinedTouchMixed||e._wcJoinedFinishDeferred||e._wcAsyncFinish||e._wcMaterialPresentation||typeof e._wcJoinedTouchSnapshotLease!=='boolean')throw Error('Strict joined-only model and explicit arm required');
  if(e._settle||e._wash)throw Error('Fresh wash required');
  e._wcJoinedTouchSnapshotLease=enabled;e.setTool('watercolor');e.setSize(24);e.setColor([.3,.15,.55]);
  const original=e._completeSettle;let phase='',downDrains=0,upDrains=0,leaseAdmissions=0,sourceCommands=0,predecessorPending=false;
  e._completeSettle=function(...args){if(phase==='second-down')downDrains++;if(phase==='second-up')upDrains++;return original.apply(this,args)};
- const sample=p=>({pressure:1,tiltX:0,tiltY:0,speed:0,pointerType:'pen',...p});
- const effectiveInputs=mixedLeaseInput.map(stroke=>({preset:stroke.preset,size:24,color:[.3,.15,.55],samples:stroke.points.map(sample)}));
+ const sample=p=>({pressure:1,tiltX:0,tiltY:0,speed:0,pointerType:'pen',...p,timeStamp:timeOrigin+p.timeStamp});
+ const effectiveInputs=mixedLeaseInput.map(stroke=>({preset:stroke.preset,size:24,color:[.3,.15,.55],samples:stroke.points.map(p=>({...sample(p),timeStamp:p.timeStamp}))}));
  try{
   for(let i=0;i<mixedLeaseInput.length;i++){
    const stroke=mixedLeaseInput[i];e.setPencil(stroke.preset);const [first,...rest]=stroke.points;
