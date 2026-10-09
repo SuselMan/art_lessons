@@ -43,3 +43,10 @@ export function installFirstMaterialTimestampWindow(runtime,central,eventTarget=
  return{scope,restore}
 }
 export function assertFirstMaterialTimestampWindow(scope){if(!Number.isInteger(scope?.request)||scope.request<0||!Number.isFinite(scope.armedAt)||!Number.isFinite(scope.start)||!Number.isFinite(scope.end)||scope.start<scope.armedAt||scope.end<scope.start||!scope.nonempty||scope.interleaved)throw Error('First material timestamp window incomplete');return scope}
+export function rankTimestampRows(rows){
+ assertTimestampRows(rows)
+ if(rows.some(r=>!r.label.trim())||!rows.some(r=>BigInt(r.nanoseconds)>0n))throw Error('Meaningful labelled timestamp durations required')
+ const groups=new Map()
+ for(const r of rows){const g=groups.get(r.label)??{label:r.label,count:0,total:0n};g.count++;g.total+=BigInt(r.nanoseconds);groups.set(r.label,g)}
+ return [...groups.values()].sort((a,b)=>a.total>b.total?-1:a.total<b.total?1:a.label.localeCompare(b.label)).map(g=>({label:g.label,count:g.count,totalNanoseconds:g.total.toString(),meanNanosecondsFloor:(g.total/BigInt(g.count)).toString()}))
+}
