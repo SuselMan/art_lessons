@@ -4,7 +4,7 @@ import { joinedFinishDeferredQaEnabled } from './joinedFinishDeferredQa'
 
 /** Constructor flags only. Production values and existing explicit DEV opt-ins
  * stay identical; diagnostic selection does not own material or scheduling. */
-export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: string | undefined, search: string): Pick<PencilEngineOptions, 'asyncFinish' | 'joinedTouch' | 'joinedTouchMixed' | 'bandBatch' | 'joinedFinishDeferred' | 'materialPresentation' | 'diagnosticWebgl2' | 'diagnosticBrushMrt' | 'diagnosticFrontBatch' | 'nativeWatercolor' | 'diagnosticPhysicalBatchTwo' | 'diagnosticSolverBatch' | 'diagnosticMomentTransport' | 'diagnosticMomentGpuAudit' | 'diagnosticMomentVector' | 'diagnosticTipContactA' | 'diagnosticAsyncCarryPressure' | 'diagnosticCarryHardwarePressure' | 'diagnosticRawCanvasWarmup' | 'diagnosticFirstLiveWarmup'> {
+export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: string | undefined, search: string): Pick<PencilEngineOptions, 'asyncFinish' | 'joinedTouch' | 'joinedTouchSnapshotLease' | 'joinedTouchMixed' | 'bandBatch' | 'joinedFinishDeferred' | 'materialPresentation' | 'diagnosticWebgl2' | 'diagnosticBrushMrt' | 'diagnosticFrontBatch' | 'nativeWatercolor' | 'diagnosticPhysicalBatchTwo' | 'diagnosticSolverBatch' | 'diagnosticMomentTransport' | 'diagnosticMomentGpuAudit' | 'diagnosticMomentVector' | 'diagnosticTipContactA' | 'diagnosticAsyncCarryPressure' | 'diagnosticCarryHardwarePressure' | 'diagnosticRawCanvasWarmup' | 'diagnosticFirstLiveWarmup'> {
  const query = new URLSearchParams(search)
  const flag=(name:string)=>{
   if(!dev)return false
@@ -31,10 +31,14 @@ export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: str
  if(diagnosticMomentTransport&&!nativeWatercolor)throw new Error('wcMomentTransport requires wcNative=1; new physics DEV only')
  const diagnosticWebgl2=flag('wcGl2'),diagnosticBrushMrt=flag('wcMrt'),diagnosticFrontBatch=flag('wcFrontBatch')
  if(diagnosticBrushMrt&&!diagnosticWebgl2)throw new Error('wcMrt requires wcGl2=1')
+ const joinedTouch = !dev || joinedTouchQaEnabled(dev, joined, search)
+ const joinedTouchSnapshotLease=flag('wcMixedLease')
+ if(joinedTouchSnapshotLease&&!joinedTouch)throw new Error('wcMixedLease requires qaJoinedTouch=1')
+ if(joinedTouchSnapshotLease&&(nativeWatercolor||query.get('qaJoinedTouchMixed')==='1'||joinedFinishDeferredQaEnabled(dev,deferred,search)))throw new Error('wcMixedLease requires separate product-model arm without native/mixed/deferred')
  return {
   diagnosticPhysicalBatchTwo,diagnosticFirstLiveWarmup,diagnosticRawCanvasWarmup,diagnosticAsyncCarryPressure,diagnosticCarryHardwarePressure,diagnosticTipContactA,nativeWatercolor,diagnosticMomentTransport,diagnosticMomentGpuAudit,diagnosticMomentVector,diagnosticWebgl2,diagnosticBrushMrt,diagnosticFrontBatch,
   asyncFinish: false,
-  joinedTouch: !dev || joinedTouchQaEnabled(dev, joined, search),
+  joinedTouch,joinedTouchSnapshotLease,
   joinedTouchMixed: dev && query.get('qaJoinedTouchMixed') === '1',
   bandBatch: dev && query.get('qaBandBatch') === '1',
   joinedFinishDeferred: joinedFinishDeferredQaEnabled(dev, deferred, search),

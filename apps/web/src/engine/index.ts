@@ -285,6 +285,8 @@ export interface PencilEngineOptions {
   joinedTouch?: boolean
   /** Diagnostic OFF: defer one admitted joined native UP behind its predecessor. */
   joinedFinishDeferred?: boolean
+  /** DEV-only OFF: retain an owned predecessor snapshot through mixed input. */
+  joinedTouchSnapshotLease?: boolean
   /** Diagnostic OFF: preserve prior material ownership across RGB/preset change. */
   joinedTouchMixed?: boolean
   /** Experimental bounded live watercolor material presentation. */
@@ -2289,6 +2291,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._settleQueue.diagnosticPhysicalBatchTwoEnabled = import.meta.env.DEV && options.diagnosticPhysicalBatchTwo === true
     this._settleQueue.diagnosticSolverBatchEnabled = options.diagnosticSolverBatch ?? false
     this._wcJoinedFinishDeferred = options.joinedFinishDeferred ?? false
+    this._wcJoinedTouchSnapshotLease = import.meta.env.DEV && options.joinedTouchSnapshotLease === true
     this._wcJoinedTouchMixed = options.joinedTouchMixed ?? false
     this._wcNativeEnabled=import.meta.env.DEV&&options.nativeWatercolor===true
     this._wcFirstLiveWarmupEnabled=import.meta.env.DEV&&options.diagnosticFirstLiveWarmup===true

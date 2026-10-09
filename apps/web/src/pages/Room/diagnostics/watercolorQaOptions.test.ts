@@ -76,3 +76,10 @@ it('physical batch2 defaults OFF, exact DEV only, rejects duplicates and invalid
  expect(parse(false,'?qaPhysicalBatchTwo=bad&qaPhysicalBatchTwo=1').diagnosticPhysicalBatchTwo).toBe(false)
  for(const q of ['?qaPhysicalBatchTwo=true','?qaPhysicalBatchTwo=1&qaPhysicalBatchTwo=0'])expect(()=>parse(true,q)).toThrow()
 })
+
+it('mixed snapshot lease is explicit DEV only and guards incompatible owners',()=>{
+ expect(parse(true,'').joinedTouchSnapshotLease).toBe(false)
+ expect(parse(false,'?wcMixedLease=bad&wcMixedLease=1').joinedTouchSnapshotLease).toBe(false)
+ expect(parse(true,'?qaJoinedTouch=1&wcMixedLease=1')).toMatchObject({joinedTouch:true,joinedTouchSnapshotLease:true})
+ for(const q of ['?wcMixedLease=1','?qaJoinedTouch=1&wcMixedLease=yes','?qaJoinedTouch=1&wcMixedLease=1&wcMixedLease=0','?qaJoinedTouch=1&wcMixedLease=1&wcNative=1','?qaJoinedTouch=1&wcMixedLease=1&qaJoinedFinishDeferred=1','?qaJoinedTouch=1&wcMixedLease=1&qaJoinedTouchMixed=1'])expect(()=>parse(true,q)).toThrow()
+})
