@@ -1,0 +1,14 @@
+/** DEV synchronous one-shot capture from actual bound front callsite.
+ * Existing static-paper Float32 target only. No substitute when baseline/invariant.
+ * Allocates one transient framebuffer for foreign texture, ZERO textures/programs.
+ */
+export function captureWaterFrontOperands(w,{enabled=false}={}){
+ if(!enabled)return null;const{gl,src,film,foreignWater,staticPaper:p}=w;
+ if(w.w!==128||w.h!==128||w.branch!=='static'||!p?.fbo||p.width!==128||p.height!==128||![2,4].includes(p.channels)||src.width!==128||film.width!==128||src.height!==128||film.height!==128)throw Error('Actual full128 static-paper operand capture required; baseline unavailable');
+ const previous=gl.getParameter(gl.FRAMEBUFFER_BINDING),raw={};let own=null;
+ const read=(fbo,type,format,channels)=>{gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('Operand FBO incomplete');const out=type===gl.FLOAT?new Float32Array(16384*channels):new Uint8Array(16384*channels);gl.readPixels(0,0,128,128,format,type,out);if(gl.getError()!==gl.NO_ERROR)throw Error('Operand read failed');return out;};
+ try{raw.cost=read(src.fbo,gl.UNSIGNED_BYTE,gl.RGBA,4);raw.water=read(film.fbo,gl.UNSIGNED_BYTE,gl.RGBA,4);raw.paper=read(p.fbo,gl.FLOAT,p.channels===2?gl.RG:gl.RGBA,p.channels);if(foreignWater){own=gl.createFramebuffer();if(!own)throw Error('Readonly foreign FBO allocation');gl.bindFramebuffer(gl.FRAMEBUFFER,own);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,foreignWater,0);raw.foreign=read(own,gl.UNSIGNED_BYTE,gl.RGBA,4);}else raw.foreign=new Uint8Array(65536);}finally{gl.bindFramebuffer(gl.FRAMEBUFFER,previous);if(own)gl.deleteFramebuffer(own);}
+ const a=()=>new Float64Array(16384),cost=a(),seed=a(),height=a(),effectiveClimb=a(),filmAlpha=a(),foreignFilm=a();for(let i=0;i<16384;i++){cost[i]=raw.cost[i*4]/255;seed[i]=raw.cost[i*4+2]/255;height[i]=raw.paper[i*p.channels];effectiveClimb[i]=raw.paper[i*p.channels+1];filmAlpha[i]=raw.water[i*4+3]/255;foreignFilm[i]=raw.foreign[i*4]/255;}
+ const bytes=Object.values(raw).reduce((sum,b)=>sum+b.byteLength,0);if(bytes>458752)throw Error('Bounded front operand bytes');
+ return{raw,operands:{cost,seed,height,effectiveClimb,film:filmAlpha,foreignFilm,foreignWet:w.foreignWet,costMax:w.costMax,dryCost:w.dryCost,floor:w.floor,stride:w.stride},passport:{branch:w.branch,side:128,worldScale:w.scale,worldOrigin:[w.x0,w.y0],stride:w.stride,climb:w.climb,paper:p.parameters,bytes},limitations:['Actual static-paper sampling only; other branches explicitly fail','Synchronous readback perturbs timing; no latency claim','Owner/epoch/SHA must be attached atomically by owned callback before async hashing']};
+}

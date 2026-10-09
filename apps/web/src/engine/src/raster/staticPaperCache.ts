@@ -42,6 +42,8 @@ export class StaticPaperCache {
    this.key={...p,origin:[...p.origin],paperSize:[...p.paperSize]};this.paper=paper;this.noiseOwner=noiseOwner;this.stats.prepares++;this.stats.bytes=bytes;this.stats.reason='';return true
   }catch(e){this.releaseTexture();return this.fallback(String(e))}finally{gl.bindFramebuffer(gl.FRAMEBUFFER,previousFbo);gl.viewport(viewport[0],viewport[1],viewport[2],viewport[3]);gl.activeTexture(gl.TEXTURE0)}
  }
+ /** DEV read-only actual prepared operand descriptor; no allocation or prepare. */
+ diagnosticPreparedOperands(){return this.texture&&this.fbo&&this.key?{texture:this.texture,fbo:this.fbo,width:this.key.w,height:this.key.h,channels:diagnosticWebgl2Raw(this.ctx.gl())?2:4,parameters:{...this.key,origin:[...this.key.origin],paperSize:[...this.key.paperSize]}}:null}
  bind(kind:'front'|'diffuse'):Program {const state=this.program(kind),gl=this.ctx.gl();gl.useProgram(state.program);gl.activeTexture(gl.TEXTURE6);gl.bindTexture(gl.TEXTURE_2D,this.texture);gl.uniform1i(state.uniforms.u_staticPaper,6);gl.activeTexture(gl.TEXTURE0);return state}
  private fallback(reason:string){this.stats.fallbacks++;this.stats.reason=reason;return false}
  private releaseTexture(){const gl=this.ctx.gl();if(this.texture)gl.deleteTexture(this.texture);if(this.fbo)gl.deleteFramebuffer(this.fbo);this.texture=null;this.fbo=null;this.key=null;this.paper=null;this.noiseOwner=null;this.stats.bytes=0}

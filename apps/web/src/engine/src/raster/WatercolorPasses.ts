@@ -197,6 +197,9 @@ export class WatercolorPasses {
   /** (#536, §17.24) One relaxation step of the water front's cost (WC_WATER_FRONT_FRAG)
    *  over a settle field whose top-left is at world (x0, y0): src → dst. Shared by
    *  the settle's outward and inward passes and the group tide's inward one. */
+  /** DEV default-OFF synchronous operand witness; errors cannot stop canonical draw. */
+  diagnosticBeforeWaterFront: ((witness: Record<string, unknown>) => void) | null = null
+  diagnosticWaterFrontCaptureError: string | null = null
   waterFrontStep(
     field: WatercolorPassField, x0: number, y0: number, dryCost: number,
     src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb: number, floor: number, stride = 1,
@@ -241,6 +244,9 @@ export class WatercolorPasses {
     gl.uniform1f(u.u_floor, floor)
     gl.uniform1f(u.u_costMax, max)
     gl.uniform1f(u.u_stride, stride)
+    if(import.meta.env.DEV && this.diagnosticBeforeWaterFront){
+      try{this.diagnosticBeforeWaterFront({gl,src,film:field.coverage,foreignWater,staticPaper:cached?cache?.diagnosticPreparedOperands():null,branch:cached?'static':invariant?'invariant':'baseline',w:field.w,h:field.h,x0,y0,scale,dryCost,costMax:max,climb,floor,stride,foreignWet:foreignWater?1:0})}catch(error){this.diagnosticWaterFrontCaptureError=String(error)}
+    }
     gl.drawArrays(gl.TRIANGLES, 0, 6)
     dst.endDraw()
   }
