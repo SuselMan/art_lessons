@@ -1,0 +1,21 @@
+{
+  "source": "42e85ec04e1d9241f0f0f823bf30380979e08bca",
+  "verdict": "INVALID incomplete pair, not cache quality failure",
+  "arms": {
+    "off": "failed after first packed operation before diagnostic role read",
+    "on": "not started"
+  },
+  "admissionMiB": 2238.5234375,
+  "postCleanupMiB": 1972.109375,
+  "ownedContextDisposed": true,
+  "failure": "Logical canonical idle preceded submitted scope release; strict diagnostic read guard rejected pending scopes.",
+  "evidence": "temp/device-runs/native-front-cache-42e8-promoted-20261009",
+  "evidencePromoted": true,
+  "offlineFix": "e2d85593",
+  "claims": {
+    "qualityParity": false,
+    "gpuRanking": false,
+    "speedup": false
+  },
+  "next": "One separately allocated OFF/ON pair after review; no automatic retry."
+}
