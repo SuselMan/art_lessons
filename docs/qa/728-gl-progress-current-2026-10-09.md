@@ -66,3 +66,5 @@ Follow-up: bounded per-field NumberMap проверен и отклонён: ful
 
 - [x] Actual Engine wet transcript CPU proof: real PointerInput/brush, exact per-batch sample/deposit/UP times, exact Operation.wet and final model rasters on capturedfork. OFF/observer/overflow/time-order negative guards.
 - [ ] Deferred watercolor Engine admission + GPU ownership + fork→live merge remain HOLD; CPU transcript is not UX/pixel/device proof.
+
+- [ ] Admitted wet actual Engine replay HOLD: transcript lacks DOWN join/checkpoint/UP wash clock stages; same foreign-source wash requires immutable scratch/GPU owner, not only PaperWetness fork. Three concrete prerequisites in `728-gl-admitted-wet-engine-feasibility.md`; no new framework.
