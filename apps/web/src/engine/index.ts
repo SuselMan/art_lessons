@@ -289,6 +289,7 @@ export interface PencilEngineOptions {
   /** DEV-only OFF: retain an owned predecessor snapshot through mixed input. */
   joinedTouchSnapshotLease?: boolean
   /** DEV-only exact local history FIFO prototype; no production effect. */
+  diagnosticHoistedContactRaster?: boolean
   diagnosticGlTiming?: boolean
   diagnosticQueuedHistory?: boolean
   /** Diagnostic OFF: preserve prior material ownership across RGB/preset change. */
@@ -2295,6 +2296,8 @@ export class PencilEngine implements PencilEngineAPI {
 
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
     this.canvas = canvas
+    if (import.meta.env.DEV && options.diagnosticHoistedContactRaster && (options.nativeWatercolor || options.asyncFinish || options.joinedFinishDeferred || options.joinedTouchMixed || options.materialPresentation)) throw Error('Hoisted contact raster requires ordinary GL arm')
+    this._settlePlan.diagnosticHoistedContactRaster = import.meta.env.DEV && options.diagnosticHoistedContactRaster === true
     if (import.meta.env.DEV && options.diagnosticGlTiming && (options.nativeWatercolor || options.asyncFinish || options.joinedFinishDeferred || options.joinedTouchMixed || options.materialPresentation)) throw Error('GL timing requires ordinary synchronous product-model arm')
     if (import.meta.env.DEV && options.diagnosticGlTiming === true) {
       this._glTiming = new BoundedGlTiming()

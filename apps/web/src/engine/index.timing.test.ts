@@ -166,3 +166,17 @@ it('actual two gesture UP records satisfy the strict controller gate without rep
   expect(gate.inputs).toHaveLength(2)
   expect(gate.inputs!.every((r:{unknownExclusiveMs:number})=>r.unknownExclusiveMs>=0)).toBe(true)
 })
+
+it('hoisted contact raster is strict DEV opt-in and actual constructor-owned', () => {
+  expect(watercolorQaOptions(false,false,undefined,'?wcContactHoist=1').diagnosticHoistedContactRaster).toBe(false)
+  expect(watercolorQaOptions(true,false,undefined,'').diagnosticHoistedContactRaster).toBe(false)
+  expect(() => watercolorQaOptions(true,false,undefined,'?wcContactHoist=1&wcContactHoist=0')).toThrow()
+  expect(() => watercolorQaOptions(true,false,undefined,'?wcContactHoist=wat')).toThrow()
+  for (const other of ['wcNative=1','qaJoinedTouchMixed=1','qaJoinedFinishDeferred=1']) {
+    expect(() => watercolorQaOptions(true,false,undefined,'?wcContactHoist=1&'+other)).toThrow()
+  }
+  const opts = watercolorQaOptions(true,false,undefined,'?wcContactHoist=1')
+  const { engine } = createTestEngine({ ...opts, paper:'flat' }, { width:64,height:64 })
+  engines.push(engine)
+  expect(engine['_settlePlan'].diagnosticHoistedContactRaster).toBe(true)
+})

@@ -22,3 +22,11 @@ RELEASE Surface: owned context disposed, frontend5382/forward9455 останов
 ## CPU hoist prototype outcome
 
 Неподключённый `BrushDragHoisted.ts` прошёл 64 детерминированных adverse cases против production и неизменённого generator oracle. Warm VPS alternating benchmark 12 dabs/512×512: median baseline 5.186 ms, hoisted 5.061 ms (2.4% nominal). Один короткий CPU прогон с шумом не доказывает значимый gain; этого недостаточно, чтобы решать 76ms Surface raster. Prototype не подключён к runtime. Более сильный следующий кандидат должен уменьшать число cell visits/exp или переносить CPU raster, с отдельным exact oracle; простого algebraic hoist недостаточно.
+
+## DEV candidate prepared, default OFF
+
+First-call CPU benchmark (8 separate fresh Node processes per arm, startup excluded, alternating order): median baseline 34.817 ms vs hoisted 31.225 ms, nominal 10.3% reduction. Samples overlap/noise; no Surface prediction.
+
+`wcContactHoist=1` is strict DEV opt-in through Room parser→Engine→CanonicalPlan. Production ignores; direct native/async/deferred/mixed/material-presentation combinations reject before expensive init. OFF chooses original brushDragContacts; ON only substitutes exact field producer after unchanged ordered grouping. Lazy contact generator/cache precedences remain unchanged, workspace reuse/reset retained. Stencil, texture upload, solver schedule and finish ownership untouched.
+
+CPU exact oracle includes64 deterministic random+36 signed-zero/extreme/zero-water cases, unchanged generator oracle, workspace growth/shrink with independent retained output buffers. Real prepare integration verifies full ordered uploaded bytes (including foreign stencil), contact pulses and field operator schedule against OFF.12 lifecycle/oracle/parser tests passed before workspace addition; final 4 focused tests plus appTS passed. Hardware candidate not run, manual5381 unaffected.

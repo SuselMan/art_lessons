@@ -1,3 +1,4 @@
+import { brushDragFieldHoisted } from '../watercolor/brushDragHoisted'
 import type { BoundedGlTiming } from '../diagnostics/BoundedGlTiming'
 import { contactPulseOp, frontStepOp, inheritSettleOpTags, presentationStepOp } from '../watercolor/WatercolorSettleQueue'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from '../dabs/ribbonProfile'
@@ -52,6 +53,7 @@ export class CanonicalWatercolorSettlePlan<B extends SettlePlanBuffer<B>, T> {
   lazyContacts = false
   /** Diagnostic OFF: identical contact CPU inputs may recur across boundaries. */
   diagnosticTiming: BoundedGlTiming | null = null
+  diagnosticHoistedContactRaster = false
   diagnosticContactFieldCache = false
   private readonly _contactFieldCache = new BrushContactFieldCache()
   get contactFieldCacheStats() { return this._contactFieldCache.stats }
@@ -309,7 +311,9 @@ export class CanonicalWatercolorSettlePlan<B extends SettlePlanBuffer<B>, T> {
     const workspace = this.diagnosticReuseFlowRaster && !this.diagnosticContactFieldCache && !lazyContacts && !skipZeroPigmentContacts ? new BrushDragRasterWorkspace() : undefined
     const contacts = skipZeroPigmentContacts || lazyContacts ? [] : this.diagnosticContactFieldCache
       ? this._contactFieldCache.contacts(metadata.brushTravel, contactRect)
-      : brushDragContacts(metadata.brushTravel, contactRect, workspace)
+      : this.diagnosticHoistedContactRaster
+        ? brushDragContactGroups(metadata.brushTravel, contactRect).map(group => ({ rect: group.rect, radius: group.radius, field: brushDragFieldHoisted(group.travel, group.rect, 4, workspace)! }))
+        : brushDragContacts(metadata.brushTravel, contactRect, workspace)
     if (workspace) {
       this.flowRasterStats.allocations += workspace.allocations
       this.flowRasterStats.reuses += workspace.reuses
