@@ -4597,15 +4597,18 @@ export class PencilEngine implements PencilEngineAPI {
     if (!job) return
     if (job.timer) clearTimeout(job.timer)
     this._rebuildJobs.delete(layerId)
-    if (this._settle && this._jobOwnsSettle(job)) this._completeSettle()
-    for (const c of job.chunks.values()) c.scratch.destroy()
-    this._forgetWashesOf(job.fresh) // (§17.68)
-    job.fresh.destroy()
-    // A restart makes its washes again straight away - from these.
-    if (!restarting) {
-      const owner = this._queuedHistoryJobOwners.get(job)
-      if (owner && this._queuedHistoryRepairOwners.get(layerId) === owner) this._queuedHistoryRepairOwners.delete(layerId)
-      this._endPoolHold()
+    const owner = this._queuedHistoryJobOwners.get(job)
+    try {
+      if (this._settle && this._jobOwnsSettle(job)) this._completeSettle()
+      for (const c of job.chunks.values()) c.scratch.destroy()
+      this._forgetWashesOf(job.fresh) // (§17.68)
+      job.fresh.destroy()
+      // A restart makes its washes again straight away - from these.
+      if (!restarting) this._endPoolHold()
+    } finally {
+      // Release only this retired generation, including exceptional teardown.
+      // A synchronous replacement retains its own publication boundary.
+      if (!restarting && owner && !this._rebuildJobs.has(layerId) && this._queuedHistoryRepairOwners.get(layerId) === owner) this._queuedHistoryRepairOwners.delete(layerId)
     }
   }
 
