@@ -46,10 +46,12 @@ export class CanonicalWatercolorWebGpu {
  private get sourceWater(){return this.standaloneFields?.water??(this.fallbackWater??=this.createZeroSourceWater())}
  private createZeroSourceWater(){const field=this.createField('constant zero source water',1,1);this.clearField(field);return field}
  private readonly ownedFields=new Set<CanonicalGpuField>()
+ private resourceLedgerSequence=0
+ private readonly resourceLedgerIds=new WeakMap<CanonicalGpuField,number>()
  /** DEV QA ledger only; no readback or mutation of resource ownership. */
  get diagnosticResourceLedger(){
   if(!import.meta.env.DEV)throw new Error('Native resource ledger is DEV only')
-  return [...this.ownedFields].map(f=>({label:f.label,width:f.width,height:f.height,filter:f.filter,format:f.format,bytes:f.width*f.height*4}))
+  return [...this.ownedFields].map(f=>({id:this.resourceLedgerIds.get(f)!,label:f.label,width:f.width,height:f.height,filter:f.filter,format:f.format,bytes:f.width*f.height*4}))
  }
  private readonly clearPipeline:GPUComputePipeline
  private readonly context: GPUCanvasContext|null
@@ -121,7 +123,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
  }
  createField(label: string, width: number, height: number, filter:'nearest'|'linear'='nearest'): CanonicalGpuField {
   const texture = this.device.createTexture({ label, size: [width, height], format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT })
-  const field:CanonicalGpuField={ width, height, label, filter, format: 'rgba8unorm', texture, view: texture.createView() };this.ownedFields.add(field);return field
+  const field:CanonicalGpuField={ width, height, label, filter, format: 'rgba8unorm', texture, view: texture.createView() };this.ownedFields.add(field);this.resourceLedgerIds.set(field,++this.resourceLedgerSequence);return field
  }
  destroyField(field:CanonicalGpuField) {
   if(this.ownedFields.delete(field)){if(this.activeEncoder)this.activeRetired.push(field);else if(this.pendingScopes)this.pendingRetired.add(field);else field.texture.destroy()}
