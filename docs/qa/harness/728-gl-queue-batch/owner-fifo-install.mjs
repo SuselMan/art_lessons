@@ -1,3 +1,4 @@
+import{capturePreviewInheritedGeometry}from'./PreviewInheritedGeometry.mjs';
 import {installOwnedQaReuseHooks} from '../728-room-moment/OwnedQaReuseHooks.mjs';
 import {diagnosticWebgl2Raw} from '../../../../apps/web/src/engine/src/raster/diagnosticWebgl2.ts';
 import {createPreviewFloatProbe} from './PreviewFloatProbe.mjs';
@@ -73,7 +74,7 @@ export function installOwnerFifo(e,{qaReuseOwners=false,capacity=3,budgetBytes=1
  const ensureOwner=(scratch,request,target)=>{
   const map=mapFor(scratch),gesture=request.metadata.gesture;let owner=map.get(gesture);if(owner)return owner;
   const layerId=e._strokeLayerId;if(!layerId)throw Error('Source owner has no active layer');
-  const prior=latest(layerId);let parentBuffer=prior?.lease.fields.presentation;const initial=Object.fromEntries(roles.map(role=>[role,null]));
+  const prior=latest(layerId),inheritedGeometry=diagnosticCarryPreview&&prior?capturePreviewInheritedGeometry(prior.source.chunks,prior.previewInheritedGeometry):null;let parentBuffer=prior?.lease.fields.presentation;const initial=Object.fromEntries(roles.map(role=>[role,null]));
   if(prior){
    if(prior.scratch!==scratch)throw Error('QA cross-wash presentation requires explicit foreign-source adapter');
    for(const role of ['presentation','original','coverage','pigmentLoad','colourLoad','solventLoad'])initial[role]=prior.lease.fields[role];
@@ -87,7 +88,7 @@ export function installOwnerFifo(e,{qaReuseOwners=false,capacity=3,budgetBytes=1
   const lease=pool.take(initial);if(!lease)throw Error('QA owner capacity exhausted before source');
   const source=new OwnedGlPreparedSource({lease,context:drawContext,ribbon:e._ribbonPasses,watercolor:e._watercolorPasses,retainForRebase:diagnosticMaterialRebase,retainedPayloadBudgetBytes,ownerToken:diagnosticMaterialRebase?{layerId,gesture}:undefined});
   const admission=coordinator.admit(layerId,gesture,{...lease,release:()=>{if(!reuse&&owner)morph?.retire(owner);source.retire()}});if(!admission.accepted){source.retire();throw Error('QA owner admission '+admission.reason)}
-  owner={token:admission.token,gesture,scratch,lease,source,canonicalStarted:false};try{if(morph)morph.inherit(owner,parentBuffer)}catch(error){coordinator.cancel(owner.token);throw error}
+  owner={token:admission.token,gesture,scratch,lease,source,previewInheritedGeometry:inheritedGeometry,canonicalStarted:false};try{if(morph)morph.inherit(owner,parentBuffer)}catch(error){coordinator.cancel(owner.token);throw error}
   if(reuse&&!reuse.track(owner,{detachPresentation:()=>{preview?.retire(owner);morph?.retire(owner);return{gpuWrites:false}},releasePreview:()=>{if(diagnosticEarlyPreview)preview.releaseRetiredOwnerAfterKnownIdle(owner)},hasFutureCpuJobs:()=>coordinator.snapshot().owners.some(entry=>entry.token===owner.token)}))throw Error('Reuse bundle capacity');
   map.set(gesture,owner);owners.set(owner.token,owner);event('admit',{sequence:owner.token.sequence,bytes:coordinator.snapshot().bytes});return owner;
  };
@@ -141,7 +142,7 @@ export function installOwnerFifo(e,{qaReuseOwners=false,capacity=3,budgetBytes=1
    try{return originals.finish.call(e,scratch,...args)}finally{e._revealWash=reveal}
   }
   if(!owner||args[3])return originals.finish.call(e,scratch,...args);
-  probe(owner,'sealed-source');coordinator.seal(owner.token,scratch.captureFinishMetadata());event('seal',{sequence:owner.token.sequence});if(preview){preview.seal(owner);previewAdmissions++}
+  probe(owner,'sealed-source');coordinator.seal(owner.token,scratch.captureFinishMetadata());event('seal',{sequence:owner.token.sequence});if(diagnosticCarryPreview)event('owned-preview-inherited-geometry',{sequence:owner.token.sequence,source:capturePreviewInheritedGeometry(owner.source.chunks),merged:capturePreviewInheritedGeometry(owner.source.chunks,owner.previewInheritedGeometry)});if(preview){preview.seal(owner);previewAdmissions++}
   const enqueue=e._wcCanonical.enqueue;e._wcCanonical.enqueue=function(request){return enqueue.call(this,{execute:function*(){yield* request.execute();if(morph){
      const layer=e._layers.get(owner.token.layerId),tile=e._ribbonPainterContext.resolveWithinSheet(layer,{minX:0,minY:0,maxX:1024,maxY:1024})[0],entry=scratch.peek(tile.buffer);if(!entry?.inkLoad||!entry.inkColor||!entry.solventLoad)throw Error('Read-only landed material roles missing');
      let fields={presentation:tile.buffer,original:entry.original,coverage:entry.coverage,pigmentLoad:entry.inkLoad,colourLoad:entry.inkColor,solventLoad:entry.solventLoad},predecessorGesture=owner.gesture;
