@@ -29,5 +29,12 @@ test('captured CPU end-to-end retains exact passport and rejects stale/stride/we
  await assert.rejects(()=>runCapturedPairedCandidate(snapshot,{...options,currentPassport:()=>({...p,epoch:1})}),/Stale/);
  await assert.rejects(()=>runCapturedPairedCandidate({...snapshot,driver:{...snapshot.driver,passStride:2}},options),/mismatch/);
  await assert.rejects(()=>runCapturedPairedCandidate({...snapshot,highWet:null},options),/wet/);
- await assert.rejects(()=>runCapturedPairedCandidate({...snapshot,passport:{...p,origin:[1024,0]}},options),/outsideworld/);
+ await assert.rejects(()=>runCapturedPairedCandidate({...snapshot,passport:{...p,origin:[1024,0]}},options),/mapping/);
+});
+
+test('positive executor refuses overdraw and escaped endpoint before evidence promotion',()=>{
+ const side=128,n=side*side,source=new Float64Array(n*8),fractions=new Float64Array(n*4);source[3]=1;const lift={fractions,hop:8,boundaryDemand:0};
+ fractions[0]=.6;fractions[1]=.5;assert.throws(()=>applyLiftedPairedDriver({source,side,lift}),/available mass/);
+ fractions[0]=0;fractions[1]=.2;assert.throws(()=>applyLiftedPairedDriver({source,side,lift}),/escaped/);
+ fractions[1]=NaN;assert.throws(()=>applyLiftedPairedDriver({source,side,lift}),/fraction/);
 });

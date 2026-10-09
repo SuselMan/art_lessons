@@ -14,7 +14,7 @@ export function actual128DonorFractions({pressure,path,fluid,oldP,passStride,pas
  return{fractions:out,epoch,passStep,passStride,worldHopPx:8*passStride,options:{...options},limitations:['Exact donor algebra under provided normalized fields; capillaryRIDGE=1 actual constant','Provided fluid at coarse sample centres; GPU filtering must match capture sampling separately','No wall-time velocity conversion; one call equals one captured carry pass']};
 }
 export function liftActual128Fractions({driver,origin,side,highWet}){
- if(!driver||!Array.isArray(origin)||origin.length!==2||origin.some(v=>!Number.isInteger(v)||v<0||v%8)||![128,256].includes(side)||highWet?.length!==side*side)throw Error('Aligned8px bounded highROI mapping required');const f=new Float64Array(side*side*4);let boundaryDemand=0,blockedDryEdges=0;const hop=driver.worldHopPx;
+ if(!driver||!Array.isArray(origin)||origin.length!==2||origin.some(v=>!Number.isInteger(v)||v<0||v%8)||![128,256].includes(side)||highWet?.length!==side*side||origin.some(v=>v+side>1024))throw Error('Aligned8px bounded highROI mapping required');const f=new Float64Array(side*side*4);let boundaryDemand=0,blockedDryEdges=0;const hop=driver.worldHopPx;
  for(let y=0;y<side;y++)for(let x=0;x<side;x++){const i=y*side+x;if(!highWet[i])continue;const cx=Math.floor((origin[0]+x)/8),cy=Math.floor((origin[1]+y)/8);if(cx>=128||cy>=128)throw Error('ROI outsideworld');for(const[d,dx,dy]of [[0,1,0],[1,-1,0],[2,0,1],[3,0,-1]]){const value=driver.fractions[(cy*128+cx)*4+d];if(value<=0)continue;const xx=x+dx*hop,yy=y+dy*hop;if(xx<0||yy<0||xx>=side||yy>=side){boundaryDemand+=value;continue}let allowed=true;for(let t=1;t<=hop;t++)if(!highWet[(y+dy*t)*side+x+dx*t]){allowed=false;break}if(!allowed){blockedDryEdges++;continue}f[i*4+d]=value}}
  return{fractions:f,hop,epoch:driver.epoch,passStep:driver.passStep,passStride:driver.passStride,boundaryDemand,blockedDryEdges,limitations:['High wet path forbids narrow gaps missed by actual coarse sampling; this is a deliberate stricter preview safety gate','Do not execute if boundaryDemand>0; grow/admit fallback before transport','No altered worldstride/time; hop stays8*actualpassStride']};
 }
@@ -28,8 +28,8 @@ export function applyLiftedPairedDriver({source,side,lift}){
  for(let y=0;y<side;y++)for(let x=0;x<side;x++){
   const i=y*side+x;let sum=0;
   for(let d=0;d<4;d++){const f=lift.fractions[i*4+d];if(!Number.isFinite(f)||f<0)throw Error('Invalid donor fraction');sum+=f;}
-  if(sum>1+1e-12)throw Error('Donor exceeds available mass');
-  for(let c=0;c<8;c++)out[i*8+c]+=source[i*8+c]*Math.max(0,1-sum);
+  if(sum>1)throw Error('Donor exceeds available mass');
+  for(let c=0;c<8;c++)out[i*8+c]+=source[i*8+c]*(1-sum);
   for(let d=0;d<4;d++){const f=lift.fractions[i*4+d];if(f===0)continue;const [dx,dy]=directions[d],xx=x+dx*lift.hop,yy=y+dy*lift.hop;if(xx<0||yy<0||xx>=side||yy>=side)throw Error('Lift escaped admitted ROI');const j=yy*side+xx;for(let c=0;c<8;c++)out[j*8+c]+=source[i*8+c]*f;}
  }
  return {moments:out,epoch:lift.epoch,passStep:lift.passStep,passStride:lift.passStride,hop:lift.hop};
