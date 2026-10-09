@@ -55,3 +55,6 @@ OFF1150ms gap содержит recorded MOVE0.1ms, source/runSlice/settleQueue/l
 
 
 First actual UI cohort on6ba source INCOMPLETE: OFF actual constructor query joined=true/lease=false/native=false, timed pending/export passed. Harness Undo locator matched header AND floating customizable slot; strict selector violation stopped before UI undo, ON was not run. Это ошибка harness, не доказательство engine regression. Selector narrowed to exactly one RoomHeader headerIconBtn control; no first() fallback. Compact10.4KB saved before cleanup, all owned contexts/Vite/forward closed, finalRAM1691, Surface RELEASE. No automatic retry.
+
+
+Corrected-header UI cohort снова INCOMPLETE: все3 actual controlsunique и constructorflags PASS, OFF timed/input/export PASS; waitForFunction30s timed out insideUI. Source review обнаружил ошибку harness: doneOperations содержит operation_undo, так что removal1stroke+addition1control сохраняют общийcount. Wait теперь сравнивает exact filtered stroke IDs вместо любого countchange. Product regression пока не установлена. Compact10.6KB savedbeforecleanup, finalRAM1741, Surface RELEASE; ON не запускался/noautotry.
