@@ -1,0 +1,312 @@
+{
+  "scope": "Actual Surface no-input /create navigation only; no room submit, strokes or GPU material",
+  "navigation": {
+    "exactGotoURL": "[QA origin]/create",
+    "waitUntil": "domcontentloaded",
+    "timeoutMs": 30000,
+    "ignoreHTTPSErrors": true
+  },
+  "passport": {
+    "apps/web/src/main.tsx": "954967a4d4e7f01ec1115003929bab975ad52ea873fc77be4c146c7d1b1b7b75",
+    "apps/web/src/engine/toolOptions.ts": "1925d043fcd1f1e683082d7b3d2ffa505f6cfe7f218351a534914d524226cb06",
+    "apps/web/src/engine/src/presets/pencilPresets.ts": "190a43d91e6b94a6d03ad3763adef08783542bbd20a901bc5ae37d15d902e27c",
+    "apps/web/src/lib/tools/toolSchemas.ts": "3bde1b968ec1d850921e30522b0198fdefd69e6892e8723c59591470012700e8",
+    "apps/web/src/lib/tools/pressureResponseCurves.ts": "10a9dcf3904308063d2c28190091c17fa4e8e1c036d92d9818c1e93e38de6571",
+    "apps/web/src/lib/tools/tiltResponseCurves.ts": "a40446ea0ab58a10953bca5c94ea710369acd4033b7b8bf108506f0f1b2ea743",
+    "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "edf56db76df946a79940f012a8bb9344a7799c0b5204accc4be7774d6bf9aa83",
+    "apps/web/src/engine/index.ts": "3cbac012e3de3febce31cd5621af8b22bbf1cac91cdd6eb3e0b01ef966899609",
+    "apps/web/src/engine/src/raster/CanonicalWatercolorSettlePlan.ts": "bd10157ac1e32f3d3bcf61fe0d3936770c35c05df881019b978efe28bfb012ef",
+    "apps/web/src/engine/src/watercolor/brushDragHoisted.ts": "bc3187f4f73d8aa37d39b9591a389527b1e1b409d2e73bd6300964c822a24ed9",
+    "docs/qa/harness/728-gl-timing/NavigationTrace.mjs": "105192c0b1cfb62f5ac0d9fe77cf12c22d380ce9a22c2d0423714ecdd7a9f627"
+  },
+  "sharedProof": null,
+  "stages": [
+    {
+      "name": "context-open",
+      "at": 2225.442146
+    },
+    {
+      "name": "goto",
+      "at": 4781.93767
+    },
+    {
+      "name": "domcontentloaded",
+      "at": 17200.62688
+    },
+    {
+      "name": "goto-return",
+      "at": 17202.59423
+    },
+    {
+      "name": "load",
+      "at": 17219.922001
+    },
+    {
+      "name": "form-ready",
+      "at": 23643.570798
+    },
+    {
+      "name": "closed",
+      "at": 25466.21908
+    }
+  ],
+  "network": {
+    "rows": [
+      {
+        "phase": "request",
+        "requestId": "18660.117",
+        "originClass": "QA",
+        "pathname": "/api/me",
+        "type": "Fetch",
+        "at": 543665.659945,
+        "wallAt": 1791568679.86122
+      },
+      {
+        "phase": "response",
+        "requestId": "18660.117",
+        "originClass": "QA",
+        "pathname": "/api/me",
+        "status": 200,
+        "protocol": "h2",
+        "connectionReused": true,
+        "connectionId": 1550650,
+        "type": "Fetch",
+        "at": 543665.777147,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "request",
+        "requestId": "18660.121",
+        "originClass": "QA",
+        "pathname": "/api/me/environment",
+        "type": "Fetch",
+        "at": 543665.823787,
+        "wallAt": 1791568680.025012
+      },
+      {
+        "phase": "request",
+        "requestId": "18660.122",
+        "originClass": "QA",
+        "pathname": "/src/pages/CreateRoom/index.tsx",
+        "type": "Script",
+        "at": 543665.841086,
+        "wallAt": 1791568680.042367
+      },
+      {
+        "phase": "response",
+        "requestId": "18660.121",
+        "originClass": "QA",
+        "pathname": "/api/me/environment",
+        "status": 200,
+        "protocol": "h2",
+        "connectionReused": true,
+        "connectionId": 1550650,
+        "type": "Fetch",
+        "at": 543665.875448,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "response",
+        "requestId": "18660.122",
+        "originClass": "QA",
+        "pathname": "/src/pages/CreateRoom/index.tsx",
+        "status": 200,
+        "protocol": "h2",
+        "connectionReused": true,
+        "connectionId": 1550650,
+        "type": "Script",
+        "at": 543665.975864,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "request",
+        "requestId": "18660.136",
+        "originClass": "QA",
+        "pathname": "/src/pages/CreateRoom/CreateRoom.module.css",
+        "type": "Script",
+        "at": 543665.97874,
+        "wallAt": 1791568680.179904
+      },
+      {
+        "phase": "response",
+        "requestId": "18660.136",
+        "originClass": "QA",
+        "pathname": "/src/pages/CreateRoom/CreateRoom.module.css",
+        "status": 200,
+        "protocol": "h2",
+        "connectionReused": true,
+        "connectionId": 1550650,
+        "type": "Script",
+        "at": 543666.241888,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "request",
+        "requestId": "18660.186",
+        "originClass": "QA",
+        "pathname": "/src/engine/toolOptions.ts",
+        "type": "Script",
+        "at": 543669.953179,
+        "wallAt": 1791568684.154356
+      },
+      {
+        "phase": "response",
+        "requestId": "18660.186",
+        "originClass": "QA",
+        "pathname": "/src/engine/toolOptions.ts",
+        "status": 200,
+        "protocol": "h2",
+        "connectionReused": true,
+        "connectionId": 1550650,
+        "type": "Script",
+        "at": 543670.715263,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      }
+    ],
+    "pending": [
+      {
+        "requestId": "18660.257",
+        "originClass": "QA",
+        "pathname": "/brand/grafetto-g.png",
+        "type": "Image",
+        "at": 543671.547864,
+        "wallAt": 1791568685.749067
+      },
+      {
+        "requestId": "18660.116",
+        "originClass": "QA",
+        "pathname": "/src/assets/fonts/material-symbols-subset.woff2",
+        "type": "Font",
+        "at": 543671.565078,
+        "wallAt": 1791568685.766301
+      },
+      {
+        "requestId": "18660.258",
+        "originClass": "QA",
+        "pathname": "/src/pages/Room/index.tsx",
+        "type": "Script",
+        "at": 543671.679511,
+        "wallAt": 1791568685.881885
+      },
+      {
+        "requestId": "18660.259",
+        "originClass": "QA",
+        "pathname": "/paper/coarse.6e885150.preview",
+        "type": "Fetch",
+        "at": 543671.682843,
+        "wallAt": 1791568685.88405
+      },
+      {
+        "requestId": "18660.260",
+        "originClass": "QA",
+        "pathname": "/paper/medium.44d7c449.preview",
+        "type": "Fetch",
+        "at": 543671.683063,
+        "wallAt": 1791568685.884338
+      },
+      {
+        "requestId": "18660.261",
+        "originClass": "QA",
+        "pathname": "/paper/fine.a19fcf63.preview",
+        "type": "Fetch",
+        "at": 543671.68337,
+        "wallAt": 1791568685.884575
+      }
+    ],
+    "dropped": 0,
+    "scope": "Passive network stage only; no response bodies/auth/headers/query/fullURL"
+  },
+  "errors": [],
+  "memory": [
+    {
+      "phase": "admission",
+      "free": 2095,
+      "attempt": 0,
+      "elapsedMs": 1381
+    },
+    {
+      "phase": "active",
+      "free": 1815
+    },
+    {
+      "phase": "active",
+      "free": 1805
+    },
+    {
+      "phase": "active",
+      "free": 1738
+    },
+    {
+      "phase": "closed",
+      "free": 1900
+    }
+  ],
+  "result": {
+    "transport": {
+      "roundtripMs": 146.4643500000002,
+      "execution": {
+        "result": 2,
+        "now": 1313.5999999046326
+      }
+    },
+    "browser": "154.0.8037.98",
+    "valid": true,
+    "document": {
+      "firstFormWallMs": 1791568685758,
+      "readyState": "complete",
+      "formTextCount": 1,
+      "hasEngine": false,
+      "rootChildCount": 1,
+      "rootTextLength": 437,
+      "rootChildTags": [
+        "DIV"
+      ]
+    },
+    "bootWitness": {
+      "firstFormWallMs": 1791568685758,
+      "engineRequests": [],
+      "scope": "Network wall clocks vs MutationObserver first form; sub-5ms boundary ambiguous; dynamic Room preload after form allowed"
+    }
+  },
+  "networkTotals": {
+    "requestCount": 257,
+    "responseCount": 255,
+    "pendingCount": 6,
+    "rows": 763,
+    "dropped": 0,
+    "protocols": [
+      "h2"
+    ]
+  },
+  "provenance": {
+    "runtimeSourceHead": "836acf1d",
+    "config": "apps/web/vite.config.ts ordinary; no shared QA config",
+    "harness": "uncommitted firstForm+Network.wallAt observations now committed with evidence",
+    "scope": "ONE actual Surface no-input form readiness; no room/drawing/gain claim"
+  }
+}
