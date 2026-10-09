@@ -1,0 +1,253 @@
+{
+  "scope": "CPU-only actual Plan fixture capture; static Engine finish/publication supplements in report",
+  "rows": [
+    {
+      "half": false,
+      "film": false,
+      "op0SourceReadBuffers": [
+        {
+          "role": "inkLoad",
+          "w": 64,
+          "h": 64
+        },
+        {
+          "role": "inkBase",
+          "w": 64,
+          "h": 64
+        },
+        {
+          "role": "coverage",
+          "w": 64,
+          "h": 64
+        },
+        {
+          "role": "solventLoad",
+          "w": 64,
+          "h": 64
+        },
+        {
+          "role": "foreignSolventLoad",
+          "w": 64,
+          "h": 64
+        },
+        {
+          "role": "owned-field-or-temporary",
+          "w": 64,
+          "h": 64
+        },
+        {
+          "role": "inkColor",
+          "w": 64,
+          "h": 64
+        },
+        {
+          "role": "colorBase",
+          "w": 64,
+          "h": 64
+        }
+      ],
+      "residentTileReadRoles": [
+        "inkLoad",
+        "inkBase",
+        "coverage",
+        "solventLoad",
+        "foreignSolventLoad",
+        "inkColor",
+        "colorBase"
+      ],
+      "bytesAt1024PerListedResidentRole": 4194304,
+      "scope": "actual CPU planner op0 command reads, not GPU pixels/full Engine readset"
+    },
+    {
+      "half": false,
+      "film": true,
+      "op0SourceReadBuffers": [
+        {
+          "role": "inkLoad",
+          "w": 64,
+          "h": 64
+        },
+        {
+          "role": "inkBase",
+          "w": 64,
+          "h": 64
+        },
+        {
+          "role": "coverage",
+          "w": 64,
+          "h": 64
+        },
+        {
+          "role": "solventLoad",
+          "w": 64,
+          "h": 64
+        },
+        {
+          "role": "foreignSolventLoad",
+          "w": 64,
+          "h": 64
+        },
+        {
+          "role": "owned-field-or-temporary",
+          "w": 64,
+          "h": 64
+        },
+        {
+          "role": "inkColor",
+          "w": 64,
+          "h": 64
+        },
+        {
+          "role": "colorBase",
+          "w": 64,
+          "h": 64
+        }
+      ],
+      "residentTileReadRoles": [
+        "inkLoad",
+        "inkBase",
+        "coverage",
+        "solventLoad",
+        "foreignSolventLoad",
+        "inkColor",
+        "colorBase"
+      ],
+      "bytesAt1024PerListedResidentRole": 4194304,
+      "scope": "actual CPU planner op0 command reads, not GPU pixels/full Engine readset"
+    },
+    {
+      "half": true,
+      "film": false,
+      "op0SourceReadBuffers": [
+        {
+          "role": "inkLoad",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "inkBase",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "colorBase",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "coverage",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "solventLoad",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "foreignSolventLoad",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "owned-field-or-temporary",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "inkColor",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "owned-field-or-temporary",
+          "w": 1024,
+          "h": 1024
+        },
+        {
+          "role": "owned-field-or-temporary",
+          "w": 1024,
+          "h": 1024
+        }
+      ],
+      "residentTileReadRoles": [
+        "inkLoad",
+        "inkBase",
+        "colorBase",
+        "coverage",
+        "solventLoad",
+        "foreignSolventLoad",
+        "inkColor"
+      ],
+      "bytesAt1024PerListedResidentRole": 4194304,
+      "scope": "actual CPU planner op0 command reads, not GPU pixels/full Engine readset"
+    },
+    {
+      "half": true,
+      "film": true,
+      "op0SourceReadBuffers": [
+        {
+          "role": "inkLoad",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "inkBase",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "colorBase",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "coverage",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "solventLoad",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "foreignSolventLoad",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "owned-field-or-temporary",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "inkColor",
+          "w": 2048,
+          "h": 2048
+        },
+        {
+          "role": "owned-field-or-temporary",
+          "w": 1024,
+          "h": 1024
+        },
+        {
+          "role": "owned-field-or-temporary",
+          "w": 1024,
+          "h": 1024
+        }
+      ],
+      "residentTileReadRoles": [
+        "inkLoad",
+        "inkBase",
+        "colorBase",
+        "coverage",
+        "solventLoad",
+        "foreignSolventLoad",
+        "inkColor"
+      ],
+      "bytesAt1024PerListedResidentRole": 4194304,
+      "scope": "actual CPU planner op0 command reads, not GPU pixels/full Engine readset"
+    }
+  ]
+}

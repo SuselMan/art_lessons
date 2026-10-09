@@ -41,6 +41,8 @@ Follow-up: bounded per-field NumberMap проверен и отклонён: ful
 - [x] Existing GL2 MRT route/source audit и узкие guards9814:12CPU+TS PASS; independent review отдельно, hardware не выполнен.
 - [x] Own frontend/SSH/context/disposable ресурсы завершить; дополнительных ресурсов сейчас нет.
 - [ ] Найти **существенное** уменьшение cold contact prep без approximate exp/Q8/order loss. Column/memo не закрывают задачу.
+- [x] CPU-only ownedlazyUP prototype58ff:actualFIFO+actualPlanorderedtrace,9tests+TS; НЕphysicalmaterialfreeze/UXready.
+- [x] Readsetcensus:op0 reads7roles,fullfinishclosure broader;8snapshot insufficient, noGPUCOWimplemented.
 - [ ] Если выбирается existing lazyContacts: доказать owning/FIFO/отмену и обе цены DOWN→source и UP→nextinteractive, не просто сдвигcost. Никакого unowned timeout/deferfinish.
 - [ ] При выбранном GL2 paired кандидате: fresh current-source GL1→GL2 syntax/material parity, затем GL2single→paired, actual consumption/история/contextloss. Исторические проценты не заменяют этот gate.
 - [ ] Живой UX проверить на разрешённом устройстве: второй400мокрый штрих, прозрачность послеUP, Undo/Redo/Dry, дальнейшийinput; измерять source-submit/composite/RAF отдельно отphysicalvisible.
