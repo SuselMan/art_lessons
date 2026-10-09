@@ -88,7 +88,7 @@ export class CanonicalBrushContact {
   const values=new Float32Array(20);values.set([...step,1/f.pigment.width,1/f.pigment.height,...flowRect,gain,+(f.pigment.filter==='linear'),+(f.color.filter==='linear'),+(f.water.filter==='linear'),...(scissor??[0,0,f.outPigment.width,f.outPigment.height])]);new Uint32Array(values.buffer).set(rect,16)
   const u=retain(this.device.createBuffer({size:80,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}));this.device.queue.writeBuffer(u,0,values)
   const entries:GPUBindGroupEntry[]=[{binding:0,resource:{buffer:u}},...[f.pigment,f.color,f.flow,f.water].map((field,k)=>({binding:k+1,resource:field.view})),{binding:5,resource:ctx.linear},{binding:6,resource:f.outPigment.view},{binding:7,resource:f.outColor.view}]
-  const group=this.device.createBindGroup({layout:this.pipeline.getBindGroupLayout(0),entries}),pass=ctx.encoder.beginComputePass();pass.setPipeline(this.pipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(rect[2]/8),Math.ceil(rect[3]/8));pass.end();return[u]
+  const group=this.device.createBindGroup({layout:this.pipeline.getBindGroupLayout(0),entries}),pass=ctx.encoder.beginComputePass({label:import.meta.env.DEV?'Canonical brush paired':undefined});pass.setPipeline(this.pipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(rect[2]/8),Math.ceil(rect[3]/8));pass.end();return[u]
  
   })
  }
@@ -100,7 +100,7 @@ export class CanonicalBrushContact {
   const values=new Float32Array(24);values.set([...step,1/f.pigment.width,1/f.pigment.height,...flowRect,gain,+(f.pigment.filter==='linear'),+(f.color.filter==='linear'),+(f.water.filter==='linear'),...(scissor??[0,0,f.out.width,f.out.height])]);new Uint32Array(values.buffer).set(rect,16);values.set([+(output==='color'),0,0,0],20)
   const u=retain(this.device.createBuffer({size:96,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}));this.device.queue.writeBuffer(u,0,values)
   const entries:GPUBindGroupEntry[]=[{binding:0,resource:{buffer:u}},...[f.pigment,f.color,f.flow,f.water].map((field,k)=>({binding:k+1,resource:field.view})),{binding:5,resource:ctx.linear},{binding:6,resource:f.out.view}]
-  const group=this.device.createBindGroup({layout:this.singlePipeline.getBindGroupLayout(0),entries}),pass=ctx.encoder.beginComputePass();pass.setPipeline(this.singlePipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(rect[2]/8),Math.ceil(rect[3]/8));pass.end();return[u]
+  const group=this.device.createBindGroup({layout:this.singlePipeline.getBindGroupLayout(0),entries}),pass=ctx.encoder.beginComputePass({label:import.meta.env.DEV?'Canonical brush single':undefined});pass.setPipeline(this.singlePipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(rect[2]/8),Math.ceil(rect[3]/8));pass.end();return[u]
  
   })
  }

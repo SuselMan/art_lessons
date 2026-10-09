@@ -15,7 +15,7 @@ export class TraceBuffer {
   destroy() { this.record('destroy', [this]) }
 }
 export type TraceTexture = { id: number }
-export function traceFixture(half: boolean, mixed: boolean, film: boolean, foreign: boolean, travel: boolean) {
+export function traceFixture(half: boolean, mixed: boolean, film: boolean, foreign: boolean, travel: boolean, widthOverride?:number) {
   const events: unknown[][] = []
   let nextBuffer = 0, nextTexture = 0
   const normalize = (value: unknown): unknown => {
@@ -34,7 +34,7 @@ export function traceFixture(half: boolean, mixed: boolean, film: boolean, forei
     const buffer = new TraceBuffer(++nextBuffer, w, h, record)
     record('acquire', [buffer]); return buffer
   }
-  const width = half ? 2048 : 64
+  const width = widthOverride??(half ? 2048 : 64)
   const tile = acquire(width, width)
   const entry: SettlePlanTile<TraceBuffer> = {
     original: acquire(width, width), coverage: acquire(width, width), inkLoad: acquire(width, width), inkSettled: null,

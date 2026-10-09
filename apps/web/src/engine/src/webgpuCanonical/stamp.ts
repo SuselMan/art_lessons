@@ -107,7 +107,7 @@ export class CanonicalStampDeposit {
    const entries:GPUBindGroupEntry[]=[{binding:0,resource:{buffer:u}},{binding:2,resource:this.noise.view}]
    if(pipeline!==this.pipelines.get('coverage'))entries.push({binding:1,resource:read.view})
    const group=this.device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries})
-   const pass=encoder.beginRenderPass({colorAttachments:writes.map(field=>({view:field.view,loadOp:'load',storeOp:'store'}))});pass.setPipeline(pipeline);pass.setBindGroup(0,group);pass.draw(6);pass.end()
+   const pass=encoder.beginRenderPass({label:import.meta.env.DEV?'Canonical stamp '+phase+' '+(writes[0]===coverage?'coverage':writes[0]===pigment?'pigment':'color')+(writes.length===2?'+color':''):undefined,colorAttachments:writes.map(field=>({view:field.view,loadOp:'load',storeOp:'store'}))});pass.setPipeline(pipeline);pass.setBindGroup(0,group);pass.draw(6);pass.end()
   }
   if(phase==='all'||phase==='coverage')encode(this.coverage,blank,[coverage])
   if(phase==='all')encode(this.pipeline('ink'+stamp.inkBlend),coverage,[pigment,color])

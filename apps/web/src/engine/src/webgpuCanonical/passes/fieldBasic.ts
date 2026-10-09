@@ -53,7 +53,7 @@ export class CanonicalBasicFieldPass {
       {binding:0,resource:resources.a.view},{binding:1,resource:resources.b.view},{binding:2,resource:(resources.c??resources.b).view},
       {binding:3,resource:resources.out.view},{binding:4,resource:{buffer:uniform}},
     ]})
-    const pass=ctx.encoder.beginComputePass({label:'Canonical fieldOp '+mode});pass.setPipeline(this.pipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(w/8),Math.ceil(h/8));pass.end()
+    const pass=ctx.encoder.beginComputePass({label:import.meta.env.DEV?'Canonical basic fieldOp '+mode:'Canonical fieldOp '+mode});pass.setPipeline(this.pipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(w/8),Math.ceil(h/8));pass.end()
     return uniform
   }
 }

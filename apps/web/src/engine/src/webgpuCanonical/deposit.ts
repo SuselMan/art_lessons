@@ -103,7 +103,7 @@ export class CanonicalRibbonDeposit {
   this.device.queue.writeBuffer(vertices, 0, local as Float32Array<ArrayBuffer>)
   const encode = (pipeline: GPURenderPipeline, read: CanonicalGpuField, writes: CanonicalGpuField[]) => {
    const group = this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniform } }, { binding: 1, resource: read.view }, { binding: 2, resource: this.noise.view }] })
-   const pass = encoder.beginRenderPass({ colorAttachments: writes.map(field => ({ view: field.view, loadOp: 'load', storeOp: 'store' })) })
+   const pass = encoder.beginRenderPass({label:import.meta.env.DEV?'Canonical ribbon '+phase+' '+(writes[0]===coverage?'coverage':writes[0]===pigment?'pigment':'color')+(writes.length===2?'+color':''):undefined, colorAttachments: writes.map(field => ({ view: field.view, loadOp: 'load', storeOp: 'store' })) })
    pass.setPipeline(pipeline); pass.setBindGroup(0, group); pass.setVertexBuffer(0, vertices); pass.draw(batch.vertices.length / 11); pass.end()
   }
   if(phase==='all'||phase==='coverage')encode(this.coverage, previousWater, [coverage])

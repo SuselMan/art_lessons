@@ -70,12 +70,14 @@ export class CanonicalWatercolorWebGpu {
  private activeRetired:CanonicalGpuField[]=[]
  private destroyed = false
  private diagnosticTimestamps:DiagnosticPassTimestamps|null=null
+ private diagnosticTimestampWindow=true
  /** Explicit isolated capture; enabling the device feature alone allocates no queries. */
  beginDiagnosticTimestampCapture(capacity=256){
   if(!import.meta.env.DEV||!this.options.diagnosticTimestampQueries||this.destroyed||this.diagnosticTimestamps)throw new Error('Timestamp capture unavailable')
-  this.diagnosticTimestamps=new DiagnosticPassTimestamps(this.device,capacity)
+  this.diagnosticTimestamps=new DiagnosticPassTimestamps(this.device,capacity);this.diagnosticTimestampWindow=true
  }
- diagnosticTimestampQuantum(encoder:GPUCommandEncoder){return this.diagnosticTimestamps?.begin(encoder)??null}
+ setDiagnosticTimestampWindow(active:boolean){if(!import.meta.env.DEV||typeof active!=='boolean'||!this.diagnosticTimestamps)throw new Error('Timestamp window unavailable');this.diagnosticTimestampWindow=active}
+ diagnosticTimestampQuantum(encoder:GPUCommandEncoder){return this.diagnosticTimestampWindow?this.diagnosticTimestamps?.begin(encoder)??null:null}
  async readDiagnosticTimestampsAfterInput(){
   if(!this.diagnosticTimestamps)throw new Error('Timestamp capture unavailable')
   const capture=this.diagnosticTimestamps
@@ -220,12 +222,12 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
  }
  encodeClearField(encoder:GPUCommandEncoder,field:CanonicalGpuField,rect?:readonly[number,number,number,number]):GPUBuffer[] {
   if(!rect&&this.options.diagnosticComputeFullClear){this.diagnosticComputeFullClearCalls++;rect=[0,0,field.width,field.height]}
-  if(!rect){const pass=encoder.beginRenderPass({colorAttachments:[{view:field.view,loadOp:'clear',storeOp:'store',clearValue:[0,0,0,0]}]});pass.end();return[]}
+  if(!rect){const pass=encoder.beginRenderPass({label:import.meta.env.DEV?'Canonical clear full':undefined,colorAttachments:[{view:field.view,loadOp:'clear',storeOp:'store',clearValue:[0,0,0,0]}]});pass.end();return[]}
   if(rect.some(v=>!Number.isInteger(v))||rect[2]<0||rect[3]<0)throw new Error('Canonical clear rectangle requires integer coordinates and nonnegative size')
   const x=Math.max(0,Math.min(field.width,rect[0])),y=Math.max(0,Math.min(field.height,rect[1])),right=Math.max(x,Math.min(field.width,rect[0]+rect[2])),bottom=Math.max(y,Math.min(field.height,rect[1]+rect[3]))
   if(right===x||bottom===y)return[]
   const buffer=this.device.createBuffer({size:16,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(buffer,0,new Uint32Array([x,y,right-x,bottom-y]))
-  const group=this.device.createBindGroup({layout:this.clearPipeline.getBindGroupLayout(0),entries:[{binding:0,resource:field.view},{binding:1,resource:{buffer}}]}),pass=encoder.beginComputePass();pass.setPipeline(this.clearPipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil((right-x)/8),Math.ceil((bottom-y)/8));pass.end();return[buffer]
+  const group=this.device.createBindGroup({layout:this.clearPipeline.getBindGroupLayout(0),entries:[{binding:0,resource:field.view},{binding:1,resource:{buffer}}]}),pass=encoder.beginComputePass({label:import.meta.env.DEV?'Canonical clear rect':undefined});pass.setPipeline(this.clearPipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil((right-x)/8),Math.ceil((bottom-y)/8));pass.end();return[buffer]
  }
  clearField(field:CanonicalGpuField,rect?:readonly[number,number,number,number]) {
   if(this.activeEncoder){this.activeBuffers.push(...this.encodeClearField(this.activeEncoder,field,rect));return}
