@@ -16,9 +16,13 @@ export async function runResidualSourceGpu(){
   ctx.drawRibbonCompositeRect=(...args)=>{captured=args;compositeCalls++;return originalDraw.apply(ctx,args)};
   painter.diagnosticSegmentDelivery='combined';painter.diagnosticSolventField=true;painter.diagnosticForeignSolvent=false;painter.diagnosticPigmentRecord=true;
   scratch=new RibbonStrokeScratch(e._ribbonScratchPool,true,true);
-  for(const pigment of[0,100]){if(pigment){scratch.destroy();scratch=new RibbonStrokeScratch(e._ribbonScratchPool,true,true)}const name=`normal:100:${pigment}:PB29:round`,preset=e._resolvePreset('watercolor',name),profile=ribbonProfileFor('watercolor',name,0);const dabs=residualKnownSourceDabs();for(const _ of painter.paint(e._layers.get('L'),dabs,preset,name,profile,[.2,.1,.5],scratch,undefined,'0f37',[1,2]))void _}
+  // Exact nonempty preparedGlSourceGpu source fixture; no second gesture may clear it.
+  const name='normal:100:100:PB29:round',preset=e._resolvePreset('watercolor',name),profile=ribbonProfileFor('watercolor',name,0),dabs=residualKnownSourceDabs();
+  if(dabs.length!==4||dabs[0].size!==400||preset.pigmentLevel<=0)throw Error('Known nonempty fixture scalar contract');
+  for(const _ of painter.paint(e._layers.get('L'),dabs,preset,name,profile,[.2,.1,.5],scratch,undefined,'0f37',[1,2]))void _;
   if(!captured||!captured[6]||!captured[7])throw Error('Actual P/C composite capture absent');checkpoint('actual-source');if(!compositeCalls||!(captured[3].pigmentLevel>0))throw Error('Actual pigment composite scalar absent');
   const sourceP=captured[6],sourceC=captured[7],target=captured[0].buffer;
+  const sourceBytes=sourceP.readPixels();if(!sourceBytes.some(v=>v!==0))throw Error('Known fixture full source P empty before residual');
   pool=new PreviewInitialMomentPool(e.gl,{budgetBytes:RESIDUAL_MULTISCALE_BYTES,excluded:[sourceP,sourceC,target,captured[4],captured[5]]});mobile=pool.take();initial=pool.take();fixed=pool.take();checkpoint('float-allocation');
   for(const[out,src]of[[mobile.fields.p,sourceP],[mobile.fields.c,sourceC]])e._watercolorPasses.wcResample(residualFixtureDrawTarget(e.gl,out),0,0,128,128,src,0,0,8,0);checkpoint('production-resample');
   initial.initialize(mobile.fields.p,mobile.fields.c);checkpoint('immutable-initial-copy');
