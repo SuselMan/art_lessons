@@ -1,3 +1,4 @@
+import type {BoundedSchedulingObserver,SchedulingRequest} from './boundedSchedulingObserver'
 import type {WatercolorCanonicalFIFO,CanonicalWatercolorRequest} from '../watercolor/WatercolorCanonicalFIFO'
 import type {RoomNativeCentralOwner,RoomNativeMaterialJob} from './roomWatercolorExecutor'
 
@@ -10,6 +11,10 @@ export class RoomNativeCentralAdapter implements RoomNativeCentralOwner {
  private readonly changed:()=>void
  private executing=false
  private ordinal=0
+ diagnosticScheduling:BoundedSchedulingObserver|null=null
+ private schedulingRequests:Map<number,SchedulingRequest>|null=null
+ private currentScheduling:SchedulingRequest|null=null
+ bindDiagnosticScope(quantumId:number,ownerEpoch:number){return this.currentScheduling?.bindRelease(quantumId,ownerEpoch)}
  private materialQuantumCap=8
  private materialScopeCap=0
  setDiagnosticMaterialScopeCap(value:number){
@@ -24,14 +29,40 @@ export class RoomNativeCentralAdapter implements RoomNativeCentralOwner {
  /** DEV observer is OFF unless explicitly installed; never controls admission. */
  diagnosticObserver:((event:NativeFifoMarker)=>void)|null=null
  private mark(request:number,kind:NativeFifoMarker['kind'],phase:string){
-  if(!import.meta.env.DEV||!this.diagnosticObserver)return
-  try{this.diagnosticObserver({request,kind,phase,at:performance.now(),queued:this.fifo.queuedRequestCount})}catch{/* An observer cannot change material execution. */}
+  if(!import.meta.env.DEV||(!this.diagnosticObserver&&!this.schedulingRequests?.has(request)))return
+  try{this.schedulingRequests?.get(request)?.phase(phase,this.fifo.queuedRequestCount);if(phase==='complete')this.schedulingRequests?.delete(request)}catch{}
+  try{this.diagnosticObserver?.({request,kind,phase,at:performance.now(),queued:this.fifo.queuedRequestCount})}catch{/* An observer cannot change material execution. */}
  }
  constructor(fifo:WatercolorCanonicalFIFO,changed:()=>void){this.fifo=fifo;this.changed=changed}
  get isIdle(){return this.executing||!this.fifo.pending}
  get ownsCurrentExecution(){return this.executing}
- private request(run:()=>Generator<number,void,void>,cancel:()=>void):CanonicalWatercolorRequest {
-  return{gpuBackend:'webgpu',execute:run,cancel}
+ private request(run:()=>Generator<number,void,void>,cancel:()=>void,id:number,kind:'source'|'material'):CanonicalWatercolorRequest {
+  const observer=this.diagnosticScheduling
+  let bound:SchedulingRequest|undefined
+  try{bound=observer?.bindRequest({fifoEpoch:this.fifo.diagnosticEpoch,requestId:id,ownerEpoch:null,requestKind:kind})}
+  catch{try{observer?.noteError()}catch{}}
+  if(!bound)return{gpuBackend:'webgpu',execute:run,cancel}
+  const record=bound,owner=this
+  ;(this.schedulingRequests??=new Map()).set(id,record)
+  return{gpuBackend:'webgpu',execute(){
+   const work=run()
+   const invoke=(method:'next'|'return'|'throw',arg?:unknown)=>{
+    const prior=owner.currentScheduling;owner.currentScheduling=record
+    try{
+     try{record.resume(owner.fifo.queuedRequestCount)}catch{}
+     const result=method==='next'?work.next():method==='return'?work.return():work.throw(arg)
+     if(result.done)owner.schedulingRequests?.delete(id)
+     return result
+    }catch(error){owner.schedulingRequests?.delete(id);throw error}
+    finally{owner.currentScheduling=prior}
+   }
+   return new Proxy(work,{get(target,key){
+    if(key==='next')return()=>invoke('next')
+    if(key==='return')return()=>invoke('return')
+    if(key==='throw')return(error:unknown)=>invoke('throw',error)
+    const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value
+   }})
+  },cancel(){try{cancel()}finally{try{record.cancel()}catch{};owner.schedulingRequests?.delete(id)}}}
  }
  /** CPU recipe has already advanced once and been frozen by the painter.
   * Keep its native write and publication ordered before the next recipe. */
@@ -49,7 +80,7 @@ export class RoomNativeCentralAdapter implements RoomNativeCentralOwner {
    if(cancelled)return
    if(error)throw error
    owner.mark(id,'source','complete');owner.changed()
-  },()=>{cancelled=true}))
+  },()=>{cancelled=true},id,'source'))
  }
  admit(job:RoomNativeMaterialJob):Promise<void> {return this.admitFactory(()=>job)}
  /** Prepare INSIDE the already queued boundary, never append a nested settle
@@ -82,7 +113,7 @@ export class RoomNativeCentralAdapter implements RoomNativeCentralOwner {
      if(job.publish){let ready=false,error:unknown;owner.mark(id,'material','publish:start');void job.publish().then(()=>{owner.mark(id,'material','publish:done');ready=true},e=>{owner.mark(id,'material','publish:failed');error=e;ready=true});while(!ready)yield -1;if(error)throw error}
      close();owner.mark(id,'material','complete');owner.changed();settled=true;resolve()
     }catch(e){close();fail(e);throw e}
-   },()=>{close();fail(new Error('Native Room canonical task cancelled'))}))
+   },()=>{close();fail(new Error('Native Room canonical task cancelled'))},id,'material'))
   })
  }
  async drain(){if(!await this.fifo.ready())throw new Error('Native Room central FIFO cancelled')}

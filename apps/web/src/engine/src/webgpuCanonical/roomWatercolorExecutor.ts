@@ -84,7 +84,7 @@ export class CanonicalRoomWatercolorExecutor {
   if(options.diagnosticMomentVector&&!options.diagnosticMomentGpuAudit)throw Error('DEV vector moment requires GPU audit')
   if(!options.central.isIdle)throw new Error('Seed native Room tile only at a central idle boundary')
   this.backend=backend;this.glTile=options.tile;this.layerId=options.layerId;this.generation=options.generation;this.central=options.central;this.bridgeMode=options.bridgeMode
-  this.adapter=new CanonicalPlanAdapter(backend);this.adapter.diagnosticNativeBrushPair=import.meta.env.DEV&&options.diagnosticNativeBrushPair===true;
+  this.adapter=new CanonicalPlanAdapter(backend);this.adapter.diagnosticOwnerEpoch=options.generation;this.adapter.diagnosticNativeBrushPair=import.meta.env.DEV&&options.diagnosticNativeBrushPair===true;
   const carryPressureEnabled=import.meta.env.DEV&&options.diagnosticCarryHardwarePressure===true;
   this.carryPressureDiagnostics={enabled:carryPressureEnabled,counters:installRoomCarryPressureControl(this.adapter,carryPressureEnabled)};this.pool=new CanonicalScratchPool(backend);this.fields=new CanonicalPlanFieldOwner(backend)
   this.target={buffer:new CanonicalFieldBuffer(backend,1024,1024,'linear','DEV actual Room watercolor tile'),originX:0,originY:0,contentRect:null}

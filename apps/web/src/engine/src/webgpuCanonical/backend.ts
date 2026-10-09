@@ -72,6 +72,7 @@ export class CanonicalWatercolorWebGpu {
  private readonly preview: GPURenderPipeline|null
  /** Read only, owner-local scopes released by the ORIGINAL completion callback. */
  get diagnosticScopeState(){if(!import.meta.env.DEV)throw new Error('Native scope state is DEV only');if(!Number.isInteger(this.pendingScopes)||this.pendingScopes<0)throw new Error('Native pending scope state invalid');return{pending:this.pendingScopes,live:!this.destroyed}}
+ diagnosticSchedulingBindRelease:((id:number,ownerEpoch:number)=>import('./boundedSchedulingObserver').SchedulingRelease|undefined)|null=null
  private pendingScopes=0
  private readonly pendingRetired=new Set<CanonicalGpuField>()
  private activeEncoder:GPUCommandEncoder|null=null

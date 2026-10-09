@@ -84,3 +84,5 @@ it('native paired brush is separate strict DEV option, requiring original native
 })
 
 it('native pair excludes deferred stand opt-in as well as query selection',()=>{expect(()=>watercolorQaOptions(true,undefined,'1','?wcNative=1&wcNativeBrushPair=1')).toThrow('excludes deferred');expect(watercolorQaOptions(true,undefined,'1','?wcNative=1').joinedFinishDeferred).toBe(true)})
+
+it('scheduling observer is separate strict DEV-only native observation flag',()=>{expect(parse(false,'?wcNativeSchedulingObserver=1').diagnosticSchedulingObserver).toBe(false);expect(parse(true,'').diagnosticSchedulingObserver).toBe(false);expect(parse(true,'?wcNative=1&wcNativeSchedulingObserver=1').diagnosticSchedulingObserver).toBe(true);for(const q of ['?wcNativeSchedulingObserver=1','?wcNative=1&wcNativeSchedulingObserver=yes','?wcNative=1&wcNativeSchedulingObserver=1&wcNativeSchedulingObserver=0'])expect(()=>parse(true,q)).toThrow()})

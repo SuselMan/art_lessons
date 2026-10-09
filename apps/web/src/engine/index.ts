@@ -272,6 +272,7 @@ export interface PencilEngineOptions {
   diagnosticFirstLiveWarmup?: boolean
   diagnosticRawCanvasWarmup?: boolean
   diagnosticCarryHardwarePressure?: boolean
+  diagnosticSchedulingObserver?: boolean
   diagnosticNativeBrushPair?: boolean
   diagnosticSourcePrecompile?: boolean
   diagnosticAsyncObservedFields?: boolean
@@ -1872,6 +1873,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _wcFirstLiveWarmupEnabled=false
   private _wcRawCanvasWarmupEnabled=false
   private _wcCarryHardwarePressureEnabled=false
+  private _wcSchedulingObserverEnabled=false
   private _wcNativeBrushPairEnabled=false
   private _wcSourcePrecompileEnabled=false
   private _wcAsyncObservedFieldsEnabled=false
@@ -2305,6 +2307,8 @@ export class PencilEngine implements PencilEngineAPI {
     if(this._wcFirstLiveWarmupEnabled&&this._wcRawCanvasWarmupEnabled)throw Error('Separate first-live and raw-only warmup arms required')
     this._wcCarryHardwarePressureEnabled=import.meta.env.DEV&&options.diagnosticCarryHardwarePressure===true
     if(this._wcCarryHardwarePressureEnabled&&!this._wcNativeEnabled)throw Error('DEV carry pressure sampling requires nativeWatercolor')
+    this._wcSchedulingObserverEnabled=import.meta.env.DEV&&options.diagnosticSchedulingObserver===true
+    if(this._wcSchedulingObserverEnabled&&!this._wcNativeEnabled)throw Error('Native scheduling observer requires native runtime')
     this._wcNativeBrushPairEnabled=import.meta.env.DEV&&options.diagnosticNativeBrushPair===true
     assertNativeBrushPairOptions(this._wcNativeBrushPairEnabled,this._wcNativeEnabled,options)
     this._wcSourcePrecompileEnabled=import.meta.env.DEV&&options.diagnosticSourcePrecompile===true
@@ -2752,7 +2756,7 @@ export class PencilEngine implements PencilEngineAPI {
     const epoch=this._wcNativeInitEpoch
     if(!this._wcNativeReady)this._wcNativeReady=this._paper.ready().then(async()=>{
       const {RoomNativeRuntime}=await import('./src/webgpuCanonical/roomNativeRuntime')
-      const runtime=await RoomNativeRuntime.create({diagnosticNativeBrushPair:this._wcNativeBrushPairEnabled,diagnosticSourcePrecompile:this._wcSourcePrecompileEnabled,diagnosticAsyncObservedFields:import.meta.env.DEV&&this._wcAsyncObservedFieldsEnabled,diagnosticFirstLiveWarmup:this._wcFirstLiveWarmupEnabled,diagnosticRawCanvasWarmup:this._wcRawCanvasWarmupEnabled,diagnosticAsyncCarryPressure:this._wcAsyncCarryPressureEnabled,diagnosticCarryHardwarePressure:this._wcCarryHardwarePressureEnabled,diagnosticTipContactA:this._wcTipContactAEnabled,diagnosticMomentVector:this._wcMomentVectorEnabled,diagnosticMomentGpuAudit:this._wcMomentGpuAuditEnabled,diagnosticMomentTransport:this._wcMomentTransportEnabled,fifo:this._wcCanonical,paper:this._paper.type,paperScale:this._paper.scale,paperWorld:this._paper.worldSize(),board:this._pageSize(),
+      const runtime=await RoomNativeRuntime.create({diagnosticSchedulingObserver:this._wcSchedulingObserverEnabled,diagnosticNativeBrushPair:this._wcNativeBrushPairEnabled,diagnosticSourcePrecompile:this._wcSourcePrecompileEnabled,diagnosticAsyncObservedFields:import.meta.env.DEV&&this._wcAsyncObservedFieldsEnabled,diagnosticFirstLiveWarmup:this._wcFirstLiveWarmupEnabled,diagnosticRawCanvasWarmup:this._wcRawCanvasWarmupEnabled,diagnosticAsyncCarryPressure:this._wcAsyncCarryPressureEnabled,diagnosticCarryHardwarePressure:this._wcCarryHardwarePressureEnabled,diagnosticTipContactA:this._wcTipContactAEnabled,diagnosticMomentVector:this._wcMomentVectorEnabled,diagnosticMomentGpuAudit:this._wcMomentGpuAuditEnabled,diagnosticMomentTransport:this._wcMomentTransportEnabled,fifo:this._wcCanonical,paper:this._paper.type,paperScale:this._paper.scale,paperWorld:this._paper.worldSize(),board:this._pageSize(),
         resolve:(target,bounds)=>this._resolveWithinSheet(target,this._wcSheetClamp(bounds)),layerId:target=>[...this._layers].find(([,buffer])=>buffer===target)?.[0]??[...this._rebuildJobs].find(([,job])=>job.fresh===target)?.[0]??this._wcNativeReplayTargets.get(target),changed:()=>this._scheduleDisplay(),failed:error=>{this._wcAsyncError=error}})
       if(this._destroyed||epoch!==this._wcNativeInitEpoch){await runtime.retire('unmount');return}
       this._wcNative=runtime

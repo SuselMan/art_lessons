@@ -46,6 +46,8 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  get submissionCounters(){return {submittedQuanta:this.diagnosticSubmittedQuanta}}
  private context: CanonicalGpuContext | null = null
  private transient: GPUBuffer[] = []
+ diagnosticOwnerEpoch=0
+ private diagnosticQuantumOrdinal=0
  constructor(owner: CanonicalWatercolorWebGpu) {
   this.owner = owner
   this.commands = new CanonicalSettleCommands(owner.device)
@@ -67,21 +69,28 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
   const encoder = timing?.encoder??originalEncoder
   this.context = { device: this.owner.device, encoder, nearest: this.owner.nearest, linear: this.owner.linear }
   this.transient = []
+  let observedRelease:ReturnType<NonNullable<CanonicalWatercolorWebGpu['diagnosticSchedulingBindRelease']>>
+  try{observedRelease=this.owner.diagnosticSchedulingBindRelease?.(++this.diagnosticQuantumOrdinal,this.diagnosticOwnerEpoch)}catch{/* Observer must not affect original scope. */}
   let releaseOwner: (() => void) | undefined
   try {
    const owned = this.owner.encodeOwnerCommands(encoder, () => task(this.ctx()))
    releaseOwner = owned.release
    const transient = this.transient
    this.owner.device.queue.submit([encoder.finish()])
+   try{observedRelease?.submitted()}catch{}
    timing?.commit()
    if(this.diagnosticCountSubmissions)this.diagnosticSubmittedQuanta++
    const release = () => { owned.release(); transient.forEach(buffer => buffer.destroy()) }
-   void this.owner.device.queue.onSubmittedWorkDone().then(release, release)
+   if(observedRelease){const observeRelease=(outcome:'fulfilled'|'rejected')=>{let before:number|null=null;try{before=this.owner.diagnosticScopeState.pending}catch{};release();try{if(before===null)return;const after=this.owner.diagnosticScopeState;observedRelease!(outcome,before,after.pending,after.live)}catch{}};void this.owner.device.queue.onSubmittedWorkDone().then(()=>observeRelease('fulfilled'),()=>observeRelease('rejected'))}
+   else void this.owner.device.queue.onSubmittedWorkDone().then(release,release)
    return owned.value
   } catch (error) {
    timing?.abort()
+   let before:number|null=null
+   if(observedRelease){try{before=this.owner.diagnosticScopeState.pending}catch{}}
    releaseOwner?.()
    this.transient.forEach(buffer => buffer.destroy())
+   if(observedRelease&&before!==null){try{const after=this.owner.diagnosticScopeState;observedRelease('encode-error',before,after.pending,after.live)}catch{}}
    throw error
   } finally { this.context = null; this.transient = [] }
  }

@@ -24,6 +24,7 @@ export class WatercolorCanonicalFIFO {
   private readonly ctx: CanonicalWatercolorFIFOContext
   constructor(ctx: CanonicalWatercolorFIFOContext) { this.ctx = ctx }
   /** Includes the executing request until its owned generator has completed. */
+  get diagnosticEpoch(){return this.epoch}
   get queuedRequestCount(): number { return this.requests.length }
   get pending(): boolean { return this.requests.length > 0 || this.ctx.blocked() }
   enqueue(request: CanonicalWatercolorRequest): void {
