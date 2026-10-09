@@ -1,0 +1,77 @@
+{
+  "phase": "closed",
+  "passport": {
+    "apps/web/src/pages/Room/index.tsx": "017a2174c74b786f4d164d253eb826384e2334a1c5771bb3d130f1e1b58ddfe5",
+    "apps/web/src/pages/Room/engineWiring.ts": "9f3cfbb4db09571dfe0d091f32fa7a9d4dd11e598e09c5853609e71e7da98278",
+    "apps/web/src/engine/index.ts": "c24529a44328d550251d3d51acdd3cf0e5518ae79167ce9eb2aa2c6ea07b0de6",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "40e7173707338a9a72b7c7bb263b7be23f9693011c93d5a7c33029e22cad1661",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+    "apps/web/src/engine/src/buffers/RibbonStrokeScratch.ts": "24210ad3fb76a8e25c76a6d6d25f6c2a4142d0c98df3889d504ba36750c14d54",
+    "apps/web/src/engine/src/dabs/DabSystem.ts": "816911a80216b7e80bdd1ba7c11be3ea2e02bf3560bc629197a5f7961266c5b3",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+    "apps/web/src/engine/src/paper/paperWetness.ts": "9edaf471f083947f82461e78d4fa8e3d46ecd985611abdfc688cc891c4b7762d",
+    "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "66f3f567102bc60c14ed84b388b00a1c68d1b8c89ebdb63523c240b362c0ed83"
+  },
+  "paperPassport": {
+    "manifest.json": {
+      "bytes": 6532,
+      "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+    },
+    "fine.e59ea6fa.paper": {
+      "bytes": 3983406,
+      "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+    },
+    "fine.a19fcf63.preview": {
+      "bytes": 59686,
+      "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+    }
+  },
+  "memory": [
+    {
+      "free": 2254,
+      "attempt": 0,
+      "elapsedMs": 1464
+    },
+    {
+      "phase": "existing-room-rejoin",
+      "free": 1985
+    },
+    {
+      "phase": "existing-room-rejoin",
+      "free": 1951
+    },
+    {
+      "phase": "existing-room-rejoin",
+      "free": 1901
+    },
+    {
+      "phase": "existing-room-rejoin",
+      "free": 1900
+    },
+    {
+      "phase": "existing-room-rejoin",
+      "free": 1843
+    },
+    {
+      "phase": "closed",
+      "free": 1954
+    }
+  ],
+  "errors": [],
+  "networkErrors": [],
+  "result": {
+    "state": {
+      "roomId": "9jGkDkf8",
+      "actor": "655081ac-21e6-4afb-9bf6-95abb0c9cf21",
+      "engineActor": "655081ac-21e6-4afb-9bf6-95abb0c9cf21",
+      "joined": true,
+      "lease": true,
+      "strokes": [],
+      "pending": false,
+      "settle": false
+    },
+    "valid": false,
+    "error": "Error: Resume durable dry whole RGBA mismatch",
+    "failedPhase": "canonical-whole-readback"
+  }
+}
