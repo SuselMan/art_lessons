@@ -1,0 +1,149 @@
+{
+  "scope": "ONE actual Surface256 freshnormal20/100; isolated sequential own Engines; no Room/foreign wash/performance",
+  "sourceHead": "322e77e5",
+  "verdict": "HOLD_INCOMPLETE_AUTHORITY_INVALIDATED",
+  "baseline": {
+    "replay": false,
+    "initialWetSHA": "d17163cdc27e52cd80d606ddce402b2787a664ba8fa7df3d88521b28bc2b4573",
+    "operationSHA": "6c4286866d88a41ee74a0b078887f91aaee0f5ed455c73f6e0aead3562fc1139",
+    "wetSHA": "cb1603c0424697f324b7bca4e4410dc655968960487b9bb1edf7b42d9fd968d5",
+    "errors": 0,
+    "dropped": 0,
+    "accepted": true,
+    "idle": true,
+    "defaultsOff": true,
+    "strokeId": "-W0ohGS6ov",
+    "washId": "Kvb7QrOv8w",
+    "dabsPackedLength": 1178,
+    "whole": {
+      "width": 256,
+      "height": 256,
+      "sha": "658627595d22e5f8a0e0a938fb8f82ec573fe962aca455268dc25c368a03c443",
+      "alphaNonzero": 160
+    },
+    "glError": 0,
+    "lost": false
+  },
+  "replayInitial": {
+    "replay": true,
+    "initialWetSHA": "d17163cdc27e52cd80d606ddce402b2787a664ba8fa7df3d88521b28bc2b4573",
+    "initialEmpty": true
+  },
+  "sourceCriticalCount": 6,
+  "paperAssetCount": 3,
+  "browserPassport": {
+    "source": [
+      {
+        "file": "apps/web/src/engine/index.ts",
+        "sha": "7b176286bca74ff90c88fc8c47664a4df0514079f0b7faba47f2426a941f1e00",
+        "servedSHA": "40426c6fc62434958506c8a99f93f3f01da99505642139f157957c43f291c4c0"
+      },
+      {
+        "file": "apps/web/src/engine/src/paper/paperWetness.ts",
+        "sha": "a6f36e9f4ab7ff992bd99fefe5deec30ad27100c9f6e7bdf3aff914aa6edec5c",
+        "servedSHA": "94b783686f55a8bbedcfa10d518f7c86f6e7e551d89dd2106d67f4fe68d81a29"
+      },
+      {
+        "file": "apps/web/src/engine/src/paper/WetTranscript.ts",
+        "sha": "d8010a650c7ed21bd3e33d68b2a2b73036f90f8089ff3aceb46cc32b80ddd8f7",
+        "servedSHA": "bd8a84e0346b8ef0708d7dedf884694c0ee4860904a6550756eb3ce4a5ef20e9"
+      },
+      {
+        "file": "apps/web/src/engine/src/input/PointerInput.ts",
+        "sha": "8f0ceb690dc7dd3c82f8bd4f866d40c96cee041ed8c83c2423611138cdc45c0b",
+        "servedSHA": "36a0410a2cf01b84d0975772158538289fa584fbd60f3f085a231b33735eb13a"
+      },
+      {
+        "file": "docs/qa/harness/728-gl-timing/WetReplayQuality.mjs",
+        "sha": "e6a79552b6e77311ed8278047896f274607ace536a70f59c30149bc57bbd9da2",
+        "servedSHA": "a9a137728d0ce3088348c1a1ff7420827cbe5ea1bf15766cc2a664ba90d56518"
+      },
+      {
+        "file": "docs/qa/harness/728-gl-timing/wet-replay-surface-controller.mjs",
+        "sha": "fd9f8c3d9a24e685e6b74db349306a98e29d67f6fd766ae7d7eaa8bf88cc9d66",
+        "servedSHA": "2abf1c825c31b01000b7edbc585ee845477e61684ba125812ac242912add4ce1"
+      }
+    ],
+    "paper": [
+      {
+        "file": "manifest.json",
+        "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+      },
+      {
+        "file": "fine.e59ea6fa.paper",
+        "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+      },
+      {
+        "file": "fine.a19fcf63.preview",
+        "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+      }
+    ]
+  },
+  "memoryAdmission": [
+    {
+      "free": 1995,
+      "attempt": 0,
+      "elapsedMs": 1857
+    },
+    {
+      "free": 1728,
+      "attempt": 0,
+      "elapsedMs": 1266
+    },
+    {
+      "free": 1499,
+      "attempt": 0,
+      "elapsedMs": 1214
+    },
+    {
+      "free": 1515,
+      "attempt": 1,
+      "elapsedMs": 7394
+    },
+    {
+      "free": 1707,
+      "attempt": 2,
+      "elapsedMs": 13712
+    }
+  ],
+  "error": "PaperWetness.validateDiagnosticAuthority rejected explicit completed replay promotion; mutator identity not instrumented",
+  "unknown": "No candidate Operation/wet/PNG endpoint hashes persisted after failed promotion; cannot assert material equality or name mutator",
+  "cleanup": {
+    "contexts": "controller closed",
+    "ownFrontend": 368619,
+    "ownForward": 368620,
+    "terminated": true,
+    "paperLinkRemoved": true,
+    "resourceId": "gl-wet-replay-322-5382",
+    "finished": true,
+    "remove": "Parent standard privileged qa-cleanup removed after finished",
+    "postCloseMiB": 1942
+  },
+  "evidence": [
+    {
+      "file": "pids.json",
+      "sha256": "48aa5ea9ab12671d2e4f4645fc86c997eb6bf3aae5d3912e760a8ab0a7c5c085",
+      "bytes": 39
+    },
+    {
+      "file": "result.json.baseline.png",
+      "sha256": "586d6677ffb2c63c8db6f9dc59c4a5391e81e71f6127d74e48f1ea6f763cc3af",
+      "bytes": 3128
+    },
+    {
+      "file": "result.json",
+      "sha256": "8bf638ab8c3cbae09a3db53715af9991a4f075dd8b42c26f4e677e2ccc4dfb80",
+      "bytes": 8488
+    },
+    {
+      "file": "frontend.log",
+      "sha256": "edf68ab3d89c09800b567b1e7f660a93f52a926c645dd24492e2d4c7f2599f38",
+      "bytes": 5198
+    },
+    {
+      "file": "forward.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ]
+}
