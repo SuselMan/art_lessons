@@ -1,0 +1,375 @@
+{
+  "source": "0f3271f79565a7dd2c35ad22ab5aa34f4191752d",
+  "actualGitHead": "932fb43d3f408e9b1747e5500f87f3e4d407c64c",
+  "aggregateComplete": false,
+  "classification": "Both actual arms individually complete, same packed decoded material; aggregate metadata gate invalid because older promoted reference omitted final census",
+  "referencePackedSHA": "ceb5f0eb5554a94765ba2a15a503ee084f351fa95374ac5c6e3ee4a9384522ee",
+  "ramAdmissions": [
+    {
+      "arm": "off",
+      "MiB": 2182.21875
+    },
+    {
+      "arm": "on",
+      "MiB": 1535.23828125
+    },
+    {
+      "arm": "on",
+      "MiB": 1764.5546875
+    }
+  ],
+  "arms": [
+    {
+      "arm": "off",
+      "complete": true,
+      "ownedContextDisposed": true,
+      "gl": 0,
+      "lost": false,
+      "errors": [],
+      "endpoint": {
+        "width": 1754,
+        "height": 2480,
+        "alpha": 120438,
+        "purple": 120437,
+        "sha": "fc0bed7519107daa85e1709dcfc1188cef4b9a2af4552414fafa6d5d1508f186",
+        "pngSha256": "a9b2336f94e3d51d6e09e3ba1449d9c2a19f4c8c206d7a3692618297d564efd4"
+      },
+      "scheduler": {
+        "inflightLimit": 0,
+        "asyncPressure": false,
+        "actualPreload": true,
+        "sourcePrecompile": false,
+        "fullWarm": false,
+        "rawWarm": false
+      },
+      "startupWallMs": 19465,
+      "replayWallMs": 6663.5,
+      "mappedPacked": [
+        {
+          "id": "3oOhbHJfsW",
+          "type": "stroke",
+          "userId": "af05bf4e-b344-4fdc-bb40-1020b64469a8",
+          "layerId": "layer-1",
+          "tool": "watercolor",
+          "preset": "normal:100:0:PB29:round",
+          "color": [
+            0.2,
+            0,
+            0.6
+          ],
+          "dabsPacked": "1://+VQwIAyEMzMzM/AAAAAAAAAADi3W5DAACAPwAAAACkcH0/AAAAAP//wUMCAMhDMzMzPwAAAAAAAAAAM+GlQwAAgD8AAAAApHB9PwDwlkT//+1DAgDIQzMzMz8AAAAAAAAAADPhpUMAAIA/AAAAAKRwfT9mRgBF//8MRAIAyEMzMzM/AAAAAAAAAAAz4aVDAACAPwAAAACkcH0/AGA/RQAACUQCAMhDMzMzPwAAAAAAAAAAM+GlQwAAgD8AAAAApHB9PwDwfUUAAOZDAgDIQzMzMz8AAAAAAAAAADPhpUMAAIA/AAAAAKRwfT9m/p5FAAC6QwIAyEMzMzM/AAAAAAAAAAAz4aVDAACAPwAAAACkcH0/mmnARVarsEMCAMhDuB5FPQAAAAAAAAAAt3maQwAAgD8AAAAApHB9P80o1EWrVqdDAgDIQ8P1KD0AAAAAAAAAADwSj0MAAIA/AAAAAKRwfT/NKNRFAAKeQwIAyEPNzAw9AAAAAAAAAADAqoNDAACAPwAAAACkcH0/zSjURVWtlEMCAMhDrkfhPAAAAAAAAAAAiYZwQwAAgD8AAAAApHB9P80o1EWqWItDAgDIQ8P1qDwAAAAAAAAAAJK3WUMAAIA/AAAAAKRwfT/NKNRF/wOCQwIAyEOuR2E8AAAAAAAAAACb6EJDAACAPwAAAACkcH0/zSjURalecUMCAMhDrkfhOwAAAAAAAAAApBksQwAAgD8AAAAApHB9P80o1EVTtV5DAgDIQwAAAAAAAAAAAAAAAK5KFUMAAIA/AAAAAKRwfT/NKNRF",
+          "timestamp": 1791544158088,
+          "strokeId": "6skif2fNdw",
+          "washId": "a3zz4xu2Jb",
+          "seq": 0
+        },
+        {
+          "id": "dOrOpWZUEx",
+          "type": "stroke",
+          "userId": "af05bf4e-b344-4fdc-bb40-1020b64469a8",
+          "layerId": "layer-1",
+          "tool": "watercolor",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.2,
+            0,
+            0.6
+          ],
+          "dabsPacked": "1:///gQwIAyEMzMzM/AAAAAAAAAADi3W5DAACAPwAAAACkcH0/AAAAAA==",
+          "timestamp": 1791544161880,
+          "strokeId": "ciHQG57tmw",
+          "washId": "a3zz4xu2Jb",
+          "wet": "f",
+          "seq": 1
+        }
+      ],
+      "actualPreparation": {
+        "observed": {
+          "proofs": [
+            {
+              "kind": "waterFront",
+              "compilerWallMs": 329.60000002384186,
+              "shaderBytes": 4022
+            },
+            {
+              "kind": "diffuse",
+              "compilerWallMs": 240.5,
+              "shaderBytes": 3135
+            }
+          ],
+          "shaderSHAs": [
+            "7f6d4a85ed974652751c04b5627c998daa289856dceaf7ad9be3373279b63acd",
+            "3f2d13101ac86a41bac904b150292370ad8cf3784a87d34f275f243de24bdf12"
+          ],
+          "dispatches": 0,
+          "fieldBytes": 0
+        },
+        "pressure": {
+          "completed": true,
+          "shaderBytes": 11996,
+          "compilerWallMs": 1247.8999999761581,
+          "scope": "exact pipeline compilation only",
+          "shaderSHA": "664ac12d3a663e6463bc6e9dc9a198b2c43ea041fde25bcce3cb1192442cafba",
+          "dispatches": 0,
+          "fieldBytes": 0
+        },
+        "consumed": {
+          "observed": [
+            {
+              "kind": "waterFront",
+              "completed": true,
+              "hits": 1,
+              "shaderBytes": 4022
+            },
+            {
+              "kind": "diffuse",
+              "completed": true,
+              "hits": 1,
+              "shaderBytes": 3135
+            }
+          ],
+          "pressure": {
+            "completed": true,
+            "hits": 1,
+            "shaderBytes": 11996
+          }
+        }
+      },
+      "selectedSourceHits": null,
+      "seedPhases": [
+        {
+          "phase": "readPixels",
+          "wallMs": 9.699999988079071,
+          "ok": true,
+          "bytes": 0,
+          "generation": 1,
+          "layerId": "layer-1"
+        },
+        {
+          "phase": "rowFlip",
+          "wallMs": 3.300000011920929,
+          "ok": true,
+          "bytes": 4194304,
+          "generation": 1,
+          "layerId": "layer-1"
+        },
+        {
+          "phase": "uploadEnqueue",
+          "wallMs": 0.5,
+          "ok": true,
+          "bytes": 4194304,
+          "generation": 1,
+          "layerId": "layer-1"
+        },
+        {
+          "phase": "queueAck",
+          "wallMs": 1079,
+          "ok": true,
+          "bytes": 0,
+          "generation": 1,
+          "layerId": "layer-1"
+        }
+      ]
+    },
+    {
+      "arm": "on",
+      "complete": true,
+      "ownedContextDisposed": true,
+      "gl": 0,
+      "lost": false,
+      "errors": [],
+      "endpoint": {
+        "width": 1754,
+        "height": 2480,
+        "alpha": 120438,
+        "purple": 120437,
+        "sha": "fc0bed7519107daa85e1709dcfc1188cef4b9a2af4552414fafa6d5d1508f186",
+        "pngSha256": "a9b2336f94e3d51d6e09e3ba1449d9c2a19f4c8c206d7a3692618297d564efd4"
+      },
+      "scheduler": {
+        "inflightLimit": 0,
+        "asyncPressure": false,
+        "actualPreload": true,
+        "sourcePrecompile": true,
+        "fullWarm": false,
+        "rawWarm": false
+      },
+      "startupWallMs": 21524,
+      "replayWallMs": 3611.600000023842,
+      "mappedPacked": [
+        {
+          "id": "3oOhbHJfsW",
+          "type": "stroke",
+          "userId": "af05bf4e-b344-4fdc-bb40-1020b64469a8",
+          "layerId": "layer-1",
+          "tool": "watercolor",
+          "preset": "normal:100:0:PB29:round",
+          "color": [
+            0.2,
+            0,
+            0.6
+          ],
+          "dabsPacked": "1://+VQwIAyEMzMzM/AAAAAAAAAADi3W5DAACAPwAAAACkcH0/AAAAAP//wUMCAMhDMzMzPwAAAAAAAAAAM+GlQwAAgD8AAAAApHB9PwDwlkT//+1DAgDIQzMzMz8AAAAAAAAAADPhpUMAAIA/AAAAAKRwfT9mRgBF//8MRAIAyEMzMzM/AAAAAAAAAAAz4aVDAACAPwAAAACkcH0/AGA/RQAACUQCAMhDMzMzPwAAAAAAAAAAM+GlQwAAgD8AAAAApHB9PwDwfUUAAOZDAgDIQzMzMz8AAAAAAAAAADPhpUMAAIA/AAAAAKRwfT9m/p5FAAC6QwIAyEMzMzM/AAAAAAAAAAAz4aVDAACAPwAAAACkcH0/mmnARVarsEMCAMhDuB5FPQAAAAAAAAAAt3maQwAAgD8AAAAApHB9P80o1EWrVqdDAgDIQ8P1KD0AAAAAAAAAADwSj0MAAIA/AAAAAKRwfT/NKNRFAAKeQwIAyEPNzAw9AAAAAAAAAADAqoNDAACAPwAAAACkcH0/zSjURVWtlEMCAMhDrkfhPAAAAAAAAAAAiYZwQwAAgD8AAAAApHB9P80o1EWqWItDAgDIQ8P1qDwAAAAAAAAAAJK3WUMAAIA/AAAAAKRwfT/NKNRF/wOCQwIAyEOuR2E8AAAAAAAAAACb6EJDAACAPwAAAACkcH0/zSjURalecUMCAMhDrkfhOwAAAAAAAAAApBksQwAAgD8AAAAApHB9P80o1EVTtV5DAgDIQwAAAAAAAAAAAAAAAK5KFUMAAIA/AAAAAKRwfT/NKNRF",
+          "timestamp": 1791544158088,
+          "strokeId": "6skif2fNdw",
+          "washId": "a3zz4xu2Jb",
+          "seq": 0
+        },
+        {
+          "id": "dOrOpWZUEx",
+          "type": "stroke",
+          "userId": "af05bf4e-b344-4fdc-bb40-1020b64469a8",
+          "layerId": "layer-1",
+          "tool": "watercolor",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.2,
+            0,
+            0.6
+          ],
+          "dabsPacked": "1:///gQwIAyEMzMzM/AAAAAAAAAADi3W5DAACAPwAAAACkcH0/AAAAAA==",
+          "timestamp": 1791544161880,
+          "strokeId": "ciHQG57tmw",
+          "washId": "a3zz4xu2Jb",
+          "wet": "f",
+          "seq": 1
+        }
+      ],
+      "actualPreparation": {
+        "observed": {
+          "proofs": [
+            {
+              "kind": "waterFront",
+              "compilerWallMs": 320.80000001192093,
+              "shaderBytes": 4022
+            },
+            {
+              "kind": "diffuse",
+              "compilerWallMs": 239.19999998807907,
+              "shaderBytes": 3135
+            }
+          ],
+          "shaderSHAs": [
+            "7f6d4a85ed974652751c04b5627c998daa289856dceaf7ad9be3373279b63acd",
+            "3f2d13101ac86a41bac904b150292370ad8cf3784a87d34f275f243de24bdf12"
+          ],
+          "dispatches": 0,
+          "fieldBytes": 0
+        },
+        "pressure": {
+          "completed": true,
+          "shaderBytes": 11996,
+          "compilerWallMs": 1298.2999999523163,
+          "scope": "exact pipeline compilation only",
+          "shaderSHA": "664ac12d3a663e6463bc6e9dc9a198b2c43ea041fde25bcce3cb1192442cafba",
+          "dispatches": 0,
+          "fieldBytes": 0
+        },
+        "consumed": {
+          "observed": [
+            {
+              "kind": "waterFront",
+              "completed": true,
+              "hits": 1,
+              "shaderBytes": 4022
+            },
+            {
+              "kind": "diffuse",
+              "completed": true,
+              "hits": 1,
+              "shaderBytes": 3135
+            }
+          ],
+          "pressure": {
+            "completed": true,
+            "hits": 1,
+            "shaderBytes": 11996
+          }
+        }
+      },
+      "selectedSourceHits": [
+        {
+          "key": "stamp:false:false:coverage",
+          "kind": "render",
+          "completed": true,
+          "hits": 1,
+          "shaderBytes": 6778
+        },
+        {
+          "key": "ribbon:coverage",
+          "kind": "render",
+          "completed": true,
+          "hits": 1,
+          "shaderBytes": 6539
+        },
+        {
+          "key": "canonicalCompositeRecipe",
+          "kind": "render",
+          "completed": true,
+          "hits": 1,
+          "shaderBytes": 13408
+        },
+        {
+          "key": "canonicalRawCanvasRecipe",
+          "kind": "render",
+          "completed": true,
+          "hits": 1,
+          "shaderBytes": 329
+        },
+        {
+          "key": "pairedBrush",
+          "kind": "compute",
+          "completed": true,
+          "hits": 1,
+          "shaderBytes": 3795
+        },
+        {
+          "key": "singleBrush",
+          "kind": "compute",
+          "completed": true,
+          "hits": 1,
+          "shaderBytes": 3693
+        }
+      ],
+      "seedPhases": [
+        {
+          "phase": "readPixels",
+          "wallMs": 8.199999988079071,
+          "ok": true,
+          "bytes": 0,
+          "generation": 1,
+          "layerId": "layer-1"
+        },
+        {
+          "phase": "rowFlip",
+          "wallMs": 3.699999988079071,
+          "ok": true,
+          "bytes": 4194304,
+          "generation": 1,
+          "layerId": "layer-1"
+        },
+        {
+          "phase": "uploadEnqueue",
+          "wallMs": 0.699999988079071,
+          "ok": true,
+          "bytes": 4194304,
+          "generation": 1,
+          "layerId": "layer-1"
+        },
+        {
+          "phase": "queueAck",
+          "wallMs": 11.199999988079071,
+          "ok": true,
+          "bytes": 0,
+          "generation": 1,
+          "layerId": "layer-1"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "No aggregate PASS claim",
+    "No causal speedup claim",
+    "No fabricated reference final census"
+  ]
+}
