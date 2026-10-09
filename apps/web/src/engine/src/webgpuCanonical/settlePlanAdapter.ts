@@ -26,6 +26,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  diagnosticStaticFrontCache=false
  diagnosticLazyFrontClimb=false
  diagnosticPairedCarry=false
+ retireStaticFrontCache(){this.commands.retireStaticCache(cleanup=>this.owner.retireAfterOwnerScopes(cleanup))}
  get staticFrontCacheCounters(){return this.commands.staticFrontCacheCounters}
  pairedCarryCalls=0
  diagnosticCarryOracleIndex:number|undefined
@@ -127,13 +128,13 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  }
  diffuseStep(field: BufferField, x0: number, y0: number, scale: number, paperWidth: number, paperHeight: number, source: CanonicalFieldBuffer, out: CanonicalFieldBuffer, radius: number, knight: boolean, gate: CanonicalFieldBuffer) {
   const resources = this.resources(out, source, source, gate)
-  const paper = { ...resources.paper, origin: [x0 / scale, -(y0 / scale + field.h)] as const, texSize: [paperWidth / scale, paperHeight / scale] as const }
+  const paper = { ...resources.paper, staticInputEpoch:this.owner.staticInputEpoch, origin: [x0 / scale, -(y0 / scale + field.h)] as const, texSize: [paperWidth / scale, paperHeight / scale] as const }
   this.transient.push(this.commands.encode(this.ctx(), { kind: 'diffuse', resources: { ...resources, paper }, radius: Math.max(1, Math.round(radius / scale)), knight, d: WET_DIFFUSE_D, b: WET_DIFFUSE_B,options:{diagnosticStaticHeightCache:this.diagnosticStaticDiffuseHeight,noise:this.owner.noise} }))
  }
  waterFrontStep(field: BufferField, x0: number, y0: number, dryCost: number, source: CanonicalFieldBuffer, out: CanonicalFieldBuffer, max: number, climb: number, floor: number, stride = 1, scale = 1, foreignWater: CanonicalUploadSlot | null = null) {
   const resources = this.resources(out, source, source, field.coverage)
   const size = this.owner.paper.texSize
-  const paper = { ...resources.paper, origin: [x0 / scale, -(y0 / scale + field.h)] as const, texSize: [size[0] / scale, size[1] / scale] as const }
+  const paper = { ...resources.paper, staticInputEpoch:this.owner.staticInputEpoch, origin: [x0 / scale, -(y0 / scale + field.h)] as const, texSize: [size[0] / scale, size[1] / scale] as const }
   if (foreignWater && (!foreignWater.field || foreignWater.destroyed)) throw new Error('Foreign water slot has not been uploaded')
   this.transient.push(this.commands.encode(this.ctx(), { kind: 'waterFront', resources: { ...resources, paper }, noise: this.owner.noise, params: { diagnosticSourceFilter:this.diagnosticFrontSourceFilter,diagnosticStaticCache:this.diagnosticStaticFrontCache,diagnosticLazyClimb:this.diagnosticLazyFrontClimb,dryCost, costMax: max, climb, floor, stride, foreignFilm: foreignWater?.field ?? undefined } }))
  }

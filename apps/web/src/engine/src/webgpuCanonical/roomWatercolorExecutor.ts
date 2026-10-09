@@ -142,9 +142,9 @@ export class CanonicalRoomWatercolorExecutor {
   const task:RoomNativeMaterialJob={
    canStep:maxPending=>{this.assertLive();const state=this.backend.diagnosticScopeState;if(!state.live)throw new Error('Native material scope owner destroyed');return state.pending<maxPending},
    step:()=>{this.assertLive();if(disposed||finished)throw new Error('Native Room job already closed');if(next<job.ops.length)this.adapter.runQuantum(()=>job.ops[next++]());return next===job.ops.length},
-   finish:()=>{this.assertLive();if(disposed||finished||next!==job.ops.length)throw new Error('Native Room finish before canonical passes complete');this.adapter.runQuantum(ctx=>{job.finish();this.adapter.retain(this.finish.encode(ctx.encoder,{...input,settleComplete:true,settledGesture:this.scratch.gesture,materialGesture:this.scratch.materialGesture,bounds:job.compositeDomain}))});finished=true},
+   finish:()=>{this.assertLive();if(disposed||finished||next!==job.ops.length)throw new Error('Native Room finish before canonical passes complete');this.adapter.runQuantum(ctx=>{job.finish();this.adapter.retain(this.finish.encode(ctx.encoder,{...input,settleComplete:true,settledGesture:this.scratch.gesture,materialGesture:this.scratch.materialGesture,bounds:job.compositeDomain}))});this.adapter.retireStaticFrontCache();finished=true},
    publish:()=>this.publishWithoutDrain(),
-   dispose:()=>{if(disposed)return;disposed=true;this.adapter.runQuantum(()=>job.dispose())},
+   dispose:()=>{if(disposed)return;disposed=true;disposeNativeMaterialResources(this.adapter,()=>job.dispose())},
   }
   return task
  }
@@ -219,7 +219,7 @@ export class CanonicalRoomWatercolorExecutor {
   if(cancelCentral)await this.central.cancel(reason)
   try{await this.backend.whenIdle()}finally{
   for(const auxiliary of this.foreignAux.values())auxiliary.scratch.destroy();this.foreignAux.clear()
-  this.adapter.disposeCarryOracle();this.planner.destroyTextures();this.scratch.tiles.destroy();this.target.buffer.destroy();this.fields.destroy();this.pool.destroy();this.bridge.destroy()
+  this.adapter.retireStaticFrontCache();this.adapter.disposeCarryOracle();this.planner.destroyTextures();this.scratch.tiles.destroy();this.target.buffer.destroy();this.fields.destroy();this.pool.destroy();this.bridge.destroy()
   }
  }
  private assertLive(){if(this.retired)throw new Error('Native Room tile generation retired')}
@@ -249,3 +249,6 @@ export function installRoomCarryPressureControl(adapter:CanonicalPlanAdapter,ena
  }
  return counters
 }
+
+/** Preserve cache retirement even if an unsubmitted dispose quantum fails. */
+export function disposeNativeMaterialResources(adapter:Pick<CanonicalPlanAdapter,'runQuantum'|'retireStaticFrontCache'>,dispose:()=>void):void{try{adapter.runQuantum(dispose)}finally{adapter.retireStaticFrontCache()}}

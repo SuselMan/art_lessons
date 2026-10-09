@@ -13,6 +13,7 @@ export class CanonicalFieldPasses {
   readonly counters = { diffuse: 0, waterFront: 0, pixels: 0 }
   private readonly device: GPUDevice
   constructor(device: GPUDevice) { this.device = device }
+  retireStaticCache(defer:(cleanup:()=>void)=>void){this.staticCache?.retire(defer)}
   private pipeline(kind: 'diffuse' | 'waterFront',lazyClimb=false,staticCache=false,sourceSampling?:CanonicalFrontSourceSampling) {
     let pipeline = this.pipelines.get(kind+':'+lazyClimb+':'+staticCache+':'+(sourceSampling??'legacy'))
     if (!pipeline) {

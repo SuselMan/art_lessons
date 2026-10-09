@@ -34,6 +34,15 @@ export class CanonicalWatercolorWebGpu {
  private standaloneFields:CanonicalWatercolorFields|null=null
  get fields():CanonicalWatercolorFields {if(!this.standaloneFields)throw new Error('Room-owned backend has no standalone material fields');return this.standaloneFields}
  readonly paper: CanonicalPaper
+ private staticPaperEpoch=0
+ private staticNoiseEpoch=0
+ private readonly retiredOwnerResources=new Set<()=>void>()
+ get staticInputEpoch(){return this.staticPaperEpoch+':'+this.staticNoiseEpoch}
+ private noteStaticWrite(field:CanonicalGpuField){if(field.texture===this.paper?.field.texture)this.staticPaperEpoch++;if(field.texture===this.noise?.texture)this.staticNoiseEpoch++}
+ retireAfterOwnerScopes(cleanup:()=>void){if(this.activeEncoder||this.pendingScopes)this.retiredOwnerResources.add(cleanup);else cleanup()}
+ private retirementCleanupFailures=0
+ get diagnosticRetirementCleanupFailures(){return this.retirementCleanupFailures}
+ private flushOwnerRetirements(){const callbacks=[...this.retiredOwnerResources];this.retiredOwnerResources.clear();for(const cleanup of callbacks){try{cleanup()}catch{this.retirementCleanupFailures++}}}
  readonly noise: CanonicalGpuField
  readonly nearest: GPUSampler
  readonly linear: GPUSampler
@@ -157,13 +166,14 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   try {
    const value=task(),buffers=this.activeBuffers,retired=this.activeRetired
    this.pendingScopes++;let released=false
-   return{value,release:()=>{if(released)return;released=true;buffers.forEach(b=>b.destroy());for(const f of retired)this.pendingRetired.add(f);this.pendingScopes--;if(!this.pendingScopes){for(const f of this.pendingRetired)f.texture.destroy();this.pendingRetired.clear()}}}
-  } catch(error) {this.activeBuffers.forEach(b=>b.destroy());this.activeRetired.forEach(f=>{if(this.pendingScopes)this.pendingRetired.add(f);else f.texture.destroy()});throw error}
+   return{value,release:()=>{if(released)return;released=true;buffers.forEach(b=>b.destroy());for(const f of retired)this.pendingRetired.add(f);this.pendingScopes--;if(!this.pendingScopes){for(const f of this.pendingRetired)f.texture.destroy();this.pendingRetired.clear();this.flushOwnerRetirements()}}}
+  } catch(error) {this.activeBuffers.forEach(b=>b.destroy());this.activeRetired.forEach(f=>{if(this.pendingScopes)this.pendingRetired.add(f);else f.texture.destroy()});if(!this.pendingScopes){try{this.flushOwnerRetirements()}catch{/* Preserve original encoding error after all retirements were attempted. */}}throw error}
   finally {this.activeEncoder=null;this.activeBuffers=[];this.activeRetired=[]}
  }
  /** Immutable staging payload is recorded in the same command stream as its
   * consumers. A later contact upload cannot overwrite an earlier contact. */
  encodeUploadRgba(encoder:GPUCommandEncoder,field:CanonicalGpuField,bytes:Uint8Array,rawGlRows=false):GPUBuffer[] {
+  this.noteStaticWrite(field)
   if(bytes.length!==field.width*field.height*4)throw new Error('Canonical staging upload dimensions mismatch')
   const pitch=Math.ceil(field.width*4/256)*256,stagingBytes=new Uint8Array(pitch*field.height)
   for(let row=0;row<field.height;row++){const sourceRow=rawGlRows?field.height-row-1:row;stagingBytes.set(bytes.subarray(sourceRow*field.width*4,(sourceRow+1)*field.width*4),row*pitch)}
@@ -178,6 +188,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
  upload(field: CanonicalGpuField, bytes: Uint8Array) {
   if (bytes.byteLength !== field.width * field.height * 4) throw new Error(`Canonical RGBA8 upload size mismatch: ${field.label}`)
   if(this.activeEncoder){this.activeBuffers.push(...this.encodeUploadRgba(this.activeEncoder,field,bytes));return}
+  this.noteStaticWrite(field)
   this.device.queue.writeTexture({ texture: field.texture }, bytes as Uint8Array<ArrayBuffer>, { bytesPerRow: field.width * 4 }, { width: field.width, height: field.height })
  }
  encodePreparedRibbon(encoder:GPUCommandEncoder,batch:CanonicalRibbonBatch,phase:CanonicalRasterPhase,targets:CanonicalRasterTargets):GPUBuffer[] {
@@ -215,6 +226,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   if(srcOrigin[0]+size[0]>src.width||srcOrigin[1]+size[1]>src.height||dstOrigin[0]+size[0]>dst.width||dstOrigin[1]+size[1]>dst.height)throw new Error('Canonical copy region out of bounds')
   if(src.texture===dst.texture)throw new Error('Canonical texture self-copy unsupported')
   if(!size[0]||!size[1])return
+  this.noteStaticWrite(dst)
   const selected=encoder??this.activeEncoder;const commands=selected??this.device.createCommandEncoder();commands.copyTextureToTexture({texture:src.texture,origin:[...srcOrigin]},{texture:dst.texture,origin:[...dstOrigin]},[...size]);if(!selected)this.device.queue.submit([commands.finish()])
  }
  copyField(src:CanonicalGpuField,dst:CanonicalGpuField,encoder?:GPUCommandEncoder) {
@@ -222,6 +234,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   this.copyRegion(src,dst,[0,0],[0,0],[src.width,src.height],encoder)
  }
  encodeClearField(encoder:GPUCommandEncoder,field:CanonicalGpuField,rect?:readonly[number,number,number,number]):GPUBuffer[] {
+  this.noteStaticWrite(field)
   if(!rect&&this.options.diagnosticComputeFullClear){this.diagnosticComputeFullClearCalls++;rect=[0,0,field.width,field.height]}
   if(!rect){const pass=encoder.beginRenderPass({label:import.meta.env.DEV?'Canonical clear full':undefined,colorAttachments:[{view:field.view,loadOp:'clear',storeOp:'store',clearValue:[0,0,0,0]}]});pass.end();return[]}
   if(rect.some(v=>!Number.isInteger(v))||rect[2]<0||rect[3]<0)throw new Error('Canonical clear rectangle requires integer coordinates and nonnegative size')
@@ -276,5 +289,5 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   for (const name of names) this.upload(this.fields[name], snapshot.fields[name])
  }
  whenIdle() { return this.device.queue.onSubmittedWorkDone() }
- destroy() { if (this.destroyed) return; this.destroyed = true; this.diagnosticTimestamps?.destroy(); this.diagnosticTimestamps=null; for (const field of this.ownedFields) field.texture.destroy(); this.ownedFields.clear(); for(const field of this.pendingRetired)field.texture.destroy(); this.pendingRetired.clear(); this.activeRetired.forEach(field=>field.texture.destroy()); this.activeRetired=[]; this.activeBuffers.forEach(buffer=>buffer.destroy()); this.activeBuffers=[]; this.context?.unconfigure(); this.device.destroy() }
+ destroy() { if (this.destroyed) return; this.destroyed = true; this.diagnosticTimestamps?.destroy(); this.diagnosticTimestamps=null; try{for (const field of this.ownedFields) field.texture.destroy(); this.ownedFields.clear(); for(const field of this.pendingRetired)field.texture.destroy(); this.pendingRetired.clear(); this.activeRetired.forEach(field=>field.texture.destroy()); this.activeRetired=[]; this.activeBuffers.forEach(buffer=>buffer.destroy()); this.activeBuffers=[]}finally{this.flushOwnerRetirements();try{this.context?.unconfigure()}finally{this.device.destroy()}} }
 }

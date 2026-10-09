@@ -14,6 +14,8 @@ export interface CanonicalGpuField {
 }
 export interface CanonicalWorldRect { x: number; y: number; width: number; height: number }
 export interface CanonicalPaper {
+  /** DEV cache read-set version from actual owner write APIs. */
+  readonly staticInputEpoch?: string
   readonly field: CanonicalGpuField
   readonly origin: readonly [number, number]
   readonly texSize: readonly [number, number]
