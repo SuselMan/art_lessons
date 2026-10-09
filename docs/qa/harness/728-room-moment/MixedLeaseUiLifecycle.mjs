@@ -5,8 +5,8 @@ export async function uiWhole(page){
 export async function runMixedLeaseUiLifecycle(page){
  const before=await uiWhole(page);if(before.nonwhite<10)throw Error('Meaningful UI pigment required');
  const count=()=>page.evaluate(()=>window.__engine.getOperations().length);
- const n=await count();await page.getByRole('button',{name:/^(Отменить|Undo)$/}).click();await page.waitForFunction(n=>window.__engine.getOperations().length>n,n,{timeout:30000});const undo=await uiWhole(page);if(undo.sha===before.sha)throw Error('Actual UI undo did not change pigment');
- const u=await count();await page.getByRole('button',{name:/^(Вернуть|Redo)$/}).click();await page.waitForFunction(n=>window.__engine.getOperations().length>n,u,{timeout:30000});const redo=await uiWhole(page);if(redo.sha!==before.sha)throw Error('Actual UI redo whole mismatch');
+ const n=await count();await page.getByRole('button',{name:/^(Отменить|Undo)$/}).click();await page.waitForFunction(n=>window.__engine.getOperations().length!==n,n,{timeout:30000});const undo=await uiWhole(page);if(undo.sha===before.sha)throw Error('Actual UI undo did not change pigment');
+ const u=await count();await page.getByRole('button',{name:/^(Вернуть|Redo)$/}).click();await page.waitForFunction(n=>window.__engine.getOperations().length!==n,u,{timeout:30000});const redo=await uiWhole(page);if(redo.sha!==before.sha)throw Error('Actual UI redo whole mismatch');
  const d=await count();await page.getByRole('button',{name:/^(Высушить всё|Dry everything)$/}).click();await page.waitForFunction(n=>window.__engine.getOperations().slice(n).some(o=>o.type==='paper_dry'),d,{timeout:30000});const dry=await uiWhole(page);
- return{before,undo,redo,dry,operations:await page.evaluate(()=>window.__engine.getOperations().map(o=>({id:o.id,type:o.type,strokeId:o.strokeId,targets:o.targetIds}))),scope:'Actual buttons, dry op, whole after canonical idle. No inside timing readbacks.'};
+ return{before,undo,redo,dry,operations:await page.evaluate(()=>window.__engine.getOperations().map(o=>({id:o.id,type:o.type,strokeId:o.strokeId,target:o.targetOpId}))),scope:'Actual buttons, dry op, whole after canonical idle. No inside timing readbacks.'};
 }
