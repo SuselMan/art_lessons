@@ -99,3 +99,28 @@ all distinct from pressure/P/C/fixed/source/pending. Total preview proposed
 19.125MiB. Seed1+log2(stride) reductions+front1+paired2: stride16≤8draw/tick.
 No DOWN allocations, no reused masks across pressure changes without rebuild.
 Budget/compile/hardware not yet proven. Existing inherited evidence retained.
+
+## Isolated multiscale fixture READY for review, NOT allocated
+
+Entry preview-multiscale-entry.html → previewMultiscaleGpu.mjs is independent
+from earlier unit fixture. Same synthetic source8 / paper / options, paired
+Q8/F32 arms; whole10-stride dyadic cycle, never cut on a coarse stride. Explicit
+zero-pressure dry-V gap seed negative and connected seed positive. F32 gate
+requires movement, expanded nonzero support, donor paired alpha/mass drift<.01
+Q8-equivalent total units, zero mass in disconnected pond/outside support,
+source8SHA unchanged. Q8 is reported separately; no assumption it stays still.
+Each carry tick awaits a fresh RAF then≤7draw; a Room interleaved front adds1.
+RAF await has1000ms cancel-on-timeout so frozen pages cannot hang this fixture.
+24 front preparation ticks are isolated oracle setup, NOT proposed UX pause.
+Readback checkpoints perturb scheduling, NOT performance or physical latency.
+
+Source identity: literal production16/15 programs untouched; separate seed
+literal source and production costDomain reduction. P/C read SAMEOLDP/fixed/
+pressure/path per tick; both destinations distinct. Two masks128 outside all
+source/pressure/mobile/fixed textures, rebuilt for every pressure/carry tick.
+Fixture compiles a new small program only after opt-in invocation; cleanup
+known-idle finish occurs only fixture finally, never DOWN. F32 allocator is
+existing actual capability/rollback gate. Own buffers/program destroyed before
+engine; controller owns/ closes page, no foreign pages. Hardware not run.
+GPU link/FBO/source-alpha precision and partlywet subcell topology remain
+unproven; aligned128 domains do not promise preserving gaps below8world pixels.
