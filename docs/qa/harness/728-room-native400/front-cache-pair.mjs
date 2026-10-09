@@ -7,7 +7,7 @@ import {execFile} from 'node:child_process'
 import {awaitPairRam} from '../728-room-native-cpu-profile/pair-ram-admission.mjs'
 import {preservePairEvidence} from '../728-room-native-cpu-profile/pair-evidence.mjs'
 import {assertFrontCachePair,assertNativePairSourceManifest} from './front-cache-pair-proof.mjs'
-const mode=process.env.QA_PAIR_KIND??'front-cache';if(!['front-cache','brush-pair','combined-cache','film-hoist','cache-factor'].includes(mode))throw Error('Explicit native pair mode');
+const mode=process.env.QA_PAIR_KIND??'front-cache';if(!['front-cache','brush-pair','combined-cache','film-hoist','cache-factor','front-shared-tile'].includes(mode))throw Error('Explicit native pair mode');
 const out=process.env.QA_PAIR_OUT,durable=process.env.QA_PAIR_EVIDENCE
 if(!out||!durable||process.env.QA_PAIR_ALLOCATION!=='surface')throw Error('Explicit allocated pair output/evidence required')
 const root=path.dirname(path.resolve(out)),marker=JSON.parse(fs.readFileSync(path.join(root,'.codex-qa-disposable.json'))),registry=JSON.parse(fs.readFileSync(path.join(os.homedir(),'.local/share/codex-qa/resources.json')))
@@ -25,7 +25,7 @@ try{
   await awaitPairRam(remaining=>new Promise((resolve,reject)=>execFile('ssh',['-o','BatchMode=yes','-o','ConnectTimeout=5','surface','powershell -NoProfile -Command "(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory"'],{timeout:Math.min(5000,remaining),encoding:'utf8'},(error,raw)=>error?reject(error):resolve(Number(raw.trim())/1024))),{record:value=>{progress.ramAdmissions.push({arm,MiB:value});save()}})
   progress.stage=arm;save()
   const armOut=path.join(out,arm)
-  await run({QA_OUT:armOut,QA_PAIR_MODE:mode,QA_FRONT_CACHE:mode==='film-hoist'||mode==='cache-factor'||mode!=='brush-pair'&&arm==='on'?'1':'0',QA_NATIVE_BRUSH_PAIR:mode==='film-hoist'||mode==='cache-factor'||mode==='combined-cache'||mode==='brush-pair'&&arm==='on'?'1':'0',QA_FRONT_CACHE_FACTOR:mode==='cache-factor'&&arm==='on'?'1':'0',QA_FRONT_FILM_HOIST:mode==='film-hoist'&&arm==='on'?'1':'0',QA_ACTUAL_PRELOAD:'1',QA_CARRY_HARDWARE_PRESSURE:'1',QA_SOURCE_PRECOMPILE:'1',QA_FIRST_LIVE_WARMUP:'0',QA_RAW_CANVAS_WARMUP:'0',QA_NATIVE_INFLIGHT_LIMIT:'0',QA_ASYNC_PRESSURE_PIPELINE:'0',QA_SCENARIO:'water-pigment400-long'})
+  await run({QA_OUT:armOut,QA_PAIR_MODE:mode,QA_FRONT_CACHE:mode==='front-shared-tile'||mode==='film-hoist'||mode==='cache-factor'||mode!=='brush-pair'&&arm==='on'?'1':'0',QA_NATIVE_BRUSH_PAIR:mode==='front-shared-tile'||mode==='film-hoist'||mode==='cache-factor'||mode==='combined-cache'||mode==='brush-pair'&&arm==='on'?'1':'0',QA_FRONT_SHARED_TILE:mode==='front-shared-tile'&&arm==='on'?'1':'0',QA_FRONT_CACHE_FACTOR:mode==='front-shared-tile'||mode==='cache-factor'&&arm==='on'?'1':'0',QA_FRONT_FILM_HOIST:mode==='film-hoist'&&arm==='on'?'1':'0',QA_ACTUAL_PRELOAD:'1',QA_CARRY_HARDWARE_PRESSURE:'1',QA_SOURCE_PRECOMPILE:'1',QA_FIRST_LIVE_WARMUP:'0',QA_RAW_CANVAS_WARMUP:'0',QA_NATIVE_INFLIGHT_LIMIT:'0',QA_ASYNC_PRESSURE_PIPELINE:'0',QA_SCENARIO:'water-pigment400-long'})
   const row=JSON.parse(fs.readFileSync(path.join(armOut,'report.json')))
   if(!row.complete||!row.ownedContextDisposed||row.error||row.errors?.length||row.memoryError||row.memoryGuardFailure||row.ownedContextDisposeError)throw Error('Stop before next arm: incomplete actual '+arm)
   reports.push(row);progress.completedArms.push(arm);save()
