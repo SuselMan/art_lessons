@@ -1,0 +1,20 @@
+--- a/apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts
++++ b/apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts
+@@ -52,6 +52,7 @@
+  private retirements:Promise<void>[]=[]
+  private constructor(backend:CanonicalWatercolorWebGpu,ctx:RoomNativeRuntimeContext){this.backend=backend;this.ctx=ctx;this.tipContactQa=installNativeTipA(backend,ctx.diagnosticTipContactA===true);this.central=new RoomNativeCentralAdapter(ctx.fifo,ctx.changed)}
+  static async create(ctx:RoomNativeRuntimeContext){
++  if(import.meta.env.DEV&&ctx.diagnosticFirstLiveWarmup===true&&ctx.diagnosticRawCanvasWarmup===true)throw new Error('Separate first-live and raw-only warmup arms required')
+   console.info('[native-room-init]','paper:load-start')
+   const la=await getPaperBytes(ctx.paper),resolution=Math.sqrt(la.length/2)
+   console.info('[native-room-init]','paper:expand-start',la.length)
+--- a/apps/web/src/engine/index.ts
++++ b/apps/web/src/engine/index.ts
+@@ -2284,6 +2284,7 @@
+     this._wcNativeEnabled=import.meta.env.DEV&&options.nativeWatercolor===true
+     this._wcRawCanvasWarmupEnabled=import.meta.env.DEV&&options.diagnosticRawCanvasWarmup===true
+     if(this._wcRawCanvasWarmupEnabled&&!this._wcNativeEnabled)throw Error('DEV raw canvas warmup requires nativeWatercolor')
++    if(this._wcFirstLiveWarmupEnabled&&this._wcRawCanvasWarmupEnabled)throw Error('Separate first-live and raw-only warmup arms required')
+     this._wcCarryHardwarePressureEnabled=import.meta.env.DEV&&options.diagnosticCarryHardwarePressure===true
+     if(this._wcCarryHardwarePressureEnabled&&!this._wcNativeEnabled)throw Error('DEV carry pressure sampling requires nativeWatercolor')
+     this._wcTipContactAEnabled=import.meta.env.DEV&&options.diagnosticTipContactA===true
