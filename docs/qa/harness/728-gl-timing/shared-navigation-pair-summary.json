@@ -1,0 +1,2893 @@
+{
+  "scope": "ONE Surface OFF/ON no-input only; both form readiness incomplete; no room/drawing/performance gain claim",
+  "arms": [
+    {
+      "arm": "0",
+      "record": {
+        "scope": "Actual Surface no-input /create navigation only; no room submit, strokes or GPU material",
+        "navigation": {
+          "exactGotoURL": "[QA origin]/create",
+          "waitUntil": "domcontentloaded",
+          "timeoutMs": 30000,
+          "ignoreHTTPSErrors": true
+        },
+        "passport": {
+          "apps/web/src/main.tsx": "954967a4d4e7f01ec1115003929bab975ad52ea873fc77be4c146c7d1b1b7b75",
+          "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "edf56db76df946a79940f012a8bb9344a7799c0b5204accc4be7774d6bf9aa83",
+          "apps/web/src/engine/index.ts": "99384eba314575655ff6aa0ba2bc708cab84a5a5b0b29fc7d426849998163125",
+          "apps/web/src/engine/src/raster/CanonicalWatercolorSettlePlan.ts": "bd10157ac1e32f3d3bcf61fe0d3936770c35c05df881019b978efe28bfb012ef",
+          "apps/web/src/engine/src/watercolor/brushDragHoisted.ts": "bc3187f4f73d8aa37d39b9591a389527b1e1b409d2e73bd6300964c822a24ed9",
+          "docs/qa/harness/728-gl-timing/NavigationTrace.mjs": "d4ecdc085ddc43c296530e4ffd11a67a9ed51625e8e8732e3175f7a2e24dcfaf"
+        },
+        "sharedProof": {
+          "arm": "0",
+          "selectedWorktree": "/home/suselman/projects/pencil-agents/728-gl-bounded-timing",
+          "inputs": [
+            {
+              "path": "packages/shared/src/admin.test.ts",
+              "sha256": "26e8e3a90bd2229755b4b3bfb67d76eeaee9408ed459917dd8f1b5958cb08509"
+            },
+            {
+              "path": "packages/shared/src/admin.ts",
+              "sha256": "ce06dfa3d3a2ddbe8f931e97ab8ab2043097f525654fa38bf2df75c6d03e3e2c"
+            },
+            {
+              "path": "packages/shared/src/annotations.ts",
+              "sha256": "d56ec53f837e18e62ef17be612127ec60d39fdc73c84d13e35e697eb60560eb6"
+            },
+            {
+              "path": "packages/shared/src/areaOperations.ts",
+              "sha256": "5e685e043a863be6e97b8d4b35ba3891e067d117280e63d3f6686396f697df7d"
+            },
+            {
+              "path": "packages/shared/src/dabCodec.test.ts",
+              "sha256": "e8758603c260ae3b92446f0f09e9a73f22b8915c7657e8d851eb67ad68845bb9"
+            },
+            {
+              "path": "packages/shared/src/dabCodec.ts",
+              "sha256": "dddf6597bf6444c4cd226a41dc529661637803f497e5de4859bdd82429e27212"
+            },
+            {
+              "path": "packages/shared/src/hotkeys.ts",
+              "sha256": "59907577a05e61df39b6e0b0644c68a9818255fc3968def72baf9dcec1109c1f"
+            },
+            {
+              "path": "packages/shared/src/index.ts",
+              "sha256": "460369af04c4fa794fc74d20180d46999d2e397efe38eab078cac8f89ecfd364"
+            },
+            {
+              "path": "packages/shared/src/layerFilters.ts",
+              "sha256": "82e3108ecd2acf3b26222a8330db149b38e44af9637cfb5607098019ca06c635"
+            },
+            {
+              "path": "packages/shared/src/layerOperations.ts",
+              "sha256": "92af5204db34e72ab72a8e75f503747e1b61e23da9b948499071ecd280ebcb45"
+            },
+            {
+              "path": "packages/shared/src/layers.ts",
+              "sha256": "76d056b6741d26ecf3d173c161988ec6908cf9dfb0509cc5271297b04e0c21e7"
+            },
+            {
+              "path": "packages/shared/src/operationBase.ts",
+              "sha256": "6857685213e5249c00207cc8029f6b413abbe6821bf1a4ad83cbc18879d3caac"
+            },
+            {
+              "path": "packages/shared/src/operations.ts",
+              "sha256": "7884b980df13c987557085b07c594d764149342a470d3c67fe32722158e737b1"
+            },
+            {
+              "path": "packages/shared/src/paper.ts",
+              "sha256": "a8080214e2a91b26494ea678df9cc63389d604d9b6436242a6486c9e26acb10e"
+            },
+            {
+              "path": "packages/shared/src/protocol.ts",
+              "sha256": "a580887b3e37997c506e0d3ae76684067a14fd87001dfe17e36ae7003cfec649"
+            },
+            {
+              "path": "packages/shared/src/rejectReason.test.ts",
+              "sha256": "06cf542954bf4d79dc77214269fc40cca2b908684ec0c914fca1e700829e80d2"
+            },
+            {
+              "path": "packages/shared/src/rest.test.ts",
+              "sha256": "5f1d0020c8f0af0bf7abba8e5e848b1d28a629a50c6fae765208316764419414"
+            },
+            {
+              "path": "packages/shared/src/rest.ts",
+              "sha256": "6ee3ace186a03b798b20fd2cd33a37ae1d138be4fb840f47aa2d3b3539c9f387"
+            },
+            {
+              "path": "packages/shared/src/room.ts",
+              "sha256": "1fda41b88bc10979f720461691dc25c764405e59441d1b16a68893e467e06254"
+            },
+            {
+              "path": "packages/shared/src/roomOpen.test.ts",
+              "sha256": "0c8068e38f9aa50ab9c0e68ea6e0a2e1c5aa7102acfe13c4dcf69e7bea537e24"
+            },
+            {
+              "path": "packages/shared/src/roomOpen.ts",
+              "sha256": "d08d809d740398bcddf067e7b91fe916cda6195e883d6c2f07b30908dd37bcac"
+            },
+            {
+              "path": "packages/shared/src/shapeBounds.test.ts",
+              "sha256": "8dffcf9a0e9fc4020d2c584a6c266b1c18819c34e4c3e4ff63199ebbb775e743"
+            },
+            {
+              "path": "packages/shared/src/shapes.ts",
+              "sha256": "a0159c0bd71e21e8a464ccf2dc9c0229d4898bc87ae81c409a1df7c1bd8b8914"
+            },
+            {
+              "path": "packages/shared/src/stroke.ts",
+              "sha256": "44ed16717479ca0c00eda42a0c5af3c9478a422aac55db6716aebae28602cdc4"
+            },
+            {
+              "path": "packages/shared/src/toolset.test.ts",
+              "sha256": "21928abc84eb7548ad6bdbb3a612992e5d668181caec16c479d72b805da8d20b"
+            },
+            {
+              "path": "packages/shared/src/toolset.ts",
+              "sha256": "ec4aaa7b603fdfade1fa44994bdba56fade77a8c64efccdff78b3100bcf59330"
+            },
+            {
+              "path": "packages/shared/src/transformMatrix.test.ts",
+              "sha256": "856406f84a4bec287992f8f098d57951be62b6cb625c8f02e6036bc0f5d88337"
+            }
+          ],
+          "tool": {
+            "node": "v20.20.2",
+            "vite": "8.1.0",
+            "lockSHA256": "dd4aa0b6e849da8d255abc0866d38473f08bf75f26214aa164e72d8d63b84d90"
+          },
+          "metadataSHA256": "94dc125d69682af25ab8081ce252ebd20cfbebaf22a4ff5bf843b959ea2bf976",
+          "metadataShared": false,
+          "servedBundleExact": false
+        },
+        "stages": [
+          {
+            "name": "context-open",
+            "at": 2910.313158
+          },
+          {
+            "name": "goto",
+            "at": 4941.955122
+          },
+          {
+            "name": "domcontentloaded",
+            "at": 16389.711069
+          },
+          {
+            "name": "goto-return",
+            "at": 16392.2017
+          },
+          {
+            "name": "load",
+            "at": 16406.386902
+          },
+          {
+            "name": "closed",
+            "at": 27911.192479
+          }
+        ],
+        "network": {
+          "rows": [
+            {
+              "phase": "request",
+              "requestId": "7508.29",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/index.ts",
+              "type": "Script",
+              "at": 542915.124078
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.29",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/index.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542915.193555,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.54",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/layers.ts",
+              "type": "Script",
+              "at": 542915.195046
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.55",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/paper.ts",
+              "type": "Script",
+              "at": 542915.195271
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.56",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/room.ts",
+              "type": "Script",
+              "at": 542915.195444
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.57",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/toolset.ts",
+              "type": "Script",
+              "at": 542915.195625
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.58",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/stroke.ts",
+              "type": "Script",
+              "at": 542915.195802
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.59",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/layerOperations.ts",
+              "type": "Script",
+              "at": 542915.195996
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.60",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/areaOperations.ts",
+              "type": "Script",
+              "at": 542915.196213
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.61",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/shapes.ts",
+              "type": "Script",
+              "at": 542915.196443
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.62",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/layerFilters.ts",
+              "type": "Script",
+              "at": 542915.196643
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.63",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/operations.ts",
+              "type": "Script",
+              "at": 542915.196858
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.64",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/annotations.ts",
+              "type": "Script",
+              "at": 542915.197068
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.65",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/protocol.ts",
+              "type": "Script",
+              "at": 542915.197255
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.66",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/hotkeys.ts",
+              "type": "Script",
+              "at": 542915.19742
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.67",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/rest.ts",
+              "type": "Script",
+              "at": 542915.197567
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.68",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/roomOpen.ts",
+              "type": "Script",
+              "at": 542915.197899
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.69",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/dabCodec.ts",
+              "type": "Script",
+              "at": 542915.198053
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.70",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/admin.ts",
+              "type": "Script",
+              "at": 542915.198212
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.54",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/layers.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.663388,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.57",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/toolset.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.663905,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.55",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/paper.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.664389,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.58",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/stroke.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.664868,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.56",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/room.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.665338,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.59",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/layerOperations.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.665947,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.60",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/areaOperations.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.666477,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.61",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/shapes.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.667123,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.62",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/layerFilters.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.667721,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.63",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/operations.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.66823,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.64",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/annotations.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.668798,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.65",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/protocol.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.669398,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.66",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/hotkeys.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.669986,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.67",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/rest.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.670479,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.68",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/roomOpen.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.671004,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.70",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/admin.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.671443,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.69",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/dabCodec.ts",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542917.671846,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.117",
+              "originClass": "QA",
+              "pathname": "/api/me",
+              "type": "Fetch",
+              "at": 542919.581381
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.117",
+              "originClass": "QA",
+              "pathname": "/api/me",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Fetch",
+              "at": 542919.704054,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.121",
+              "originClass": "QA",
+              "pathname": "/api/me/environment",
+              "type": "Fetch",
+              "at": 542919.746707
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.122",
+              "originClass": "QA",
+              "pathname": "/src/pages/CreateRoom/index.tsx",
+              "type": "Script",
+              "at": 542919.783817
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.121",
+              "originClass": "QA",
+              "pathname": "/api/me/environment",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Fetch",
+              "at": 542919.798587,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.122",
+              "originClass": "QA",
+              "pathname": "/src/pages/CreateRoom/index.tsx",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542919.897213,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "request",
+              "requestId": "7508.136",
+              "originClass": "QA",
+              "pathname": "/src/pages/CreateRoom/CreateRoom.module.css",
+              "type": "Script",
+              "at": 542919.900352
+            },
+            {
+              "phase": "response",
+              "requestId": "7508.136",
+              "originClass": "QA",
+              "pathname": "/src/pages/CreateRoom/CreateRoom.module.css",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1538746,
+              "type": "Script",
+              "at": 542920.241209,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            }
+          ],
+          "pending": [
+            {
+              "requestId": "7508.200",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/oplog/hasActiveWater.ts",
+              "type": "Script",
+              "at": 542928.41253
+            },
+            {
+              "requestId": "7508.201",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/LayerCompositor.ts",
+              "type": "Script",
+              "at": 542928.412691
+            },
+            {
+              "requestId": "7508.202",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/watercolor/pureWaterLayerProof.ts",
+              "type": "Script",
+              "at": 542928.412851
+            },
+            {
+              "requestId": "7508.203",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/WatercolorSettlePlan.ts",
+              "type": "Script",
+              "at": 542928.413001
+            },
+            {
+              "requestId": "7508.204",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/watercolor/WatercolorCanonicalFIFO.ts",
+              "type": "Script",
+              "at": 542928.413175
+            },
+            {
+              "requestId": "7508.205",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/watercolor/WatercolorSettleQueue.ts",
+              "type": "Script",
+              "at": 542928.41335
+            },
+            {
+              "requestId": "7508.206",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/SettleField.ts",
+              "type": "Script",
+              "at": 542928.413518
+            },
+            {
+              "requestId": "7508.207",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/watercolor/settleResolution.ts",
+              "type": "Script",
+              "at": 542928.41371
+            },
+            {
+              "requestId": "7508.208",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/WatercolorPasses.ts",
+              "type": "Script",
+              "at": 542928.413882
+            },
+            {
+              "requestId": "7508.209",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/RibbonPasses.ts",
+              "type": "Script",
+              "at": 542928.414076
+            },
+            {
+              "requestId": "7508.210",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/RibbonStrokePainter.ts",
+              "type": "Script",
+              "at": 542928.414234
+            },
+            {
+              "requestId": "7508.211",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/ribbonStrokeMath.ts",
+              "type": "Script",
+              "at": 542928.414394
+            },
+            {
+              "requestId": "7508.212",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/shaders.ts",
+              "type": "Script",
+              "at": 542928.414732
+            },
+            {
+              "requestId": "7508.213",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/washReveal.ts",
+              "type": "Script",
+              "at": 542928.414933
+            },
+            {
+              "requestId": "7508.214",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/diagnosticWebgl2.ts",
+              "type": "Script",
+              "at": 542928.415111
+            },
+            {
+              "requestId": "7508.215",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/watercolorDiagnosticOwners.ts",
+              "type": "Script",
+              "at": 542928.415278
+            },
+            {
+              "requestId": "7508.216",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/utils.ts",
+              "type": "Script",
+              "at": 542928.415457
+            },
+            {
+              "requestId": "7508.217",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/paper/PaperState.ts",
+              "type": "Script",
+              "at": 542928.415614
+            },
+            {
+              "requestId": "7508.218",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/AccumulationBuffer.ts",
+              "type": "Script",
+              "at": 542928.415801
+            },
+            {
+              "requestId": "7508.219",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/oplog/checkpointStore.ts",
+              "type": "Script",
+              "at": 542928.415981
+            },
+            {
+              "requestId": "7508.220",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/scratchPools.ts",
+              "type": "Script",
+              "at": 542928.416156
+            },
+            {
+              "requestId": "7508.221",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/RibbonReplayCache.ts",
+              "type": "Script",
+              "at": 542928.416356
+            },
+            {
+              "requestId": "7508.222",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/RibbonScratchPool.ts",
+              "type": "Script",
+              "at": 542928.416519
+            },
+            {
+              "requestId": "7508.223",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/RibbonStrokeScratch.ts",
+              "type": "Script",
+              "at": 542928.416694
+            },
+            {
+              "requestId": "7508.224",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/oplog/snapshotLedger.ts",
+              "type": "Script",
+              "at": 542928.416868
+            },
+            {
+              "requestId": "7508.225",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/oplog/SnapshotIO.ts",
+              "type": "Script",
+              "at": 542928.417049
+            },
+            {
+              "requestId": "7508.226",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/oplog/structuralOps.ts",
+              "type": "Script",
+              "at": 542928.417213
+            },
+            {
+              "requestId": "7508.227",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/blitPasses.ts",
+              "type": "Script",
+              "at": 542928.417374
+            },
+            {
+              "requestId": "7508.228",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/AreaOps.ts",
+              "type": "Script",
+              "at": 542928.41755
+            },
+            {
+              "requestId": "7508.229",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/layerPreviews.ts",
+              "type": "Script",
+              "at": 542928.417701
+            },
+            {
+              "requestId": "7508.230",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/cameraFrame.ts",
+              "type": "Script",
+              "at": 542928.417871
+            },
+            {
+              "requestId": "7508.231",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/Camera.ts",
+              "type": "Script",
+              "at": 542928.418037
+            },
+            {
+              "requestId": "7508.232",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/ImageImport.ts",
+              "type": "Script",
+              "at": 542928.41822
+            },
+            {
+              "requestId": "7508.233",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/ShapePass.ts",
+              "type": "Script",
+              "at": 542928.418391
+            },
+            {
+              "requestId": "7508.234",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/filters/FilterPass.ts",
+              "type": "Script",
+              "at": 542928.418557
+            },
+            {
+              "requestId": "7508.235",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/export/Exporter.ts",
+              "type": "Script",
+              "at": 542928.41871
+            },
+            {
+              "requestId": "7508.236",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/SmudgePainter.ts",
+              "type": "Script",
+              "at": 542928.418864
+            },
+            {
+              "requestId": "7508.237",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/BrushPainter.ts",
+              "type": "Script",
+              "at": 542928.419038
+            },
+            {
+              "requestId": "7508.238",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/StampPainter.ts",
+              "type": "Script",
+              "at": 542928.419203
+            },
+            {
+              "requestId": "7508.239",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/dabOpacity.ts",
+              "type": "Script",
+              "at": 542928.419384
+            },
+            {
+              "requestId": "7508.240",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/codecDab.ts",
+              "type": "Script",
+              "at": 542928.419545
+            },
+            {
+              "requestId": "7508.241",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/resolvePreset.ts",
+              "type": "Script",
+              "at": 542928.419753
+            },
+            {
+              "requestId": "7508.242",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/charcoalPresets.ts",
+              "type": "Script",
+              "at": 542928.419939
+            },
+            {
+              "requestId": "7508.243",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/charcoalFeel.ts",
+              "type": "Script",
+              "at": 542928.420108
+            },
+            {
+              "requestId": "7508.244",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/DabSystem.ts",
+              "type": "Script",
+              "at": 542928.420403
+            },
+            {
+              "requestId": "7508.245",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/dabShaping.ts",
+              "type": "Script",
+              "at": 542928.420613
+            },
+            {
+              "requestId": "7508.246",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/tipFootprint.ts",
+              "type": "Script",
+              "at": 542928.420769
+            },
+            {
+              "requestId": "7508.247",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/dabSpacing.ts",
+              "type": "Script",
+              "at": 542928.42091
+            },
+            {
+              "requestId": "7508.248",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/pencilTilt.ts",
+              "type": "Script",
+              "at": 542928.42107
+            },
+            {
+              "requestId": "7508.249",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/smudgeGrain.ts",
+              "type": "Script",
+              "at": 542928.421235
+            },
+            {
+              "requestId": "7508.250",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/tiltCurve.ts",
+              "type": "Script",
+              "at": 542928.421381
+            },
+            {
+              "requestId": "7508.251",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/oplog/OperationLog.ts",
+              "type": "Script",
+              "at": 542928.421564
+            },
+            {
+              "requestId": "7508.252",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/input/PointerInput.ts",
+              "type": "Script",
+              "at": 542928.421703
+            },
+            {
+              "requestId": "7508.253",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/pencilPresets.ts",
+              "type": "Script",
+              "at": 542928.42185
+            },
+            {
+              "requestId": "7508.254",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/linerPresets.ts",
+              "type": "Script",
+              "at": 542928.422011
+            },
+            {
+              "requestId": "7508.255",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/digitalBrushPresets.ts",
+              "type": "Script",
+              "at": 542928.422166
+            },
+            {
+              "requestId": "7508.256",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/watercolorLift.ts",
+              "type": "Script",
+              "at": 542928.422291
+            },
+            {
+              "requestId": "7508.257",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/paper/paperWetness.ts",
+              "type": "Script",
+              "at": 542928.422438
+            },
+            {
+              "requestId": "7508.258",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/paper/wetOverlayPixels.ts",
+              "type": "Script",
+              "at": 542928.422598
+            },
+            {
+              "requestId": "7508.259",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/watercolorPresets.ts",
+              "type": "Script",
+              "at": 542928.422745
+            },
+            {
+              "requestId": "7508.260",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/watercolor/foreignWater.ts",
+              "type": "Script",
+              "at": 542928.422907
+            },
+            {
+              "requestId": "7508.261",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/ribbonProfile.ts",
+              "type": "Script",
+              "at": 542928.423077
+            },
+            {
+              "requestId": "7508.262",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/brushPenPresets.ts",
+              "type": "Script",
+              "at": 542928.423308
+            },
+            {
+              "requestId": "7508.263",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/HapticGrain.ts",
+              "type": "Script",
+              "at": 542928.423473
+            },
+            {
+              "requestId": "7508.264",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/matrix.ts",
+              "type": "Script",
+              "at": 542928.42361
+            },
+            {
+              "requestId": "7508.265",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/input/rulerSnap.ts",
+              "type": "Script",
+              "at": 542928.423777
+            },
+            {
+              "requestId": "7508.266",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/TiledLayerBuffer.ts",
+              "type": "Script",
+              "at": 542928.423934
+            },
+            {
+              "requestId": "7508.267",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/tileMath.ts",
+              "type": "Script",
+              "at": 542928.424435
+            },
+            {
+              "requestId": "7508.268",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/pinnedTiles.ts",
+              "type": "Script",
+              "at": 542928.4246
+            },
+            {
+              "requestId": "7508.269",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/filters/layerFilters.ts",
+              "type": "Script",
+              "at": 542928.424784
+            },
+            {
+              "requestId": "7508.270",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/watercolorPigments.ts",
+              "type": "Script",
+              "at": 542928.424954
+            },
+            {
+              "requestId": "7508.271",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/charcoal/compressed.png",
+              "type": "Script",
+              "at": 542928.489664
+            },
+            {
+              "requestId": "7508.272",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/charcoal/vine.png",
+              "type": "Script",
+              "at": 542928.489873
+            },
+            {
+              "requestId": "7508.273",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/charcoal/willow.png",
+              "type": "Script",
+              "at": 542928.490019
+            },
+            {
+              "requestId": "7508.274",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/airbrush.png",
+              "type": "Script",
+              "at": 542928.490258
+            },
+            {
+              "requestId": "7508.275",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/bristle.png",
+              "type": "Script",
+              "at": 542928.490451
+            },
+            {
+              "requestId": "7508.276",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/chalk.png",
+              "type": "Script",
+              "at": 542928.490581
+            },
+            {
+              "requestId": "7508.277",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/dry-wash.png",
+              "type": "Script",
+              "at": 542928.490739
+            },
+            {
+              "requestId": "7508.278",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/flat.png",
+              "type": "Script",
+              "at": 542928.490881
+            },
+            {
+              "requestId": "7508.279",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/foliage.png",
+              "type": "Script",
+              "at": 542928.491013
+            },
+            {
+              "requestId": "7508.280",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/gouache.png",
+              "type": "Script",
+              "at": 542928.491184
+            },
+            {
+              "requestId": "7508.281",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/grain.png",
+              "type": "Script",
+              "at": 542928.491343
+            },
+            {
+              "requestId": "7508.282",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/granulating.png",
+              "type": "Script",
+              "at": 542928.491518
+            },
+            {
+              "requestId": "7508.283",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/grass.png",
+              "type": "Script",
+              "at": 542928.491671
+            },
+            {
+              "requestId": "7508.284",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/hard-round.png",
+              "type": "Script",
+              "at": 542928.491837
+            },
+            {
+              "requestId": "7508.285",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/ink-round.png",
+              "type": "Script",
+              "at": 542928.492015
+            },
+            {
+              "requestId": "7508.286",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/medium-round.png",
+              "type": "Script",
+              "at": 542928.492176
+            },
+            {
+              "requestId": "7508.287",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/mixer.png",
+              "type": "Script",
+              "at": 542928.492338
+            },
+            {
+              "requestId": "7508.288",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/opaque-paint.png",
+              "type": "Script",
+              "at": 542928.492507
+            },
+            {
+              "requestId": "7508.289",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/screentone.png",
+              "type": "Script",
+              "at": 542928.492667
+            },
+            {
+              "requestId": "7508.290",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/soft-round.png",
+              "type": "Script",
+              "at": 542928.492839
+            },
+            {
+              "requestId": "7508.291",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/splatter.png",
+              "type": "Script",
+              "at": 542928.493047
+            },
+            {
+              "requestId": "7508.292",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/sponge.png",
+              "type": "Script",
+              "at": 542928.493225
+            },
+            {
+              "requestId": "7508.293",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/textured-paint.png",
+              "type": "Script",
+              "at": 542928.493376
+            },
+            {
+              "requestId": "7508.294",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/wet-bands.png",
+              "type": "Script",
+              "at": 542928.493538
+            },
+            {
+              "requestId": "7508.295",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/wet-edge.png",
+              "type": "Script",
+              "at": 542928.493692
+            },
+            {
+              "requestId": "7508.296",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/wet-on-wet.png",
+              "type": "Script",
+              "at": 542928.493859
+            },
+            {
+              "requestId": "7508.297",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/wet-wash.png",
+              "type": "Script",
+              "at": 542928.494075
+            },
+            {
+              "requestId": "7508.298",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/marker/bullet.png",
+              "type": "Script",
+              "at": 542928.49425
+            },
+            {
+              "requestId": "7508.299",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/marker/chisel.png",
+              "type": "Script",
+              "at": 542928.494401
+            },
+            {
+              "requestId": "7508.300",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/2B.png",
+              "type": "Script",
+              "at": 542928.494558
+            },
+            {
+              "requestId": "7508.301",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/2H.png",
+              "type": "Script",
+              "at": 542928.494703
+            },
+            {
+              "requestId": "7508.302",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/3B.png",
+              "type": "Script",
+              "at": 542928.494845
+            },
+            {
+              "requestId": "7508.303",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/3H.png",
+              "type": "Script",
+              "at": 542928.495006
+            },
+            {
+              "requestId": "7508.304",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/4B.png",
+              "type": "Script",
+              "at": 542928.495153
+            },
+            {
+              "requestId": "7508.305",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/4H.png",
+              "type": "Script",
+              "at": 542928.495324
+            },
+            {
+              "requestId": "7508.306",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/5B.png",
+              "type": "Script",
+              "at": 542928.495496
+            },
+            {
+              "requestId": "7508.307",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/5H.png",
+              "type": "Script",
+              "at": 542928.495647
+            },
+            {
+              "requestId": "7508.308",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/6B.png",
+              "type": "Script",
+              "at": 542928.49581
+            },
+            {
+              "requestId": "7508.309",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/6H.png",
+              "type": "Script",
+              "at": 542928.495963
+            },
+            {
+              "requestId": "7508.310",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/B.png",
+              "type": "Script",
+              "at": 542928.496114
+            },
+            {
+              "requestId": "7508.311",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/F.png",
+              "type": "Script",
+              "at": 542928.496272
+            },
+            {
+              "requestId": "7508.312",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/H.png",
+              "type": "Script",
+              "at": 542928.496412
+            },
+            {
+              "requestId": "7508.313",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/HB.png",
+              "type": "Script",
+              "at": 542928.496566
+            },
+            {
+              "requestId": "7508.314",
+              "originClass": "QA",
+              "pathname": "/src/assets/tools/brushPen.png",
+              "type": "Script",
+              "at": 542928.49671
+            },
+            {
+              "requestId": "7508.315",
+              "originClass": "QA",
+              "pathname": "/src/assets/tools/charcoal.png",
+              "type": "Script",
+              "at": 542928.496857
+            },
+            {
+              "requestId": "7508.316",
+              "originClass": "QA",
+              "pathname": "/src/assets/tools/digitalBrush.png",
+              "type": "Script",
+              "at": 542928.497067
+            },
+            {
+              "requestId": "7508.317",
+              "originClass": "QA",
+              "pathname": "/src/assets/tools/liner.png",
+              "type": "Script",
+              "at": 542928.497213
+            },
+            {
+              "requestId": "7508.318",
+              "originClass": "QA",
+              "pathname": "/src/assets/tools/marker.png",
+              "type": "Script",
+              "at": 542928.497369
+            },
+            {
+              "requestId": "7508.319",
+              "originClass": "QA",
+              "pathname": "/src/assets/tools/pencil.png",
+              "type": "Script",
+              "at": 542928.497525
+            },
+            {
+              "requestId": "7508.320",
+              "originClass": "QA",
+              "pathname": "/src/assets/tools/watercolor.png",
+              "type": "Script",
+              "at": 542928.497679
+            }
+          ],
+          "dropped": 0,
+          "scope": "Passive network stage only; no response bodies/auth/headers/query/fullURL"
+        },
+        "errors": [],
+        "memory": [
+          {
+            "phase": "admission",
+            "free": 2070,
+            "attempt": 0,
+            "elapsedMs": 1364
+          },
+          {
+            "phase": "active",
+            "free": 1796
+          },
+          {
+            "phase": "active",
+            "free": 1782
+          },
+          {
+            "phase": "active",
+            "free": 1766
+          },
+          {
+            "phase": "active",
+            "free": 1754
+          },
+          {
+            "phase": "closed",
+            "free": 1937
+          }
+        ],
+        "result": {
+          "transport": {
+            "roundtripMs": 172.0016999999998,
+            "execution": {
+              "result": 2,
+              "now": 902.5
+            }
+          },
+          "browser": "154.0.8037.98",
+          "valid": false,
+          "error": "TimeoutError: locator.waitFor: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator('form input[type=text]') to be visible\n",
+          "document": {
+            "readyState": "complete",
+            "formTextCount": 0,
+            "hasEngine": false
+          }
+        }
+      },
+      "consumptionSuccessfulFinishedCount": 18,
+      "requestCount": 315,
+      "responseCount": 194,
+      "pendingCount": 121,
+      "protocols": [
+        "h2"
+      ],
+      "networkTotals": {
+        "rows": 703,
+        "dropped": 0
+      },
+      "offlineFrozenArtifactCheck": {
+        "count": 38,
+        "mismatches": [],
+        "scope": "separate post-run validator; original actualcontroller did not yet gate artifacts"
+      }
+    },
+    {
+      "arm": "1",
+      "record": {
+        "scope": "Actual Surface no-input /create navigation only; no room submit, strokes or GPU material",
+        "navigation": {
+          "exactGotoURL": "[QA origin]/create",
+          "waitUntil": "domcontentloaded",
+          "timeoutMs": 30000,
+          "ignoreHTTPSErrors": true
+        },
+        "passport": {
+          "apps/web/src/main.tsx": "954967a4d4e7f01ec1115003929bab975ad52ea873fc77be4c146c7d1b1b7b75",
+          "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "edf56db76df946a79940f012a8bb9344a7799c0b5204accc4be7774d6bf9aa83",
+          "apps/web/src/engine/index.ts": "99384eba314575655ff6aa0ba2bc708cab84a5a5b0b29fc7d426849998163125",
+          "apps/web/src/engine/src/raster/CanonicalWatercolorSettlePlan.ts": "bd10157ac1e32f3d3bcf61fe0d3936770c35c05df881019b978efe28bfb012ef",
+          "apps/web/src/engine/src/watercolor/brushDragHoisted.ts": "bc3187f4f73d8aa37d39b9591a389527b1e1b409d2e73bd6300964c822a24ed9",
+          "docs/qa/harness/728-gl-timing/NavigationTrace.mjs": "d4ecdc085ddc43c296530e4ffd11a67a9ed51625e8e8732e3175f7a2e24dcfaf"
+        },
+        "sharedProof": {
+          "arm": "1",
+          "selectedWorktree": "/home/suselman/projects/pencil-agents/728-gl-bounded-timing",
+          "inputs": [
+            {
+              "path": "packages/shared/src/admin.test.ts",
+              "sha256": "26e8e3a90bd2229755b4b3bfb67d76eeaee9408ed459917dd8f1b5958cb08509"
+            },
+            {
+              "path": "packages/shared/src/admin.ts",
+              "sha256": "ce06dfa3d3a2ddbe8f931e97ab8ab2043097f525654fa38bf2df75c6d03e3e2c"
+            },
+            {
+              "path": "packages/shared/src/annotations.ts",
+              "sha256": "d56ec53f837e18e62ef17be612127ec60d39fdc73c84d13e35e697eb60560eb6"
+            },
+            {
+              "path": "packages/shared/src/areaOperations.ts",
+              "sha256": "5e685e043a863be6e97b8d4b35ba3891e067d117280e63d3f6686396f697df7d"
+            },
+            {
+              "path": "packages/shared/src/dabCodec.test.ts",
+              "sha256": "e8758603c260ae3b92446f0f09e9a73f22b8915c7657e8d851eb67ad68845bb9"
+            },
+            {
+              "path": "packages/shared/src/dabCodec.ts",
+              "sha256": "dddf6597bf6444c4cd226a41dc529661637803f497e5de4859bdd82429e27212"
+            },
+            {
+              "path": "packages/shared/src/hotkeys.ts",
+              "sha256": "59907577a05e61df39b6e0b0644c68a9818255fc3968def72baf9dcec1109c1f"
+            },
+            {
+              "path": "packages/shared/src/index.ts",
+              "sha256": "460369af04c4fa794fc74d20180d46999d2e397efe38eab078cac8f89ecfd364"
+            },
+            {
+              "path": "packages/shared/src/layerFilters.ts",
+              "sha256": "82e3108ecd2acf3b26222a8330db149b38e44af9637cfb5607098019ca06c635"
+            },
+            {
+              "path": "packages/shared/src/layerOperations.ts",
+              "sha256": "92af5204db34e72ab72a8e75f503747e1b61e23da9b948499071ecd280ebcb45"
+            },
+            {
+              "path": "packages/shared/src/layers.ts",
+              "sha256": "76d056b6741d26ecf3d173c161988ec6908cf9dfb0509cc5271297b04e0c21e7"
+            },
+            {
+              "path": "packages/shared/src/operationBase.ts",
+              "sha256": "6857685213e5249c00207cc8029f6b413abbe6821bf1a4ad83cbc18879d3caac"
+            },
+            {
+              "path": "packages/shared/src/operations.ts",
+              "sha256": "7884b980df13c987557085b07c594d764149342a470d3c67fe32722158e737b1"
+            },
+            {
+              "path": "packages/shared/src/paper.ts",
+              "sha256": "a8080214e2a91b26494ea678df9cc63389d604d9b6436242a6486c9e26acb10e"
+            },
+            {
+              "path": "packages/shared/src/protocol.ts",
+              "sha256": "a580887b3e37997c506e0d3ae76684067a14fd87001dfe17e36ae7003cfec649"
+            },
+            {
+              "path": "packages/shared/src/rejectReason.test.ts",
+              "sha256": "06cf542954bf4d79dc77214269fc40cca2b908684ec0c914fca1e700829e80d2"
+            },
+            {
+              "path": "packages/shared/src/rest.test.ts",
+              "sha256": "5f1d0020c8f0af0bf7abba8e5e848b1d28a629a50c6fae765208316764419414"
+            },
+            {
+              "path": "packages/shared/src/rest.ts",
+              "sha256": "6ee3ace186a03b798b20fd2cd33a37ae1d138be4fb840f47aa2d3b3539c9f387"
+            },
+            {
+              "path": "packages/shared/src/room.ts",
+              "sha256": "1fda41b88bc10979f720461691dc25c764405e59441d1b16a68893e467e06254"
+            },
+            {
+              "path": "packages/shared/src/roomOpen.test.ts",
+              "sha256": "0c8068e38f9aa50ab9c0e68ea6e0a2e1c5aa7102acfe13c4dcf69e7bea537e24"
+            },
+            {
+              "path": "packages/shared/src/roomOpen.ts",
+              "sha256": "d08d809d740398bcddf067e7b91fe916cda6195e883d6c2f07b30908dd37bcac"
+            },
+            {
+              "path": "packages/shared/src/shapeBounds.test.ts",
+              "sha256": "8dffcf9a0e9fc4020d2c584a6c266b1c18819c34e4c3e4ff63199ebbb775e743"
+            },
+            {
+              "path": "packages/shared/src/shapes.ts",
+              "sha256": "a0159c0bd71e21e8a464ccf2dc9c0229d4898bc87ae81c409a1df7c1bd8b8914"
+            },
+            {
+              "path": "packages/shared/src/stroke.ts",
+              "sha256": "44ed16717479ca0c00eda42a0c5af3c9478a422aac55db6716aebae28602cdc4"
+            },
+            {
+              "path": "packages/shared/src/toolset.test.ts",
+              "sha256": "21928abc84eb7548ad6bdbb3a612992e5d668181caec16c479d72b805da8d20b"
+            },
+            {
+              "path": "packages/shared/src/toolset.ts",
+              "sha256": "ec4aaa7b603fdfade1fa44994bdba56fade77a8c64efccdff78b3100bcf59330"
+            },
+            {
+              "path": "packages/shared/src/transformMatrix.test.ts",
+              "sha256": "856406f84a4bec287992f8f098d57951be62b6cb625c8f02e6036bc0f5d88337"
+            }
+          ],
+          "tool": {
+            "node": "v20.20.2",
+            "vite": "8.1.0",
+            "lockSHA256": "dd4aa0b6e849da8d255abc0866d38473f08bf75f26214aa164e72d8d63b84d90"
+          },
+          "metadataSHA256": "baeca2b158e2fbc6d4bc091fc52be13227f9af53fc3c2302d99344e526c6dee8",
+          "metadataShared": true,
+          "servedBundleExact": true,
+          "servedSHA256": "c98adbe05e078129c13742c64e554b9d17b710d75120ba65ef67d70c7e55af7a",
+          "mapSHA256": "771c95526ce4125ca6e5b0f51ed19feae1e8e85bf2d92d0e759a0095d2139896",
+          "servedTransformation": "exact artifact or exact artifact plus emitted inline source-map",
+          "bundleSHA256": "cc4c49a008eb8e086c77362dfc52c61dbca6b1ff0d5ada3769f10b4199b4eec1"
+        },
+        "stages": [
+          {
+            "name": "context-open",
+            "at": 2997.850556
+          },
+          {
+            "name": "goto",
+            "at": 4322.151342
+          },
+          {
+            "name": "domcontentloaded",
+            "at": 17331.807449
+          },
+          {
+            "name": "goto-return",
+            "at": 17333.667005
+          },
+          {
+            "name": "load",
+            "at": 17348.484621
+          },
+          {
+            "name": "closed",
+            "at": 29042.043658
+          }
+        ],
+        "network": {
+          "rows": [
+            {
+              "phase": "request",
+              "requestId": "5384.28",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/.cache/codex-qa/gl-shared-prebundle-cpu/vite-cache/deps/@grafetto_shared.js",
+              "type": "Script",
+              "at": 543041.835806
+            },
+            {
+              "phase": "response",
+              "requestId": "5384.28",
+              "originClass": "QA",
+              "pathname": "/@fs/home/suselman/.cache/codex-qa/gl-shared-prebundle-cpu/vite-cache/deps/@grafetto_shared.js",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1540738,
+              "type": "Script",
+              "at": 543042.300922,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "request",
+              "requestId": "5384.100",
+              "originClass": "QA",
+              "pathname": "/api/me",
+              "type": "Fetch",
+              "at": 543048.21298
+            },
+            {
+              "phase": "response",
+              "requestId": "5384.100",
+              "originClass": "QA",
+              "pathname": "/api/me",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1540738,
+              "type": "Fetch",
+              "at": 543048.308786,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "request",
+              "requestId": "5384.104",
+              "originClass": "QA",
+              "pathname": "/api/me/environment",
+              "type": "Fetch",
+              "at": 543048.351271
+            },
+            {
+              "phase": "request",
+              "requestId": "5384.105",
+              "originClass": "QA",
+              "pathname": "/src/pages/CreateRoom/index.tsx",
+              "type": "Script",
+              "at": 543048.389675
+            },
+            {
+              "phase": "response",
+              "requestId": "5384.104",
+              "originClass": "QA",
+              "pathname": "/api/me/environment",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1540738,
+              "type": "Fetch",
+              "at": 543048.425429,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "response",
+              "requestId": "5384.105",
+              "originClass": "QA",
+              "pathname": "/src/pages/CreateRoom/index.tsx",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1540738,
+              "type": "Script",
+              "at": 543048.556649,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            },
+            {
+              "phase": "request",
+              "requestId": "5384.119",
+              "originClass": "QA",
+              "pathname": "/src/pages/CreateRoom/CreateRoom.module.css",
+              "type": "Script",
+              "at": 543048.559593
+            },
+            {
+              "phase": "response",
+              "requestId": "5384.119",
+              "originClass": "QA",
+              "pathname": "/src/pages/CreateRoom/CreateRoom.module.css",
+              "status": 200,
+              "protocol": "h2",
+              "connectionReused": true,
+              "connectionId": 1540738,
+              "type": "Script",
+              "at": 543049.44887,
+              "tls": {
+                "protocol": "TLS 1.3",
+                "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+                "validFrom": 1791474895,
+                "validTo": 1862585695
+              }
+            }
+          ],
+          "pending": [
+            {
+              "requestId": "5384.195",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/shaders.ts",
+              "type": "Script",
+              "at": 543055.15782
+            },
+            {
+              "requestId": "5384.196",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/washReveal.ts",
+              "type": "Script",
+              "at": 543055.15799
+            },
+            {
+              "requestId": "5384.197",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/diagnosticWebgl2.ts",
+              "type": "Script",
+              "at": 543055.158181
+            },
+            {
+              "requestId": "5384.198",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/watercolorDiagnosticOwners.ts",
+              "type": "Script",
+              "at": 543055.158359
+            },
+            {
+              "requestId": "5384.199",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/utils.ts",
+              "type": "Script",
+              "at": 543055.158528
+            },
+            {
+              "requestId": "5384.200",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/paper/PaperState.ts",
+              "type": "Script",
+              "at": 543055.1587
+            },
+            {
+              "requestId": "5384.201",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/AccumulationBuffer.ts",
+              "type": "Script",
+              "at": 543055.158899
+            },
+            {
+              "requestId": "5384.202",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/oplog/checkpointStore.ts",
+              "type": "Script",
+              "at": 543055.15909
+            },
+            {
+              "requestId": "5384.203",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/scratchPools.ts",
+              "type": "Script",
+              "at": 543055.159257
+            },
+            {
+              "requestId": "5384.204",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/RibbonReplayCache.ts",
+              "type": "Script",
+              "at": 543055.15957
+            },
+            {
+              "requestId": "5384.205",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/RibbonScratchPool.ts",
+              "type": "Script",
+              "at": 543055.159864
+            },
+            {
+              "requestId": "5384.206",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/RibbonStrokeScratch.ts",
+              "type": "Script",
+              "at": 543055.160026
+            },
+            {
+              "requestId": "5384.207",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/oplog/snapshotLedger.ts",
+              "type": "Script",
+              "at": 543055.160184
+            },
+            {
+              "requestId": "5384.208",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/oplog/SnapshotIO.ts",
+              "type": "Script",
+              "at": 543055.160338
+            },
+            {
+              "requestId": "5384.209",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/oplog/structuralOps.ts",
+              "type": "Script",
+              "at": 543055.160472
+            },
+            {
+              "requestId": "5384.210",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/blitPasses.ts",
+              "type": "Script",
+              "at": 543055.160608
+            },
+            {
+              "requestId": "5384.211",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/AreaOps.ts",
+              "type": "Script",
+              "at": 543055.160739
+            },
+            {
+              "requestId": "5384.212",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/layerPreviews.ts",
+              "type": "Script",
+              "at": 543055.160888
+            },
+            {
+              "requestId": "5384.213",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/cameraFrame.ts",
+              "type": "Script",
+              "at": 543055.161033
+            },
+            {
+              "requestId": "5384.214",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/Camera.ts",
+              "type": "Script",
+              "at": 543055.161162
+            },
+            {
+              "requestId": "5384.215",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/ImageImport.ts",
+              "type": "Script",
+              "at": 543055.161298
+            },
+            {
+              "requestId": "5384.216",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/ShapePass.ts",
+              "type": "Script",
+              "at": 543055.16145
+            },
+            {
+              "requestId": "5384.217",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/filters/FilterPass.ts",
+              "type": "Script",
+              "at": 543055.161597
+            },
+            {
+              "requestId": "5384.218",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/export/Exporter.ts",
+              "type": "Script",
+              "at": 543055.161771
+            },
+            {
+              "requestId": "5384.219",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/SmudgePainter.ts",
+              "type": "Script",
+              "at": 543055.161922
+            },
+            {
+              "requestId": "5384.220",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/BrushPainter.ts",
+              "type": "Script",
+              "at": 543055.162033
+            },
+            {
+              "requestId": "5384.221",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/StampPainter.ts",
+              "type": "Script",
+              "at": 543055.162158
+            },
+            {
+              "requestId": "5384.222",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/dabOpacity.ts",
+              "type": "Script",
+              "at": 543055.162278
+            },
+            {
+              "requestId": "5384.223",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/codecDab.ts",
+              "type": "Script",
+              "at": 543055.162399
+            },
+            {
+              "requestId": "5384.224",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/resolvePreset.ts",
+              "type": "Script",
+              "at": 543055.162516
+            },
+            {
+              "requestId": "5384.225",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/charcoalPresets.ts",
+              "type": "Script",
+              "at": 543055.16263
+            },
+            {
+              "requestId": "5384.226",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/charcoalFeel.ts",
+              "type": "Script",
+              "at": 543055.162767
+            },
+            {
+              "requestId": "5384.227",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/DabSystem.ts",
+              "type": "Script",
+              "at": 543055.162872
+            },
+            {
+              "requestId": "5384.228",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/dabShaping.ts",
+              "type": "Script",
+              "at": 543055.162988
+            },
+            {
+              "requestId": "5384.229",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/tipFootprint.ts",
+              "type": "Script",
+              "at": 543055.163147
+            },
+            {
+              "requestId": "5384.230",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/dabSpacing.ts",
+              "type": "Script",
+              "at": 543055.163363
+            },
+            {
+              "requestId": "5384.231",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/pencilTilt.ts",
+              "type": "Script",
+              "at": 543055.163552
+            },
+            {
+              "requestId": "5384.232",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/smudgeGrain.ts",
+              "type": "Script",
+              "at": 543055.163718
+            },
+            {
+              "requestId": "5384.233",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/tiltCurve.ts",
+              "type": "Script",
+              "at": 543055.163906
+            },
+            {
+              "requestId": "5384.234",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/oplog/OperationLog.ts",
+              "type": "Script",
+              "at": 543055.1641
+            },
+            {
+              "requestId": "5384.235",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/input/PointerInput.ts",
+              "type": "Script",
+              "at": 543055.164194
+            },
+            {
+              "requestId": "5384.236",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/pencilPresets.ts",
+              "type": "Script",
+              "at": 543055.164313
+            },
+            {
+              "requestId": "5384.237",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/linerPresets.ts",
+              "type": "Script",
+              "at": 543055.164436
+            },
+            {
+              "requestId": "5384.238",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/digitalBrushPresets.ts",
+              "type": "Script",
+              "at": 543055.164603
+            },
+            {
+              "requestId": "5384.239",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/watercolorLift.ts",
+              "type": "Script",
+              "at": 543055.164813
+            },
+            {
+              "requestId": "5384.240",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/paper/paperWetness.ts",
+              "type": "Script",
+              "at": 543055.164938
+            },
+            {
+              "requestId": "5384.241",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/paper/wetOverlayPixels.ts",
+              "type": "Script",
+              "at": 543055.165096
+            },
+            {
+              "requestId": "5384.242",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/watercolorPresets.ts",
+              "type": "Script",
+              "at": 543055.165227
+            },
+            {
+              "requestId": "5384.243",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/watercolor/foreignWater.ts",
+              "type": "Script",
+              "at": 543055.165358
+            },
+            {
+              "requestId": "5384.244",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/ribbonProfile.ts",
+              "type": "Script",
+              "at": 543055.165487
+            },
+            {
+              "requestId": "5384.245",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/brushPenPresets.ts",
+              "type": "Script",
+              "at": 543055.165631
+            },
+            {
+              "requestId": "5384.246",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/HapticGrain.ts",
+              "type": "Script",
+              "at": 543055.165752
+            },
+            {
+              "requestId": "5384.247",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/matrix.ts",
+              "type": "Script",
+              "at": 543055.16588
+            },
+            {
+              "requestId": "5384.248",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/input/rulerSnap.ts",
+              "type": "Script",
+              "at": 543055.166033
+            },
+            {
+              "requestId": "5384.249",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/TiledLayerBuffer.ts",
+              "type": "Script",
+              "at": 543055.166191
+            },
+            {
+              "requestId": "5384.250",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/tileMath.ts",
+              "type": "Script",
+              "at": 543055.166347
+            },
+            {
+              "requestId": "5384.251",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/buffers/pinnedTiles.ts",
+              "type": "Script",
+              "at": 543055.166518
+            },
+            {
+              "requestId": "5384.252",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/filters/layerFilters.ts",
+              "type": "Script",
+              "at": 543055.166717
+            },
+            {
+              "requestId": "5384.253",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/presets/watercolorPigments.ts",
+              "type": "Script",
+              "at": 543055.166881
+            },
+            {
+              "requestId": "5384.254",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/charcoal/compressed.png",
+              "type": "Script",
+              "at": 543055.176299
+            },
+            {
+              "requestId": "5384.255",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/charcoal/vine.png",
+              "type": "Script",
+              "at": 543055.176578
+            },
+            {
+              "requestId": "5384.256",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/charcoal/willow.png",
+              "type": "Script",
+              "at": 543055.17677
+            },
+            {
+              "requestId": "5384.257",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/airbrush.png",
+              "type": "Script",
+              "at": 543055.17695
+            },
+            {
+              "requestId": "5384.258",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/bristle.png",
+              "type": "Script",
+              "at": 543055.177106
+            },
+            {
+              "requestId": "5384.259",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/chalk.png",
+              "type": "Script",
+              "at": 543055.177276
+            },
+            {
+              "requestId": "5384.260",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/dry-wash.png",
+              "type": "Script",
+              "at": 543055.177457
+            },
+            {
+              "requestId": "5384.261",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/flat.png",
+              "type": "Script",
+              "at": 543055.177656
+            },
+            {
+              "requestId": "5384.262",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/foliage.png",
+              "type": "Script",
+              "at": 543055.177968
+            },
+            {
+              "requestId": "5384.263",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/gouache.png",
+              "type": "Script",
+              "at": 543055.178121
+            },
+            {
+              "requestId": "5384.264",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/grain.png",
+              "type": "Script",
+              "at": 543055.178274
+            },
+            {
+              "requestId": "5384.265",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/granulating.png",
+              "type": "Script",
+              "at": 543055.178632
+            },
+            {
+              "requestId": "5384.266",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/grass.png",
+              "type": "Script",
+              "at": 543055.178835
+            },
+            {
+              "requestId": "5384.267",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/hard-round.png",
+              "type": "Script",
+              "at": 543055.179472
+            },
+            {
+              "requestId": "5384.268",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/ink-round.png",
+              "type": "Script",
+              "at": 543055.179644
+            },
+            {
+              "requestId": "5384.269",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/medium-round.png",
+              "type": "Script",
+              "at": 543055.179837
+            },
+            {
+              "requestId": "5384.270",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/mixer.png",
+              "type": "Script",
+              "at": 543055.180017
+            },
+            {
+              "requestId": "5384.271",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/opaque-paint.png",
+              "type": "Script",
+              "at": 543055.180204
+            },
+            {
+              "requestId": "5384.272",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/screentone.png",
+              "type": "Script",
+              "at": 543055.180386
+            },
+            {
+              "requestId": "5384.273",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/soft-round.png",
+              "type": "Script",
+              "at": 543055.180537
+            },
+            {
+              "requestId": "5384.274",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/splatter.png",
+              "type": "Script",
+              "at": 543055.180677
+            },
+            {
+              "requestId": "5384.275",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/sponge.png",
+              "type": "Script",
+              "at": 543055.180833
+            },
+            {
+              "requestId": "5384.276",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/textured-paint.png",
+              "type": "Script",
+              "at": 543055.181019
+            },
+            {
+              "requestId": "5384.277",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/wet-bands.png",
+              "type": "Script",
+              "at": 543055.181205
+            },
+            {
+              "requestId": "5384.278",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/wet-edge.png",
+              "type": "Script",
+              "at": 543055.181359
+            },
+            {
+              "requestId": "5384.279",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/wet-on-wet.png",
+              "type": "Script",
+              "at": 543055.181478
+            },
+            {
+              "requestId": "5384.280",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/digitalBrush/wet-wash.png",
+              "type": "Script",
+              "at": 543055.181619
+            },
+            {
+              "requestId": "5384.281",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/marker/bullet.png",
+              "type": "Script",
+              "at": 543055.181742
+            },
+            {
+              "requestId": "5384.282",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/marker/chisel.png",
+              "type": "Script",
+              "at": 543055.181876
+            },
+            {
+              "requestId": "5384.283",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/2B.png",
+              "type": "Script",
+              "at": 543055.182047
+            },
+            {
+              "requestId": "5384.284",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/2H.png",
+              "type": "Script",
+              "at": 543055.182248
+            },
+            {
+              "requestId": "5384.285",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/3B.png",
+              "type": "Script",
+              "at": 543055.182419
+            },
+            {
+              "requestId": "5384.286",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/3H.png",
+              "type": "Script",
+              "at": 543055.182551
+            },
+            {
+              "requestId": "5384.287",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/4B.png",
+              "type": "Script",
+              "at": 543055.182675
+            },
+            {
+              "requestId": "5384.288",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/4H.png",
+              "type": "Script",
+              "at": 543055.182773
+            },
+            {
+              "requestId": "5384.289",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/5B.png",
+              "type": "Script",
+              "at": 543055.182889
+            },
+            {
+              "requestId": "5384.290",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/5H.png",
+              "type": "Script",
+              "at": 543055.183049
+            },
+            {
+              "requestId": "5384.291",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/6B.png",
+              "type": "Script",
+              "at": 543055.183233
+            },
+            {
+              "requestId": "5384.292",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/6H.png",
+              "type": "Script",
+              "at": 543055.183379
+            },
+            {
+              "requestId": "5384.293",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/B.png",
+              "type": "Script",
+              "at": 543055.183529
+            },
+            {
+              "requestId": "5384.294",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/F.png",
+              "type": "Script",
+              "at": 543055.183673
+            },
+            {
+              "requestId": "5384.295",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/H.png",
+              "type": "Script",
+              "at": 543055.18381
+            },
+            {
+              "requestId": "5384.296",
+              "originClass": "QA",
+              "pathname": "/src/assets/tool-types/pencil/HB.png",
+              "type": "Script",
+              "at": 543055.183938
+            },
+            {
+              "requestId": "5384.297",
+              "originClass": "QA",
+              "pathname": "/src/assets/tools/brushPen.png",
+              "type": "Script",
+              "at": 543055.184108
+            },
+            {
+              "requestId": "5384.298",
+              "originClass": "QA",
+              "pathname": "/src/assets/tools/charcoal.png",
+              "type": "Script",
+              "at": 543055.184375
+            },
+            {
+              "requestId": "5384.299",
+              "originClass": "QA",
+              "pathname": "/src/assets/tools/digitalBrush.png",
+              "type": "Script",
+              "at": 543055.18452
+            },
+            {
+              "requestId": "5384.300",
+              "originClass": "QA",
+              "pathname": "/src/assets/tools/liner.png",
+              "type": "Script",
+              "at": 543055.18466
+            },
+            {
+              "requestId": "5384.301",
+              "originClass": "QA",
+              "pathname": "/src/assets/tools/marker.png",
+              "type": "Script",
+              "at": 543055.184813
+            },
+            {
+              "requestId": "5384.302",
+              "originClass": "QA",
+              "pathname": "/src/assets/tools/pencil.png",
+              "type": "Script",
+              "at": 543055.184954
+            },
+            {
+              "requestId": "5384.303",
+              "originClass": "QA",
+              "pathname": "/src/assets/tools/watercolor.png",
+              "type": "Script",
+              "at": 543055.185115
+            },
+            {
+              "requestId": "5384.304",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/CanonicalWatercolorSettlePlan.ts",
+              "type": "Script",
+              "at": 543055.552022
+            },
+            {
+              "requestId": "5384.305",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/markerRibbon.ts",
+              "type": "Script",
+              "at": 543055.93133
+            },
+            {
+              "requestId": "5384.306",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/carryMrt.ts",
+              "type": "Script",
+              "at": 543055.931752
+            },
+            {
+              "requestId": "5384.307",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/staticPaperCache.ts",
+              "type": "Script",
+              "at": 543055.93199
+            },
+            {
+              "requestId": "5384.308",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/raster/brushMrt.ts",
+              "type": "Script",
+              "at": 543055.93218
+            },
+            {
+              "requestId": "5384.309",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/watercolor/gradientFibres.ts",
+              "type": "Script",
+              "at": 543055.932362
+            },
+            {
+              "requestId": "5384.310",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/watercolor/wetDiffusion.ts",
+              "type": "Script",
+              "at": 543055.932531
+            },
+            {
+              "requestId": "5384.311",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/ribbonHalo.ts",
+              "type": "Script",
+              "at": 543055.933089
+            },
+            {
+              "requestId": "5384.312",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/ribbonGestureScalars.ts",
+              "type": "Script",
+              "at": 543055.933233
+            },
+            {
+              "requestId": "5384.313",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/ribbonDelivery.ts",
+              "type": "Script",
+              "at": 543055.933358
+            },
+            {
+              "requestId": "5384.314",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/watercolor/canonicalRadius.ts",
+              "type": "Script",
+              "at": 543055.933472
+            },
+            {
+              "requestId": "5384.315",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/dabs/ribbonBandBatch.ts",
+              "type": "Script",
+              "at": 543055.933599
+            },
+            {
+              "requestId": "5384.316",
+              "originClass": "QA",
+              "pathname": "/src/engine/src/watercolor/pigmentOptics.ts",
+              "type": "Script",
+              "at": 543055.93373
+            }
+          ],
+          "dropped": 0,
+          "scope": "Passive network stage only; no response bodies/auth/headers/query/fullURL"
+        },
+        "errors": [],
+        "memory": [
+          {
+            "phase": "admission",
+            "free": 2006,
+            "attempt": 0,
+            "elapsedMs": 1460
+          },
+          {
+            "phase": "active",
+            "free": 1796
+          },
+          {
+            "phase": "active",
+            "free": 1805
+          },
+          {
+            "phase": "active",
+            "free": 1769
+          },
+          {
+            "phase": "active",
+            "free": 1736
+          },
+          {
+            "phase": "closed",
+            "free": 1942
+          }
+        ],
+        "result": {
+          "transport": {
+            "roundtripMs": 99.18233699999928,
+            "execution": {
+              "result": 2,
+              "now": 623
+            }
+          },
+          "browser": "154.0.8037.98",
+          "valid": false,
+          "error": "TimeoutError: locator.waitFor: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator('form input[type=text]') to be visible\n",
+          "document": {
+            "readyState": "complete",
+            "formTextCount": 0,
+            "hasEngine": false,
+            "rootChildCount": 1,
+            "rootTextLength": 0,
+            "rootChildTags": [
+              "DIV"
+            ]
+          }
+        }
+      },
+      "consumptionSuccessfulFinishedCount": 1,
+      "requestCount": 311,
+      "responseCount": 189,
+      "pendingCount": 122,
+      "protocols": [
+        "h2"
+      ],
+      "networkTotals": {
+        "rows": 689,
+        "dropped": 0
+      },
+      "offlineFrozenArtifactCheck": {
+        "count": 40,
+        "mismatches": [],
+        "scope": "separate post-run validator; original actualcontroller did not yet gate artifacts"
+      }
+    }
+  ]
+}
