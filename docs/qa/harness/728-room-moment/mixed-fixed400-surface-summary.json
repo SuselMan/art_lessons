@@ -1,0 +1,666 @@
+{
+  "scope": "Fixed authored input under real scheduler; raw wet/packed equality separate, rAF not physical visible latency",
+  "result": {
+    "identity": {
+      "actor": "3cd4067c-c8fa-4c89-afd9-9092ea10af0e",
+      "engineActor": "3cd4067c-c8fa-4c89-afd9-9092ea10af0e",
+      "roomId": "H9HcCSvd",
+      "authenticatedId": "3cd4067c-c8fa-4c89-afd9-9092ea10af0e",
+      "locked": false
+    },
+    "fixedMaterialGate": {
+      "complete": true,
+      "equal": true,
+      "mismatches": [],
+      "scope": "Strict raw authored/source seeds/packed/wet equality; no normalization, no pixel oracle"
+    },
+    "armMode": "OFF_ON",
+    "valid": true,
+    "scope": "Natural400 separate authored Room tapes, CPU submissions and rAF availability; not physical visible latency or exact OFF/ON pixel parity"
+  },
+  "passport": {
+    "apps/web/src/pages/Room/index.tsx": "017a2174c74b786f4d164d253eb826384e2334a1c5771bb3d130f1e1b58ddfe5",
+    "apps/web/src/pages/Room/engineWiring.ts": "9f3cfbb4db09571dfe0d091f32fa7a9d4dd11e598e09c5853609e71e7da98278",
+    "apps/web/src/engine/index.ts": "65943327f878bf891196a6ea10a6a20fab9f8083c8fc494b029af52bc432baa0",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "40e7173707338a9a72b7c7bb263b7be23f9693011c93d5a7c33029e22cad1661",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+    "apps/web/src/engine/src/buffers/RibbonStrokeScratch.ts": "24210ad3fb76a8e25c76a6d6d25f6c2a4142d0c98df3889d504ba36750c14d54",
+    "apps/web/src/engine/src/dabs/DabSystem.ts": "816911a80216b7e80bdd1ba7c11be3ea2e02bf3560bc629197a5f7961266c5b3",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+    "apps/web/src/engine/src/paper/paperWetness.ts": "9edaf471f083947f82461e78d4fa8e3d46ecd985611abdfc688cc891c4b7762d",
+    "docs/qa/harness/728-room-moment/MixedLeaseNatural400.mjs": "58b877b38ee5b6bc0b1d6c4ef557b7b3523778520b60513fd1c47f34386e03f4",
+    "docs/qa/harness/728-room-moment/ContinuousPenStroke.mjs": "7079a6f92c921b2f81e9ab0959864b0954fbb55e53ea29a769ac24b2def2648f",
+    "docs/qa/harness/728-room-moment/ContinuousPenRecipe.mjs": "ed9d5d70c674461acf8478f8a5a0158270e1acc9e31280f7f8fa8beec3155710",
+    "docs/qa/harness/728-room-moment/Fixed400Tape.mjs": "9da0a30763c2aeca29f2ea9a5c1451d71024b16cb8218f6c6e633f49e1940eac",
+    "docs/qa/harness/728-room-moment/Fixed400MaterialGate.mjs": "7eb9188febf8f51737aaf0f861d0b49e80e1a0dff9d9e594e92c57125d2bbcd9",
+    "docs/qa/harness/728-room-moment/HttpActorTrace.mjs": "c174786be5cd5f4cfe02043e71a0d875ccf4f83f05722407fa166da548f4a8ba",
+    "docs/qa/harness/728-room-moment/Natural400Metrics.mjs": "ca77c44f56a498a0fd95917561486ee3000c499f7192b1271758c1a11c68c741",
+    "docs/qa/harness/728-room-moment/PassiveMemoryGate.mjs": "199f09215e7495d9650e603caa15e2f1a3b68bb0261acc968a9841cc9489c98d"
+  },
+  "paperPassport": {
+    "manifest.json": {
+      "bytes": 6532,
+      "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+    },
+    "fine.e59ea6fa.paper": {
+      "bytes": 3983406,
+      "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+    },
+    "fine.a19fcf63.preview": {
+      "bytes": 59686,
+      "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+    }
+  },
+  "rows": [
+    {
+      "enabled": false,
+      "fixedInput": true,
+      "pending": true,
+      "lease": false,
+      "downDrains": 1,
+      "metrics": {
+        "downHandlerMs": 17.30000001192093,
+        "downToSourceBeginMs": 15.300000011920929,
+        "downToSourceEndMs": 16.099999964237213,
+        "downToDisplayBeginMs": 16.399999976158142,
+        "downToDisplayEndMs": 16.899999976158142,
+        "upHandlerMs": 53.5,
+        "upBeginToFirstRafCallbackMs": 75.5,
+        "upReturnToFirstRafCallbackMs": 22,
+        "upReturnToScheduledHoverMs": 45.69999998807907,
+        "hoverHandlerMs": 0,
+        "completeSettle": [
+          {
+            "phase": "down",
+            "ms": 14.400000035762787
+          }
+        ],
+        "frameGaps": {
+          "count": 216,
+          "medianMs": 16.69999999999709,
+          "p95Ms": 17,
+          "maxMs": 1150
+        },
+        "scope": "CPU submission and synthetic rAF/hover availability; hover deliberately after3frames; not physical visible latency"
+      },
+      "glError": 0,
+      "lost": false,
+      "longTasks": [
+        {
+          "at": 59561.19999998808,
+          "end": 59611.19999998808,
+          "ms": 50
+        },
+        {
+          "at": 59662.80000001192,
+          "end": 59716.80000001192,
+          "ms": 54
+        },
+        {
+          "at": 61499.5,
+          "end": 61706.5,
+          "ms": 207
+        },
+        {
+          "at": 64616,
+          "end": 64691,
+          "ms": 75
+        },
+        {
+          "at": 75466,
+          "end": 75567,
+          "ms": 101
+        }
+      ],
+      "export": {
+        "begin": 75466.80000001192,
+        "end": 75633.5,
+        "bytes": 1164877
+      },
+      "loadedExit": {
+        "beginWallTime": 1791545059502,
+        "expectedPath": "/create",
+        "actualPath": "/create",
+        "uploads": [
+          {
+            "requestId": "18700.663",
+            "method": "POST",
+            "endpoint": "/api/rooms/<room>/thumbnail",
+            "requestTimestamp": 520046.88712,
+            "wallTime": 1791545061.230688,
+            "status": 200,
+            "responseTimestamp": 520047.117917
+          }
+        ],
+        "scope": "Actual Leave UI after timed input/export; no additional shader read instrumentation"
+      },
+      "sourceSeeds": [
+        {
+          "strokeId": "QAwater001",
+          "seed": [
+            197.659793814433,
+            502.02247191011236
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ]
+        },
+        {
+          "strokeId": "QApigmt002",
+          "seed": [
+            455.4020618556701,
+            738.9775280898876
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "strokeId": "QAwater001",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "count": 104,
+          "arcLength": 1645.226915060252,
+          "packedSHA": "fafe2d0ee2907af10ad03cc75e466d101b4a7d943e95214c8229eefc7850d790",
+          "wetSHA": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "operationSHA": "e9d2c2bb6015a478c768c5d960379612ef49a142faa1495bbe6973075131baa5"
+        },
+        {
+          "strokeId": "QApigmt002",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ],
+          "count": 104,
+          "arcLength": 1645.226915060252,
+          "packedSHA": "fafe2d0ee2907af10ad03cc75e466d101b4a7d943e95214c8229eefc7850d790",
+          "wetSHA": "4f658943e167a30d385e0e2fff76882211974547d243b615997c727e486948c0",
+          "operationSHA": "cff251251a4ca4a295b5b8cf969c510c1f9df288c961fed6026ecadcccd94796"
+        }
+      ],
+      "cadence": [
+        {
+          "ordinal": 0,
+          "frames": 108,
+          "handlers": 110,
+          "duration": 1955.699999988079
+        },
+        {
+          "ordinal": 1,
+          "frames": 108,
+          "handlers": 110,
+          "duration": 3027.399999976158
+        }
+      ],
+      "phaseCosts": {
+        "display-submission": {
+          "count": 309,
+          "total": 373.1000000834465,
+          "max": 8.800000011920929
+        },
+        "down": {
+          "count": 2,
+          "total": 39.40000003576279,
+          "max": 22.100000023841858
+        },
+        "up": {
+          "count": 2,
+          "total": 173.5,
+          "max": 120
+        },
+        "completeSettle": {
+          "count": 1,
+          "total": 14.400000035762787,
+          "max": 14.400000035762787
+        },
+        "pigment-source": {
+          "count": 32,
+          "total": 49.200000047683716,
+          "max": 21.80000001192093
+        },
+        "settleQueue:advance": {
+          "count": 642,
+          "total": 81.20000010728836,
+          "max": 1.199999988079071
+        },
+        "settleQueue:tick": {
+          "count": 642,
+          "total": 109.80000078678131,
+          "max": 1.199999988079071
+        },
+        "post-up-raf": {
+          "count": 3,
+          "total": 0,
+          "max": 0
+        },
+        "next-hover": {
+          "count": 1,
+          "total": 0,
+          "max": 0
+        }
+      },
+      "spanCoverage": {
+        "markerCount": 1634,
+        "markerCap": 2048,
+        "truncated": false,
+        "longTaskCount": 5,
+        "lastMarkerEnd": 75624.5
+      }
+    },
+    {
+      "enabled": true,
+      "fixedInput": true,
+      "pending": true,
+      "lease": true,
+      "downDrains": 0,
+      "metrics": {
+        "downHandlerMs": 3.800000011920929,
+        "downToSourceBeginMs": 1.399999976158142,
+        "downToSourceEndMs": 2.399999976158142,
+        "downToDisplayBeginMs": 2.699999988079071,
+        "downToDisplayEndMs": 3.300000011920929,
+        "upHandlerMs": 73.70000004768372,
+        "upBeginToFirstRafCallbackMs": 91.5,
+        "upReturnToFirstRafCallbackMs": 17.799999952316284,
+        "upReturnToScheduledHoverMs": 41.89999997615814,
+        "hoverHandlerMs": 0,
+        "completeSettle": [
+          {
+            "phase": "up",
+            "ms": 24.399999976158142
+          }
+        ],
+        "frameGaps": {
+          "count": 216,
+          "medianMs": 16.69999999999709,
+          "p95Ms": 16.90000000000873,
+          "maxMs": 41.7000000238404
+        },
+        "scope": "CPU submission and synthetic rAF/hover availability; hover deliberately after3frames; not physical visible latency"
+      },
+      "glError": 0,
+      "lost": false,
+      "longTasks": [
+        {
+          "at": 63829,
+          "end": 63882,
+          "ms": 53
+        },
+        {
+          "at": 65689.30000001192,
+          "end": 65875.30000001192,
+          "ms": 186
+        },
+        {
+          "at": 67655.89999997616,
+          "end": 67747.89999997616,
+          "ms": 92
+        },
+        {
+          "at": 79039.10000002384,
+          "end": 79144.10000002384,
+          "ms": 105
+        }
+      ],
+      "export": {
+        "begin": 79040.30000001192,
+        "end": 79215.5,
+        "bytes": 1164877
+      },
+      "loadedExit": {
+        "beginWallTime": 1791545151745,
+        "expectedPath": "/create",
+        "actualPath": "/create",
+        "uploads": [
+          {
+            "requestId": "15984.663",
+            "method": "POST",
+            "endpoint": "/api/rooms/<room>/thumbnail",
+            "requestTimestamp": 520139.205471,
+            "wallTime": 1791545153.548467,
+            "status": 200,
+            "responseTimestamp": 520139.381052
+          }
+        ],
+        "scope": "Actual Leave UI after timed input/export; no additional shader read instrumentation"
+      },
+      "sourceSeeds": [
+        {
+          "strokeId": "QAwater001",
+          "seed": [
+            197.659793814433,
+            502.02247191011236
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ]
+        },
+        {
+          "strokeId": "QApigmt002",
+          "seed": [
+            455.4020618556701,
+            738.9775280898876
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "strokeId": "QAwater001",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "count": 104,
+          "arcLength": 1645.226915060252,
+          "packedSHA": "fafe2d0ee2907af10ad03cc75e466d101b4a7d943e95214c8229eefc7850d790",
+          "wetSHA": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "operationSHA": "47f331578e977ed3c7a6c0d09814e6b64d1f32878199e17547fdd87f8ca40932"
+        },
+        {
+          "strokeId": "QApigmt002",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ],
+          "count": 104,
+          "arcLength": 1645.226915060252,
+          "packedSHA": "fafe2d0ee2907af10ad03cc75e466d101b4a7d943e95214c8229eefc7850d790",
+          "wetSHA": "4f658943e167a30d385e0e2fff76882211974547d243b615997c727e486948c0",
+          "operationSHA": "1cc506038d3f1e1ea0a09aa5eeda0f447aa793818fc87d01ea82921e352ef8a2"
+        }
+      ],
+      "cadence": [
+        {
+          "ordinal": 0,
+          "frames": 108,
+          "handlers": 110,
+          "duration": 1983.5
+        },
+        {
+          "ordinal": 1,
+          "frames": 108,
+          "handlers": 110,
+          "duration": 1887.800000011921
+        }
+      ],
+      "phaseCosts": {
+        "display-submission": {
+          "count": 309,
+          "total": 371.5000001192093,
+          "max": 9.100000023841858
+        },
+        "down": {
+          "count": 2,
+          "total": 27.600000023841858,
+          "max": 23.80000001192093
+        },
+        "up": {
+          "count": 2,
+          "total": 196.60000002384186,
+          "max": 122.89999997615814
+        },
+        "pigment-source": {
+          "count": 32,
+          "total": 55.60000020265579,
+          "max": 24.200000047683716
+        },
+        "settleQueue:advance": {
+          "count": 745,
+          "total": 102.30000066757202,
+          "max": 2.299999952316284
+        },
+        "settleQueue:tick": {
+          "count": 750,
+          "total": 135.700000166893,
+          "max": 2.399999976158142
+        },
+        "completeSettle": {
+          "count": 1,
+          "total": 24.399999976158142,
+          "max": 24.399999976158142
+        },
+        "post-up-raf": {
+          "count": 3,
+          "total": 0,
+          "max": 0
+        },
+        "next-hover": {
+          "count": 1,
+          "total": 0,
+          "max": 0
+        }
+      },
+      "spanCoverage": {
+        "markerCount": 1845,
+        "markerCap": 2048,
+        "truncated": false,
+        "longTaskCount": 4,
+        "lastMarkerEnd": 79189.69999998808
+      }
+    }
+  ],
+  "memory": [
+    {
+      "phase": "preflight",
+      "enabled": false,
+      "free": 2129,
+      "attempt": 0,
+      "elapsedMs": 1538
+    },
+    {
+      "phase": "OFF",
+      "free": 1872
+    },
+    {
+      "phase": "OFF",
+      "free": 1893
+    },
+    {
+      "phase": "OFF",
+      "free": 1886
+    },
+    {
+      "phase": "OFF",
+      "free": 1895
+    },
+    {
+      "phase": "OFF",
+      "free": 1874
+    },
+    {
+      "phase": "OFF",
+      "free": 1876
+    },
+    {
+      "phase": "OFF",
+      "free": 1859
+    },
+    {
+      "phase": "OFF",
+      "free": 1857
+    },
+    {
+      "phase": "OFF",
+      "free": 1848
+    },
+    {
+      "phase": "OFF",
+      "free": 1779
+    },
+    {
+      "phase": "OFF",
+      "free": 1757
+    },
+    {
+      "phase": "OFF",
+      "free": 1563
+    },
+    {
+      "phase": "OFF",
+      "free": 1297
+    },
+    {
+      "phase": "OFF",
+      "free": 1277
+    },
+    {
+      "phase": "OFF",
+      "free": 1326
+    },
+    {
+      "phase": "closed-arm",
+      "free": 1611
+    },
+    {
+      "phase": "preflight",
+      "enabled": true,
+      "free": 1633,
+      "attempt": 0,
+      "elapsedMs": 1447
+    },
+    {
+      "phase": "preflight",
+      "enabled": true,
+      "free": 2021,
+      "attempt": 1,
+      "elapsedMs": 7956
+    },
+    {
+      "phase": "ON",
+      "free": 1834
+    },
+    {
+      "phase": "ON",
+      "free": 1849
+    },
+    {
+      "phase": "ON",
+      "free": 1858
+    },
+    {
+      "phase": "ON",
+      "free": 1784
+    },
+    {
+      "phase": "ON",
+      "free": 1763
+    },
+    {
+      "phase": "ON",
+      "free": 1782
+    },
+    {
+      "phase": "ON",
+      "free": 1769
+    },
+    {
+      "phase": "ON",
+      "free": 1755
+    },
+    {
+      "phase": "ON",
+      "free": 1744
+    },
+    {
+      "phase": "ON",
+      "free": 1680
+    },
+    {
+      "phase": "ON",
+      "free": 1705
+    },
+    {
+      "phase": "ON",
+      "free": 1721
+    },
+    {
+      "phase": "ON",
+      "free": 1366
+    },
+    {
+      "phase": "ON",
+      "free": 1273
+    },
+    {
+      "phase": "ON",
+      "free": 1344
+    },
+    {
+      "phase": "ON",
+      "free": 1324
+    },
+    {
+      "phase": "closed-arm",
+      "free": 1600
+    },
+    {
+      "phase": "closed",
+      "free": 1603
+    }
+  ],
+  "errors": [],
+  "networkErrors": [],
+  "largestGapAnalysis": [
+    {
+      "enabled": false,
+      "largestGap": {
+        "ms": 1150.0,
+        "begin": 61765.4,
+        "end": 62915.4,
+        "ordinal": 1
+      },
+      "recordedSpans": [],
+      "handlers": [
+        {
+          "phase": "move",
+          "at": 61765.80000001192,
+          "end": 61765.89999997616,
+          "overlapMs": 0.09999996423721313
+        }
+      ],
+      "longTasks": [],
+      "scope": "Inclusive overlapping CPU observations; nested spans not additive, uncovered wall time is not proven GPU time"
+    },
+    {
+      "enabled": true,
+      "largestGap": {
+        "ms": 33.200000000004366,
+        "begin": 63955.6,
+        "end": 63988.8,
+        "ordinal": 0
+      },
+      "recordedSpans": [],
+      "handlers": [],
+      "longTasks": [],
+      "scope": "Inclusive overlapping CPU observations; nested spans not additive, uncovered wall time is not proven GPU time"
+    }
+  ],
+  "interpretation": "One fixed indexed paired cohort: raw authored/seeds/packed/wet identical. OFF second stroke duration3027ms vs ON1888ms, max inter-frame gap1150 vs41.7ms. OFF gap contains MOVE0.1ms and no observed source/runSlice/settleQueue/longtask spans; markers1634 below2048cap, coverage continues beyondgap. Cause not established, GPU attribution needs separate measurement. ON UP73.7 vsOFF53.5ms: barrier cost partly moves toUP. Not physical pen/display latency and not general population benchmark."
+}
