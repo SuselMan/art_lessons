@@ -26,3 +26,27 @@ it('runs the actual standalone host branch with raw bridge queue ordering and ow
   expect(canvases.every(c=>c.closed)).toBe(true);expect(targets.every(t=>t.closed)).toBe(true);expect(destroyed).toBe(1)
  }finally{vi.unstubAllGlobals()}
 })
+
+it('keeps all publication targets/source alive until every started ACK settles after failure',async()=>{
+ const {vi}=await import('vitest'),{runPrivatePublicationProbe}=await import('./privatePublicationProbe')
+ vi.stubGlobal('GPUTextureUsage',{TEXTURE_BINDING:1,COPY_DST:2,RENDER_ATTACHMENT:4,COPY_SRC:8})
+ try{for(const mode of ['firstReject','writeBThrow','secondEncodeThrow'] as const){
+  const primary=Error(mode),secondary=Error('cleanup'),events:string[]=[],acks:Array<{resolve:()=>void;reject:(e:Error)=>void}>=[];let writes=0,contexts=0
+  const texture:any={createView:()=>({}),destroy:()=>events.push('source.destroy')}
+  const device:any={createTexture:()=>texture,createShaderModule:()=>({}),createRenderPipeline:()=>({getBindGroupLayout:()=>({})}),createBindGroup:()=>({}),createCommandEncoder:()=>({beginRenderPass:()=>({setPipeline(){},setBindGroup(){},draw(){},end(){}}),finish:()=>({})}),queue:{
+   writeTexture:()=>{if(++writes===2&&mode==='writeBThrow')throw primary},submit(){},onSubmittedWorkDone:()=>new Promise<void>((resolve,reject)=>acks.push({resolve,reject}))}}
+  const makeCanvas=()=>{const id=contexts++;return{width:0,height:0,getContext:()=>({configure(){},getCurrentTexture:()=>{if(id===1&&mode==='secondEncodeThrow')throw primary;return{createView:()=>({})}},unconfigure:()=>events.push('canvas.destroy:'+id)})} as any}
+  let targetId=0
+  const makeTarget=(_gl:any,width:number,height:number)=>{const id=targetId++;return{width,height,restoreCanvasPixels:()=>events.push('import:'+id),readPixels:()=>new Uint8Array(width*height*4),destroy:()=>{events.push('target.destroy:'+id);if(id===0)throw secondary}} as any}
+  let settled=false
+  const run=runPrivatePublicationProbe(device,{} as any,makeCanvas,makeTarget);run.then(()=>{settled=true},()=>{settled=true})
+  const failure=expect(run).rejects.toBe(primary)
+  if(mode==='firstReject')acks[0].reject(primary)
+  // Drain microtasks so Promise.all rejection reaches finally/allSettled.
+  for(let i=0;i<8;i++)await Promise.resolve()
+  expect(settled).toBe(false);expect(events.some(x=>x.includes('destroy'))).toBe(false)
+  if(mode==='firstReject'){expect(acks).toHaveLength(2);acks[1].resolve()}else{expect(acks).toHaveLength(1);acks[0].resolve()}
+  await failure
+  expect(events).toContain('source.destroy');expect(events).toContain('target.destroy:1');expect(events).toContain('canvas.destroy:0');expect(events).toContain('canvas.destroy:1');expect(settled).toBe(true)
+ }}finally{vi.unstubAllGlobals()}
+})

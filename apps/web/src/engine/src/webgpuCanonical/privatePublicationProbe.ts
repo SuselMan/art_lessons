@@ -24,17 +24,19 @@ export async function runPrivatePublicationProbe(device:GPUDevice,gl:WebGLRender
  const width=64,height=64,pool=new PrivatePublicationFactory(device,width,height,canvasFactory)
  const texture=device.createTexture({label:'QA standalone private publication source',size:[width,height],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST})
  const field:CanonicalGpuField={texture,view:texture.createView(),width,height,label:'QA standalone source',format:'rgba8unorm',filter:'nearest'}
- const targets:AccumulationBuffer[]=[]
+ const targets:AccumulationBuffer[]=[],started:Promise<void>[]=[],leases:Array<ReturnType<PrivatePublicationFactory['acquire']>>=[]
+ let primaryFailed=false
  try{
   targets.push(targetFactory(gl,width,height));targets.push(targetFactory(gl,width,height))
   const a=privatePublicationPattern(1,width,height),b=privatePublicationPattern(2,width,height)
-  const first=pool.acquire(),second=pool.acquire()
+  const first=pool.acquire();leases.push(first)
+  const second=pool.acquire();leases.push(second)
   if(first.canvas===second.canvas)throw Error('Private publication destinations alias')
   device.queue.writeTexture({texture},a,{bytesPerRow:width*4},{width,height})
-  const old=first.publish(field,targets[0],()=>true)
+  const old=first.publish(field,targets[0],()=>true);started.push(old)
   // This write queues AFTER first publication render, BEFORE the second render.
   device.queue.writeTexture({texture},b,{bytesPerRow:width*4},{width,height})
-  const next=second.publish(field,targets[1],()=>true)
+  const next=second.publish(field,targets[1],()=>true);started.push(next)
   await Promise.all([old,next]) // Only ACKs already created by actual Bridge.submitCanvas.
   const oldBytes=targets[0].readPixels(),nextBytes=targets[1].readPixels()
   const expectedOld=canonicalTopRowsToGlRows(a,width,height),expectedNext=canonicalTopRowsToGlRows(b,width,height)
@@ -44,5 +46,14 @@ export async function runPrivatePublicationProbe(device:GPUDevice,gl:WebGLRender
    commandOrder:['uploadA','firstRawCanvasRender','uploadB','secondRawCanvasRender'],existingAckCount:2,
    first:firstResult,second:secondResult,independentEndpoints:different,exact:firstResult.exact&&secondResult.exact&&different,
    scope:'Standalone output snapshots only; no watercolor parity, Room admission, physical memory or UX proof'}
- }finally{pool.dispose();for(const target of targets)target.destroy();texture.destroy()}
+ }catch(error){primaryFailed=true;throw error}
+ finally{
+  // Promise.all is fail-fast. Other started publications still own targets/source.
+  await Promise.allSettled(started)
+  let cleanupFailed=false,cleanupError:unknown
+  for(const dispose of [...leases.map(lease=>()=>lease.abandon()),()=>pool.dispose(),...targets.map(target=>()=>target.destroy()),()=>texture.destroy()]){
+   try{dispose()}catch(error){if(!cleanupFailed){cleanupFailed=true;cleanupError=error}}
+  }
+  if(cleanupFailed&&!primaryFailed)throw cleanupError
+ }
 }
