@@ -323,3 +323,24 @@ Production/main не изменены. Новые варианты остают�
   finite+reuse не доказаны. Агент локализует запросы без общего подавления
   ошибок. PostRAM1595MiB: новые аппаратные прогоны до свежего preflight
   не выполняются; независимая offline работа всех трёх направлений продолжается.
+
+### Причинный прогресс: 09 октября, 03:00
+
+- Малый paired carry: одинаковый pressure и inputs, Q8 не двигается, Float32
+  расширяет support61→174. P/C mass4880.0001727→4880.0001161
+  (−1.16e−8 relative), outside/disconnected0, source8 неизменны.
+  Буквальная алгебра измеренного borderface даёт0.10253 Q8byte — ниже
+  порога округления. Это positive synthetic proof, ещё не Room-ready.
+- Room prototype следующий: preinput pressure leases(+.375MiB), interleaved
+  front/carry от первого eligible tick, без32кадров pressure-only ожидания.
+  Финальная canonical модель не меняется, давление preview SOURCE-only.
+- Реальные16 existing fences Surface заняли8.6ms, четыре serial-repeat0.2ms.
+  Это не объясняет большие паузы. Новая диагностика отдельно пишет CPU
+  методов, rAF, FIFO и сценарный idle; runtime barriers не удаляются.
+- Raw WebGPU warmup подключён строго DEV opt-in;15warm/parser tests и
+  merged appTS PASS. Ограничение4MiB, тот же rawcanvas shader, завершение
+  GPU до ready/DOWN; pressure/source/composite не прогреваются. Отдельный
+  frozen4bade стенд5370 подготовлен. Один ON hardware gate назначен;
+  прежний731 cold — наблюдательный контроль, не чистый causal A/B.
+
+Публикаций main/production нет. Все три агента продолжают следующие шаги.
