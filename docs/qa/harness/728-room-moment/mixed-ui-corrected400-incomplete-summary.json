@@ -15,15 +15,15 @@
     },
     "uiControlCounts": [
       {
-        "control": "/^(Отменить|Undo)$/",
+        "control": "/^(\u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c|Undo)$/",
         "count": 1
       },
       {
-        "control": "/^(Вернуть|Redo)$/",
+        "control": "/^(\u0412\u0435\u0440\u043d\u0443\u0442\u044c|Redo)$/",
         "count": 1
       },
       {
-        "control": "/^(Высушить всё|Dry everything)$/",
+        "control": "/^(\u0412\u044b\u0441\u0443\u0448\u0438\u0442\u044c \u0432\u0441\u0451|Dry everything)$/",
         "count": 1
       }
     ],
@@ -85,15 +85,15 @@
       },
       "uiControlCounts": [
         {
-          "control": "/^(Отменить|Undo)$/",
+          "control": "/^(\u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c|Undo)$/",
           "count": 1
         },
         {
-          "control": "/^(Вернуть|Redo)$/",
+          "control": "/^(\u0412\u0435\u0440\u043d\u0443\u0442\u044c|Redo)$/",
           "count": 1
         },
         {
-          "control": "/^(Высушить всё|Dry everything)$/",
+          "control": "/^(\u0412\u044b\u0441\u0443\u0448\u0438\u0442\u044c \u0432\u0441\u0451|Dry everything)$/",
           "count": 1
         }
       ],
@@ -365,5 +365,6 @@
     }
   ],
   "errors": [],
-  "networkErrors": []
+  "networkErrors": [],
+  "classification": "INVALID_TEST_HARNESS: actual DB confirms correct Undo; done count stayed balanced because control operation replaced undone stroke"
 }
