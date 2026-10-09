@@ -1,3 +1,4 @@
+import type { BoundedGlTiming } from '../diagnostics/BoundedGlTiming'
 import { contactPulseOp, frontStepOp, inheritSettleOpTags, presentationStepOp } from '../watercolor/WatercolorSettleQueue'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from '../dabs/ribbonProfile'
 
@@ -50,6 +51,7 @@ export class CanonicalWatercolorSettlePlan<B extends SettlePlanBuffer<B>, T> {
   /** CPU scheduling diagnostic; requires the same canonical owner capability. */
   lazyContacts = false
   /** Diagnostic OFF: identical contact CPU inputs may recur across boundaries. */
+  diagnosticTiming: BoundedGlTiming | null = null
   diagnosticContactFieldCache = false
   private readonly _contactFieldCache = new BrushContactFieldCache()
   get contactFieldCacheStats() { return this._contactFieldCache.stats }
@@ -195,7 +197,9 @@ export class CanonicalWatercolorSettlePlan<B extends SettlePlanBuffer<B>, T> {
     const w = x1 - x0, h = y1 - y0
     if (w <= 0 || h <= 0) return null
     scratch.noteStorageBounds({ minX: x0, minY: y0, maxX: x1, maxY: y1 })
-    const field = this.ctx.fieldFor(w / S, h / S, true)
+    const field = this.diagnosticTiming?.isActive()
+      ? this.diagnosticTiming.measure('up-prep-field-acquire', () => this.ctx.fieldFor(w / S, h / S, true))
+      : this.ctx.fieldFor(w / S, h / S, true)
     const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
     // (§17.44) At half resolution what goes home is the SETTLED wash at full
     // resolution plus the field's result less its own settled part: the
@@ -297,6 +301,7 @@ export class CanonicalWatercolorSettlePlan<B extends SettlePlanBuffer<B>, T> {
 
     const plateauPhase = this.diagnosticPlateauPhase && solvent !== null
     const additiveZeroFaces = this.diagnosticAdditiveZeroFaces && plateauPhase
+    const rasterStart = this.diagnosticTiming?.begin() ?? null
     const foreign = foreignWaterStencil(metadata.foreignSources ?? [], metadata.wetContacts,
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
     const contactRect = { x: x0, y: y0, w: field.w * S, h: field.h * S }
@@ -311,6 +316,7 @@ export class CanonicalWatercolorSettlePlan<B extends SettlePlanBuffer<B>, T> {
       this.flowRasterStats.bytesAllocated += workspace.bytesAllocated
       this.flowRasterStats.bytesRequested += workspace.bytesRequested
     }
+    this.diagnosticTiming?.end('up-prep-cpu-raster', rasterStart)
     const flow = contacts[0]?.field
     let flowTexture: T | null = null
     let foreignTexture: T | null = null

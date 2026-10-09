@@ -2299,6 +2299,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (import.meta.env.DEV && options.diagnosticGlTiming === true) {
       this._glTiming = new BoundedGlTiming()
       this._ribbonPainter.diagnosticTiming = this._glTiming
+      this._settlePlan.diagnosticTiming = this._glTiming
     }
     this._wcJoinedTouch = options.joinedTouch ?? false
     this._ribbonPainter.diagnosticBandBatch = options.bandBatch ?? false
@@ -8410,13 +8411,16 @@ export class PencilEngine implements PencilEngineAPI {
     // levels off, along a straight line).
     const cur = this._fieldCache[0]
     if (cur && cur.w === W && cur.h === H) {
+      const clearStart = this._glTiming?.begin() ?? null
       // Plan capture resets these five inputs before their first read. Keep
       // all work textures clean; ordinary drying callers still reset all ten.
       for (const b of captureClearsInputs
         ? [cur.c, cur.cc, cur.mask, cur.pressure, cur.band]
         : [cur.a, cur.b, cur.c, cur.coverage, cur.ca, cur.cb, cur.cc, cur.mask, cur.pressure, cur.band]) b.clear()
+      this._glTiming?.end('up-prep-field-clear', clearStart)
       return cur
     }
+    const allocationStart = this._glTiming?.begin() ?? null
     if (cur) destroyField(cur)
     this._fieldCache = []
     const { gl } = this
@@ -8437,6 +8441,7 @@ export class PencilEngine implements PencilEngineAPI {
       band: new AccumulationBuffer(gl, W, H, 'nearest'),
     }
     this._fieldCache.push(field)
+    this._glTiming?.end('up-prep-field-replace-allocate', allocationStart)
     return field
   }
 
