@@ -6,6 +6,7 @@ export async function runMixedLeaseNatural400({enabled,deadlineMs=90000,scenario
  const e=window.__engine,s=window.__roomStore?.getState();if(typeof enabled!=='boolean'||!e||!s||e._locked||!e._paper.loaded)throw Error('Drawable Room and explicit arm required');
  if(e._settle||e._wcCanonical.pending||e._wcNative||e._wcAsyncFinish||e._wcMaterialPresentation||e._wcJoinedTouchMixed||e._wcJoinedFinishDeferred)throw Error('Fresh product model required');
  const canvas=[...document.querySelectorAll('canvas')].find(c=>c.className.includes('canvas')&&c.width>500);if(!canvas)throw Error('Actual Room canvas missing');
+ const sourceSeeds=new Map();
  const deadline=performance.now()+deadlineMs,markers=[],queue=[],rows=[],originals=new Map();let observer=null;const longTasks=[];let sourceDepth=0;let ordinal=-1,phase='',old=null,pending=false,lease=false,downDrains=0;
  const add=(kind,at,end,extra={})=>{if(markers.length<2048)markers.push({kind,at,end,ordinal,...extra})};
  const wrap=(name,fn)=>{const original=e[name];if(typeof original!=='function')throw Error('Missing actual method '+name);originals.set(name,original);e[name]=fn(original)};
@@ -21,7 +22,7 @@ export async function runMixedLeaseNatural400({enabled,deadlineMs=90000,scenario
   wrap('_onEnd',original=>function(...args){const at=performance.now();phase='up';try{return original.apply(this,args)}finally{add('up',at,performance.now());phase=''}});
   wrap('_completeSettle',original=>function(...args){const at=performance.now();if(ordinal===1&&phase==='down')downDrains++;try{return original.apply(this,args)}finally{add('completeSettle',at,performance.now(),{phase})}});
   wrap('_paintStrokeDabs',original=>function(...args){sourceDepth++;try{return original.apply(this,args)}finally{sourceDepth--}});
-  wrap('_paintDabs',original=>function(...args){const at=performance.now(),pigment=ordinal===1&&sourceDepth>0&&!!this._strokeId&&args[2]==='watercolor';try{return original.apply(this,args)}finally{if(pigment)add('pigment-source',at,performance.now())}});
+  wrap('_paintDabs',original=>function(...args){const at=performance.now(),pigment=ordinal===1&&sourceDepth>0&&!!this._strokeId&&args[2]==='watercolor';try{if(sourceDepth>0&&this._strokeId&&args[2]==='watercolor'&&!sourceSeeds.has(this._strokeId)){const seed=args[11];if(!Array.isArray(seed)||seed.length!==2||seed.some(n=>!Number.isFinite(n)))throw Error('Actual source seed required');sourceSeeds.set(this._strokeId,{strokeId:this._strokeId,seed:[...seed],preset:args[3],color:[...args[4]]})}return original.apply(this,args)}finally{if(pigment)add('pigment-source',at,performance.now())}});
   wrap('_display',original=>function(...args){const at=performance.now();try{return original.apply(this,args)}finally{add('display-submission',at,performance.now())}});
   s.setTool('watercolor');for(const[k,v]of Object.entries({size:400,nib:'round',pressureResponse:'normal',water:1,pigment:0,color:[.3,.15,.55]}))s.setToolSetting('watercolor',k,v);
   await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
@@ -40,6 +41,6 @@ export async function runMixedLeaseNatural400({enabled,deadlineMs=90000,scenario
   const tape=e.getOperations().filter(o=>o.type==='stroke');if(tape.length!==2||tape.some(o=>!o.dabsPacked))throw Error('Two genuine packed strokes required');
   const glError=e.gl.getError(),lost=e.gl.isContextLost();if(!pending||(enabled?(!lease||downDrains!==0):(lease||downDrains<1))||glError||lost)throw Error('Actual pending/admission/GL guard');
   const metrics=natural400Metrics({markers,rows});
-  return{enabled,scenario,metrics,longTasks,pending,lease,downDrains,rows,markers,queue,tape,glError,lost,timedEnd,export:{begin:exportBegin,end:performance.now(),bytes:blob.size},scope:'Natural clock synthetic actual Room PointerInput; CPU source/display submissions and rAF availability, not physical pen latency or exact authored OFF/ON parity'};
+  return{enabled,scenario,sourceSeeds:[...sourceSeeds.values()],metrics,longTasks,pending,lease,downDrains,rows,markers,queue,tape,glError,lost,timedEnd,export:{begin:exportBegin,end:performance.now(),bytes:blob.size},scope:'Natural clock synthetic actual Room PointerInput; CPU source/display submissions and rAF availability, not physical pen latency or exact authored OFF/ON parity'};
  }finally{for(const entry of observer?.takeRecords()??[])if(longTasks.length<128)longTasks.push({at:entry.startTime,end:entry.startTime+entry.duration,ms:entry.duration});observer?.disconnect();partial();for(const restore of foreignRestores)restore();for(const[name,original]of originals)e[name]=original;e._wcJoinedTouch=saved.joined;e._wcJoinedTouchSnapshotLease=saved.lease}
 }

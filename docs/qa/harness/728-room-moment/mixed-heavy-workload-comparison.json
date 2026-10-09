@@ -1,0 +1,170 @@
+{
+  "scope": "Read-only QA persisted authored strokes; different live trajectories/seeds, not paired material/performance proof",
+  "codecSourceSHA": "dddf6597bf6444c4cd226a41dc529661637803f497e5de4859bdd82429e27212",
+  "strokes": [
+    {
+      "arm": "ON",
+      "seq": 1,
+      "strokeId": "RbzJs7wu0-",
+      "seed": [
+        449.5670103092784,
+        981.3820224719101
+      ],
+      "preset": "normal:100:100:PB29:round",
+      "color": [
+        0.3,
+        0.15,
+        0.55
+      ],
+      "dabCount": 103,
+      "arcLengthWorld": 1653.9045170919399,
+      "boundsXY": {
+        "x": [
+          299.6898498535156,
+          600.302978515625
+        ],
+        "y": [
+          299.6011657714844,
+          700.387451171875
+        ]
+      },
+      "pressure": [
+        0,
+        0.800000011920929
+      ],
+      "size": [
+        162.23634338378906,
+        360.52520751953125
+      ],
+      "time": [
+        0,
+        1817.300048828125
+      ],
+      "wetLength": 0,
+      "packedSHA": "62b8f972be491fa0156333e5e1a9a849d3d1295a5cfd50944c5e3f9cdb4a56a7"
+    },
+    {
+      "arm": "ON",
+      "seq": 2,
+      "strokeId": "2J0Iwdqhi0",
+      "seed": [
+        828.8762886597938,
+        1095.3932584269662
+      ],
+      "preset": "normal:100:100:PB29:round",
+      "color": [
+        0.15,
+        0.5,
+        0.3
+      ],
+      "dabCount": 102,
+      "arcLengthWorld": 1644.585414940104,
+      "boundsXY": {
+        "x": [
+          299.678466796875,
+          600.3257446289062
+        ],
+        "y": [
+          299.5694885253906,
+          700.432373046875
+        ]
+      },
+      "pressure": [
+        0,
+        0.800000011920929
+      ],
+      "size": [
+        162.23634338378906,
+        360.52520751953125
+      ],
+      "time": [
+        0,
+        1816.199951171875
+      ],
+      "wetLength": 102,
+      "packedSHA": "0e14a827ad20fe8c259e57a8e3c0c1603a77a515ef2aa0aa4ceca6875f0d10e2"
+    },
+    {
+      "arm": "OFF",
+      "seq": 1,
+      "strokeId": "NJuxvClJBz",
+      "seed": [
+        560.5876288659794,
+        644.8089887640449
+      ],
+      "preset": "normal:100:100:PB29:round",
+      "color": [
+        0.3,
+        0.15,
+        0.55
+      ],
+      "dabCount": 102,
+      "arcLengthWorld": 1641.027319262189,
+      "boundsXY": {
+        "x": [
+          299.6588134765625,
+          600.3436889648438
+        ],
+        "y": [
+          299.5791320800781,
+          700.4365844726562
+        ]
+      },
+      "pressure": [
+        0,
+        0.800000011920929
+      ],
+      "size": [
+        162.23634338378906,
+        360.52520751953125
+      ],
+      "time": [
+        0,
+        1819.199951171875
+      ],
+      "wetLength": 0,
+      "packedSHA": "e609be30e21394f0e784daa29afae1076d5bf2ecc1f2b883bf95a9559b36521c"
+    },
+    {
+      "arm": "OFF",
+      "seq": 2,
+      "strokeId": "xqwm45oCo8",
+      "seed": [
+        141.23711340206185,
+        350.6179775280899
+      ],
+      "preset": "normal:100:100:PB29:round",
+      "color": [
+        0.15,
+        0.5,
+        0.3
+      ],
+      "dabCount": 77,
+      "arcLengthWorld": 1148.1916848547082,
+      "boundsXY": {
+        "x": [
+          300,
+          600.3013305664062
+        ],
+        "y": [
+          299.1263122558594,
+          700.682861328125
+        ]
+      },
+      "pressure": [
+        0,
+        0.800000011920929
+      ],
+      "size": [
+        162.23634338378906,
+        360.52520751953125
+      ],
+      "time": [
+        0,
+        1812.9000244140625
+      ],
+      "wetLength": 77,
+      "packedSHA": "cabd0f532b25b3dad402bac67852f9ecfe7c9c1c7be1de0b0be73f902d084f45"
+    }
+  ]
+}

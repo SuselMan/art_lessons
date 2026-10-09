@@ -1,0 +1,516 @@
+{
+  "phase": "closed",
+  "passport": {
+    "apps/web/src/pages/Room/index.tsx": "017a2174c74b786f4d164d253eb826384e2334a1c5771bb3d130f1e1b58ddfe5",
+    "apps/web/src/pages/Room/engineWiring.ts": "9f3cfbb4db09571dfe0d091f32fa7a9d4dd11e598e09c5853609e71e7da98278",
+    "apps/web/src/engine/index.ts": "65943327f878bf891196a6ea10a6a20fab9f8083c8fc494b029af52bc432baa0",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "40e7173707338a9a72b7c7bb263b7be23f9693011c93d5a7c33029e22cad1661",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+    "apps/web/src/engine/src/buffers/RibbonStrokeScratch.ts": "24210ad3fb76a8e25c76a6d6d25f6c2a4142d0c98df3889d504ba36750c14d54",
+    "apps/web/src/engine/src/dabs/DabSystem.ts": "816911a80216b7e80bdd1ba7c11be3ea2e02bf3560bc629197a5f7961266c5b3",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+    "apps/web/src/engine/src/paper/paperWetness.ts": "9edaf471f083947f82461e78d4fa8e3d46ecd985611abdfc688cc891c4b7762d",
+    "docs/qa/harness/728-room-moment/MixedLeaseNatural400.mjs": "771fc477ce40b4b7c996bc4f7ff33d08e67ed657fe824e0d5b946f0fa9364335",
+    "docs/qa/harness/728-room-moment/ContinuousPenStroke.mjs": "f745e5903531aae7efc63077ea09e77f6c471ce975e082ef038ef515d78cb642",
+    "docs/qa/harness/728-room-moment/ContinuousPenRecipe.mjs": "ed9d5d70c674461acf8478f8a5a0158270e1acc9e31280f7f8fa8beec3155710",
+    "docs/qa/harness/728-room-moment/HttpActorTrace.mjs": "c174786be5cd5f4cfe02043e71a0d875ccf4f83f05722407fa166da548f4a8ba",
+    "docs/qa/harness/728-room-moment/Natural400Metrics.mjs": "ca77c44f56a498a0fd95917561486ee3000c499f7192b1271758c1a11c68c741",
+    "docs/qa/harness/728-room-moment/PassiveMemoryGate.mjs": "199f09215e7495d9650e603caa15e2f1a3b68bb0261acc968a9841cc9489c98d"
+  },
+  "paperPassport": {
+    "manifest.json": {
+      "bytes": 6532,
+      "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+    },
+    "fine.e59ea6fa.paper": {
+      "bytes": 3983406,
+      "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+    },
+    "fine.a19fcf63.preview": {
+      "bytes": 59686,
+      "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+    }
+  },
+  "memory": [
+    {
+      "phase": "preflight",
+      "enabled": true,
+      "free": 1990,
+      "attempt": 0,
+      "elapsedMs": 1326
+    },
+    {
+      "phase": "ON",
+      "free": 1757
+    },
+    {
+      "phase": "ON",
+      "free": 1737
+    },
+    {
+      "phase": "ON",
+      "free": 1706
+    },
+    {
+      "phase": "ON",
+      "free": 1695
+    },
+    {
+      "phase": "ON",
+      "free": 1612
+    },
+    {
+      "phase": "ON",
+      "free": 1398
+    },
+    {
+      "phase": "ON",
+      "free": 1130
+    },
+    {
+      "phase": "ON",
+      "free": 1145
+    },
+    {
+      "phase": "ON",
+      "free": 1150
+    },
+    {
+      "phase": "closed-arm",
+      "free": 1499
+    },
+    {
+      "phase": "closed",
+      "free": 1510
+    }
+  ],
+  "memoryProbes": [
+    {
+      "phase": "preflight",
+      "elapsedMs": 1326.35214,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1968.2244659999997,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1702.252719,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1589.0938590000005,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1664.0393199999999,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1774.3921770000015,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1342.6071230000016,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1564.816856000005,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1491.0700339999967,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1267.2040009999982,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "loaded-exit",
+      "elapsedMs": 1315.159437000002,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "closed",
+      "elapsedMs": 1474.3347129999966,
+      "timedOut": false,
+      "success": true
+    }
+  ],
+  "errors": [],
+  "networkErrors": [],
+  "httpActorTrace": [
+    null,
+    [
+      {
+        "requestId": "15088.117",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 516461.768285,
+        "wallTime": 1791541476.132447,
+        "status": 200,
+        "responseTimestamp": 516461.912085,
+        "httpActor": "2f123ff8-bafa-423c-9423-88b8b21d8aa5"
+      },
+      {
+        "requestId": "15088.639",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 516480.031875,
+        "wallTime": 1791541494.396085,
+        "status": 200,
+        "responseTimestamp": 516480.080127,
+        "httpActor": "2f123ff8-bafa-423c-9423-88b8b21d8aa5"
+      },
+      {
+        "requestId": "15088.646",
+        "method": "POST",
+        "endpoint": "/api/rooms/<room>/thumbnail",
+        "requestTimestamp": 516480.511227,
+        "wallTime": 1791541494.875413,
+        "status": 200,
+        "responseTimestamp": 516480.581593
+      },
+      {
+        "requestId": "15088.655",
+        "method": "POST",
+        "endpoint": "/api/rooms/<room>/thumbnail",
+        "requestTimestamp": 516485.985774,
+        "wallTime": 1791541500.350085,
+        "status": 200,
+        "responseTimestamp": 516486.075467
+      },
+      {
+        "requestId": "15088.662",
+        "method": "POST",
+        "endpoint": "/api/rooms/<room>/thumbnail",
+        "requestTimestamp": 516497.64791,
+        "wallTime": 1791541512.012259,
+        "status": 200,
+        "responseTimestamp": 516497.898838
+      }
+    ]
+  ],
+  "result": {
+    "identity": {
+      "actor": "2f123ff8-bafa-423c-9423-88b8b21d8aa5",
+      "engineActor": "2f123ff8-bafa-423c-9423-88b8b21d8aa5",
+      "roomId": "<created-own-room>",
+      "authenticatedId": "2f123ff8-bafa-423c-9423-88b8b21d8aa5",
+      "locked": false
+    },
+    "armMode": "ON",
+    "valid": true,
+    "scope": "Natural400 separate authored Room tapes, CPU submissions and rAF availability; not physical visible latency or exact OFF/ON pixel parity"
+  },
+  "arms": [
+    {
+      "enabled": true,
+      "scenario": "pigment-pigment",
+      "metrics": {
+        "downHandlerMs": 5.600000023841858,
+        "downToSourceBeginMs": 1.4000000357627869,
+        "downToSourceEndMs": 2.900000035762787,
+        "downToDisplayBeginMs": 4.100000023841858,
+        "downToDisplayEndMs": 4.900000035762787,
+        "upHandlerMs": 87.59999996423721,
+        "upBeginToFirstRafCallbackMs": 118.39999997615814,
+        "upReturnToFirstRafCallbackMs": 30.80000001192093,
+        "upReturnToScheduledHoverMs": 61.5,
+        "hoverHandlerMs": 0.10000002384185791,
+        "completeSettle": [
+          {
+            "phase": "up",
+            "ms": 24.900000035762787
+          }
+        ],
+        "frameGaps": {
+          "count": 212,
+          "medianMs": 16.69999999999709,
+          "p95Ms": 16.900000000001455,
+          "maxMs": 65.89999997615814
+        },
+        "scope": "CPU submission and synthetic rAF/hover availability; hover deliberately after3frames; not physical visible latency"
+      },
+      "sourceSeeds": [
+        {
+          "strokeId": "RbzJs7wu0-",
+          "seed": [
+            449.5670103092784,
+            981.3820224719101
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ]
+        },
+        {
+          "strokeId": "2J0Iwdqhi0",
+          "seed": [
+            828.8762886597938,
+            1095.3932584269662
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ]
+        }
+      ],
+      "pending": true,
+      "lease": true,
+      "downDrains": 0,
+      "glError": 0,
+      "lost": false,
+      "export": {
+        "begin": 45178,
+        "end": 45367.69999998808,
+        "bytes": 1170302
+      },
+      "loadedExit": {
+        "beginWallTime": 1791541510498,
+        "expectedPath": "/create",
+        "actualPath": "/create",
+        "uploads": [
+          {
+            "requestId": "15088.662",
+            "method": "POST",
+            "endpoint": "/api/rooms/<room>/thumbnail",
+            "requestTimestamp": 516497.64791,
+            "wallTime": 1791541512.012259,
+            "status": 200,
+            "responseTimestamp": 516497.898838
+          }
+        ],
+        "scope": "Actual Leave UI after timed input/export; no additional shader read instrumentation"
+      },
+      "longTasks": [
+        {
+          "at": 29992,
+          "end": 30062,
+          "ms": 70
+        },
+        {
+          "at": 31810.69999998808,
+          "end": 31967.69999998808,
+          "ms": 157
+        },
+        {
+          "at": 33743.80000001192,
+          "end": 33861.80000001192,
+          "ms": 118
+        },
+        {
+          "at": 35459,
+          "end": 35519,
+          "ms": 60
+        },
+        {
+          "at": 45176.89999997616,
+          "end": 45266.89999997616,
+          "ms": 90
+        }
+      ],
+      "frameCounts": [
+        105,
+        107
+      ],
+      "handlerCounts": [
+        107,
+        109
+      ],
+      "spanStats": {
+        "display-submission": {
+          "count": 318,
+          "inclusiveTotalMs": 359.7999999523163,
+          "maxMs": 6.699999988079071
+        },
+        "down": {
+          "count": 2,
+          "inclusiveTotalMs": 36.500000059604645,
+          "maxMs": 30.900000035762787
+        },
+        "up": {
+          "count": 2,
+          "inclusiveTotalMs": 179.39999997615814,
+          "maxMs": 91.80000001192093
+        },
+        "pigment-source": {
+          "count": 37,
+          "inclusiveTotalMs": 60.700000047683716,
+          "maxMs": 21.799999952316284
+        },
+        "settleQueue:advance": {
+          "count": 752,
+          "inclusiveTotalMs": 103.40000069141388,
+          "maxMs": 2.099999964237213
+        },
+        "settleQueue:tick": {
+          "count": 756,
+          "inclusiveTotalMs": 132.70000064373016,
+          "maxMs": 2.199999988079071
+        },
+        "completeSettle": {
+          "count": 1,
+          "inclusiveTotalMs": 24.900000035762787,
+          "maxMs": 24.900000035762787
+        },
+        "post-up-raf": {
+          "count": 3,
+          "inclusiveTotalMs": 0.0,
+          "maxMs": 0.0
+        },
+        "next-hover": {
+          "count": 1,
+          "inclusiveTotalMs": 0.10000002384185791,
+          "maxMs": 0.10000002384185791
+        }
+      },
+      "largestGaps": [
+        {
+          "ordinal": 0,
+          "begin": 29994.100000023842,
+          "end": 30060,
+          "gapMs": 65.89999997615814,
+          "markers": [
+            {
+              "kind": "display-submission",
+              "at": 30023.69999998808,
+              "end": 30026.80000001192,
+              "ordinal": 0
+            },
+            {
+              "kind": "down",
+              "at": 29997.899999976158,
+              "end": 30028.80000001192,
+              "ordinal": 0,
+              "pending": false,
+              "lease": false
+            }
+          ]
+        },
+        {
+          "ordinal": 0,
+          "begin": 31393.7,
+          "end": 31427.1,
+          "gapMs": 33.39999999999782,
+          "markers": []
+        },
+        {
+          "ordinal": 1,
+          "begin": 32060.2,
+          "end": 32093.5,
+          "gapMs": 33.29999999999927,
+          "markers": [
+            {
+              "kind": "settleQueue:tick",
+              "at": 32072.5,
+              "end": 32072.600000023842,
+              "ordinal": 1,
+              "phase": "",
+              "next": 6
+            },
+            {
+              "kind": "display-submission",
+              "at": 32072.600000023842,
+              "end": 32075,
+              "ordinal": 1
+            },
+            {
+              "kind": "settleQueue:advance",
+              "at": 32078.80000001192,
+              "end": 32079.100000023842,
+              "ordinal": 1,
+              "phase": "",
+              "next": 6
+            },
+            {
+              "kind": "settleQueue:tick",
+              "at": 32078.69999998808,
+              "end": 32079.100000023842,
+              "ordinal": 1,
+              "phase": "",
+              "next": 6
+            }
+          ]
+        },
+        {
+          "ordinal": 1,
+          "begin": 31928.30000001192,
+          "end": 31960.1,
+          "gapMs": 31.799999988077616,
+          "markers": [
+            {
+              "kind": "pigment-source",
+              "at": 31930.100000023842,
+              "end": 31931.600000023842,
+              "ordinal": 1
+            },
+            {
+              "kind": "display-submission",
+              "at": 31932.80000001192,
+              "end": 31933.600000023842,
+              "ordinal": 1
+            },
+            {
+              "kind": "down",
+              "at": 31928.69999998808,
+              "end": 31934.30000001192,
+              "ordinal": 1,
+              "pending": true,
+              "lease": true
+            }
+          ]
+        },
+        {
+          "ordinal": 1,
+          "begin": 32460.1,
+          "end": 32477.5,
+          "gapMs": 17.400000000001455,
+          "markers": [
+            {
+              "kind": "settleQueue:advance",
+              "at": 32460.5,
+              "end": 32460.600000023842,
+              "ordinal": 1,
+              "phase": "",
+              "next": 28
+            },
+            {
+              "kind": "settleQueue:tick",
+              "at": 32460.399999976158,
+              "end": 32460.69999998808,
+              "ordinal": 1,
+              "phase": "",
+              "next": 28
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
