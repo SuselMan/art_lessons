@@ -1,0 +1,174 @@
+{
+  "source": "5f03e890f585e7da1f56b7b5614dc6cd13b2b2f1",
+  "scope": "ONE cap16 usefulness probe; not paired gain or samepacked parity",
+  "materialQuantumCap": {
+    "selected": 16,
+    "actual": 16,
+    "cpuBudgetMs": 4,
+    "scope": "DEV original ordered material step cap; no change to source/publication waits"
+  },
+  "readyAtMs": 20476.899999976158,
+  "phases": [
+    {
+      "label": "long-water400",
+      "downAt": 21258.19999998808,
+      "nextPendingAtDown": false,
+      "nextSettlingAtDown": false,
+      "downToSourceEntryWallMs": 63,
+      "downToCanvasPublicationEntryWallMs": 110.69999998807907,
+      "scope": "Own-stroke source JS entry; next canvas publication call may include prior work, not physical first pixel or GPU duration"
+    },
+    {
+      "label": "pigment-on-long-water400",
+      "downAt": 30912,
+      "nextPendingAtDown": true,
+      "nextSettlingAtDown": false,
+      "downToSourceEntryWallMs": 1063.0999999642372,
+      "downToCanvasPublicationEntryWallMs": 1071.2999999523163,
+      "scope": "Own-stroke source JS entry; next canvas publication call may include prior work, not physical first pixel or GPU duration"
+    }
+  ],
+  "final": {
+    "gl": 0,
+    "lost": false,
+    "error": null,
+    "native": true,
+    "ready": true
+  },
+  "export": {
+    "width": 1754,
+    "height": 2480,
+    "alpha": 121260,
+    "purple": 121259,
+    "sha": "56e70ed8751eedda5f3198b25cee5cd16e40470d67908c8402161c7ce227ffb0",
+    "pngSha256": "d50e5b828aad9bea3c7afa406205f8c9e86e7e782b63fe4437f1fcf10e0af068",
+    "pngBytes": 387573,
+    "comparisonReady": true
+  },
+  "seedBridgeCosts": [
+    {
+      "phase": "readPixels",
+      "wallMs": 16.69999998807907,
+      "ok": true,
+      "bytes": 0,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T12:26:45.448Z"
+    },
+    {
+      "phase": "rowFlip",
+      "wallMs": 3.699999988079071,
+      "ok": true,
+      "bytes": 4194304,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T12:26:45.449Z"
+    },
+    {
+      "phase": "uploadEnqueue",
+      "wallMs": 0.800000011920929,
+      "ok": true,
+      "bytes": 4194304,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T12:26:45.450Z"
+    },
+    {
+      "phase": "queueAck",
+      "wallMs": 14.5,
+      "ok": true,
+      "bytes": 0,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T12:26:45.451Z"
+    }
+  ],
+  "sourceAdmissionToExecutionMs": 1061.2000000476837,
+  "remainingPriorMaterialUntilPublishMs": 768.7000000476837,
+  "priorPublicationWallMs": 270.2999999523163,
+  "publicationCompleteToNextExecuteMs": 22.200000047683716,
+  "remainingStepCount": 198,
+  "remainingStepEntryWallSumMs": 27.79999977350235,
+  "previousPublishToGlImportEntryWallMs": 269.89999997615814,
+  "previousGlImportEntryWallMs": 0.30000001192092896,
+  "raf": {
+    "count": 29,
+    "maxGapMs": 266.7000000000007,
+    "over33": 14
+  },
+  "priorMaterialTimeline": [
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "admitted",
+      "at": 29934.69999998808,
+      "queued": 8,
+      "label": "long-water400",
+      "strokeId": "haTHLHcktA"
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "prepare:start",
+      "at": 30291.799999952316,
+      "queued": 1,
+      "label": "long-water400",
+      "strokeId": "haTHLHcktA"
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "prepare:done",
+      "at": 30336.299999952316,
+      "queued": 1,
+      "label": "long-water400",
+      "strokeId": "haTHLHcktA"
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "finish:start",
+      "at": 31681.19999998808,
+      "queued": 2,
+      "label": "long-water400",
+      "strokeId": "haTHLHcktA"
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "finish:done",
+      "at": 31682.5,
+      "queued": 2,
+      "label": "long-water400",
+      "strokeId": "haTHLHcktA"
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "publish:start",
+      "at": 31682.5,
+      "queued": 2,
+      "label": "long-water400",
+      "strokeId": "haTHLHcktA"
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "publish:done",
+      "at": 31952.799999952316,
+      "queued": 2,
+      "label": "long-water400",
+      "strokeId": "haTHLHcktA"
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "complete",
+      "at": 31959,
+      "queued": 2,
+      "label": "long-water400",
+      "strokeId": "haTHLHcktA"
+    }
+  ],
+  "verdict": "Functional PASS; usefulness not established. Next contact still waits over1s. No causal comparison with oldcap8; samepacked endpoint proof OPEN."
+}
