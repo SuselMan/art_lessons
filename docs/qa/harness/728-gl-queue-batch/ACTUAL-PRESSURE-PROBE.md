@@ -15,3 +15,7 @@ Next distinct diagnostic: COMPLETE_FRONT_CYCLES, default OFF. Repeat complete dy
 Set COMPLETE_FRONT_CYCLES=1 together with MULTISCALE_CARRY=1, INHERITED_CARRY=1, CARRY_PREVIEW=1, FINITE_PREVIEW=1, FLOAT_PREVIEW=1, DIRECT_PREVIEW=1, EARLY_PREVIEW=1 and current source spacing/material rebase flags. Entry reads diagCompleteFrontCycles; installer and runtime reject without multiscale; controller checks the effective exposed flag before input. Computed passport includes completeFrontCycles.mjs. Default remains OFF, allocation unchanged, no extra draw per tick; session extends total ticks only. Finite diffusion clock stays paused until carry completes. Probe may be OFF for the clean movie.
 
 Root-specific qaReuse changes are absent in this isolated worktree: cherry-pick narrow additions preserving root lifecycle callbacks. No whole-file replacement. Runtime9/session3/pure-schedule3 tests passed. Hardware allocation still required.
+
+## First complete-cycle hardware attempt: invalid launch
+
+Raw owner-water-dab-completecycles-surface.json: conflicting DIAGNOSTIC_OWNER_MORPH=1 and DIAGNOSTIC_MATERIAL_REBASE=1 rejected at owner-ready, zero input rows. No candidate performance/quality conclusion. Own target closed, postRAM2045 MiB. Correct next launch is MATERIAL_REBASE=1 with OWNER_MORPH absent. Added CPU launch compatibility check before target creation; no automatic retry.
