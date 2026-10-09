@@ -1,0 +1,371 @@
+{
+  "phase": "closed",
+  "passport": {
+    "apps/web/src/engine/index.ts": "c24529a44328d550251d3d51acdd3cf0e5518ae79167ce9eb2aa2c6ea07b0de6",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+    "apps/web/src/pages/Room/index.tsx": "1c261ae553637d904c76fc09c83c8ba8faa449633ddb081396cd2adf736b0ffa",
+    "apps/web/src/pages/Room/diagnostics/devEngineHandle.ts": "b7deffb6dab16755c1a289486ca0be41772bc58ce435ce90e3061c3e05631e58",
+    "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "66f3f567102bc60c14ed84b388b00a1c68d1b8c89ebdb63523c240b362c0ed83",
+    "docs/qa/harness/728-room-moment/PeerLeasePointer.mjs": "5739f5b613c466c2a8e15379d0440d1ae6be0daaf079e60279d64bf7f3d8bc85",
+    "docs/qa/harness/728-room-moment/PreparedPeerMaterial.mjs": "f7e9f7b26b9e12c80b5561b374be470ca5c8cfdc7cecfd2be7ecaaf55231db40",
+    "qa:PreparedPeerLayerUI.mjs": "e753f59feb51c8e62d80dbb7f3fcd1caa7d217fcd1baa0613f4ba9c2ab1bfe39",
+    "qa:PreparedPeerRelayGate.mjs": "98a4f5af52630527f31832c570873812bb2146826645c4ed8c3619e877cf3236",
+    "qa:mixed-prepared-peer-controller.mjs": "58abb7121193bc8673a28e1b53a1496a2eda370cee59e9e00082cf85b728caa3",
+    "apps/web/src/pages/Room/engineWiring.ts": "9f3cfbb4db09571dfe0d091f32fa7a9d4dd11e598e09c5853609e71e7da98278",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "40e7173707338a9a72b7c7bb263b7be23f9693011c93d5a7c33029e22cad1661",
+    "apps/web/src/engine/src/buffers/RibbonStrokeScratch.ts": "24210ad3fb76a8e25c76a6d6d25f6c2a4142d0c98df3889d504ba36750c14d54",
+    "apps/web/src/engine/src/dabs/DabSystem.ts": "816911a80216b7e80bdd1ba7c11be3ea2e02bf3560bc629197a5f7961266c5b3",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+    "apps/web/src/engine/src/paper/paperWetness.ts": "9edaf471f083947f82461e78d4fa8e3d46ecd985611abdfc688cc891c4b7762d",
+    "paper": {
+      "manifest.json": {
+        "bytes": 6532,
+        "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+      },
+      "fine.e59ea6fa.paper": {
+        "bytes": 3983406,
+        "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+      },
+      "fine.a19fcf63.preview": {
+        "bytes": 59686,
+        "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+      }
+    }
+  },
+  "memory": [
+    {
+      "free": 2173,
+      "attempt": 0,
+      "elapsedMs": 1389,
+      "mode": "single-Surface"
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1926
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1933
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1899
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1859
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1782
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1658
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1705
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1724
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1727
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1579
+    },
+    {
+      "phase": "structural-peer-layer",
+      "free": 1572
+    },
+    {
+      "phase": "peer-undo",
+      "free": 1314
+    },
+    {
+      "phase": "peer-undo",
+      "free": 1341
+    },
+    {
+      "phase": "peer-undo",
+      "free": 1348
+    },
+    {
+      "phase": "peer-undo",
+      "free": 1353
+    },
+    {
+      "phase": "peer-undo",
+      "free": 1358
+    },
+    {
+      "phase": "peer-undo",
+      "free": 1377
+    },
+    {
+      "phase": "peer-undo",
+      "free": 1409
+    },
+    {
+      "phase": "closed",
+      "free": 1704
+    }
+  ],
+  "errors": [],
+  "result": {
+    "room": "KRDwTYIU",
+    "layers": {
+      "authorLayer": "layer-1",
+      "peerLayer": "Auy0Vxhy"
+    },
+    "identities": [
+      {
+        "actor": "153c3019-a3e5-44aa-bc32-ac1a6d5cc644",
+        "room": "KRDwTYIU",
+        "lease": true
+      },
+      {
+        "actor": "4457b3e1-aafd-43df-a2cd-7bcb05935153",
+        "room": "KRDwTYIU",
+        "lease": false
+      }
+    ],
+    "ownership": [
+      "Surface",
+      "VPS-sender"
+    ],
+    "pointerMarkers": [
+      {
+        "owner": "VPS-sender",
+        "observedAt": 1791553716693,
+        "kind": "down",
+        "phase": "begin",
+        "at": 7109,
+        "active": false,
+        "pending": false,
+        "lease": false
+      },
+      {
+        "owner": "VPS-sender",
+        "observedAt": 1791553716705,
+        "kind": "down",
+        "phase": "end",
+        "at": 7121.10000000149,
+        "active": true,
+        "pending": false,
+        "lease": false
+      },
+      {
+        "owner": "VPS-sender",
+        "observedAt": 1791553716706,
+        "kind": "move",
+        "phase": "begin",
+        "at": 7121.20000000298,
+        "active": true,
+        "pending": false,
+        "lease": false
+      },
+      {
+        "owner": "VPS-sender",
+        "observedAt": 1791553716708,
+        "kind": "move",
+        "phase": "end",
+        "at": 7125,
+        "active": true,
+        "pending": false,
+        "lease": false
+      },
+      {
+        "owner": "Surface",
+        "observedAt": 1791553716840,
+        "kind": "down",
+        "phase": "begin",
+        "at": 27065.600000023842,
+        "active": false,
+        "pending": false,
+        "lease": false
+      },
+      {
+        "owner": "Surface",
+        "observedAt": 1791553716845,
+        "kind": "down",
+        "phase": "end",
+        "at": 27076.600000023842,
+        "active": true,
+        "pending": false,
+        "lease": false
+      },
+      {
+        "owner": "Surface",
+        "observedAt": 1791553716848,
+        "kind": "move",
+        "phase": "begin",
+        "at": 27076.700000047684,
+        "active": true,
+        "pending": false,
+        "lease": false
+      },
+      {
+        "owner": "Surface",
+        "observedAt": 1791553716848,
+        "kind": "move",
+        "phase": "end",
+        "at": 27077.200000047684,
+        "active": true,
+        "pending": false,
+        "lease": false
+      },
+      {
+        "owner": "Surface",
+        "observedAt": 1791553716849,
+        "kind": "move",
+        "phase": "begin",
+        "at": 27077.30000001192,
+        "active": true,
+        "pending": false,
+        "lease": false
+      },
+      {
+        "owner": "Surface",
+        "observedAt": 1791553716849,
+        "kind": "move",
+        "phase": "end",
+        "at": 27082.600000023842,
+        "active": true,
+        "pending": false,
+        "lease": false
+      },
+      {
+        "owner": "Surface",
+        "observedAt": 1791553716886,
+        "kind": "up",
+        "phase": "begin",
+        "at": 27082.700000047684,
+        "active": true,
+        "pending": false,
+        "lease": false
+      },
+      {
+        "owner": "Surface",
+        "observedAt": 1791553716887,
+        "kind": "up",
+        "phase": "end",
+        "at": 27099.200000047684,
+        "active": false,
+        "pending": true,
+        "lease": false
+      },
+      {
+        "owner": "Surface",
+        "observedAt": 1791553716890,
+        "kind": "down",
+        "phase": "begin",
+        "at": 27099.900000035763,
+        "active": false,
+        "pending": true,
+        "lease": false
+      },
+      {
+        "owner": "Surface",
+        "observedAt": 1791553716891,
+        "kind": "down",
+        "phase": "end",
+        "at": 27103,
+        "active": true,
+        "pending": true,
+        "lease": true
+      },
+      {
+        "owner": "Surface",
+        "observedAt": 1791553716894,
+        "kind": "move",
+        "phase": "begin",
+        "at": 27103.100000023842,
+        "active": true,
+        "pending": true,
+        "lease": true
+      },
+      {
+        "owner": "Surface",
+        "observedAt": 1791553716895,
+        "kind": "move",
+        "phase": "end",
+        "at": 27103.200000047684,
+        "active": true,
+        "pending": true,
+        "lease": true
+      },
+      {
+        "owner": "VPS-sender",
+        "observedAt": 1791553718036,
+        "kind": "up",
+        "phase": "begin",
+        "at": 8442.20000000298,
+        "active": true,
+        "pending": false,
+        "lease": false
+      },
+      {
+        "owner": "VPS-sender",
+        "observedAt": 1791553718038,
+        "kind": "up",
+        "phase": "end",
+        "at": 8446.70000000298,
+        "active": false,
+        "pending": false,
+        "lease": false
+      },
+      {
+        "owner": "Surface",
+        "observedAt": 1791553751570,
+        "kind": "up",
+        "phase": "begin",
+        "at": 61820,
+        "active": true,
+        "pending": false,
+        "lease": false
+      },
+      {
+        "owner": "Surface",
+        "observedAt": 1791553751610,
+        "kind": "up",
+        "phase": "end",
+        "at": 61840.10000002384,
+        "active": false,
+        "pending": true,
+        "lease": false
+      }
+    ],
+    "prepared": {
+      "strokeId": "mmcnhIaW0G",
+      "tool": "pencil",
+      "layerId": "Auy0Vxhy"
+    },
+    "admission": {
+      "pending": true,
+      "lease": true,
+      "strokeId": "fzwy50gh1x",
+      "predecessorId": "Pi8gNixu6L"
+    },
+    "activeExports": {
+      "png": true,
+      "snapshot": true
+    },
+    "peerSource": {
+      "id": "XZ8b_ih8xv",
+      "tool": "pencil",
+      "layerId": "Auy0Vxhy",
+      "userId": "4457b3e1-aafd-43df-a2cd-7bcb05935153",
+      "strokeId": "mmcnhIaW0G"
+    },
+    "peerId": "XZ8b_ih8xv",
+    "valid": false,
+    "error": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: /^(Отменить|Undo)$/ }).and(locator('button[class*=\"headerIconBtn\"]'))\u001b[22m\n\u001b[2m    - locator resolved to <button aria-label=\"Undo\" title=\"Undo  Ctrl+Z\" class=\"_headerIconBtn_vwl67_190\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is visible, enabled and stable\u001b[22m\n\u001b[2m    - scrolling into view if needed\u001b[22m\n\u001b[2m    - done scrolling\u001b[22m\n\u001b[2m    - performing click action\u001b[22m\n",
+    "failedPhase": "peer-undo"
+  }
+}
