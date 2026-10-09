@@ -1,0 +1,38 @@
+{
+  "source": "086c846bed582433195de6b22a6b6a10da40bcf8",
+  "verdict": "INVALID_INTERACTIVE_METADATA_RESPONSE",
+  "modelQualityFailure": false,
+  "consumptionProved": false,
+  "endpointProved": false,
+  "rawTimingObservations": [
+    {
+      "label": "long-water400",
+      "downAt": 22333.100000023842,
+      "nextPendingAtDown": false,
+      "nextSettlingAtDown": false,
+      "downToSourceEntryWallMs": 73.10000002384186,
+      "downToCanvasPublicationEntryWallMs": 101.89999997615814,
+      "scope": "Own-stroke source JS entry; next canvas publication call may include prior work, not physical first pixel or GPU duration"
+    },
+    {
+      "label": "pigment-on-long-water400",
+      "downAt": 30181.700000047684,
+      "nextPendingAtDown": true,
+      "nextSettlingAtDown": false,
+      "downToSourceEntryWallMs": 489.60000002384186,
+      "downToCanvasPublicationEntryWallMs": 497.60000002384186,
+      "scope": "Own-stroke source JS entry; next canvas publication call may include prior work, not physical first pixel or GPU duration"
+    }
+  ],
+  "publicationCostCount": 72,
+  "schedulingRowCount": 1909,
+  "restore": {
+    "strokeDescriptorData": true,
+    "displayOriginal": true,
+    "observerRestored": true,
+    "cacheArmRestored": true
+  },
+  "disposed": true,
+  "scope": "Timing snapshots retained but full consumption/endpoint gate incomplete; missing metadata cause unknown. Not physical pen latency or a confirmed UX gain. No automatic hardware retry.",
+  "evidence": "temp/device-runs/native-factor-interactive-086c-promoted-20261009"
+}
