@@ -1,0 +1,60 @@
+--- a/apps/web/src/engine/index.ts
++++ b/apps/web/src/engine/index.ts
+@@ -259,6 +259,8 @@
+   diagnosticBrushMrt?: boolean
+   diagnosticFrontBatch?: boolean
+   /** OFF diagnostic: bounded same-class canonical solver units per frame. */
++  /** DEV QA only: two ordered physical settle steps per frame; default OFF. */
++  diagnosticPhysicalBatchTwo?: boolean
+   diagnosticSolverBatch?: boolean
+   /** (#728) Accept provisional pointer input while canonical wet material
+    * finishes in FIFO order. Export/snapshot readiness waits for that queue.
+@@ -2280,6 +2282,7 @@
+     this.canvas = canvas
+     this._wcJoinedTouch = options.joinedTouch ?? false
+     this._ribbonPainter.diagnosticBandBatch = options.bandBatch ?? false
++    this._settleQueue.diagnosticPhysicalBatchTwoEnabled = options.diagnosticPhysicalBatchTwo ?? false
+     this._settleQueue.diagnosticSolverBatchEnabled = options.diagnosticSolverBatch ?? false
+     this._wcJoinedFinishDeferred = options.joinedFinishDeferred ?? false
+     this._wcJoinedTouchMixed = options.joinedTouchMixed ?? false
+--- a/apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts
++++ b/apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts
+@@ -4,7 +4,7 @@
+ 
+ /** Constructor flags only. Production values and existing explicit DEV opt-ins
+  * stay identical; diagnostic selection does not own material or scheduling. */
+-export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: string | undefined, search: string): Pick<PencilEngineOptions, 'asyncFinish' | 'joinedTouch' | 'joinedTouchMixed' | 'bandBatch' | 'joinedFinishDeferred' | 'materialPresentation' | 'diagnosticWebgl2' | 'diagnosticBrushMrt' | 'diagnosticFrontBatch' | 'nativeWatercolor' | 'diagnosticSolverBatch' | 'diagnosticMomentTransport' | 'diagnosticMomentGpuAudit' | 'diagnosticMomentVector' | 'diagnosticTipContactA' | 'diagnosticCarryHardwarePressure' | 'diagnosticRawCanvasWarmup' | 'diagnosticFirstLiveWarmup'> {
++export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: string | undefined, search: string): Pick<PencilEngineOptions, 'asyncFinish' | 'joinedTouch' | 'joinedTouchMixed' | 'bandBatch' | 'joinedFinishDeferred' | 'materialPresentation' | 'diagnosticWebgl2' | 'diagnosticBrushMrt' | 'diagnosticFrontBatch' | 'nativeWatercolor' | 'diagnosticPhysicalBatchTwo' | 'diagnosticSolverBatch' | 'diagnosticMomentTransport' | 'diagnosticMomentGpuAudit' | 'diagnosticMomentVector' | 'diagnosticTipContactA' | 'diagnosticCarryHardwarePressure' | 'diagnosticRawCanvasWarmup' | 'diagnosticFirstLiveWarmup'> {
+  const query = new URLSearchParams(search)
+  const flag=(name:string)=>{
+   if(!dev)return false
+@@ -12,6 +12,7 @@
+   if(values.length>1||values.some(value=>value!=='0'&&value!=='1'))throw new Error(`Invalid watercolor QA flag ${name}`)
+   return values[0]==='1'
+  }
++ const diagnosticPhysicalBatchTwo=flag('qaPhysicalBatchTwo')
+  const diagnosticFirstLiveWarmup=flag('wcFirstLiveWarmup')
+  const diagnosticRawCanvasWarmup=flag('wcRawCanvasWarmup')
+  const diagnosticCarryHardwarePressure=flag('wcCarryHardwarePressure')
+@@ -30,7 +31,7 @@
+  const diagnosticWebgl2=flag('wcGl2'),diagnosticBrushMrt=flag('wcMrt'),diagnosticFrontBatch=flag('wcFrontBatch')
+  if(diagnosticBrushMrt&&!diagnosticWebgl2)throw new Error('wcMrt requires wcGl2=1')
+  return {
+-  diagnosticFirstLiveWarmup,diagnosticRawCanvasWarmup,diagnosticCarryHardwarePressure,diagnosticTipContactA,nativeWatercolor,diagnosticMomentTransport,diagnosticMomentGpuAudit,diagnosticMomentVector,diagnosticWebgl2,diagnosticBrushMrt,diagnosticFrontBatch,
++  diagnosticPhysicalBatchTwo,diagnosticFirstLiveWarmup,diagnosticRawCanvasWarmup,diagnosticCarryHardwarePressure,diagnosticTipContactA,nativeWatercolor,diagnosticMomentTransport,diagnosticMomentGpuAudit,diagnosticMomentVector,diagnosticWebgl2,diagnosticBrushMrt,diagnosticFrontBatch,
+   asyncFinish: false,
+   joinedTouch: !dev || joinedTouchQaEnabled(dev, joined, search),
+   joinedTouchMixed: dev && query.get('qaJoinedTouchMixed') === '1',
+--- a/apps/web/src/pages/Room/diagnostics/watercolorQaOptions.test.ts
++++ b/apps/web/src/pages/Room/diagnostics/watercolorQaOptions.test.ts
+@@ -69,3 +69,10 @@
+  for(const q of ['?wcFirstLiveWarmup=1','?wcNative=1&wcFirstLiveWarmup=yes','?wcNative=1&wcFirstLiveWarmup=1&wcFirstLiveWarmup=0','?wcNative=1&wcFirstLiveWarmup=1&wcRawCanvasWarmup=1'])expect(()=>parse(true,q)).toThrow()
+  for(const q of ['?wcNative=1&wcFirstLiveWarmup=1','?wcFirstLiveWarmup=bad&wcFirstLiveWarmup=1','?wcNative=1&wcFirstLiveWarmup=1&wcRawCanvasWarmup=1'])expect(parse(false,q).diagnosticFirstLiveWarmup).toBe(false)
+ })
++
++it('physical batch2 defaults OFF, exact DEV only, rejects duplicates and invalid bits',()=>{
++ expect(parse(true,'').diagnosticPhysicalBatchTwo).toBe(false)
++ expect(parse(true,'?qaPhysicalBatchTwo=1').diagnosticPhysicalBatchTwo).toBe(true)
++ expect(parse(false,'?qaPhysicalBatchTwo=bad&qaPhysicalBatchTwo=1').diagnosticPhysicalBatchTwo).toBe(false)
++ for(const q of ['?qaPhysicalBatchTwo=true','?qaPhysicalBatchTwo=1&qaPhysicalBatchTwo=0'])expect(()=>parse(true,q)).toThrow()
++})
