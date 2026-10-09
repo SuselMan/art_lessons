@@ -4,6 +4,7 @@ import {StaticPaperCache} from './staticPaperCache'
 import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_WATER_FRONT_INVARIANT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { diagnosticWebgl2Raw } from './diagnosticWebgl2'
 import { brushMrt300 } from './brushMrt'
+import { assertBrushMrtBuffers } from './brushMrtGuards'
 import { createProgram, getUniforms } from './utils'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { StampPainter } from '../dabs/StampPainter'
@@ -86,7 +87,7 @@ export class WatercolorPasses {
   private _carryMrt: {program:WebGLProgram;uniforms:Record<string,WebGLUniformLocation|null>;position:number;fbo:WebGLFramebuffer;checked:boolean}|null=null
   diagnosticBrushMrt = false
   readonly brushPairStats = { pairs: 0, fallbacks: 0, pixels: 0 }
-  private _brushMrt: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number; fbo: WebGLFramebuffer; checked: boolean } | null = null
+  private _brushMrt: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number; fbo: WebGLFramebuffer; checked: boolean; lastPigment?: WebGLTexture; lastColor?: WebGLTexture; lastWidth?: number; lastHeight?: number; lastFlow?: WebGLTexture } | null = null
   private _brushDragProg!: WebGLProgram
 
   private _brushDragUni!: Record<string, WebGLUniformLocation | null>
@@ -436,11 +437,14 @@ export class WatercolorPasses {
     flowRect: [number, number, number, number], scissor: [number, number, number, number], gain: number): boolean {
     const raw = diagnosticWebgl2Raw(this.gl)
     if (!this.diagnosticBrushMrt || !raw || !this.warmBrushMrt()) { this.brushPairStats.fallbacks++; return false }
-    if (outPigment === outColor || [pigment, color, field.coverage].some(input => input === outPigment || input === outColor)
-      || outPigment.width !== outColor.width || outPigment.height !== outColor.height
-      || outPigment.width !== field.w || outPigment.height !== field.h
-      || [outPigment.texture, outColor.texture].includes(flow)) throw new Error('Brush MRT unsafe framebuffer alias/dimensions')
+    assertBrushMrtBuffers(this.gl, field, pigment, outPigment, color, outColor, flow)
     const state = this._brushMrt!, u = state.uniforms
+    // Texture handles cannot cross contexts. Check only when this upload slot
+    // changes; optional state is discarded on context restore/destroy.
+    if (state.lastFlow !== flow) {
+      if (!raw.isTexture(flow)) throw new Error('Brush MRT foreign or dead flow texture')
+      state.lastFlow = flow
+    }
     // Retain each buffer's mip invalidation and replace-draw setup.
     outColor.beginReplaceDraw(); outPigment.beginReplaceDraw()
     raw.bindFramebuffer(raw.FRAMEBUFFER, state.fbo)
@@ -448,9 +452,12 @@ export class WatercolorPasses {
     raw.framebufferTexture2D(raw.FRAMEBUFFER, raw.COLOR_ATTACHMENT1, raw.TEXTURE_2D, outColor.texture, 0)
     raw.drawBuffers([raw.COLOR_ATTACHMENT0, raw.COLOR_ATTACHMENT1])
     try {
-      if (!state.checked) {
+      if (!state.checked || state.lastPigment !== outPigment.texture || state.lastColor !== outColor.texture
+        || state.lastWidth !== outPigment.storageWidth || state.lastHeight !== outPigment.storageHeight) {
         if (raw.checkFramebufferStatus(raw.FRAMEBUFFER) !== raw.FRAMEBUFFER_COMPLETE) throw new Error('Brush MRT framebuffer incomplete')
         state.checked = true
+        state.lastPigment = outPigment.texture; state.lastColor = outColor.texture
+        state.lastWidth = outPigment.storageWidth; state.lastHeight = outPigment.storageHeight
       }
       raw.useProgram(state.program)
       raw.bindBuffer(raw.ARRAY_BUFFER, this.ctx.screenBuf())

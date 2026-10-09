@@ -20,6 +20,10 @@ export class AccumulationBuffer {
   private _storageWidth: number
   private _storageHeight: number
 
+  /** Existing storage authority, read-only; never queries the driver. */
+  get storageWidth(): number { return this._storageWidth }
+  get storageHeight(): number { return this._storageHeight }
+
   // Smudge's scratch "picked up patch" buffers requested 'nearest' until #416
   // (they are LINEAR since — see SmudgePainter's scratchPool; the ribbon's
   // scratch still asks for it). The original reasoning: the patch is later sampled at a
