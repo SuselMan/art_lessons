@@ -10,6 +10,7 @@ function fold(log: OperationLog, ops: Operation[]) {
   for (const op of ops) {
     log.append(op, { serverSeq: op.seq })
     if (op.type === 'operation_undo') log.applyUndo(op.targetOpId, op.userId)
+    else if (op.type === 'operation_redo') log.applyRedo(op.targetOpId, op.userId)
   }
 }
 function actualBackfill() {
@@ -19,18 +20,68 @@ function actualBackfill() {
   new SnapshotIO(ctx).absorbHistorical([A]) // REAL SnapshotIO, no algorithm copy.
   return { log, covered, preload }
 }
-it('reproduces current split-gesture backfill state and replay input mismatch through actual SnapshotIO', () => {
+it('repairs split-gesture backfill state and replay input through actual SnapshotIO', () => {
   const whole = new OperationLog(); fold(whole, [A, B, U])
   const { log, covered, preload } = actualBackfill()
   expect(whole.entries.filter(e => e.op.type === 'stroke').map(e => [e.op.id, e.state])).toEqual([['A', 'undone'], ['B', 'undone']])
-  expect(log.entries.filter(e => e.op.type === 'stroke').map(e => [e.op.id, e.state])).toEqual([['A', 'done'], ['B', 'undone']])
+  expect(log.entries.filter(e => e.op.type === 'stroke').map(e => [e.op.id, e.state])).toEqual([['A', 'undone'], ['B', 'undone']])
   expect(whole.layerPixelOps('L')).toHaveLength(0)
-  expect(log.layerPixelOps('L').map(op => op.id)).toEqual(['A'])
-  expect(log.pixelOpDoneCount('L')).toBe(1)
+  expect(log.layerPixelOps('L').map(op => op.id)).toEqual([])
+  expect(log.pixelOpDoneCount('L')).toBe(0)
   expect(covered).toHaveBeenCalledWith([A]); expect(preload).toHaveBeenCalledWith([A])
 })
-it.fails('backfill must preserve logical whole-gesture Undo across snapshot prefix and joined tail (known defect)', () => {
+it('backfill must preserve logical whole-gesture Undo across snapshot prefix and joined tail', () => {
   const whole = new OperationLog(); fold(whole, [A, B, U])
   const { log } = actualBackfill()
   expect(log.layerPixelOps('L').map(op => op.id)).toEqual(whole.layerPixelOps('L').map(op => op.id))
+})
+
+function absorb(log: OperationLog, ops: Operation[]) {
+  const ctx = { log: () => log, checkpoints: () => ({ markCovered() {} }), preloadImages() {} } as unknown as SnapshotIOContext
+  const io = new SnapshotIO(ctx); io.absorbHistorical(ops); return io
+}
+const states = (log: OperationLog) => log.entries.filter(e => e.op.type === 'stroke').map(e => [e.op.id, e.state])
+it('redo, multiple pages and repeats match whole fold without count drift', () => {
+  const R: Operation = { id: 'R', seq: 4, type: 'operation_redo', userId: 'u', timestamp: 4, targetOpId: 'B' }
+  const whole = new OperationLog(); fold(whole, [A, B, U, R])
+  const log = new OperationLog(); fold(log, [B, R]); absorb(log, [U]); absorb(log, [A]); absorb(log, [A, U])
+  expect(states(log)).toEqual(states(whole)); expect(log.pixelOpDoneCount('L')).toBe(2)
+  expect(log.entries).toHaveLength(4)
+})
+it('same strokeId foreign user and foreign control cannot flip target gesture', () => {
+  const F = { ...A, id: 'F', userId: 'foreign', seq: 0 }, X = { ...U, id: 'X', userId: 'foreign', seq: 4 }
+  const log = new OperationLog(); fold(log, [B, U, X]); absorb(log, [F, A])
+  expect(states(log)).toEqual([['F', 'done'], ['A', 'undone'], ['B', 'undone']])
+  expect(log.pixelOpDoneCount('L')).toBe(1)
+})
+it('late chunk after undo branches prior prefix away, preserving pending metadata', () => {
+  const beforeUndo = { ...U, targetOpId: 'A', seq: 2 }, late = { ...B, seq: 3 }
+  const log = new OperationLog(); log.append(late, { pending: true }); const pendingBefore = { ...log.entries[0] }
+  absorb(log, [A, beforeUndo])
+  expect(states(log)).toEqual([['A', 'gone'], ['B', 'done']]); expect(log.pixelOpDoneCount('L')).toBe(1)
+  const entry = log.entries.find(e => e.op.id === 'B')!
+  expect(entry.pending).toBe(pendingBefore.pending); expect(entry.serverSeq).toBe(pendingBefore.serverSeq)
+  expect(log.confirm('B', 3)).not.toBeNull(); expect(log.entries.find(e => e.op.id === 'B')?.serverSeq).toBe(3)
+})
+it('rejected control tombstone is not replayed; unrelated gone source stays gone', () => {
+  const log = new OperationLog(); fold(log, [B, U]); log.applyRedo('B', 'u'); log.revoke('U')
+  const other = { ...B, id: 'other', strokeId: 'otherGesture', seq: 4 }; log.append(other, { serverSeq: 4 }); log.revoke('other')
+  absorb(log, [A])
+  expect(states(log)).toEqual([['A', 'done'], ['B', 'done'], ['other', 'gone']])
+  expect(log.entries.find(e => e.op.id === 'U')?.state).toBe('gone'); expect(log.pixelOpDoneCount('L')).toBe(2)
+})
+
+it('historical control without new chunk reconciles held gesture; revoke stays per entry', () => {
+  const log = new OperationLog(); fold(log, [A, B]); absorb(log, [U])
+  expect(states(log)).toEqual([['A', 'undone'], ['B', 'undone']]); expect(log.pixelOpDoneCount('L')).toBe(0)
+  const other = new OperationLog(); fold(other, [A, B]); const revoke: Operation = { id: 'V', seq: 3, type: 'operation_revoke', userId: 'teacher', timestamp: 3, targetOpId: 'A' }; absorb(other, [revoke])
+  expect(states(other)).toEqual([['A', 'gone'], ['B', 'done']]); expect(other.pixelOpDoneCount('L')).toBe(1)
+})
+it('unknown prefix undo witness cannot revive held undone state', () => {
+  const log = new OperationLog(); fold(log, [B]); log.applyUndo('B', 'u') // Missing historical control in this bounded log.
+  const io = absorb(log, [A])
+  expect(io.historicalGestureUnresolved()).toHaveLength(1)
+  expect(states(log)).toEqual([['A', 'done'], ['B', 'undone']])
+  expect(log.reconcileHistoricalGestures(['A'])).toHaveLength(1)
+  expect(log.pixelOpDoneCount('L')).toBe(1)
 })
