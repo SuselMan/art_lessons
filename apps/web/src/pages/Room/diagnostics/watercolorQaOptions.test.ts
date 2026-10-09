@@ -61,3 +61,11 @@ it('detached raw warmup requires native DEV owner and is ignored in production',
  for(const q of ['?wcRawCanvasWarmup=1','?wcNative=1&wcRawCanvasWarmup=yes','?wcNative=1&wcRawCanvasWarmup=1&wcRawCanvasWarmup=0'])expect(()=>parse(true,q)).toThrow()
  for(const q of ['?wcNative=1&wcRawCanvasWarmup=1','?wcRawCanvasWarmup=bad&wcRawCanvasWarmup=1'])expect(parse(false,q).diagnosticRawCanvasWarmup).toBe(false)
 })
+
+it('first LIVE warm is separate native DEV opt-in and invalid requests fail before initialization',()=>{
+ expect(parse(true,'').diagnosticFirstLiveWarmup).toBe(false)
+ expect(parse(true,'?wcNative=1&wcFirstLiveWarmup=1').diagnosticFirstLiveWarmup).toBe(true)
+ expect(parse(true,'?wcNative=1&wcFirstLiveWarmup=0').diagnosticFirstLiveWarmup).toBe(false)
+ for(const q of ['?wcFirstLiveWarmup=1','?wcNative=1&wcFirstLiveWarmup=yes','?wcNative=1&wcFirstLiveWarmup=1&wcFirstLiveWarmup=0','?wcNative=1&wcFirstLiveWarmup=1&wcRawCanvasWarmup=1'])expect(()=>parse(true,q)).toThrow()
+ for(const q of ['?wcNative=1&wcFirstLiveWarmup=1','?wcFirstLiveWarmup=bad&wcFirstLiveWarmup=1','?wcNative=1&wcFirstLiveWarmup=1&wcRawCanvasWarmup=1'])expect(parse(false,q).diagnosticFirstLiveWarmup).toBe(false)
+})
