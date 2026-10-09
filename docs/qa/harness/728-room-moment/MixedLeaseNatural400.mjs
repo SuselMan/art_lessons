@@ -1,6 +1,7 @@
 import{continuousPenStroke}from'./ContinuousPenStroke.mjs';
 /** Ordinary Room, real clocks. CPU submissions and synthetic cadence, never physical pen latency. */
-export async function runMixedLeaseNatural400({enabled,deadlineMs=90000}={}){
+export async function runMixedLeaseNatural400({enabled,deadlineMs=90000,scenario='water-pigment'}={}){
+ if(!['water-pigment','pigment-pigment'].includes(scenario))throw Error('Explicit known natural scenario required');
  const e=window.__engine,s=window.__roomStore?.getState();if(typeof enabled!=='boolean'||!e||!s||e._locked||!e._paper.loaded)throw Error('Drawable Room and explicit arm required');
  if(e._settle||e._wcCanonical.pending||e._wcNative||e._wcAsyncFinish||e._wcMaterialPresentation||e._wcJoinedTouchMixed||e._wcJoinedFinishDeferred)throw Error('Fresh product model required');
  const canvas=[...document.querySelectorAll('canvas')].find(c=>c.className.includes('canvas')&&c.width>500);if(!canvas)throw Error('Actual Room canvas missing');
@@ -20,8 +21,8 @@ export async function runMixedLeaseNatural400({enabled,deadlineMs=90000}={}){
   await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
   e.setTool('watercolor');e.setSize(400);e.setColor([.3,.15,.55]);
   for(ordinal=0;ordinal<2;ordinal++){
-   const pigment=ordinal; s.setToolSetting('watercolor','pigment',pigment);e.setPencil(`normal:100:${pigment*100}:PB29:round`);
-   const ui=window.__roomStore.getState().toolSettings.watercolor;const color=[.3,.15,.55];if(e._opts.size!==400||e._opts.tool!=='watercolor'||e._opts.pencilType!==`normal:100:${pigment*100}:PB29:round`||JSON.stringify(e._opts.graphiteColor)!==JSON.stringify(color)||ui.size!==400||ui.water!==1||ui.pigment!==pigment||ui.nib!=='round'||JSON.stringify(ui.color)!==JSON.stringify(color))throw Error('Actual UI/preset/color/400 engine mismatch');
+   const pigment=scenario==='pigment-pigment'?1:ordinal,color=scenario==='pigment-pigment'&&ordinal===1?[.15,.5,.3]:[.3,.15,.55];s.setToolSetting('watercolor','color',color);e.setColor(color); s.setToolSetting('watercolor','pigment',pigment);e.setPencil(`normal:100:${pigment*100}:PB29:round`);
+   const ui=window.__roomStore.getState().toolSettings.watercolor;if(e._opts.size!==400||e._opts.tool!=='watercolor'||e._opts.pencilType!==`normal:100:${pigment*100}:PB29:round`||JSON.stringify(e._opts.graphiteColor)!==JSON.stringify(color)||ui.size!==400||ui.water!==1||ui.pigment!==pigment||ui.nib!=='round'||JSON.stringify(ui.color)!==JSON.stringify(color))throw Error('Actual UI/preset/color/400 engine mismatch');
    rows.push(await continuousPenStroke(e,canvas,{deadline,ordinal,observe:q=>{if(queue.length<1024)queue.push(q)}}));partial();
    // No RAF/idle between water UP and pigment DOWN.
   }
@@ -32,6 +33,6 @@ export async function runMixedLeaseNatural400({enabled,deadlineMs=90000}={}){
   const exportBegin=performance.now(),blob=await e.exportPNG(true);if(!blob||blob.size===0)throw Error('Final export missing');
   const tape=e.getOperations().filter(o=>o.type==='stroke');if(tape.length!==2||tape.some(o=>!o.dabsPacked))throw Error('Two genuine packed strokes required');
   const glError=e.gl.getError(),lost=e.gl.isContextLost();if(!pending||(enabled?(!lease||downDrains!==0):(lease||downDrains<1))||glError||lost)throw Error('Actual pending/admission/GL guard');
-  return{enabled,pending,lease,downDrains,rows,markers,queue,tape,glError,lost,timedEnd,export:{begin:exportBegin,end:performance.now(),bytes:blob.size},scope:'Natural clock synthetic actual Room PointerInput; CPU source/display submissions and rAF availability, not physical pen latency or exact authored OFF/ON parity'};
+  return{enabled,scenario,pending,lease,downDrains,rows,markers,queue,tape,glError,lost,timedEnd,export:{begin:exportBegin,end:performance.now(),bytes:blob.size},scope:'Natural clock synthetic actual Room PointerInput; CPU source/display submissions and rAF availability, not physical pen latency or exact authored OFF/ON parity'};
  }finally{partial();for(const[name,original]of originals)e[name]=original;e._wcJoinedTouch=saved.joined;e._wcJoinedTouchSnapshotLease=saved.lease}
 }
