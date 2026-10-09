@@ -1,0 +1,23 @@
+[
+  {
+    "kind": "grid-aligned",
+    "calls": 120086,
+    "uniqueExactArgs": 5100,
+    "repeatedCalls": 114986,
+    "scope": "synthetic CPU exact argument census, not recorded production workload"
+  },
+  {
+    "kind": "subpixel",
+    "calls": 120098,
+    "uniqueExactArgs": 115611,
+    "repeatedCalls": 4487,
+    "scope": "synthetic CPU exact argument census, not recorded production workload"
+  },
+  {
+    "kind": "varied-pressure",
+    "calls": 120186,
+    "uniqueExactArgs": 61252,
+    "repeatedCalls": 58934,
+    "scope": "synthetic CPU exact argument census, not recorded production workload"
+  }
+]
