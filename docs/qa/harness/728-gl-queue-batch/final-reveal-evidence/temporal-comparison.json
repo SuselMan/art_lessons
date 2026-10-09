@@ -1,0 +1,44 @@
+{
+  "packedTapeDigestMethod": "Python JSON compact SHA256 (archive passport, not JS canonical serialization)",
+  "packedSha": "73388dfba581c3cb4dc044e9fbb8c6095484a833757b28530dff96b94523b56b",
+  "scope": "Only publication/final same run; morph2000 not retained before disposable cleanup",
+  "publication": {
+    "finalAfterReveal": null,
+    "publicationConfirmed": true,
+    "requestedOffset": 0,
+    "at": 24150.400000035763,
+    "elapsed": 0,
+    "canonicalPending": false,
+    "reveals": 1,
+    "width": 586,
+    "height": 640,
+    "path": "/home/suselman/.cache/codex-qa/residual-final-20261009/result-handoff-0.png"
+  },
+  "final": {
+    "finalAfterReveal": true,
+    "revealDetails": [
+      {
+        "startedAt": 24125.600000023842,
+        "durationMs": null,
+        "progressive": true,
+        "hold": 0
+      }
+    ],
+    "publicationConfirmed": true,
+    "requestedOffset": 2000,
+    "at": 32141.400000035763,
+    "elapsed": 7954.100000023842,
+    "canonicalPending": false,
+    "reveals": 0,
+    "width": 586,
+    "height": 640,
+    "path": "/home/suselman/.cache/codex-qa/residual-final-20261009/result-final-0.png"
+  },
+  "observations": [
+    "At publication canonical pendingfalse but reveal1: faint scalloped flower ring surrounds central purple dot",
+    "After progressive default8000ms reveal hold0: core darker, no large separated flower ring; outer core halo remains slightly angular",
+    "Earlier raw ordinary saturated spikes were found in another same-state diagnostic run; final-run screenshots do not prove spike onset/removal",
+    "Final-only sparse frames do not demonstrate continuous smooth morph, artist acceptance or canonicalOFF/ON parity"
+  ],
+  "guardLimit": "This historical final frame has pre-display guards only; 6508dc03 post-display revalidation is CPU tested but not device tested"
+}
