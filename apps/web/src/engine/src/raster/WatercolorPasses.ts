@@ -199,6 +199,7 @@ export class WatercolorPasses {
    *  the settle's outward and inward passes and the group tide's inward one. */
   /** DEV default-OFF synchronous operand witness; errors cannot stop canonical draw. */
   diagnosticBeforeWaterFront: ((witness: Record<string, unknown>) => void) | null = null
+  diagnosticAfterWaterFront: ((witness: Record<string, unknown>) => void) | null = null
   diagnosticWaterFrontCaptureError: string | null = null
   waterFrontStep(
     field: WatercolorPassField, x0: number, y0: number, dryCost: number,
@@ -249,6 +250,9 @@ export class WatercolorPasses {
     }
     gl.drawArrays(gl.TRIANGLES, 0, 6)
     dst.endDraw()
+    if(import.meta.env.DEV && this.diagnosticAfterWaterFront){
+      try{this.diagnosticAfterWaterFront({gl,dst,src,film:field.coverage,w:field.w,h:field.h,stride})}catch(error){this.diagnosticWaterFrontCaptureError=String(error)}
+    }
   }
 
   /** (#536, §17.44) One WC_RESAMPLE_FRAG draw into `dst` over the GL rect
