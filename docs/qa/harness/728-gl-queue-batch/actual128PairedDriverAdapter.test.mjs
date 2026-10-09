@@ -71,3 +71,12 @@ test('actual visual before-carry callback sees exact bindings; throwing diagnost
  assert.equal(observed.input,input);assert.equal(observed.pressure,pressure);assert.equal(observed.path,fields[1]);assert.equal(observed.stride,2);assert.deepEqual(calls.map(a=>a[3]),[16,15]);assert.deepEqual(calls[0][5].origin,[2,.35]);assert.equal(calls[0][5].c,targets.oldP);assert.match(globalThis.__ownedBeforeCarryError,/failure/);delete globalThis.__ownedBeforeCarryError;
  calls.length=0;previewMultiscaleCarry({passes,seed:{draw(){}},pressure,water,pathLease:{fields},input,stride:1});assert.deepEqual(calls.map(a=>a[3]),[16,15]);assert.equal(globalThis.__ownedBeforeCarryError,undefined);
 });
+test('snapshot captured callback survives global removal and repeated later steps safely',async()=>{
+ const {installActualPairedSnapshot}=await import('./InstallActualPairedSnapshot.mjs');
+ const gl={FRAMEBUFFER_BINDING:1,FRAMEBUFFER:2,FLOAT:3,UNSIGNED_BYTE:4,RGBA:5,NO_ERROR:0,getParameter:()=>null,bindFramebuffer(){},readPixels(_x,_y,_w,_h,_fmt,type,a){a.fill(type===3?.1:255)},getError:()=>0};
+ const field=(name,size)=>({fbo:name,texture:name,width:size,height:size});const source={pigmentLoad:field('P',1024),colourLoad:field('C',1024),solventLoad:field('water',1024)};
+ const owner={token:{sequence:2},source:{epoch:0,chunks:[{commands:[],composite:{color:[.3,.15,.55]}}]}};
+ const install=installActualPairedSnapshot(gl,{sourceHead:'head',paperSha:'b'.repeat(64),packedSha:'0'.repeat(64)}),held=globalThis.__captureOwnedBeforeCarry;
+ const r={owner,epoch:0,passStep:0,stride:1,pressure:field('pressure',128),path:field('path',128),input:{source,targets:{oldP:field('old',128)},options:{budgetPx:20,costMax:24,rate:.5,travel:.35,pow:3,effectiveWet:1,wetLo:.45,wetHi:.7}}};
+ held(r);assert.equal(globalThis.__captureOwnedBeforeCarry,undefined);held({...r,passStep:1});held({...r,passStep:2});const result=await install.ready;assert.equal(result.valid,true);assert.equal(result.candidate.passport.passStep,0);install.dispose();
+});
