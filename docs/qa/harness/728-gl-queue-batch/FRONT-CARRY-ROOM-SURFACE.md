@@ -53,3 +53,29 @@ engine import/constructor/paper wait/append/idle and one≤1s passive page-state
 capture on error (no GPU reads), keeping primary error and navigation evidence.
 Endpoint and canonical scalar comparison remain OPEN. Next hardware needs new
 allocation; controller fix is attribution, not a claimed navigation-race cure.
+
+
+Second original attempt (progress controller, dda7ecba) was also INVALID.
+Full raw `owner-water-dab-carry-original-progress-surface.json` contains 21
+lifecycle events: expected loader7B3874B9624A6B3C854AB45CB134330C/default2
+was replaced about3.785s later by SAME-URL loaderAFDA256C3FD8E603026BF066AB871028/default3.
+Runtime.executionContextsCleared and Page.frameNavigated confirm a real reload.
+The earlier compact first-14-events reading missed this tail; it is corrected
+here. Why the page reloaded remains unknown. No endpoint/scalar result exists.
+Pre2141/controller2140/post2075MiB, own target closed, Surface RELEASE.
+
+Controller correction is CPU-only: strict expected loader/frame/url/origin
+continues to reject a replacement page, even at the same URL. Replay evaluates
+using observed system-unique context identity; numeric IDs can be reused across
+processes. Late destruction of an older unique world cannot delete a newer
+world sharing its numeric ID. Child frame navigation does not invalidate the
+expected main frame. On failure, a bounded passive default-page state query and
+Page.getFrameTree record current context/loader evidence without input, replay,
+GPU reads, or adopting the new page. Primary error remains intact. Four lifecycle
+fixtures PASS; this does not fix or explain the browser reload and authorizes no
+repeat. Original endpoint and measured canonical radius/budget remain OPEN.
+
+Primary protocol reference: [CDP Runtime.evaluate](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/json/js_protocol.json)
+defines uniqueContextId as system-unique and mutually exclusive with contextId;
+omitting both evaluates in the inspected page. Passive error diagnostics use
+that default intentionally, while replay requires the strict original world.
