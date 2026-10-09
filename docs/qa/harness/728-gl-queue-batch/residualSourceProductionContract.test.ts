@@ -16,3 +16,18 @@ test('actual production wcResample invokes descriptor begin/end around draw',()=
  expect(calls.slice(draw+1)).toContainEqual(['bindFramebuffer','FRAMEBUFFER',null])
  expect(f).not.toHaveProperty('beginReplaceDraw')
 })
+import {presetForTool} from '../../../../apps/web/src/engine/src/presets/resolvePreset'
+import {ribbonProfileFor} from '../../../../apps/web/src/engine/src/dabs/ribbonProfile'
+import {createCanonicalStrokeChunkState,prepareCanonicalStrokeChunk} from '../../../../apps/web/src/engine/src/dabs/canonicalStrokeChunk'
+// @ts-expect-error QA executable module has no declaration file.
+import {residualKnownSourceDabs} from './residualSourceGpu.mjs'
+test('known nonempty source fixture prepares genuine ordered pigment stamp and bands',()=>{
+ const name='normal:100:100:PB29:round',preset=presetForTool('watercolor',name),profile=ribbonProfileFor('watercolor',name,0)
+ expect(profile.pigmentLevel).toBeGreaterThan(0)
+ const result=prepareCanonicalStrokeChunk(createCanonicalStrokeChunkState(),{dabs:residualKnownSourceDabs(),preset,presetName:name,profile,color:[.2,.1,.5],wetProfile:'0f37',strokeSeed:[1,2],tile:{originX:0,originY:0,buffer:{width:1024,height:1024}},film:true,segmentMode:'combined',options:{diagnosticSolventField:true,diagnosticPigmentRecord:true}})
+ const colour=result.commands.filter(c=>c.phase==='color')
+ expect(colour.length).toBeGreaterThan(0)
+ expect(colour.some(c=>c.kind==='stamp')).toBe(true)
+ expect(colour.some(c=>c.kind==='ribbon')).toBe(true)
+ expect(colour.some(c=>(c.kind==='stamp'?c.stamp.uniforms:c.batch.uniforms).tau.some(v=>v>0))).toBe(true)
+})
