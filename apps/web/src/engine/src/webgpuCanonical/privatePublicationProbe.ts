@@ -42,9 +42,11 @@ export async function runPrivatePublicationProbe(device:GPUDevice,gl:WebGLRender
   const expectedOld=canonicalTopRowsToGlRows(a,width,height),expectedNext=canonicalTopRowsToGlRows(b,width,height)
   const firstResult=publicationByteComparison(oldBytes,expectedOld),secondResult=publicationByteComparison(nextBytes,expectedNext)
   const different=publicationByteComparison(oldBytes,nextBytes).mismatchedBytes>0
+  const sha=async(bytes:Uint8Array)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',Uint8Array.from(bytes).buffer))).map(x=>x.toString(16).padStart(2,'0')).join('')
+  const firstSHA=await sha(oldBytes),secondSHA=await sha(nextBytes)
   return{schema:'native-private-publication-copy-v1',width,height,logicalCanvasMaxBytes:pool.logicalMaxBytes,physicalSwapchainBytes:null,
    commandOrder:['uploadA','firstRawCanvasRender','uploadB','secondRawCanvasRender'],existingAckCount:2,
-   first:firstResult,second:secondResult,independentEndpoints:different,exact:firstResult.exact&&secondResult.exact&&different,
+   first:{...firstResult,sha256:firstSHA},second:{...secondResult,sha256:secondSHA},independentEndpoints:different,exact:firstResult.exact&&secondResult.exact&&different,
    scope:'Standalone output snapshots only; no watercolor parity, Room admission, physical memory or UX proof'}
  }catch(error){primaryFailed=true;throw error}
  finally{
