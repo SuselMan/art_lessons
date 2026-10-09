@@ -59,7 +59,9 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
   * shader, copy or upload is allowed outside this explicit command scope. */
  runQuantum<T>(task: (context: CanonicalGpuContext) => T): T {
   if (this.context) throw new Error('Nested native planner quantum')
-  const encoder = this.owner.device.createCommandEncoder({ label: 'canonical planner quantum' })
+  const originalEncoder = this.owner.device.createCommandEncoder({ label: 'canonical planner quantum' })
+  const timing=this.owner.diagnosticTimestampQuantum?.(originalEncoder)
+  const encoder = timing?.encoder??originalEncoder
   this.context = { device: this.owner.device, encoder, nearest: this.owner.nearest, linear: this.owner.linear }
   this.transient = []
   let releaseOwner: (() => void) | undefined
@@ -68,11 +70,13 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
    releaseOwner = owned.release
    const transient = this.transient
    this.owner.device.queue.submit([encoder.finish()])
+   timing?.commit()
    if(this.diagnosticCountSubmissions)this.diagnosticSubmittedQuanta++
    const release = () => { owned.release(); transient.forEach(buffer => buffer.destroy()) }
    void this.owner.device.queue.onSubmittedWorkDone().then(release, release)
    return owned.value
   } catch (error) {
+   timing?.abort()
    releaseOwner?.()
    this.transient.forEach(buffer => buffer.destroy())
    throw error

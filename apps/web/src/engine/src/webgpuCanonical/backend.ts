@@ -4,9 +4,13 @@ import { CanonicalRibbonDeposit } from './deposit'
 import { CanonicalStampDeposit } from './stamp'
 import { CanonicalComposite } from './render'
 import { CanonicalBrushContact } from './brush'
+import {requestCanonicalDevice} from './diagnosticTimestampDevice'
+import {DiagnosticPassTimestamps} from './diagnosticPassTimestamps'
 import type { CanonicalCompositeUniforms, CanonicalGpuField, CanonicalGpuSnapshot, CanonicalPaper, CanonicalRasterPhase, CanonicalRasterTargets, CanonicalRibbonBatch, CanonicalSupport, CanonicalStamp, CanonicalWatercolorFields } from './types'
 
 export interface CanonicalWebGpuOptions {
+ /** OFF, DEV-only capability negotiation for isolated timestamp measurements. */
+ diagnosticTimestampQueries?:boolean
  /** Room owns its material fields and presentation; default prototype remains eager. */
  roomOwnedResources?:boolean
  /** OFF diagnostic: production DAB_VERT arithmetic order before interpolation. */
@@ -65,6 +69,18 @@ export class CanonicalWatercolorWebGpu {
  private activeBuffers:GPUBuffer[]=[]
  private activeRetired:CanonicalGpuField[]=[]
  private destroyed = false
+ private diagnosticTimestamps:DiagnosticPassTimestamps|null=null
+ /** Explicit isolated capture; enabling the device feature alone allocates no queries. */
+ beginDiagnosticTimestampCapture(capacity=256){
+  if(!import.meta.env.DEV||!this.options.diagnosticTimestampQueries||this.destroyed||this.diagnosticTimestamps)throw new Error('Timestamp capture unavailable')
+  this.diagnosticTimestamps=new DiagnosticPassTimestamps(this.device,capacity)
+ }
+ diagnosticTimestampQuantum(encoder:GPUCommandEncoder){return this.diagnosticTimestamps?.begin(encoder)??null}
+ async readDiagnosticTimestampsAfterInput(){
+  if(!this.diagnosticTimestamps)throw new Error('Timestamp capture unavailable')
+  const capture=this.diagnosticTimestamps
+  try{return await capture.readAfterInput()}finally{if(this.diagnosticTimestamps===capture)this.diagnosticTimestamps=null}
+ }
  readonly device: GPUDevice
  diagnosticComputeFullClearCalls=0
  readonly options: CanonicalWebGpuOptions
@@ -114,7 +130,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   options.onInitStage?.('adapter:request-start')
   const support = await this.support(); if (!support.supported) throw new Error(support.reason)
   options.onInitStage?.('device:request-start')
-  const device = await support.adapter.requestDevice()
+  const device = await requestCanonicalDevice(support.adapter,options.diagnosticTimestampQueries,import.meta.env.DEV)
   options.onInitStage?.('device:request-done')
   device.pushErrorScope('validation')
   try {
@@ -257,5 +273,5 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   for (const name of names) this.upload(this.fields[name], snapshot.fields[name])
  }
  whenIdle() { return this.device.queue.onSubmittedWorkDone() }
- destroy() { if (this.destroyed) return; this.destroyed = true; for (const field of this.ownedFields) field.texture.destroy(); this.ownedFields.clear(); for(const field of this.pendingRetired)field.texture.destroy(); this.pendingRetired.clear(); this.activeRetired.forEach(field=>field.texture.destroy()); this.activeRetired=[]; this.activeBuffers.forEach(buffer=>buffer.destroy()); this.activeBuffers=[]; this.context?.unconfigure(); this.device.destroy() }
+ destroy() { if (this.destroyed) return; this.destroyed = true; this.diagnosticTimestamps?.destroy(); this.diagnosticTimestamps=null; for (const field of this.ownedFields) field.texture.destroy(); this.ownedFields.clear(); for(const field of this.pendingRetired)field.texture.destroy(); this.pendingRetired.clear(); this.activeRetired.forEach(field=>field.texture.destroy()); this.activeRetired=[]; this.activeBuffers.forEach(buffer=>buffer.destroy()); this.activeBuffers=[]; this.context?.unconfigure(); this.device.destroy() }
 }

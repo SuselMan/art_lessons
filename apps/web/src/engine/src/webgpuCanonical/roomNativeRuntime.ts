@@ -22,6 +22,8 @@ import {RoomNativeCentralAdapter} from './roomNativeCentralAdapter'
 import {canonicalSourceRevealRect} from './strokeScratchMetadata'
 
 export interface RoomNativeRuntimeContext {
+ /** Explicit DEV-only measurement feature; default OFF. */
+ diagnosticTimestampQueries?:boolean
  /** DEV QA only: pressure D sampler in canonical carry15/16; OFF default. */
  /** QA-only detached raw canvas warmup; no source/settle warmup. */
  diagnosticSourcePrecompile?:boolean
@@ -44,6 +46,8 @@ export interface RoomNativeRuntimeContext {
 /** GPU executor extension of the existing PencilEngine. No extra input,
  * PaperWetness, socket callbacks or operation journal. */
 export class RoomNativeRuntime {
+ beginDiagnosticTimestampCapture(capacity=256){if(this.ctx.fifo.pending||this.retired)throw new Error('Timestamp capture requires canonical idle');this.backend.beginDiagnosticTimestampCapture(capacity)}
+ readDiagnosticTimestampsAfterInput(){if(this.ctx.fifo.pending||this.retired)throw new Error('Timestamp read requires canonical idle after input');return this.backend.readDiagnosticTimestampsAfterInput()}
  get observedFieldPreparation(){return observedFieldPreparationDiagnostics(this.backend.device)}
  readonly tipContactQa:NativeTipQaProof
  private readonly backend:CanonicalWatercolorWebGpu
@@ -72,7 +76,7 @@ export class RoomNativeRuntime {
   const bytes=expandCanonicalPaperLa(la)
   console.info('[native-room-init]','paper:expand-done',bytes.length)
   const canvas=document.createElement('canvas')
-  const backend=await CanonicalWatercolorWebGpu.create({canvas,roomOwnedResources:true,onInitStage:stage=>console.info('[native-room-init]',stage),width:1024,height:1024,paper:{bytes,width:resolution,height:resolution,origin:[0,0],texSize:[ctx.paperWorld.w,ctx.paperWorld.h],scale:ctx.paperScale}})
+  const backend=await CanonicalWatercolorWebGpu.create({canvas,roomOwnedResources:true,diagnosticTimestampQueries:ctx.diagnosticTimestampQueries,onInitStage:stage=>console.info('[native-room-init]',stage),width:1024,height:1024,paper:{bytes,width:resolution,height:resolution,origin:[0,0],texSize:[ctx.paperWorld.w,ctx.paperWorld.h],scale:ctx.paperScale}})
   try{
    if(import.meta.env.DEV&&ctx.diagnosticAsyncCarryPressure===true&&ctx.diagnosticCarryHardwarePressure!==true)throw new Error('Async carry pressure requires hardware pressure diagnostic')
    const prepareObserved=async()=>{
