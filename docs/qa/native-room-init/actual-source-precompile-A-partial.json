@@ -1,0 +1,392 @@
+{
+  "source": "5d521c33adb7ce487314d0555e7c0e92855cc161",
+  "outcome": "INCOMPLETE: predetermined ribbon subset not consumed by short path; no endpoint proof, no quality or performance gain claim",
+  "error": "Error: Selected exact factory was not consumed: ribbon:coverage",
+  "sourcePreparation": {
+    "ready": {
+      "proofs": [
+        {
+          "key": "stamp:false:false:coverage",
+          "kind": "render",
+          "completed": true,
+          "compilerWallMs": 191.5,
+          "shaderBytes": 6778,
+          "shaderSHA": "9528741b226645804ffd327b54e1fd5d497071f42dd8f7c397594030da326861",
+          "descriptorSHA": "1c8519d16fda06266e9c671ce8b9fb64e41d7ac547a073445e59dc228bd9de70"
+        },
+        {
+          "key": "stamp:false:false:pigmentOnlymax",
+          "kind": "render",
+          "completed": true,
+          "compilerWallMs": 336.39999997615814,
+          "shaderBytes": 6778,
+          "shaderSHA": "9528741b226645804ffd327b54e1fd5d497071f42dd8f7c397594030da326861",
+          "descriptorSHA": "2eb4095591d6de0d15d86f1a5455d331c63c7619b591cc3d7665d7e3e106d376"
+        },
+        {
+          "key": "stamp:false:false:pigmentOnlyadd",
+          "kind": "render",
+          "completed": true,
+          "compilerWallMs": 352.69999998807907,
+          "shaderBytes": 6778,
+          "shaderSHA": "9528741b226645804ffd327b54e1fd5d497071f42dd8f7c397594030da326861",
+          "descriptorSHA": "fb3b73fcf79e66bbe1a03f266abb0fd4203147bc4131e0336a7699d0a994551a"
+        },
+        {
+          "key": "stamp:false:false:colorOnlymax",
+          "kind": "render",
+          "completed": true,
+          "compilerWallMs": 336.10000002384186,
+          "shaderBytes": 6778,
+          "shaderSHA": "9528741b226645804ffd327b54e1fd5d497071f42dd8f7c397594030da326861",
+          "descriptorSHA": "6559c0b8403e3966261aa99ee835b8acbb65dc7bf9723a37cc8943123609f17b"
+        },
+        {
+          "key": "stamp:false:false:colorOnlyadd",
+          "kind": "render",
+          "completed": true,
+          "compilerWallMs": 475.80000001192093,
+          "shaderBytes": 6778,
+          "shaderSHA": "9528741b226645804ffd327b54e1fd5d497071f42dd8f7c397594030da326861",
+          "descriptorSHA": "8f245750a32a4766415609df51c1b42e2303b705087483b920db567091efde9e"
+        },
+        {
+          "key": "ribbon:coverage",
+          "kind": "render",
+          "completed": true,
+          "compilerWallMs": 376.19999998807907,
+          "shaderBytes": 6539,
+          "shaderSHA": "0fa5f7196d0da4f7e00b52d277be83cbbad383ef87788fd0ca3dfec6d695f1c2",
+          "descriptorSHA": "b34719b412365f5f53cca8239e509832766067537d488a1549da581b29b14490"
+        },
+        {
+          "key": "ribbon:pigmentOnlymax",
+          "kind": "render",
+          "completed": true,
+          "compilerWallMs": 559.8999999761581,
+          "shaderBytes": 6539,
+          "shaderSHA": "0fa5f7196d0da4f7e00b52d277be83cbbad383ef87788fd0ca3dfec6d695f1c2",
+          "descriptorSHA": "87e71e6a534cd1620208377e30bb5fa615582d435629d9f53b0a8fd6fccc5cc5"
+        },
+        {
+          "key": "ribbon:pigmentOnlyadd",
+          "kind": "render",
+          "completed": true,
+          "compilerWallMs": 554.3999999761581,
+          "shaderBytes": 6539,
+          "shaderSHA": "0fa5f7196d0da4f7e00b52d277be83cbbad383ef87788fd0ca3dfec6d695f1c2",
+          "descriptorSHA": "362e67cb84dbe1b11b3469440bebdbb6f6161efe4f09053be2cf6694a42d4c48"
+        },
+        {
+          "key": "ribbon:colorOnlymax",
+          "kind": "render",
+          "completed": true,
+          "compilerWallMs": 580.5,
+          "shaderBytes": 6539,
+          "shaderSHA": "0fa5f7196d0da4f7e00b52d277be83cbbad383ef87788fd0ca3dfec6d695f1c2",
+          "descriptorSHA": "193142b4a0c899265964fe86aead0adb4a4995fbdeae355bb3ada99818064235"
+        },
+        {
+          "key": "ribbon:colorOnlyadd",
+          "kind": "render",
+          "completed": true,
+          "compilerWallMs": 606.6000000238419,
+          "shaderBytes": 6539,
+          "shaderSHA": "0fa5f7196d0da4f7e00b52d277be83cbbad383ef87788fd0ca3dfec6d695f1c2",
+          "descriptorSHA": "e967584b3be660ac16a4f580cb14fac35ec4f750d4ece9a976e4e5e2b370bf6f"
+        },
+        {
+          "key": "canonicalCompositeRecipe",
+          "kind": "render",
+          "completed": true,
+          "compilerWallMs": 661.1000000238419,
+          "shaderBytes": 13408,
+          "shaderSHA": "d39778a8c5c10f890373e17648350095159057bbcc6be5bb74b94a78e69b0a01",
+          "descriptorSHA": "66fc431b77fc50ba5e320c4b2814432027560d6d3cbbae530607b2571ba61d8c"
+        },
+        {
+          "key": "canonicalRawCanvasRecipe",
+          "kind": "render",
+          "completed": true,
+          "compilerWallMs": 506.60000002384186,
+          "shaderBytes": 329,
+          "shaderSHA": "e840ee4b6f07715b545e2813cfc09808c875f84e7466a9226983482988847494",
+          "descriptorSHA": "b43e012e32c11daf870c20d52572beba61d9a0de07a220e4a10cc27b5f0104a6"
+        },
+        {
+          "key": "sourceFieldOps",
+          "kind": "compute",
+          "completed": true,
+          "compilerWallMs": 2542.699999988079,
+          "shaderBytes": 11984,
+          "shaderSHA": "aaecfbd52919731419b7950ac5a9962576242b1df896f44024c6bd76b05a45d5",
+          "descriptorSHA": "b9137b0677442af143514aa5443af4b3df28258b7358d697e81c59003f53d969"
+        },
+        {
+          "key": "pairedBrush",
+          "kind": "compute",
+          "completed": true,
+          "compilerWallMs": 1184.5,
+          "shaderBytes": 3795,
+          "shaderSHA": "0bf8e759a5a6e9d5349867007287e199b7a4cf72b58159c59ee7793e03119fe4",
+          "descriptorSHA": "5342653d010ebb055cc0a13252e0ef1c9d4070ce1f13a38a9de43fd506f34f50"
+        },
+        {
+          "key": "singleBrush",
+          "kind": "compute",
+          "completed": true,
+          "compilerWallMs": 1158.300000011921,
+          "shaderBytes": 3693,
+          "shaderSHA": "26abc2aaa3971d0868bef1491c9cf7a3ae8a1d80eaab768d39eb5dd2a3b2a012",
+          "descriptorSHA": "0eee98546d5fe9188affa9187462dbbadfcc024614610ac0bbea49da5a072553"
+        }
+      ],
+      "dispatches": 0,
+      "fieldBytes": 0,
+      "resourceBefore": [
+        {
+          "id": 1,
+          "label": "production baked paper",
+          "width": 2048,
+          "height": 2048,
+          "filter": "linear",
+          "format": "rgba8unorm",
+          "bytes": 16777216
+        },
+        {
+          "id": 2,
+          "label": "production 251x251 watercolor lattice",
+          "width": 251,
+          "height": 251,
+          "filter": "nearest",
+          "format": "rgba8unorm",
+          "bytes": 252004
+        }
+      ],
+      "resourceAfter": [
+        {
+          "id": 1,
+          "label": "production baked paper",
+          "width": 2048,
+          "height": 2048,
+          "filter": "linear",
+          "format": "rgba8unorm",
+          "bytes": 16777216
+        },
+        {
+          "id": 2,
+          "label": "production 251x251 watercolor lattice",
+          "width": 251,
+          "height": 251,
+          "filter": "nearest",
+          "format": "rgba8unorm",
+          "bytes": 252004
+        }
+      ],
+      "completedAt": 21629.399999976158
+    }
+  },
+  "actualObservedReady": {
+    "proofs": [
+      {
+        "kind": "waterFront",
+        "compilerWallMs": 329.9000000357628,
+        "shaderBytes": 4022
+      },
+      {
+        "kind": "diffuse",
+        "compilerWallMs": 263.80000001192093,
+        "shaderBytes": 3135
+      }
+    ],
+    "shaderSHAs": [
+      "7f6d4a85ed974652751c04b5627c998daa289856dceaf7ad9be3373279b63acd",
+      "3f2d13101ac86a41bac904b150292370ad8cf3784a87d34f275f243de24bdf12"
+    ],
+    "dispatches": 0,
+    "fieldBytes": 0
+  },
+  "actualPressureReady": {
+    "completed": true,
+    "shaderBytes": 11996,
+    "compilerWallMs": 1316,
+    "scope": "exact pipeline compilation only",
+    "shaderSHA": "664ac12d3a663e6463bc6e9dc9a198b2c43ea041fde25bcce3cb1192442cafba",
+    "dispatches": 0,
+    "fieldBytes": 0
+  },
+  "final": {
+    "url": "https://10.203.72.1:5380/room/3zvew1ag?wcNative=1&wcCarryHardwarePressure=1&wcAsyncCarryPressure=1&wcAsyncObservedFields=1&wcSourcePrecompile=1",
+    "secure": true,
+    "gpu": true,
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "engine": true,
+    "native": true,
+    "ready": true,
+    "pending": false,
+    "error": null,
+    "ops": [
+      {
+        "type": "stroke",
+        "tool": "watercolor",
+        "state": "done",
+        "packedBytes": 58,
+        "preset": "normal:100:0:PB29:round"
+      },
+      {
+        "type": "stroke",
+        "tool": "watercolor",
+        "state": "done",
+        "packedBytes": 58,
+        "preset": "normal:100:100:PB29:round",
+        "wet": "f"
+      }
+    ],
+    "lost": false,
+    "gl": 0,
+    "nativeOwner": true,
+    "carryPressure": {
+      "enabled": true,
+      "counters": {
+        "mode15": 32,
+        "mode16": 0,
+        "other": 108
+      }
+    },
+    "actualObservedEnabled": true,
+    "observedFields": [
+      {
+        "kind": "waterFront",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 4022
+      },
+      {
+        "kind": "diffuse",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 3135
+      }
+    ],
+    "actualAsyncPressureEnabled": true,
+    "asyncCarryPressure": {
+      "completed": true,
+      "hits": 1,
+      "shaderBytes": 11996
+    },
+    "sourcePrecompileEnabled": true,
+    "sourcePipelines": [
+      {
+        "key": "stamp:false:false:coverage",
+        "kind": "render",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 6778
+      },
+      {
+        "key": "stamp:false:false:pigmentOnlymax",
+        "kind": "render",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 6778
+      },
+      {
+        "key": "stamp:false:false:pigmentOnlyadd",
+        "kind": "render",
+        "completed": true,
+        "hits": 0,
+        "shaderBytes": 6778
+      },
+      {
+        "key": "stamp:false:false:colorOnlymax",
+        "kind": "render",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 6778
+      },
+      {
+        "key": "stamp:false:false:colorOnlyadd",
+        "kind": "render",
+        "completed": true,
+        "hits": 0,
+        "shaderBytes": 6778
+      },
+      {
+        "key": "ribbon:coverage",
+        "kind": "render",
+        "completed": true,
+        "hits": 0,
+        "shaderBytes": 6539
+      },
+      {
+        "key": "ribbon:pigmentOnlymax",
+        "kind": "render",
+        "completed": true,
+        "hits": 0,
+        "shaderBytes": 6539
+      },
+      {
+        "key": "ribbon:pigmentOnlyadd",
+        "kind": "render",
+        "completed": true,
+        "hits": 0,
+        "shaderBytes": 6539
+      },
+      {
+        "key": "ribbon:colorOnlymax",
+        "kind": "render",
+        "completed": true,
+        "hits": 0,
+        "shaderBytes": 6539
+      },
+      {
+        "key": "ribbon:colorOnlyadd",
+        "kind": "render",
+        "completed": true,
+        "hits": 0,
+        "shaderBytes": 6539
+      },
+      {
+        "key": "canonicalCompositeRecipe",
+        "kind": "render",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 13408
+      },
+      {
+        "key": "canonicalRawCanvasRecipe",
+        "kind": "render",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 329
+      },
+      {
+        "key": "sourceFieldOps",
+        "kind": "compute",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 11984
+      },
+      {
+        "key": "pairedBrush",
+        "kind": "compute",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 3795
+      },
+      {
+        "key": "singleBrush",
+        "kind": "compute",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 3693
+      }
+    ]
+  },
+  "readyAt": 22047.099999964237,
+  "firstDownAt": 22451.19999998808,
+  "ramStartMiB": 2065.2890625,
+  "ramLastMiB": 1035.98828125,
+  "ownedContextDisposed": true,
+  "nextGuard": "Precompute sufficiently long CPU command recipe, require a ribbon command before hardware; do not infer required keys from observed HIT"
+}
