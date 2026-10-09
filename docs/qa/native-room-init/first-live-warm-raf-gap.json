@@ -1,0 +1,16 @@
+{
+  "source": "92e0626a3dbe60388c556fa38067d6a018f6a90c",
+  "gapBrowserMs": [
+    13498,
+    14681.3
+  ],
+  "gapMs": 1183.2999999999993,
+  "readyAt": 11028.600000023842,
+  "firstDownAt": 11342.300000011921,
+  "duringWarmup": false,
+  "nonQueueMarkersInside": [],
+  "queueSubmitCountInside": 8,
+  "queueCompletionCountInside": 4,
+  "cpuProfilerAvailable": false,
+  "interpretation": "During first water stroke drain, after readiness. Existing trace cannot attribute an absent rAF to a specific CPU stack, GPU execution, compositor stall or callback throttling. Queue wait is asynchronous and not a CPU frame."
+}
