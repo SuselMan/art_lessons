@@ -1,3 +1,4 @@
+import type { BoundedGlTiming } from '../diagnostics/BoundedGlTiming'
 import type { Dab } from '@grafetto/shared'
 
 import { AccumulationBuffer } from './AccumulationBuffer'
@@ -534,6 +535,7 @@ export class RibbonStrokeScratch {
    *  source-over ink has no per-pixel pigment quantity for the composite to
    *  read, so allocating and clearing one per tile would be a buffer and two
    *  draw calls spent on a value nothing samples. See RibbonProfile.ink. */
+  diagnosticTiming: BoundedGlTiming | null = null
   constructor(pool: RibbonScratchPool, needsInk = true, needsColor = false) {
     this.pool = pool
     this.needsInk = needsInk
@@ -562,6 +564,11 @@ export class RibbonStrokeScratch {
    *  the current gesture: the base is the deposit as it stands now, the film
    *  starts empty. */
   filmBuffers(tile: AccumulationBuffer): { strokeInk: AccumulationBuffer; inkBase: AccumulationBuffer; strokeColor: AccumulationBuffer | null; colorBase: AccumulationBuffer | null } | null {
+    if (!this.diagnosticTiming) return this.filmBuffersUntimed(tile)
+    return this.diagnosticTiming.measure('scratch-film-base-copy', () => this.filmBuffersUntimed(tile))
+  }
+
+  filmBuffersUntimed(tile: AccumulationBuffer): { strokeInk: AccumulationBuffer; inkBase: AccumulationBuffer; strokeColor: AccumulationBuffer | null; colorBase: AccumulationBuffer | null } | null {
     const entry = this.getOrCreate(tile)
     if (!entry.inkLoad) return null
     if (entry.filmGesture !== this.materialGesture) {
@@ -584,6 +591,11 @@ export class RibbonStrokeScratch {
   tileEntries(): IterableIterator<[AccumulationBuffer, RibbonTileScratch]> { return this._tiles.entries() }
 
   getOrCreate(tile: AccumulationBuffer): RibbonTileScratch {
+    if (!this.diagnosticTiming) return this.getOrCreateUntimed(tile)
+    return this.diagnosticTiming.measure('scratch-first-touch', () => this.getOrCreateUntimed(tile))
+  }
+
+  getOrCreateUntimed(tile: AccumulationBuffer): RibbonTileScratch {
     let entry = this._tiles.get(tile)
     if (!entry) {
       // (#385) From the pool, and every one of them is fully written before it

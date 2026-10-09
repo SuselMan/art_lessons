@@ -1,3 +1,4 @@
+import type { BoundedGlTiming } from '../diagnostics/BoundedGlTiming'
 import { prepareRibbonHalo } from './ribbonHalo'
 import { prepareRibbonGestureScalars } from './ribbonGestureScalars'
 import { prepareDrawableRibbonDabs, noteRibbonWetContacts } from './ribbonDrawable'
@@ -112,6 +113,7 @@ export class RibbonStrokePainter {
     this.auxiliaryWater.clear()
   }
   diagnosticTrace: { before: number; after: number; water: number; dose: number }[] = []
+  diagnosticTiming: BoundedGlTiming | null = null
   constructor(ctx: RibbonStrokePainterContext) {
     this.ctx = ctx
   }
@@ -150,42 +152,45 @@ export class RibbonStrokePainter {
    *  tangent point, where both are ramping, and the difference between max and
    *  over there is a fraction of one pixel. */
   private *importForeignWater(target: ILayerBuffer, scratch: RibbonStrokeScratch, dabs: Dab[], preset: PencilPreset, wetProfile?: string, sources = scratch.foreignSources ?? [], forgetOnExit?: () => boolean): Generator<number, void, void> {
-    const contacts = dabs.flatMap((d, i) => wetAt(wetProfile, i) > 0
-      ? [{ x: d.x, y: d.y, radius: d.size * 0.5 * preset.sizeMultiplier, aspect: Math.max(1, d.aspectRatio), angle: d.angle }] : [])
-    const native=this.ctx.nativeWatercolorRouting?.()===true
-    const pool = this.ctx.scratchPool()
-    for (const source of selectedForeignWaterSources(sources, contacts)) {
-      if (scratch.foreignImportedGestures.has(source.gesture) || !source.chunks?.length) continue
-      const unique = [...new Map(source.chunks.map(chunk => [chunk.id, chunk])).values()]
-      const first = unique[0], sourcePreset = this.ctx.resolveWaterPreset(first.preset)
-      const sourceProfile = ribbonProfileFor('watercolor', first.preset, wetAt(first.wet, 0))
-      const aux = new RibbonStrokeScratch(pool, false, false)
-      this.auxiliaryWater.add(aux)
-      try {
-        // Preserve the engine's recorded chunk film transitions exactly.
-        // MAX is within a film; newFilm adds the next chunk to its saved base.
-        for (const chunk of unique) {
-          if(native)yield* this.paint(target, chunk.dabs, sourcePreset, first.preset, sourceProfile, chunk.color, aux, undefined, chunk.wet, chunk.seed, false, 256,{waterOnly:true,segmented:false,auxiliary:{recipient:scratch,gesture:source.gesture}})
-          else yield* this.paintWaterSource(target, chunk.dabs, sourcePreset, first.preset, sourceProfile, chunk.color, aux, undefined, chunk.wet, chunk.seed, false, 256)
-          aux.releaseFilm()
-          aux.newFilm()
-        }
-        if(native){if(!this.ctx.importNativeForeignWater)throw new Error('Native foreign-water merge owner missing');this.ctx.importNativeForeignWater(scratch,target,source.gesture)}
-        for (const [tile, donor] of aux.tileEntries()) {
-          const recipient = scratch.getOrCreate(tile), temp = pool.acquire(tile.width, tile.height)
-          try {
-            this.ctx.fieldOp(temp, recipient.coverage, donor.coverage, 20, 0)
-            temp.copyTo(recipient.coverage)
-            if (donor.solventLoad) {
-              if (!recipient.foreignSolventLoad) { recipient.foreignSolventLoad = pool.acquire(tile.width, tile.height); recipient.foreignSolventLoad.clear() }
-              this.ctx.fieldOp(temp, recipient.foreignSolventLoad, donor.solventLoad, 1, 1)
-              temp.copyTo(recipient.foreignSolventLoad)
-            }
-          } finally { pool.release(temp) }
-        }
-        scratch.foreignImportedGestures.add(source.gesture)
-      } finally { this.auxiliaryWater.delete(aux); if (forgetOnExit?.()) aux.forget(); else aux.destroy() }
-    }
+    const start = this.diagnosticTiming?.begin() ?? null
+    try {
+      const contacts = dabs.flatMap((d, i) => wetAt(wetProfile, i) > 0
+        ? [{ x: d.x, y: d.y, radius: d.size * 0.5 * preset.sizeMultiplier, aspect: Math.max(1, d.aspectRatio), angle: d.angle }] : [])
+      const native=this.ctx.nativeWatercolorRouting?.()===true
+      const pool = this.ctx.scratchPool()
+      for (const source of selectedForeignWaterSources(sources, contacts)) {
+        if (scratch.foreignImportedGestures.has(source.gesture) || !source.chunks?.length) continue
+        const unique = [...new Map(source.chunks.map(chunk => [chunk.id, chunk])).values()]
+        const first = unique[0], sourcePreset = this.ctx.resolveWaterPreset(first.preset)
+        const sourceProfile = ribbonProfileFor('watercolor', first.preset, wetAt(first.wet, 0))
+        const aux = new RibbonStrokeScratch(pool, false, false)
+        this.auxiliaryWater.add(aux)
+        try {
+          // Preserve the engine's recorded chunk film transitions exactly.
+          // MAX is within a film; newFilm adds the next chunk to its saved base.
+          for (const chunk of unique) {
+            if(native)yield* this.paint(target, chunk.dabs, sourcePreset, first.preset, sourceProfile, chunk.color, aux, undefined, chunk.wet, chunk.seed, false, 256,{waterOnly:true,segmented:false,auxiliary:{recipient:scratch,gesture:source.gesture}})
+            else yield* this.paintWaterSource(target, chunk.dabs, sourcePreset, first.preset, sourceProfile, chunk.color, aux, undefined, chunk.wet, chunk.seed, false, 256)
+            aux.releaseFilm()
+            aux.newFilm()
+          }
+          if(native){if(!this.ctx.importNativeForeignWater)throw new Error('Native foreign-water merge owner missing');this.ctx.importNativeForeignWater(scratch,target,source.gesture)}
+          for (const [tile, donor] of aux.tileEntries()) {
+            const recipient = scratch.getOrCreate(tile), temp = pool.acquire(tile.width, tile.height)
+            try {
+              this.ctx.fieldOp(temp, recipient.coverage, donor.coverage, 20, 0)
+              temp.copyTo(recipient.coverage)
+              if (donor.solventLoad) {
+                if (!recipient.foreignSolventLoad) { recipient.foreignSolventLoad = pool.acquire(tile.width, tile.height); recipient.foreignSolventLoad.clear() }
+                this.ctx.fieldOp(temp, recipient.foreignSolventLoad, donor.solventLoad, 1, 1)
+                temp.copyTo(recipient.foreignSolventLoad)
+              }
+            } finally { pool.release(temp) }
+          }
+          scratch.foreignImportedGestures.add(source.gesture)
+        } finally { this.auxiliaryWater.delete(aux); if (forgetOnExit?.()) aux.forget(); else aux.destroy() }
+      }
+    } finally { this.diagnosticTiming?.end('foreign-water-import', start) }
   }
 
   /** Logical delivery is evaluated at input time, never when a queued GPU film lands.
@@ -223,6 +228,7 @@ export class RibbonStrokePainter {
     pieceTris = 0,
     mode: Readonly<{ waterOnly: boolean; segmented: boolean; sourceCopySlices?: boolean; auxiliary?:{recipient:RibbonStrokeScratch;gesture:string}; deferMaterial?: (request: PreparedRibbonMaterial) => void }> = { waterOnly: false, segmented: false },
   ): Generator<number, void, void> {
+    if (this.diagnosticTiming) scratch.diagnosticTiming = this.diagnosticTiming
     const sourceCopySlices = pieceTris > 0 && (mode.sourceCopySlices ?? this.diagnosticSourceCopySlices)
     if (mode.deferMaterial) {
       if (!profile.normalizeDeposit || mode.waterOnly) throw new Error('Deferred source prototype is watercolor-only')
@@ -253,6 +259,7 @@ export class RibbonStrokePainter {
         })
       }
       this.ctx.drawRibbonNibPass(...args)
+      if (args[5] === 7) this.diagnosticTiming?.firstPigment()
     }
     const sourceBands = (...args: Parameters<RibbonStrokePainterContext['drawRibbonBands']>): void => {
       if (scratch.trackRunningSource) {
@@ -260,6 +267,7 @@ export class RibbonStrokePainter {
         scratch.runningSourceCommands.push(() => this.ctx.drawRibbonBands(...saved))
       }
       this.ctx.drawRibbonBands(...args)
+      if (args[3] === 'ink' || args[3] === 'ink-max') this.diagnosticTiming?.firstPigment()
     }
     const sourceField = (...args: Parameters<RibbonStrokePainterContext['fieldOp']>): void => {
       if (scratch.trackRunningSource) {

@@ -1,3 +1,4 @@
+import { BoundedGlTiming } from './src/diagnostics/BoundedGlTiming'
 import type {RoomNativeRuntime} from './src/webgpuCanonical/roomNativeRuntime'
 import { ribbonDabTouchesTile } from './src/dabs/dabWorldHalfExtents'
 import { ribbonSegmentLength } from './src/dabs/ribbonDrawable'
@@ -288,6 +289,7 @@ export interface PencilEngineOptions {
   /** DEV-only OFF: retain an owned predecessor snapshot through mixed input. */
   joinedTouchSnapshotLease?: boolean
   /** DEV-only exact local history FIFO prototype; no production effect. */
+  diagnosticGlTiming?: boolean
   diagnosticQueuedHistory?: boolean
   /** Diagnostic OFF: preserve prior material ownership across RGB/preset change. */
   joinedTouchMixed?: boolean
@@ -2032,6 +2034,10 @@ export class PencilEngine implements PencilEngineAPI {
   private readonly _camera: Camera
 
   // (#147) See suspendDisplay/resumeDisplay's own doc comments.
+  private _glTiming: BoundedGlTiming | null = null
+  /** Export only after input; times describe CPU submission, not visible pixels. */
+  getDiagnosticGlTiming() { return this._glTiming?.export() ?? null }
+
   private _displaySuspendDepth = 0
   /** (#381) Layers whose rebuild was deferred by the current suspendDisplay
    *  batch — see _rebuildLayerOrDefer. Empty whenever the depth is 0. */
@@ -2288,6 +2294,10 @@ export class PencilEngine implements PencilEngineAPI {
 
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
     this.canvas = canvas
+    if (import.meta.env.DEV && options.diagnosticGlTiming === true) {
+      this._glTiming = new BoundedGlTiming()
+      this._ribbonPainter.diagnosticTiming = this._glTiming
+    }
     this._wcJoinedTouch = options.joinedTouch ?? false
     this._ribbonPainter.diagnosticBandBatch = options.bandBatch ?? false
     this._settleQueue.diagnosticPhysicalBatchTwoEnabled = import.meta.env.DEV && options.diagnosticPhysicalBatchTwo === true
@@ -6143,6 +6153,13 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _onStart(e: PointerData): void {
+    const timing = this._glTiming
+    if (!timing) return this._onStartUntimed(e)
+    timing.beginInput()
+    return timing.measure('input-down-through-display', () => this._onStartUntimed(e))
+  }
+
+  private _onStartUntimed(e: PointerData): void {
     if (this._pendingLocalHistoryId || this._localHistoryFailure || this._queuedHistoryRepairOwners.size) return // FIFO intent owns this boundary; reject new source, no forced drain.
 
     // (§17.58) Peers' queued watercolour stays queued: landing it here was a
@@ -6200,6 +6217,7 @@ export class PencilEngine implements PencilEngineAPI {
       && (this._paperWet.anyWetNear(layerId, e.x, e.y, this._opts.size * 0.75, touchNow)
         || watercolorMixFromPreset(this._opts.pencilType).pigment <= 0 && this._paperWet.anyWet(layerId, touchNow)
         || touchNow - openTouch.endedAt <= WASH_RECENT_MS)
+    if (this._glTiming) this._glTiming.mark('admission-lease', joinedTouch ? 1 : 0)
     if (joinedTouch) this._wcJoinedTouchLease = oldJob
     else if (oldJob && !this._wcAsyncFinish) this._completeSettle()
     this._strokeLayerId = layerId
@@ -7403,10 +7421,13 @@ export class PencilEngine implements PencilEngineAPI {
     strokeSeed?: [number, number],
     spreadSettle = false,
   ): ReadonlyMap<Dab, number> | undefined {
-    const work = this._ribbonDabsWork(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle, 0)
-    let r = work.next()
-    while (!r.done) r = work.next()
-    return r.value
+    const timingStart = this._glTiming?.begin() ?? null
+    try {
+      const work = this._ribbonDabsWork(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle, 0)
+      let r = work.next()
+      while (!r.done) r = work.next()
+      return r.value
+    } finally { this._glTiming?.end('live-generator-exhaust', timingStart) }
   }
 
   /** (§17.70) _paintRibbonDabs as a generator that yields after every draw of
@@ -8139,6 +8160,12 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
   private _completeSettle(): void {
+    const timing = this._glTiming
+    if (!timing) return this._completeSettleUntimed()
+    return timing.measure('admission-complete-settle', () => this._completeSettleUntimed())
+  }
+
+  private _completeSettleUntimed(): void {
     try { this._settleQueue.complete() } finally { this._wcJoinedTouchLease = null }
   }
 
@@ -9626,6 +9653,12 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _display(): void {
+    const timing = this._glTiming
+    if (!timing) return this._displayUntimed()
+    return timing.measure('display-submit', () => this._displayUntimed())
+  }
+
+  private _displayUntimed(): void {
     if (this._contextLost || this.gl.isContextLost()) return
     // (#470) One path for both kinds of room. A bounded room used to take a
     // screen-locked DISPLAY_FRAG pass over a sheet-sized _compositeFBO, which
@@ -9637,7 +9670,8 @@ export class PencilEngine implements PencilEngineAPI {
     // frame that ends one draws the tile plain.
     const perfT0 = performance.now()
     // (#536, §17.22) The live watercolor gesture's composite, once per frame.
-    this._flushLiveComposite()
+    if (this._glTiming) this._glTiming.measure('live-composite', () => this._flushLiveComposite())
+    else this._flushLiveComposite()
     if (this._washReveals.size) this._sweepReveals(perfT0)
     // (§17.46) One decision per frame: the live stroke's rect alone, or all.
     const partialWorld = this._takePaperPartial()
