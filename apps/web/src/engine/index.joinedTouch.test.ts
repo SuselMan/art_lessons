@@ -329,3 +329,20 @@ it('snapshot mixed lease blocks incomplete exports until UP and restores delegat
   await e.exportPNG(true); await e.exportReviewImage(); await e.bakePreview()
   expect(png).toHaveBeenCalledOnce(); expect(review).toHaveBeenCalledOnce(); expect(preview).toHaveBeenCalledOnce()
 })
+
+it('undo during snapshot mixed input retires the lease and allows subsequent redo', async () => {
+  const e = await setup(true, false, 'normal:100:0:PB29:round', true)
+  const first = e.getOperations().find(op => op.type === 'stroke')!
+  e.setPencil('normal:100:100:PB29:round')
+  simulateStrokeStart(e, 24, 32)
+  expect(e['_wcJoinedTouchLease']).not.toBeNull()
+  const undone = e.undo()
+  expect(undone?.id).toBe(first.id)
+  const redone = e.redo()
+  expect(redone?.id).toBe(first.id)
+  simulateStrokeEnd(e, 40, 32)
+  e['_completeSettle']()
+  expect(e['_wcJoinedTouchLease']).toBeNull()
+  expect(e.getOperations().filter(op => op.type === 'operation_undo').length).toBe(1)
+  expect(e.getOperations().filter(op => op.type === 'operation_redo').length).toBe(1)
+})
