@@ -44,3 +44,23 @@ original exceptions, and a failing diagnostic sink cannot alter material work.
 A runtime buffer pool is conditional on measured allocation/GC cost. Each
 executor seeds once; retaining a free pair would retain 8 MiB and would not remove
 readPixels, row flipping, upload, or queue completion. No pool is introduced.
+
+### Observed seed phases in incomplete source-A pair
+
+The successful reference of source `52dcc122` reported readPixels **16.3 ms**,
+row flip **3.3 ms**, upload enqueue **0.7 ms**, and queue ACK **22.6 ms**.
+The pair stopped before OFF context creation at the RAM guard. Its raw/PNG were
+lost by premature disposable finish; only values already read in tool output
+remain in the explicitly limited compact report. These numbers do not establish
+paired quality or a performance improvement.
+
+`backend.whenIdle()` calls `device.queue.onSubmittedWorkDone()`. Its wall
+interval includes queue work submitted before that call and Promise callback
+scheduling; it is not exclusive GPU execution duration or exclusively the 4 MiB
+seed transfer. Ordinary seed upload outside an active encoder uses writeTexture;
+the observed enqueue wall is CPU API submission cost, not transfer completion.
+readPixels may synchronize prior GL work, so its 16.3 ms cannot be attributed
+entirely to allocating or copying CPU bytes. The flip's 3.3 ms is the existing
+CPU orientation pass. These phases do not justify a retained 8 MiB pool: the
+largest observed sync boundary is the GL read, and pooling would not remove it.
+Keep bridge semantics unchanged until a controlled same-input pair exists.
