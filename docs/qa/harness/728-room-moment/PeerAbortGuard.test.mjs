@@ -1,0 +1,2 @@
+import test from'node:test';import assert from'node:assert/strict';import{createPeerAbortGuard}from'./PeerAbortGuard.mjs';
+test('abort is irreversible and forbids later creation/input transitions',()=>{const guard=createPeerAbortGuard();guard.check();guard.abort('RAM500');guard.abort('later');assert.equal(guard.reason,'RAM500');for(const phase of ['make-sender','held-input','canonical-export'])assert.throws(()=>guard.check(),/RAM500/,phase);});
