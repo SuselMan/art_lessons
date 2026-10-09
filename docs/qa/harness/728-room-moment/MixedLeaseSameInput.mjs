@@ -5,7 +5,7 @@ const digest=value=>hash(new TextEncoder().encode(JSON.stringify(value)));
 /** Controlled MODEL clocks separate from hardware wall time. Never a pen latency benchmark. */
 export async function runMixedLeaseSameInput({engineUrl,enabled}){
  if(typeof enabled!=='boolean')throw Error('Explicit OFF/ON required');
- const{PencilEngine}=await import(engineUrl),canvas=document.createElement('canvas');canvas.width=canvas.height=128;document.getElementById('surface').replaceChildren(canvas);
+ const{mottleSeedFromStrokeId}=await import(new URL('./src/presets/watercolorPresets.ts',new URL(engineUrl,location.href)).href);const{PencilEngine}=await import(engineUrl),canvas=document.createElement('canvas');canvas.width=canvas.height=128;document.getElementById('surface').replaceChildren(canvas);
  window.__mixedLeasePartial={enabled,phase:'engine-init'};
  const e=new PencilEngine(canvas,{paper:'fine',pageWidth:128,pageHeight:128,userId:'mixed-input-actor',gradientFibres:true});
  let originalStart;const scratches=new Set(),now=performance.now.bind(performance);
@@ -15,7 +15,7 @@ export async function runMixedLeaseSameInput({engineUrl,enabled}){
   // Fail if the source silently opts into other experimental material paths.
   if(e._wcAsyncFinish||e._wcMaterialPresentation||e._wcNative||e._settlePlan.splitQuanta)throw Error('Unexpected experimental model');
   originalStart=e._settleQueue.start;e._settleQueue.start=function(s,...args){scratches.add(s);return originalStart.call(this,s,...args)};
-  const wallStart=now(),controlled=withControlledInputClock(e,({clock,timeOrigin})=>driveMixedLeaseInput(e,{enabled,clock,timeOrigin})),proof=controlled.result,inputWallMs=now()-wallStart;window.__mixedLeasePartial={enabled,phase:'input-complete',proof,inputWallMs};
+  const wallStart=now(),controlled=withControlledInputClock(e,({clock,timeOrigin})=>driveMixedLeaseInput(e,{enabled,clock,timeOrigin})),proof=controlled.result,inputWallMs=now()-wallStart;if(proof.sourceInputs.length!==6||proof.sourceInputs.some(s=>JSON.stringify(s.seed)!==JSON.stringify(mottleSeedFromStrokeId(s.strokeId))))throw Error('Actual production seed mismatch');window.__mixedLeasePartial={enabled,phase:'input-complete',proof,inputWallMs};
   // Queue drains and frame scheduling always see real performance clock.
   e._completeSettle();const beforeFrame=performance.now();await new Promise(requestAnimationFrame);const afterFrame=performance.now();if(!(afterFrame>beforeFrame)||controlled.realBudgetCalls<1)throw Error('Real scheduler clock proof failed');
   const end=now()+60000;while(e._settle||e._wcCanonical.pending||e._rebuildJobs.size||e._unsettledLayers.size){if(now()>end)throw Error('Canonical idle deadline');await new Promise(requestAnimationFrame)}

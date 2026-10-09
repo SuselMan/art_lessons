@@ -6,8 +6,10 @@ export const mixedLeaseInput = Object.freeze([
 export function driveMixedLeaseInput(e, {enabled, clock=()=>{}, timeOrigin=0, afterSecondDown=()=>{}}){
  if(typeof enabled!=='boolean'||e._wcJoinedTouch!==true||e._wcJoinedTouchMixed||e._wcJoinedFinishDeferred||e._wcAsyncFinish||e._wcMaterialPresentation||typeof e._wcJoinedTouchSnapshotLease!=='boolean')throw Error('Strict joined-only model and explicit arm required');
  if(e._settle||e._wash)throw Error('Fresh wash required');
+ const original=e._completeSettle,originalPaint=e._paintDabs,idDescriptor=Object.getOwnPropertyDescriptor(e,'_strokeId');
+ if(!idDescriptor||!('value'in idDescriptor)||!idDescriptor.configurable||!idDescriptor.writable||typeof originalPaint!=='function')throw Error('Owned writable strokeId data descriptor required');
  e._wcJoinedTouchSnapshotLease=enabled;e.setTool('watercolor');e.setSize(24);e.setColor([.3,.15,.55]);
- const original=e._completeSettle,originalPaint=e._paintDabs,idDescriptor=Object.getOwnPropertyDescriptor(e,'_strokeId');let strokeOrdinal=0,assignedId=e._strokeId;const sourceInputs=[];
+ let strokeOrdinal=0,assignedId=e._strokeId;const sourceInputs=[];
  Object.defineProperty(e,'_strokeId',{configurable:true,get:()=>assignedId,set:value=>{assignedId=value===null||value===undefined?value:mixedLeaseInput[strokeOrdinal].strokeId}});
  e._paintDabs=function(...args){if(args[2]==='watercolor'){const seed=args[11];if(!Array.isArray(seed)||seed.length!==2||seed.some(v=>!Number.isFinite(v)))throw Error('Actual source seed missing');sourceInputs.push({strokeId:this._strokeId,preset:args[3],color:[...args[4]],wet:args[10]??'',seed:[...seed]})}return originalPaint.apply(this,args)};
  let phase='',downDrains=0,upDrains=0,leaseAdmissions=0,sourceCommands=0,predecessorPending=false;
@@ -25,7 +27,7 @@ export function driveMixedLeaseInput(e, {enabled, clock=()=>{}, timeOrigin=0, af
   }
   if(enabled?leaseAdmissions!==1||downDrains!==0||sourceCommands<1:leaseAdmissions!==0||downDrains<1)throw Error('Actual overlapping admission proof failed');
   return{enabled,predecessorPending,leaseAdmissions,downDrains,upDrains,sourceCommands,effectiveInputs,sourceInputs,scope:'Real private pointer pipeline; synchronous fixed input, not physical pen latency'};
- }finally{e._completeSettle=original;e._paintDabs=originalPaint;if(idDescriptor)Object.defineProperty(e,'_strokeId',{...idDescriptor,value:assignedId});else{delete e._strokeId;e._strokeId=assignedId}}
+ }finally{e._completeSettle=original;e._paintDabs=originalPaint;Object.defineProperty(e,'_strokeId',{...idDescriptor,value:assignedId})}
 }
 /** Compare random IDs by a bijection, preserving all repeated references and other fields. */
 export function normalizedMixedHistory(ops){

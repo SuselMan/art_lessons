@@ -293,3 +293,19 @@ it('same input overlapping mixed harness admits ON only and preserves packed his
   }
   expect(histories[1]).toEqual(histories[0])
 })
+
+it('seeded input harness restores field descriptor and paint wrapper after pointer failure', async () => {
+  // @ts-expect-error Standalone QA JavaScript fixture.
+  const { driveMixedLeaseInput } = await import('../../../../docs/qa/harness/728-room-moment/MixedLeaseInput.mjs')
+  // @ts-expect-error Standalone QA JavaScript model-clock fixture.
+  const { withControlledInputClock } = await import('../../../../docs/qa/harness/728-room-moment/ControlledInputClock.mjs')
+  const { engine: e } = createTestEngine({ userId: 'a' }, { width: 128, height: 128 })
+  engines.push(e); e.appendOperation(makeLayerAdd('a', 'L')); e.setActiveLayer('L'); e.setCompositeOrder([{ id: 'L', opacity: 1 }]); await paperReady(e)
+  e['_wcJoinedTouch'] = true
+  const paint = e['_paintDabs'], complete = e['_completeSettle'], descriptor = Object.getOwnPropertyDescriptor(e, '_strokeId')!
+  expect(() => withControlledInputClock(e, ({ clock, timeOrigin }: { clock: (at: number) => void; timeOrigin: number }) => driveMixedLeaseInput(e, { enabled: true, clock, timeOrigin, afterSecondDown: () => { throw Error('intentional pointer failure') } }))).toThrow('intentional pointer failure')
+  const restored = Object.getOwnPropertyDescriptor(e, '_strokeId')!
+  expect(restored.configurable).toBe(descriptor.configurable); expect(restored.writable).toBe(descriptor.writable); expect(restored.enumerable).toBe(descriptor.enumerable)
+  expect(restored.get).toBeUndefined(); expect(restored.set).toBeUndefined(); expect(restored.value).toBe('QApigmt002')
+  expect(e['_paintDabs']).toBe(paint); expect(e['_completeSettle']).toBe(complete)
+})
