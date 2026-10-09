@@ -19,3 +19,15 @@ test('capture reads existing six targets only, restores framebuffer, hashes exac
  assert.equal(reads,6);assert.equal(bound,'before');assert.equal(snapshot.passport.bytes,589824);const passport=await hashSmallPairedSnapshot(snapshot,webcrypto.subtle);assert.equal(Object.keys(passport.rawSha256).length,6);assert.ok(Object.values(passport.rawSha256).every(v=>/^[a-f0-9]{64}$/.test(v)));
  gl.readPixels=()=>{throw Error('read failed')};assert.throws(()=>captureSmallPairedDriver(gl,{enabled:true,ownerSequence:2,epoch:0,passStep:1,passStride:1,origin:[448,448],fields,packedSha:'a'.repeat(64),paperSha:'b'.repeat(64)}),/read failed/);assert.equal(bound,'before');
 });
+test('captured CPU end-to-end retains exact passport and rejects stale/stride/wet/ROI state',async()=>{
+ const {runCapturedPairedCandidate}=await import('./RunCapturedPairedCandidate.mjs');const {webcrypto}=await import('node:crypto');
+ const n=16384,source=new Float64Array(n*8);source[(64*128+64)*8+3]=1;
+ const p={ownerSequence:2,epoch:0,passStep:1,passStride:1,origin:[448,448],side:128,packedSha:'a'.repeat(64),paperSha:'b'.repeat(64),bytes:589824};
+ const snapshot={passport:p,source,highWet:new Uint8Array(n).fill(1),raw:Object.fromEntries(['sourceP','sourceC','fluid','pressure','path','oldP'].map(k=>[k,new Uint8Array(4)])),driver:{pressure:new Float64Array(n*4),path:new Float64Array(n*4),fluid:new Float64Array(n),oldP:new Float64Array(n*4),epoch:0,passStep:1,passStride:1,options:{band:.8,rate:.5,travel:.35,pow:3,costMax:16,effectiveWet:1,wetLo:.1,wetHi:.9}}};
+ const options={sourceHead:'test-head',stage:'before-carry',subtle:webcrypto.subtle,currentPassport:()=>({...p,sourceHead:'test-head',stage:'before-carry'})};
+ const r=await runCapturedPairedCandidate(snapshot,options);assert.deepEqual(r.result.moments,source);assert.equal(r.promotion.allowed,true);
+ await assert.rejects(()=>runCapturedPairedCandidate(snapshot,{...options,currentPassport:()=>({...p,epoch:1})}),/Stale/);
+ await assert.rejects(()=>runCapturedPairedCandidate({...snapshot,driver:{...snapshot.driver,passStride:2}},options),/mismatch/);
+ await assert.rejects(()=>runCapturedPairedCandidate({...snapshot,highWet:null},options),/wet/);
+ await assert.rejects(()=>runCapturedPairedCandidate({...snapshot,passport:{...p,origin:[1024,0]}},options),/outsideworld/);
+});
