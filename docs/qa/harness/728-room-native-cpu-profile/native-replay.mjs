@@ -11,7 +11,7 @@ export async function replayNativePackedControl({tape,targetLayerId,expectedBoar
  for(let i=0;i<mapped.length;i++)if(JSON.stringify(mapped[i])!==JSON.stringify({...tape[i],layerId:targetLayerId}))throw Error('Unexpected packed input mutation')
  if(diagnosticFrontRoles&&typeof window.__nativeFrontAfterOperation!=='function')throw Error('Explicit idle diagnostic callback required')
  let index=0
- for(const op of mapped){e.appendOperation(op,'remote');const end=performance.now()+timeoutMs;while(e._settle||e._settleQueue?.length||e._opQueue?.length||e._wcCanonical?.pending){if(e._wcAsyncError)throw e._wcAsyncError;if(performance.now()>end)throw Error('Native packed replay timeout');await new Promise(r=>setTimeout(r,25))}if(e._wcAsyncError)throw e._wcAsyncError;if(diagnosticFrontRoles)await window.__nativeFrontAfterOperation(index++);}
+ for(const op of mapped){if(diagnosticFrontRoles)globalThis.window?.__nativeReplayCheckpoint?.('append',index);e.appendOperation(op,'remote');const end=performance.now()+timeoutMs;while(e._settle||e._settleQueue?.length||e._opQueue?.length||e._wcCanonical?.pending){if(e._wcAsyncError)throw e._wcAsyncError;if(performance.now()>end)throw Error('Native packed replay timeout');await new Promise(r=>setTimeout(r,25))}if(e._wcAsyncError)throw e._wcAsyncError;if(diagnosticFrontRoles)globalThis.window?.__nativeReplayCheckpoint?.('logicalIdle',index);if(diagnosticFrontRoles)await window.__nativeFrontAfterOperation(index++);}
  if(JSON.stringify(tape)!==before)throw Error('Immutable original tape changed')
  return{mapped,scope:'Same packed tape through existing remote/replay Room executor; only explicit logical-layer mapping; no live pointer timing claim'}
 }

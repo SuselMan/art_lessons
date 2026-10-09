@@ -11,6 +11,7 @@ export async function readNativeFrontMaterialRoles(engine,operationIndex,require
  if(backend.diagnosticScopeState.pending>0)await backend.whenIdle()
  if(runtime.owner!==owner||!runtime.central.isIdle||engine._wcCanonical?.pending||engine._settle||engine._wcAsyncError)throw Error('Owner changed during submitted-work wait')
  if(backend.diagnosticScopeState.pending!==0||!backend.diagnosticScopeState.live)throw Error('Existing submitted scopes must already be released')
+ globalThis.window?.__nativeReplayCheckpoint?.('existingAckDone',operationIndex)
  const field=owner.fields?.current,material=owner.scratch?.peek(owner.target?.buffer)
  if(!field||!material?.inkLoad||!material.inkColor)throw Error('Actual native material roles absent')
  const fields={pressure:field.pressure,mask:field.mask,coverage:field.coverage,pigment:material.inkLoad,color:material.inkColor},roles={}
@@ -18,7 +19,9 @@ export async function readNativeFrontMaterialRoles(engine,operationIndex,require
   const input=buffer.field??buffer
   const bytes=input.width*input.height*4
   if(!Number.isInteger(bytes)||bytes<=0||bytes>9*1024*1024||input.format!=='rgba8unorm')throw Error('Bounded physical Q8 role required')
+  globalThis.window?.__nativeReplayCheckpoint?.('roleReadStart',operationIndex,role)
   const raw=await backend.readField(input)
+  globalThis.window?.__nativeReplayCheckpoint?.('roleReadDone',operationIndex,role)
   if(raw.length!==bytes)throw Error('Native read size differs')
   let nonzero=0;for(const value of raw)nonzero+=value!==0
   const sha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',raw)),v=>v.toString(16).padStart(2,'0')).join('')
