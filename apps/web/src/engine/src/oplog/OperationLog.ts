@@ -555,6 +555,9 @@ export class OperationLog {
    * A known gone control can be a rejected local intent: do not reapply it. */
   reconcileHistoricalGestures(addedIds: readonly string[]): string[] {
     const added = new Set(addedIds)
+    const byId = new Map<string, LogEntry>()
+    const positions = new Map<LogEntry, number>()
+    this._entries.forEach((entry, index) => { if (!byId.has(entry.op.id)) byId.set(entry.op.id, entry); positions.set(entry, index) })
     const affected = new Set<string>()
     const identity = (op: Operation): string | null => op.type === 'stroke'
       ? JSON.stringify([op.userId, op.strokeId ?? null, op.strokeId ? null : op.id]) : null
@@ -564,7 +567,7 @@ export class OperationLog {
       if (own) affected.add(own)
       if (entry.op.type === 'operation_undo' || entry.op.type === 'operation_redo' || entry.op.type === 'operation_revoke') {
         const targetId = entry.op.targetOpId
-        const target = this._entries.find(e => e.op.id === targetId)
+        const target = byId.get(targetId)
         const key = target && identity(target.op)
         if (key) affected.add(key)
       }
@@ -574,16 +577,17 @@ export class OperationLog {
     for (const entry of this._entries) {
       const op = entry.op
       if (entry.state === 'gone' || (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke')) continue
-      const target = this._entries.find(e => e.op.id === op.targetOpId)
+      const target = byId.get(op.targetOpId)
       if (!target || (op.type !== 'operation_revoke' && target.op.userId !== op.userId)) continue
       const key = identity(target.op)
-      if (key) witnessed.set(key, this._entries.indexOf(entry))
+      if (key) witnessed.set(key, positions.get(entry)!)
     }
     const unresolved = new Set<string>()
     for (const entry of this._entries) {
       const key = identity(entry.op)
-      if (key && affected.has(key) && !added.has(entry.op.id) && entry.state === 'undone' && (witnessed.get(key) ?? -1) <= this._entries.indexOf(entry)) unresolved.add(key)
+      if (key && affected.has(key) && !added.has(entry.op.id) && entry.state === 'undone' && (witnessed.get(key) ?? -1) <= positions.get(entry)!) unresolved.add(key)
     }
+    if (unresolved.size) return [...unresolved]
     const scratch = new OperationLog()
     for (const entry of this._entries) {
       const op = entry.op
