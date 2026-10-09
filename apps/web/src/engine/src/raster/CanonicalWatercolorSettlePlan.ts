@@ -54,6 +54,7 @@ export class CanonicalWatercolorSettlePlan<B extends SettlePlanBuffer<B>, T> {
   /** Diagnostic OFF: identical contact CPU inputs may recur across boundaries. */
   diagnosticTiming: BoundedGlTiming | null = null
   diagnosticHoistedContactRaster = false
+  hoistedContactRasterCalls = 0
   diagnosticContactFieldCache = false
   private readonly _contactFieldCache = new BrushContactFieldCache()
   get contactFieldCacheStats() { return this._contactFieldCache.stats }
@@ -312,7 +313,7 @@ export class CanonicalWatercolorSettlePlan<B extends SettlePlanBuffer<B>, T> {
     const contacts = skipZeroPigmentContacts || lazyContacts ? [] : this.diagnosticContactFieldCache
       ? this._contactFieldCache.contacts(metadata.brushTravel, contactRect)
       : this.diagnosticHoistedContactRaster
-        ? brushDragContactGroups(metadata.brushTravel, contactRect).map(group => ({ rect: group.rect, radius: group.radius, field: brushDragFieldHoisted(group.travel, group.rect, 4, workspace)! }))
+        ? brushDragContactGroups(metadata.brushTravel, contactRect).map(group => ({ rect: group.rect, radius: group.radius, field: (this.hoistedContactRasterCalls++, brushDragFieldHoisted(group.travel, group.rect, 4, workspace)!) }))
         : brushDragContacts(metadata.brushTravel, contactRect, workspace)
     if (workspace) {
       this.flowRasterStats.allocations += workspace.allocations

@@ -41,7 +41,7 @@ function run(enabled: boolean) {
     }
     p._settlePlan.forgetTextures()
     expect(p._settlePlan.contactFieldCacheStats.entries).toBe(0)
-    return { result, stats }
+    return { result, stats, consumption: p._settlePlan.hoistedContactRasterCalls }
   } finally {
     brush.mockRestore(); upload.mockRestore(); modes.mockRestore()
     scratch.destroy(); p._ribbonScratchPool.release(tile); engine.destroy()
@@ -52,6 +52,7 @@ describe('hoisted contact raster prepare integration', () => {
   it('keeps upload bytes, contact pulses and field schedule identical with invariant hoisting and a foreign-water stencil', () => {
     const baseline = run(false), candidate = run(true)
     expect(candidate.result).toEqual(baseline.result)
+    expect(baseline.consumption).toBe(0); expect(candidate.consumption).toBeGreaterThan(0)
     expect(candidate.result.brush.length).toBeGreaterThan(0)
     expect(candidate.result.uploads.length).toBeGreaterThan(0)
     expect(baseline.stats.hits).toBe(0); expect(baseline.stats.misses).toBe(0)
