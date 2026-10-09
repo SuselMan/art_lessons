@@ -40,7 +40,7 @@ export function installFirstMaterialTimestampWindow(runtime,central,eventTarget=
  const restore=()=>{if(restored)return;restored=true;try{eventTarget.removeEventListener('pointerdown',down,true)}finally{try{runtime.setDiagnosticTimestampWindow(false)}finally{if(central.diagnosticObserver===observer)central.diagnosticObserver=prior}}}
  central.diagnosticObserver=observer
  try{eventTarget.addEventListener('pointerdown',down,{capture:true})}catch(error){try{restore()}catch{/* Preserve original install rejection after attempting every cleanup. */}throw error}
- return{scope,restore}
+ return{scope,restore,armReplay(){if(scope.armedAt!==null)throw Error('Window already armed');scope.armedAt=now();scope.armedBy='same-packed-append'}}
 }
 export function assertFirstMaterialTimestampWindow(scope){if(!Number.isInteger(scope?.request)||scope.request<0||!Number.isFinite(scope.armedAt)||!Number.isFinite(scope.start)||!Number.isFinite(scope.end)||scope.start<scope.armedAt||scope.end<scope.start||!scope.nonempty||scope.interleaved)throw Error('First material timestamp window incomplete');return scope}
 export function rankTimestampRows(rows){

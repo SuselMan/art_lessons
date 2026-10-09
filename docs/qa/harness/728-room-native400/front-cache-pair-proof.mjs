@@ -1,0 +1,18 @@
+import {assertFrontMaterialRolePair} from './front-material-roles.mjs'
+export function assertFrontCachePair(off,on,expectedSource){
+ if(!/^[a-f0-9]{40}$/.test(expectedSource??''))throw Error('Exact current source required')
+ for(const [arm,enabled]of [[off,false],[on,true]]){
+  if(!arm.complete||arm.source!==expectedSource||arm.frontCacheArm!==enabled||arm.ownedContextDisposed!==true||arm.errors?.length||arm.error||arm.final?.gl!==0||arm.final?.lost||arm.final?.error)throw Error('Healthy owned actual arm required')
+  if(!arm.export?.alpha||!arm.export?.purple||!/^[a-f0-9]{64}$/.test(arm.export.sha))throw Error('Meaningful native pigment endpoint required')
+  if(!arm.sourcePreparation?.ready||!arm.actualPreparation?.observed||!arm.actualPreparation?.pressure||arm.sourcePipelinePassport?.length!==15||new Set(arm.sourcePipelinePassport.map(x=>x.key)).size!==15||arm.sourcePipelinePassport.some(x=>!/^[a-f0-9]{64}$/.test(x.shaderSHA)||!/^[a-f0-9]{64}$/.test(x.descriptorSHA)))throw Error('Actual unchanged source/field preparation proof required')
+  if(!arm.scheduler?.actualPreload||!arm.scheduler.sourcePrecompile||arm.scheduler.fullWarm||arm.scheduler.rawWarm||arm.scheduler.inflightLimit||arm.scheduler.asyncPressure)throw Error('Exact A15+3 original scheduler required')
+  const expectedPaths=['staticFrontCache.ts','dispatcher.ts','kernels.ts','settlePlanAdapter.ts'];if(arm.frontCacheBrowserSource?.length!==4||expectedPaths.some(p=>!arm.frontCacheBrowserSource.some(x=>x.path.endsWith('/'+p)))||new Set(arm.frontCacheBrowserSource.map(x=>x.path)).size!==4||arm.frontCacheBrowserSource.some(x=>!/^[a-f0-9]{64}$/.test(x.sha256)))throw Error('Actual cache source passport required')
+  if(!arm.timestampCapture?.window?.nonempty||!Number.isFinite(arm.timestampCapture.window.start)||!Number.isFinite(arm.timestampCapture.window.end)||arm.timestampCapture.window.end<arm.timestampCapture.window.start)throw Error('Completed nonempty material window required')
+  if(arm.timestampCapture?.window?.armedBy!=='same-packed-append'||!arm.timestampCapture?.summary?.passCount||arm.timestampCapture.summary.passCount>1024||arm.timestampCapture.window.interleaved)throw Error('Same first-material measurement window required')
+  if(!/^[a-f0-9]{64}$/.test(arm.inputReference?.packedSHA??'')||!arm.replay?.mapped?.length||arm.replay.mapped.length!==2||arm.packedTape?.length!==2)throw Error('Actual immutable two-op replay required')
+ }
+ for(const key of ['inputReference','browserPaper','frontCacheBrowserSource','sourcePipelinePassport','sourceRequiredKeys','replay','packedTape'])if(JSON.stringify(off[key])!==JSON.stringify(on[key]))throw Error('Exact input/material/source identity differs '+key)
+ if(off.export.sha!==on.export.sha||off.export.width!==on.export.width||off.export.height!==on.export.height||off.export.alpha!==on.export.alpha||off.export.purple!==on.export.purple)throw Error('Native endpoint bytes differ')
+ const roles=assertFrontMaterialRolePair(off.frontMaterialRoles,on.frontMaterialRoles)
+ return{exact:true,source:expectedSource,inputSHA:off.inputReference.packedSHA,roles,scope:'Same-packed native OFF/ON final per-operation Q8 role+endpoint equality; timestamp spans isolated, fixed arm order is not causal speedup'}
+}

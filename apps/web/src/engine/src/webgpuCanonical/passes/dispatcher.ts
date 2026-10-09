@@ -50,7 +50,7 @@ export class CanonicalFieldPasses {
     // Returned resource must be destroyed AFTER caller submits/completes encoder.
     return uniform
   }
-  get staticCacheCounters(){return this.staticCache?{prep:this.staticCache.prepCalls,hits:this.staticCache.hitCalls,fallbacks:this.staticCache.fallbackCalls}:null}
+  get staticCacheCounters(){return this.staticCache?{prep:this.staticCache.prepCalls,hits:this.staticCache.hitCalls,fallbacks:this.staticCache.fallbackCalls,retainedBytes:this.staticCache.retainedBytes,cleanupFailures:this.staticCache.cleanupFailures}:null}
   diffuse(ctx: CanonicalGpuContext, resources: CanonicalPassResources, radius: number, knight: boolean, d = 0.09, b = 0.03,options:{diagnosticStaticHeightCache?:boolean;noise?:CanonicalGpuField;timestampWrites?:GPUComputePassTimestampWrites;cachePrepTimestampWrites?:GPUComputePassTimestampWrites}={}) {
     if (!(radius >= 1) || !Number.isInteger(radius)) throw new Error('Canonical diffusion radius must be prepared integer field radius')
     return this.dispatch(ctx, resources, 'diffuse', [d, b, radius, knight ? 1 : 0], [0, 0, 0, 0],options.noise,undefined,false,options.timestampWrites,options.diagnosticStaticHeightCache??false,options.cachePrepTimestampWrites)
