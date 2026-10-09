@@ -1,0 +1,9 @@
+# Executable scheduler-gap packet READY
+
+Fixed commit blobs `c98a6f32264f80900c967db87b7ae905e43d84e3`, four explicit own QA overrides from `a812ca5c`. Freeze uses git cat-file against this commit, not mutable worktree;1837 files. Generated PreparedSourceCommands/OwnerRibbonStrokePainter source passport derives from this exact frozen source. No physics flags added; finite/float/sourcewarming remain OFF for this probe unless explicitly enabled in immutable entry (current controller does not enable them).
+
+Separate own5367 frontend, explicit SERVER_PORT4558. Source11 HTTP SHA including generated2 modules, paper7 SHA and /api/me200 JSON smoke PASS. Private origin/PID/manifests are in `temp/owner-scheduler-20261009`; registry entry exists. Previous5366unchanged. Initial staging failed due prematurely starting Vite (created node_modules cache) and a mutable-root new file: no browser/device opened; service stopped, own cache removed, commit-blob freeze regenerated before final startup.
+
+Controller wires scheduler+fence probes around the real four PointerInput starts, three rAF moves, fourth fullidle. CPU phase/call/rAF records bounded768, fence records128, restoration finally, no extra GPU query/fence. Full packed tape and healthy postidle endpoint saved before resource verdict. Unknown HTTP/console errors keepFAIL. Missing paths/capped records remain limitations; frame submission does not provephysicalvisibility. Source fixture synthetic pen400, not user hardware pen latency.
+
+Three Node guard/probe tests PASS, controller syntaxPASS. Device not opened at readiness. NextONEhardware requires explicit parent allocation, fresh1700/abort500/hard120, ownincognito only. The executable command uses QA_REUSE1, private QA_ROOM_BASE/origin, QA_SOURCE_DIR immutable path and a fresh GATE_OUT; it will refuse existing evidence. Target result: pointer CPU versus FIFOblocked/settleCPU versus rAF scheduling, not approximate GPU timing.
