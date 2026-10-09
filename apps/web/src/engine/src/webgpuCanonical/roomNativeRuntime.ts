@@ -1,3 +1,5 @@
+import {prepareObservedFieldPipeline,observedFieldPreparationDiagnostics} from './passes/observedFieldPreload'
+import {CANONICAL_DIFFUSE_WGSL,CANONICAL_WATER_FRONT_WGSL} from './passes/kernels'
 import {prepareCanonicalHardwareLinearPipeline,canonicalHardwareLinearPreparationDiagnostics} from './passes/hardwarePressurePreload'
 import {CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL} from './passes/fieldOps'
 import {installNativeTipA,type NativeTipQaProof} from '../experiments/nativeTipContactQa'
@@ -23,6 +25,7 @@ export interface RoomNativeRuntimeContext {
  diagnosticFirstLiveWarmup?:boolean
  diagnosticRawCanvasWarmup?:boolean
  diagnosticCarryHardwarePressure?:boolean
+ diagnosticAsyncObservedFields?:boolean
  diagnosticAsyncCarryPressure?:boolean
  diagnosticTipContactA?:boolean
  diagnosticMomentTransport?:boolean
@@ -38,6 +41,7 @@ export interface RoomNativeRuntimeContext {
 /** GPU executor extension of the existing PencilEngine. No extra input,
  * PaperWetness, socket callbacks or operation journal. */
 export class RoomNativeRuntime {
+ get observedFieldPreparation(){return observedFieldPreparationDiagnostics(this.backend.device)}
  readonly tipContactQa:NativeTipQaProof
  private readonly backend:CanonicalWatercolorWebGpu
  private readonly ctx:RoomNativeRuntimeContext
@@ -65,6 +69,12 @@ export class RoomNativeRuntime {
   const canvas=document.createElement('canvas')
   const backend=await CanonicalWatercolorWebGpu.create({canvas,roomOwnedResources:true,onInitStage:stage=>console.info('[native-room-init]',stage),width:1024,height:1024,paper:{bytes,width:resolution,height:resolution,origin:[0,0],texSize:[ctx.paperWorld.w,ctx.paperWorld.h],scale:ctx.paperScale}})
   try{
+   if(import.meta.env.DEV&&ctx.diagnosticAsyncObservedFields===true){
+    console.info('[native-room-init]','observed-fields-async:start')
+    const proofs=await Promise.all([prepareObservedFieldPipeline(backend.device,'waterFront',CANONICAL_WATER_FRONT_WGSL),prepareObservedFieldPipeline(backend.device,'diffuse',CANONICAL_DIFFUSE_WGSL)])
+    const shaderSHAs=await Promise.all([CANONICAL_WATER_FRONT_WGSL,CANONICAL_DIFFUSE_WGSL].map(async code=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(code))),v=>v.toString(16).padStart(2,'0')).join('')))
+    console.info('[native-room-init]','observed-fields-async:completed',JSON.stringify({proofs,shaderSHAs,dispatches:0,fieldBytes:0}))
+   }
    if(import.meta.env.DEV&&ctx.diagnosticAsyncCarryPressure===true){
     if(ctx.diagnosticCarryHardwarePressure!==true)throw new Error('Async carry pressure requires hardware pressure diagnostic')
     console.info('[native-room-init]','pressure-async-compile:start')

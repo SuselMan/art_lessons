@@ -1,3 +1,4 @@
+import {preparedObservedFieldPipeline} from './observedFieldPreload'
 import {frontSamplingShader,type CanonicalFrontSourceSampling} from './frontSampling'
 import {CanonicalStaticFrontCache} from './staticFrontCache'
 /// <reference types="@webgpu/types" />
@@ -15,7 +16,7 @@ export class CanonicalFieldPasses {
   private pipeline(kind: 'diffuse' | 'waterFront',lazyClimb=false,staticCache=false,sourceSampling?:CanonicalFrontSourceSampling) {
     let pipeline = this.pipelines.get(kind+':'+lazyClimb+':'+staticCache+':'+(sourceSampling??'legacy'))
     if (!pipeline) {
-      pipeline = this.device.createComputePipeline({ label: 'Canonical ' + kind, layout: 'auto', compute: { module: this.device.createShaderModule({ label: 'Canonical ' + kind, code: kind === 'diffuse' ? (staticCache?CANONICAL_CACHED_DIFFUSE_WGSL:CANONICAL_DIFFUSE_WGSL) : frontSamplingShader(staticCache?CANONICAL_CACHED_WATER_FRONT_WGSL:CANONICAL_WATER_FRONT_WGSL,sourceSampling) }), entryPoint: 'main',constants:kind==='waterFront'?staticCache?{DIAGNOSTIC_LAZY_CLIMB:0,DIAGNOSTIC_STATIC_FRONT_CACHE:1}:{DIAGNOSTIC_LAZY_CLIMB:lazyClimb?1:0}:undefined } })
+      pipeline = (!lazyClimb&&!staticCache&&!sourceSampling?preparedObservedFieldPipeline(this.device,kind,kind==='diffuse'?CANONICAL_DIFFUSE_WGSL:CANONICAL_WATER_FRONT_WGSL):undefined)??this.device.createComputePipeline({ label: 'Canonical ' + kind, layout: 'auto', compute: { module: this.device.createShaderModule({ label: 'Canonical ' + kind, code: kind === 'diffuse' ? (staticCache?CANONICAL_CACHED_DIFFUSE_WGSL:CANONICAL_DIFFUSE_WGSL) : frontSamplingShader(staticCache?CANONICAL_CACHED_WATER_FRONT_WGSL:CANONICAL_WATER_FRONT_WGSL,sourceSampling) }), entryPoint: 'main',constants:kind==='waterFront'?staticCache?{DIAGNOSTIC_LAZY_CLIMB:0,DIAGNOSTIC_STATIC_FRONT_CACHE:1}:{DIAGNOSTIC_LAZY_CLIMB:lazyClimb?1:0}:undefined } })
       this.pipelines.set(kind+':'+lazyClimb+':'+staticCache+':'+(sourceSampling??'legacy'), pipeline)
     }
     return pipeline
