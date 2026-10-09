@@ -1,0 +1,2 @@
+import test from'node:test';import assert from'node:assert/strict';import{singleSurfaceSenderGuard as guard}from'./SingleSurfaceSenderGuard.mjs';
+test('one Surface then one VPS sender; duplicate Surface cannot evade2200 guard',()=>{guard([],'Surface');guard(['Surface'],'VPS-sender');assert.throws(()=>guard(['Surface'],'Surface'));assert.throws(()=>guard([],'VPS-sender'));assert.throws(()=>guard(['Surface','VPS-sender'],'VPS-sender'));assert.throws(()=>guard(['unknown'],'VPS-sender'));});
