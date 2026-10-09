@@ -11,7 +11,7 @@ const mockPrisma = vi.hoisted(() => ({
 vi.mock('../db/prisma.js', () => ({ prisma: mockPrisma }))
 
 const { flushRoomWrites } = await import('./roomRegistry.js')
-const { persistOperation, persistParticipant, persistRoomCreate } = await import('./roomPersistence.js')
+const { persistOperation, persistParticipant, persistRoomCreate, passwordGrant } = await import('./roomPersistence.js')
 
 /** (#612) The rows a live room writes, by shape. Nothing else pins them: the
  *  room tests mock Prisma and look at memory. The columns matter beyond the
@@ -45,6 +45,19 @@ describe('persistOperation', () => {
 })
 
 describe('persistParticipant', () => {
+  it('refreshes the password grant on successful re-entry', async () => {
+    persistParticipant('r', 'u', 'Alice', 'password-revision');
+    await flushRoomWrites('r')
+    const write = mockPrisma.roomParticipant.upsert.mock.calls[0][0]
+    expect(write.create.passwordGrant).toBe(passwordGrant('password-revision'))
+    expect(write.update.passwordGrant).toBe(write.create.passwordGrant)
+    expect(write.create.passwordGrant).not.toBe('password-revision')
+  })
+  it('does not renew the password grant during an automatic board move', async () => {
+    persistParticipant('r', 'u', 'Alice')
+    await flushRoomWrites('r')
+    expect(mockPrisma.roomParticipant.upsert.mock.calls[0][0].update).not.toHaveProperty('passwordGrant')
+  })
   // (#226) What this person calls themselves now, not three lessons ago.
   it('refreshes the name on every join, not only on the first', async () => {
     persistParticipant('r', 'u', 'Alice')

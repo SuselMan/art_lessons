@@ -158,12 +158,9 @@ export function retryDelayMs(attempt: number): number {
   return Math.min(400 * 2 ** attempt, 3000)
 }
 
-/** Snapshot routes require a live room participant. A reconnect briefly
- * removes that membership until join_room completes, so 403 can be transient
- * here. Retries remain bounded and never bypass the server's access check.
- * A 404 still means the immutable snapshot is unavailable. */
+/** Authorization refusals are final; only transport/server failures retry. */
 function isRetriableStatus(status: number): boolean {
-  return status === 403 || status === 408 || status === 429 || status >= 500
+  return status === 408 || status === 429 || status >= 500
 }
 
 /** One try at producing a value. `retriable` is the attempt's own judgement —
