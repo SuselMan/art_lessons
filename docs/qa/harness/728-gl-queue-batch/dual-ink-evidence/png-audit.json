@@ -1,0 +1,60 @@
+{
+  "formula": "min(255, rawRGB + 255 - alpha)",
+  "flipY": true,
+  "scale": "nearest4x",
+  "rows": [
+    {
+      "name": "ordinary",
+      "changedRGBBytes": 0,
+      "maxAbsDiff": 0,
+      "nonPremultPixels": 0,
+      "rawHighAlphaExtremeColourPixels": 3,
+      "samples": [
+        {
+          "xy": [
+            46,
+            50
+          ],
+          "rgba": [
+            231,
+            0,
+            231,
+            231
+          ]
+        },
+        {
+          "xy": [
+            83,
+            51
+          ],
+          "rgba": [
+            250,
+            4,
+            0,
+            250
+          ]
+        },
+        {
+          "xy": [
+            85,
+            72
+          ],
+          "rgba": [
+            29,
+            212,
+            0,
+            212
+          ]
+        }
+      ]
+    },
+    {
+      "name": "centre",
+      "changedRGBBytes": 0,
+      "maxAbsDiff": 0,
+      "nonPremultPixels": 0,
+      "rawHighAlphaExtremeColourPixels": 0,
+      "samples": []
+    }
+  ]
+}
