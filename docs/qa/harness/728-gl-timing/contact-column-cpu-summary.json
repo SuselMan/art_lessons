@@ -1,0 +1,258 @@
+{
+  "scope": "CPU only exact actual 2-stroke canonical contact input; no runtime wiring/device gain claim",
+  "runs": [
+    {
+      "run": "contact-column-warm-1",
+      "reference": "original",
+      "identity": true,
+      "flows30Exact": true,
+      "samples": [
+        {
+          "arm": "OFF",
+          "ms": 24.03381300000001
+        },
+        {
+          "arm": "ON",
+          "ms": 22.060535000000073
+        },
+        {
+          "arm": "ON",
+          "ms": 23.33042999999998
+        },
+        {
+          "arm": "OFF",
+          "ms": 24.248585999999932
+        },
+        {
+          "arm": "OFF",
+          "ms": 23.798193000000083
+        },
+        {
+          "arm": "ON",
+          "ms": 21.393197999999984
+        },
+        {
+          "arm": "ON",
+          "ms": 18.85855300000003
+        },
+        {
+          "arm": "OFF",
+          "ms": 20.668116000000055
+        },
+        {
+          "arm": "OFF",
+          "ms": 20.669673000000103
+        },
+        {
+          "arm": "ON",
+          "ms": 19.47765500000014
+        },
+        {
+          "arm": "ON",
+          "ms": 20.230650000000196
+        },
+        {
+          "arm": "OFF",
+          "ms": 20.810032000000092
+        },
+        {
+          "arm": "OFF",
+          "ms": 22.10241999999994
+        },
+        {
+          "arm": "ON",
+          "ms": 19.108437000000094
+        },
+        {
+          "arm": "ON",
+          "ms": 19.171884999999975
+        },
+        {
+          "arm": "OFF",
+          "ms": 20.60942900000009
+        }
+      ],
+      "median": {
+        "OFF": 21.456226000000015,
+        "ON": 19.85415250000017
+      }
+    },
+    {
+      "run": "contact-column-warm-2",
+      "reference": "original",
+      "identity": true,
+      "flows30Exact": true,
+      "samples": [
+        {
+          "arm": "OFF",
+          "ms": 34.44369000000006
+        },
+        {
+          "arm": "ON",
+          "ms": 25.760021999999935
+        },
+        {
+          "arm": "ON",
+          "ms": 28.571622999999818
+        },
+        {
+          "arm": "OFF",
+          "ms": 27.41952100000003
+        },
+        {
+          "arm": "OFF",
+          "ms": 37.16465100000005
+        },
+        {
+          "arm": "ON",
+          "ms": 22.872551999999814
+        },
+        {
+          "arm": "ON",
+          "ms": 19.224119999999857
+        },
+        {
+          "arm": "OFF",
+          "ms": 21.003754999999956
+        },
+        {
+          "arm": "OFF",
+          "ms": 21.320154000000002
+        },
+        {
+          "arm": "ON",
+          "ms": 19.999996999999894
+        },
+        {
+          "arm": "ON",
+          "ms": 19.58105499999988
+        },
+        {
+          "arm": "OFF",
+          "ms": 20.67896399999995
+        },
+        {
+          "arm": "OFF",
+          "ms": 21.86260799999991
+        },
+        {
+          "arm": "ON",
+          "ms": 19.90589399999999
+        },
+        {
+          "arm": "ON",
+          "ms": 20.65915999999993
+        },
+        {
+          "arm": "OFF",
+          "ms": 20.750541000000112
+        }
+      ],
+      "median": {
+        "OFF": 21.591380999999956,
+        "ON": 20.32957849999991
+      }
+    },
+    {
+      "run": "contact-column-vs-hoist-warm",
+      "reference": "runtime hoist",
+      "identity": true,
+      "flows30Exact": true,
+      "samples": [
+        {
+          "arm": "OFF",
+          "ms": 23.952944000000116
+        },
+        {
+          "arm": "ON",
+          "ms": 22.457316999999875
+        },
+        {
+          "arm": "ON",
+          "ms": 23.07225699999981
+        },
+        {
+          "arm": "OFF",
+          "ms": 23.5704189999999
+        },
+        {
+          "arm": "OFF",
+          "ms": 23.277315000000044
+        },
+        {
+          "arm": "ON",
+          "ms": 21.372464000000036
+        },
+        {
+          "arm": "ON",
+          "ms": 19.14442800000006
+        },
+        {
+          "arm": "OFF",
+          "ms": 19.996433000000025
+        },
+        {
+          "arm": "OFF",
+          "ms": 20.09338300000013
+        },
+        {
+          "arm": "ON",
+          "ms": 19.135402999999997
+        },
+        {
+          "arm": "ON",
+          "ms": 19.026065000000017
+        },
+        {
+          "arm": "OFF",
+          "ms": 20.088080999999875
+        },
+        {
+          "arm": "OFF",
+          "ms": 22.47823799999992
+        },
+        {
+          "arm": "ON",
+          "ms": 19.121822000000066
+        },
+        {
+          "arm": "ON",
+          "ms": 19.157949000000144
+        },
+        {
+          "arm": "OFF",
+          "ms": 19.956923000000188
+        }
+      ],
+      "median": {
+        "OFF": 21.285810500000025,
+        "ON": 19.151188500000103
+      }
+    }
+  ],
+  "cold": {
+    "OFF": [
+      96.79191100000003,
+      79.528141,
+      73.43012700000008
+    ],
+    "ON": [
+      66.12968400000011,
+      69.98888899999997,
+      88.87475999999992
+    ]
+  },
+  "coldMedian": {
+    "OFF": 79.528141,
+    "ON": 69.98888899999997
+  },
+  "allInputsAnd30FlowsExact": true,
+  "decision": "small CPU improvement only; runtime remains unchanged; no hardware allocation requested",
+  "sourceSHA": {
+    "docs/qa/harness/728-gl-timing/BrushDragColumnMemo.ts": "ecbee6cb7003a132ad8c654003e2d493cf8a20b918471ef29ccf1c6d5b54b9c5",
+    "apps/web/src/engine/src/watercolor/brushDrag.ts": "febf13b5d339df09c04bcaae38773bf7412abc772f06e4a0002240926adef206",
+    "apps/web/src/engine/src/watercolor/brushDragHoisted.ts": "bc3187f4f73d8aa37d39b9591a389527b1e1b409d2e73bd6300964c822a24ed9",
+    "docs/qa/harness/728-gl-timing/contact-real-tape-cpu.mts": "097c5db88ffa28b8e2fd925b1b6b19ee119f043cb9b8a167b473dca723d7681d"
+  },
+  "fixtureSHA": "f3c81b4c5a7e987d60510a2625f41de4375fc5866cc859cca2024c661fd162e1"
+}

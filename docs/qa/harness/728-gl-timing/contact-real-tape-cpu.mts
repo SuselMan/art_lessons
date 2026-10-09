@@ -10,6 +10,7 @@ import { prepareRibbonDelivery, createRibbonDeliveryState } from '../../../../ap
 import { wetAt } from '../../../../apps/web/src/engine/src/paper/paperWetness'
 import { brushDragContactGroups, brushDragField } from '../../../../apps/web/src/engine/src/watercolor/brushDrag'
 import { brushDragFieldHoisted } from '../../../../apps/web/src/engine/src/watercolor/brushDragHoisted'
+import { brushDragFieldColumnMemo } from './BrushDragColumnMemo'
 const file=process.env.QA_CONTACT_INPUT,out=process.env.QA_CONTACT_OUT
 if(!file||!out||fs.existsSync(out))throw Error('New explicit private fixture/output required')
 const ops=JSON.parse(fs.readFileSync(file,'utf8'))
@@ -25,11 +26,14 @@ const strokes=ops.map((op:any)=>{
  return{op,dabs,drawable,travel:state.brushTravel,groups}
 })
 const generate=(fn:typeof brushDragField)=>strokes.map(s=>s.groups.map(g=>fn(g.travel,g.rect)!))
+const columnMode=process.env.QA_CONTACT_COLUMN==='1'
+const reference=process.env.QA_CONTACT_REFERENCE_HOIST==='1'?brushDragFieldHoisted:brushDragField
+const candidate=columnMode?brushDragFieldColumnMemo:brushDragFieldHoisted
 const coldArm=process.env.QA_CONTACT_COLD_ARM
 const samples:{arm:string;ms:number}[]=[],results:any={}
-if(coldArm){if(!['OFF','ON'].includes(coldArm))throw Error('Unknown cold arm');const begin=performance.now(),data=generate(coldArm==='OFF'?brushDragField:brushDragFieldHoisted);samples.push({arm:coldArm,ms:performance.now()-begin});results[coldArm]=data}
+if(coldArm){if(!['OFF','ON'].includes(coldArm))throw Error('Unknown cold arm');const begin=performance.now(),data=generate(coldArm==='OFF'?reference:candidate);samples.push({arm:coldArm,ms:performance.now()-begin});results[coldArm]=data}
 else{
- for(let round=0;round<10;round++)for(const arm of (round%2?['ON','OFF']:['OFF','ON'])){const begin=performance.now();results[arm]=generate(arm==='OFF'?brushDragField:brushDragFieldHoisted);if(round>=2)samples.push({arm,ms:performance.now()-begin})}
+ for(let round=0;round<10;round++)for(const arm of (round%2?['ON','OFF']:['OFF','ON'])){const begin=performance.now();results[arm]=generate(arm==='OFF'?reference:candidate);if(round>=2)samples.push({arm,ms:performance.now()-begin})}
 }
 const sequence=(data:any)=>data.flatMap((fields:any[])=>[fields[0],...fields].map(f=>({name:'uploadFlow',width:f.width,height:f.height,sha:hash(f.pixels)})))
 const actual=JSON.parse(fs.readFileSync(new URL('./contact-hoist-surface-pair-summary.json',import.meta.url),'utf8')),captured=actual.rows[0],actualActors=new Set(actual.httpActorTrace[0].map((r:any)=>r.httpActor).filter(Boolean));if(actualActors.size!==1)throw Error('Recorded source actor ambiguous')
@@ -43,6 +47,6 @@ function census(g:any){
  }
  const touched=visits.reduce((n,v)=>n+Number(v>0),0);return{width,height,activeDabs,candidateCells:candidates,expCalls:contributions,touchedCells:touched,overlapRecomputed:contributions-touched,maxDabsAtCell:visits.reduce((a,b)=>Math.max(a,b),0),outputCells:width*height,floatScratchBytes:width*height*12}
 }
-const report={scope:'VPS CPU exact recorded canonical contact producer replay; not natural UP timing or physical device',inputExact,actualCanonicalFlowSequenceExact:exact,fixtureSHA:hash(fs.readFileSync(file)),workspaceMode:'none; actual plan diagnosticReuseFlowRaster=false and no Engine/Room wiring',sourceSHA:['brushDrag','brushDragHoisted'].map(n=>({name:n,sha:hash(fs.readFileSync(new URL('../../../../apps/web/src/engine/src/watercolor/'+n+'.ts',import.meta.url)))})),samples,strokes:strokes.map((s:any)=>({strokeId:s.op.strokeId,dabCount:s.dabs.length,drawableCount:s.drawable.length,travelCount:s.travel.length,groups:s.groups.map((g:any)=>({dabCount:g.travel.length,rect:g.rect,cellCount:Math.ceil(g.rect.w/4)*Math.ceil(g.rect.h/4),boundingPixelDabUpper:Math.ceil(g.rect.w/4)*Math.ceil(g.rect.h/4)*g.travel.length,census:census(g)}))}))}
+const report={scope:'VPS CPU exact recorded canonical contact producer replay; not natural UP timing or physical device',inputExact,actualCanonicalFlowSequenceExact:exact,fixtureSHA:hash(fs.readFileSync(file)),reference:process.env.QA_CONTACT_REFERENCE_HOIST==='1'?'runtime hoist':'original',candidate:columnMode?'CPU-only column Float64 products':'runtime hoist',workspaceMode:'none; actual plan diagnosticReuseFlowRaster=false and no Engine/Room wiring',sourceSHA:['brushDrag','brushDragHoisted'].map(n=>({name:n,sha:hash(fs.readFileSync(new URL('../../../../apps/web/src/engine/src/watercolor/'+n+'.ts',import.meta.url)))})),prototypeSHA:columnMode?hash(fs.readFileSync(new URL('./BrushDragColumnMemo.ts',import.meta.url))):null,samples,strokes:strokes.map((s:any)=>({strokeId:s.op.strokeId,dabCount:s.dabs.length,drawableCount:s.drawable.length,travelCount:s.travel.length,groups:s.groups.map((g:any)=>({dabCount:g.travel.length,rect:g.rect,cellCount:Math.ceil(g.rect.w/4)*Math.ceil(g.rect.h/4),boundingPixelDabUpper:Math.ceil(g.rect.w/4)*Math.ceil(g.rect.h/4)*g.travel.length,census:census(g)}))}))}
 fs.writeFileSync(out,JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify({out,inputExact,exact,samples,strokes:report.strokes.map(s=>({dabs:s.dabCount,drawable:s.drawableCount,travel:s.travelCount,groups:s.groups.length}))}))
 if(!exact||!inputExact)process.exitCode=1
