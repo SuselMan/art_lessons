@@ -367,3 +367,16 @@ it('mixed lease queues two peer strokes and preserves application order after UP
     expect(e['_wcJoinedTouchLease']).toBeNull()
   } finally { globalThis.requestAnimationFrame = raf; globalThis.cancelAnimationFrame = cancel }
 })
+
+it('constructor snapshot lease is DEV opt-in only and defaults OFF', () => {
+  try {
+    for (const dev of [false, true]) {
+      vi.stubEnv('DEV', dev)
+      for (const request of [undefined, false, true]) {
+        const { engine } = createTestEngine({ joinedTouchSnapshotLease: request })
+        engines.push(engine)
+        expect(engine['_wcJoinedTouchSnapshotLease']).toBe(dev && request === true)
+      }
+    }
+  } finally { vi.unstubAllEnvs() }
+})
