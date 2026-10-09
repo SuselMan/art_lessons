@@ -65,3 +65,17 @@ Source8 actualRoom SHA не снимался, readonly proof primitive отде�
 две собственные Q8 pingpong mask leases128 (доп.375MiB), positive gradient gate,
 и bounded invocation/draw ledger до hardware. Это план, не implemented/proven
 новый эффект, не дополнительный аппаратный запуск.
+
+## Offline path prerequisite
+
+PreviewCostPathOracle ports unpacked WC_COST_DOMAIN_FRAG seed and dyadic min
+reduction literally. Exhaustive axis-gap fixtures (32 positions ×5 strides)
+prove each mask equals conjunction of all stride+1 endpoint/interior cost cells;
+fully dry cost above band blocks even a one-cell gap. Two Node tests PASS.
+Partial-wet cost below band remains traversable. Crucially this mask reads
+PRESSURE only, not V: if a dry topology cell incorrectly has low pressure, this
+mask alone cannot protect it. Before GL wiring, source/V-gated seed must be an
+explicit visual-only change or a proof that all dry cells have high pressure;
+we do not infer that from synthetic uniform pressure. Plateau branch already
+checks V at every interior sample for stride≤8 and rejects stride>8; positive
+cost branch needs the explicit support predicate too. No hardware/pass claim.
