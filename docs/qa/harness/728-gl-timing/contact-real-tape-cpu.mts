@@ -11,6 +11,8 @@ import { wetAt } from '../../../../apps/web/src/engine/src/paper/paperWetness'
 import { brushDragContactGroups, brushDragField } from '../../../../apps/web/src/engine/src/watercolor/brushDrag'
 import { brushDragFieldHoisted } from '../../../../apps/web/src/engine/src/watercolor/brushDragHoisted'
 import { brushDragFieldColumnMemo } from './BrushDragColumnMemo'
+import { foreignWaterStencil } from '../../../../apps/web/src/engine/src/watercolor/foreignWater'
+import { noteRibbonWetContacts } from '../../../../apps/web/src/engine/src/dabs/ribbonDrawable'
 const file=process.env.QA_CONTACT_INPUT,out=process.env.QA_CONTACT_OUT
 if(!file||!out||fs.existsSync(out))throw Error('New explicit private fixture/output required')
 const ops=JSON.parse(fs.readFileSync(file,'utf8'))
@@ -23,7 +25,7 @@ const strokes=ops.map((op:any)=>{
  // The unclipped group's own rectangle is valid only after its generated flow
  // hashes/dimensions match actual captured canonical GPU upload inputs below.
  const groups=brushDragContactGroups(state.brushTravel,{x:-8192,y:-8192,w:16384,h:16384})
- return{op,dabs,drawable,travel:state.brushTravel,groups}
+ return{op,dabs,drawable,wetOf,travel:state.brushTravel,groups}
 })
 const generate=(fn:typeof brushDragField)=>strokes.map(s=>s.groups.map(g=>fn(g.travel,g.rect)!))
 const columnMode=process.env.QA_CONTACT_COLUMN==='1'
@@ -47,6 +49,24 @@ function census(g:any){
  }
  const touched=visits.reduce((n,v)=>n+Number(v>0),0);return{width,height,activeDabs,candidateCells:candidates,expCalls:contributions,touchedCells:touched,overlapRecomputed:contributions-touched,maxDabsAtCell:visits.reduce((a,b)=>Math.max(a,b),0),outputCells:width*height,floatScratchBytes:width*height*12}
 }
-const report={scope:'VPS CPU exact recorded canonical contact producer replay; not natural UP timing or physical device',inputExact,actualCanonicalFlowSequenceExact:exact,fixtureSHA:hash(fs.readFileSync(file)),reference:process.env.QA_CONTACT_REFERENCE_HOIST==='1'?'runtime hoist':'original',candidate:columnMode?'CPU-only column Float64 products':'runtime hoist',workspaceMode:'none; actual plan diagnosticReuseFlowRaster=false and no Engine/Room wiring',sourceSHA:['brushDrag','brushDragHoisted'].map(n=>({name:n,sha:hash(fs.readFileSync(new URL('../../../../apps/web/src/engine/src/watercolor/'+n+'.ts',import.meta.url)))})),prototypeSHA:columnMode?hash(fs.readFileSync(new URL('./BrushDragColumnMemo.ts',import.meta.url))):null,samples,strokes:strokes.map((s:any)=>({strokeId:s.op.strokeId,dabCount:s.dabs.length,drawableCount:s.drawable.length,travelCount:s.travel.length,groups:s.groups.map((g:any)=>({dabCount:g.travel.length,rect:g.rect,cellCount:Math.ceil(g.rect.w/4)*Math.ceil(g.rect.h/4),boundingPixelDabUpper:Math.ceil(g.rect.w/4)*Math.ceil(g.rect.h/4)*g.travel.length,census:census(g)}))}))}
+let split: unknown = null
+if(process.env.QA_CONTACT_SPLIT==='1'){
+ if(!inputExact||!exact||ops[0].washId!==ops[1].washId||captured.quality.uploads.some((p:any)=>p.name==='uploadForeign'))throw Error('Split requires exact current same-wash actual tape and no foreign upload')
+ const samplesByLeaf:{leaf:string;ms:number;iterations:number}[]=[]
+ const rect={x:-8192,y:-8192,w:16384,h:16384}
+ const contacts=strokes.map(s=>{const state={wetContacts:[]} as any;noteRibbonWetContacts(state,s.drawable,presetForTool(s.op.tool,s.op.preset),s.wetOf);return state.wetContacts})
+ // No other watercolor predecessor is present in this owned fresh-room tape;
+ // the one recorded predecessor has the same wash, excluded by production.
+ for(let round=0;round<10;round++){
+  let begin=performance.now();for(let i=0;i<10000;i++)for(const wet of contacts)if(foreignWaterStencil([],wet,rect)!==null)throw Error('Unexpected foreign field')
+  if(round>=2)samplesByLeaf.push({leaf:'foreign-empty-admission',ms:performance.now()-begin,iterations:10000})
+  begin=performance.now();for(const st of strokes)brushDragContactGroups(st.travel,rect)
+  if(round>=2)samplesByLeaf.push({leaf:'contact-grouping',ms:performance.now()-begin,iterations:1})
+  begin=performance.now();generate(brushDragField)
+  if(round>=2)samplesByLeaf.push({leaf:'contact-fields-original',ms:performance.now()-begin,iterations:1})
+ }
+ split={scope:'matched actual same-wash empty-foreign path only; no nonempty scanline estimate',sameWash:true,foreignUploads:0,samplesByLeaf}
+}
+const report={split,scope:'VPS CPU exact recorded canonical contact producer replay; not natural UP timing or physical device',inputExact,actualCanonicalFlowSequenceExact:exact,fixtureSHA:hash(fs.readFileSync(file)),reference:process.env.QA_CONTACT_REFERENCE_HOIST==='1'?'runtime hoist':'original',candidate:columnMode?'CPU-only column Float64 products':'runtime hoist',workspaceMode:'none; actual plan diagnosticReuseFlowRaster=false and no Engine/Room wiring',sourceSHA:['brushDrag','brushDragHoisted'].map(n=>({name:n,sha:hash(fs.readFileSync(new URL('../../../../apps/web/src/engine/src/watercolor/'+n+'.ts',import.meta.url)))})),prototypeSHA:columnMode?hash(fs.readFileSync(new URL('./BrushDragColumnMemo.ts',import.meta.url))):null,samples,strokes:strokes.map((s:any)=>({strokeId:s.op.strokeId,dabCount:s.dabs.length,drawableCount:s.drawable.length,travelCount:s.travel.length,groups:s.groups.map((g:any)=>({dabCount:g.travel.length,rect:g.rect,cellCount:Math.ceil(g.rect.w/4)*Math.ceil(g.rect.h/4),boundingPixelDabUpper:Math.ceil(g.rect.w/4)*Math.ceil(g.rect.h/4)*g.travel.length,census:census(g)}))}))}
 fs.writeFileSync(out,JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify({out,inputExact,exact,samples,strokes:report.strokes.map(s=>({dabs:s.dabCount,drawable:s.drawableCount,travel:s.travelCount,groups:s.groups.length}))}))
 if(!exact||!inputExact)process.exitCode=1

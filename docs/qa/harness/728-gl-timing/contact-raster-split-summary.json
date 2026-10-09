@@ -1,0 +1,146 @@
+{
+  "scope": "matched actual same-wash empty-foreign path only; no nonempty scanline estimate",
+  "sameWash": true,
+  "foreignUploads": 0,
+  "samplesByLeaf": [
+    {
+      "leaf": "foreign-empty-admission",
+      "ms": 1.7988169999998718,
+      "iterations": 10000
+    },
+    {
+      "leaf": "contact-grouping",
+      "ms": 0.11932200000001103,
+      "iterations": 1
+    },
+    {
+      "leaf": "contact-fields-original",
+      "ms": 19.776619999999866,
+      "iterations": 1
+    },
+    {
+      "leaf": "foreign-empty-admission",
+      "ms": 0.38452300000017203,
+      "iterations": 10000
+    },
+    {
+      "leaf": "contact-grouping",
+      "ms": 0.11562500000013642,
+      "iterations": 1
+    },
+    {
+      "leaf": "contact-fields-original",
+      "ms": 21.73444500000005,
+      "iterations": 1
+    },
+    {
+      "leaf": "foreign-empty-admission",
+      "ms": 1.8846309999998994,
+      "iterations": 10000
+    },
+    {
+      "leaf": "contact-grouping",
+      "ms": 0.12281699999994089,
+      "iterations": 1
+    },
+    {
+      "leaf": "contact-fields-original",
+      "ms": 25.32673899999986,
+      "iterations": 1
+    },
+    {
+      "leaf": "foreign-empty-admission",
+      "ms": 2.146731999999929,
+      "iterations": 10000
+    },
+    {
+      "leaf": "contact-grouping",
+      "ms": 0.14129400000001624,
+      "iterations": 1
+    },
+    {
+      "leaf": "contact-fields-original",
+      "ms": 21.42276199999992,
+      "iterations": 1
+    },
+    {
+      "leaf": "foreign-empty-admission",
+      "ms": 0.34307799999987765,
+      "iterations": 10000
+    },
+    {
+      "leaf": "contact-grouping",
+      "ms": 0.09057499999994434,
+      "iterations": 1
+    },
+    {
+      "leaf": "contact-fields-original",
+      "ms": 34.442486000000144,
+      "iterations": 1
+    },
+    {
+      "leaf": "foreign-empty-admission",
+      "ms": 0.8805930000000899,
+      "iterations": 10000
+    },
+    {
+      "leaf": "contact-grouping",
+      "ms": 0.2902169999999842,
+      "iterations": 1
+    },
+    {
+      "leaf": "contact-fields-original",
+      "ms": 19.613083999999844,
+      "iterations": 1
+    },
+    {
+      "leaf": "foreign-empty-admission",
+      "ms": 0.36979599999995116,
+      "iterations": 10000
+    },
+    {
+      "leaf": "contact-grouping",
+      "ms": 0.09404399999993984,
+      "iterations": 1
+    },
+    {
+      "leaf": "contact-fields-original",
+      "ms": 19.68398100000013,
+      "iterations": 1
+    },
+    {
+      "leaf": "foreign-empty-admission",
+      "ms": 0.3140659999999116,
+      "iterations": 10000
+    },
+    {
+      "leaf": "contact-grouping",
+      "ms": 0.10160199999995712,
+      "iterations": 1
+    },
+    {
+      "leaf": "contact-fields-original",
+      "ms": 19.42241100000001,
+      "iterations": 1
+    }
+  ],
+  "medianMsPerTwoStrokes": {
+    "foreign-empty-admission": 6.32558000000131e-05,
+    "contact-grouping": 0.11747350000007373,
+    "contact-fields-original": 20.599690999999893
+  },
+  "inputExact": true,
+  "flows30Exact": true,
+  "fixtureSHA": "f3c81b4c5a7e987d60510a2625f41de4375fc5866cc859cca2024c661fd162e1",
+  "sourceSHA": [
+    {
+      "name": "brushDrag",
+      "sha": "febf13b5d339df09c04bcaae38773bf7412abc772f06e4a0002240926adef206"
+    },
+    {
+      "name": "brushDragHoisted",
+      "sha": "bc3187f4f73d8aa37d39b9591a389527b1e1b409d2e73bd6300964c822a24ed9"
+    }
+  ],
+  "runnerSHA": "3024709e3f9c40ca685d31fd453c7e5d1b5892dd2420ed47391b0afc62f1f696"
+}
