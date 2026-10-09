@@ -1,0 +1,145 @@
+{
+  "issue": 728,
+  "scope": "Same four immutable packed strokes via ordinary native Room appendOperation remote, new fresh incognito per arm, only logical layer mapping; original A4/FineLA/source/pressure1 same. No live pointer or full GPU field parity claim.",
+  "result": "PASS exact decoded material RGBA endpoint SHA liveReference/packedOFF/packedON",
+  "rows": [
+    {
+      "name": "room-firstwater-asyncpressure92",
+      "complete": true,
+      "errors": [],
+      "source": "92e0626a3dbe60388c556fa38067d6a018f6a90c",
+      "paperSHA": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+      "browserSource": [
+        {
+          "path": "apps/web/src/engine/index.ts",
+          "sha256": "6f058fed76ca0f593caae416afe5f506310856c9be122ab7594ff07d3bc1282e"
+        },
+        {
+          "path": "apps/web/src/engine/src/webgpuCanonical/backend.ts",
+          "sha256": "b2fa1d7b713364c134010bbed4669907e5f9a76aa4a537d75a67b8452f7c982e"
+        },
+        {
+          "path": "apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts",
+          "sha256": "abc61b7cba57be2c4745f424cd419df854167e867221d6111b45ba34d009b3fc"
+        },
+        {
+          "path": "apps/web/src/engine/src/webgpuCanonical/roomWatercolorExecutor.ts",
+          "sha256": "fac2a178a2bcd379998a61090a9243b8dfc74d6066a3957ba26f070b84debb1a"
+        }
+      ],
+      "packedTapeSha256": "92dd1ac9db437a46861acd6a42edfa3c14e637dadbb03e67bfa6bdaed8317036",
+      "export": {
+        "sha": "5d9175c975e550d9fb3cc24b94af4e2701915c264240c14165c50bd344da744d",
+        "alpha": 141334,
+        "width": 1754,
+        "height": 2480
+      },
+      "cleanup": [
+        true,
+        true
+      ],
+      "asyncPressureCompile": null
+    },
+    {
+      "name": "room-native-packed-asyncOFF92",
+      "complete": true,
+      "errors": [],
+      "source": "92e0626a3dbe60388c556fa38067d6a018f6a90c",
+      "paperSHA": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+      "browserSource": [
+        {
+          "path": "apps/web/src/engine/index.ts",
+          "sha256": "6f058fed76ca0f593caae416afe5f506310856c9be122ab7594ff07d3bc1282e"
+        },
+        {
+          "path": "apps/web/src/engine/src/webgpuCanonical/backend.ts",
+          "sha256": "b2fa1d7b713364c134010bbed4669907e5f9a76aa4a537d75a67b8452f7c982e"
+        },
+        {
+          "path": "apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts",
+          "sha256": "abc61b7cba57be2c4745f424cd419df854167e867221d6111b45ba34d009b3fc"
+        },
+        {
+          "path": "apps/web/src/engine/src/webgpuCanonical/roomWatercolorExecutor.ts",
+          "sha256": "fac2a178a2bcd379998a61090a9243b8dfc74d6066a3957ba26f070b84debb1a"
+        }
+      ],
+      "packedTapeSha256": "92dd1ac9db437a46861acd6a42edfa3c14e637dadbb03e67bfa6bdaed8317036",
+      "export": {
+        "sha": "5d9175c975e550d9fb3cc24b94af4e2701915c264240c14165c50bd344da744d",
+        "alpha": 141334,
+        "width": 1754,
+        "height": 2480
+      },
+      "cleanup": [
+        true,
+        true
+      ],
+      "asyncPressureCompile": {}
+    },
+    {
+      "name": "room-native-packed-asyncON92",
+      "complete": true,
+      "errors": [],
+      "source": "92e0626a3dbe60388c556fa38067d6a018f6a90c",
+      "paperSHA": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+      "browserSource": [
+        {
+          "path": "apps/web/src/engine/index.ts",
+          "sha256": "6f058fed76ca0f593caae416afe5f506310856c9be122ab7594ff07d3bc1282e"
+        },
+        {
+          "path": "apps/web/src/engine/src/webgpuCanonical/backend.ts",
+          "sha256": "b2fa1d7b713364c134010bbed4669907e5f9a76aa4a537d75a67b8452f7c982e"
+        },
+        {
+          "path": "apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts",
+          "sha256": "abc61b7cba57be2c4745f424cd419df854167e867221d6111b45ba34d009b3fc"
+        },
+        {
+          "path": "apps/web/src/engine/src/webgpuCanonical/roomWatercolorExecutor.ts",
+          "sha256": "fac2a178a2bcd379998a61090a9243b8dfc74d6066a3957ba26f070b84debb1a"
+        }
+      ],
+      "packedTapeSha256": "92dd1ac9db437a46861acd6a42edfa3c14e637dadbb03e67bfa6bdaed8317036",
+      "export": {
+        "sha": "5d9175c975e550d9fb3cc24b94af4e2701915c264240c14165c50bd344da744d",
+        "alpha": 141334,
+        "width": 1754,
+        "height": 2480
+      },
+      "cleanup": [
+        true,
+        true
+      ],
+      "asyncPressureCompile": {
+        "shaderSHA": "664ac12d3a663e6463bc6e9dc9a198b2c43ea041fde25bcce3cb1192442cafba",
+        "hits": 1,
+        "rows": [
+          {
+            "stage": "pressure.async-compile:start",
+            "ms": 5791.399999976158,
+            "shaderBytes": 11996
+          },
+          {
+            "stage": "pressure.async-compile:completed",
+            "ms": 6660.699999988079,
+            "scope": "Exact shader descriptor compile only; no dispatch, fields, source, material, history or GL publication"
+          },
+          {
+            "stage": "pressure.async-compile:hit",
+            "ms": 12718.399999976158,
+            "hits": 1
+          }
+        ]
+      }
+    }
+  ],
+  "limits": [
+    "PNG decoding may hide hiddenRGB at lowalpha; no all21field comparison",
+    "Native vs originalGL fidelity is separate and remains imperfect",
+    "869.3ms asynccompile before ready is wall wait, not GPUduration",
+    "Persistent driver caches make historical timing not paired net load gain"
+  ],
+  "next": "Integrate compile-only OFF DEV flag into actual Room before READY with strict native+pressure dependency and unchanged shader descriptor; remaining front/diffuse first-use precompile separately optional."
+}
