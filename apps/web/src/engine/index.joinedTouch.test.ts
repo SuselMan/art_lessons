@@ -3,7 +3,7 @@ import { createTestEngine, makeLayerAdd, paperReady, simulateStroke, simulateStr
 import type { PencilEngine } from './index'
 const engines: PencilEngine[] = []
 afterEach(() => { for (const e of engines.splice(0)) if (!e['_destroyed']) e.destroy() })
-async function setup(enabled: boolean, mixed = false, preset = 'normal:100:100:PB29:round') {
+async function setup(enabled: boolean, mixed = false, preset = 'normal:100:100:PB29:round', snapshotLease = false) {
   const { engine: e } = createTestEngine({ userId: 'a' }, { width: 64, height: 64 })
   engines.push(e)
   e.appendOperation(makeLayerAdd('a', 'L'))
@@ -12,6 +12,7 @@ async function setup(enabled: boolean, mixed = false, preset = 'normal:100:100:P
   e.setTool('watercolor'); e.setPencil(preset); e.setSize(8)
   e['_wcJoinedTouch'] = enabled
   e['_wcJoinedTouchMixed'] = mixed
+  e['_wcJoinedTouchSnapshotLease'] = snapshotLease
   simulateStroke(e, [{ x: 8, y: 32 }, { x: 24, y: 32 }, { x: 40, y: 32 }])
   expect(e['_settle']).not.toBeNull()
   return e
@@ -227,4 +228,37 @@ it('product joinedTouch drains water-to-pigment before the first new source draw
   expect(e['_settle']).not.toBe(previous)
   expect(e['_wcJoinedTouchLease']).toBeNull()
   simulateStrokeEnd(e, 40, 32)
+})
+
+
+it('snapshot candidate requires frozen predecessor finish and avoids only valid mixed DOWN drain', async () => {
+  for (const corrupt of ['none', 'gesture', 'target', 'color alias', 'uncaptured'] as const) {
+    const e = await setup(true, false, 'normal:100:0:PB29:round', corrupt !== 'uncaptured')
+    if (corrupt === 'uncaptured') e['_wcJoinedTouchSnapshotLease'] = true
+    const job = e['_settle']!
+    const input = e['_wcJoinedTouchInputs'].get(job)!
+    const old = input.finish
+    const previousPreset = structuredClone(old?.finish?.preset)
+    if (old && corrupt === 'gesture') Object.assign(old, { gesture: old.gesture + 1 })
+    if (old?.finish && corrupt === 'target') Object.assign(old.finish, { target: {} })
+    if (old?.finish && corrupt === 'color alias') Object.assign(old.finish, { color: e['_opts'].graphiteColor })
+    e.setPencil('normal:100:100:PB29:round')
+    const drain = vi.spyOn(e as unknown as { _completeSettle(): void }, '_completeSettle')
+    const before = job.next
+    simulateStrokeStart(e, 24, 32)
+    if (corrupt === 'none') {
+      expect(drain).not.toHaveBeenCalled()
+      expect(e['_wcJoinedTouchMixed']).toBe(false)
+      expect(e['_wcJoinedTouchLease']).toBe(job)
+      expect(job.next).toBe(before)
+      expect(job.scratch.runningSourceCommands.length).toBeGreaterThan(0)
+      expect(old!.finish!.preset).toEqual(previousPreset)
+      expect(old!.gesture).toBe(input.gesture)
+    } else {
+      expect(drain).toHaveBeenCalled()
+      expect(e['_wcJoinedTouchLease']).toBeNull()
+    }
+    simulateStrokeEnd(e, 40, 32)
+    if (corrupt === 'none') expect(drain).toHaveBeenCalled()
+  }
 })
