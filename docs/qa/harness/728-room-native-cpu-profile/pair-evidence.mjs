@@ -26,11 +26,13 @@ export function preservePairEvidence(disposableOut,durableOut,disposableRoot=dis
    const size=io.statSync(report).size;if(size>524288)throw Error('Pair report exceeds bounded evidence cap')
    const parsed=JSON.parse(io.readFileSync(report));if(!/^[a-f0-9]{40}$/.test(parsed.source??''))throw Error('Exact report HEAD required');if(summary.source&&summary.source!==parsed.source)throw Error('Evidence source differs across arms');summary.source=parsed.source;write(arm+'-report.json',Buffer.from(JSON.stringify(compactReport(parsed))))
    if(arm==='reference'&&parsed.complete&&Array.isArray(parsed.packedTape)){
+    if(!parsed.ownedContextDisposed||parsed.error||parsed.errors?.length||!(parsed.export?.alpha>0))throw Error('Completed reference is not clean/disposed/nonempty')
     if(!/^[a-f0-9]{40}$/.test(parsed.source??''))throw Error('Exact reference HEAD required')
     write('packed-input.json',Buffer.from(JSON.stringify(parsed.packedTape)))
     const png=path.join(source,arm,'native-material.png');if(!io.existsSync(png))throw Error('Completed reference export missing')
     if(io.statSync(png).size>2097152)throw Error('Pair PNG exceeds bounded evidence cap')
     const bytes=io.readFileSync(png);if(bytes.length<33||bytes.subarray(0,8).toString('hex')!=='89504e470d0a1a0a'||bytes.readUInt32BE(16)!==parsed.export?.width||bytes.readUInt32BE(20)!==parsed.export?.height)throw Error('Reference PNG dimensions differ')
+    if(!/^[a-f0-9]{64}$/.test(parsed.export?.pngSha256??'')||sha(bytes)!==parsed.export.pngSha256)throw Error('Reference PNG checksum differs actual export passport')
     write('reference-native-material.png',bytes);summary.referenceReusable=true;summary.source=parsed.source
    }
   }
