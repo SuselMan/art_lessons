@@ -62,3 +62,12 @@ test('MRT dispatch and fallback capture once without changing production flags',
   assert.equal(reads,1);assert.equal(pairs,1);assert.equal(legacy,accepted?0:2);assert.equal(route,'carryPair-dispatch');assert.equal(passes.diagnosticCarryMrt,true);assert.equal(passes.carryPair,originalPair);assert.equal(passes.fieldOp,originalOp);
  }
 });
+test('actual visual before-carry callback sees exact bindings; throwing diagnostics cannot block C/P',async()=>{
+ const {previewMultiscaleCarry}=await import('./PreviewMultiscaleCarry.mjs');const field=(name,side=128)=>({texture:name,width:side,height:side});
+ const targets=Object.fromEntries(['oldP','oldC','outP','outC','fixedP'].map(k=>[k,field(k)]));const source={solventLoad:field('solvent',1024)};const pressure=field('pressure'),water=field('water'),fields=[field('mask0'),field('mask1')];const calls=[];let observed;
+ const input={targets,source,options:{budgetPx:20,costMax:16,rate:.5,pow:3,travel:.35,effectiveWet:1,wetLo:.1,wetHi:.9}};
+ const passes={costDomainStep(){},fieldOp(...args){calls.push(args)}};
+ previewMultiscaleCarry({passes,seed:{draw(){}},pressure,water,pathLease:{fields},input,stride:2,beforeCarry:r=>{observed=r;throw Error('diagnostic failure')}});
+ assert.equal(observed.input,input);assert.equal(observed.pressure,pressure);assert.equal(observed.path,fields[1]);assert.equal(observed.stride,2);assert.deepEqual(calls.map(a=>a[3]),[16,15]);assert.deepEqual(calls[0][5].origin,[2,.35]);assert.equal(calls[0][5].c,targets.oldP);assert.match(globalThis.__ownedBeforeCarryError,/failure/);delete globalThis.__ownedBeforeCarryError;
+ calls.length=0;previewMultiscaleCarry({passes,seed:{draw(){}},pressure,water,pathLease:{fields},input,stride:1});assert.deepEqual(calls.map(a=>a[3]),[16,15]);assert.equal(globalThis.__ownedBeforeCarryError,undefined);
+});
