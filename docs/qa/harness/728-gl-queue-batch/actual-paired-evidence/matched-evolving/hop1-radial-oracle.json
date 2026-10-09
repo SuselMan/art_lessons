@@ -1,0 +1,27 @@
+{
+  "scope": "Synthetic radially symmetric source/flat isotropic eight-direction driver; one8hop versus64unitsteps, zero drift",
+  "source": {
+    "mass": 22.60969986014847,
+    "secondMoment": 17.939588467524274,
+    "h4outside4": 0.056616346119780794,
+    "signedFourth": -0.42816272454176113
+  },
+  "hop8": {
+    "mass": 22.609699860148474,
+    "secondMoment": 37.13958846752421,
+    "h4outside4": 0.09674375413856805,
+    "signedFourth": -0.42816272454217685
+  },
+  "unit64": {
+    "mass": 22.609699860148435,
+    "secondMoment": 37.13958846752433,
+    "h4outside4": 0.027629493073773426,
+    "signedFourth": -0.42816272454155935
+  },
+  "secondMomentDifference": -1.1368683772161603e-13,
+  "limitations": [
+    "Actualpressure notradial; this is a controlledprimitive, notactualquality evidence",
+    "64unitsteps are newdiffusion operator, notidenticalone8hop",
+    "Wetdisc80 guardsfiniteboundary farfromeffectivefront"
+  ]
+}

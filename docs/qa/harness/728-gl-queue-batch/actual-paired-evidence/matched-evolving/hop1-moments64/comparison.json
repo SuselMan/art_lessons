@@ -1,0 +1,619 @@
+{
+  "unitCalibration": "moments64",
+  "reports": [
+    {
+      "mode": "frozen",
+      "status": "PASS",
+      "rows": [
+        {
+          "step": 1,
+          "status": "PASS",
+          "massError": [
+            0,
+            0,
+            0,
+            0,
+            -1.6200374375330284e-12,
+            -1.3642420526593924e-12,
+            -1.0302869668521453e-12,
+            0
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 16525,
+          "blockedDry": 0
+        },
+        {
+          "step": 2,
+          "status": "PASS",
+          "massError": [
+            -3.979039320256561e-13,
+            -3.979039320256561e-13,
+            -3.979039320256561e-13,
+            -3.979039320256561e-13,
+            -1.7337242752546445e-12,
+            -1.1368683772161603e-12,
+            -1.0444978215673473e-12,
+            -3.979039320256561e-13
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 17015,
+          "blockedDry": 0
+        },
+        {
+          "step": 3,
+          "status": "PASS",
+          "massError": [
+            -1.1368683772161603e-12,
+            -1.1368683772161603e-12,
+            -1.1368683772161603e-12,
+            -1.1368683772161603e-12,
+            -1.7621459846850485e-12,
+            -1.2789769243681803e-12,
+            -1.2931877790833823e-12,
+            -1.1368683772161603e-12
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 17498,
+          "blockedDry": 0
+        },
+        {
+          "step": 4,
+          "status": "PASS",
+          "massError": [
+            -2.2737367544323206e-13,
+            -2.2737367544323206e-13,
+            -2.2737367544323206e-13,
+            -2.2737367544323206e-13,
+            -1.5489831639570184e-12,
+            -1.0516032489249483e-12,
+            -1.1723955140041653e-12,
+            -2.2737367544323206e-13
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 18155,
+          "blockedDry": 0
+        },
+        {
+          "step": 5,
+          "status": "PASS",
+          "massError": [
+            9.094947017729282e-13,
+            9.094947017729282e-13,
+            9.094947017729282e-13,
+            9.094947017729282e-13,
+            -1.5916157281026244e-12,
+            -1.1652900866465643e-12,
+            -1.2150280781497713e-12,
+            9.094947017729282e-13
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 18460,
+          "blockedDry": 0
+        },
+        {
+          "step": 6,
+          "status": "PASS",
+          "massError": [
+            7.958078640513122e-13,
+            7.958078640513122e-13,
+            7.958078640513122e-13,
+            7.958078640513122e-13,
+            -1.5489831639570184e-12,
+            -1.2221335055073723e-12,
+            -1.1581846592889633e-12,
+            7.958078640513122e-13
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 18634,
+          "blockedDry": 0
+        },
+        {
+          "step": 7,
+          "status": "PASS",
+          "massError": [
+            -5.684341886080802e-14,
+            -5.684341886080802e-14,
+            -5.684341886080802e-14,
+            -5.684341886080802e-14,
+            -1.5774048733874224e-12,
+            -1.1937117960769683e-12,
+            -9.947598300641403e-13,
+            -5.684341886080802e-14
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 18778,
+          "blockedDry": 0
+        },
+        {
+          "step": 8,
+          "status": "PASS",
+          "massError": [
+            -1.7053025658242404e-13,
+            -1.7053025658242404e-13,
+            -1.7053025658242404e-13,
+            -1.7053025658242404e-13,
+            -1.8189894035458565e-12,
+            -1.3926637620897964e-12,
+            -1.1510792319313623e-12,
+            -1.7053025658242404e-13
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 18892,
+          "blockedDry": 0
+        },
+        {
+          "step": 9,
+          "status": "PASS",
+          "massError": [
+            -1.7053025658242404e-13,
+            -1.7053025658242404e-13,
+            -1.7053025658242404e-13,
+            -1.7053025658242404e-13,
+            -1.7479351299698465e-12,
+            -1.4210854715202004e-12,
+            -1.2434497875801753e-12,
+            -1.7053025658242404e-13
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 18977,
+          "blockedDry": 0
+        },
+        {
+          "step": 10,
+          "status": "PASS",
+          "massError": [
+            -1.2505552149377763e-12,
+            -1.2505552149377763e-12,
+            -1.2505552149377763e-12,
+            -1.2505552149377763e-12,
+            -1.9042545318370685e-12,
+            -1.5347723092418164e-12,
+            -1.2647660696529783e-12,
+            -1.2505552149377763e-12
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 19044,
+          "blockedDry": 0
+        },
+        {
+          "step": 11,
+          "status": "PASS",
+          "massError": [
+            -1.5347723092418164e-12,
+            -1.5347723092418164e-12,
+            -1.5347723092418164e-12,
+            -1.5347723092418164e-12,
+            -1.5916157281026244e-12,
+            -1.1652900866465643e-12,
+            -1.1510792319313623e-12,
+            -1.5347723092418164e-12
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 19108,
+          "blockedDry": 0
+        },
+        {
+          "step": 12,
+          "status": "PASS",
+          "massError": [
+            -9.663381206337363e-13,
+            -9.663381206337363e-13,
+            -9.663381206337363e-13,
+            -9.663381206337363e-13,
+            -1.4495071809506044e-12,
+            -1.1368683772161603e-12,
+            -1.1510792319313623e-12,
+            -9.663381206337363e-13
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 19194,
+          "blockedDry": 0
+        }
+      ],
+      "frames": [
+        {
+          "step": 0,
+          "shape": {
+            "secondMoment": 172.39391996799583,
+            "h4": 0.005347042511264951,
+            "peak": 0.43529411764705883
+          },
+          "path": "docs/qa/harness/728-gl-queue-batch/actual-paired-evidence/matched-evolving/hop1-moments64/frozen-0.png"
+        },
+        {
+          "step": 4,
+          "shape": {
+            "secondMoment": 184.22840749226526,
+            "h4": 0.00876049409677748,
+            "peak": 0.4028893857872957
+          }
+        },
+        {
+          "step": 8,
+          "shape": {
+            "secondMoment": 191.79617319078343,
+            "h4": 0.01848252169197285,
+            "peak": 0.43134172258441544
+          }
+        },
+        {
+          "step": 12,
+          "shape": {
+            "secondMoment": 196.91970125747255,
+            "h4": 0.024347778636933052,
+            "peak": 0.4374740791952916
+          },
+          "path": "docs/qa/harness/728-gl-queue-batch/actual-paired-evidence/matched-evolving/hop1-moments64/frozen-12.png"
+        }
+      ]
+    },
+    {
+      "mode": "evolving",
+      "status": "PASS",
+      "rows": [
+        {
+          "step": 1,
+          "status": "PASS",
+          "massError": [
+            0,
+            0,
+            0,
+            0,
+            -1.6200374375330284e-12,
+            -1.3642420526593924e-12,
+            -1.0302869668521453e-12,
+            0
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 16525,
+          "blockedDry": 0
+        },
+        {
+          "step": 2,
+          "status": "PASS",
+          "massError": [
+            0,
+            0,
+            0,
+            0,
+            -1.6768808563938364e-12,
+            -1.3926637620897964e-12,
+            -1.2150280781497713e-12,
+            0
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 19472,
+          "blockedDry": 0
+        },
+        {
+          "step": 3,
+          "status": "PASS",
+          "massError": [
+            -6.252776074688882e-13,
+            -6.252776074688882e-13,
+            -6.252776074688882e-13,
+            -6.252776074688882e-13,
+            -1.7763568394002505e-12,
+            -9.094947017729282e-13,
+            -1.1013412404281553e-12,
+            -6.252776074688882e-13
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 21215,
+          "blockedDry": 0
+        },
+        {
+          "step": 4,
+          "status": "PASS",
+          "massError": [
+            -5.684341886080801e-13,
+            -5.684341886080801e-13,
+            -5.684341886080801e-13,
+            -5.684341886080801e-13,
+            -1.5774048733874224e-12,
+            -8.810729923425242e-13,
+            -1.1866063687193673e-12,
+            -5.684341886080801e-13
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 22799,
+          "blockedDry": 0
+        },
+        {
+          "step": 5,
+          "status": "PASS",
+          "massError": [
+            6.821210263296962e-13,
+            6.821210263296962e-13,
+            6.821210263296962e-13,
+            6.821210263296962e-13,
+            -1.7621459846850485e-12,
+            -1.3073986337985843e-12,
+            -1.2363443602225743e-12,
+            6.821210263296962e-13
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 24745,
+          "blockedDry": 0
+        },
+        {
+          "step": 6,
+          "status": "PASS",
+          "massError": [
+            7.389644451905042e-13,
+            7.389644451905042e-13,
+            7.389644451905042e-13,
+            7.389644451905042e-13,
+            -2.1600499167107046e-12,
+            -1.7053025658242404e-12,
+            -1.2150280781497713e-12,
+            7.389644451905042e-13
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 26335,
+          "blockedDry": 0
+        },
+        {
+          "step": 7,
+          "status": "PASS",
+          "massError": [
+            5.684341886080802e-14,
+            5.684341886080802e-14,
+            5.684341886080802e-14,
+            5.684341886080802e-14,
+            -1.8189894035458565e-12,
+            -2.0179413695586845e-12,
+            -1.2505552149377763e-12,
+            5.684341886080802e-14
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 27384,
+          "blockedDry": 0
+        },
+        {
+          "step": 8,
+          "status": "PASS",
+          "massError": [
+            -1.4779288903810084e-12,
+            -1.4779288903810084e-12,
+            -1.4779288903810084e-12,
+            -1.4779288903810084e-12,
+            -1.6058265828178264e-12,
+            -8.810729923425242e-13,
+            -1.1439738045737613e-12,
+            -1.4779288903810084e-12
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 28893,
+          "blockedDry": 0
+        },
+        {
+          "step": 9,
+          "status": "PASS",
+          "massError": [
+            -8.526512829121202e-13,
+            -8.526512829121202e-13,
+            -8.526512829121202e-13,
+            -8.526512829121202e-13,
+            -1.6626700016786344e-12,
+            -1.2221335055073723e-12,
+            -1.2718714970105793e-12,
+            -8.526512829121202e-13
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 30669,
+          "blockedDry": 0
+        },
+        {
+          "step": 10,
+          "status": "PASS",
+          "massError": [
+            1.2505552149377763e-12,
+            1.2505552149377763e-12,
+            1.2505552149377763e-12,
+            1.2505552149377763e-12,
+            -1.7763568394002505e-12,
+            -1.3358203432289883e-12,
+            -1.1510792319313623e-12,
+            1.2505552149377763e-12
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 32508,
+          "blockedDry": 0
+        },
+        {
+          "step": 11,
+          "status": "PASS",
+          "massError": [
+            -6.821210263296962e-13,
+            -6.821210263296962e-13,
+            -6.821210263296962e-13,
+            -6.821210263296962e-13,
+            -1.9468870959826745e-12,
+            -1.1937117960769683e-12,
+            -1.1581846592889633e-12,
+            -6.821210263296962e-13
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 34952,
+          "blockedDry": 0
+        },
+        {
+          "step": 12,
+          "status": "PASS",
+          "massError": [
+            -1.7053025658242404e-13,
+            -1.7053025658242404e-13,
+            -1.7053025658242404e-13,
+            -1.7053025658242404e-13,
+            -1.7337242752546445e-12,
+            -1.5347723092418164e-12,
+            -1.1652900866465643e-12,
+            -1.7053025658242404e-13
+          ],
+          "hueOutside": 0,
+          "dryDeposits": 0,
+          "changed": 36908,
+          "blockedDry": 0
+        }
+      ],
+      "frames": [
+        {
+          "step": 0,
+          "shape": {
+            "secondMoment": 172.39391996799583,
+            "h4": 0.005347042511264951,
+            "peak": 0.43529411764705883
+          },
+          "path": "docs/qa/harness/728-gl-queue-batch/actual-paired-evidence/matched-evolving/hop1-moments64/evolving-0.png"
+        },
+        {
+          "step": 4,
+          "shape": {
+            "secondMoment": 186.97223562293306,
+            "h4": 0.00783556283867756,
+            "peak": 0.44834142829855395
+          }
+        },
+        {
+          "step": 8,
+          "shape": {
+            "secondMoment": 198.68479125836035,
+            "h4": 0.01858724737716212,
+            "peak": 0.5170888707906409
+          }
+        },
+        {
+          "step": 12,
+          "shape": {
+            "secondMoment": 207.17735286331782,
+            "h4": 0.026384420063999145,
+            "peak": 0.5170675488402022
+          },
+          "path": "docs/qa/harness/728-gl-queue-batch/actual-paired-evidence/matched-evolving/hop1-moments64/evolving-12.png"
+        }
+      ]
+    }
+  ],
+  "initialMass": [
+    381.35294117647067,
+    381.35294117647067,
+    381.35294117647067,
+    381.35294117647067,
+    114.7803921568644,
+    180.7568627450993,
+    56.984313725491326,
+    381.35294117647067
+  ],
+  "sourceUnchanged": true,
+  "t0Exact": true,
+  "scope": "CPU matched positive8 localoptical; evolving existingfront Q8 approximation, not actualrenderer animation",
+  "limitations": [
+    "Both modes SAME source/film/paper/options, unitfront pass cadence, rateScale5/6 explicit",
+    "Full water film outsideROI retained; no cropped fluid",
+    "One actualfront primitive precedes this; multi-step Q8 nearest rounding approximation",
+    "No blur/residual subtraction, canonical unchanged",
+    "Local optical RGB excludes paper/granulation/reveal; no artist acceptance"
+  ],
+  "passport": {
+    "owner": 2,
+    "epoch": 0,
+    "passStep": 0,
+    "frontStep": 0,
+    "sourceHead": "3932679bb3563d8b623d589bd0ddeeb5f8ec1e5a",
+    "paperSha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+    "packedSource": "[{\"commands\":[{\"kind\":\"stamp\",\"phase\":\"coverage\",\"inkMode\":6,\"stamp\":{\"center\":[523.6363525390625,499.2853698730469],\"radius\":22.71308708190918,\"aspect\":1,\"angle\":0,\"pressure\":0.800000011920929,\"opacity\":0,\"nibShape\":\"ellipse\",\"cornerRadius\":0,\"inkEdge\":0,\"inkWater\":1,\"paperWet\":1,\"inkStrength\":1,\"puddle\":1,\"pigmentPool\":1,\"acrossLocal\":[0,1],\"inkClip\":0,\"inkBlend\":\"max\",\"uniforms\":{\"aaPx\":3,\"washWater\":1,\"waterRetain\":1,\"bristleCombs\":50,\"bristleInk\":0,\"tau\":[0,0,0],\"worldOrigin\":[0,0],\"mottleSeed\":[0,0],\"cloudDeposit\":0.19,\"granDeposit\":0.1375,\"poolBlot\":0,\"useAvailableWater\":false}}},{\"kind\":\"stamp\",\"phase\":\"solvent\",\"inkMode\":7,\"stamp\":{\"center\":[523.6363525390625,499.2853698730469],\"radius\":22.71308708190918,\"aspect\":1,\"angle\":0,\"pressure\":0.800000011920929,\"opacity\":0.25,\"nibShape\":\"ellipse\",\"cornerRadius\":0,\"inkEdge\":1,\"inkWater\":1,\"paperWet\":0,\"inkStrength\":0,\"puddle\":0,\"pigmentPool\":0,\"acrossLocal\":[0,1],\"inkClip\":1,\"inkBlend\":\"max\",\"uniforms\":{\"aaPx\":3,\"washWater\":1,\"waterRetain\":1,\"bristleCombs\":50,\"bristleInk\":0,\"tau\":[0,0,0],\"worldOrigin\":[0,0],\"mottleSeed\":[251.02061855670104,541.5505617977528],\"cloudDeposit\":0,\"granDeposit\":0,\"poolBlot\":0,\"useAvailableWater\":false}}},{\"kind\":\"stamp\",\"phase\":\"pigment\",\"inkMode\":7,\"stamp\":{\"center\":[523.6363525390625,499.2853698730469],\"radius\":22.71308708190918,\"aspect\":1,\"angle\":0,\"pressure\":0.800000011920929,\"opacity\":0.3593669231992319,\"nibShape\":\"ellipse\",\"cornerRadius\":0,\"inkEdge\":0,\"inkWater\":1,\"paperWet\":1,\"inkStrength\":1,\"puddle\":0,\"pigmentPool\":0,\"acrossLocal\":[0,1],\"inkClip\":2,\"inkBlend\":\"max\",\"uniforms\":{\"aaPx\":3,\"washWater\":1,\"waterRetain\":1,\"bristleCombs\":50,\"bristleInk\":0,\"tau\":[0,0,0],\"worldOrigin\":[0,0],\"mottleSeed\":[251.02061855670104,541.5505617977528],\"cloudDeposit\":0.19,\"granDeposit\":0.1375,\"poolBlot\":1,\"useAvailableWater\":true}}},{\"kind\":\"stamp\",\"phase\":\"color\",\"inkMode\":7,\"stamp\":{\"center\":[523.6363525390625,499.2853698730469],\"radius\":22.71308708190918,\"aspect\":1,\"angle\":0,\"pressure\":0.800000011920929,\"opacity\":0.3593669231992319,\"nibShape\":\"ellipse\",\"cornerRadius\":0,\"inkEdge\":0,\"inkWater\":1,\"paperWet\":1,\"inkStrength\":1,\"puddle\":0,\"pigmentPool\":0,\"acrossLocal\":[0,1],\"inkClip\":2,\"inkBlend\":\"max\",\"uniforms\":{\"aaPx\":3,\"washWater\":1,\"waterRetain\":1,\"bristleCombs\":50,\"bristleInk\":0,\"tau\":[1.2039728043259361,1.8971199848858813,0.5978370007556204],\"worldOrigin\":[0,0],\"mottleSeed\":[251.02061855670104,541.5505617977528],\"cloudDeposit\":0.19,\"granDeposit\":0.1375,\"poolBlot\":1,\"useAvailableWater\":true}}}],\"rect\":[402,404,243,242],\"film\":true,\"waterOnly\":false,\"composite\":{\"bounds\":{\"minX\":402.9232654571533,\"minY\":378.5722827911377,\"maxX\":644.3494396209717,\"maxY\":619.998456954956},\"preset\":{\"opacity\":0.99,\"hardness\":0.88,\"sizeMultiplier\":1},\"profile\":{\"stampsOnly\":false,\"coverageInkMode\":6,\"stampFlow\":null,\"nibShape\":\"ellipse\",\"cornerFraction\":0,\"aaPx\":3,\"ink\":true,\"inkEdgeFalloff\":0,\"compositeInkMode\":9,\"curvatureTolerancePx\":0.15,\"minHalfWidthPx\":0.75,\"paperRim\":0,\"wetEdgeRadiusPx\":0,\"spreadPx\":3,\"saturateInk\":0.2,\"normalizeDeposit\":true,\"thinNibInkRefPx\":0,\"waterDepletion\":true,\"waterLevel\":1,\"pigmentLevel\":1,\"pigmentStrength\":1,\"bristleCombs\":4,\"bristleInk\":0,\"spreadOfRadius\":2.52,\"cloud\":0.19,\"edgeSoft\":0.4,\"edgeWander\":0.42,\"tideLo\":0.24,\"tideHi\":0.6,\"strokeDir\":[1,0],\"dryContact\":0,\"granulation\":0.1375,\"pigmentOpacity\":0.1,\"depositPerRadius\":0.21525,\"stampInkShare\":0.82,\"wetEdge\":0,\"migrate\":0,\"migrateOfRadius\":0.55,\"migrateLo\":0.34,\"migrateHi\":0.85,\"diagnosticReadFluid\":true},\"color\":[0.3,0.15,0.55],\"opacity\":0.9900000095367432,\"fieldSeed\":[418.9090881347656,486.57073974609375],\"spreadPx\":3,\"fringeWater\":1,\"migratePx\":0,\"dabSpacing\":88,\"strokeDir\":[1,0],\"bristleRadiusPx\":200.0000050113672,\"previewSourceFluid\":{\"waterLevel\":1,\"landedWet\":1,\"wetPeak\":1,\"standingPeak\":0},\"previewSourceGeometry\":{\"firstGap\":0,\"tipDiameter\":45.42617416381836}}}]"
+  },
+  "rawSha": {
+    "cost": "a85fcf9e9d849ca291d17991a2385ee6ab9ae7d14dc998f3d5a8cdbac86df15b",
+    "water": "d34e929101dd31e02cce6466deaa84873737173ef0193bc5ba965b87eac6174a",
+    "paper": "88ee822ef74f079ad8f759efd10072607305a3cc4d5cac6caadb91f594546e63",
+    "foreign": "de2f256064a0af797747c2b97505dc0b9f3df0de4f489eac731c23ae9ca9cc31",
+    "matched_sourceP": "f9a18b9a3bedcdaaecbf83a0fdcb08490776c52055b599a31bfbd1417be83c35",
+    "matched_sourceC": "af3a4cfda0b3d56699d514581918f2af6bc11da5ed1d57b9021c83361425f67b",
+    "matched_sourceSolvent": "3a9e68faaa1d26543b7404341f82b7b98a707b055e6ba3c98ea8115cfb2e0e3b",
+    "matched_oldP": "5506ec17360feb96752f9713b8435d86e7ca6ca0d8d5ad4d97d2afb72e4d997a"
+  },
+  "matched": {
+    "passport": {
+      "owner": 2,
+      "epoch": 0,
+      "passStep": 0,
+      "frontStep": 0,
+      "sourceHead": "3932679bb3563d8b623d589bd0ddeeb5f8ec1e5a",
+      "paperSha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+      "packedSource": "[{\"commands\":[{\"kind\":\"stamp\",\"phase\":\"coverage\",\"inkMode\":6,\"stamp\":{\"center\":[523.6363525390625,499.2853698730469],\"radius\":22.71308708190918,\"aspect\":1,\"angle\":0,\"pressure\":0.800000011920929,\"opacity\":0,\"nibShape\":\"ellipse\",\"cornerRadius\":0,\"inkEdge\":0,\"inkWater\":1,\"paperWet\":1,\"inkStrength\":1,\"puddle\":1,\"pigmentPool\":1,\"acrossLocal\":[0,1],\"inkClip\":0,\"inkBlend\":\"max\",\"uniforms\":{\"aaPx\":3,\"washWater\":1,\"waterRetain\":1,\"bristleCombs\":50,\"bristleInk\":0,\"tau\":[0,0,0],\"worldOrigin\":[0,0],\"mottleSeed\":[0,0],\"cloudDeposit\":0.19,\"granDeposit\":0.1375,\"poolBlot\":0,\"useAvailableWater\":false}}},{\"kind\":\"stamp\",\"phase\":\"solvent\",\"inkMode\":7,\"stamp\":{\"center\":[523.6363525390625,499.2853698730469],\"radius\":22.71308708190918,\"aspect\":1,\"angle\":0,\"pressure\":0.800000011920929,\"opacity\":0.25,\"nibShape\":\"ellipse\",\"cornerRadius\":0,\"inkEdge\":1,\"inkWater\":1,\"paperWet\":0,\"inkStrength\":0,\"puddle\":0,\"pigmentPool\":0,\"acrossLocal\":[0,1],\"inkClip\":1,\"inkBlend\":\"max\",\"uniforms\":{\"aaPx\":3,\"washWater\":1,\"waterRetain\":1,\"bristleCombs\":50,\"bristleInk\":0,\"tau\":[0,0,0],\"worldOrigin\":[0,0],\"mottleSeed\":[251.02061855670104,541.5505617977528],\"cloudDeposit\":0,\"granDeposit\":0,\"poolBlot\":0,\"useAvailableWater\":false}}},{\"kind\":\"stamp\",\"phase\":\"pigment\",\"inkMode\":7,\"stamp\":{\"center\":[523.6363525390625,499.2853698730469],\"radius\":22.71308708190918,\"aspect\":1,\"angle\":0,\"pressure\":0.800000011920929,\"opacity\":0.3593669231992319,\"nibShape\":\"ellipse\",\"cornerRadius\":0,\"inkEdge\":0,\"inkWater\":1,\"paperWet\":1,\"inkStrength\":1,\"puddle\":0,\"pigmentPool\":0,\"acrossLocal\":[0,1],\"inkClip\":2,\"inkBlend\":\"max\",\"uniforms\":{\"aaPx\":3,\"washWater\":1,\"waterRetain\":1,\"bristleCombs\":50,\"bristleInk\":0,\"tau\":[0,0,0],\"worldOrigin\":[0,0],\"mottleSeed\":[251.02061855670104,541.5505617977528],\"cloudDeposit\":0.19,\"granDeposit\":0.1375,\"poolBlot\":1,\"useAvailableWater\":true}}},{\"kind\":\"stamp\",\"phase\":\"color\",\"inkMode\":7,\"stamp\":{\"center\":[523.6363525390625,499.2853698730469],\"radius\":22.71308708190918,\"aspect\":1,\"angle\":0,\"pressure\":0.800000011920929,\"opacity\":0.3593669231992319,\"nibShape\":\"ellipse\",\"cornerRadius\":0,\"inkEdge\":0,\"inkWater\":1,\"paperWet\":1,\"inkStrength\":1,\"puddle\":0,\"pigmentPool\":0,\"acrossLocal\":[0,1],\"inkClip\":2,\"inkBlend\":\"max\",\"uniforms\":{\"aaPx\":3,\"washWater\":1,\"waterRetain\":1,\"bristleCombs\":50,\"bristleInk\":0,\"tau\":[1.2039728043259361,1.8971199848858813,0.5978370007556204],\"worldOrigin\":[0,0],\"mottleSeed\":[251.02061855670104,541.5505617977528],\"cloudDeposit\":0.19,\"granDeposit\":0.1375,\"poolBlot\":1,\"useAvailableWater\":true}}}],\"rect\":[402,404,243,242],\"film\":true,\"waterOnly\":false,\"composite\":{\"bounds\":{\"minX\":402.9232654571533,\"minY\":378.5722827911377,\"maxX\":644.3494396209717,\"maxY\":619.998456954956},\"preset\":{\"opacity\":0.99,\"hardness\":0.88,\"sizeMultiplier\":1},\"profile\":{\"stampsOnly\":false,\"coverageInkMode\":6,\"stampFlow\":null,\"nibShape\":\"ellipse\",\"cornerFraction\":0,\"aaPx\":3,\"ink\":true,\"inkEdgeFalloff\":0,\"compositeInkMode\":9,\"curvatureTolerancePx\":0.15,\"minHalfWidthPx\":0.75,\"paperRim\":0,\"wetEdgeRadiusPx\":0,\"spreadPx\":3,\"saturateInk\":0.2,\"normalizeDeposit\":true,\"thinNibInkRefPx\":0,\"waterDepletion\":true,\"waterLevel\":1,\"pigmentLevel\":1,\"pigmentStrength\":1,\"bristleCombs\":4,\"bristleInk\":0,\"spreadOfRadius\":2.52,\"cloud\":0.19,\"edgeSoft\":0.4,\"edgeWander\":0.42,\"tideLo\":0.24,\"tideHi\":0.6,\"strokeDir\":[1,0],\"dryContact\":0,\"granulation\":0.1375,\"pigmentOpacity\":0.1,\"depositPerRadius\":0.21525,\"stampInkShare\":0.82,\"wetEdge\":0,\"migrate\":0,\"migrateOfRadius\":0.55,\"migrateLo\":0.34,\"migrateHi\":0.85,\"diagnosticReadFluid\":true},\"color\":[0.3,0.15,0.55],\"opacity\":0.9900000095367432,\"fieldSeed\":[418.9090881347656,486.57073974609375],\"spreadPx\":3,\"fringeWater\":1,\"migratePx\":0,\"dabSpacing\":88,\"strokeDir\":[1,0],\"bristleRadiusPx\":200.0000050113672,\"previewSourceFluid\":{\"waterLevel\":1,\"landedWet\":1,\"wetPeak\":1,\"standingPeak\":0},\"previewSourceGeometry\":{\"firstGap\":0,\"tipDiameter\":45.42617416381836}}}]"
+    },
+    "origin": [
+      384,
+      384
+    ],
+    "side": 256,
+    "bytes": 1048576,
+    "options": {
+      "stride": 1,
+      "budgetPx": 20,
+      "costMax": 24,
+      "effectiveWet": 1,
+      "standing": 0,
+      "rate": 0.5,
+      "pow": 3,
+      "travel": 0.35,
+      "dryCost": 24,
+      "climb": 30,
+      "floor": 0.85,
+      "wetLo": 0.45,
+      "wetHi": 0.7
+    },
+    "limitations": [
+      "Source solvent is brush-local, NOT whole puddle water; actual front fullwater is separate matched buffer",
+      "ROI256 admission mandatory; no frozen boundary or cropped fluid substitution",
+      "Before first front/carry source-only Q8 and currentoldP Float32; no performance claim"
+    ]
+  },
+  "frontPrimitive": {
+    "maxError": 0.0019607990395789088,
+    "tolerance": 0.003923568627450981
+  },
+  "options": {
+    "stride": 1,
+    "budgetPx": 20,
+    "costMax": 24,
+    "effectiveWet": 1,
+    "standing": 0,
+    "rate": 0.5,
+    "pow": 3,
+    "travel": 0.35,
+    "dryCost": 24,
+    "climb": 30,
+    "floor": 0.85,
+    "wetLo": 0.45,
+    "wetHi": 0.7,
+    "band": 0.7708333333333334,
+    "pathMode": 1
+  },
+  "visualAssessment": "FAIL: evolving operator has directional spikes/streamers and strong core; h4 reduction alone is not qualitywin"
+}
