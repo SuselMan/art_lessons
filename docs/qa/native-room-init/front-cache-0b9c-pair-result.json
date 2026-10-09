@@ -1,0 +1,531 @@
+{
+  "source": "0b9cfd25b7780b5bf57634a5a81423e265260b68",
+  "verdict": "PASS scoped exact native OFF/ON endpoint and final per-operation Q8 roles",
+  "proof": {
+    "exact": true,
+    "source": "0b9cfd25b7780b5bf57634a5a81423e265260b68",
+    "inputSHA": "bb4485cda59afdb7088f0fb397247facf1a46b04d256a1904c284e532a37bbc0",
+    "roles": {
+      "exact": true,
+      "operations": 2,
+      "roles": [
+        "pressure",
+        "mask",
+        "coverage",
+        "pigment",
+        "color"
+      ],
+      "scope": "Two actual same-packed native arms, final per-operation Q8 roles; not full outer iteration or GL model parity"
+    },
+    "scope": "Same-packed native OFF/ON final per-operation Q8 role+endpoint equality; timestamp spans isolated, fixed arm order is not causal speedup"
+  },
+  "arms": {
+    "off": {
+      "complete": true,
+      "ownedContextDisposed": true,
+      "endpoint": {
+        "width": 1754,
+        "height": 2480,
+        "alpha": 120762,
+        "purple": 120761,
+        "sha": "b0a1d4adcb9aa9fb9aba7d9e0a0a69e80d46035774efe2e8a48090831228bef8",
+        "pngSha256": "0a82237da2dd2605c5d4f010cabb10b4821c27e8fb2074605bbca73830d049af"
+      },
+      "replayWallMs": 4921.100000023842,
+      "windowWallMs": 1491.3999999761581,
+      "timestampSummary": {
+        "passCount": 753,
+        "compute": 741,
+        "render": 12,
+        "scope": "GPU pass duration in nanoseconds; no copy/upload outside passes, CPU wall, queue wait or causal gain"
+      },
+      "gpuRanking": [
+        {
+          "label": "Canonical waterFront",
+          "count": 240,
+          "totalNanoseconds": "961806336",
+          "meanNanosecondsFloor": "4007526"
+        },
+        {
+          "label": "Canonical brush single",
+          "count": 420,
+          "totalNanoseconds": "456327168",
+          "meanNanosecondsFloor": "1086493"
+        },
+        {
+          "label": "Canonical fieldOp 5",
+          "count": 18,
+          "totalNanoseconds": "63307776",
+          "meanNanosecondsFloor": "3517098"
+        },
+        {
+          "label": "Canonical fieldOp 15",
+          "count": 16,
+          "totalNanoseconds": "42860544",
+          "meanNanosecondsFloor": "2678784"
+        },
+        {
+          "label": "Canonical fieldOp 1",
+          "count": 18,
+          "totalNanoseconds": "28770304",
+          "meanNanosecondsFloor": "1598350"
+        },
+        {
+          "label": "Canonical diffuse",
+          "count": 13,
+          "totalNanoseconds": "20447232",
+          "meanNanosecondsFloor": "1572864"
+        },
+        {
+          "label": "Canonical fieldOp 6",
+          "count": 2,
+          "totalNanoseconds": "14352384",
+          "meanNanosecondsFloor": "7176192"
+        },
+        {
+          "label": "Canonical fieldOp 2",
+          "count": 2,
+          "totalNanoseconds": "10813440",
+          "meanNanosecondsFloor": "5406720"
+        },
+        {
+          "label": "Canonical fieldOp 12",
+          "count": 1,
+          "totalNanoseconds": "5701632",
+          "meanNanosecondsFloor": "5701632"
+        },
+        {
+          "label": "Canonical fieldOp 19",
+          "count": 2,
+          "totalNanoseconds": "1769472",
+          "meanNanosecondsFloor": "884736"
+        },
+        {
+          "label": "Canonical composite",
+          "count": 1,
+          "totalNanoseconds": "1703936",
+          "meanNanosecondsFloor": "1703936"
+        },
+        {
+          "label": "Canonical fieldOp 14",
+          "count": 1,
+          "totalNanoseconds": "1572864",
+          "meanNanosecondsFloor": "1572864"
+        },
+        {
+          "label": "Canonical fieldOp 11",
+          "count": 1,
+          "totalNanoseconds": "1441792",
+          "meanNanosecondsFloor": "1441792"
+        },
+        {
+          "label": "Canonical fieldOp 3",
+          "count": 1,
+          "totalNanoseconds": "1376256",
+          "meanNanosecondsFloor": "1376256"
+        },
+        {
+          "label": "Canonical fieldOp 0",
+          "count": 1,
+          "totalNanoseconds": "1179648",
+          "meanNanosecondsFloor": "1179648"
+        },
+        {
+          "label": "Canonical fieldOp 18",
+          "count": 1,
+          "totalNanoseconds": "1179648",
+          "meanNanosecondsFloor": "1179648"
+        },
+        {
+          "label": "Canonical fieldOp 7",
+          "count": 1,
+          "totalNanoseconds": "1179648",
+          "meanNanosecondsFloor": "1179648"
+        },
+        {
+          "label": "Canonical fieldOp 4",
+          "count": 1,
+          "totalNanoseconds": "1114112",
+          "meanNanosecondsFloor": "1114112"
+        },
+        {
+          "label": "Canonical fieldOp 10",
+          "count": 1,
+          "totalNanoseconds": "1048576",
+          "meanNanosecondsFloor": "1048576"
+        },
+        {
+          "label": "Canonical fieldOp 20",
+          "count": 1,
+          "totalNanoseconds": "983040",
+          "meanNanosecondsFloor": "983040"
+        },
+        {
+          "label": "Canonical clear full",
+          "count": 11,
+          "totalNanoseconds": "0",
+          "meanNanosecondsFloor": "0"
+        }
+      ],
+      "materialRoles": [
+        {
+          "operationIndex": 0,
+          "roles": {
+            "pressure": {
+              "width": 1536,
+              "height": 1536,
+              "bytes": 9437184,
+              "nonzero": 0,
+              "sha256": "d2ee4703cd9698945ca7b9fe1689ea3095597eac1a0afd8dba00cac7894fdc43"
+            },
+            "mask": {
+              "width": 1536,
+              "height": 1536,
+              "bytes": 9437184,
+              "nonzero": 631184,
+              "sha256": "c77cc1f5014c02c7c12fdffa47b555ec4979b9fd3daf2fbfefbdca4061f8237a"
+            },
+            "coverage": {
+              "width": 1536,
+              "height": 1536,
+              "bytes": 9437184,
+              "nonzero": 631184,
+              "sha256": "c77cc1f5014c02c7c12fdffa47b555ec4979b9fd3daf2fbfefbdca4061f8237a"
+            },
+            "pigment": {
+              "width": 1024,
+              "height": 1024,
+              "bytes": 4194304,
+              "nonzero": 0,
+              "sha256": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            },
+            "color": {
+              "width": 1024,
+              "height": 1024,
+              "bytes": 4194304,
+              "nonzero": 0,
+              "sha256": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            }
+          },
+          "cache": null,
+          "retirementCleanupFailures": 0,
+          "scope": "Final Q8 cost/coverage/material roles after operation idle; no earlier outward-cost snapshot, no hot reads"
+        },
+        {
+          "operationIndex": 1,
+          "roles": {
+            "pressure": {
+              "width": 1536,
+              "height": 1536,
+              "bytes": 9437184,
+              "nonzero": 24568,
+              "sha256": "7e994ee6c6d5285ed11e84849f0f16de3463175404f33d84e8a1b5fd584ea2b9"
+            },
+            "mask": {
+              "width": 1536,
+              "height": 1536,
+              "bytes": 9437184,
+              "nonzero": 590834,
+              "sha256": "5478396e58618f2f2bad5ecbf549a4e47e3a399769160548436155e76079f036"
+            },
+            "coverage": {
+              "width": 1536,
+              "height": 1536,
+              "bytes": 9437184,
+              "nonzero": 591017,
+              "sha256": "9a8703eeeb612f7647fa73abd1e9639be89ffe27a663edf2bb9acdfce61c63bc"
+            },
+            "pigment": {
+              "width": 1024,
+              "height": 1024,
+              "bytes": 4194304,
+              "nonzero": 483052,
+              "sha256": "8ba132814fe5658f0f778afeab11bf767321282b9c63d27ea6970b78c41f39f2"
+            },
+            "color": {
+              "width": 1024,
+              "height": 1024,
+              "bytes": 4194304,
+              "nonzero": 457746,
+              "sha256": "82aefd14722f193b8c4eeed669dcc75ea1aebf5018f00b867bb42e4a3e710340"
+            }
+          },
+          "cache": null,
+          "retirementCleanupFailures": 0,
+          "scope": "Final Q8 cost/coverage/material roles after operation idle; no earlier outward-cost snapshot, no hot reads"
+        }
+      ]
+    },
+    "on": {
+      "complete": true,
+      "ownedContextDisposed": true,
+      "endpoint": {
+        "width": 1754,
+        "height": 2480,
+        "alpha": 120762,
+        "purple": 120761,
+        "sha": "b0a1d4adcb9aa9fb9aba7d9e0a0a69e80d46035774efe2e8a48090831228bef8",
+        "pngSha256": "0a82237da2dd2605c5d4f010cabb10b4821c27e8fb2074605bbca73830d049af"
+      },
+      "replayWallMs": 4894.800000011921,
+      "windowWallMs": 1550.9000000357628,
+      "timestampSummary": {
+        "passCount": 754,
+        "compute": 742,
+        "render": 12,
+        "scope": "GPU pass duration in nanoseconds; no copy/upload outside passes, CPU wall, queue wait or causal gain"
+      },
+      "gpuRanking": [
+        {
+          "label": "Canonical waterFront",
+          "count": 240,
+          "totalNanoseconds": "785645568",
+          "meanNanosecondsFloor": "3273523"
+        },
+        {
+          "label": "Canonical brush single",
+          "count": 420,
+          "totalNanoseconds": "459276288",
+          "meanNanosecondsFloor": "1093514"
+        },
+        {
+          "label": "Canonical fieldOp 5",
+          "count": 18,
+          "totalNanoseconds": "69402624",
+          "meanNanosecondsFloor": "3855701"
+        },
+        {
+          "label": "Canonical fieldOp 15",
+          "count": 16,
+          "totalNanoseconds": "38993920",
+          "meanNanosecondsFloor": "2437120"
+        },
+        {
+          "label": "Canonical fieldOp 1",
+          "count": 18,
+          "totalNanoseconds": "33030144",
+          "meanNanosecondsFloor": "1835008"
+        },
+        {
+          "label": "Canonical fieldOp 6",
+          "count": 2,
+          "totalNanoseconds": "14548992",
+          "meanNanosecondsFloor": "7274496"
+        },
+        {
+          "label": "Canonical diffuse",
+          "count": 13,
+          "totalNanoseconds": "11796480",
+          "meanNanosecondsFloor": "907421"
+        },
+        {
+          "label": "Canonical fieldOp 2",
+          "count": 2,
+          "totalNanoseconds": "10944512",
+          "meanNanosecondsFloor": "5472256"
+        },
+        {
+          "label": "Canonical fieldOp 7",
+          "count": 1,
+          "totalNanoseconds": "6291456",
+          "meanNanosecondsFloor": "6291456"
+        },
+        {
+          "label": "Canonical fieldOp 18",
+          "count": 1,
+          "totalNanoseconds": "5373952",
+          "meanNanosecondsFloor": "5373952"
+        },
+        {
+          "label": "static front cache prepare",
+          "count": 1,
+          "totalNanoseconds": "2031616",
+          "meanNanosecondsFloor": "2031616"
+        },
+        {
+          "label": "Canonical fieldOp 19",
+          "count": 2,
+          "totalNanoseconds": "1769472",
+          "meanNanosecondsFloor": "884736"
+        },
+        {
+          "label": "Canonical composite",
+          "count": 1,
+          "totalNanoseconds": "1703936",
+          "meanNanosecondsFloor": "1703936"
+        },
+        {
+          "label": "Canonical fieldOp 12",
+          "count": 1,
+          "totalNanoseconds": "1638400",
+          "meanNanosecondsFloor": "1638400"
+        },
+        {
+          "label": "Canonical fieldOp 14",
+          "count": 1,
+          "totalNanoseconds": "1638400",
+          "meanNanosecondsFloor": "1638400"
+        },
+        {
+          "label": "Canonical fieldOp 11",
+          "count": 1,
+          "totalNanoseconds": "1507328",
+          "meanNanosecondsFloor": "1507328"
+        },
+        {
+          "label": "Canonical fieldOp 3",
+          "count": 1,
+          "totalNanoseconds": "1310720",
+          "meanNanosecondsFloor": "1310720"
+        },
+        {
+          "label": "Canonical fieldOp 0",
+          "count": 1,
+          "totalNanoseconds": "1179648",
+          "meanNanosecondsFloor": "1179648"
+        },
+        {
+          "label": "Canonical fieldOp 4",
+          "count": 1,
+          "totalNanoseconds": "1114112",
+          "meanNanosecondsFloor": "1114112"
+        },
+        {
+          "label": "Canonical fieldOp 10",
+          "count": 1,
+          "totalNanoseconds": "983040",
+          "meanNanosecondsFloor": "983040"
+        },
+        {
+          "label": "Canonical fieldOp 20",
+          "count": 1,
+          "totalNanoseconds": "983040",
+          "meanNanosecondsFloor": "983040"
+        },
+        {
+          "label": "Canonical clear full",
+          "count": 11,
+          "totalNanoseconds": "0",
+          "meanNanosecondsFloor": "0"
+        }
+      ],
+      "materialRoles": [
+        {
+          "operationIndex": 0,
+          "roles": {
+            "pressure": {
+              "width": 1536,
+              "height": 1536,
+              "bytes": 9437184,
+              "nonzero": 0,
+              "sha256": "d2ee4703cd9698945ca7b9fe1689ea3095597eac1a0afd8dba00cac7894fdc43"
+            },
+            "mask": {
+              "width": 1536,
+              "height": 1536,
+              "bytes": 9437184,
+              "nonzero": 631184,
+              "sha256": "c77cc1f5014c02c7c12fdffa47b555ec4979b9fd3daf2fbfefbdca4061f8237a"
+            },
+            "coverage": {
+              "width": 1536,
+              "height": 1536,
+              "bytes": 9437184,
+              "nonzero": 631184,
+              "sha256": "c77cc1f5014c02c7c12fdffa47b555ec4979b9fd3daf2fbfefbdca4061f8237a"
+            },
+            "pigment": {
+              "width": 1024,
+              "height": 1024,
+              "bytes": 4194304,
+              "nonzero": 0,
+              "sha256": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            },
+            "color": {
+              "width": 1024,
+              "height": 1024,
+              "bytes": 4194304,
+              "nonzero": 0,
+              "sha256": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            }
+          },
+          "cache": {
+            "prep": 1,
+            "hits": 215,
+            "fallbacks": 24,
+            "retainedBytes": 0,
+            "cleanupFailures": 0
+          },
+          "retirementCleanupFailures": 0,
+          "scope": "Final Q8 cost/coverage/material roles after operation idle; no earlier outward-cost snapshot, no hot reads"
+        },
+        {
+          "operationIndex": 1,
+          "roles": {
+            "pressure": {
+              "width": 1536,
+              "height": 1536,
+              "bytes": 9437184,
+              "nonzero": 24568,
+              "sha256": "7e994ee6c6d5285ed11e84849f0f16de3463175404f33d84e8a1b5fd584ea2b9"
+            },
+            "mask": {
+              "width": 1536,
+              "height": 1536,
+              "bytes": 9437184,
+              "nonzero": 590834,
+              "sha256": "5478396e58618f2f2bad5ecbf549a4e47e3a399769160548436155e76079f036"
+            },
+            "coverage": {
+              "width": 1536,
+              "height": 1536,
+              "bytes": 9437184,
+              "nonzero": 591017,
+              "sha256": "9a8703eeeb612f7647fa73abd1e9639be89ffe27a663edf2bb9acdfce61c63bc"
+            },
+            "pigment": {
+              "width": 1024,
+              "height": 1024,
+              "bytes": 4194304,
+              "nonzero": 483052,
+              "sha256": "8ba132814fe5658f0f778afeab11bf767321282b9c63d27ea6970b78c41f39f2"
+            },
+            "color": {
+              "width": 1024,
+              "height": 1024,
+              "bytes": 4194304,
+              "nonzero": 457746,
+              "sha256": "82aefd14722f193b8c4eeed669dcc75ea1aebf5018f00b867bb42e4a3e710340"
+            }
+          },
+          "cache": {
+            "prep": 2,
+            "hits": 430,
+            "fallbacks": 48,
+            "retainedBytes": 0,
+            "cleanupFailures": 0
+          },
+          "retirementCleanupFailures": 0,
+          "scope": "Final Q8 cost/coverage/material roles after operation idle; no earlier outward-cost snapshot, no hot reads"
+        }
+      ]
+    }
+  },
+  "ramAdmissions": [
+    {
+      "arm": "off",
+      "MiB": 2044.53515625
+    },
+    {
+      "arm": "on",
+      "MiB": 1565.375
+    },
+    {
+      "arm": "on",
+      "MiB": 1765.28515625
+    }
+  ],
+  "postCleanupMiB": 1966.95703125,
+  "evidence": "temp/device-runs/native-front-cache-0b9c-promoted-20261009",
+  "caveat": "Fixed OFF then ON order. GPU front duration descriptive reduction, not causal performance proof; CPU captured window did not improve. No GL model parity or interactive latency claim."
+}
