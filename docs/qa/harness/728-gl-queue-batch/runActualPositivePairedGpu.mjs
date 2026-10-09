@@ -1,15 +1,19 @@
 import {createSmallPositivePairedGpu,SMALL_POSITIVE_BYTES,positiveGpuInput} from './SmallPositivePairedGpu.mjs';
 import {actual128DonorFractions,liftActual128Fractions,applyLiftedPairedDriver} from './Actual128PairedDriverAdapter.mjs';
 const hash=async a=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',a)),v=>v.toString(16).padStart(2,'0')).join('');
-/** One exact captured-input moment gate. Caller owns standalone gl + known-idle lifecycle. */
-export async function runActualPositivePairedGpu(gl,{enabled=false,evidenceBase=new URL('./actual-paired-evidence/',import.meta.url).href}={}){
- if(!enabled)return null;const summary=await(await fetch(evidenceBase+'summary.json')).json(),raw={};
+export async function loadActualPairedPositiveInput(evidenceBase){
+ const summary=await(await fetch(evidenceBase+'summary.json')).json(),raw={};
  for(const[k,r]of Object.entries(summary.raw)){const response=await fetch(evidenceBase+r.path);if(!response.ok)throw Error('Actual raw HTTP '+k);const b=await response.arrayBuffer();if(b.byteLength!==r.bytes||await hash(b)!==r.sha)throw Error('Actual raw SHA/size '+k);raw[k]=k==='oldP'?new Float32Array(b):new Uint8Array(b);}
  if(await hash(new TextEncoder().encode(summary.packedSource))!==summary.passport.packedSha)throw Error('Actual packed source SHA');
  const p=summary.passport,n=16384,source=new Float64Array(n*8),wet=new Uint8Array(n),fluid=new Float64Array(n);
  for(let i=0;i<n;i++){for(let c=0;c<4;c++){source[i*8+c]=raw.sourceP[i*4+c]/255;source[i*8+4+c]=raw.sourceC[i*4+c]/255;}wet[i]=raw.fluid[i*4+3]>0?1:0;}
  for(let y=0;y<16;y++)for(let x=0;x<16;x++)fluid[(p.origin[1]/8+y)*128+p.origin[0]/8+x]=raw.fluid[((y*8+4)*128+x*8+4)*4+3]/255;
- const driver=actual128DonorFractions({pressure:Float64Array.from(raw.pressure,v=>v/255),path:Float64Array.from(raw.path,v=>v/255),fluid,oldP:Float64Array.from(raw.oldP),epoch:p.epoch,passStep:p.passStep,passStride:p.passStride,options:summary.driverOptions}),lift=liftActual128Fractions({driver,origin:p.origin,side:128,highWet:wet}),prepared=positiveGpuInput(source,lift);
+ const driverInputs={pressure:Float64Array.from(raw.pressure,v=>v/255),path:Float64Array.from(raw.path,v=>v/255),fluid,oldP:Float64Array.from(raw.oldP),epoch:p.epoch,passStep:p.passStep,passStride:p.passStride,options:summary.driverOptions};const driver=actual128DonorFractions(driverInputs),lift=liftActual128Fractions({driver,origin:p.origin,side:128,highWet:wet}),prepared=positiveGpuInput(source,lift);
+return{summary,p,n,source,wet,driverInputs,driver,lift,prepared};
+}
+/** One exact captured-input moment gate. Caller owns standalone gl + known-idle lifecycle. */
+export async function runActualPositivePairedGpu(gl,{enabled=false,evidenceBase=new URL('./actual-paired-evidence/',import.meta.url).href}={}){
+ if(!enabled)return null;const {summary,p,n,source,wet,driverInputs,driver,lift,prepared}=await loadActualPairedPositiveInput(evidenceBase);
  const roundedSource=new Float64Array(source.length);for(let i=0;i<n;i++)for(let c=0;c<4;c++){roundedSource[i*8+c]=prepared.p[i*4+c];roundedSource[i*8+4+c]=prepared.c[i*4+c];}
  const expected=applyLiftedPairedDriver({source:roundedSource,side:128,lift:{...lift,fractions:prepared.fractions}}).moments;let gpu;
  try{gpu=createSmallPositivePairedGpu(gl,{enabled:true,budgetBytes:SMALL_POSITIVE_BYTES});gpu.initialize({source,lift});const initial=gpu.readPair();let t0Changed=0;for(let i=0;i<65536;i++)t0Changed+=(initial.p[i]!==prepared.p[i])+(initial.c[i]!==prepared.c[i]);gpu.step();const actual=gpu.readPair(),retained=gpu.readPair({original:true}),mass=[Array(8).fill(0),Array(8).fill(0)];let maxAbs=0,nonfinite=0,negative=0,changed=0,sourceChanged=0,hueOutside=0;const ranges=Array.from({length:3},()=>[Infinity,-Infinity]);for(let i=0;i<n;i++){if(prepared.p[i*4+3]>1e-12)for(let c=0;c<3;c++){const ratio=prepared.c[i*4+c]/prepared.p[i*4+3];ranges[c][0]=Math.min(ranges[c][0],ratio);ranges[c][1]=Math.max(ranges[c][1],ratio);}}for(let i=0;i<65536;i++)sourceChanged+=(retained.p[i]!==prepared.p[i])+(retained.c[i]!==prepared.c[i]);for(let i=0;i<n;i++)if(actual.p[i*4+3]>1e-7)for(let c=0;c<3;c++){const ratio=actual.c[i*4+c]/actual.p[i*4+3];hueOutside+=ratio<ranges[c][0]-1e-5||ratio>ranges[c][1]+1e-5;}
