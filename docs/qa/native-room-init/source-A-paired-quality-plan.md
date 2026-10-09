@@ -78,3 +78,19 @@ The pair runner extracts bounded reference report/PNG and packed-input SHA into
 `QA_PAIR_EVIDENCE` in finally, including incomplete pairs. Before cleanup finish,
 verify `pair-progress.json` has `evidenceExtracted=true` and the durable files
 exist. Extraction failure means retain the disposable; do not remove evidence.
+
+### Mandatory finish guard
+
+Use `pair-finish.mjs <resource-id> <pair-out> <durable-evidence>` after closing
+owned contexts/processes. It verifies registered ownership, promotion marker,
+exact HEAD, every durable file SHA and size before calling generic cleanup
+(which still applies its nonce/process guards). Do not call generic finish
+first. A valid atomically promoted compact partial failure is sufficient to
+finish; an extraction failure or absent reviewable durable evidence holds the
+disposable. No automatic hardware retry follows either outcome.
+
+Promotion uses a private sibling staging directory, verifies written files,
+then renames atomically and verifies again. Report extraction whitelists needed
+passports and scalar results; it excludes env, source text, URL/body census and
+arbitrary keys. Packed input and bounded PNG are preserved only for a complete
+reference. Read/write/rename failure tests prove original artifacts survive.

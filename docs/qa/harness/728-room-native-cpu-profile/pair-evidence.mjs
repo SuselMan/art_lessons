@@ -1,25 +1,41 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
-/** Extract unique bounded evidence BEFORE any disposable finish/removal. */
-export function preservePairEvidence(disposableOut,durableOut,disposableRoot=disposableOut){
+const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex')
+const reportKeys=['source','scenario','complete','ownedContextDisposed','browserPaper','browserSource','browserFactorySource','export','packedTape','carryPressureControl','actualObserved','actualAsyncPressure','sourcePreparation','sourcePipelinePassport','sourceRequiredKeys','seedBridgeCosts','ramStart','ram','readyAt','firstDownAt','scheduler','startup','replayWallMs','endpointExact','readbackOutsideReplayTiming']
+/** No env, source text, auth, failure body, URL census or arbitrary raw report keys. */
+function compactReport(r){const c={};for(const key of reportKeys)if(r[key]!==undefined)c[key]=r[key];c.failed=!!r.error||!!r.errors?.length||!!r.memoryError||!!r.memoryGuardFailure;c.cleanupFailed=!!r.ownedContextDisposeError;return c}
+export function verifyPairEvidence(target,io=fs){
+ const manifest=JSON.parse(io.readFileSync(path.join(target,'evidence.json'),'utf8'))
+ if(manifest.promoted!==true||!Array.isArray(manifest.files)||new Set(manifest.files.map(x=>x.name)).size!==manifest.files.length)throw Error('Evidence not promoted')
+ for(const e of manifest.files){if(!/^(reference|off|on)-report\.json$|^packed-input\.json$|^reference-native-material\.png$/.test(e.name)||!Number.isInteger(e.bytes)||e.bytes<0||e.bytes>2097152)throw Error('Evidence manifest file invalid');const bytes=io.readFileSync(path.join(target,e.name));if(bytes.length!==e.bytes||sha(bytes)!==e.sha256)throw Error('Evidence SHA/size differs')}
+ return manifest
+}
+/** Atomic bounded promotion; any failure leaves original disposable untouched. */
+export function preservePairEvidence(disposableOut,durableOut,disposableRoot=disposableOut,io=fs){
  const source=path.resolve(disposableOut),target=path.resolve(durableOut),root=path.resolve(disposableRoot)
  if(source!==root&&!source.startsWith(root+path.sep))throw Error('Pair source outside registered disposable')
  if(target===root||target.startsWith(root+path.sep))throw Error('Durable pair evidence must be outside disposable')
- if(fs.existsSync(target))throw Error('Refuse duplicate durable pair evidence')
- const entries=[]
- for(const arm of ['reference','off','on']){
-  const report=path.join(source,arm,'report.json');if(!fs.existsSync(report))continue
-  const bytes=fs.readFileSync(report);if(bytes.length>524288)throw Error('Pair report exceeds bounded evidence cap')
-  const parsed=JSON.parse(bytes);entries.push({name:arm+'-report.json',bytes})
-  if(arm==='reference'&&parsed.complete&&Array.isArray(parsed.packedTape)){
-   const packed=Buffer.from(JSON.stringify(parsed.packedTape));entries.push({name:'packed-input.json',bytes:packed})
-   const png=path.join(source,arm,'native-material.png');if(fs.existsSync(png)){const bytes=fs.readFileSync(png);if(bytes.length>2097152)throw Error('Pair PNG exceeds bounded evidence cap');entries.push({name:'reference-native-material.png',bytes})}
+ if(io.existsSync(target))throw Error('Refuse duplicate durable pair evidence')
+ const stage=target+'.pending-'+crypto.randomUUID();io.mkdirSync(path.dirname(target),{recursive:true,mode:0o700});io.mkdirSync(stage,{mode:0o700})
+ const summary={promoted:true,files:[],referenceReusable:false};let renamed=false
+ try{
+  const write=(name,bytes)=>{if(bytes.length>2097152)throw Error('Evidence exceeds bounded cap');io.writeFileSync(path.join(stage,name),bytes,{mode:0o600,flag:'wx'});const actual=io.readFileSync(path.join(stage,name));if(actual.length!==bytes.length||sha(actual)!==sha(bytes))throw Error('Written evidence differs');summary.files.push({name,bytes:bytes.length,sha256:sha(bytes)})}
+  for(const arm of ['reference','off','on']){
+   const report=path.join(source,arm,'report.json');if(!io.existsSync(report))continue
+   const size=io.statSync(report).size;if(size>524288)throw Error('Pair report exceeds bounded evidence cap')
+   const parsed=JSON.parse(io.readFileSync(report));if(!/^[a-f0-9]{40}$/.test(parsed.source??''))throw Error('Exact report HEAD required');if(summary.source&&summary.source!==parsed.source)throw Error('Evidence source differs across arms');summary.source=parsed.source;write(arm+'-report.json',Buffer.from(JSON.stringify(compactReport(parsed))))
+   if(arm==='reference'&&parsed.complete&&Array.isArray(parsed.packedTape)){
+    if(!/^[a-f0-9]{40}$/.test(parsed.source??''))throw Error('Exact reference HEAD required')
+    write('packed-input.json',Buffer.from(JSON.stringify(parsed.packedTape)))
+    const png=path.join(source,arm,'native-material.png');if(!io.existsSync(png))throw Error('Completed reference export missing')
+    if(io.statSync(png).size>2097152)throw Error('Pair PNG exceeds bounded evidence cap')
+    const bytes=io.readFileSync(png);if(bytes.length<33||bytes.subarray(0,8).toString('hex')!=='89504e470d0a1a0a'||bytes.readUInt32BE(16)!==parsed.export?.width||bytes.readUInt32BE(20)!==parsed.export?.height)throw Error('Reference PNG dimensions differ')
+    write('reference-native-material.png',bytes);summary.referenceReusable=true;summary.source=parsed.source
+   }
   }
- }
- const summary={files:entries.map(e=>({name:e.name,bytes:e.bytes.length,sha256:crypto.createHash('sha256').update(e.bytes).digest('hex')}))}
- fs.mkdirSync(target,{recursive:true,mode:0o700})
- for(const e of entries)fs.writeFileSync(path.join(target,e.name),e.bytes,{mode:0o600})
- fs.writeFileSync(path.join(target,'evidence.json'),JSON.stringify(summary,null,2)+'\n',{mode:0o600})
- return summary
+  if(!summary.files.length)throw Error('No reviewable evidence available; retain disposable')
+  io.writeFileSync(path.join(stage,'evidence.json'),JSON.stringify(summary,null,2)+'\n',{mode:0o600,flag:'wx'})
+  verifyPairEvidence(stage,io);io.renameSync(stage,target);renamed=true;return verifyPairEvidence(target,io)
+ }catch(error){if(!renamed)io.rmSync(stage,{recursive:true,force:true});throw error}
 }

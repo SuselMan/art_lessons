@@ -35,4 +35,4 @@ progress.complete=true;progress.stage='complete';saveProgress();
 console.log(JSON.stringify({complete:true,source:result.source,endpointSHA:result.endpoint.sha,scope:result.scope}))
 
 }catch(error){progress.error=String(error);progress.complete=false;saveProgress();throw error}
-finally{try{progress.durableEvidence=preservePairEvidence(out,durableEvidence,disposable);progress.evidenceExtracted=true;saveProgress()}catch(error){progress.evidenceExtracted=false;progress.evidenceError=String(error);saveProgress();process.exitCode=1;console.error('DO NOT FINISH DISPOSABLE: bounded evidence extraction failed')}}
+finally{try{progress.durableEvidence=preservePairEvidence(out,durableEvidence,disposable);progress.evidenceExtracted=true;progress.evidencePromoted=true;progress.durableEvidencePath=path.resolve(durableEvidence);saveProgress()}catch(error){progress.evidenceExtracted=false;progress.evidencePromoted=false;progress.evidenceError=String(error);saveProgress();process.exitCode=1;console.error('DO NOT FINISH DISPOSABLE: bounded evidence extraction failed')}}
