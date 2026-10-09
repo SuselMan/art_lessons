@@ -79,3 +79,23 @@ explicit visual-only change or a proof that all dry cells have high pressure;
 we do not infer that from synthetic uniform pressure. Plateau branch already
 checks V at every interior sample for stride≤8 and rejects stride>8; positive
 cost branch needs the explicit support predicate too. No hardware/pass claim.
+
+## Separate OFF wet-path seed source
+
+PreviewWetPathSeed.mjs declares a separate small GLSL program, not a modification
+of production costDomain/fieldOp. Seed permits an axis face only if BOTH cost
+endpoints≤band AND BOTH nearest V.A endpoints>0. Float V.A is support, never
+interpreted as thickness. Subsequent existing unpacked min-doubling preserves
+that predicate for every intervening cell. Low-pressure dry-cell negative,
+positive partial-wet face, cost-boundary and source-unchanged CPU fixtures PASS3.
+This tests source algebra, not GPU compilation/byte parity.
+
+Prerequisite for wiring: explicit aligned nearest128 V support owned reduction;
+reading high-res V with linear sampling can bridge subcell gaps and cannot be
+called this proof. Domain128 already has support in alpha; binding that owned
+read-only field preserves the128 model but does not prove sub8px topology.
+Additional two Q8 mask targets128 =131072bytes/owner,393216bytes/three owners;
+all distinct from pressure/P/C/fixed/source/pending. Total preview proposed
+19.125MiB. Seed1+log2(stride) reductions+front1+paired2: stride16≤8draw/tick.
+No DOWN allocations, no reused masks across pressure changes without rebuild.
+Budget/compile/hardware not yet proven. Existing inherited evidence retained.
