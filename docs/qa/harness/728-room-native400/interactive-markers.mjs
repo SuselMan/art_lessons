@@ -1,11 +1,19 @@
 /** Existing-method CPU markers only. Adds no GPU calls, awaits or Promise handlers. */
-export function installInteractiveMarkers({engine,Executor,BufferClass,eventTarget,now=()=>performance.now(),limit=512}){
- const rows=[],undo=[],strokeLabels=new Map();let label=null,overflow=false,restored=false
- const record=(phase,rowLabel=label,strokeId=engine._strokeId)=>{if(!label||restored)return;if(rows.length>=limit){overflow=true;return}rows.push({label:rowLabel,strokeId,phase,at:now(),pending:!!engine._wcCanonical?.pending,settling:!!engine._settle})}
- const wrap=(prototype,key,phase)=>{const original=prototype[key];if(typeof original!=='function')throw Error('Required interactive original method absent: '+key);const wrapped=function(...args){const id=phase==='source'?args[0]?.strokeId:engine._strokeId;if(phase==='source'&&id&&id===engine._strokeId)strokeLabels.set(id,label);const rowLabel=strokeLabels.get(id)??label;record(phase+':entry',rowLabel,id);try{return original.apply(this,args)}finally{record(phase+':return',rowLabel,id)}};prototype[key]=wrapped;undo.push(()=>{if(prototype[key]===wrapped)prototype[key]=original})}
- const down=e=>{if(e.pointerType==='pen')record('pointerdown')},up=e=>{if(e.pointerType==='pen'){if(engine._strokeId)strokeLabels.set(engine._strokeId,label);record('pointerup')}}
- try{wrap(Executor.prototype,'emitPrepared','source');wrap(BufferClass.prototype,'restoreCanvasPixels','canvasPublication');eventTarget.addEventListener('pointerdown',down,true);eventTarget.addEventListener('pointerup',up,true)}catch(error){for(const restore of undo.reverse())restore();throw error}
- return{rows,get overflow(){return overflow},setLabel(value){label=value},restore(){if(restored)return;restored=true;eventTarget.removeEventListener('pointerdown',down,true);eventTarget.removeEventListener('pointerup',up,true);for(const restore of undo.reverse())restore()}}
+export function installInteractiveMarkers({engine,Runtime,Executor,BufferClass,eventTarget,now=()=>performance.now(),limit=512}){
+ const rows=[],undo=[],requests=new Map(),scratchLabels=new WeakMap();let label=null,overflow=false,restored=false
+ const record=(phase,rowLabel=label,strokeId=engine._strokeId)=>{if(!rowLabel||restored)return;if(rows.length>=limit){overflow=true;return}rows.push({label:rowLabel,strokeId,phase,at:now(),pending:!!engine._wcCanonical?.pending,settling:!!engine._settle})}
+ const associate=()=>{const scratch=engine._ribbonStrokeScratch;if(scratch&&engine._strokeId){let gestures=scratchLabels.get(scratch);if(!gestures){gestures=new Map();scratchLabels.set(scratch,gestures)}gestures.set(scratch.gesture,{label,strokeId:engine._strokeId})}}
+ const wrap=(prototype,key,phase)=>{const original=prototype[key];if(typeof original!=='function')throw Error('Required interactive original method absent: '+key);const wrapped=function(...args){
+  let owner={label,strokeId:engine._strokeId}
+  if(phase==='consume'&&args[2]==='live'&&args[0]?.input?.materialEnabled&&!args[0]?.auxiliary){associate();const scratch=args[0].scratch;owner=scratchLabels.get(scratch)?.get(scratch.gesture);if(Number.isInteger(this.ordinal)&&owner){if(requests.size>=limit)overflow=true;else requests.set(this.ordinal,owner)}}
+  if(phase==='source')owner=requests.get(args[0]?.ordinal)
+  const rowLabel=owner?.label??'unattributed',id=owner?.strokeId
+  record(phase+':entry',rowLabel,id);try{return original.apply(this,args)}finally{record(phase+':return',rowLabel,id);if(phase==='source')requests.delete(args[0]?.ordinal)}
+ };prototype[key]=wrapped;undo.push(()=>{if(prototype[key]===wrapped)prototype[key]=original})}
+ const down=e=>{if(e.pointerType==='pen')record('pointerdown')},up=e=>{if(e.pointerType==='pen'){associate();record('pointerup')}}
+ const removeListeners=()=>{eventTarget.removeEventListener('pointerdown',down,true);eventTarget.removeEventListener('pointerup',up,true)}
+ try{wrap(Runtime.prototype,'consume','consume');wrap(Executor.prototype,'emitPrepared','source');wrap(BufferClass.prototype,'restoreCanvasPixels','canvasPublication');eventTarget.addEventListener('pointerdown',down,true);eventTarget.addEventListener('pointerup',up,true)}catch(error){removeListeners();for(const restore of undo.reverse())restore();throw error}
+ return{rows,get overflow(){return overflow},setLabel(value){label=value},restore(){if(restored)return;restored=true;removeListeners();for(const restore of undo.reverse())restore();requests.clear()}}
 }
 export function assertInteractiveMarkers({rows,overflow,readyAt,labels}){
  if(overflow||!Array.isArray(rows)||labels?.length!==2)throw Error('Bounded two interactive labels required')

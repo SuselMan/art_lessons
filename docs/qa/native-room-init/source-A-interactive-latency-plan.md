@@ -41,8 +41,14 @@ reported honestly rather than manufactured.
 After READY, the helper wraps original emitPrepared and restoreCanvasPixels,
 and listens to real pen pointerdown/up. It records bounded512 scalar entries,
 keeps original arguments, synchronous return/throw and Promise identity, and adds
-no queue calls or Promise handlers. Source entries are matched to the UP stroke
-ID; queued previous source is attributed to its original label. The next canvas
+no queue calls or Promise handlers. Original Runtime.consume ordinal maps the actual scratch/gesture to the
+physical stroke ID captured at UP; queued emitPrepared ordinal uses that map.
+Its generated cpu-gesture ID is not the physical stroke ID and is never used
+for this attribution; queued previous source is attributed to its original label. The next canvas
 publication after own source can include prior work and is not first visible
 pigment. Missing ownership/order/READY/markers or overflow fails closed. Original
 methods/listeners are restored before endpoint capture and again on cleanup.
+
+Partial listener installation and device loss before first source restore all
+installed listeners/prototypes. CPU tests cover repeated cpu-gesture IDs in
+different scratches and delayed previous source, with no backend calls.
