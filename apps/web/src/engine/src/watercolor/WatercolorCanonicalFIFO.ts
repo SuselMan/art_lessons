@@ -30,6 +30,20 @@ export class WatercolorCanonicalFIFO {
     this.requests.push(request)
     this.schedule()
   }
+  /** Remove only this exact unstarted admission; never cancel unrelated work.
+   * Used by isolated owned-request prototypes when schedule throws after push.
+   * An executing head retains ownership and cannot be rolled back here. */
+  cancelUnstarted(request: CanonicalWatercolorRequest, contextLost = false): boolean {
+    const index = this.requests.indexOf(request)
+    if (index < 0 || index === 0 && this.work !== null) return false
+    this.requests.splice(index, 1)
+    request.cancel(contextLost)
+    if (!this.pending) {
+      const waiters = this.waiters.splice(0)
+      for (const resolve of waiters) resolve(true)
+    }
+    return true
+  }
   ready(): Promise<boolean> {
     if (!this.pending) return Promise.resolve(true)
     this.schedule()

@@ -47,3 +47,20 @@ it('preserves material failure over teardown error and never admits successor af
   enqueueAfterOwnedUp(s.queue,source,cancel);s.drain();expect(status.status).toBe('failed');expect(status.error).toBe(materialFailure?primary:teardown);expect(status.releaseError).toBe(teardown);expect(source).not.toHaveBeenCalled();expect(cancel).toHaveBeenCalledOnce();expect(s.failed).toHaveBeenCalledOnce()
  }
 })
+it('schedule failure after push removes only its new retained admission, preserving the executing predecessor',()=>{
+ let id=0,fail=false;const frames=new Map<number,()=>void>(),release=vi.fn(),capture=vi.fn(),events:string[]=[],failure=Error('schedule')
+ const queue=new WatercolorCanonicalFIFO({blocked:()=>false,schedule:cb=>{if(fail){fail=false;throw failure}frames.set(++id,cb);return id},unschedule:h=>{frames.delete(h)},changed:()=>{},failed:()=>{throw Error('unexpected work error')}})
+ queue.enqueue({execute:function*(){events.push('prior-start');fail=true;expect(()=>enqueueOwnedLazyUp(queue,{generation:1,retain:()=>events.push('retain-new'),valid:()=>true,capture,prepare:function*(){},publish:()=>{},release})).toThrow(failure);yield 0;events.push('prior-end')},cancel:()=>events.push('cancel-prior')})
+ while(frames.size){const [h,cb]=frames.entries().next().value!;frames.delete(h);cb()}
+ expect(events).toEqual(['prior-start','retain-new','prior-end']);expect(release).toHaveBeenCalledOnce();expect(capture).not.toHaveBeenCalled();expect(queue.pending).toBe(false)
+})
+it('exact cancellation refuses an executing request and never removes unrelated queued identity',()=>{
+ const s=scheduler(),cancel=vi.fn();const request={execute:function*(){yield 0},cancel}
+ s.queue.enqueue(request);s.tick();expect(s.queue.cancelUnstarted(request)).toBe(false);expect(s.queue.cancelUnstarted({execute:function*(){},cancel})).toBe(false);expect(cancel).not.toHaveBeenCalled();s.drain();expect(s.queue.pending).toBe(false)
+})
+it('synchronously started scheduling error preserves actual published outcome and does not double release',()=>{
+ const error=Error('after-callback'),release=vi.fn(),publish=vi.fn()
+ const queue=new WatercolorCanonicalFIFO({blocked:()=>false,schedule:cb=>{cb();throw error},unschedule:()=>{},changed:()=>{},failed:()=>{}})
+ const result=enqueueOwnedLazyUp(queue,{generation:1,retain:()=>{},valid:()=>true,capture:()=>{},prepare:function*(){},publish,release})
+ expect(result.status).toBe('published');expect(result.admissionError).toBe(error);expect(publish).toHaveBeenCalledOnce();expect(release).toHaveBeenCalledOnce();expect(queue.pending).toBe(false)
+})

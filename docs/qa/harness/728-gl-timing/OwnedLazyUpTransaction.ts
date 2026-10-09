@@ -1,4 +1,4 @@
-import {WatercolorCanonicalFIFO} from '../../../../apps/web/src/engine/src/watercolor/WatercolorCanonicalFIFO'
+import {WatercolorCanonicalFIFO, type CanonicalWatercolorRequest} from '../../../../apps/web/src/engine/src/watercolor/WatercolorCanonicalFIFO'
 /** CPU-only adapter proof. No engine flag, source renderer or GPU copy policy. */
 export interface OwnedLazyUpMaterial {
   readonly generation: number
@@ -14,7 +14,7 @@ export interface OwnedLazyUpMaterial {
 export type OwnedLazyUpStatus = 'retained'|'captured'|'preparing'|'published'|'cancelled'|'failed'
 export function enqueueOwnedLazyUp(queue: WatercolorCanonicalFIFO, material: OwnedLazyUpMaterial) {
   const generation=material.generation
-  const result:{status:OwnedLazyUpStatus;error:unknown;releaseError:unknown}={status:'retained',error:null,releaseError:null}
+  const result:{status:OwnedLazyUpStatus;error:unknown;releaseError:unknown;admissionError:unknown}={status:'retained',error:null,releaseError:null,admissionError:null}
   let released=false,closed=false,running=false
   let work:Generator<number,void,void>|null=null
   const closeWork=()=>{if(work&&!running){const held=work;work=null;held.return(undefined)}}
@@ -25,7 +25,7 @@ export function enqueueOwnedLazyUp(queue: WatercolorCanonicalFIFO, material: Own
   }
   const check=()=>{if(closed||!material.valid(generation))throw Error('Stale owned lazy UP material generation')}
   material.retain()
-  queue.enqueue({
+  const request:CanonicalWatercolorRequest={
     execute:function*(){
       try{
         check();material.capture();check();result.status='captured'
@@ -39,7 +39,13 @@ export function enqueueOwnedLazyUp(queue: WatercolorCanonicalFIFO, material: Own
       finally{closed=true;release(false);if(result.releaseError!==null&&result.error===null){result.error=result.releaseError;throw result.releaseError}}
     },
     cancel:lost=>{closed=true;if(result.status!=='failed'&&result.status!=='published')result.status='cancelled';try{closeWork()}catch(error){result.status='failed';result.error??=error}finally{release(lost)}},
-  })
+  }
+  try { queue.enqueue(request) } catch(error) {
+    result.admissionError=error
+    // Scheduling may have invoked a callback reentrantly before throwing.
+    // Only an unstarted request is safe to remove and release at admission.
+    if(queue.cancelUnstarted(request)) { result.status='failed';result.error=error;throw error }
+  }
   return result
 }
 /** Uses the SAME FIFO; input is retained, never silently dropped or early-applied. */
