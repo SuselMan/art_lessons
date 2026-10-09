@@ -123,5 +123,17 @@
       "at": 32592.100000023842
     }
   ],
-  "evidencePath": "/home/suselman/projects/pencil-agents/728-bounded-ui-optin/temp/device-runs/native-scheduling-350f-promoted-20261009"
+  "evidencePath": "/home/suselman/projects/pencil-agents/728-bounded-ui-optin/temp/device-runs/native-scheduling-350f-promoted-20261009",
+  "nextDownSplitMs": {
+    "downToAdmission": 3.2,
+    "remainingPriorMaterialStepsAndFinish": 65.5,
+    "priorMaterialPublication": 186.4,
+    "publicationDoneToPriorCompletion": 9.7,
+    "priorCompletionToSourceResume": 16.8,
+    "sourceResumeToSubmit": 1.8,
+    "sourceSubmitToPublication": 46.8,
+    "publicationToDisplayReturn": 1.3
+  },
+  "largestWait": "Prior material publication: 186.4 ms; source admitted at 32264.4 but resumes at 32542.8. Publication includes queued GPU work and GL bridge, not isolated GPU duration.",
+  "safeCandidate": "Reduce exact native\u2192GL publication cost (bounded dirty rectangle readback/import with original row orientation and unchanged RGBA bytes), while preserving FIFO order and owner barriers. Do not admit source early or skip publication until immutable material ownership is proven."
 }
