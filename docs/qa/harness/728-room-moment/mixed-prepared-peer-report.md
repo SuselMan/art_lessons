@@ -13,3 +13,5 @@ Source: Room handleUndo читает peekUndo, для destructive structural tar
 Оба собственных context закрыты. Подвисший own VPS renderer блокировал finally restore: завершён только собственный child Chrome PID173361 с доказанным PPID172959; пользовательский Chrome не затронут. CDP transport и forward закрыты. RAM после закрытия1704MiB. Артефакт сохранён до finish; registry mixed-prepared-peer-5381 оставлен standard SAFE-HOLD active-process для root cleanup. Повтора не было.
 
 Следующий offline шаг: bounded finally restore/close, сохранение received/source-state перед UI Undo и точные begin/end markers handler/append/settle без fences и изменения runtime. Не увеличивать timeout и не повторять hardware без allocation.
+
+Read-only QA DB после cleanup: seq1 layer_add gM9OQakHNF; seq2 Awater Pi8gNixu6L; seq3 Bpencil XZ8b_ih8xv; seq4 Acleanup pigment g1gCUVTBaE. Operation Undo/Redo отсутствуют. Значит pencil действительно дошёл до сервера; прохождение Undo через emission не доказано. Отсутствие control в DB не отличает задержку до обработки click от синхронной работы перед emission.

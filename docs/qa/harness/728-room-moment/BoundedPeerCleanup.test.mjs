@@ -1,0 +1,2 @@
+import test from'node:test';import assert from'node:assert/strict';import{boundedPeerCleanup}from'./BoundedPeerCleanup.mjs';
+test('blocked owned renderer restoration is bounded, and rejection is absorbed',async()=>{let timed=0;assert.equal(await boundedPeerCleanup(()=>new Promise(()=>{}),{timeoutMs:5,onTimeout:()=>timed++}),false);assert.equal(timed,1);assert.equal(await boundedPeerCleanup(()=>{throw Error('closed')}),false);assert.equal(await boundedPeerCleanup(()=>true),true)});
