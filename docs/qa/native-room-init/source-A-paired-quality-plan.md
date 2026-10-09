@@ -5,12 +5,11 @@ lazy module cache hits and seed cost markers. Earlier A long proof does not
 validate these changes or material equivalence.
 
 Reuse `parallel-preload-pair.mjs` and `native-replay-controller.mjs`; do not add a
-second hardware controller or runtime copy. Before allocation, extend their
-strict mode to `source-A`: fixed reference scenario `water-pigment400-long`, full
+second hardware controller or runtime copy. The implemented strict mode is `source-A`: fixed reference scenario `water-pigment400-long`, full
 and raw dispatch warm OFF, hardware pressure ON, observed two plus pressure one
 async preparations held ON in both arms. Only A15 preparation differs OFF/ON.
-The existing replay controller hardcodes full warm ON and supports four400;
-therefore it must reject source-A until those explicit branches are implemented.
+The legacy parallel3 mode keeps its four400/full warm recipe. Source-A explicitly
+selects two operations and excludes full/raw warm; the modes cannot be mixed.
 
 Generate one current-source packed reference, then feed the exact same packed
 bytes into two fresh isolated contexts. Fix source HEAD, four critical browser
@@ -63,3 +62,14 @@ Fixed source roles: water `normal:100:0:PB29:round`, then pigment
 two strokes, unchanged packed properties, through ordinary `appendOperation`
 with remote source; only the fresh target layer ID is remapped. Reference PNG
 is validated as an endpoint passport and never loaded as the native seed.
+
+Each child performs a fresh 1700 MiB admission before context creation. A failed
+reference or OFF arm stops the pair before the next arm. `pair-progress.json`
+records partial evidence without calling it a quality failure. Child disposal ACK
+is mandatory before progressing; teardown errors remain failures. The runner
+does not stop the shared backend or remove registered resources on its own.
+
+Both actual reference and replay exports now count meaningful purple pixels;
+source-A requires nonzero and exactly equal counts as well as decoded RGBA SHA.
+Nine additional factory/cache/seed browser raw source hashes are compared with
+the full current manifest in all three contexts.

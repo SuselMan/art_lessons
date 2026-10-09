@@ -1,3 +1,4 @@
+import {assertSourceABrowserPassport} from './source-A-browser-passport.mjs'
 const critical=['apps/web/src/engine/index.ts','apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts','apps/web/src/engine/src/webgpuCanonical/roomWatercolorExecutor.ts','apps/web/src/engine/src/webgpuCanonical/backend.ts']
 export function assertParallelPreloadPair(reference,off,on){
  const all=[reference,off,on]
@@ -29,7 +30,7 @@ export function assertSourcePrecompilePair(reference,off,on){
  if(passport?.length!==15||new Set(passport.map(x=>x.key)).size!==15||passport.some(x=>! /^[a-f0-9]{64}$/.test(x.shaderSHA)||! /^[a-f0-9]{64}$/.test(x.descriptorSHA))||JSON.stringify(reference.sourceRequiredKeys)!==JSON.stringify(required))throw Error('Exact A recipe passport/subset required')
  for(const r of all){
   if(!r.complete||r.error||r.memoryError||r.memoryGuardFailure||r.errors?.length||!r.ownedContextDisposed||r.final?.gl!==0||r.final?.lost!==false||r.final?.error||!r.export?.alpha)throw Error('Incomplete A endpoint')
-  if(r.source!==reference.source||r.browserPaper?.sha256!==reference.browserPaper?.sha256)throw Error('A source/paper differs')
+  if(r.source!==reference.source||r.browserPaper?.sha256!==reference.browserPaper?.sha256)throw Error('A source/paper differs');assertSourceABrowserPassport(r.browserFactorySource,reference.browserFactorySource);if(!(r.export.purple>0)||r.export.purple!==reference.export.purple)throw Error('Meaningful purple A endpoint absent/different')
   if(r.browserSource?.length!==4||new Set(r.browserSource.map(f=>f.path)).size!==4||critical.some(p=>! /^[a-f0-9]{64}$/.test(r.browserSource.find(f=>f.path===p)?.sha256??'')||r.browserSource.find(f=>f.path===p)?.sha256!==reference.browserSource.find(f=>f.path===p)?.sha256))throw Error('A browser source differs')
   if(r.export.sha!==reference.export.sha||r.export.width!==reference.export.width||r.export.height!==reference.export.height||r.export.alpha!==reference.export.alpha)throw Error('A decoded material differs')
  }

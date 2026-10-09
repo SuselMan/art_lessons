@@ -16,15 +16,20 @@ fs.mkdirSync(out,{recursive:true})
 const root=fileURLToPath(new URL('../../../../',import.meta.url)),referenceOut=path.join(out,'reference')
 const baseEnv={...process.env,QA_SCENARIO:sourceAMode?'water-pigment400-long':'four400',QA_CAPTURE_FIELDS:'0',QA_CARRY_HARDWARE_PRESSURE:'1',QA_FIRST_LIVE_WARMUP:sourceAMode?'0':'1',QA_RAW_CANVAS_WARMUP:'0',QA_CPU_PROFILE:'0',QA_TIMELINE_TRACE:'0',QA_PLANNER_ATTRIBUTION:'0',QA_SELECTED_FRONT_FENCE:'0',QA_NATIVE_INFLIGHT_LIMIT:'0',QA_ASYNC_PRESSURE_PIPELINE:'0'}
 function run(file,env){fs.mkdirSync(env.QA_OUT,{recursive:true});return new Promise((resolve,reject)=>execFile(process.execPath,[file],{cwd:root,env,timeout:150000,maxBuffer:262144},(error,stdout,stderr)=>{fs.writeFileSync(path.join(env.QA_OUT,'controller-output.txt'),stdout+'\n'+stderr);if(error)reject(Error('Owned controller failed: '+file));else resolve()}))}
+const progress={complete:false,mode:sourceAMode?'source-A':'parallel3',stage:'reference',source:process.env.QA_SOURCE,completedArms:[]};const saveProgress=()=>fs.writeFileSync(path.join(out,'pair-progress.json'),JSON.stringify(progress,null,2)+'\n');saveProgress();
+try{
 await run('docs/qa/harness/728-room-native400/controller.mjs',{...baseEnv,QA_OUT:referenceOut,QA_ACTUAL_ASYNC_PRESSURE:'1',QA_ACTUAL_OBSERVED_FIELDS:'1',QA_ENDPOINT_EXPORT:'1',QA_SOURCE_PRECOMPILE:sourceAMode?'1':'0'})
 const reference=JSON.parse(fs.readFileSync(path.join(referenceOut,'report.json')))
 if(!reference.complete||!reference.ownedContextDisposed||reference.packedTape?.length!==(sourceAMode?2:4)||!reference.export?.alpha)throw Error('Fresh current-source reference incomplete')
 const reports=[]
 for(const actual of ['0','1']){
- const armOut=path.join(out,actual==='0'?'off':'on')
+ const arm=actual==='0'?'off':'on';progress.stage=arm;saveProgress();const armOut=path.join(out,arm)
  await run('docs/qa/harness/728-room-native-cpu-profile/native-replay-controller.mjs',{...baseEnv,QA_OUT:armOut,QA_ACTUAL_PRELOAD:sourceAMode?'1':actual,QA_SOURCE_PRECOMPILE:sourceAMode?actual:'0',QA_REFERENCE_REPORT:path.join(referenceOut,'report.json'),QA_REFERENCE_PNG:path.join(referenceOut,'native-material.png')})
- reports.push(JSON.parse(fs.readFileSync(path.join(armOut,'report.json'))))
+ const row=JSON.parse(fs.readFileSync(path.join(armOut,'report.json')));if(!row.complete||row.error||row.errors?.length||row.memoryError||row.memoryGuardFailure||!row.ownedContextDisposed||row.ownedContextDisposeError)throw Error('Stop pair before next arm: incomplete owned '+arm);reports.push(row);progress.completedArms.push(arm);saveProgress()
 }
 const result=(sourceAMode?assertSourcePrecompilePair:assertParallelPreloadPair)(reference,...reports)
 fs.writeFileSync(path.join(out,'pair-report.json'),JSON.stringify(result,null,2)+'\n')
+progress.complete=true;progress.stage='complete';saveProgress();
 console.log(JSON.stringify({complete:true,source:result.source,endpointSHA:result.endpoint.sha,scope:result.scope}))
+
+}catch(error){progress.error=String(error);progress.complete=false;saveProgress();throw error}
