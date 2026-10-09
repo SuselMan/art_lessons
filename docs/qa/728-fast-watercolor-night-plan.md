@@ -344,3 +344,22 @@ Production/main не изменены. Новые варианты остают�
   прежний731 cold — наблюдательный контроль, не чистый causal A/B.
 
 Публикаций main/production нет. Все три агента продолжают следующие шаги.
+
+### Контрольная точка: 09 октября, 03:23
+
+- Surface actual scheduler: 151 FIFO advance, 143 blocked settle; settle
+  растянут на 1590ms между кадрами. CPU settle35.7ms, FIFO22.3ms,
+  rAF max49.9ms. Это не измерение GPU duration. Следующий OFF candidate
+  — два соседних physical contact/front шага, sync после каждого, 4ms
+  wall budget. Existing33 queue tests PASS; paired hardware parity открыт.
+- Raw-only native warm completed до DOWN, но first completion3706.8ms:
+  задержку не исправил. Подготовлен отдельный DEV first-LIVE прогрев
+  source/composite/raw с brush pipeline descriptors без brush dispatch.
+  AppTS,19 targeted tests и4 readiness proofs PASS; hardware ещё не снят.
+- Float32 Room carry сохраняет массу и маленькое ядро; выразительного
+  широкого растекания пока нет. Inherited source radius — отдельный OFF
+  кандидат. Original same-tape повтор потерял loader при same-URL reload;
+  endpoint не получен, качество не подтверждено. Повтор автоматически
+  не запускается; диагностика controller lifecycle продолжается.
+- Все три агента имеют следующий шаг; аппаратные проверки строго
+  последовательны. Main/push/deploy не выполнялись.
