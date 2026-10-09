@@ -1,0 +1,81 @@
+{
+  "issue": "#728 \u2014 Raw-only native readiness warmup",
+  "source": "4badebf44167e1d636f3a9b4c33ff2b543e3c12d",
+  "complete": true,
+  "rawWarmProof": {
+    "enabled": true,
+    "wallMs": 172.80000001192093,
+    "completedAt": 5829.199999988079,
+    "readyAt": 6183,
+    "firstDownAt": 6507.199999988079,
+    "peakBytes": 4194304,
+    "scope": "raw canvas only"
+  },
+  "strokesWallMs": [
+    {
+      "label": "water400",
+      "wallMs": 9454.198611
+    },
+    {
+      "label": "pigment70-on-water400",
+      "wallMs": 1915.3258150000001
+    },
+    {
+      "label": "colorA70-400",
+      "wallMs": 4122.594162000001
+    },
+    {
+      "label": "colorB70-400",
+      "wallMs": 2804.298877000001
+    }
+  ],
+  "raf": {
+    "median": 16.69999999999891,
+    "p95": 50.099999999998545,
+    "max": 3683.4000000000005,
+    "scope": "browser scheduling, not physical frames or GPU time"
+  },
+  "firstBridge": {
+    "label": "bridge.canvas",
+    "start": 6638.300000011921,
+    "end": 10349.199999988079,
+    "wallMs": 3710.899999976158,
+    "rejected": false,
+    "submit": [
+      {
+        "start": 6639.099999964237,
+        "end": 6639.199999988079,
+        "wallMs": 0.10000002384185791,
+        "rejected": false
+      }
+    ],
+    "completionWait": [
+      {
+        "start": 6639.199999988079,
+        "end": 10346,
+        "wallMs": 3706.800000011921,
+        "rejected": false
+      }
+    ],
+    "syncGlRestore": [
+      {
+        "start": 10346.099999964237,
+        "end": 10349.199999988079,
+        "wallMs": 3.100000023841858,
+        "rejected": false
+      }
+    ],
+    "readback": []
+  },
+  "ownTargetCloseRequested": true,
+  "ownedContextDisposed": true,
+  "postRamMiB": 1978.01953125,
+  "minimumRamMiB": 1017.53515625,
+  "errors": [],
+  "limits": [
+    "Raw pipeline only; source/pressure/composite false",
+    "First stroke long pause remains",
+    "Compared731 observation has different source/cold state and tape; no causal net gain",
+    "No additional GPU readback in primary timeline"
+  ]
+}
