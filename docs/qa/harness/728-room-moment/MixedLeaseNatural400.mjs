@@ -10,7 +10,7 @@ export async function runMixedLeaseNatural400({enabled,deadlineMs=90000,scenario
  const add=(kind,at,end,extra={})=>{if(markers.length<2048)markers.push({kind,at,end,ordinal,...extra})};
  const wrap=(name,fn)=>{const original=e[name];if(typeof original!=='function')throw Error('Missing actual method '+name);originals.set(name,original);e[name]=fn(original)};
  const saved={joined:e._wcJoinedTouch,lease:e._wcJoinedTouchSnapshotLease};
- const partial=()=>window.__mixedNatural400Partial={enabled,pending,lease,downDrains,markers,queue,rows};
+ const partial=()=>window.__mixedNatural400Partial={enabled,pending,lease,downDrains,markers,longTasks,queue,rows};
  try{
   e._wcJoinedTouch=true;e._wcJoinedTouchSnapshotLease=enabled;
   if(typeof PerformanceObserver==='function'&&PerformanceObserver.supportedEntryTypes?.includes('longtask')){observer=new PerformanceObserver(list=>{for(const entry of list.getEntries())if(longTasks.length<128)longTasks.push({at:entry.startTime,end:entry.startTime+entry.duration,ms:entry.duration})});observer.observe({entryTypes:['longtask']})}
@@ -39,5 +39,5 @@ export async function runMixedLeaseNatural400({enabled,deadlineMs=90000,scenario
   const glError=e.gl.getError(),lost=e.gl.isContextLost();if(!pending||(enabled?(!lease||downDrains!==0):(lease||downDrains<1))||glError||lost)throw Error('Actual pending/admission/GL guard');
   const metrics=natural400Metrics({markers,rows});
   return{enabled,scenario,metrics,longTasks,pending,lease,downDrains,rows,markers,queue,tape,glError,lost,timedEnd,export:{begin:exportBegin,end:performance.now(),bytes:blob.size},scope:'Natural clock synthetic actual Room PointerInput; CPU source/display submissions and rAF availability, not physical pen latency or exact authored OFF/ON parity'};
- }finally{observer?.disconnect();partial();for(const[name,original]of originals)e[name]=original;e._wcJoinedTouch=saved.joined;e._wcJoinedTouchSnapshotLease=saved.lease}
+ }finally{for(const entry of observer?.takeRecords()??[])if(longTasks.length<128)longTasks.push({at:entry.startTime,end:entry.startTime+entry.duration,ms:entry.duration});observer?.disconnect();partial();for(const[name,original]of originals)e[name]=original;e._wcJoinedTouch=saved.joined;e._wcJoinedTouchSnapshotLease=saved.lease}
 }
