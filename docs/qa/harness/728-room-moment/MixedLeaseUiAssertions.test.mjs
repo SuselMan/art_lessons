@@ -1,0 +1,5 @@
+import test from'node:test';import assert from'node:assert/strict';import{createHash}from'node:crypto';import{assertUndoRole,assertRedoRole,assertWholeEqual,assertDryEffect}from'./MixedLeaseUiAssertions.mjs';
+const before=[{type:'stroke',id:'first'},{type:'stroke',id:'last'}],goodUndo=before.slice(0,1);
+test('undo and redo exact roles reject unrelated count changes',()=>{assertUndoRole(before,goodUndo);assertRedoRole(before,before);assert.throws(()=>assertUndoRole(before,[before[1]]));assert.throws(()=>assertUndoRole(before,[...before,{type:'paper_dry',id:'peer'}]));assert.throws(()=>assertRedoRole(before,[before[0],{type:'stroke',id:'foreign'}]));});
+test('stale/hidden RGBA/dimension changes are rejected',()=>{const sha=x=>createHash('sha256').update(Buffer.from(x)).digest('hex'),a={sha:sha([0,0,0,0]),width:1,height:1};assertWholeEqual(a,{...a},'restore');assert.throws(()=>assertWholeEqual(a,{...a,sha:sha([1,0,0,0])},'hidden'));assert.throws(()=>assertWholeEqual(a,{...a,width:2},'stale'));});
+test('paper_dry presence alone cannot prove dry effect',()=>{assertDryEffect(5,0);assert.throws(()=>assertDryEffect(5,5));assert.throws(()=>assertDryEffect(0,0));});

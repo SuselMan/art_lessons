@@ -1,0 +1,4 @@
+export function assertUndoRole(before,after){const strokes=x=>x.filter(o=>o.type==='stroke').map(o=>o.id);const ids=strokes(before),next=strokes(after);if(ids.length!==2||JSON.stringify(next)!==JSON.stringify(ids.slice(0,-1)))throw Error('UI undo must remove exactly last authored stroke');}
+export function assertRedoRole(before,after){const strokes=x=>x.filter(o=>o.type==='stroke').map(o=>o.id);if(JSON.stringify(strokes(before))!==JSON.stringify(strokes(after)))throw Error('UI redo must restore exact authored stroke identities');}
+export function assertWholeEqual(a,b,label){if(a.sha!==b.sha||a.width!==b.width||a.height!==b.height||a.glError||b.glError||a.lost||b.lost)throw Error(label+' whole RGBA mismatch');}
+export function assertDryEffect(before,after){if(!(before>0)||after!==0)throw Error('Dry must clear actual live paper wet cells');}
