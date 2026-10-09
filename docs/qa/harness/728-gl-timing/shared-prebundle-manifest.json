@@ -1,0 +1,469 @@
+{
+  "selectedWorktree": "/home/suselman/projects/pencil-agents/728-gl-bounded-timing/",
+  "inputs": [
+    {
+      "path": "packages/shared/src/admin.test.ts",
+      "sha256": "26e8e3a90bd2229755b4b3bfb67d76eeaee9408ed459917dd8f1b5958cb08509"
+    },
+    {
+      "path": "packages/shared/src/admin.ts",
+      "sha256": "ce06dfa3d3a2ddbe8f931e97ab8ab2043097f525654fa38bf2df75c6d03e3e2c"
+    },
+    {
+      "path": "packages/shared/src/annotations.ts",
+      "sha256": "d56ec53f837e18e62ef17be612127ec60d39fdc73c84d13e35e697eb60560eb6"
+    },
+    {
+      "path": "packages/shared/src/areaOperations.ts",
+      "sha256": "5e685e043a863be6e97b8d4b35ba3891e067d117280e63d3f6686396f697df7d"
+    },
+    {
+      "path": "packages/shared/src/dabCodec.test.ts",
+      "sha256": "e8758603c260ae3b92446f0f09e9a73f22b8915c7657e8d851eb67ad68845bb9"
+    },
+    {
+      "path": "packages/shared/src/dabCodec.ts",
+      "sha256": "dddf6597bf6444c4cd226a41dc529661637803f497e5de4859bdd82429e27212"
+    },
+    {
+      "path": "packages/shared/src/hotkeys.ts",
+      "sha256": "59907577a05e61df39b6e0b0644c68a9818255fc3968def72baf9dcec1109c1f"
+    },
+    {
+      "path": "packages/shared/src/index.ts",
+      "sha256": "460369af04c4fa794fc74d20180d46999d2e397efe38eab078cac8f89ecfd364"
+    },
+    {
+      "path": "packages/shared/src/layerFilters.ts",
+      "sha256": "82e3108ecd2acf3b26222a8330db149b38e44af9637cfb5607098019ca06c635"
+    },
+    {
+      "path": "packages/shared/src/layerOperations.ts",
+      "sha256": "92af5204db34e72ab72a8e75f503747e1b61e23da9b948499071ecd280ebcb45"
+    },
+    {
+      "path": "packages/shared/src/layers.ts",
+      "sha256": "76d056b6741d26ecf3d173c161988ec6908cf9dfb0509cc5271297b04e0c21e7"
+    },
+    {
+      "path": "packages/shared/src/operationBase.ts",
+      "sha256": "6857685213e5249c00207cc8029f6b413abbe6821bf1a4ad83cbc18879d3caac"
+    },
+    {
+      "path": "packages/shared/src/operations.ts",
+      "sha256": "7884b980df13c987557085b07c594d764149342a470d3c67fe32722158e737b1"
+    },
+    {
+      "path": "packages/shared/src/paper.ts",
+      "sha256": "a8080214e2a91b26494ea678df9cc63389d604d9b6436242a6486c9e26acb10e"
+    },
+    {
+      "path": "packages/shared/src/protocol.ts",
+      "sha256": "a580887b3e37997c506e0d3ae76684067a14fd87001dfe17e36ae7003cfec649"
+    },
+    {
+      "path": "packages/shared/src/rejectReason.test.ts",
+      "sha256": "06cf542954bf4d79dc77214269fc40cca2b908684ec0c914fca1e700829e80d2"
+    },
+    {
+      "path": "packages/shared/src/rest.test.ts",
+      "sha256": "5f1d0020c8f0af0bf7abba8e5e848b1d28a629a50c6fae765208316764419414"
+    },
+    {
+      "path": "packages/shared/src/rest.ts",
+      "sha256": "6ee3ace186a03b798b20fd2cd33a37ae1d138be4fb840f47aa2d3b3539c9f387"
+    },
+    {
+      "path": "packages/shared/src/room.ts",
+      "sha256": "1fda41b88bc10979f720461691dc25c764405e59441d1b16a68893e467e06254"
+    },
+    {
+      "path": "packages/shared/src/roomOpen.test.ts",
+      "sha256": "0c8068e38f9aa50ab9c0e68ea6e0a2e1c5aa7102acfe13c4dcf69e7bea537e24"
+    },
+    {
+      "path": "packages/shared/src/roomOpen.ts",
+      "sha256": "d08d809d740398bcddf067e7b91fe916cda6195e883d6c2f07b30908dd37bcac"
+    },
+    {
+      "path": "packages/shared/src/shapeBounds.test.ts",
+      "sha256": "8dffcf9a0e9fc4020d2c584a6c266b1c18819c34e4c3e4ff63199ebbb775e743"
+    },
+    {
+      "path": "packages/shared/src/shapes.ts",
+      "sha256": "a0159c0bd71e21e8a464ccf2dc9c0229d4898bc87ae81c409a1df7c1bd8b8914"
+    },
+    {
+      "path": "packages/shared/src/stroke.ts",
+      "sha256": "44ed16717479ca0c00eda42a0c5af3c9478a422aac55db6716aebae28602cdc4"
+    },
+    {
+      "path": "packages/shared/src/toolset.test.ts",
+      "sha256": "21928abc84eb7548ad6bdbb3a612992e5d668181caec16c479d72b805da8d20b"
+    },
+    {
+      "path": "packages/shared/src/toolset.ts",
+      "sha256": "ec4aaa7b603fdfade1fa44994bdba56fade77a8c64efccdff78b3100bcf59330"
+    },
+    {
+      "path": "packages/shared/src/transformMatrix.test.ts",
+      "sha256": "856406f84a4bec287992f8f098d57951be62b6cb625c8f02e6036bc0f5d88337"
+    }
+  ],
+  "tool": {
+    "node": "v20.20.2",
+    "vite": "8.1.0",
+    "lockSHA256": "dd4aa0b6e849da8d255abc0866d38473f08bf75f26214aa164e72d8d63b84d90"
+  },
+  "config": [
+    {
+      "path": "SharedQaConfig.mjs",
+      "sha256": "b595e265d5b2f392f987ff9e75f28d5a40b6cff79033f443687282eef7e2b01d"
+    },
+    {
+      "path": "vite.shared-qa.config.mts",
+      "sha256": "7309bf4676d2871c0dce68c5a48195dbd654e60bb70011dcdef919bdd8d2178c"
+    }
+  ],
+  "arms": [
+    {
+      "arm": "0",
+      "dev": true,
+      "root": "/home/suselman/projects/pencil-agents/728-gl-bounded-timing/apps/web",
+      "shared": null,
+      "artifacts": [
+        {
+          "path": "vite-cache/deps/@dnd-kit_core.js",
+          "sha256": "d27120ec7fd13756c440b2ff213743a02715e54947de4bc796d3581695890fb9"
+        },
+        {
+          "path": "vite-cache/deps/@dnd-kit_sortable.js",
+          "sha256": "8d3216d135d7aaa0bf6adeac165d117705117716189fd3659dcd9fef8f9bf76c"
+        },
+        {
+          "path": "vite-cache/deps/@dnd-kit_sortable.js.map",
+          "sha256": "48ae332f7783d6c3ae710cb680122e4b6d33d6de3358700f3aa5600210cfdc74"
+        },
+        {
+          "path": "vite-cache/deps/@dnd-kit_utilities.js",
+          "sha256": "64e41167f2e043acb9b03b1963cdd33abe995e761cba1151717f1399256d1997"
+        },
+        {
+          "path": "vite-cache/deps/@dnd-kit_utilities.js.map",
+          "sha256": "a6335ab7744fa021dbcfa4464142835041d4035ac2b75f30250b8e68ee8f1524"
+        },
+        {
+          "path": "vite-cache/deps/@sentry_react.js",
+          "sha256": "1ec50c7c5945fd71a7a47f23284dab1da00e58bbd4455c864114696f51093eed"
+        },
+        {
+          "path": "vite-cache/deps/@sentry_react.js.map",
+          "sha256": "e142bf3f5c5b27395e2214593f3035f5dbf79c2907059f85087685856f3ce179"
+        },
+        {
+          "path": "vite-cache/deps/@tanstack_react-query.js",
+          "sha256": "8b89233187ebc4e46d15eab4ba93347cd1316c2cbbebd31cf9ded2cb8152af92"
+        },
+        {
+          "path": "vite-cache/deps/@tanstack_react-query.js.map",
+          "sha256": "3b4ed87eb62a02e74a3ab4907d80700f6e30532303b4b05f2b2c2de7d37f23a9"
+        },
+        {
+          "path": "vite-cache/deps/_metadata.json",
+          "sha256": "94dc125d69682af25ab8081ce252ebd20cfbebaf22a4ff5bf843b959ea2bf976"
+        },
+        {
+          "path": "vite-cache/deps/clsx.js",
+          "sha256": "ed732413e97fe3cd30c3ee3029dddda0736d475d6cbb709796021e9a6ce155b9"
+        },
+        {
+          "path": "vite-cache/deps/clsx.js.map",
+          "sha256": "28936ee7a66ca6f6774127fdb457d5fa6f3233498d0c79e92867c93ef801705e"
+        },
+        {
+          "path": "vite-cache/deps/core.esm-cna9p6Pg.js",
+          "sha256": "e042221d5e6c8252d7001e548d34b88204bdb73bb8dbbb271be4f848793ab17e"
+        },
+        {
+          "path": "vite-cache/deps/core.esm-cna9p6Pg.js.map",
+          "sha256": "3aba3fda8d7929ab17b75bccdfdb81504cfc6559a29fa2a17dfa442f2d1f3edf"
+        },
+        {
+          "path": "vite-cache/deps/fflate.js",
+          "sha256": "580195d529c6638d23876ff781a3fe31e4502362ffe980c11ae4ce7937c33d95"
+        },
+        {
+          "path": "vite-cache/deps/fflate.js.map",
+          "sha256": "d012999ba0e6e4f569f48e69058fc62536c683f85f825fab02ced461f484d224"
+        },
+        {
+          "path": "vite-cache/deps/lodash-es.js",
+          "sha256": "3c3aa5784d253b6f3f6b345e131af75abb0085d8ce4d7f51d66dac05a706a061"
+        },
+        {
+          "path": "vite-cache/deps/lodash-es.js.map",
+          "sha256": "b257afe7ae6a279d470ef09d7af6f1e19806550c7c5dcc6e59a8ea46f00e6aef"
+        },
+        {
+          "path": "vite-cache/deps/nanoid.js",
+          "sha256": "6fb6c702344d5e0e5bc5443e9e398a299699a320e0a84d0a5d61635add27b051"
+        },
+        {
+          "path": "vite-cache/deps/nanoid.js.map",
+          "sha256": "95e762f261ebbfb741d2a18fd81e3d7b07d69bf688266476a036fe99299eb251"
+        },
+        {
+          "path": "vite-cache/deps/package.json",
+          "sha256": "3ca9d4afd21425087cf31893b8f9f63c81b0b8408db5e343ca76e5f8aa26ab9a"
+        },
+        {
+          "path": "vite-cache/deps/react-dom.js",
+          "sha256": "4b12c510679912fe0fa02360ab7b5a04a69b9c02dd43f3067e5a78c0655d8e49"
+        },
+        {
+          "path": "vite-cache/deps/react-dom.js.map",
+          "sha256": "e8cdcaead589839298a59bd707a4e0497c3cec48da7770d44066f09edccac3fc"
+        },
+        {
+          "path": "vite-cache/deps/react-dom_client.js",
+          "sha256": "93c5a0991567961b4b45851b26697064c2684e5b504fa5abd0f01e82b796a5bb"
+        },
+        {
+          "path": "vite-cache/deps/react-dom_client.js.map",
+          "sha256": "e39910919b0f138bbf5966acc6e666dafe1cc63287b80a7066b8f9d2d7e17342"
+        },
+        {
+          "path": "vite-cache/deps/react-router-dom.js",
+          "sha256": "ea6198e93816f041398f34d73ea0d49f3290ffbe44b812ba1a0cc00985c2e1da"
+        },
+        {
+          "path": "vite-cache/deps/react-router-dom.js.map",
+          "sha256": "2505ab19ee8be7a5067c6ca094cf186bf8840e5ed8e2df35f9611920cc6a20e8"
+        },
+        {
+          "path": "vite-cache/deps/react.js",
+          "sha256": "89ae27fd63603aab0f6d72bd108fe1afbec9ae12c6715351a29427103e096c91"
+        },
+        {
+          "path": "vite-cache/deps/react.js.map",
+          "sha256": "2c27c8e3c00fe0ffe98bd22174e95716d1ba60b66ddfa24e95d3e88fa566fcd9"
+        },
+        {
+          "path": "vite-cache/deps/react_jsx-dev-runtime.js",
+          "sha256": "8c3ffe550a380eb122e246745c704fa3b07c006954cb2d0518aa0b7a301bb06e"
+        },
+        {
+          "path": "vite-cache/deps/react_jsx-dev-runtime.js.map",
+          "sha256": "a2cbaf5070014daf880dce7992127c3793bd942d5f0c0cedb92f99cfb428cfc7"
+        },
+        {
+          "path": "vite-cache/deps/react_jsx-runtime.js",
+          "sha256": "72a8e7dbc27a1bcdb03b43518b717417f971b9893aefd08439023e77f0d67805"
+        },
+        {
+          "path": "vite-cache/deps/react_jsx-runtime.js.map",
+          "sha256": "098c7f932b80af5f637933257adba2511b912e0d2b1f6f7f236965dad89f6afb"
+        },
+        {
+          "path": "vite-cache/deps/rolldown-runtime-B-1-B7_t.js",
+          "sha256": "f6af920994ca9c006a1f564a14c151831bea86659d403db3a472a9696ac9c9f7"
+        },
+        {
+          "path": "vite-cache/deps/socket__io-client.js",
+          "sha256": "1d8d36047800a14215fddacc84edd394f44f21ecaeae0a4c05f5e22bc723bc42"
+        },
+        {
+          "path": "vite-cache/deps/socket__io-client.js.map",
+          "sha256": "234cb70de1886cd469547f1494e9229f11a92e75702fcd6ad214b3cf326ba729"
+        },
+        {
+          "path": "vite-cache/deps/zustand.js",
+          "sha256": "b5a326b41bcf9f3a391271621d498fa7aed6c72ceadba6be584536c53637b2f4"
+        },
+        {
+          "path": "vite-cache/deps/zustand.js.map",
+          "sha256": "337cc2149f816c1c9601ce470853af543723620b70e0fbd6088d99fbe700228b"
+        }
+      ],
+      "mainTransformed": true,
+      "optimizedImport": false,
+      "scope": "local optimizer/transform; browser consumption not yet proven"
+    },
+    {
+      "arm": "1",
+      "dev": true,
+      "root": "/home/suselman/projects/pencil-agents/728-gl-bounded-timing/apps/web",
+      "shared": {
+        "src": "../../../../../projects/pencil-agents/728-gl-bounded-timing/packages/shared/src/index.ts",
+        "file": "@grafetto_shared.js",
+        "fileHash": "3f88e936",
+        "needsInterop": false
+      },
+      "artifacts": [
+        {
+          "path": "vite-cache/deps/@dnd-kit_core.js",
+          "sha256": "d27120ec7fd13756c440b2ff213743a02715e54947de4bc796d3581695890fb9"
+        },
+        {
+          "path": "vite-cache/deps/@dnd-kit_sortable.js",
+          "sha256": "8d3216d135d7aaa0bf6adeac165d117705117716189fd3659dcd9fef8f9bf76c"
+        },
+        {
+          "path": "vite-cache/deps/@dnd-kit_sortable.js.map",
+          "sha256": "48ae332f7783d6c3ae710cb680122e4b6d33d6de3358700f3aa5600210cfdc74"
+        },
+        {
+          "path": "vite-cache/deps/@dnd-kit_utilities.js",
+          "sha256": "64e41167f2e043acb9b03b1963cdd33abe995e761cba1151717f1399256d1997"
+        },
+        {
+          "path": "vite-cache/deps/@dnd-kit_utilities.js.map",
+          "sha256": "a6335ab7744fa021dbcfa4464142835041d4035ac2b75f30250b8e68ee8f1524"
+        },
+        {
+          "path": "vite-cache/deps/@grafetto_shared.js",
+          "sha256": "cc4c49a008eb8e086c77362dfc52c61dbca6b1ff0d5ada3769f10b4199b4eec1"
+        },
+        {
+          "path": "vite-cache/deps/@grafetto_shared.js.map",
+          "sha256": "771c95526ce4125ca6e5b0f51ed19feae1e8e85bf2d92d0e759a0095d2139896"
+        },
+        {
+          "path": "vite-cache/deps/@sentry_react.js",
+          "sha256": "1ec50c7c5945fd71a7a47f23284dab1da00e58bbd4455c864114696f51093eed"
+        },
+        {
+          "path": "vite-cache/deps/@sentry_react.js.map",
+          "sha256": "e142bf3f5c5b27395e2214593f3035f5dbf79c2907059f85087685856f3ce179"
+        },
+        {
+          "path": "vite-cache/deps/@tanstack_react-query.js",
+          "sha256": "8b89233187ebc4e46d15eab4ba93347cd1316c2cbbebd31cf9ded2cb8152af92"
+        },
+        {
+          "path": "vite-cache/deps/@tanstack_react-query.js.map",
+          "sha256": "3b4ed87eb62a02e74a3ab4907d80700f6e30532303b4b05f2b2c2de7d37f23a9"
+        },
+        {
+          "path": "vite-cache/deps/_metadata.json",
+          "sha256": "baeca2b158e2fbc6d4bc091fc52be13227f9af53fc3c2302d99344e526c6dee8"
+        },
+        {
+          "path": "vite-cache/deps/clsx.js",
+          "sha256": "ed732413e97fe3cd30c3ee3029dddda0736d475d6cbb709796021e9a6ce155b9"
+        },
+        {
+          "path": "vite-cache/deps/clsx.js.map",
+          "sha256": "28936ee7a66ca6f6774127fdb457d5fa6f3233498d0c79e92867c93ef801705e"
+        },
+        {
+          "path": "vite-cache/deps/core.esm-cna9p6Pg.js",
+          "sha256": "e042221d5e6c8252d7001e548d34b88204bdb73bb8dbbb271be4f848793ab17e"
+        },
+        {
+          "path": "vite-cache/deps/core.esm-cna9p6Pg.js.map",
+          "sha256": "3aba3fda8d7929ab17b75bccdfdb81504cfc6559a29fa2a17dfa442f2d1f3edf"
+        },
+        {
+          "path": "vite-cache/deps/fflate.js",
+          "sha256": "580195d529c6638d23876ff781a3fe31e4502362ffe980c11ae4ce7937c33d95"
+        },
+        {
+          "path": "vite-cache/deps/fflate.js.map",
+          "sha256": "d012999ba0e6e4f569f48e69058fc62536c683f85f825fab02ced461f484d224"
+        },
+        {
+          "path": "vite-cache/deps/lodash-es.js",
+          "sha256": "3c3aa5784d253b6f3f6b345e131af75abb0085d8ce4d7f51d66dac05a706a061"
+        },
+        {
+          "path": "vite-cache/deps/lodash-es.js.map",
+          "sha256": "b257afe7ae6a279d470ef09d7af6f1e19806550c7c5dcc6e59a8ea46f00e6aef"
+        },
+        {
+          "path": "vite-cache/deps/nanoid.js",
+          "sha256": "6fb6c702344d5e0e5bc5443e9e398a299699a320e0a84d0a5d61635add27b051"
+        },
+        {
+          "path": "vite-cache/deps/nanoid.js.map",
+          "sha256": "95e762f261ebbfb741d2a18fd81e3d7b07d69bf688266476a036fe99299eb251"
+        },
+        {
+          "path": "vite-cache/deps/package.json",
+          "sha256": "3ca9d4afd21425087cf31893b8f9f63c81b0b8408db5e343ca76e5f8aa26ab9a"
+        },
+        {
+          "path": "vite-cache/deps/react-dom.js",
+          "sha256": "4b12c510679912fe0fa02360ab7b5a04a69b9c02dd43f3067e5a78c0655d8e49"
+        },
+        {
+          "path": "vite-cache/deps/react-dom.js.map",
+          "sha256": "e8cdcaead589839298a59bd707a4e0497c3cec48da7770d44066f09edccac3fc"
+        },
+        {
+          "path": "vite-cache/deps/react-dom_client.js",
+          "sha256": "93c5a0991567961b4b45851b26697064c2684e5b504fa5abd0f01e82b796a5bb"
+        },
+        {
+          "path": "vite-cache/deps/react-dom_client.js.map",
+          "sha256": "e39910919b0f138bbf5966acc6e666dafe1cc63287b80a7066b8f9d2d7e17342"
+        },
+        {
+          "path": "vite-cache/deps/react-router-dom.js",
+          "sha256": "ea6198e93816f041398f34d73ea0d49f3290ffbe44b812ba1a0cc00985c2e1da"
+        },
+        {
+          "path": "vite-cache/deps/react-router-dom.js.map",
+          "sha256": "2505ab19ee8be7a5067c6ca094cf186bf8840e5ed8e2df35f9611920cc6a20e8"
+        },
+        {
+          "path": "vite-cache/deps/react.js",
+          "sha256": "89ae27fd63603aab0f6d72bd108fe1afbec9ae12c6715351a29427103e096c91"
+        },
+        {
+          "path": "vite-cache/deps/react.js.map",
+          "sha256": "2c27c8e3c00fe0ffe98bd22174e95716d1ba60b66ddfa24e95d3e88fa566fcd9"
+        },
+        {
+          "path": "vite-cache/deps/react_jsx-dev-runtime.js",
+          "sha256": "8c3ffe550a380eb122e246745c704fa3b07c006954cb2d0518aa0b7a301bb06e"
+        },
+        {
+          "path": "vite-cache/deps/react_jsx-dev-runtime.js.map",
+          "sha256": "a2cbaf5070014daf880dce7992127c3793bd942d5f0c0cedb92f99cfb428cfc7"
+        },
+        {
+          "path": "vite-cache/deps/react_jsx-runtime.js",
+          "sha256": "72a8e7dbc27a1bcdb03b43518b717417f971b9893aefd08439023e77f0d67805"
+        },
+        {
+          "path": "vite-cache/deps/react_jsx-runtime.js.map",
+          "sha256": "098c7f932b80af5f637933257adba2511b912e0d2b1f6f7f236965dad89f6afb"
+        },
+        {
+          "path": "vite-cache/deps/rolldown-runtime-B-1-B7_t.js",
+          "sha256": "f6af920994ca9c006a1f564a14c151831bea86659d403db3a472a9696ac9c9f7"
+        },
+        {
+          "path": "vite-cache/deps/socket__io-client.js",
+          "sha256": "1d8d36047800a14215fddacc84edd394f44f21ecaeae0a4c05f5e22bc723bc42"
+        },
+        {
+          "path": "vite-cache/deps/socket__io-client.js.map",
+          "sha256": "234cb70de1886cd469547f1494e9229f11a92e75702fcd6ad214b3cf326ba729"
+        },
+        {
+          "path": "vite-cache/deps/zustand.js",
+          "sha256": "b5a326b41bcf9f3a391271621d498fa7aed6c72ceadba6be584536c53637b2f4"
+        },
+        {
+          "path": "vite-cache/deps/zustand.js.map",
+          "sha256": "337cc2149f816c1c9601ce470853af543723620b70e0fbd6088d99fbe700228b"
+        }
+      ],
+      "mainTransformed": true,
+      "optimizedImport": true,
+      "scope": "local optimizer/transform; browser consumption not yet proven"
+    }
+  ]
+}
