@@ -17,3 +17,7 @@ export async function runActualPositivePairedGpu(gl,{enabled=false,evidenceBase=
   const massErrors=mass[0].map((v,c)=>Math.abs(v-mass[1][c]));return{scope:'ONE actual captured-input GPU paired moment step; no animation/material acceptance',inputPassport:p,inputLifecycleFail:summary.diagnosticLifecyclePass===false,bytes:gpu.bytes,t0Changed,sourceChanged,hueOutsideSourceConvexRange:hueOutside,sourceDensityRatioRanges:ranges,maxAbsVsCpuRoundedInputs:maxAbs,nonfinite,negative,changedValues:changed,massBefore:mass[0],massAfter:mass[1],massErrors,hop:lift.hop,valid:t0Changed===0&&sourceChanged===0&&hueOutside===0&&maxAbs<1e-6&&nonfinite===0&&negative===0&&changed>0&&massErrors.every((e,c)=>e<1e-6*Math.max(1,mass[0][c])),limitations:gpu.limitations};
  }finally{if(gpu){if(!gl.isContextLost())gl.finish();gpu.disposeAfterKnownIdle();}}
 }
+export async function runStandaloneActualPositiveGpu(){
+ const canvas=document.createElement('canvas');canvas.width=128;canvas.height=128;document.body.append(canvas);const gl=canvas.getContext('webgl',{alpha:false,antialias:false,preserveDrawingBuffer:true});if(!gl){canvas.remove();throw Error('Standalone WebGL unavailable');}
+ try{return await runActualPositivePairedGpu(gl,{enabled:true})}finally{if(!gl.isContextLost())gl.finish();gl.getExtension('WEBGL_lose_context')?.loseContext();canvas.remove();}
+}
