@@ -92,3 +92,12 @@ packed/wet/recipe hashes, actual source seeds, trace counts, metrics и bounded 
 Contextless проверки command syntax + gate/tape/pointer: 9 PASS. Production
 PointerInput→DabSystem geometry/IDs/seeds проверяется отдельным Fixed400Production
 CPU helper; это не GL/wet parity. App TS и 56 target lifecycle/parser/timing PASS.
+
+
+UP версия требует дополнительно `glUpTimingGate`: exact owned UP phases, actual
+betweenGesture endpoint difference и readonly center/eligibility wet sample.
+Phase attribution использует union intervals; unknownExclusiveMs не приписывается
+GPU или материалу. CPU actual Engine two-stroke gate + source owner checks PASS;
+negative foreign identity/missing phase/invented100ms/missing wet fail closed.
+No hardware запуск этой версии до native RELEASE, fresh admission1700/abort500/
+Hard120, ровно одна own context, никакого auto retry.

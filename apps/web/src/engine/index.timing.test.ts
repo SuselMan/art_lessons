@@ -1,4 +1,5 @@
 import { afterEach, expect, it } from 'vitest'
+import { glUpTimingGate } from '../../../../docs/qa/harness/728-gl-timing/GlTiming400Gate.mjs'
 import { watercolorQaOptions } from '../pages/Room/diagnostics/watercolorQaOptions'
 import { BoundedGlTiming } from './src/diagnostics/BoundedGlTiming'
 import { createTestEngine, makeLayerAdd, paperReady, simulateStroke, simulateStrokeStart, simulateStrokeEnd } from './testing/engineTestUtils'
@@ -148,4 +149,20 @@ it('UP observer refuses a foreign or absent gesture instead of borrowing the las
   expect(t.beginUp('a','L','owned')).toBe(true)
   t.measure('owned-up',()=>17);t.endInput()
   expect(t.export()[0]).toMatchObject({input:1,scope:'up',strokeId:'owned',userId:'a',layerId:'L'})
+})
+
+it('actual two gesture UP records satisfy the strict controller gate without replacing clocks', async () => {
+  const e=await setup(true),expected: {strokeId:string}[]=[]
+  let beforeSecondWet: {layerId:string;at:number;center:number;nearForEligibility:boolean;anyWet:boolean}|null=null
+  for(let i=0;i<2;i++){
+    if(i===1){const at=performance.now();beforeSecondWet={layerId:'L',at,center:e['_paperWet'].sample('L',24,32,at),nearForEligibility:e['_paperWet'].anyWetNear('L',24,32,6,at),anyWet:e['_paperWet'].anyWet('L',at)}}
+    simulateStrokeStart(e,24,32)
+    expected.push({strokeId:e['_strokeId']!})
+    simulateStrokeEnd(e,40,32)
+  }
+  const records=e.getDiagnosticGlTiming()!,firstUp=records.find(r=>r.input===1&&r.phase==='input-up-total')!,secondDown=records.find(r=>r.input===2&&r.phase==='input-down-through-display')!
+  const gate=glUpTimingGate({records,expected,userId:'a',layerId:'L',betweenGesture:{firstUpReturn:firstUp.end,secondDownBegin:secondDown.start,gapFromFirstUpReturnMs:secondDown.start-firstUp.end},beforeSecondWet})
+  expect(gate.valid).toBe(true)
+  expect(gate.inputs).toHaveLength(2)
+  expect(gate.inputs!.every((r:{unknownExclusiveMs:number})=>r.unknownExclusiveMs>=0)).toBe(true)
 })
