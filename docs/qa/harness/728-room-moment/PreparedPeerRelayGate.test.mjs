@@ -1,0 +1,4 @@
+import test from'node:test';import assert from'node:assert/strict';import{preparedPeerRelayGate as gate}from'./PreparedPeerRelayGate.mjs';
+const rows=['stroke','operation_undo','operation_redo'].map((type,i)=>({id:'p'+i,type,seq:i+1,lease:i===0,active:true,gesture:'held-A',target:i?'p0':undefined,queuedAfter:['p0',...Array.from({length:i},(_,j)=>'p'+(j+1))]}));
+test('natural lease retirement does not erase held-input FIFO ownership proof',()=>{const proof=gate(rows,'held-A');assert.equal(proof.comparable,true);assert.equal(proof.naturalLeaseRetirement,true)});
+test('requires actual first overlap and stable gesture/source queue prefix',()=>{assert.equal(gate(rows.map(x=>({...x,lease:false})),'held-A').comparable,false);for(const patch of [{gesture:'other'},{active:false},{queuedAfter:[]}])assert.throws(()=>gate([rows[0],{...rows[1],...patch},rows[2]],'held-A'));assert.throws(()=>gate([rows[0],{...rows[1],target:'wrong'},rows[2]],'held-A'));});
