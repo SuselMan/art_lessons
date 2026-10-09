@@ -83,3 +83,10 @@ it('mixed snapshot lease is explicit DEV only and guards incompatible owners',()
  expect(parse(true,'?qaJoinedTouch=1&wcMixedLease=1')).toMatchObject({joinedTouch:true,joinedTouchSnapshotLease:true})
  for(const q of ['?wcMixedLease=1','?qaJoinedTouch=1&wcMixedLease=yes','?qaJoinedTouch=1&wcMixedLease=1&wcMixedLease=0','?qaJoinedTouch=1&wcMixedLease=1&wcNative=1','?qaJoinedTouch=1&wcMixedLease=1&qaJoinedFinishDeferred=1','?qaJoinedTouch=1&wcMixedLease=1&qaJoinedTouchMixed=1'])expect(()=>parse(true,q)).toThrow()
 })
+
+it('queued history is strict explicit DEV-only ordinary-product opt-in',()=>{
+ expect(parse(true,'').diagnosticQueuedHistory).toBe(false);expect(parse(true,'?wcQueuedHistory=1').diagnosticQueuedHistory).toBe(true)
+ for(const q of ['?wcQueuedHistory=yes','?wcQueuedHistory=1&wcQueuedHistory=0','?wcQueuedHistory=1&wcNative=1','?wcQueuedHistory=1&qaJoinedFinishDeferred=1'])expect(()=>parse(true,q)).toThrow()
+ for(const q of ['?wcQueuedHistory=1','?wcQueuedHistory=yes&wcQueuedHistory=1'])expect(parse(false,q).diagnosticQueuedHistory).toBe(false)
+ expect(parse(true,'?qaJoinedTouch=1&wcMixedLease=1&wcQueuedHistory=1')).toMatchObject({joinedTouchSnapshotLease:true,diagnosticQueuedHistory:true})
+})

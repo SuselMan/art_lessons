@@ -1,0 +1,11 @@
+import{boundedPeerCleanup}from'./BoundedPeerCleanup.mjs';
+/** One existing actual Room control. No renderer/clock/source override or standalone cohort. */
+export async function queuedHistoryUiProbe(page,kind='undo'){
+ if(!['undo','redo'].includes(kind))throw Error('History control required');let installed=false;
+ try{
+  await page.evaluate(kind=>{const e=window.__engine;if(!e._queuedLocalHistoryDev||window.__queuedHistoryProbe)throw Error('Explicit fresh queued-history DEV arm required');const expected=e._log[kind==='undo'?'undoTarget':'redoTarget'](e._userId);if(expected?.type!=='stroke')throw Error('Ordinary stroke gesture target required');const original=e._onLocalOperation,rows=[];const wrapped=op=>{if(op.type==='operation_undo'||op.type==='operation_redo')rows.push({id:op.id,type:op.type,target:op.targetOpId});return original?.(op)};e._onLocalOperation=wrapped;window.__queuedHistoryProbe={e,original,wrapped,rows,target:expected.id}},kind);installed=true;
+  const name=kind==='undo'?/^(Отменить|Undo)$/:/^(Вернуть|Redo)$/;const button=page.getByRole('button',{name}).and(page.locator('button[class*="headerIconBtn"]'));if(await button.count()!==1)throw Error('Unique actual Room history control required');await button.click();
+  await page.waitForFunction(()=>['accepted','failed'].includes(window.__engine.getQueuedHistoryStatus()?.state),null,{timeout:15000});const result=await page.evaluate(()=>({status:window.__engine.getQueuedHistoryStatus(),rows:window.__queuedHistoryProbe.rows,target:window.__queuedHistoryProbe.target,owner:window.__engine===window.__queuedHistoryProbe.e}));
+  if(!result.owner||result.status?.state!=='accepted'||result.rows.length!==1||result.rows[0].id!==result.status.id||result.rows[0].type!=='operation_'+kind||result.rows[0].target!==result.target)throw Error('Actual UI history acceptance exactly-once proof failed');return result;
+ }finally{if(installed&&!await boundedPeerCleanup(()=>page.evaluate(()=>{const p=window.__queuedHistoryProbe;if(!p)return;if(p.e._onLocalOperation===p.wrapped)p.e._onLocalOperation=p.original;if(window.__queuedHistoryProbe===p)delete window.__queuedHistoryProbe;return true})))throw Error('Owned UI probe cleanup incomplete')}
+}
