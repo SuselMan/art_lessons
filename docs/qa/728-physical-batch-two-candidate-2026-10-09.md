@@ -1,0 +1,11 @@
+# OFF physical batch2 candidate
+
+Принцип: сохранять original physical operation sequence и каждую Q8 запись, менять только количество соседних разрешённых resume за кадр. Same-state replay endpoint остаётся обязательным аппаратным gate; CPU fixture не заменяет GPU parity. Architecture understanding прочитана: GPU execution и script submission различны, deterministic fields/order важнее speculative fusion.
+
+`physical-batch-two.patch` — узкое изменение actual WatercolorSettleQueue: новый bool defaultfalse; только taggedcontact/front одного scheduling класса, максимум2 units, максимум4ms wall после syncGpu **каждой** unit. Capture/upload/presentation/finish не пересекаются. Drawing/late frame остаются one-step; cancellation/lifecycle/error прежние. Shader/pass/formulas/resources не меняются. В отличие от existingdiagnosticSolverBatch4/8ms это отдельныйOFFвариант.
+
+Pixel/draw cap нельзя честно придумать: теги ops не содержат exactcost/draw count; canonical1536 field означает одну bounded existingunit может включать несколько draw. Поэтому гарантия ограничена максимум2 original physicalunits и синхронизацией послекаждой, проверкой4ms перед второй; первая unit может превышать budget. Для строгого maxpixel/draw нужна actualopmetadata, сейчас этого нет. Не отправляет143steps одной очередью.
+
+`WatercolorSettleQueue.candidate.ts` — exact copy actual reviewed ROOT queue плюс этот patch, для offlineactual-code tests. Три VitestPASS: OFF/ON identical orderedQ8trace+endpoint, max2, capture/classchange barriers, measuredslowGPUfixture stopsafter1, drawingfallback1, cancellation. `PhysicalBatchTwoQa.mjs` requires patchedactualqueue/no fallback, isolatedotherbatch/continuationflagsOFF, readonlyruntimeflags census/restoration. Actualengine default/prod пока не изменены.
+
+Следующий executable packet после root review/apply: samefixedNEWtape replay OFF/ON, 3rAFauthor guard отдельно; actualflagsbefore/after, count physical steps perframe, rAF/CPU/sync elapsed, allsource/settledfields+material/export exact, no contextloss. Timingreadbacks separate; existing original sequence and output hash parity mandatory. Sourcewarm/float/finite unrelated remainOFF. Устройство пока не использовано.
