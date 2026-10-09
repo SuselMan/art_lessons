@@ -1,0 +1,14 @@
+{
+  "scope": "Own QA room persisted history metadata after timeout; not proof of CPU/GPU cause",
+  "room": "fxBx0T_1",
+  "rows": [
+    {
+      "seq": 1,
+      "id": "RiMTgsts0t",
+      "type": "stroke",
+      "userId": "b2c27953-5d27-4ff6-b61a-3704f7b2be92",
+      "createdAt": "2026-10-09T13:07:23.673",
+      "target": null
+    }
+  ]
+}

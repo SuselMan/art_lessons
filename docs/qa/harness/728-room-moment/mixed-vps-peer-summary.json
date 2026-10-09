@@ -1,0 +1,169 @@
+{
+  "phase": "closed",
+  "passport": {
+    "apps/web/src/engine/index.ts": "c24529a44328d550251d3d51acdd3cf0e5518ae79167ce9eb2aa2c6ea07b0de6",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+    "apps/web/src/pages/Room/index.tsx": "1c261ae553637d904c76fc09c83c8ba8faa449633ddb081396cd2adf736b0ffa",
+    "apps/web/src/pages/Room/diagnostics/devEngineHandle.ts": "b7deffb6dab16755c1a289486ca0be41772bc58ce435ce90e3061c3e05631e58",
+    "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "66f3f567102bc60c14ed84b388b00a1c68d1b8c89ebdb63523c240b362c0ed83",
+    "docs/qa/harness/728-room-moment/PeerLeasePointer.mjs": "35e27bcfcce7405b9cf27d58b75b9d6b0dc7f909a29b4ed46d934ef1c7d11c1e",
+    "apps/web/src/pages/Room/engineWiring.ts": "9f3cfbb4db09571dfe0d091f32fa7a9d4dd11e598e09c5853609e71e7da98278",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "40e7173707338a9a72b7c7bb263b7be23f9693011c93d5a7c33029e22cad1661",
+    "apps/web/src/engine/src/buffers/RibbonStrokeScratch.ts": "24210ad3fb76a8e25c76a6d6d25f6c2a4142d0c98df3889d504ba36750c14d54",
+    "apps/web/src/engine/src/dabs/DabSystem.ts": "816911a80216b7e80bdd1ba7c11be3ea2e02bf3560bc629197a5f7961266c5b3",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+    "apps/web/src/engine/src/paper/paperWetness.ts": "9edaf471f083947f82461e78d4fa8e3d46ecd985611abdfc688cc891c4b7762d",
+    "paper": {
+      "manifest.json": {
+        "bytes": 6532,
+        "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+      },
+      "fine.e59ea6fa.paper": {
+        "bytes": 3983406,
+        "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+      },
+      "fine.a19fcf63.preview": {
+        "bytes": 59686,
+        "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+      }
+    }
+  },
+  "memory": [
+    {
+      "free": 2161,
+      "attempt": 0,
+      "elapsedMs": 1342,
+      "mode": "single-Surface"
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1942
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1940
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1898
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1880
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1801
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1664
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1660
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1774
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1767
+    },
+    {
+      "phase": "new-own-room",
+      "free": 1611
+    },
+    {
+      "phase": "held-source",
+      "free": 1331
+    },
+    {
+      "phase": "held-source",
+      "free": 1377
+    },
+    {
+      "phase": "held-source",
+      "free": 1392
+    },
+    {
+      "phase": "held-source",
+      "free": 1401
+    },
+    {
+      "phase": "held-source",
+      "free": 1400
+    },
+    {
+      "phase": "held-source",
+      "free": 1433
+    },
+    {
+      "phase": "held-source",
+      "free": 1427
+    },
+    {
+      "phase": "held-source",
+      "free": 1431
+    },
+    {
+      "phase": "held-source",
+      "free": 1455
+    },
+    {
+      "phase": "held-source",
+      "free": 1467
+    },
+    {
+      "phase": "held-source",
+      "free": 1464
+    },
+    {
+      "phase": "held-source",
+      "free": 1470
+    },
+    {
+      "phase": "held-source",
+      "free": 1507
+    },
+    {
+      "phase": "closed",
+      "free": 1753
+    }
+  ],
+  "errors": [
+    "Hard120"
+  ],
+  "result": {
+    "room": "fxBx0T_1",
+    "identities": [
+      {
+        "actor": "b2c27953-5d27-4ff6-b61a-3704f7b2be92",
+        "room": "fxBx0T_1",
+        "lease": true
+      },
+      {
+        "actor": "cd8e3993-4d6d-453c-af89-0dcad2c3e106",
+        "room": "fxBx0T_1",
+        "lease": false
+      }
+    ],
+    "ownership": [
+      "Surface",
+      "VPS-sender"
+    ],
+    "admission": {
+      "pending": true,
+      "lease": true,
+      "strokeId": "o7QHaX1-6B"
+    },
+    "activeExports": {
+      "png": true,
+      "snapshot": true
+    },
+    "valid": false,
+    "error": "Error: page.evaluate: Target page, context or browser has been closed",
+    "failedPhase": "held-source"
+  }
+}
