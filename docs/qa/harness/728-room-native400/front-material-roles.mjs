@@ -26,9 +26,9 @@ export async function readNativeFrontMaterialRoles(engine,operationIndex,require
  }
  if(requirePigment&&(!roles.pigment.nonzero||!roles.color.nonzero))throw Error('Actual pigment/color roles empty')
  if(engine._wcCanonical?.pending||!runtime.central.isIdle||engine.gl.isContextLost()||engine.gl.getError())throw Error('Owner changed during idle capture')
- return{operationIndex,roles,cache:owner.adapter.staticFrontCacheCounters,retirementCleanupFailures:backend.diagnosticRetirementCleanupFailures,scope:'Final Q8 cost/coverage/material roles after operation idle; no earlier outward-cost snapshot, no hot reads'}
+ return{operationIndex,roles,nativeBrushPair:owner.adapter.diagnosticNativeBrushPair===true,pairedBrushCalls:owner.adapter.pairedBrushCalls??0,cache:owner.adapter.staticFrontCacheCounters,retirementCleanupFailures:backend.diagnosticRetirementCleanupFailures,scope:'Final Q8 cost/coverage/material roles after operation idle; no earlier outward-cost snapshot, no hot reads'}
 }
-export function assertFrontMaterialRolePair(off,on){
+export function assertFrontMaterialRolePair(off,on,mode='front-cache'){
  if(!Array.isArray(off)||!Array.isArray(on)||off.length!==2||on.length!==2)throw Error('Two per-operation captures required')
  const names=['pressure','mask','coverage','pigment','color']
  for(let i=0;i<2;i++)for(const arm of [off,on]){
@@ -37,6 +37,7 @@ export function assertFrontMaterialRolePair(off,on){
   if(i===1&&(!row.roles.pigment.nonzero||!row.roles.color.nonzero))throw Error('Final actual pigment roles absent')
  }
  for(let i=0;i<2;i++)for(const name of names)if(JSON.stringify(off[i].roles[name])!==JSON.stringify(on[i].roles[name]))throw Error('Q8 role differs '+i+':'+name)
- if(off.some(row=>row.cache!==null)||!(on[0].cache?.prep>0)||!(on[0].cache?.hits>0)||on.some(row=>row.cache?.retainedBytes!==0||row.cache?.cleanupFailures!==0))throw Error('Exact cache OFF/ON consumption/retirement proof absent')
+ if(mode==='brush-pair'){if(off.some(row=>row.cache!==null||row.nativeBrushPair||row.pairedBrushCalls!==0)||on.some(row=>row.cache!==null||!row.nativeBrushPair)||!(on[0].pairedBrushCalls>0)||on[1].pairedBrushCalls<on[0].pairedBrushCalls)throw Error('Isolated paired brush consumption absent')}else if(mode!=='front-cache')throw Error('Unknown native pair mode')
+ else if(off.some(row=>row.cache!==null)||!(on[0].cache?.prep>0)||!(on[0].cache?.hits>0)||on.some(row=>row.cache?.retainedBytes!==0||row.cache?.cleanupFailures!==0))throw Error('Exact cache OFF/ON consumption/retirement proof absent')
  return{exact:true,operations:2,roles:names,scope:'Two actual same-packed native arms, final per-operation Q8 roles; not full outer iteration or GL model parity'}
 }
