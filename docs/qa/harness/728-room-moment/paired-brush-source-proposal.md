@@ -40,3 +40,48 @@ CPU oracle3/3 PASS: independently coded fused vs two-single exchange на64 fixe
 face. Sequential mutateP→computeC даёт доказанные counterexamples. Supplied rawfaces
 bounded, поэтому это integer-exchange/protocol proof; sampling/log/transcendental/f32
 и actual native shader execution здесь не моделируются и GPU parity не заявляется.
+
+## Patch plan для native owner (пока proposal only)
+
+1. `pages/Room/diagnostics/watercolorQaOptions.ts` + test: strict DEV
+   `wcNativeBrushPair=1` → NEW `diagnosticNativeBrushPair`, requireswcNative1;
+   PRODignored/defaultOFF/duplicate malformed failclosed. Existing `wcMrt` означает
+   WebGL2-only, его не переиспользовать. Native pair first arm исключает GL2/MRT/
+   frontBatch/deferred/joinedMixed/mixedLease/queuedHistory/moment physics flags.
+2. `engine/index.ts`: новый booleanoption/privateDEV flag, assert native enabled
+   и несовместимые options до GPUinit; прокинуть при `RoomNativeRuntime.create`.
+   Existing GL `diagnosticBrushMrt` validation/OFF constructor не менять.
+3. `webgpuCanonical/roomNativeRuntime.ts`: contextoption defaultfalse, передать
+   в каждый заново создаваемый `CanonicalRoomWatercolorExecutor` generation.
+4. `webgpuCanonical/roomWatercolorExecutor.ts`: option defaultfalse; после обычного
+   `new CanonicalPlanAdapter(backend)` выставить adapter `diagnosticBrushMrt` лишь
+   explicitDEVnativepair. Не обходить текущие ownercommands/quantum/carry flags.
+5. `webgpuCanonical/settlePlanAdapter.ts`: diagnosticBrushMrt mutablefalse;
+   brushPair OFF returnsfalse ДО inspecting fields/encoding/allocating. ON guards,
+   затем один `this.brush.encode(this.ctx(), originalinputs, originalstep/gain/rect/
+   scissor)`, retaintransients, returntrue ТОЛЬКО после encoding. Step ровно
+   `max(1,round(radius*.25/scale))/field.w,h`, как existing brushPass.
+6. `webgpuCanonical/backend.ts` tiny read-only `ownsField(field)` по ownedFields,
+   чтобы проверять liveflow/coverage/P/C/output, без mutations/pipelines.
+   `webgpuCanonical/brush.ts` pair dimension/format admission guard если sharedhelper
+   применяется низкоуровнево; WGSL/compilation order оставить неизменными.
+
+ON admission: P/C/coverage/outP/outC owners===adapterbackend, notdestroyed,
+ownedFields membership; canonical positiveinteger identicaldimensions andrgba8unorm;
+wrapperfilter===fieldfilter (P/C могут иметь разные исходные filters — не менять).
+Flow slot notdestroyed/uploaded, belongs samebackend, positivedimensions/rgba8unorm;
+flow может быть иной resolution — не требовать canonicalwidth/height. Four input
+texture identities distinct от BOTH output; outputs distincteachother. Finitepositive
+radius/scale, finite nonnegative gain. FlowRect finitexy/positivewh; negative normalized
+origin допустим (contact partially outsidefield). Scissor integernonnegative/inbounds,
+zeroextent valid no-op. No extra flip/rotation: current GL-bottomup rect/scissor и WGSL
+row-top transform 그대로; use EXACT suppliedrect. Same activeencoder/ownerquantum.
+
+Pair uniform80bytes == первые80bytes single96 (single дополнительные16 outputselector):
+step/texel/flowRect/gain/P,C,water filterbits/scissor/dispatch identicalf32/u32. Same
+8×8 workgroups andceil(scissor/8). ON copiesfield.pressure→dep/out +field.band→col/out
+andpresent remain existing planner AFTER commoncompute; no new quantum/substeps.
+
+`NativeBrushPairContract` proposal-only CPU3/3PASS checks DEVselection, OFFresource
+inertness, dimensions/format/filter/ownership/alias/rect/scalarnegativecases and flow
+resolution allowance. Product does not import harness, runtime/backend untouched.
