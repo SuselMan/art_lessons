@@ -1,3 +1,5 @@
+import {prepareCanonicalHardwareLinearPipeline,canonicalHardwareLinearPreparationDiagnostics} from './passes/hardwarePressurePreload'
+import {CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL} from './passes/fieldOps'
 import {installNativeTipA,type NativeTipQaProof} from '../experiments/nativeTipContactQa'
 import {prepareMomentSegment,type MomentContactState} from '../experiments/wetBrushMomentRecipe'
 import {expandCanonicalPaperLa} from './paperExpansion'
@@ -21,6 +23,7 @@ export interface RoomNativeRuntimeContext {
  diagnosticFirstLiveWarmup?:boolean
  diagnosticRawCanvasWarmup?:boolean
  diagnosticCarryHardwarePressure?:boolean
+ diagnosticAsyncCarryPressure?:boolean
  diagnosticTipContactA?:boolean
  diagnosticMomentTransport?:boolean
  diagnosticMomentGpuAudit?:boolean
@@ -62,6 +65,13 @@ export class RoomNativeRuntime {
   const canvas=document.createElement('canvas')
   const backend=await CanonicalWatercolorWebGpu.create({canvas,roomOwnedResources:true,onInitStage:stage=>console.info('[native-room-init]',stage),width:1024,height:1024,paper:{bytes,width:resolution,height:resolution,origin:[0,0],texSize:[ctx.paperWorld.w,ctx.paperWorld.h],scale:ctx.paperScale}})
   try{
+   if(import.meta.env.DEV&&ctx.diagnosticAsyncCarryPressure===true){
+    if(ctx.diagnosticCarryHardwarePressure!==true)throw new Error('Async carry pressure requires hardware pressure diagnostic')
+    console.info('[native-room-init]','pressure-async-compile:start')
+    const proof=await prepareCanonicalHardwareLinearPipeline(backend.device,CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL)
+    const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL))
+    console.info('[native-room-init]','pressure-async-compile:completed',JSON.stringify({...proof,shaderSHA:Array.from(new Uint8Array(hash),v=>v.toString(16).padStart(2,'0')).join(''),dispatches:0,fieldBytes:0}))
+   }
    if(import.meta.env.DEV&&ctx.diagnosticRawCanvasWarmup===true){
     const started=performance.now()
     console.info('[native-room-init]','raw-warm:start',started)
@@ -123,6 +133,7 @@ export class RoomNativeRuntime {
   this.queued=true
   this.central.enqueueSource(()=>{if(this.scratch!==recipient||this.targetLayer!==target||!this.owner)throw new Error('Native foreign-water recipient layer/generation mismatch');this.owner.importForeign(gesture)},async()=>{})
  }
+ get asyncCarryPressureDiagnostics(){return canonicalHardwareLinearPreparationDiagnostics(this.backend.device)}
  get carryPressureDiagnostics(){return this.owner?.carryPressureDiagnostics??null}
  private ownerFor(scratch:RibbonStrokeScratch,tile:PaintTarget,layerId:string,targetLayer:ILayerBuffer){
   if(this.owner&&(this.scratch!==scratch||this.tile?.buffer!==tile.buffer||this.targetLayer!==targetLayer)){this.trackRetirement(this.owner.retire('rebuild',false));this.owner=null}

@@ -1,5 +1,6 @@
 import { canonicalDispatchRect } from '../dispatchRect'
 /// <reference types="@webgpu/types" />
+import {canonicalHardwareLinearDescriptor,preparedCanonicalHardwareLinearPipeline} from './hardwarePressurePreload'
 import type { CanonicalGpuContext, CanonicalGpuField, CanonicalPassResources } from '../types'
 export const CANONICAL_FIELD_OPS_WGSL = `
 struct Params { dimsDir:vec4f,tau:vec4f,scalars:vec4f,scissor:vec4f,originSize:vec4f,bandWorld:vec4f,worldExtra:vec4f,dispatch:vec4u }
@@ -216,7 +217,7 @@ export class CanonicalFieldOps {
   const rect=canonicalDispatchRect(w,h,o.scissor);new Uint32Array(values.buffer).set(rect,28)
   if(values.slice(0,28).some(v=>!Number.isFinite(v)))throw new Error('Canonical uniforms must be finite')
   if(o.diagnosticHardwareLinearInputs&&this.specializeModes)throw new Error('Combined sampler and specialization diagnostics are not supported')
-  if(o.diagnosticHardwareLinearInputs&&!this.hardwareLinearPipeline)this.hardwareLinearPipeline=this.device.createComputePipeline({label:'DIAGNOSTIC canonical hardware LINEAR fields',layout:'auto',compute:{module:this.device.createShaderModule({code:CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL}),entryPoint:'main'}})
+  if(o.diagnosticHardwareLinearInputs&&!this.hardwareLinearPipeline)this.hardwareLinearPipeline=preparedCanonicalHardwareLinearPipeline(this.device,CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL)??this.device.createComputePipeline(canonicalHardwareLinearDescriptor(this.device,CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL))
   const pipeline=o.diagnosticHardwareLinearInputs?this.hardwareLinearPipeline!:this.pipelineFor(mode)
   const uniform=this.device.createBuffer({size:128,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(uniform,0,values)
   const entries:GPUBindGroupEntry[]=fields.map((f,binding)=>({binding,resource:f.view}))

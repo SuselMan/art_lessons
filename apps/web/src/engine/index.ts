@@ -271,6 +271,7 @@ export interface PencilEngineOptions {
   diagnosticFirstLiveWarmup?: boolean
   diagnosticRawCanvasWarmup?: boolean
   diagnosticCarryHardwarePressure?: boolean
+  diagnosticAsyncCarryPressure?: boolean
   /** DEV new-model coupled brush transport. Requires nativeWatercolor. */
   diagnosticMomentTransport?: boolean
   diagnosticMomentGpuAudit?: boolean
@@ -1865,6 +1866,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _wcFirstLiveWarmupEnabled=false
   private _wcRawCanvasWarmupEnabled=false
   private _wcCarryHardwarePressureEnabled=false
+  private _wcAsyncCarryPressureEnabled=false
   private _wcMomentTransportEnabled=false
   private _wcMomentGpuAuditEnabled=false
   private _wcMomentVectorEnabled=false
@@ -2294,6 +2296,8 @@ export class PencilEngine implements PencilEngineAPI {
     if(this._wcFirstLiveWarmupEnabled&&this._wcRawCanvasWarmupEnabled)throw Error('Separate first-live and raw-only warmup arms required')
     this._wcCarryHardwarePressureEnabled=import.meta.env.DEV&&options.diagnosticCarryHardwarePressure===true
     if(this._wcCarryHardwarePressureEnabled&&!this._wcNativeEnabled)throw Error('DEV carry pressure sampling requires nativeWatercolor')
+    this._wcAsyncCarryPressureEnabled=import.meta.env.DEV&&options.diagnosticAsyncCarryPressure===true
+    if(this._wcAsyncCarryPressureEnabled&&(!this._wcNativeEnabled||!this._wcCarryHardwarePressureEnabled))throw Error('DEV async pressure compilation requires nativeWatercolor and hardware pressure')
     this._wcTipContactAEnabled=import.meta.env.DEV&&options.diagnosticTipContactA===true
     if(this._wcTipContactAEnabled&&!this._wcNativeEnabled)throw Error('DEV tipA requires nativeWatercolor')
     this._wcMomentTransportEnabled=import.meta.env.DEV&&options.diagnosticMomentTransport===true
@@ -2733,7 +2737,7 @@ export class PencilEngine implements PencilEngineAPI {
     const epoch=this._wcNativeInitEpoch
     if(!this._wcNativeReady)this._wcNativeReady=this._paper.ready().then(async()=>{
       const {RoomNativeRuntime}=await import('./src/webgpuCanonical/roomNativeRuntime')
-      const runtime=await RoomNativeRuntime.create({diagnosticFirstLiveWarmup:this._wcFirstLiveWarmupEnabled,diagnosticRawCanvasWarmup:this._wcRawCanvasWarmupEnabled,diagnosticCarryHardwarePressure:this._wcCarryHardwarePressureEnabled,diagnosticTipContactA:this._wcTipContactAEnabled,diagnosticMomentVector:this._wcMomentVectorEnabled,diagnosticMomentGpuAudit:this._wcMomentGpuAuditEnabled,diagnosticMomentTransport:this._wcMomentTransportEnabled,fifo:this._wcCanonical,paper:this._paper.type,paperScale:this._paper.scale,paperWorld:this._paper.worldSize(),board:this._pageSize(),
+      const runtime=await RoomNativeRuntime.create({diagnosticFirstLiveWarmup:this._wcFirstLiveWarmupEnabled,diagnosticRawCanvasWarmup:this._wcRawCanvasWarmupEnabled,diagnosticAsyncCarryPressure:this._wcAsyncCarryPressureEnabled,diagnosticCarryHardwarePressure:this._wcCarryHardwarePressureEnabled,diagnosticTipContactA:this._wcTipContactAEnabled,diagnosticMomentVector:this._wcMomentVectorEnabled,diagnosticMomentGpuAudit:this._wcMomentGpuAuditEnabled,diagnosticMomentTransport:this._wcMomentTransportEnabled,fifo:this._wcCanonical,paper:this._paper.type,paperScale:this._paper.scale,paperWorld:this._paper.worldSize(),board:this._pageSize(),
         resolve:(target,bounds)=>this._resolveWithinSheet(target,this._wcSheetClamp(bounds)),layerId:target=>[...this._layers].find(([,buffer])=>buffer===target)?.[0]??[...this._rebuildJobs].find(([,job])=>job.fresh===target)?.[0]??this._wcNativeReplayTargets.get(target),changed:()=>this._scheduleDisplay(),failed:error=>{this._wcAsyncError=error}})
       if(this._destroyed||epoch!==this._wcNativeInitEpoch){await runtime.retire('unmount');return}
       this._wcNative=runtime
