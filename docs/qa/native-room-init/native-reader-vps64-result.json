@@ -1,0 +1,12 @@
+{
+  "pass": true,
+  "readerSourceSHA": "12fcef8760df2341f05a215551211f3a5d843c413b7510c31c9f9198a2870cc8",
+  "remoteType": "string",
+  "canvas": {
+    "width": 64,
+    "height": 64
+  },
+  "actualShaderBytes": 42,
+  "serializedBytes": 310,
+  "scope": "Actual VPS headless Chrome CDP awaitPromise/returnByValue primitive metadata serialization, synthetic adapter only, GPU disabled. No Surface/model/compiler/latency claim."
+}

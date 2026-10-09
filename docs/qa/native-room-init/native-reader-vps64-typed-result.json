@@ -1,0 +1,25 @@
+{
+  "pass": true,
+  "readerSourceSHA": "61fd557ad62771ffa978d6bfc348d05b1d0fc3cf873295a06ead81b2118703b8",
+  "response": {
+    "type": "string",
+    "subtype": null,
+    "valueType": "string",
+    "hasUnserializableValue": false,
+    "hasException": false
+  },
+  "controlObjectResponse": {
+    "type": "object",
+    "subtype": null,
+    "valueType": "object",
+    "hasUnserializableValue": false,
+    "hasException": false
+  },
+  "canvas": {
+    "width": 64,
+    "height": 64
+  },
+  "syntheticShaderBytes": 42,
+  "serializedBytes": 310,
+  "scope": "Actual VPS headless Chrome CDP serialization with synthetic adapter, GPU disabled. Does not reproduce or diagnose Surface missing metadata; no native model/compiler/latency claim."
+}
