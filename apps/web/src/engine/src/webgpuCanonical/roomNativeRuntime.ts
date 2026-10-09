@@ -92,7 +92,7 @@ export class RoomNativeRuntime {
    }
    }
    // Independent exact descriptors share the same device; all three must succeed before any warmup or READY.
-   if(import.meta.env.DEV&&(ctx.diagnosticSourcePrecompile===true||ctx.diagnosticAsyncObservedFields===true||ctx.diagnosticAsyncCarryPressure===true))await Promise.all([prepareObserved(),preparePressure(),(async()=>{if(ctx.diagnosticSourcePrecompile===true){console.info('[native-room-init]','source-precompile:start');const proofs=await prepareFirstContactPipelines(backend.device);console.info('[native-room-init]','source-precompile:completed',JSON.stringify({proofs,dispatches:0,fieldBytes:0}))}})()])
+   if(import.meta.env.DEV&&(ctx.diagnosticSourcePrecompile===true||ctx.diagnosticAsyncObservedFields===true||ctx.diagnosticAsyncCarryPressure===true))await Promise.all([prepareObserved(),preparePressure(),(async()=>{if(ctx.diagnosticSourcePrecompile===true){console.info('[native-room-init]','source-precompile:start');const resourceBefore=backend.diagnosticResourceLedger;const proofs=await prepareFirstContactPipelines(backend.device);const resourceAfter=backend.diagnosticResourceLedger;if(JSON.stringify(resourceBefore)!==JSON.stringify(resourceAfter))throw Error('Source pipeline preparation changed persistent fields');console.info('[native-room-init]','source-precompile:completed',JSON.stringify({proofs,dispatches:0,fieldBytes:0,resourceBefore,resourceAfter,completedAt:performance.now()}))}})()])
    if(import.meta.env.DEV&&ctx.diagnosticRawCanvasWarmup===true){
     const started=performance.now()
     console.info('[native-room-init]','raw-warm:start',started)

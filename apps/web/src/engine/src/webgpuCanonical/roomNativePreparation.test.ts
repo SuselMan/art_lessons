@@ -10,7 +10,7 @@ afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks()})
 function setup(){
  const calls:{descriptor:GPUComputePipelineDescriptor;resolve:(v:GPUComputePipeline)=>void;reject:(e:Error)=>void}[]=[]
  const device={createShaderModule:(d:GPUShaderModuleDescriptor)=>({code:d.code}),createComputePipelineAsync:(descriptor:GPUComputePipelineDescriptor)=>new Promise<GPUComputePipeline>((resolve,reject)=>calls.push({descriptor,resolve,reject}))} as unknown as GPUDevice
- const backend={device,destroy:vi.fn()};state.create.mockResolvedValue(backend)
+ const backend={device,diagnosticResourceLedger:[],destroy:vi.fn()};state.create.mockResolvedValue(backend)
  vi.stubGlobal('document',{createElement:()=>({})});vi.spyOn(console,'info').mockImplementation(()=>{})
  return{calls,backend}
 }
@@ -40,7 +40,7 @@ function setupSource(){
  const calls:{resolve:(v:never)=>void;reject:(e:Error)=>void}[]=[]
  const compile=()=>new Promise<never>((resolve,reject)=>calls.push({resolve,reject}))
  const device={createShaderModule:()=>({}),createRenderPipelineAsync:compile,createComputePipelineAsync:compile} as unknown as GPUDevice
- const backend={device,destroy:vi.fn()};state.create.mockResolvedValue(backend)
+ const backend={device,diagnosticResourceLedger:[],destroy:vi.fn()};state.create.mockResolvedValue(backend)
  vi.stubGlobal('document',{createElement:()=>({})});vi.spyOn(console,'info').mockImplementation(()=>{})
  return{calls,backend}
 }
@@ -64,4 +64,10 @@ it('source preparation excludes detached dispatch warm and altered tip before ba
  state.create.mockClear()
  for(const variant of [{diagnosticFirstLiveWarmup:true},{diagnosticRawCanvasWarmup:true},{diagnosticTipContactA:true}])await expect(RoomNativeRuntime.create({...context(),diagnosticSourcePrecompile:true,...variant})).rejects.toThrow('dispatch warm')
  expect(state.create).not.toHaveBeenCalled()
+})
+it('source preparation fails closed on any persistent field recipe or allocation change',async()=>{
+ const {calls,backend}=setupSource();let read=0
+ Object.defineProperty(backend,'diagnosticResourceLedger',{get:()=>[{id:1,width:++read,height:1,bytes:4}]})
+ const pending=RoomNativeRuntime.create({...context(),diagnosticAsyncObservedFields:false,diagnosticAsyncCarryPressure:false,diagnosticSourcePrecompile:true}),failure=expect(pending).rejects.toThrow('persistent fields')
+ await vi.waitFor(()=>expect(calls).toHaveLength(15));for(const c of calls)c.resolve({} as never);await failure;expect(backend.destroy).toHaveBeenCalledOnce()
 })
