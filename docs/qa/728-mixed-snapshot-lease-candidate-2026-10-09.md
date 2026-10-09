@@ -27,3 +27,11 @@
 ### Важное ограничение существующего replay harness
 
 `runPhysicalBatchSameTape` вызывает `appendOperation(..., remote)` и ждёт canonical idle после каждого op. Он не вызывает `_onStart` со вторым DOWN поверх unfinished predecessor, поэтому такой PASS не доказывает snapshot lease. Положительный gate обязан подтвердить в ON хотя бы один `_wcJoinedTouchLease === oldJob` до нового source и отсутствие DOWN drain, а в OFF — фактический drain. Сначала воспроизвести одинаковые decoded packed dabs/события с одинаковым межштриховым интервалом без idle, затем дождаться общего idle и сравнить fields/export/history. Отдельный последовательный replay остаётся canonical reference, но не заменяет этот overlapping input gate.
+
+## Shared input gate READY
+
+`MixedLeaseInput.mjs` — один driver для CPU и настоящего browser engine: вода UP → пигмент DOWN без idle. Model performance clock проходит одинаковые 10–100 ms, Date.now фиксирован; OFF synchronous drain wall time не меняет wet-decay входы. Это correctness cohort, **не** натуральное измерение скорости. Передача fixture идёт через actual `_onStart/_onMove/_onEnd`, а не remote append. ON обязан реально получить один lease и running source commands; OFF обязан реально вызвать DOWN drain.
+
+Новый реальный engine CPU тест: 14/14 joinedTouch PASS, tsc PASS. OFF/ON semantic history одинакова, включая packed dabs и wet; случайные id/strokeId/washId переименовываются взаимно-однозначно, с сохранением повторных связей. Raw histories сохраняются отдельно. Два node guard теста отвергают потерю lease, изменённый wet/ID relationship, GL error, несовпавший export и неполный набор полей.
+
+`MixedLeaseSameInput.mjs` читает 25 named buffer roles и непустой decoded whole RGBA после canonical idle. `mixed-lease-controller.mjs` проверяет реальные source/paper bytes по SHA, fresh Surface RAM ≥1700 MiB/abort <500, hard 120s; два owned contexts через один CDP transport. Endpoint/console errors не whitelisted. Никакой новый frontend/backend/копия worktree не создан. Hardware результат пока OPEN; запуск только после root выдачи устройства и disposable registration.
