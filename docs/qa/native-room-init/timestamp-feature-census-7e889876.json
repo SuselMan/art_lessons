@@ -1,0 +1,14 @@
+{
+  "source": "7e889876042c14aa95005191939af7134930bf04",
+  "scope": "Feature-only existing support() and same empty requestDevice descriptor; no Room engine, pipelines, fields or input",
+  "requiredFeatures": [],
+  "ramStartMiB": 2170.57421875,
+  "backendSHA": "61e7f78df5b4d0350d008ceb1ed4246aef078b7e8a4b72f8ead2fb78b0d6c471",
+  "adapterTimestampQuery": true,
+  "deviceTimestampQuery": false,
+  "requestedFeatureCount": 0,
+  "secure": true,
+  "engineCreated": false,
+  "complete": true,
+  "ownedContextDisposed": true
+}
