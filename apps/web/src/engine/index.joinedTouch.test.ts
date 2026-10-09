@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { createTestEngine, makeLayerAdd, paperReady, simulateStroke, simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd } from './testing/engineTestUtils'
+import { createTestEngine, makeLayerAdd, paperReady, simulateStroke, simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd, makeStroke, dab } from './testing/engineTestUtils'
 import type { PencilEngine } from './index'
 const engines: PencilEngine[] = []
 afterEach(() => { for (const e of engines.splice(0)) if (!e['_destroyed']) e.destroy() })
@@ -345,4 +345,25 @@ it('undo during snapshot mixed input retires the lease and allows subsequent red
   expect(e['_wcJoinedTouchLease']).toBeNull()
   expect(e.getOperations().filter(op => op.type === 'operation_undo').length).toBe(1)
   expect(e.getOperations().filter(op => op.type === 'operation_redo').length).toBe(1)
+})
+
+
+it('mixed lease queues two peer strokes and preserves application order after UP', async () => {
+  const e = await setup(true, false, 'normal:100:0:PB29:round', true)
+  const raf = globalThis.requestAnimationFrame, cancel = globalThis.cancelAnimationFrame
+  const callbacks: FrameRequestCallback[] = []
+  globalThis.requestAnimationFrame = fn => { callbacks.push(fn); return callbacks.length }
+  globalThis.cancelAnimationFrame = () => {}
+  try {
+    e.setPencil('normal:100:100:PB29:round'); simulateStrokeStart(e, 24, 32)
+    expect(e['_wcJoinedTouchLease']).not.toBeNull()
+    const first = makeStroke('peer', 'L', [dab(12, 12)]), second = makeStroke('peer', 'L', [dab(20, 20)])
+    const applied: string[] = []; e['_onQueuedOperationApplied'] = op => applied.push(op.id)
+    e.appendOperation(first, 'remote'); e.appendOperation(second, 'remote')
+    expect(e['_opQueue'].map(q => q.op.id)).toEqual([first.id, second.id]); expect(applied).toEqual([])
+    simulateStrokeEnd(e, 40, 32); e['_completeSettle']()
+    let frames = 0; while (e['_opQueue'].length && frames++ < 100) callbacks.shift()?.(performance.now())
+    expect(frames).toBeLessThan(100); expect(applied).toEqual([first.id, second.id]); expect(e['_opQueue']).toEqual([])
+    expect(e['_wcJoinedTouchLease']).toBeNull()
+  } finally { globalThis.requestAnimationFrame = raf; globalThis.cancelAnimationFrame = cancel }
 })
