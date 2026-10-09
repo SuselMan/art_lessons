@@ -22,7 +22,7 @@ import {SealedPreviewGlPort} from './SealedPreviewGlPort.mjs';
 import {createPreviewWaterDomain} from './PreviewWaterDomain.mjs';
 /** OFF-only runtime, no canonical callbacks/resources. Construction awaited before input. */
 export async function createOwnedPreviewRuntime(e,morph,{event=()=>{},budgetBytes=3*PREVIEW_BYTES,excluded=[],observe=null,directDisplay=false,materialLinear=false,floatTransport=false,artifactProbe=false,currentSourceSpacing=false,finiteSettling=false,frontCarry=false,inheritedCarry=false,multiscaleCarry=false,completeFrontCycles=false,prewarmCostDomain=false,carryFieldProbe=false,initialMaterialProbe=false,createBuffer=null,createDomain=createPreviewWaterDomain}={}){
- if(initialMaterialProbe&&(!multiscaleCarry||!currentSourceSpacing||carryFieldProbe||!floatTransport||!directDisplay||!finiteSettling||budgetBytes<20135936))throw Error('Initial material probe requires direct finite Float32 plus explicit19.203125MiB ledger');
+ if(initialMaterialProbe&&(!multiscaleCarry||!currentSourceSpacing||carryFieldProbe||!floatTransport||!directDisplay||!finiteSettling||budgetBytes<20152320))throw Error('Initial material probe requires direct finite Float32 plus explicit19.21875MiB ledger');
  if(carryFieldProbe&&budgetBytes<25100288)throw Error('Explicit23.9375MiB probe ledger required');
  if(carryFieldProbe&&!multiscaleCarry)throw Error('Carry field probe requires multiscale');
  if(prewarmCostDomain&&!multiscaleCarry)throw Error('Cost path warm requires multiscale');
