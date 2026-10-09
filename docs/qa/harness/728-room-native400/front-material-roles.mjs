@@ -37,7 +37,8 @@ export function assertFrontMaterialRolePair(off,on,mode='front-cache'){
   if(i===1&&(!row.roles.pigment.nonzero||!row.roles.color.nonzero))throw Error('Final actual pigment roles absent')
  }
  for(let i=0;i<2;i++)for(const name of names)if(JSON.stringify(off[i].roles[name])!==JSON.stringify(on[i].roles[name]))throw Error('Q8 role differs '+i+':'+name)
- if(mode==='brush-pair'){if(off.some(row=>row.cache!==null||row.nativeBrushPair||row.pairedBrushCalls!==0)||on.some(row=>row.cache!==null||!row.nativeBrushPair)||!(on[0].pairedBrushCalls>0)||on[1].pairedBrushCalls<on[0].pairedBrushCalls)throw Error('Isolated paired brush consumption absent')}else if(mode!=='front-cache')throw Error('Unknown native pair mode')
+ if(mode==='brush-pair'){if(off.some(row=>row.cache!==null||row.nativeBrushPair||row.pairedBrushCalls!==0)||on.some(row=>row.cache!==null||!row.nativeBrushPair)||!(on[0].pairedBrushCalls>0)||on[1].pairedBrushCalls<on[0].pairedBrushCalls)throw Error('Isolated paired brush consumption absent')}else if(mode!=='front-cache'&&mode!=='combined-cache')throw Error('Unknown native pair mode')
  else if(off.some(row=>row.cache!==null)||!(on[0].cache?.prep>0)||!(on[0].cache?.hits>0)||on.some(row=>row.cache?.retainedBytes!==0||row.cache?.cleanupFailures!==0))throw Error('Exact cache OFF/ON consumption/retirement proof absent')
+ if(mode==='combined-cache'&&[...off,...on].some(row=>!row.nativeBrushPair||row.pairedBrushCalls!==210))throw Error('Combined mode must preserve original paired brush consumption');
  return{exact:true,operations:2,roles:names,scope:'Two actual same-packed native arms, final per-operation Q8 roles; not full outer iteration or GL model parity'}
 }
