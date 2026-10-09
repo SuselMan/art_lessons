@@ -1,0 +1,193 @@
+{
+  "phase": "closed",
+  "passport": {
+    "apps/web/src/engine/index.ts": "65943327f878bf891196a6ea10a6a20fab9f8083c8fc494b029af52bc432baa0",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "40e7173707338a9a72b7c7bb263b7be23f9693011c93d5a7c33029e22cad1661",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+    "apps/web/src/engine/src/buffers/RibbonStrokeScratch.ts": "24210ad3fb76a8e25c76a6d6d25f6c2a4142d0c98df3889d504ba36750c14d54",
+    "apps/web/src/engine/src/dabs/DabSystem.ts": "816911a80216b7e80bdd1ba7c11be3ea2e02bf3560bc629197a5f7961266c5b3",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+    "apps/web/src/engine/src/paper/paperWetness.ts": "9edaf471f083947f82461e78d4fa8e3d46ecd985611abdfc688cc891c4b7762d",
+    "docs/qa/harness/728-room-moment/MixedLeaseNatural400.mjs": "800f9e4e48beea7ec58224de4a63dae1b808c9b2163076607486488db99baff1",
+    "docs/qa/harness/728-room-moment/ContinuousPenStroke.mjs": "f745e5903531aae7efc63077ea09e77f6c471ce975e082ef038ef515d78cb642",
+    "docs/qa/harness/728-room-moment/ContinuousPenRecipe.mjs": "ed9d5d70c674461acf8478f8a5a0158270e1acc9e31280f7f8fa8beec3155710",
+    "docs/qa/harness/728-room-moment/HttpActorTrace.mjs": "c174786be5cd5f4cfe02043e71a0d875ccf4f83f05722407fa166da548f4a8ba"
+  },
+  "paperPassport": {
+    "manifest.json": {
+      "bytes": 6532,
+      "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+    },
+    "fine.e59ea6fa.paper": {
+      "bytes": 3983406,
+      "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+    },
+    "fine.a19fcf63.preview": {
+      "bytes": 59686,
+      "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+    }
+  },
+  "rows": [
+    {
+      "begin": 34765.10000002384,
+      "end": 34814.60000002384,
+      "httpStatus": 200,
+      "httpActor": "0410c02e-db14-4af9-bc48-be7f39e20c6b",
+      "storeActor": "0410c02e-db14-4af9-bc48-be7f39e20c6b",
+      "engineActor": "0410c02e-db14-4af9-bc48-be7f39e20c6b",
+      "strokeCount": 0,
+      "locked": false,
+      "glError": 0,
+      "lost": false,
+      "scope": "No drawing; ordinary Room create/init/auth trace only"
+    }
+  ],
+  "httpActorTrace": [
+    [
+      {
+        "requestId": "9920.117",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 514765.526081,
+        "wallTime": 1791539779.900006,
+        "status": 200,
+        "responseTimestamp": 514765.72778,
+        "httpActor": "0410c02e-db14-4af9-bc48-be7f39e20c6b"
+      },
+      {
+        "requestId": "9920.639",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 514784.031095,
+        "wallTime": 1791539798.405055,
+        "status": 200,
+        "responseTimestamp": 514784.08742,
+        "httpActor": "0410c02e-db14-4af9-bc48-be7f39e20c6b"
+      },
+      {
+        "requestId": "9920.640",
+        "method": "POST",
+        "endpoint": "/api/rooms/<room>/thumbnail",
+        "requestTimestamp": 514784.352664,
+        "wallTime": 1791539798.726668,
+        "status": 200,
+        "responseTimestamp": 514784.405296
+      },
+      {
+        "requestId": "9920.643",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 514789.157918,
+        "wallTime": 1791539803.531845,
+        "status": 200,
+        "responseTimestamp": 514789.206165,
+        "httpActor": "0410c02e-db14-4af9-bc48-be7f39e20c6b"
+      }
+    ]
+  ],
+  "memory": [
+    {
+      "phase": "preflight",
+      "enabled": false,
+      "free": 1932
+    },
+    {
+      "phase": "OFF",
+      "free": 1698
+    },
+    {
+      "phase": "OFF",
+      "free": 1679
+    },
+    {
+      "phase": "OFF",
+      "free": 1697
+    },
+    {
+      "phase": "OFF",
+      "free": 1679
+    },
+    {
+      "phase": "OFF",
+      "free": 1598
+    },
+    {
+      "phase": "OFF",
+      "free": 1453
+    },
+    {
+      "phase": "closed-arm",
+      "free": 1761
+    },
+    {
+      "phase": "closed",
+      "free": 1766
+    }
+  ],
+  "memoryProbes": [
+    {
+      "phase": "preflight",
+      "elapsedMs": 1422.40877,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1745.1584629999998,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1583.6803120000004,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1639.5917100000006,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1840.600024000003,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1767.6835139999966,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "no-input-http-observation",
+      "elapsedMs": 1543.2738510000054,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "no-input-http-observation",
+      "elapsedMs": 1227.286113000002,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "closed",
+      "elapsedMs": 1448.4414800000013,
+      "timedOut": false,
+      "success": true
+    }
+  ],
+  "errors": [],
+  "networkErrors": [],
+  "result": {
+    "valid": true,
+    "scope": "No-input HTTP actor trace; ambient403 remains failure"
+  },
+  "retireSourcePassport": {
+    "apps/web/src/pages/Room/index.tsx": "017a2174c74b786f4d164d253eb826384e2334a1c5771bb3d130f1e1b58ddfe5",
+    "apps/web/src/pages/Room/engineWiring.ts": "9f3cfbb4db09571dfe0d091f32fa7a9d4dd11e598e09c5853609e71e7da98278"
+  }
+}
