@@ -18,6 +18,8 @@ declare global {
   // eslint-disable-next-line no-var
   var __engine: PencilEngineAPI | undefined
   // eslint-disable-next-line no-var
+  var __roomMaterialReady: (() => { owner: boolean; contentReady: boolean; snapshotReady: boolean; incomplete: boolean; latestKnownSeq: number; ready: boolean }) | undefined
+  // eslint-disable-next-line no-var
   var __roomStore: typeof useRoomStore | undefined
 }
 
@@ -28,4 +30,11 @@ export function exposeEngineForDev(engine: PencilEngineAPI | null): void {
   // the store is where the ids live (the engine takes them, it doesn't list
   // them).
   globalThis.__roomStore = useRoomStore
+}
+
+/** Read-only owned material readiness, using the same gate as snapshot publication. */
+export function exposeMaterialReadinessForDev(probe: NonNullable<typeof globalThis.__roomMaterialReady>): () => void {
+  if (!import.meta.env.DEV) return () => {}
+  globalThis.__roomMaterialReady = probe
+  return () => { if (globalThis.__roomMaterialReady === probe) globalThis.__roomMaterialReady = undefined }
 }

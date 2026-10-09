@@ -17,7 +17,7 @@ import { ColorFlyout } from '../../components/ColorFlyout'
 import { ClassChrome } from './panels/ClassChrome'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
-import { exposeEngineForDev } from './diagnostics/devEngineHandle'
+import { exposeEngineForDev, exposeMaterialReadinessForDev } from './diagnostics/devEngineHandle'
 import { watercolorQaOptions } from './diagnostics/watercolorQaOptions'
 import {
   eraseThroughTargets, isLayerLocked,
@@ -1008,6 +1008,14 @@ function RoomEditor() {
     })
     engineRef.current = engine
     exposeEngineForDev(engine)
+    const unexposeMaterialReadiness = exposeMaterialReadinessForDev(() => {
+      const owner = engineRef.current === engine
+      const contentReady = roomContentReadyRef.current
+      const snapshotReady = ownedSnapshotGate.ready()
+      const incomplete = replayIncompleteRef.current
+      return { owner, contentReady, snapshotReady, incomplete, latestKnownSeq: latestKnownSeqRef.current,
+        ready: owner && contentReady && snapshotReady && !incomplete }
+    })
     // Tells every engine-sync effect below that there is now an engine to sync
     // to — see engineEpoch's own comment for what silently did not happen
     // before this existed.
@@ -1036,6 +1044,7 @@ function RoomEditor() {
 
     const unhookPageHide = releaseOnPageHide(engine) // (§17.73)
     return () => {
+      unexposeMaterialReadiness()
       const materialPublishable = engineRef.current === engine && roomContentReadyRef.current && ownedSnapshotGate.ready()
       if (engineRef.current === engine) engineRef.current = null
       // Publish only this engine's completed material, never an initial StrictMode canvas.
