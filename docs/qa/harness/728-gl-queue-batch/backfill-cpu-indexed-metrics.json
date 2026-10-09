@@ -1,0 +1,294 @@
+{
+  "scope": "Instrumented CPU synthetic serverseq chunk/control history on current VPS; not userlog/device/renderer",
+  "deadlineMs": 30000,
+  "rows": [
+    {
+      "n": 1000,
+      "mode": "accept",
+      "elapsedMs": 35.621609000000035,
+      "methods": {
+        "prependHistoricalReconciled": {
+          "calls": 1,
+          "totalMs": 35.55722300000002,
+          "selfMs": 3.6147759999999494
+        },
+        "reconcileHistoricalGestures": {
+          "calls": 1,
+          "totalMs": 31.931344000000024,
+          "selfMs": 5.719875000000343
+        },
+        "append": {
+          "calls": 1000,
+          "totalMs": 11.802056999999763,
+          "selfMs": 10.658119000000909
+        },
+        "applyUndo": {
+          "calls": 200,
+          "totalMs": 7.398458000000176,
+          "selfMs": 6.953312999999753
+        },
+        "applyRedo": {
+          "calls": 200,
+          "totalMs": 7.010953999999742,
+          "selfMs": 6.566383999999857
+        },
+        "revoke": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "_confirmedSlot": {
+          "calls": 1000,
+          "totalMs": 0.3099809999982881,
+          "selfMs": 0.3099809999982881
+        },
+        "_bumpPixelOpCount": {
+          "calls": 2201,
+          "totalMs": 1.7347750000009228,
+          "selfMs": 1.7347750000009228
+        }
+      },
+      "correctness": true
+    },
+    {
+      "n": 1000,
+      "mode": "reject",
+      "elapsedMs": 4.981133999999997,
+      "methods": {
+        "prependHistoricalReconciled": {
+          "calls": 1,
+          "totalMs": 4.979227000000037,
+          "selfMs": 1.9548890000000938
+        },
+        "reconcileHistoricalGestures": {
+          "calls": 1,
+          "totalMs": 3.0230909999999653,
+          "selfMs": 3.0230909999999653
+        },
+        "append": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "applyUndo": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "applyRedo": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "revoke": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "_confirmedSlot": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "_bumpPixelOpCount": {
+          "calls": 1,
+          "totalMs": 0.0012469999999780157,
+          "selfMs": 0.0012469999999780157
+        }
+      },
+      "correctness": true
+    },
+    {
+      "n": 5000,
+      "mode": "accept",
+      "elapsedMs": 340.007791,
+      "methods": {
+        "prependHistoricalReconciled": {
+          "calls": 1,
+          "totalMs": 340.00543600000003,
+          "selfMs": 10.686388999999963
+        },
+        "reconcileHistoricalGestures": {
+          "calls": 1,
+          "totalMs": 329.31638100000004,
+          "selfMs": 16.669402999999704
+        },
+        "append": {
+          "calls": 5000,
+          "totalMs": 62.23251199999851,
+          "selfMs": 59.436505999995745
+        },
+        "applyUndo": {
+          "calls": 1000,
+          "totalMs": 145.52013800000123,
+          "selfMs": 144.59613600000188
+        },
+        "applyRedo": {
+          "calls": 1000,
+          "totalMs": 104.8943280000006,
+          "selfMs": 104.0168690000018
+        },
+        "revoke": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "_confirmedSlot": {
+          "calls": 5000,
+          "totalMs": 1.6051870000040367,
+          "selfMs": 1.6051870000040367
+        },
+        "_bumpPixelOpCount": {
+          "calls": 11001,
+          "totalMs": 2.994945999996901,
+          "selfMs": 2.994945999996901
+        }
+      },
+      "correctness": true
+    },
+    {
+      "n": 5000,
+      "mode": "reject",
+      "elapsedMs": 16.138072999999963,
+      "methods": {
+        "prependHistoricalReconciled": {
+          "calls": 1,
+          "totalMs": 16.135952999999972,
+          "selfMs": 8.41974899999991
+        },
+        "reconcileHistoricalGestures": {
+          "calls": 1,
+          "totalMs": 7.713983999999982,
+          "selfMs": 7.713983999999982
+        },
+        "append": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "applyUndo": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "applyRedo": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "revoke": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "_confirmedSlot": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "_bumpPixelOpCount": {
+          "calls": 1,
+          "totalMs": 0.0022200000000793807,
+          "selfMs": 0.0022200000000793807
+        }
+      },
+      "correctness": true
+    },
+    {
+      "n": 10000,
+      "mode": "accept",
+      "elapsedMs": 734.919018,
+      "methods": {
+        "prependHistoricalReconciled": {
+          "calls": 1,
+          "totalMs": 734.912999,
+          "selfMs": 15.19522799999993
+        },
+        "reconcileHistoricalGestures": {
+          "calls": 1,
+          "totalMs": 719.712892,
+          "selfMs": 24.948918000011872
+        },
+        "append": {
+          "calls": 10000,
+          "totalMs": 156.2494059999908,
+          "selfMs": 144.51135200001124
+        },
+        "applyUndo": {
+          "calls": 2000,
+          "totalMs": 335.22978899999805,
+          "selfMs": 333.2351139999922
+        },
+        "applyRedo": {
+          "calls": 2000,
+          "totalMs": 203.28477899999928,
+          "selfMs": 201.6947869999949
+        },
+        "revoke": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "_confirmedSlot": {
+          "calls": 10000,
+          "totalMs": 9.21337199998925,
+          "selfMs": 9.21337199998925
+        },
+        "_bumpPixelOpCount": {
+          "calls": 22001,
+          "totalMs": 6.114228000000594,
+          "selfMs": 6.114228000000594
+        }
+      },
+      "correctness": true
+    },
+    {
+      "n": 10000,
+      "mode": "reject",
+      "elapsedMs": 34.08988299999987,
+      "methods": {
+        "prependHistoricalReconciled": {
+          "calls": 1,
+          "totalMs": 34.08667300000002,
+          "selfMs": 15.465081000000055
+        },
+        "reconcileHistoricalGestures": {
+          "calls": 1,
+          "totalMs": 18.618662000000086,
+          "selfMs": 18.618662000000086
+        },
+        "append": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "applyUndo": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "applyRedo": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "revoke": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "_confirmedSlot": {
+          "calls": 0,
+          "totalMs": 0,
+          "selfMs": 0
+        },
+        "_bumpPixelOpCount": {
+          "calls": 1,
+          "totalMs": 0.0029299999998784187,
+          "selfMs": 0.0029299999998784187
+        }
+      },
+      "correctness": true
+    }
+  ]
+}
