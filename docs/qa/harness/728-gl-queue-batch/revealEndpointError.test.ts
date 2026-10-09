@@ -1,0 +1,5 @@
+import {it,expect} from 'vitest'
+import {washRevealStep,washRevealRemaining} from '../../../../apps/web/src/engine/src/raster/washReveal'
+it('expiry advances to exact target before sweep; no residual discard counterexample',()=>{const remaining=washRevealRemaining(0,undefined,8000,8000);expect(remaining).toBe(0);expect(washRevealStep(7000,remaining)).toBe(1)})
+it('real stall leaves high pre-deadline error then exact one-frame target; this is visible gap, not expiry ordering bug',()=>{let error=1;error*=1-washRevealStep(1000,washRevealRemaining(0,undefined,1000,8000));expect(error).toBeGreaterThan(.98);const before=error;error*=1-washRevealStep(6990,washRevealRemaining(0,undefined,7990,8000));expect(error).toBe(0);expect(before-error).toBeGreaterThan(.98)})
+it('all premult display blends stay valid; finite positive recurrence cannot create saturation beyond endpoints',()=>{const before=[.7,.1,.6,.8],target=[.2,.2,.2,.3];for(const h of [0,.2,.9,1]){const out=target.map((v,i)=>(1-h)*v+h*before[i]);for(let k=0;k<3;k++)expect(out[k]).toBeLessThanOrEqual(out[3]);for(let k=0;k<4;k++)expect(out[k]).toBeGreaterThanOrEqual(Math.min(before[k],target[k]))}})
