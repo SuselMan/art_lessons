@@ -1,0 +1,4 @@
+import{test}from'node:test';import assert from'node:assert/strict';import{completeFrontCycles}from'./completeFrontCycles.mjs';
+const cycle=[1,2,4,8,16,16,8,4,2,1];
+test('28 fronts require three whole immediate-carry cycles; no front-only phase',()=>{const r=completeFrontCycles(cycle,28);assert.equal(r.frontSteps,28);assert.equal(r.strides.length,30);assert.deepEqual(r.strides.slice(0,10),cycle);assert.equal(r.strides[0],1);assert.equal(r.strides.at(-1),1);assert.deepEqual(cycle,[1,2,4,8,16,16,8,4,2,1]);assert.ok(Object.isFrozen(r.strides))});
+test('cap and full-cycle budget are explicit, never silently truncated',()=>{assert.equal(completeFrontCycles(cycle,99).strides.length,40);assert.equal(completeFrontCycles(cycle,99).clamped,true);assert.throws(()=>completeFrontCycles(cycle,28,32,20),/budget/);assert.throws(()=>completeFrontCycles([1,16],28),/cycle/)});
