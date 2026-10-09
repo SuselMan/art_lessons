@@ -1,0 +1,199 @@
+{
+  "complete": false,
+  "inputOccurred": false,
+  "attempts": [
+    {
+      "file": "result.json",
+      "phase": "closed",
+      "rows": 0,
+      "sourcePassport": {
+        "docs/qa/harness/728-room-moment/gl-contact-hoist-controller.mjs": "303a99cf7ca4917cbc797aec33c606bf2b1f34445763609cd580c718b2058b60",
+        "apps/web/src/engine/src/watercolor/brushDrag.ts": "febf13b5d339df09c04bcaae38773bf7412abc772f06e4a0002240926adef206",
+        "apps/web/src/engine/src/watercolor/brushDragHoisted.ts": "bc3187f4f73d8aa37d39b9591a389527b1e1b409d2e73bd6300964c822a24ed9",
+        "docs/qa/harness/728-gl-timing/ContactHoistQuality.mjs": "47465ccb301a44054cd41096412380709a3bd50491b004f900ca2b6824a8441b",
+        "apps/web/src/engine/src/raster/CanonicalWatercolorSettlePlan.ts": "bd10157ac1e32f3d3bcf61fe0d3936770c35c05df881019b978efe28bfb012ef",
+        "apps/web/src/engine/src/diagnostics/BoundedGlTiming.ts": "d5dd67ea0b45e2b95accbc6dce0ea3a4220b022fca9695ccb7a8ee4343fe949c",
+        "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "81ae8db2e5a2901112ff3d94b508158671c845a6af0628b692cfa8c962fefd86",
+        "docs/qa/harness/728-gl-timing/GlTiming400Gate.mjs": "2331b3f4f8a171b61fcd5c79943d59c46cc1d412376be4b94b1983472f35ccd2",
+        "apps/web/src/pages/Room/index.tsx": "1c261ae553637d904c76fc09c83c8ba8faa449633ddb081396cd2adf736b0ffa",
+        "apps/web/src/pages/Room/engineWiring.ts": "9f3cfbb4db09571dfe0d091f32fa7a9d4dd11e598e09c5853609e71e7da98278",
+        "apps/web/src/engine/index.ts": "99384eba314575655ff6aa0ba2bc708cab84a5a5b0b29fc7d426849998163125",
+        "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "40e7173707338a9a72b7c7bb263b7be23f9693011c93d5a7c33029e22cad1661",
+        "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+        "apps/web/src/engine/src/buffers/RibbonStrokeScratch.ts": "6c92b6683e5c848d14f05053be81a98cd67c8546b5b315797da6e081389e2e34",
+        "apps/web/src/engine/src/dabs/DabSystem.ts": "816911a80216b7e80bdd1ba7c11be3ea2e02bf3560bc629197a5f7961266c5b3",
+        "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+        "apps/web/src/engine/src/paper/paperWetness.ts": "9edaf471f083947f82461e78d4fa8e3d46ecd985611abdfc688cc891c4b7762d",
+        "docs/qa/harness/728-room-moment/MixedLeaseNatural400.mjs": "d2368c9fd4c4845e15025f0ede052db04d2c2266396033f37dfcabbe2f2aea9b",
+        "docs/qa/harness/728-room-moment/ContinuousPenStroke.mjs": "7079a6f92c921b2f81e9ab0959864b0954fbb55e53ea29a769ac24b2def2648f",
+        "docs/qa/harness/728-room-moment/ContinuousPenRecipe.mjs": "ed9d5d70c674461acf8478f8a5a0158270e1acc9e31280f7f8fa8beec3155710",
+        "docs/qa/harness/728-room-moment/Fixed400Tape.mjs": "9da0a30763c2aeca29f2ea9a5c1451d71024b16cb8218f6c6e633f49e1940eac",
+        "docs/qa/harness/728-room-moment/Fixed400MaterialGate.mjs": "7eb9188febf8f51737aaf0f861d0b49e80e1a0dff9d9e594e92c57125d2bbcd9",
+        "docs/qa/harness/728-room-moment/MixedLeaseUiLifecycle.mjs": "f269d354d7ad34c6423bf0230474d4b97df59330f6c99c1c43b4b04758f05372",
+        "docs/qa/harness/728-room-moment/MixedLeaseUiAssertions.mjs": "f6c52d47cf4cf81411f9cdf7fe2dafeef4eb64d11bdf2f200f85e510656f3903",
+        "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "edf56db76df946a79940f012a8bb9344a7799c0b5204accc4be7774d6bf9aa83",
+        "docs/qa/harness/728-room-moment/HttpActorTrace.mjs": "3f9d1419dc26ef3cfb61a840ebcf30200db98498fee45fbe43a769dca659e99f",
+        "docs/qa/harness/728-room-moment/ThumbnailQuietGate.mjs": "6023cfe9b6b765f195a6c30c66d24c91a8b28082da5da6d190b8d103dc548aa8",
+        "docs/qa/harness/728-room-moment/Natural400Metrics.mjs": "ca77c44f56a498a0fd95917561486ee3000c499f7192b1271758c1a11c68c741",
+        "docs/qa/harness/728-room-moment/PassiveMemoryGate.mjs": "199f09215e7495d9650e603caa15e2f1a3b68bb0261acc968a9841cc9489c98d"
+      },
+      "paperPassport": {
+        "manifest.json": {
+          "bytes": 6532,
+          "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+        },
+        "fine.e59ea6fa.paper": {
+          "bytes": 3983406,
+          "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+        },
+        "fine.a19fcf63.preview": {
+          "bytes": 59686,
+          "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+        }
+      },
+      "memory": [
+        {
+          "phase": "preflight",
+          "enabled": true,
+          "free": 2036,
+          "attempt": 0,
+          "elapsedMs": 1413
+        },
+        {
+          "phase": "ON",
+          "free": 1803
+        },
+        {
+          "phase": "ON",
+          "free": 1810
+        },
+        {
+          "phase": "ON",
+          "free": 1808
+        },
+        {
+          "phase": "ON",
+          "free": 1820
+        },
+        {
+          "phase": "ON",
+          "free": 1811
+        },
+        {
+          "phase": "closed",
+          "free": 1932
+        }
+      ],
+      "errors": [],
+      "networkErrors": [],
+      "result": {
+        "valid": false,
+        "failedPhase": "create",
+        "error": "TimeoutError: page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"[QA origin]/create\", waiting until \"load\"\u001b[22m\n",
+        "partial": {
+          "quality": null,
+          "live": null,
+          "ui": null,
+          "settle": false
+        }
+      },
+      "scope": "No input; navigation failed before Room ready/constructor checks; not candidate regression"
+    },
+    {
+      "file": "result-repaired.json",
+      "phase": "closed",
+      "rows": 0,
+      "sourcePassport": {
+        "docs/qa/harness/728-room-moment/gl-contact-hoist-controller.mjs": "eea3503b26139acb3e16c7ad95f667db583ec1292ce6e6b0f3b0d7531f082882",
+        "apps/web/src/engine/src/watercolor/brushDrag.ts": "febf13b5d339df09c04bcaae38773bf7412abc772f06e4a0002240926adef206",
+        "apps/web/src/engine/src/watercolor/brushDragHoisted.ts": "bc3187f4f73d8aa37d39b9591a389527b1e1b409d2e73bd6300964c822a24ed9",
+        "docs/qa/harness/728-gl-timing/ContactHoistQuality.mjs": "47465ccb301a44054cd41096412380709a3bd50491b004f900ca2b6824a8441b",
+        "apps/web/src/engine/src/raster/CanonicalWatercolorSettlePlan.ts": "bd10157ac1e32f3d3bcf61fe0d3936770c35c05df881019b978efe28bfb012ef",
+        "apps/web/src/engine/src/diagnostics/BoundedGlTiming.ts": "d5dd67ea0b45e2b95accbc6dce0ea3a4220b022fca9695ccb7a8ee4343fe949c",
+        "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "81ae8db2e5a2901112ff3d94b508158671c845a6af0628b692cfa8c962fefd86",
+        "docs/qa/harness/728-gl-timing/GlTiming400Gate.mjs": "2331b3f4f8a171b61fcd5c79943d59c46cc1d412376be4b94b1983472f35ccd2",
+        "apps/web/src/pages/Room/index.tsx": "1c261ae553637d904c76fc09c83c8ba8faa449633ddb081396cd2adf736b0ffa",
+        "apps/web/src/pages/Room/engineWiring.ts": "9f3cfbb4db09571dfe0d091f32fa7a9d4dd11e598e09c5853609e71e7da98278",
+        "apps/web/src/engine/index.ts": "99384eba314575655ff6aa0ba2bc708cab84a5a5b0b29fc7d426849998163125",
+        "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "40e7173707338a9a72b7c7bb263b7be23f9693011c93d5a7c33029e22cad1661",
+        "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+        "apps/web/src/engine/src/buffers/RibbonStrokeScratch.ts": "6c92b6683e5c848d14f05053be81a98cd67c8546b5b315797da6e081389e2e34",
+        "apps/web/src/engine/src/dabs/DabSystem.ts": "816911a80216b7e80bdd1ba7c11be3ea2e02bf3560bc629197a5f7961266c5b3",
+        "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+        "apps/web/src/engine/src/paper/paperWetness.ts": "9edaf471f083947f82461e78d4fa8e3d46ecd985611abdfc688cc891c4b7762d",
+        "docs/qa/harness/728-room-moment/MixedLeaseNatural400.mjs": "d2368c9fd4c4845e15025f0ede052db04d2c2266396033f37dfcabbe2f2aea9b",
+        "docs/qa/harness/728-room-moment/ContinuousPenStroke.mjs": "7079a6f92c921b2f81e9ab0959864b0954fbb55e53ea29a769ac24b2def2648f",
+        "docs/qa/harness/728-room-moment/ContinuousPenRecipe.mjs": "ed9d5d70c674461acf8478f8a5a0158270e1acc9e31280f7f8fa8beec3155710",
+        "docs/qa/harness/728-room-moment/Fixed400Tape.mjs": "9da0a30763c2aeca29f2ea9a5c1451d71024b16cb8218f6c6e633f49e1940eac",
+        "docs/qa/harness/728-room-moment/Fixed400MaterialGate.mjs": "7eb9188febf8f51737aaf0f861d0b49e80e1a0dff9d9e594e92c57125d2bbcd9",
+        "docs/qa/harness/728-room-moment/MixedLeaseUiLifecycle.mjs": "f269d354d7ad34c6423bf0230474d4b97df59330f6c99c1c43b4b04758f05372",
+        "docs/qa/harness/728-room-moment/MixedLeaseUiAssertions.mjs": "f6c52d47cf4cf81411f9cdf7fe2dafeef4eb64d11bdf2f200f85e510656f3903",
+        "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "edf56db76df946a79940f012a8bb9344a7799c0b5204accc4be7774d6bf9aa83",
+        "docs/qa/harness/728-room-moment/HttpActorTrace.mjs": "3f9d1419dc26ef3cfb61a840ebcf30200db98498fee45fbe43a769dca659e99f",
+        "docs/qa/harness/728-room-moment/ThumbnailQuietGate.mjs": "6023cfe9b6b765f195a6c30c66d24c91a8b28082da5da6d190b8d103dc548aa8",
+        "docs/qa/harness/728-room-moment/Natural400Metrics.mjs": "ca77c44f56a498a0fd95917561486ee3000c499f7192b1271758c1a11c68c741",
+        "docs/qa/harness/728-room-moment/PassiveMemoryGate.mjs": "199f09215e7495d9650e603caa15e2f1a3b68bb0261acc968a9841cc9489c98d"
+      },
+      "paperPassport": {
+        "manifest.json": {
+          "bytes": 6532,
+          "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+        },
+        "fine.e59ea6fa.paper": {
+          "bytes": 3983406,
+          "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+        },
+        "fine.a19fcf63.preview": {
+          "bytes": 59686,
+          "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+        }
+      },
+      "memory": [
+        {
+          "phase": "preflight",
+          "enabled": true,
+          "free": 1979,
+          "attempt": 0,
+          "elapsedMs": 1330
+        },
+        {
+          "phase": "ON",
+          "free": 1797
+        },
+        {
+          "phase": "ON",
+          "free": 1810
+        },
+        {
+          "phase": "ON",
+          "free": 1805
+        },
+        {
+          "phase": "ON",
+          "free": 1817
+        },
+        {
+          "phase": "ON",
+          "free": 1816
+        },
+        {
+          "phase": "ON",
+          "free": 1803
+        },
+        {
+          "phase": "closed",
+          "free": 1927
+        }
+      ],
+      "errors": [],
+      "networkErrors": [],
+      "result": {
+        "valid": false,
+        "failedPhase": "create",
+        "error": "TimeoutError: page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"[QA origin]/create\", waiting until \"domcontentloaded\"\u001b[22m\n",
+        "partial": null
+      },
+      "scope": "No input; navigation failed before Room ready/constructor checks; not candidate regression"
+    }
+  ]
+}
