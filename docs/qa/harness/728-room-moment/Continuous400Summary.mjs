@@ -1,0 +1,4 @@
+export function continuous400Summary(row){
+ const stats=a=>{const x=a.filter(Number.isFinite).sort((a,b)=>a-b);return{count:x.length,median:x[Math.floor(x.length*.5)]??null,p95:x[Math.floor(x.length*.95)]??null,max:x.at(-1)??null,over33:x.filter(v=>v>33).length,over100:x.filter(v=>v>100).length}};
+ return{scope:'CPU submit and rAF observations, not GPU time/physical pen latency',strokes:row.rows.map(s=>({ordinal:s.ordinal,activeRaf:stats(s.frames.map((v,i)=>v-(i?s.frames[i-1]:s.start))),moveCpu:stats(s.handlers.filter(h=>h.phase==='move').map(h=>h.end-h.at)),downCpu:s.handlers[0].end-s.handlers[0].at,firstDisplayReturn:row.display.find(d=>d.at>=s.start)?.end-s.start,canonicalRequestsMax:Math.max(0,...row.queue.filter(q=>q.ordinal===s.ordinal).map(q=>q.canonicalRequests??0)),pendingSamples:row.queue.filter(q=>q.ordinal===s.ordinal&&q.pending).length})),displayCpu:stats(row.display.map(d=>d.end-d.at))};
+}
