@@ -1,0 +1,87 @@
+{
+  "source": "7d62cfe27649aee72d033dd33c75bc6bcfa1d4f9",
+  "scope": "Four-stroke current-source reference completed; OFF/ON pair blocked before OFF context by unchanged RAM guard, no paired gain claim",
+  "reference": {
+    "complete": true,
+    "ownedContextDisposed": true,
+    "gl": 0,
+    "export": {
+      "width": 1754,
+      "height": 2480,
+      "alpha": 141333,
+      "sha": "d3e47120473b3dc5c9c4e4454f2b9975abd8d09d6f43d5add4271087de460208",
+      "pngBytes": 449145,
+      "comparisonReady": true
+    },
+    "ramStart": 2061.59765625,
+    "observed": {
+      "ready": {
+        "proofs": [
+          {
+            "kind": "waterFront",
+            "compilerWallMs": 313.69999998807907,
+            "shaderBytes": 4022
+          },
+          {
+            "kind": "diffuse",
+            "compilerWallMs": 226.89999997615814,
+            "shaderBytes": 3135
+          }
+        ],
+        "shaderSHAs": [
+          "7f6d4a85ed974652751c04b5627c998daa289856dceaf7ad9be3373279b63acd",
+          "3f2d13101ac86a41bac904b150292370ad8cf3784a87d34f275f243de24bdf12"
+        ],
+        "dispatches": 0,
+        "fieldBytes": 0
+      },
+      "consumed": [
+        {
+          "kind": "waterFront",
+          "completed": true,
+          "hits": 1,
+          "shaderBytes": 4022
+        },
+        {
+          "kind": "diffuse",
+          "completed": true,
+          "hits": 1,
+          "shaderBytes": 3135
+        }
+      ]
+    },
+    "pressure": {
+      "requested": true,
+      "compile": {
+        "completed": true,
+        "shaderBytes": 11996,
+        "compilerWallMs": 1140.3999999761581,
+        "scope": "exact pipeline compilation only",
+        "shaderSHA": "664ac12d3a663e6463bc6e9dc9a198b2c43ea041fde25bcce3cb1192442cafba",
+        "dispatches": 0,
+        "fieldBytes": 0
+      },
+      "readyDiagnostics": {
+        "completed": true,
+        "hits": 0,
+        "shaderBytes": 11996
+      },
+      "scope": "Actual runtime compile only; no injected pipeline, no GPU duration claim",
+      "final": {
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 11996
+      }
+    }
+  },
+  "off": {
+    "error": "Error: RAM preflight below1700MiB",
+    "ramStart": 1598.68359375,
+    "contextCreated": false
+  },
+  "setupFailure": {
+    "reason": "Missing mandatory observedShaderSHAs in first origin manifest; before first DOWN",
+    "ownedContextDisposed": true,
+    "fixedBy": "Offline exact kernels import SHA and assertObservedReady against recorded READY"
+  }
+}
