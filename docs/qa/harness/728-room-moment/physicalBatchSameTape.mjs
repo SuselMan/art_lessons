@@ -1,0 +1,24 @@
+import{installPhysicalBatchTwoQa}from'./PhysicalBatchTwoQa.mjs';
+/** Real engine replay gate; call OFF/ON in separate own pages, same supplied tape. */
+export async function runPhysicalBatchSameTape({engineUrl,tape,enabled}){
+ if(!Array.isArray(tape)||tape.length!==4||tape.some(o=>o.type!=='stroke'||!o.dabsPacked||o.preset!=='normal:100:100:PB29:round')||typeof enabled!=='boolean')throw Error('Exact four original packed strokes/explicit arm required');
+ const actor=tape[0].userId,layerId=tape[0].layerId;if(tape.some(o=>o.userId!==actor||o.layerId!==layerId))throw Error('One original actor/layer scope');
+ const hash=async bytes=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(v=>v.toString(16).padStart(2,'0')).join('');
+ const {PencilEngine}=await import(engineUrl),canvas=document.createElement('canvas');canvas.width=canvas.height=1024;document.getElementById('surface').replaceChildren(canvas);const e=new PencilEngine(canvas,{paper:'fine',pageWidth:1024,pageHeight:1024,userId:actor,gradientFibres:true});let qa,originalStart;const scratches=new Set(),rafIntervals=[];let last=null,rafId=0,observing=true;
+ const tick=at=>{if(!observing)return;if(last!==null&&rafIntervals.length<2048)rafIntervals.push(at-last);last=at;rafId=requestAnimationFrame(tick)};
+ const idle=async()=>{const end=performance.now()+60000;while(e._settle||e._wcCanonical.pending||e._rebuildJobs.size||e._unsettledLayers.size){if(performance.now()>end)throw Error('Bounded same tape idle');await new Promise(requestAnimationFrame)}};
+ try{
+  await e.paperReady();qa=installPhysicalBatchTwoQa(e,{enabled});originalStart=e._settleQueue.start;e._settleQueue.start=function(scratch,...args){scratches.add(scratch);return originalStart.call(this,scratch,...args)};
+  const flags=qa.flags(),tapeSHA=await hash(new TextEncoder().encode(JSON.stringify(tape)));e.appendOperation({id:'batch-two-fixture-layer',type:'layer_add',userId:actor,layerId,timestamp:tape[0].timestamp-1,name:'QA'},'remote');e.setActiveLayer(layerId);e.setCompositeOrder([{id:layerId,opacity:1}]);e.setLocked(false);
+  rafId=requestAnimationFrame(tick);const start=performance.now();for(const op of tape){e.appendOperation(structuredClone(op),'remote');await idle()}const replayMs=performance.now()-start;observing=false;cancelAnimationFrame(rafId);
+  if(e._fieldReleaseTimer){clearTimeout(e._fieldReleaseTimer);e._fieldReleaseTimer=0}
+  const fields=[];const inspect=async(label,b)=>{if(!b){fields.push({label,absent:true});return}const bytes=b.readPixels();if(bytes.length!==b.width*b.height*4)throw Error('Field byte contract '+label);fields.push({label,width:b.width,height:b.height,bytes:bytes.length,nonzero:bytes.reduce((n,v)=>n+(v!==0),0),sha:await hash(bytes)})};
+  const keys=['original','coverage','inkLoad','inkColor','inkDry','colorDry','solventLoad','solventBase','inkBase','colorBase','strokeInk','strokeColor','inkSettled','colorSettled'];let si=0;for(const scratch of scratches){let ti=0;for(const[,entry]of scratch.tileEntries()){for(const key of keys)await inspect('scratch'+si+':tile'+ti+':'+key,entry[key]);ti++}si++}
+  for(let i=0;i<e._fieldCache.length;i++)for(const key of ['a','b','c','ca','cb','cc','coverage','mask','pressure','band'])await inspect('field'+i+':'+key,e._fieldCache[i][key]);
+  for(const key of ['coverage','inkLoad','inkColor'])if(!fields.some(f=>f.label.endsWith(':'+key)&&f.nonzero>0))throw Error('Mandatory canonical nonzero '+key);
+  const tiles=[...e._layers.get(layerId).allResident()];if(tiles.length!==1)throw Error('One material tile required');await inspect('material',tiles[0].buffer);
+  const exportStart=performance.now(),blob=await e.exportPNG(true);if(!blob)throw Error('Export missing');const image=await createImageBitmap(blob),out=document.createElement('canvas');out.width=image.width;out.height=image.height;const ctx=out.getContext('2d');ctx.drawImage(image,0,0);image.close();const rgba=ctx.getImageData(0,0,out.width,out.height).data,whole={width:out.width,height:out.height,sha:await hash(rgba)};out.width=out.height=0;
+  return{enabled,flags,flagsAfter:qa.flags(),tapeSHA,recordedTapeSHA:await hash(new TextEncoder().encode(JSON.stringify(e.getOperations().filter(o=>o.type==='stroke')))),fields,whole,replayMs,readbackExportMs:performance.now()-exportStart,rafIntervals,glError:e.gl.getError(),lost:e.gl.isContextLost(),scope:'Real original remote replay one tile; timing before field readbacks; not author/physical pen latency'};
+ }finally{observing=false;cancelAnimationFrame(rafId);if(originalStart)e._settleQueue.start=originalStart;qa?.restore();e.destroy()}
+}
+export function comparePhysicalBatchArms(a,b){return !!a&&!a.glError&&!b.glError&&!a.lost&&!b.lost&&a.tapeSHA===b.tapeSHA&&a.recordedTapeSHA===b.recordedTapeSHA&&JSON.stringify(a.fields)===JSON.stringify(b.fields)&&JSON.stringify(a.whole)===JSON.stringify(b.whole)&&a.flags.physicalBatchTwo===false&&b.flags.physicalBatchTwo===true}
