@@ -1,0 +1,186 @@
+{
+  "scope": "Actual saved virtual raw paired residual128, clamp is CPU projection not new physical deposition. Angular spectrum per annulus, raw uses absolute signed-mass normalization.",
+  "input": {
+    "p": "b839ed2d1ea5ae415d905ff73950bc0a1f79ef4a2bf159307fab67b7dce78d33",
+    "c": "f38d90a5d4d9dc724a6091e4b6b2ca80feb47b8ef7a55d7f4d0fa74daa3fe85a",
+    "bytes": 524288,
+    "center": [
+      65.45454406738281,
+      65.58932876586914
+    ]
+  },
+  "metrics": {
+    "p": {
+      "channels": [
+        {
+          "sum": 5.694117938771503,
+          "clippedSum": 5.694117938771503,
+          "negativeCount": 0,
+          "negativeAdded": 0,
+          "upperRemoved": 0,
+          "min": 0,
+          "max": 0.12350237369537354
+        },
+        {
+          "sum": 5.694117938771503,
+          "clippedSum": 5.694117938771503,
+          "negativeCount": 0,
+          "negativeAdded": 0,
+          "upperRemoved": 0,
+          "min": 0,
+          "max": 0.12350237369537354
+        },
+        {
+          "sum": 5.694117938771503,
+          "clippedSum": 5.694117938771503,
+          "negativeCount": 0,
+          "negativeAdded": 0,
+          "upperRemoved": 0,
+          "min": 0,
+          "max": 0.12350237369537354
+        },
+        {
+          "sum": 5.694117938771503,
+          "clippedSum": 5.694117938771503,
+          "negativeCount": 0,
+          "negativeAdded": 0,
+          "upperRemoved": 0,
+          "min": 0,
+          "max": 0.12350237369537354
+        }
+      ],
+      "annuli": [
+        {
+          "inner": 0,
+          "outer": 4,
+          "mass": 2.1164360167458653,
+          "rawSignedMass": 2.1164360167458653,
+          "rawAbsoluteMass": 2.1164360167458653,
+          "rawH4": 0.019038863733558745,
+          "rawH8": 0.21607145941099454,
+          "h4": 0.019038863733558745,
+          "h8": 0.21607145941099454
+        },
+        {
+          "inner": 4,
+          "outer": 12,
+          "mass": 3.08946866216138,
+          "rawSignedMass": 3.08946866216138,
+          "rawAbsoluteMass": 3.08946866216138,
+          "rawH4": 0.08655195718318962,
+          "rawH8": 0.028343683018721335,
+          "h4": 0.08655195718318962,
+          "h8": 0.028343683018721335
+        },
+        {
+          "inner": 12,
+          "outer": 32,
+          "mass": 0.4882132504650317,
+          "rawSignedMass": 0.4882132504650317,
+          "rawAbsoluteMass": 0.4882132504650317,
+          "rawH4": 0.011091723437081705,
+          "rawH8": 0.01650046402741283,
+          "h4": 0.011091723437081705,
+          "h8": 0.01650046402741283
+        },
+        {
+          "inner": 32,
+          "outer": 64,
+          "mass": 9.399227215989292e-9,
+          "rawSignedMass": 9.399227215989292e-9,
+          "rawAbsoluteMass": 9.399227215989292e-9,
+          "rawH4": 0.8185178434504744,
+          "rawH8": 0.8428144896126225,
+          "h4": 0.8185178434504744,
+          "h8": 0.8428144896126225
+        }
+      ]
+    },
+    "c": {
+      "channels": [
+        {
+          "sum": 1.7019608817517484,
+          "clippedSum": 1.7019608817517484,
+          "negativeCount": 0,
+          "negativeAdded": 0,
+          "upperRemoved": 0,
+          "min": 0,
+          "max": 0.037723563611507416
+        },
+        {
+          "sum": 2.6941177822844398,
+          "clippedSum": 2.6941177822844398,
+          "negativeCount": 0,
+          "negativeAdded": 0,
+          "upperRemoved": 0,
+          "min": 0,
+          "max": 0.05838203430175781
+        },
+        {
+          "sum": 0.8509804012550147,
+          "clippedSum": 0.8509804012550147,
+          "negativeCount": 0,
+          "negativeAdded": 0,
+          "upperRemoved": 0,
+          "min": 0,
+          "max": 0.018399905413389206
+        },
+        {
+          "sum": 5.694117938771503,
+          "clippedSum": 5.694117938771503,
+          "negativeCount": 0,
+          "negativeAdded": 0,
+          "upperRemoved": 0,
+          "min": 0,
+          "max": 0.12350237369537354
+        }
+      ],
+      "annuli": [
+        {
+          "inner": 0,
+          "outer": 4,
+          "mass": 2.1164360167458653,
+          "rawSignedMass": 2.1164360167458653,
+          "rawAbsoluteMass": 2.1164360167458653,
+          "rawH4": 0.019038863733558745,
+          "rawH8": 0.21607145941099454,
+          "h4": 0.019038863733558745,
+          "h8": 0.21607145941099454
+        },
+        {
+          "inner": 4,
+          "outer": 12,
+          "mass": 3.08946866216138,
+          "rawSignedMass": 3.08946866216138,
+          "rawAbsoluteMass": 3.08946866216138,
+          "rawH4": 0.08655195718318962,
+          "rawH8": 0.028343683018721335,
+          "h4": 0.08655195718318962,
+          "h8": 0.028343683018721335
+        },
+        {
+          "inner": 12,
+          "outer": 32,
+          "mass": 0.4882132504650317,
+          "rawSignedMass": 0.4882132504650317,
+          "rawAbsoluteMass": 0.4882132504650317,
+          "rawH4": 0.011091723437081705,
+          "rawH8": 0.01650046402741283,
+          "h4": 0.011091723437081705,
+          "h8": 0.01650046402741283
+        },
+        {
+          "inner": 32,
+          "outer": 64,
+          "mass": 9.399227215989292e-9,
+          "rawSignedMass": 9.399227215989292e-9,
+          "rawAbsoluteMass": 9.399227215989292e-9,
+          "rawH4": 0.8185178434504744,
+          "rawH8": 0.8428144896126225,
+          "h4": 0.8185178434504744,
+          "h8": 0.8428144896126225
+        }
+      ]
+    }
+  }
+}
