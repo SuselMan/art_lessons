@@ -1,3 +1,4 @@
+import type {WetTranscriptEvent} from './src/paper/WetTranscript'
 import { BoundedGlTiming } from './src/diagnostics/BoundedGlTiming'
 import type {RoomNativeRuntime} from './src/webgpuCanonical/roomNativeRuntime'
 import { ribbonDabTouchesTile } from './src/dabs/dabWorldHalfExtents'
@@ -256,6 +257,8 @@ const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 export interface PencilEngineOptions {
   /** CPU-only internal admission seam; no Room/query activation. */
   diagnosticPointerAdmission?: boolean
+  /** Internal DEV CPU transcript only; requires diagnosticPointerAdmission. */
+  diagnosticWetTranscript?: (event: WetTranscriptEvent) => void
   /** Isolated WebGL2 compatibility/MRT prototype; default OFF, no fallback. */
   diagnosticWebgl2?: boolean
   /** QA-only constructor opt-ins; defaults remain OFF. */
@@ -1522,6 +1525,9 @@ interface CarriedWash { key: string; userId: string; washStrokeId: string | unde
 export class PencilEngine implements PencilEngineAPI {
   private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext
+  private _wetTranscriptObserver: ((event: WetTranscriptEvent) => void) | null = null
+  private _wetTranscriptErrors = 0
+  private _wetTranscriptBatch = 0
   private _diagnosticPointerAdmission = false
   private _admittedPointerStrokeId: string | null = null
   private _admittedPointerTimestamp: number | null = null
@@ -2303,6 +2309,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
     this._diagnosticPointerAdmission = import.meta.env.DEV && options.diagnosticPointerAdmission === true
+    if (this._diagnosticPointerAdmission && options.diagnosticWetTranscript) this._wetTranscriptObserver = options.diagnosticWetTranscript
     this.canvas = canvas
     if (import.meta.env.DEV && options.diagnosticHoistedContactRaster && (options.nativeWatercolor || options.asyncFinish || options.joinedFinishDeferred || options.joinedTouchMixed || options.materialPresentation)) throw Error('Hoisted contact raster requires ordinary GL arm')
     this._settlePlan.diagnosticHoistedContactRaster = import.meta.env.DEV && options.diagnosticHoistedContactRaster === true
@@ -6313,6 +6320,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokeWet = ''
     this._liveWetQueue = ''
     this._paperWet.dropPending()
+    if (this._wetTranscriptObserver && this._strokeTool === 'watercolor') this._observeWet({kind:'drop-pending'})
     if (profile.normalizeDeposit) {
       const now = performance.now()
       const open = this._wash
@@ -6827,6 +6835,7 @@ export class PencilEngine implements PencilEngineAPI {
     const localHeld = this._wcAsyncLocalStroke ? this._wcAsyncLocalTools.get(this._wcAsyncLocalStroke) : undefined
     if (localHeld) localHeld.ended = true
     this._wcAsyncLocalStroke = null
+    const transcriptOwner = this._wetTranscriptObserver && this._strokeTool === 'watercolor' ? this._strokeId : null
     this._strokeId = null
     this._strokeLayerId = null
     this._strokeExtraLayerIds = []
@@ -6836,7 +6845,11 @@ export class PencilEngine implements PencilEngineAPI {
     // (#536) …and only now may the *next* stroke read it. It has been on screen
     // since the first dab — see PaperWetness._pending on why those are two
     // different questions.
-    if (this._glTiming?.isActive()) this._glTiming.measure('up-pending-commit', () => this._paperWet.commitPending(performance.now()))
+    if (transcriptOwner) {
+      const commit = () => { const now = performance.now(); this._paperWet.commitPending(now); this._observeWet({kind:'commit',strokeId:transcriptOwner,now}) }
+      if (this._glTiming?.isActive()) this._glTiming.measure('up-pending-commit', commit)
+      else commit()
+    } else if (this._glTiming?.isActive()) this._glTiming.measure('up-pending-commit', () => this._paperWet.commitPending(performance.now()))
     else this._paperWet.commitPending(performance.now())
     // The paper is now wetter than it was, and nothing else will ask for a
     // frame until the next stroke — so this is where watching it dry starts.
@@ -6915,6 +6928,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  `elapsedMs` is this call's dabs' distance from _strokeStartTimestamp —
    *  a peer's live-stroke reveal (previewOperation) plays them back at this
    *  pacing. */
+  private _observeWet(event: WetTranscriptEvent): void {
+    try { this._wetTranscriptObserver?.(event) } catch { this._wetTranscriptErrors++ }
+  }
+
   private _paintStrokeDabs(dabs: Dab[], speed: number, elapsedMs: number): void {
     if (!dabs.length || !this._strokeLayerId) return
     const layerId = this._strokeLayerId
@@ -6962,7 +6979,15 @@ export class PencilEngine implements PencilEngineAPI {
       const now = performance.now()
       let seen = ''
       const nibMul = this._resolvePreset(this._strokeTool, this._strokePreset).sizeMultiplier
-      for (const dab of dabs) seen += quantizeWet(this._paperWet.sampleUnderNib(layerId, dab.x, dab.y, dab.size * 0.5 * nibMul * Math.max(dab.aspectRatio, 1), now))
+      if (this._wetTranscriptObserver && this._strokeId) {
+        const batch = ++this._wetTranscriptBatch
+        for (const dab of dabs) {
+          const radius = dab.size * 0.5 * nibMul * Math.max(dab.aspectRatio, 1)
+          const value = this._paperWet.sampleUnderNib(layerId, dab.x, dab.y, radius, now)
+          seen += quantizeWet(value)
+          this._observeWet({kind:'sample',strokeId:this._strokeId,layerId,x:dab.x,y:dab.y,radius,now,value,batch})
+        }
+      } else for (const dab of dabs) seen += quantizeWet(this._paperWet.sampleUnderNib(layerId, dab.x, dab.y, dab.size * 0.5 * nibMul * Math.max(dab.aspectRatio, 1), now))
       this._strokeWet += seen
       this._liveWetQueue += seen
       batchWet = seen
@@ -7007,8 +7032,12 @@ export class PencilEngine implements PencilEngineAPI {
         // recorded number is the one the mark was built from, so the paper and
         // the mark cannot come to different conclusions about how wet it was.
         const drained = watercolorPaperDrained(wetAt(batchWet, i), water)
-        if (drained > 0) this._paperWet.drain(layerId, dab.x, dab.y, dab.size * 0.5, drained)
+        if (drained > 0) {
+          this._paperWet.drain(layerId, dab.x, dab.y, dab.size * 0.5, drained)
+          if (this._wetTranscriptObserver && this._strokeId) this._observeWet({kind:'drain',strokeId:this._strokeId,layerId,x:dab.x,y:dab.y,radius:dab.size*0.5,fraction:drained})
+        }
         this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5, standing?.get(dab) ?? water, now, true, this._dabPool.get(dab) ?? 0)
+        if (this._wetTranscriptObserver && this._strokeId) this._observeWet({kind:'deposit',strokeId:this._strokeId,layerId,x:dab.x,y:dab.y,radius:dab.size*0.5,amount:standing?.get(dab)??water,now,pool:this._dabPool.get(dab)??0,batch:this._wetTranscriptBatch})
       }
       this._scheduleDryingRepaint()
     }

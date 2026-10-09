@@ -63,3 +63,6 @@ Follow-up: bounded per-field NumberMap проверен и отклонён: ful
 - [ ] Watercolor admitted-context parity remains HOLD: nonserializable PaperWetness needs full fork and per-batch receipt times, not only DOWN. Existing stencil/film owners are not frozen by this seam.
 
 - [x] DEV PaperWetness opaque bounded CPU snapshot/fork: committed/pending/pool/drained/peak/bounds exact copies без clocks/merge; Engine wet admission всё ещё HOLD.
+
+- [x] Actual Engine wet transcript CPU proof: real PointerInput/brush, exact per-batch sample/deposit/UP times, exact Operation.wet and final model rasters on capturedfork. OFF/observer/overflow/time-order negative guards.
+- [ ] Deferred watercolor Engine admission + GPU ownership + fork→live merge remain HOLD; CPU transcript is not UX/pixel/device proof.
