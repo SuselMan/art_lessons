@@ -135,5 +135,6 @@
     "publicationToDisplayReturn": 1.3
   },
   "largestWait": "Prior material publication: 186.4 ms; source admitted at 32264.4 but resumes at 32542.8. Publication includes queued GPU work and GL bridge, not isolated GPU duration.",
-  "safeCandidate": "Reduce exact native\u2192GL publication cost (bounded dirty rectangle readback/import with original row orientation and unchanged RGBA bytes), while preserving FIFO order and owner barriers. Do not admit source early or skip publication until immutable material ownership is proven."
+  "safeCandidate": "Reduce exact canvas publication work using a bounded dirty rectangle render/import only after proving unchanged bytes, alpha0 RGB and GL row orientation. Preserve FIFO order and owner barriers. Current 186.4 ms includes queued GPU work plus canvas import; phase-only evidence cannot attribute them separately. First add scalar markers around existing submitCanvas ACK and restoreCanvasPixels without extra fences/Promises, then select exact optimization.",
+  "actualBridge": "canvas: CanonicalRoomTileBridge.submitCanvas queue-prefix ACK then AccumulationBuffer.restoreCanvasPixels; this run did not use CPU readback bridge."
 }
