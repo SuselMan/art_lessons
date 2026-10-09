@@ -9,6 +9,7 @@ export async function runSchedulingControllerFixture(file){
  if(spec.invalid)row.factorVariants[0].encoded=1
  const save=()=>fs.writeFileSync(out,JSON.stringify(report))
  const descriptors={installed:true}
+ const pending=new Map(spec.pending?[['owned',{timer:null,reject:error=>{events.push('pendingReject');report.pendingError=String(error)}}]]:[])
  const send=async(method)=>{events.push(method);if(spec.readerError)throw Error('mock CDP failure');return{result:{type:'string',value:JSON.stringify(row)}}}
  try{
   events.push('installed')
@@ -16,5 +17,5 @@ export async function runSchedulingControllerFixture(file){
   await collectSchedulingPostInput({report,combinedInteractive:true,factorInteractive:true,expectedShaderSHA:sha,idle:async()=>events.push('idle'),backendIdle:async()=>events.push('existingACK'),readMetadata:()=>send('Runtime.evaluate'),snapshot:async()=>({rows:[]}),inputSnapshot:async()=>({rows:[]}),save})
   report.complete=true
  }catch(error){report.error=String(error);process.exitCode=1}
- finally{await finalizeController({closeOwn:async()=>{descriptors.installed=false;events.push('restore');report.restored=!descriptors.installed;save()},ws:{close:()=>events.push('close')},pending:new Map()});save()}
+ finally{await finalizeController({closeOwn:async()=>{descriptors.installed=false;events.push('restore');report.restored=!descriptors.installed;save()},ws:{close:()=>events.push('close')},pending});report.pendingCleared=pending.size===0;save()}
 }

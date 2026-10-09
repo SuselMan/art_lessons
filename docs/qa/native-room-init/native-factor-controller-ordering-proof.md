@@ -6,4 +6,4 @@
 
 Subprocess запускает настоящий controller.mjs с отдельной offline fixture entry. Он использует тот же post-input phase и тот же transport finally; CDP и owned descriptor restoration моделируются. Это доказательство порядка orchestration, сохранения ошибок и cleanup, а не проверки UI, GPU или модели. Отрицательный legacy-order сценарий воспроизводит прежнюю ошибку до CDP. Другие случаи: invalid encoded count с сохранёнными metadata и CDP exception без придуманных данных.
 
-Targeted tests: 9 PASS; app TypeScript (`tsconfig.app.json`) PASS. Новые аппаратные прогоны не выполнялись. Два исторических interactive результата остаются INVALID; подтверждённая точность отдельной factor OFF/ON пары не меняется.
+Targeted tests: 10 PASS; app TypeScript (`tsconfig.app.json`) PASS. Новые аппаратные прогоны не выполнялись. Два исторических interactive результата остаются INVALID; подтверждённая точность отдельной factor OFF/ON пары не меняется.
