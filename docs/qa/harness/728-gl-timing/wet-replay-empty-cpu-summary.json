@@ -1,0 +1,22 @@
+{
+  "scope": "Actual Engine MockGL fresh empty replay; real300ms after DOWN; natural drying/RAF not suppressed",
+  "error": "Error: Unknown, consumed, foreign or changed wet authority",
+  "revisionBefore": 0,
+  "revisionAfter": 2,
+  "calls": [
+    {
+      "name": "prune",
+      "changed": false,
+      "caller": "_scheduleDryingRepaint Timeout.tick -> live PaperWetness.prune at Engine9509"
+    },
+    {
+      "name": "prune",
+      "changed": false,
+      "caller": "_scheduleDryingRepaint Timeout.tick -> live PaperWetness.prune at Engine9509"
+    }
+  ],
+  "liveUnchanged": true,
+  "rawTraceSHA256": "983a7715fb37f126ec54eba49a306cadd607ccfa5a76d46fe71dc0b507b30426",
+  "surfaceUniqueCause": "UNKNOWN: Surface cohort did not record mutator receipt",
+  "runtimePolicy": "unchanged; conservative no-op invalidation still rejects"
+}

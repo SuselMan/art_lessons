@@ -1,3 +1,5 @@
+import {mkdirSync,writeFileSync} from 'node:fs'
+import {dirname} from 'node:path'
 import {afterEach,expect,it,vi} from 'vitest'
 import {createTestEngine,makeLayerAdd,paperReady} from './testing/engineTestUtils'
 import type {PencilEngine,PencilEngineOptions} from './index'
@@ -7,8 +9,8 @@ import {WetTranscript} from './src/paper/WetTranscript'
 const engines:PencilEngine[]=[]
 afterEach(()=>{for(const e of engines.splice(0))e.destroy()})
 async function setup(options:PencilEngineOptions={}){const {engine:e}=createTestEngine({userId:'actor',...options},{width:64,height:64});engines.push(e);for(const id of ['L1','L2'])e.appendOperation(makeLayerAdd('actor',id));e.setCompositeOrder([{id:'L1',opacity:1},{id:'L2',opacity:1}]);e.setActiveLayer('L1');await paperReady(e);e.setTool('watercolor');e.setPencil('normal:20:100:PB29:round');e.setSize(8);e['_paperWet'].deposit('L1',20,20,32,.8,performance.now()-1000,false,.3);return e}
-async function recorded(){
- const tape=new WetTranscript(),e=await setup({diagnosticPointerAdmission:true,diagnosticWetTranscript:tape.observe}),snapshot=e['_paperWet'].captureDiagnosticSnapshot(),samples:Array<{kind:'start'|'move'|'end';sample:PointerData}>=[]
+async function recorded(empty=false){
+ const tape=new WetTranscript(),e=await setup({diagnosticPointerAdmission:true,diagnosticWetTranscript:tape.observe});if(empty)e['_paperWet'].clear();const snapshot=e['_paperWet'].captureDiagnosticSnapshot(),samples:Array<{kind:'start'|'move'|'end';sample:PointerData}>=[]
  const listeners=new Map<string,((e:PointerEvent)=>void)[]>();const canvas={width:64,height:64,style:{},addEventListener(type:string,fn:(e:PointerEvent)=>void){listeners.set(type,[...(listeners.get(type)??[]),fn])},removeEventListener(){},setPointerCapture(){},getBoundingClientRect:()=>({left:0,top:0,width:64,height:64})} as unknown as HTMLCanvasElement
  const pointer=new PointerInput(canvas);for(const kind of ['start','move','end'] as const)pointer.on(kind,s=>{samples.push({kind,sample:{...s}});if(kind==='start')e['_onStart'](s);else if(kind==='move')e['_onMove'](s);else e['_onEnd'](s)})
  const event=(x:number,t:number)=>({button:0,pointerId:1,pointerType:'pen',pressure:.7,clientX:x,clientY:20,tiltX:8,tiltY:-4,timeStamp:t} as PointerEvent);const emit=(type:string,event:PointerEvent)=>{for(const fn of listeners.get(type)??[])fn(event)}
@@ -83,4 +85,17 @@ it('authority capture rejects existing ID and silent append rejection cannot cre
  const end=fresh.r.samples.find(item=>item.kind==='end')!
  expect(()=>fresh.e.diagnosticDispatchPointerAdmission(fresh.packet,'end',end.sample,fresh.r.op.timestamp)).toThrow('not accepted')
  expect(()=>fresh.e.diagnosticPromoteCompletedWetReplay(fresh.packet)).toThrow('acceptance')
+})
+
+it('fresh empty natural RAF replay records live mutator reason without disabling drying or bypassing authority',async()=>{
+ const r=await recorded(true);await new Promise(resolve=>setTimeout(resolve,1000))
+ const e=await setup({diagnosticPointerAdmission:true,diagnosticWetReplay:true});e['_paperWet'].clear();const live=e['_paperWet'],authority=live.captureDiagnosticAuthority(),revision=Reflect.get(live,'_diagnosticMutationRevision'),before=rawWet(live),calls:Array<{name:string;changed:boolean;stack:string}>=[]
+ for(const name of ['deposit','drain','dropPending','commitPending','prune','forgetLayer','clear'] as const){const original=live[name].bind(live);vi.spyOn(live,name).mockImplementation(((...args:unknown[])=>{const prior=JSON.stringify(rawWet(live)),stack=Error().stack??'';const result=Reflect.apply(original,live,args);calls.push({name,changed:prior!==JSON.stringify(rawWet(live)),stack});return result}) as never)}
+ const packet=e.diagnosticCaptureWetReplayAuthority(r.op.strokeId!,r.op.washId!,r.op.id,authority,r.tape.events,{dropped:0,errors:0})
+ for(const item of r.samples){e.diagnosticDispatchPointerAdmission(packet,item.kind,item.sample,r.op.timestamp);if(item.kind==='start')await new Promise(resolve=>setTimeout(resolve,300))}
+ await vi.waitFor(()=>{expect(e['_settle']).toBeNull();expect(e['_opQueue']).toHaveLength(0);expect(e['_rebuildJobs'].size).toBe(0);expect(e['_pendingRebuilds'].size).toBe(0);expect(e['_unsettledLayers'].size).toBe(0)},{timeout:1000})
+ let error:string|null=null;try{e.diagnosticPromoteCompletedWetReplay(packet)}catch(e){error=String(e)}
+ const evidence={error,revisionBefore:revision,revisionAfter:Reflect.get(live,'_diagnosticMutationRevision'),calls,liveUnchanged:JSON.stringify(before)===JSON.stringify(rawWet(live))}
+ if(process.env.QA_WET_CPU_TRACE){mkdirSync(dirname(process.env.QA_WET_CPU_TRACE),{recursive:true});writeFileSync(process.env.QA_WET_CPU_TRACE,JSON.stringify(evidence,null,2))}
+ expect(error).toContain('authority');expect(calls.some(call=>call.name==='prune'&&!call.changed)).toBe(true);expect(evidence.liveUnchanged).toBe(true)
 })
