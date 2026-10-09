@@ -1,0 +1,1791 @@
+{
+  "computedPassport": {
+    "apps/web/src/engine/index.ts": "ad8687731c626d52921c1cbef4a96fb2eddbf221f83cd42db62031cedb90d6d3",
+    "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "2b62d469fd8175b74cefc937fd748668e5f0367109c9cc9c8103d53f3f576c96",
+    "apps/web/src/engine/src/dabs/canonicalStrokeChunk.ts": "d5bfd4ed0f1896c39dd3fa21232b9cc5c92d96c799cb686dfbc4af26b2334197",
+    "docs/qa/harness/728-gl-queue-batch/owner-fifo-install.mjs": "a669b33483859fc9541f3d1adf7ac0bea0500fc14a764b91385ade264bc45356",
+    "docs/qa/harness/728-gl-queue-batch/owner-fifo-entry.html": "fbea8390337be5181293750bb970ae5e3c4cfe2e88c31c6c0e06808a9a7edf81",
+    "docs/qa/harness/728-gl-queue-batch/ownerFifoRoomScenario.mjs": "f579b76f71c2ba844db03030afbf622c8ac786ad362a8e5e7d98e3c9ea020679",
+    "temp/owner-fifo-runtime/source-passport.json": "e8cd120ebb32468361435fc4011b98ae030f35d516e3b4eac9dc38428fadc4ab",
+    "docs/qa/harness/728-gl-queue-batch/OwnedGlPreparedSource.ts": "add0d4603a7ffbe4918722d7838601e56ebe70dcd30354888b9e21613f301c6c",
+    "docs/qa/harness/728-gl-queue-batch/OwnedPresentationMorphBridge.mjs": "dfa5598a1c826f4d7570d1b2f44b9db9dd9e51b541a5c6586f441e8331454aaa",
+    "docs/qa/harness/728-gl-queue-batch/ReservedVisualScratch.mjs": "2b947016b00925cb59292acac18eab68a000bb2f4a10ae71846d88c6d1f6464c",
+    "docs/qa/harness/728-gl-queue-batch/PrewarmedEngineRevealSlots.ts": "14b40772d539e54ccae6c5fc800e19c432206405237cb10f406aef4a8b5c297f",
+    "docs/qa/harness/728-gl-queue-batch/OwnedVisibleProbe.mjs": "aced5df9b72a18beee25b10922bbb2e516d7b06b6124186fa5ca0a44b7b47ab8",
+    "docs/qa/harness/728-gl-queue-batch/RetainedWaterProbe.mjs": "35cc5fde7cdfe8680c8004474580cac37e9ae6f36cc710ce1132a5202e108da0",
+    "docs/qa/harness/728-gl-queue-batch/OwnedPreviewRuntime.mjs": "468ff0066cb63b5fa78a0bcac13def5683d2577adb0cab1b044e159f07c276a2",
+    "docs/qa/harness/728-gl-queue-batch/OwnedPreviewReleaseGuard.mjs": "b51a714eb2f62cf05f520a1ca7b7aa86a781fab69969bf9560c0f55fabb1e153",
+    "docs/qa/harness/728-gl-queue-batch/OwnedPreviewDisplayField.mjs": "74f981cc6b265b698eb183d9cc03823bcb082a1fc13fbb6e3255e71482805ca9",
+    "docs/qa/harness/728-gl-queue-batch/PrewarmedPreviewPool.mjs": "de5f6913e190ef720d189103c943ef9c7807efc962d77075e91b1191318d500e",
+    "docs/qa/harness/728-gl-queue-batch/SealedPreviewTransport.mjs": "dc73f1aa47df2ed0ee406749c4893ad61aa97b32401062fde3df183d00a48dc3",
+    "docs/qa/harness/728-gl-queue-batch/SealedPreviewGlPort.mjs": "d2982c5e1dd3a4ac0574fe1c16db6c6a11f917031978c10fe1335ccd36cdd3c0",
+    "docs/qa/harness/728-gl-queue-batch/PreviewWaterDomain.mjs": "675d4363e698346a2db3027ac51b011064a038dce8fb42ff92551b05b3adb08d",
+    "docs/qa/harness/728-gl-queue-batch/PreviewFloatProbe.mjs": "2ae2f8baaa77e9d068f2959773fe91124a75b7a5c6006a296b04ab540f67ad38",
+    "docs/qa/harness/728-gl-queue-batch/PreviewManualMaterial.mjs": "cf03ba9811075c361998c0a36e3e6ab21dfd3d9aa5d2249cd2962f5150a19877",
+    "docs/qa/harness/728-gl-queue-batch/PreviewFixedPool.mjs": "b19d45762345db91811d6de5ec6da9a1d2f22e378edcd32786cd277fd028e46a",
+    "docs/qa/harness/728-gl-queue-batch/PreviewInheritedGeometry.mjs": "37da3aaa606d9409734dd4ce07985e5faf800de530e7a9e45b448147ce1052c6",
+    "docs/qa/harness/728-gl-queue-batch/PreviewPathPool.mjs": "9b6b847f65a3c004ca84f21945adddb10bd52cf435453acf5511371f3537826e",
+    "docs/qa/harness/728-gl-queue-batch/PreviewCostPathWarm.mjs": "938409eb6615446cbfc1f2037ffaadd18d67e21fd82e6f675f7cf9666c2b7343",
+    "docs/qa/harness/728-gl-queue-batch/PreviewCarryFieldProbe.mjs": "f76ddbc46870cbd8eaac8fcecc93d7454070aa0e836fe77a10b6fc8facc2e392",
+    "docs/qa/harness/728-gl-queue-batch/serializeCarryFieldProbe.mjs": "0aa695b3ba4b89dd709e476a0e0313d1048d18c22969925a949c0cf9dfbc9ec7",
+    "docs/qa/harness/728-gl-queue-batch/PreviewWetPathSeed.mjs": "2b9097e6e5755a9f61837c02b9b12e6d9e24245069950130e3d288839d85c200",
+    "docs/qa/harness/728-gl-queue-batch/PreviewMultiscaleCarry.mjs": "618f6cf1f5bd2124895dd8986333628d963bb933c400f25d719bca125ef966ae",
+    "docs/qa/harness/728-gl-queue-batch/PreviewPressurePool.mjs": "e6a956078631eb3235e0cf0da52dd843e815cd815dbed7113bfbe649cf3a03d1",
+    "docs/qa/harness/728-gl-queue-batch/PreviewCarrySession.mjs": "34bce37643ac83460aee628ed7e9167e1e9b81224d9a70df065929e9387b81de",
+    "docs/qa/harness/728-gl-queue-batch/completeFrontCycles.mjs": "25de4983ce3fe1d949cbdbea29817c755536c9ac36ae032d6b13e36e4747db80",
+    "docs/qa/harness/728-gl-queue-batch/ownerLaunchFlags.mjs": "1ebe18c7d09dedcd6b1a528aa66d446dfb0baddd31ac05ba4f990f1273573f6c",
+    "docs/qa/harness/728-gl-queue-batch/InitialMaterialComparator.mjs": "1d0822c51941ce6e5041b148ce923603335e115c7264b11e7660c0fb1d59a1e9",
+    "docs/qa/harness/728-gl-queue-batch/PreviewInitialMomentPool.mjs": "7f2372085d8d13da5eff7e89904227d881d75a45e7e5986ef1f206ca5acd2031",
+    "docs/qa/harness/728-gl-queue-batch/PreviewResidualMaterial.mjs": "d30ac59989e2b5fe8fa918f76d2c19180b319216062157674b42a0f26db26352",
+    "docs/qa/harness/728-gl-queue-batch/analyzeInitialMaterialComparison.mjs": "2a4cff2528b9d72507ccdf4c739dd751150f2d7c62b0ca16350856477cb1b9c7",
+    "docs/qa/harness/728-gl-queue-batch/PreviewCarrySourceOptions.mjs": "4adf82e5f55c6f17c1545c27bb28abb112ff75a996869b1fabc72471ca32f8f2",
+    "docs/qa/harness/728-gl-queue-batch/PreviewCarryContract.mjs": "252b7641c2f7b021315bde33c263ed79b87714039224530d92d58b390f5257c5",
+    "docs/qa/harness/728-gl-queue-batch/PreviewFrontCarryGlPort.mjs": "4a2f305a6c3c634a942216ffcdd4b3dbc2ea426e9b7ade5306cb2bcef170c0b4",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+    "docs/qa/harness/728-gl-queue-batch/PreviewFixedAccumulator.mjs": "8768f9a2b926b86580fcacfe3900a0e3f3b688003e3505ee947682e9d4f8b0dc",
+    "docs/qa/harness/728-gl-queue-batch/PreviewFractionalDiffuse.mjs": "13f4811f740d06c9c8a21bcb39371d22e4c1997703956e552315720e0479420b",
+    "docs/qa/harness/728-gl-queue-batch/PreviewSettlingBudget.mjs": "b791ff2a51c652307d9c8272fd1bebef6a54f148fb593a78306b33b773f0b8f0",
+    "docs/qa/harness/728-gl-queue-batch/PreviewDiffusionClock.mjs": "cf22b5b4037e34e2ebd86099207cc00b2d9182905671be0fcd8034806c1950a1",
+    "apps/web/src/engine/src/watercolor/wetDiffusion.ts": "8873ebb15fa8f7ede8b03f8c8c0cefb63e9dd4b13eb42612273795d3b96075b6",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+    "docs/qa/harness/728-gl-queue-batch/PreviewMaterialArtifactProbe.mjs": "4cc73cca7c20b1c1789f2b1981688aedd09178a2f8401a391768a78b46c08713",
+    "docs/qa/harness/728-gl-queue-batch/PreviewSourceSpacing.mjs": "c51b47131576f87e8db5f5015bc9354f831c9e63fa93444079f41d6884c9b5c6",
+    "docs/qa/harness/728-gl-queue-batch/prepare-owner-fifo-runtime.mjs": "2b57a44a535755e4176f1bee4d23f0ee35c2e69c5f59b39c1e6dd3cb4574a3fc",
+    "docs/qa/harness/728-gl-queue-batch/PreviewMaterialDiagnostic.mjs": "3e637b2638b1ca7471963fcd92ac658ea287f94e061ef552a33c1fbb3d1e4105",
+    "docs/qa/harness/728-gl-queue-batch/PreviewMaterialRoiTarget.mjs": "e44a6304ec0bbe94e1e67b864de5a8d488fd88a93619600765ee05e553a14f1b",
+    "docs/qa/harness/728-room-moment/TypedPreviewPool.mjs": "f79eec8212265ea192059b4044f02de5f523f4410d4fc3306e3e7b6911f7ba6c",
+    "docs/qa/harness/728-room-moment/TypedPreviewTransport.mjs": "ae60ec59d96ea1470acbc4bfbd221c7d61ba8c4197c2ef75b80fa1db11056f8b",
+    "docs/qa/harness/728-room-moment/PreviewPairedFloatAllocator.mjs": "d1c1c0822c56a8a78efd08d1ed3f729ef11343e166d0f5dea5c1ada3f2048b14",
+    "docs/qa/harness/728-room-moment/previewPairedBilinear.mjs": "55cb982dc9ccf08777490dbd39c350052853f60c593fe0611b01c3514162d005",
+    "docs/qa/harness/728-gl-queue-batch/PreviewMaterialSampling.mjs": "4c89b2fcc524f07606b3f6987bea314816d1a6b2ee7261658948fe421c720930",
+    "docs/qa/harness/728-gl-queue-batch/PreviewFieldMoments.mjs": "d49b5c3b61581a307845136f9cebb467d32a0ebf0639b8bbc08ba809cbd4c01f",
+    "docs/qa/harness/728-gl-queue-batch/PreviewRadialProbe.mjs": "0f64d851bf72ff8390e079978bd3c3ca5908b38b1c5262173838a03d2e53f2f3",
+    "docs/qa/harness/728-gl-queue-batch/ownerDeviceContract.mjs": "c79ea6978e535c82330595b134d462efbf0c95d8ac9b0ee8679da6ce28ddb4fe",
+    "docs/qa/harness/728-gl-queue-batch/PrewarmWetOverlayTexture.mjs": "2982d60b1bd636ea37d3a4acdd051bdd0bc4e255070df7e3c2116c30aa0aef37",
+    "docs/qa/harness/728-gl-queue-batch/OwnedMorphFilmstrip.mjs": "118c09d81f7d8ca06b3c2f17c18cf0b8088dc4d773e461ec54efe6e4e5865527",
+    "docs/qa/harness/728-gl-queue-batch/WetUploadProbe.mjs": "489aa4ab52f2238bc6a6516a62b0b2a699d6b5d8c18595a92cc10ec3de1c0bb5"
+  },
+  "provenance": {
+    "device": "surface",
+    "ramMetric": "Windows FreePhysicalMemory"
+  },
+  "memory": [
+    {
+      "stage": "preflight",
+      "freeMiB": 1911
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1846
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1805
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1775
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1723
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1682
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1437
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1614
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1689
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1226
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 809
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 778
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 777
+    }
+  ],
+  "memoryAbort": null,
+  "valid": true,
+  "source": "b7ffa927",
+  "scope": "Functional history PASS, visual FAIL. No same-packed canonical OFF/ON proof.",
+  "quality": {
+    "before": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 22828,
+      "sha": "fc0e8b2bcb3b5d162775dcf63cea1473841e0bbb352992a4619eb29b2ff1c5e7"
+    },
+    "undone": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 0,
+      "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+    },
+    "redone": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 22828,
+      "sha": "fc0e8b2bcb3b5d162775dcf63cea1473841e0bbb352992a4619eb29b2ff1c5e7"
+    },
+    "meaningful": true,
+    "exact": true,
+    "glError": 0,
+    "lost": false,
+    "limitations": [
+      "Final target exact history gate; working scratch fields are not asserted across rebuild",
+      "Readback AFTER measured drawing only"
+    ]
+  },
+  "filmstrip": {
+    "frames": [
+      {
+        "requestedOffset": 0,
+        "at": 21433.100000023842,
+        "elapsed": 77.19999998807907,
+        "canonicalPending": true,
+        "reveals": 0,
+        "width": 586,
+        "height": 640,
+        "path": "docs/qa/harness/728-gl-queue-batch/residual-flow-0.png"
+      },
+      {
+        "requestedOffset": 300,
+        "at": 21669.80000001192,
+        "elapsed": 313.89999997615814,
+        "canonicalPending": true,
+        "reveals": 0,
+        "width": 586,
+        "height": 640
+      },
+      {
+        "requestedOffset": 1000,
+        "at": 22356.400000035763,
+        "elapsed": 1000.5,
+        "canonicalPending": true,
+        "reveals": 0,
+        "width": 586,
+        "height": 640
+      },
+      {
+        "requestedOffset": 2000,
+        "at": 23369.5,
+        "elapsed": 2013.5999999642372,
+        "canonicalPending": true,
+        "reveals": 0,
+        "width": 586,
+        "height": 640,
+        "path": "docs/qa/harness/728-gl-queue-batch/residual-flow-3.png"
+      }
+    ],
+    "bytes": 1632744,
+    "truncated": false,
+    "limitations": "Four post-UP residual rendered canvas thumbnails; readback perturbs queue/cadence, diagnostic display/readback, not onset or quality oracle"
+  },
+  "handoff": {
+    "frames": [
+      {
+        "requestedOffset": 0,
+        "at": 23913.900000035763,
+        "elapsed": 0,
+        "canonicalPending": true,
+        "reveals": 2,
+        "width": 586,
+        "height": 640
+      },
+      {
+        "requestedOffset": 50,
+        "at": 23970.19999998808,
+        "elapsed": 56.299999952316284,
+        "canonicalPending": true,
+        "reveals": 1,
+        "width": 586,
+        "height": 640
+      },
+      {
+        "requestedOffset": 150,
+        "at": 24069.80000001192,
+        "elapsed": 155.89999997615814,
+        "canonicalPending": true,
+        "reveals": 1,
+        "width": 586,
+        "height": 640
+      }
+    ],
+    "bytes": 1261078,
+    "truncated": false,
+    "limitations": "Three post-parent-land rendered canvas thumbnails; readback perturbs queue/cadence, diagnostic display/readback, not onset or quality oracle"
+  },
+  "previewStats": {
+    "initializations": 2,
+    "steps": 0,
+    "draws": 10,
+    "pixels": 163840,
+    "format": "rgba32f",
+    "fallbackReason": null,
+    "carryCpuSubmitMs": 54.90000021457672,
+    "carryCpuSubmitMaxMs": 44.90000003576279,
+    "carrySteps": 33,
+    "carryFrontSteps": 28,
+    "carryRequestedFrontSteps": 28,
+    "previewMaterialSpacing": 88,
+    "materialCpuSubmitMs": 5.099999845027924,
+    "materialCpuSubmitMaxMs": 0.3999999761581421,
+    "finiteSteps": 10
+  },
+  "floatProbe": {
+    "rows": [
+      {
+        "stage": "initialize",
+        "steps": 0,
+        "fields": {
+          "p": {
+            "format": "rgba32f",
+            "sum": [
+              5.159804099588655,
+              5.159804099588655,
+              5.159804099588655,
+              5.159804099588655
+            ],
+            "max": [
+              0.3607843220233917,
+              0.3607843220233917,
+              0.3607843220233917,
+              0.3607843220233917
+            ],
+            "nonzero": [
+              24,
+              24,
+              24,
+              24
+            ]
+          },
+          "c": {
+            "format": "rgba32f",
+            "sum": [
+              1.5549020065227523,
+              2.4450981287518516,
+              0.7725490425946191,
+              5.159804099588655
+            ],
+            "max": [
+              0.10882353037595749,
+              0.17058824002742767,
+              0.054901961237192154,
+              0.3607843220233917
+            ],
+            "nonzero": [
+              23,
+              23,
+              22,
+              24
+            ]
+          }
+        },
+        "readBytes": 524288,
+        "glError": 0,
+        "limitation": "Float normalized moments or Q8 byte moments; readback perturbs scheduling, not onset"
+      },
+      {
+        "stage": "retire",
+        "steps": 40,
+        "fields": {
+          "p": {
+            "format": "rgba32f",
+            "sum": [
+              5.159804446537876,
+              5.159804446537876,
+              5.159804446537876,
+              5.159804446537876
+            ],
+            "max": [
+              0.01947120949625969,
+              0.01947120949625969,
+              0.01947120949625969,
+              0.01947120949625969
+            ],
+            "nonzero": [
+              2471,
+              2471,
+              2471,
+              2471
+            ],
+            "fixed": {
+              "sum": [
+                4.415867924707006,
+                4.415867924707006,
+                4.415867924707006,
+                4.415867924707006
+              ],
+              "max": [
+                0.06199998781085014,
+                0.06199998781085014,
+                0.06199998781085014,
+                0.06199998781085014
+              ],
+              "nonzero": [
+                2464,
+                2464,
+                2464,
+                2464
+              ]
+            },
+            "combined": {
+              "sum": [
+                5.159804401965278,
+                5.159804401965278,
+                5.159804401965278,
+                5.159804401965278
+              ],
+              "max": [
+                0.06452254696612358,
+                0.06452254696612358,
+                0.06452254696612358,
+                0.06452254696612358
+              ],
+              "nonzero": [
+                2471,
+                2471,
+                2471,
+                2471
+              ]
+            },
+            "mobileWeight": 0.1441792,
+            "fixedWeight": 0.8558208000000002
+          },
+          "c": {
+            "format": "rgba32f",
+            "sum": [
+              1.554901945306356,
+              2.4450982258356198,
+              0.7725490984963592,
+              5.159804446537876
+            ],
+            "max": [
+              0.005867562256753445,
+              0.009226150810718536,
+              0.0029155861120671034,
+              0.01947120949625969
+            ],
+            "nonzero": [
+              2471,
+              2471,
+              2471,
+              2471
+            ],
+            "fixed": {
+              "sum": [
+                1.3307174236869201,
+                2.0925658852125624,
+                0.6611635685789683,
+                4.415867924707006
+              ],
+              "max": [
+                0.01829984225332737,
+                0.029417600482702255,
+                0.00936910416930914,
+                0.06199998781085014
+              ],
+              "nonzero": [
+                2464,
+                2464,
+                2464,
+                2464
+              ]
+            },
+            "combined": {
+              "sum": [
+                1.5549019422396357,
+                2.4450981913349596,
+                0.7725490795608958,
+                5.159804401965278
+              ],
+              "max": [
+                0.01905965483267307,
+                0.030612975262975694,
+                0.00974690995849371,
+                0.06452254696612358
+              ],
+              "nonzero": [
+                2471,
+                2471,
+                2471,
+                2471
+              ]
+            },
+            "mobileWeight": 0.1441792,
+            "fixedWeight": 0.8558208000000002
+          }
+        },
+        "readBytes": 1572864,
+        "glError": 0,
+        "limitation": "Float normalized moments or Q8 byte moments; readback perturbs scheduling, not onset"
+      }
+    ],
+    "readBytes": 1572864
+  },
+  "ownerTrace": [
+    {
+      "kind": "owned-preview-ready",
+      "at": 17476.900000035763,
+      "bytes": 21626880
+    },
+    {
+      "kind": "admit",
+      "at": 20616.400000035763,
+      "sequence": 1,
+      "bytes": 54525952
+    },
+    {
+      "kind": "publish",
+      "at": 20618.400000035763,
+      "sequence": 1
+    },
+    {
+      "kind": "publish",
+      "at": 20749.400000035763,
+      "sequence": 1
+    },
+    {
+      "kind": "publish",
+      "at": 20839.900000035763,
+      "sequence": 1
+    },
+    {
+      "kind": "publish",
+      "at": 20919.400000035763,
+      "sequence": 1
+    },
+    {
+      "kind": "publish",
+      "at": 20940.400000035763,
+      "sequence": 1
+    },
+    {
+      "kind": "publish",
+      "at": 21039.5,
+      "sequence": 1
+    },
+    {
+      "kind": "publish",
+      "at": 21129.69999998808,
+      "sequence": 1
+    },
+    {
+      "kind": "publish",
+      "at": 21135.100000023842,
+      "sequence": 1
+    },
+    {
+      "kind": "publish",
+      "at": 21141.100000023842,
+      "sequence": 1
+    },
+    {
+      "kind": "publish",
+      "at": 21144.100000023842,
+      "sequence": 1
+    },
+    {
+      "kind": "publish",
+      "at": 21146.5,
+      "sequence": 1
+    },
+    {
+      "kind": "publish",
+      "at": 21148.30000001192,
+      "sequence": 1
+    },
+    {
+      "kind": "publish",
+      "at": 21151.600000023842,
+      "sequence": 1
+    },
+    {
+      "kind": "publish",
+      "at": 21155.69999998808,
+      "sequence": 1
+    },
+    {
+      "kind": "seal",
+      "at": 21159.69999998808,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-preview-inherited-geometry",
+      "at": 21160.80000001192,
+      "sequence": 1,
+      "source": {
+        "radiusPx": 180.26260375976562,
+        "waterLevel": 1,
+        "wetPeak": 0,
+        "standingPeak": 0,
+        "bounds": {
+          "minX": 160.32805633544922,
+          "minY": 208.30813598632812,
+          "maxX": 895.3995056152344,
+          "maxY": 780.3569030761719
+        },
+        "chunks": 14,
+        "scope": "Frozen predecessor SOURCE geometry; no wet-support/domain/canonical proof"
+      },
+      "merged": {
+        "radiusPx": 180.26260375976562,
+        "waterLevel": 1,
+        "wetPeak": 0,
+        "standingPeak": 0,
+        "bounds": {
+          "minX": 160.32805633544922,
+          "minY": 208.30813598632812,
+          "maxX": 895.3995056152344,
+          "maxY": 780.3569030761719
+        },
+        "chunks": 14,
+        "scope": "Frozen predecessor SOURCE geometry; no wet-support/domain/canonical proof"
+      }
+    },
+    {
+      "kind": "owned-preview-carry-options",
+      "at": 21170.400000035763,
+      "sequence": 1,
+      "options": {
+        "stride": 1,
+        "budgetPx": 12.618382263183594,
+        "costMax": 16.618382263183594,
+        "effectiveWet": 0,
+        "standing": 0,
+        "rate": 0.5,
+        "pow": 3,
+        "travel": 0.35,
+        "dryCost": 24,
+        "climb": 30,
+        "floor": 0.85,
+        "wetLo": 0.45,
+        "wetHi": 0.7
+      },
+      "frontSteps": 32,
+      "requestedFrontSteps": 41,
+      "capped": true,
+      "worldRadiusPx": 180.26260375976562,
+      "currentRadiusPx": 180.26260375976562,
+      "inheritedRadiusPx": null,
+      "scope": "SOURCE-only visual; no canonical merged pressure equality"
+    },
+    {
+      "kind": "owned-preview-seal",
+      "at": 21171,
+      "sequence": 1,
+      "epoch": 0
+    },
+    {
+      "kind": "canonical-source",
+      "at": 21216.80000001192,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21223.30000001192,
+      "sequence": 1,
+      "cpuSubmitMs": 2.699999988079071,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": true,
+      "frontAdvanced": true,
+      "frontSteps": 1,
+      "requestedFrontSteps": 41
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21224,
+      "sequence": 1,
+      "epoch": 0
+    },
+    {
+      "kind": "canonical-source",
+      "at": 21253.100000023842,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21300.100000023842,
+      "sequence": 1,
+      "cpuSubmitMs": 44.90000003576279,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 2,
+      "requestedFrontSteps": 41
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21300.19999998808,
+      "sequence": 1,
+      "epoch": 0
+    },
+    {
+      "kind": "canonical-source",
+      "at": 21301.80000001192,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21302.80000001192,
+      "sequence": 1,
+      "cpuSubmitMs": 0.3999999761581421,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 3,
+      "requestedFrontSteps": 41
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21303.100000023842,
+      "sequence": 1,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-reveal-inherit",
+      "at": 21305.900000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "admit",
+      "at": 21306,
+      "sequence": 2,
+      "bytes": 109051904
+    },
+    {
+      "kind": "publish",
+      "at": 21307.600000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 21308.19999998808,
+      "sequence": 2
+    },
+    {
+      "kind": "canonical-source",
+      "at": 21341.19999998808,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 21341.5,
+      "sequence": 2
+    },
+    {
+      "kind": "canonical-source",
+      "at": 21345.80000001192,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 21353.30000001192,
+      "sequence": 2
+    },
+    {
+      "kind": "canonical-source",
+      "at": 21354.400000035763,
+      "sequence": 1
+    },
+    {
+      "kind": "seal",
+      "at": 21355.900000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-preview-inherited-geometry",
+      "at": 21356,
+      "sequence": 2,
+      "source": {
+        "radiusPx": 22.71308708190918,
+        "waterLevel": 1,
+        "wetPeak": 1,
+        "standingPeak": 0,
+        "bounds": {
+          "minX": 402.9232654571533,
+          "minY": 378.5722827911377,
+          "maxX": 644.3494396209717,
+          "maxY": 619.998456954956
+        },
+        "chunks": 1,
+        "scope": "Frozen predecessor SOURCE geometry; no wet-support/domain/canonical proof"
+      },
+      "merged": {
+        "radiusPx": 180.26260375976562,
+        "waterLevel": 1,
+        "wetPeak": 1,
+        "standingPeak": 0,
+        "bounds": {
+          "minX": 160.32805633544922,
+          "minY": 208.30813598632812,
+          "maxX": 895.3995056152344,
+          "maxY": 780.3569030761719
+        },
+        "chunks": 15,
+        "scope": "Frozen predecessor SOURCE geometry; no wet-support/domain/canonical proof"
+      }
+    },
+    {
+      "kind": "owned-preview-carry-options",
+      "at": 21373.100000023842,
+      "sequence": 2,
+      "options": {
+        "stride": 1,
+        "budgetPx": 20,
+        "costMax": 24,
+        "effectiveWet": 1,
+        "standing": 0,
+        "rate": 0.5,
+        "pow": 3,
+        "travel": 0.35,
+        "dryCost": 24,
+        "climb": 30,
+        "floor": 0.85,
+        "wetLo": 0.45,
+        "wetHi": 0.7
+      },
+      "frontSteps": 28,
+      "requestedFrontSteps": 28,
+      "capped": false,
+      "worldRadiusPx": 180.26260375976562,
+      "currentRadiusPx": 22.71308708190918,
+      "inheritedRadiusPx": 180.26260375976562,
+      "scope": "SOURCE-only visual; no canonical merged pressure equality"
+    },
+    {
+      "kind": "owned-preview-seal",
+      "at": 21393.900000035763,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 21394.30000001192,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 21433.30000001192,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 21469.600000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "canonical-source",
+      "at": 21470.900000035763,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21471.69999998808,
+      "sequence": 2,
+      "cpuSubmitMs": 0.5999999642372131,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": true,
+      "frontAdvanced": true,
+      "frontSteps": 1,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21471.900000035763,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 21474.5,
+      "sequence": 2
+    },
+    {
+      "kind": "canonical-source",
+      "at": 21476.80000001192,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21477.5,
+      "sequence": 2,
+      "cpuSubmitMs": 0.3999999761581421,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 2,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21477.80000001192,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 21486.600000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "canonical-source",
+      "at": 21487.5,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21488,
+      "sequence": 2,
+      "cpuSubmitMs": 0.3999999761581421,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 3,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21488,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 21503.30000001192,
+      "sequence": 2
+    },
+    {
+      "kind": "canonical-source",
+      "at": 21504.69999998808,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21505.5,
+      "sequence": 2,
+      "cpuSubmitMs": 0.699999988079071,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 4,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21505.600000023842,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 21548.19999998808,
+      "sequence": 2
+    },
+    {
+      "kind": "canonical-source",
+      "at": 21552.100000023842,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21552.5,
+      "sequence": 2,
+      "cpuSubmitMs": 0.30000001192092896,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 5,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21552.600000023842,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 21555.69999998808,
+      "sequence": 2
+    },
+    {
+      "kind": "canonical-source",
+      "at": 21556.600000023842,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21557,
+      "sequence": 2,
+      "cpuSubmitMs": 0.30000001192092896,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 6,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21557.100000023842,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 21569.80000001192,
+      "sequence": 2
+    },
+    {
+      "kind": "canonical-source",
+      "at": 21570.5,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21570.900000035763,
+      "sequence": 2,
+      "cpuSubmitMs": 0.30000001192092896,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 7,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21571.100000023842,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 21586.400000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "canonical-source",
+      "at": 21587.19999998808,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21587.400000035763,
+      "sequence": 2,
+      "cpuSubmitMs": 0.10000002384185791,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 8,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21587.400000035763,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 21603.400000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "material-morph-transfer",
+      "at": 21604.80000001192,
+      "sequence": 1
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21637.30000001192,
+      "sequence": 2,
+      "cpuSubmitMs": 0.10000002384185791,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 9,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21637.400000035763,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21639.600000023842,
+      "sequence": 2,
+      "cpuSubmitMs": 0.10000002384185791,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 10,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21639.69999998808,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21653.80000001192,
+      "sequence": 2,
+      "cpuSubmitMs": 0.10000002384185791,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 11,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21653.80000001192,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21770.400000035763,
+      "sequence": 2,
+      "cpuSubmitMs": 0.10000002384185791,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 12,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21770.5,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21772.600000023842,
+      "sequence": 2,
+      "cpuSubmitMs": 0.30000001192092896,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 13,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21772.69999998808,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21787.400000035763,
+      "sequence": 2,
+      "cpuSubmitMs": 0.10000002384185791,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 14,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21787.600000023842,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21805.69999998808,
+      "sequence": 2,
+      "cpuSubmitMs": 0.2999999523162842,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 15,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21805.80000001192,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21821.69999998808,
+      "sequence": 2,
+      "cpuSubmitMs": 0.19999998807907104,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 16,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21821.900000035763,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21858.900000035763,
+      "sequence": 2,
+      "cpuSubmitMs": 0.20000004768371582,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 17,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21859.100000023842,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21912.30000001192,
+      "sequence": 2,
+      "cpuSubmitMs": 0.19999998807907104,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 18,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21912.400000035763,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21961.80000001192,
+      "sequence": 2,
+      "cpuSubmitMs": 0.19999998807907104,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 19,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21962,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 21977.400000035763,
+      "sequence": 2,
+      "cpuSubmitMs": 0.20000004768371582,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 20,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 21977.69999998808,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 22001.600000023842,
+      "sequence": 2,
+      "cpuSubmitMs": 0.10000002384185791,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 21,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 22001.80000001192,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 22028.400000035763,
+      "sequence": 2,
+      "cpuSubmitMs": 0.20000004768371582,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 22,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 22028.5,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 22089.5,
+      "sequence": 2,
+      "cpuSubmitMs": 0.30000001192092896,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 23,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 22089.600000023842,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 22104.30000001192,
+      "sequence": 2,
+      "cpuSubmitMs": 0.19999998807907104,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 24,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 22104.400000035763,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 22128.900000035763,
+      "sequence": 2,
+      "cpuSubmitMs": 0.10000002384185791,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 25,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 22129,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 22154.600000023842,
+      "sequence": 2,
+      "cpuSubmitMs": 0.19999998807907104,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 26,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 22154.69999998808,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 22216.69999998808,
+      "sequence": 2,
+      "cpuSubmitMs": 0.30000001192092896,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 27,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 22216.80000001192,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 22231.69999998808,
+      "sequence": 2,
+      "cpuSubmitMs": 0.19999998807907104,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": true,
+      "frontSteps": 28,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 22231.900000035763,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 22255.400000035763,
+      "sequence": 2,
+      "cpuSubmitMs": 0,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": false,
+      "seededNow": false,
+      "frontAdvanced": false,
+      "frontSteps": 28,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 22255.5,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-carry",
+      "at": 22281.600000023842,
+      "sequence": 2,
+      "cpuSubmitMs": 0.10000002384185791,
+      "phase": "carry",
+      "writesMaterial": true,
+      "done": true,
+      "seededNow": false,
+      "frontAdvanced": false,
+      "frontSteps": 28,
+      "requestedFrontSteps": 28
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 22281.69999998808,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 22471.100000023842,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 22591.600000023842,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 22591.900000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 22668.600000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 22720.30000001192,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 22753.80000001192,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 22770.600000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 22820.100000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 22836.900000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 22870.100000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 22903.69999998808,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 22920.100000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 22969.80000001192,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23042,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 23053.69999998808,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23070.5,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23088,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23136.5,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23153,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23187,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 23220.19999998808,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23236.400000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23286.600000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23353.100000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23369.69999998808,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 23397.100000023842,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23397.600000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23403.100000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23452.900000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 23520.400000035763,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23520.600000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23587.30000001192,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23636.900000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 23670.5,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23686.900000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23737.5,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23787.100000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-preview-step",
+      "at": 23820.5,
+      "sequence": 2,
+      "epoch": 0
+    },
+    {
+      "kind": "owned-material-reveal",
+      "at": 23910.900000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "material-rebase",
+      "at": 23911,
+      "sequence": 2,
+      "epoch": 1
+    },
+    {
+      "kind": "land",
+      "at": 23911.5,
+      "sequence": 1,
+      "landedVersion": 1
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23911.900000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23914.19999998808,
+      "sequence": 2
+    },
+    {
+      "kind": "canonical-source",
+      "at": 23954.900000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 23955.100000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "material-morph-transfer",
+      "at": 23956.80000001192,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 24337.900000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 24403.400000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 24453.69999998808,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 24503.69999998808,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 24553.600000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 24587.900000035763,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 24653.600000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 24703.69999998808,
+      "sequence": 2
+    },
+    {
+      "kind": "owned-parent-progress",
+      "at": 24737.100000023842,
+      "sequence": 2
+    },
+    {
+      "kind": "land",
+      "at": 24754.19999998808,
+      "sequence": 2,
+      "landedVersion": 2
+    }
+  ],
+  "operationTape": [
+    {
+      "id": "mKzHbFtn4Q",
+      "type": "stroke",
+      "userId": "1295ae54-bfbb-4d59-a008-8bc2837fd2f2",
+      "layerId": "layer-1",
+      "tool": "watercolor",
+      "preset": "normal:100:0:PB29:round",
+      "color": [
+        0.3,
+        0.15,
+        0.55
+      ],
+      "dabsPacked": "1:XXTRQw5J80PNzEw/AAAAAAAAAAAByoFDAACAPwAAAACkcH0/AAAAAF10/UMOSfNDzcxMPwAAAAAAAAAAOkO0QwAAgD8AAAAApHB9P2Zm80IxuhREDknzQ83MTD8AAAAAAAAAADpDtEMAAIA/AAAAAKRwfT8zs11Dw0gaRIX380PNzEw/AAAAAAAAAAA6Q7RDAACAPwAAAACkcH0/zSyQQ/P2EkSCvvVDzcxMPwAAAAAAAAAAOkO0QwAAgD8AAAAApHB9PzPToEP/P/pDEgz7Q83MTD8AAAAAAAAAADpDtEMAAIA/AAAAAKRwfT+a2dJDIy/wQ+tE/EO4HkU9AAAAAAAAAACb3qdDAACAPwAAAACkcH0/M3MAREce5kPEff1Dw/UoPQAAAAAAAAAA/HmbQwAAgD8AAAAApHB9PzNzAERrDdxDnrb+Q83MDD0AAAAAAAAAAFwVj0MAAIA/AAAAAKRwfT8zcwBEjvzRQ3fv/0OuR+E8AAAAAAAAAAC9sIJDAACAPwAAAACkcH0/M3MARLLrx0MolABEw/WoPAAAAAAAAAAAPJhsQwAAgD8AAAAApHB9PzNzAETW2r1DlTABRK5HYTwAAAAAAAAAAP7OU0MAAIA/AAAAAKRwfT8zcwBE+smzQwLNAUSuR+E7AAAAAAAAAAC/BTtDAACAPwAAAACkcH0/M3MARB65qUNuaQJEAAAAAAAAAAAAAAAAgTwiQwAAgD8AAAAApHB9PzNzAEQ=",
+      "timestamp": 1791535314417,
+      "strokeId": "Rn9N9nmrxV",
+      "washId": "p73yDfzup5",
+      "seq": 0
+    },
+    {
+      "id": "ZEe9HV8Zwt",
+      "type": "stroke",
+      "userId": "1295ae54-bfbb-4d59-a008-8bc2837fd2f2",
+      "layerId": "layer-1",
+      "tool": "watercolor",
+      "preset": "normal:100:100:PB29:round",
+      "color": [
+        0.3,
+        0.15,
+        0.55
+      ],
+      "dabsPacked": "1:uugCRIek+UPNzEw/AAAAAAAAAABntDVCAACAPwAAAACkcH0/AAAAAA==",
+      "timestamp": 1791535314640,
+      "strokeId": "R6LYMCbvGa",
+      "washId": "p73yDfzup5",
+      "wet": "f",
+      "seq": 1
+    }
+  ],
+  "visualAssessment": "After2s pale flower/gear lobes; artist quality FAIL. t0 exact material separately proven. Handoff screenshots not publication-complete proof."
+}
