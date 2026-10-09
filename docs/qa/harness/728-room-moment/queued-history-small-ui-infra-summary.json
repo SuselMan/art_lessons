@@ -1,0 +1,27 @@
+{
+  "phase": "closed",
+  "result": {
+    "valid": false,
+    "error": "Error: page.goto: net::ERR_CONNECTION_REFUSED at https://127.0.0.1:5381/create\nCall log:\n\u001b[2m  - navigating to \"https://127.0.0.1:5381/create\", waiting until \"load\"\u001b[22m\n",
+    "failedPhase": "create"
+  },
+  "errors": [],
+  "memory": [
+    {
+      "free": 2247,
+      "attempt": 0,
+      "elapsedMs": 1674
+    },
+    {
+      "phase": "closed",
+      "free": 2066
+    }
+  ],
+  "passport": {
+    "apps/web/src/engine/index.ts": "535925b09ef5b9ef003a06f870c6aaab5d12e29c3e46190e6446c89f07703cbc",
+    "apps/web/src/pages/Room/index.tsx": "1c261ae553637d904c76fc09c83c8ba8faa449633ddb081396cd2adf736b0ffa",
+    "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "b6e60936994a23d00426ef42b80a2a9bd37497b2c790c4c0f6a8375a766acb1c",
+    "docs/qa/harness/728-room-moment/QueuedHistoryUiProbe.mjs": "77a7c1e3fe63a15ae17196078bb4be39d0d551acd471833b55fcde84c462244c",
+    "docs/qa/harness/728-room-moment/PeerLeasePointer.mjs": "3fbf6908bb6024dfddf5f195c8f63214f860670956a08d9c468810984ce30805"
+  }
+}

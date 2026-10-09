@@ -27,3 +27,17 @@ Validation: whole targeted suite50 PASS (34 engine +2 exact-log transaction +14 
 appendOperation and _flushOpQueue now also hold for owned async repair; flush checks the boundary again after EACH queued op, because its application may create a repair. materialIdle includes owners and pending rebuilds. Normal cancellation releases only the exact matching job/request marker; restarting transfers it to the new generation, and an obsolete job cannot clear the replacement owner.
 
 Validation52/52 PASS (engine36, logtransaction2, parser14), app TypeScript PASS. Actual-job CPU fixture performs its first repair slice with a controlled budget clock solely to retain the slice boundary (no perf/pixelclaim), then remote pencil+layer_delete must remain FIFO and cannot destroy the live owner. Restart→obsolete-step→cancel preserves/releases exact ownership; final queued application order matches source IDs. No UI/device activation.
+
+### Малый Surface UI gate, 2026-10-09
+
+Source `1788fa89`, DEV `qaJoinedTouch=1&wcQueuedHistory=1`, mixed lease OFF.
+Один actual Room/PointerInput сценарий кистью24: первый мокрый пигментный штрих
+досох естественно; второй имел pending settle перед actual Undo. Контрол принят
+ровно один раз с точным target `ewReexssFC`, затем canonical idle. Whole1024RGBA
+после Undo совпал с baseline; actual Redo изменил материал. Повтор Undo/Redo на
+том же target восстановил ровно обе исходные whole SHA. GL error0/context alive.
+Accepted и materialIdle записаны отдельно; никакого forced settle/clock override.
+Это функциональный/material gate одной комнаты, не latency/performance доказательство.
+No-input loopback URL infra error сохранён отдельно, исправлен до рисования.
+Summary `queued-history-small-ui-surface-summary.json`; контекст/forward закрыты,
+после cleanup SurfaceRAM1468MiB, ниже допуска следующего аппаратного запуска.

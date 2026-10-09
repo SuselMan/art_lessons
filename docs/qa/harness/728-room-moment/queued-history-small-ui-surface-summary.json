@@ -1,0 +1,174 @@
+{
+  "phase": "closed",
+  "result": {
+    "room": "p5GvAiIz",
+    "flags": {
+      "queued": true,
+      "joined": true,
+      "lease": false
+    },
+    "baseline": {
+      "sha": "6adb5b5534231c7f5c19a372ffbd0f8af6c1141ef177b580507cdf5f7c7c9088",
+      "width": 1024,
+      "height": 1024,
+      "nonwhite": 1048576,
+      "glError": 0,
+      "lost": false
+    },
+    "pending": {
+      "pending": true,
+      "target": "ewReexssFC"
+    },
+    "undo": {
+      "status": {
+        "id": "UMIXSROjky",
+        "state": "accepted",
+        "materialIdle": true
+      },
+      "rows": [
+        {
+          "id": "UMIXSROjky",
+          "type": "operation_undo",
+          "target": "ewReexssFC"
+        }
+      ],
+      "target": "ewReexssFC",
+      "owner": true
+    },
+    "undoWhole": {
+      "sha": "6adb5b5534231c7f5c19a372ffbd0f8af6c1141ef177b580507cdf5f7c7c9088",
+      "width": 1024,
+      "height": 1024,
+      "nonwhite": 1048576,
+      "glError": 0,
+      "lost": false
+    },
+    "redo": {
+      "target": "ewReexssFC",
+      "rows": [
+        {
+          "id": "kwNOwbR2Jq",
+          "type": "operation_redo",
+          "target": "ewReexssFC"
+        }
+      ]
+    },
+    "redoWhole": {
+      "sha": "f780a980ed63ddda383fd3cfe7088b7a76a605245d9f29ab445946fb107cb3fd",
+      "width": 1024,
+      "height": 1024,
+      "nonwhite": 1048576,
+      "glError": 0,
+      "lost": false
+    },
+    "undoAgain": {
+      "target": "ewReexssFC",
+      "rows": [
+        {
+          "id": "C2lF1tR4-d",
+          "type": "operation_undo",
+          "target": "ewReexssFC"
+        }
+      ]
+    },
+    "undoAgainWhole": {
+      "sha": "6adb5b5534231c7f5c19a372ffbd0f8af6c1141ef177b580507cdf5f7c7c9088",
+      "width": 1024,
+      "height": 1024,
+      "nonwhite": 1048576,
+      "glError": 0,
+      "lost": false
+    },
+    "redoAgain": {
+      "target": "ewReexssFC",
+      "rows": [
+        {
+          "id": "ufAxOZu0lG",
+          "type": "operation_redo",
+          "target": "ewReexssFC"
+        }
+      ]
+    },
+    "redoAgainWhole": {
+      "sha": "f780a980ed63ddda383fd3cfe7088b7a76a605245d9f29ab445946fb107cb3fd",
+      "width": 1024,
+      "height": 1024,
+      "nonwhite": 1048576,
+      "glError": 0,
+      "lost": false
+    },
+    "valid": true,
+    "scope": "ONE small Surface actual UI queued-history functional/material gate; acceptance is distinct from idle; no performance or physical latency claim"
+  },
+  "errors": [],
+  "memory": [
+    {
+      "free": 2128,
+      "attempt": 0,
+      "elapsedMs": 1701
+    },
+    {
+      "phase": "create",
+      "free": 1928
+    },
+    {
+      "phase": "create",
+      "free": 1935
+    },
+    {
+      "phase": "create",
+      "free": 1906
+    },
+    {
+      "phase": "create",
+      "free": 1893
+    },
+    {
+      "phase": "create",
+      "free": 1876
+    },
+    {
+      "phase": "create",
+      "free": 1801
+    },
+    {
+      "phase": "create",
+      "free": 1666
+    },
+    {
+      "phase": "create",
+      "free": 1700
+    },
+    {
+      "phase": "create",
+      "free": 1734
+    },
+    {
+      "phase": "create",
+      "free": 1733
+    },
+    {
+      "phase": "baseline",
+      "free": 1395
+    },
+    {
+      "phase": "redo",
+      "free": 1110
+    },
+    {
+      "phase": "closed",
+      "free": 1473
+    },
+    {
+      "phase": "closed",
+      "free": 1468
+    }
+  ],
+  "passport": {
+    "apps/web/src/engine/index.ts": "535925b09ef5b9ef003a06f870c6aaab5d12e29c3e46190e6446c89f07703cbc",
+    "apps/web/src/pages/Room/index.tsx": "1c261ae553637d904c76fc09c83c8ba8faa449633ddb081396cd2adf736b0ffa",
+    "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "b6e60936994a23d00426ef42b80a2a9bd37497b2c790c4c0f6a8375a766acb1c",
+    "docs/qa/harness/728-room-moment/QueuedHistoryUiProbe.mjs": "77a7c1e3fe63a15ae17196078bb4be39d0d551acd471833b55fcde84c462244c",
+    "docs/qa/harness/728-room-moment/PeerLeasePointer.mjs": "3fbf6908bb6024dfddf5f195c8f63214f860670956a08d9c468810984ce30805"
+  }
+}
