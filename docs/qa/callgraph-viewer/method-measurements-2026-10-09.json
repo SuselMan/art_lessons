@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "scope": "Дополнение к audit36: измерения отдельного Surface cohort, не новые времена функций из исходного callgraph",
+  "methods": [{
+    "id": "Queue.advance",
+    "status": "validated",
+    "candidate": "diagnosticPhysicalBatchTwoEnabled; default OFF",
+    "sourceHead": "99acba42c216b396871bc82057fef21b705eb4b0",
+    "validation": "Same original packed four400 tape, 25 named field/material records and decoded whole exact; original op order/quantization/fences retained",
+    "measurement": {
+      "kind": "whole replay before readbacks, single ordered OFF→ON Surface cohort",
+      "offMs": 6064.6,
+      "onMs": 4005.5,
+      "observedReductionPercent": 34.0,
+      "functionCpuTimeMs": null,
+      "gpuTimeMs": null,
+      "repeatableCrossDeviceGain": null
+    },
+    "live": "Ordinary Room ON five400 water→pigment functional/public Dry→meaningful Undo→exact Redo PASS; overall report FAIL on thumbnail-before-create403; no physical pen/visible latency proof",
+    "evidence": "../728-physical-batch-two-paired-2026-10-09.md",
+    "liveEvidence": "../728-physical-batch-two-live-2026-10-09.md",
+    "limitations": ["Not a 34% reduction in Queue.advance CPU time", "No Samsung validation", "Explicit QA idle between live gestures", "Remaining methods retain their own existing statuses"]
+  }]
+}
