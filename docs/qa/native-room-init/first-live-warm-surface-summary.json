@@ -1,0 +1,153 @@
+{
+  "issue": "#728 \u2014 First-LIVE shader readiness warmup",
+  "source": "92e0626a3dbe60388c556fa38067d6a018f6a90c",
+  "complete": true,
+  "proof": {
+    "enabled": true,
+    "wallMs": 4183.5,
+    "completedAt": 10555.699999988079,
+    "readyAt": 11028.600000023842,
+    "firstDownAt": 11342.300000011921,
+    "peakBytes": 37748736,
+    "transientBufferBytes": 64304,
+    "sourceSha256": "ad855c0179b1acc12828bbb936e1430bd0e369205dbd1d1a5898aeceedfe2985",
+    "scope": "prepared source + live composite + raw canvas"
+  },
+  "warmMetadata": {
+    "peakBytes": 37748736,
+    "vertexBytes": 61776,
+    "transientBufferBytes": 64304,
+    "sharedResourceDeltaBytes": 4,
+    "brushPipelinesConstructed": true,
+    "plannerWarmed": false,
+    "pressureDispatched": false,
+    "glPublished": false
+  },
+  "readyAt": 11028.600000023842,
+  "firstDownAt": 11342.300000011921,
+  "warmQueueChronology": [
+    {
+      "stage": "queue.submit:start",
+      "ms": 6542.100000023842,
+      "id": 1
+    },
+    {
+      "stage": "queue.submit:end",
+      "ms": 6542.199999988079,
+      "id": 1
+    },
+    {
+      "stage": "queue.completion:start",
+      "ms": 6542.199999988079,
+      "id": 1
+    },
+    {
+      "stage": "queue.completion:end",
+      "ms": 10506.199999988079,
+      "id": 1
+    },
+    {
+      "stage": "queue.submit:start",
+      "ms": 10507.5,
+      "id": 2
+    },
+    {
+      "stage": "queue.submit:end",
+      "ms": 10507.600000023842,
+      "id": 2
+    },
+    {
+      "stage": "queue.completion:start",
+      "ms": 10507.600000023842,
+      "id": 2
+    },
+    {
+      "stage": "queue.completion:end",
+      "ms": 10546.800000011921,
+      "id": 2
+    },
+    {
+      "stage": "queue.completion:start",
+      "ms": 10549.300000011921,
+      "id": 3
+    },
+    {
+      "stage": "queue.completion:end",
+      "ms": 10549.699999988079,
+      "id": 3
+    }
+  ],
+  "strokesWallMs": [
+    {
+      "label": "water400",
+      "wallMs": 4397.860005999999
+    },
+    {
+      "label": "pigment70-on-water400",
+      "wallMs": 1925.2924910000002
+    },
+    {
+      "label": "colorA70-400",
+      "wallMs": 4247.499632999999
+    },
+    {
+      "label": "colorB70-400",
+      "wallMs": 2825.574407
+    }
+  ],
+  "raf": {
+    "median": 16.700000000000728,
+    "p95": 49.900000000001455,
+    "max": 1183.2999999999993,
+    "scope": "JS/browser scheduling intervals only"
+  },
+  "firstBridge": {
+    "label": "bridge.canvas",
+    "start": 11447.400000035763,
+    "end": 11496.5,
+    "wallMs": 49.09999996423721,
+    "rejected": false,
+    "submit": [
+      {
+        "start": 11447.699999988079,
+        "end": 11447.699999988079,
+        "wallMs": 0,
+        "rejected": false
+      }
+    ],
+    "completionWait": [
+      {
+        "start": 11447.699999988079,
+        "end": 11494.5,
+        "wallMs": 46.80000001192093,
+        "rejected": false
+      }
+    ],
+    "syncGlRestore": [
+      {
+        "start": 11494.5,
+        "end": 11496.5,
+        "wallMs": 2,
+        "rejected": false
+      }
+    ],
+    "readback": []
+  },
+  "traceOverflow": false,
+  "unclosed": 0,
+  "preRamMiB": 2169,
+  "minimumRamMiB": 924.61328125,
+  "postRamMiB": 2033.44140625,
+  "ownTargetCloseRequested": true,
+  "ownedContextDisposed": true,
+  "errors": [],
+  "visualAssessment": "Actual UI watercolor400/pigment70, blue/red/overlap visible; shape consistent with earlier native endpoints. New live tape; no exact material parity claim. No phantom warm drawing observed.",
+  "limitations": [
+    "4183.5ms shifted into readiness; no net load improvement claim",
+    "First source+live warm queue wait3964ms, following raw wait39.2ms; combined shader group not localized yet",
+    "First publication wait46.8ms vs earlierraw3706.8ms is cross-source/cold-state observation, not randomizedsameHEADAB",
+    "Fields36MiB+recordedbuffers64304bytes; canvas/driver/pipeline memory unavailable",
+    "No dry planner/pressure/brush transport dispatch, only brushdescriptorconstruction",
+    "Remaining rAFmax1183.3ms; smoothness not solved"
+  ]
+}
