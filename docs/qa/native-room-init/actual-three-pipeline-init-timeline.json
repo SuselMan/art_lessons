@@ -1,0 +1,64 @@
+{
+  "source": "d5e9709ae2e54215339a648d75f6072e9581d0ee",
+  "clock": "Mixed console epoch and performance clocks normalized by first-live-warm marker supplied performance timestamp; ~1ms instrumentation uncertainty",
+  "readyAtMs": 25855.80000001192,
+  "runtimeBeginMs": 18947.69999998808,
+  "runtimeCreateWallMs": 6513.300000011921,
+  "segments": [
+    {
+      "name": "Document navigation \u2192 runtime begin (unattributed dev/browser/controller interval)",
+      "startMs": 0,
+      "endMs": 18947.7,
+      "wallMs": 18947.7
+    },
+    {
+      "name": "Paper cached lookup + LA expansion",
+      "startMs": 18947.7,
+      "endMs": 18967.8,
+      "wallMs": 20.1
+    },
+    {
+      "name": "Backend creation incl adapter/device/resources",
+      "startMs": 18967.8,
+      "endMs": 19445.5,
+      "wallMs": 477.7
+    },
+    {
+      "name": "Observed front/diffuse async compile pair + hashes",
+      "startMs": 19445.772,
+      "endMs": 19887.745,
+      "wallMs": 441.973
+    },
+    {
+      "name": "Pressure async compile + hash",
+      "startMs": 19887.92,
+      "endMs": 21278.046,
+      "wallMs": 1390.126
+    },
+    {
+      "name": "Detached first live warmup",
+      "startMs": 21278.2,
+      "endMs": 25460.225,
+      "wallMs": 4182.025
+    },
+    {
+      "name": "Runtime returned \u2192 controller readiness gate",
+      "startMs": 25461,
+      "endMs": 25855.8,
+      "wallMs": 394.8
+    }
+  ],
+  "residualBoundaryGapsMs": 1.376,
+  "backendNested": {
+    "adapterSupportMs": 169.7,
+    "deviceRequestMs": 199.243,
+    "materialAndPaperNoiseSetupMs": 28.442
+  },
+  "limitations": [
+    "Document prefix18.95s has no resource timeline; cannot attribute solely to Vite/compiler/network",
+    "Compile front/diffuse overlap: pair wall442ms, not sum441+366",
+    "Pressure+observed preparation serial total1832ms, not25s",
+    "Warm4182ms includes existing source/live/raw prep; no physical GPU-duration claim",
+    "No new hardware run; serial d5 source only, not subsequent parallel patch"
+  ]
+}
