@@ -94,3 +94,13 @@ then renames atomically and verifies again. Report extraction whitelists needed
 passports and scalar results; it excludes env, source text, URL/body census and
 arbitrary keys. Packed input and bounded PNG are preserved only for a complete
 reference. Read/write/rename failure tests prove original artifacts survive.
+
+### Resume a promoted reference without regeneration
+
+Set `QA_PAIR_REFERENCE_EVIDENCE` to the existing verified durable directory.
+Source-A then requires its reusable marker and exact `QA_SOURCE`, reads its
+bounded compact report and hard-links its immutable PNG into the new disposable.
+It runs only OFF and ON; no pointer reference regeneration occurs. The next
+promotion also hard-links the PNG, with read-only mode, rather than duplicating
+its data. SHA verification remains mandatory before finish. A hard-link or
+cross-device error holds originals; no silent copy fallback or hardware retry.

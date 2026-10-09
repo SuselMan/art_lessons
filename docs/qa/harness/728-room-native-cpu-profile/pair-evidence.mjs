@@ -20,7 +20,7 @@ export function preservePairEvidence(disposableOut,durableOut,disposableRoot=dis
  const stage=target+'.pending-'+crypto.randomUUID();io.mkdirSync(path.dirname(target),{recursive:true,mode:0o700});io.mkdirSync(stage,{mode:0o700})
  const summary={promoted:true,files:[],referenceReusable:false};let renamed=false
  try{
-  const write=(name,bytes)=>{if(bytes.length>2097152)throw Error('Evidence exceeds bounded cap');io.writeFileSync(path.join(stage,name),bytes,{mode:0o600,flag:'wx'});const actual=io.readFileSync(path.join(stage,name));if(actual.length!==bytes.length||sha(actual)!==sha(bytes))throw Error('Written evidence differs');summary.files.push({name,bytes:bytes.length,sha256:sha(bytes)})}
+  const write=(name,bytes,original)=>{if(bytes.length>2097152)throw Error('Evidence exceeds bounded cap');if(original){io.linkSync(original,path.join(stage,name));io.chmodSync(path.join(stage,name),0o400)}else io.writeFileSync(path.join(stage,name),bytes,{mode:0o600,flag:'wx'});const actual=io.readFileSync(path.join(stage,name));if(actual.length!==bytes.length||sha(actual)!==sha(bytes))throw Error('Written evidence differs');summary.files.push({name,bytes:bytes.length,sha256:sha(bytes)})}
   for(const arm of ['reference','off','on']){
    const report=path.join(source,arm,'report.json');if(!io.existsSync(report))continue
    const size=io.statSync(report).size;if(size>524288)throw Error('Pair report exceeds bounded evidence cap')
@@ -33,7 +33,7 @@ export function preservePairEvidence(disposableOut,durableOut,disposableRoot=dis
     if(io.statSync(png).size>2097152)throw Error('Pair PNG exceeds bounded evidence cap')
     const bytes=io.readFileSync(png);if(bytes.length<33||bytes.subarray(0,8).toString('hex')!=='89504e470d0a1a0a'||bytes.readUInt32BE(16)!==parsed.export?.width||bytes.readUInt32BE(20)!==parsed.export?.height)throw Error('Reference PNG dimensions differ')
     if(!/^[a-f0-9]{64}$/.test(parsed.export?.pngSha256??'')||sha(bytes)!==parsed.export.pngSha256)throw Error('Reference PNG checksum differs actual export passport')
-    write('reference-native-material.png',bytes);summary.referenceReusable=true;summary.source=parsed.source
+    write('reference-native-material.png',bytes,png);summary.referenceReusable=true;summary.source=parsed.source
    }
   }
   if(!summary.files.length)throw Error('No reviewable evidence available; retain disposable')
