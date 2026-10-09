@@ -1,0 +1,274 @@
+{
+  "sourceSize": 1024,
+  "transportSize": 128,
+  "pairedDefinition": {
+    "p": "[m,m,m,m]",
+    "c": "[tau.r*m/DEPTH_SCALE,tau.g*m/DEPTH_SCALE,tau.b*m/DEPTH_SCALE,m]",
+    "tau": [
+      1,
+      2,
+      0.5
+    ]
+  },
+  "sums": {
+    "base": 314.15926535897245,
+    "raw": 314.1592653588639,
+    "clip": 317.5921107072915,
+    "negativeAdded": 3.4328453484279486,
+    "upperRemoved": 0,
+    "ratioConservative": 314.1592653589611,
+    "cellMeanConservative": 314.15926535904373
+  },
+  "samples": [
+    {
+      "radiusPx": 0.7071067811865476,
+      "source": 0.9950124791926823,
+      "initialLow": 0.6765509489379431,
+      "transportLow": 0.03093905730466111,
+      "highFrequencyResidual": 0.3184615302547392,
+      "unclamped": 0.3494005875594004,
+      "clipped": 0.3494005875594004,
+      "ratioConservative": 0.045502483088556075,
+      "cellMeanConservative": 0.03093905730466111,
+      "optical": {
+        "source": {
+          "effectiveThickness": 1.4916390770632453,
+          "transmittance": [
+            0.22500355496383975,
+            0.05062659974636566,
+            0.4743453962713665
+          ],
+          "density": 0.9493734002536344
+        },
+        "unclamped": {
+          "effectiveThickness": 0.7117419376210008,
+          "transmittance": [
+            0.4907885294138084,
+            0.2408733806041687,
+            0.7005630088820052
+          ],
+          "density": 0.7591266193958313
+        },
+        "clipped": {
+          "effectiveThickness": 0.7117419376210008,
+          "transmittance": [
+            0.4907885294138084,
+            0.2408733806041687,
+            0.7005630088820052
+          ],
+          "density": 0.7591266193958313
+        },
+        "ratioConservative": {
+          "effectiveThickness": 0.09269024332854016,
+          "transmittance": [
+            0.9114757922805037,
+            0.830788119913372,
+            0.954712413389762
+          ],
+          "density": 0.16921188008662802
+        }
+      }
+    },
+    {
+      "radiusPx": 3.5355339059327378,
+      "source": 0.8824969025845955,
+      "initialLow": 0.6765509489379431,
+      "transportLow": 0.03093905730466111,
+      "highFrequencyResidual": 0.20594595364665236,
+      "unclamped": 0.23688501095131342,
+      "clipped": 0.23688501095131342,
+      "ratioConservative": 0.04035708217261723,
+      "cellMeanConservative": 0.03093905730466111,
+      "optical": {
+        "source": {
+          "effectiveThickness": 1.4412286903959328,
+          "transmittance": [
+            0.23663682658983418,
+            0.05599698769850725,
+            0.4864533138851396
+          ],
+          "density": 0.9440030123014927
+        },
+        "unclamped": {
+          "effectiveThickness": 0.4825435408267496,
+          "transmittance": [
+            0.6172114909306576,
+            0.38095002453684523,
+            0.7856280869028662
+          ],
+          "density": 0.6190499754631548
+        },
+        "clipped": {
+          "effectiveThickness": 0.4825435408267496,
+          "transmittance": [
+            0.6172114909306576,
+            0.38095002453684523,
+            0.7856280869028662
+          ],
+          "density": 0.6190499754631548
+        },
+        "ratioConservative": {
+          "effectiveThickness": 0.08220887109236844,
+          "transmittance": [
+            0.9210795517107955,
+            0.84838754057976,
+            0.9597288949025112
+          ],
+          "density": 0.15161245942024004
+        }
+      }
+    },
+    {
+      "radiusPx": 7.516648189186455,
+      "source": 0.5683601467575405,
+      "initialLow": 0.47382883740677056,
+      "transportLow": 0.03040830952196741,
+      "highFrequencyResidual": 0.09453130935076998,
+      "unclamped": 0.12493961887273736,
+      "clipped": 0.12493961887273736,
+      "ratioConservative": 0.02599143076781065,
+      "cellMeanConservative": 0.03093905730466111,
+      "optical": {
+        "source": {
+          "effectiveThickness": 1.1387323133402896,
+          "transmittance": [
+            0.3202247092117023,
+            0.10254386438971932,
+            0.5658840068527315
+          ],
+          "density": 0.8974561356102807
+        },
+        "unclamped": {
+          "effectiveThickness": 0.2545066310370576,
+          "transmittance": [
+            0.7752989120379081,
+            0.601088403007164,
+            0.8805105973456016
+          ],
+          "density": 0.39891159699283596
+        },
+        "clipped": {
+          "effectiveThickness": 0.2545066310370576,
+          "transmittance": [
+            0.7752989120379081,
+            0.601088403007164,
+            0.8805105973456016
+          ],
+          "density": 0.39891159699283596
+        },
+        "ratioConservative": {
+          "effectiveThickness": 0.052945507119614287,
+          "transmittance": [
+            0.9484316938489991,
+            0.8995226778972815,
+            0.9738745780894987
+          ],
+          "density": 0.10047732210271854
+        }
+      }
+    },
+    {
+      "radiusPx": 15.508062419270821,
+      "source": 0.09026549560978431,
+      "initialLow": 0.12902776966299245,
+      "transportLow": 0.028726040697168304,
+      "highFrequencyResidual": -0.038762274053208146,
+      "unclamped": -0.010036233356039842,
+      "clipped": 0,
+      "ratioConservative": 0.012586301702247183,
+      "cellMeanConservative": 0.02972591951564694,
+      "optical": {
+        "source": {
+          "effectiveThickness": 0.1838741577236347,
+          "transmittance": [
+            0.8320405031096749,
+            0.692291398815001,
+            0.9121625420448238
+          ],
+          "density": 0.307708601184999
+        },
+        "unclamped": {
+          "effectiveThickness": 0,
+          "transmittance": [
+            1,
+            1,
+            1
+          ],
+          "density": 0
+        },
+        "clipped": {
+          "effectiveThickness": 0,
+          "transmittance": [
+            1,
+            1,
+            1
+          ],
+          "density": 0
+        },
+        "ratioConservative": {
+          "effectiveThickness": 0.02563876272679982,
+          "transmittance": [
+            0.9746871193390046,
+            0.9500149806053672,
+            0.9872624369128021
+          ],
+          "density": 0.049985019394632846
+        }
+      }
+    },
+    {
+      "radiusPx": 31.503968004046726,
+      "source": 0.00004893586474225786,
+      "initialLow": 0.0003485839568440282,
+      "transportLow": 0.02276320077850924,
+      "highFrequencyResidual": -0.00029964809210177034,
+      "unclamped": 0.02246355268640747,
+      "clipped": 0.02246355268640747,
+      "ratioConservative": 0.0019349120311641659,
+      "cellMeanConservative": 0.024337524470981094,
+      "optical": {
+        "source": {
+          "effectiveThickness": 0.00009968416891941417,
+          "transmittance": [
+            0.9999003207993823,
+            0.9998006515347075,
+            0.9999501591576363
+          ],
+          "density": 0.0001993484652924593
+        },
+        "unclamped": {
+          "effectiveThickness": 0.04575908880564485,
+          "transmittance": [
+            0.9552720702071709,
+            0.912544728117894,
+            0.9773802075994638
+          ],
+          "density": 0.087455271882106
+        },
+        "clipped": {
+          "effectiveThickness": 0.04575908880564485,
+          "transmittance": [
+            0.9552720702071709,
+            0.912544728117894,
+            0.9773802075994638
+          ],
+          "density": 0.087455271882106
+        },
+        "ratioConservative": {
+          "effectiveThickness": 0.003941487470889967,
+          "transmittance": [
+            0.9960662699955193,
+            0.9921480142227868,
+            0.9980311969049461
+          ],
+          "density": 0.007851985777213244
+        }
+      }
+    }
+  ],
+  "scope": "Mean-downsample radial source sigma~7px expanded to radial low sigma~5 cells, exactly matched total low mass. Beer-Lambert core uses literal .55/.54/thickness curve; omits actual inkAvg114/88, colour prior, paper/coverage/granulation. Conditional reconstruction hypothesis only.",
+  "alternatives": {
+    "ratioConservative": "Per-cell nonnegative rescale source subpixels by transported/initial mean; t0 preserves source and cell mass, grid discontinuities possible.",
+    "cellMeanConservative": "Uniform final cell density; cell mass exact, t0 loses source high frequency."
+  }
+}
