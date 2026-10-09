@@ -1,0 +1,92 @@
+{
+  "issue": "#728",
+  "source": "92e0626a3dbe60388c556fa38067d6a018f6a90c",
+  "complete": true,
+  "ownClosed": true,
+  "memoryMiB": {
+    "pre": 1927.4609375,
+    "min": 958.01953125,
+    "post": 1909.078125
+  },
+  "recipe": {
+    "opCount": 177,
+    "operationIndex": 33,
+    "tag": "front"
+  },
+  "actualSubmitProof": {
+    "quantumId": 72,
+    "passes": [
+      {
+        "family": "waterFrontStep",
+        "dryCost": 80,
+        "max": 164,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 1,
+        "scale": 1,
+        "sourceWidth": 1536,
+        "sourceHeight": 1536
+      },
+      {
+        "family": "waterFrontStep",
+        "dryCost": 80,
+        "max": 164,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 1,
+        "scale": 1,
+        "sourceWidth": 1536,
+        "sourceHeight": 1536
+      },
+      {
+        "family": "waterFrontStep",
+        "dryCost": 80,
+        "max": 164,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 1,
+        "scale": 1,
+        "sourceWidth": 1536,
+        "sourceHeight": 1536
+      },
+      {
+        "family": "waterFrontStep",
+        "dryCost": 80,
+        "max": 164,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 1,
+        "scale": 1,
+        "sourceWidth": 1536,
+        "sourceHeight": 1536
+      }
+    ],
+    "source": "CanonicalPlanAdapter.waterFrontStep actual CPU arguments; checked before queue.submit"
+  },
+  "beforeFenceWallMs": 622.6999999880791,
+  "afterFenceWallMs": 16.600000023841858,
+  "originalStepCalls": 177,
+  "decoderAfterFence": {
+    "wallMs": 1092.64,
+    "browserMs": [
+      13085.418,
+      14178.058
+    ],
+    "putOffset": 1992,
+    "handler": "WebGPUDecoderImpl"
+  },
+  "rAFMaxMs": 1083.3,
+  "firstBlockedBoundaryAfterFence": {
+    "quantumId": 76,
+    "queueSubmitId": 71,
+    "queueCompletionId": 75,
+    "passes": "4 waterFrontStep, same actual parameters"
+  },
+  "interpretation": "Selected four-front original operation completed16.6ms after prior queue drain. One-second shared GPU decoder stall remained later; selected operation alone is not its cause. Boundaries shifted with queue scheduling, supports next queue-backpressure control without proving backend internals.",
+  "limits": [
+    "Beforewait622.7ms includes earlier queue work, not selected operator",
+    "ONE live newtape; no randomized or exactsame-tape timing comparison",
+    "Decoded physical GPU duration/compiler attribution unavailable",
+    "Controller firststroke wall includes trace extraction and cannot be compared directly with uninstrumented wall"
+  ]
+}
