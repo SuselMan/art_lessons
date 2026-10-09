@@ -124,3 +124,21 @@ existing actual capability/rollback gate. Own buffers/program destroyed before
 engine; controller owns/ closes page, no foreign pages. Hardware not run.
 GPU link/FBO/source-alpha precision and partlywet subcell topology remain
 unproven; aligned128 domains do not promise preserving gaps below8world pixels.
+
+## ONE isolated Surface multiscale result
+
+HEAD521de0b4; raw preview-multiscale-surface.json/compact summary in device-runs.
+HTTP fixture200/Fine asset200; actual paperSHA4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968,
+README pre-runSHA95dfcd4e0224aba7d8dec9f5ca734dedcf81c6f46e929ac73cb603cf28431918.
+Fresh2105/controller2085/min1859/post2033MiB. Own context closed, RELEASE.
+Actual small-program compile/F32 allocation/FBO succeeded. GL0/lostfalse.
+Zero-pressure dry-V gap seed negative true; connected seed positive true.
+Source8 actual SHA unchanged. No mass in disconnected pond or outside support.
+F32 OLD P/C paired alpha equal:4880.000172704→4880.000189230 Q8-equivalent,
+drift+.000016526 (+3.39e-9 relative); nonzero61→89/177/191 at steps1/4/10.
+Q8 also moves61→178, sum4880→4856 (−24/4880=−.492% rounding drift), so Q8
+is explicitly NOT exact mass conservation. All10 dyadic strides, at most7draw/
+RAF, separate front setup24 bounded ticks. No GPU duration/Room-quality claim.
+This positive prerequisite allows review of isolated path coupling; it does not
+establish visible Room spreading or SAMEtape canonical endpoint. Unit/inherited
+negative evidence stays intact. Next runtime wiring only after source review.
