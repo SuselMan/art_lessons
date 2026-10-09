@@ -58,3 +58,6 @@ First actual UI cohort on6ba source INCOMPLETE: OFF actual constructor query joi
 
 
 Corrected-header UI cohort снова INCOMPLETE: все3 actual controlsunique и constructorflags PASS, OFF timed/input/export PASS; waitForFunction30s timed out insideUI. Source review обнаружил ошибку harness: doneOperations содержит operation_undo, так что removal1stroke+addition1control сохраняют общийcount. Wait теперь сравнивает exact filtered stroke IDs вместо любого countchange. Product regression пока не установлена. Compact10.6KB savedbeforecleanup, finalRAM1741, Surface RELEASE; ON не запускался/noautotry.
+
+
+Read-only own QA DB nT9x35r8 подтвердил actualUI: seq1waterstroke,seq2pigmentstroke,seq3operation_undo targetexactseq2. Undo действительно исполнено; done firststroke+undo count2 совпал с original2stroke count. Timeout был ошибкой harness predicate, а не Undo no-op. ExactstrokeIDs wait+4negative checks PASS; beforebutton/wait/whole stage metadata теперь сохраняются отдельно для любой следующей ошибки.

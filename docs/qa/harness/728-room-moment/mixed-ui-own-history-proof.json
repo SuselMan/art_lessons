@@ -1,0 +1,26 @@
+{
+  "scope": "Read-only own nT9x35r8 operations: role/target/seq only, no raw payload",
+  "rows": [
+    {
+      "id": "mH4e7-LoMT",
+      "seq": 1,
+      "type": "stroke",
+      "target": null,
+      "strokeId": "QAwater001"
+    },
+    {
+      "id": "wWCOfev9Np",
+      "seq": 2,
+      "type": "stroke",
+      "target": null,
+      "strokeId": "QApigmt002"
+    },
+    {
+      "id": "txTwDjVh0u",
+      "seq": 3,
+      "type": "operation_undo",
+      "target": "wWCOfev9Np",
+      "strokeId": null
+    }
+  ]
+}
