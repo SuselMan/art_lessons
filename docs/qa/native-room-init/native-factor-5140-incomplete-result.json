@@ -1,0 +1,111 @@
+{
+  "source": "5140df17813c2673409a010b77f84ef425af638b",
+  "verdict": "INCOMPLETE_BASELINE_OFF_HARD120_NOT_FACTOR_QUALITY_FAIL",
+  "factorONAttempted": false,
+  "ownedContextDisposed": true,
+  "hardAbort": true,
+  "terminalError": "Error: Owned target closed",
+  "readyAtMs": 40914,
+  "replayStartedAtMs": 41059.39999997616,
+  "startupWallMs": 40969,
+  "ramStartMiB": 2080.03515625,
+  "memoryTimeline": [
+    {
+      "at": "2026-10-09T17:18:24.769Z",
+      "MiB": 2080.03515625,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-09T17:18:45.268Z",
+      "MiB": 1823.4765625,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-09T17:18:55.336Z",
+      "MiB": 1782.53515625,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-09T17:19:05.179Z",
+      "MiB": 1725.5234375,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-09T17:19:15.173Z",
+      "MiB": 1688.20703125,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-09T17:19:25.201Z",
+      "MiB": 1690.6484375,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-09T17:19:35.157Z",
+      "MiB": 1660.53515625,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-09T17:19:45.335Z",
+      "MiB": 1409.16796875,
+      "stage": "native-packed-init"
+    },
+    {
+      "at": "2026-10-09T17:19:55.211Z",
+      "MiB": 1666.71484375,
+      "stage": "native-packed-init"
+    },
+    {
+      "at": "2026-10-09T17:20:05.118Z",
+      "MiB": 1678.3046875,
+      "stage": "native-packed-init"
+    },
+    {
+      "at": "2026-10-09T17:20:15.124Z",
+      "MiB": 1683.609375,
+      "stage": "native-packed-init"
+    },
+    {
+      "at": "2026-10-09T17:20:25.268Z",
+      "MiB": 1250.96875,
+      "stage": "failed"
+    }
+  ],
+  "seedBridgeCosts": [
+    {
+      "phase": "readPixels",
+      "wallMs": 6.700000047683716,
+      "ok": true,
+      "bytes": 0,
+      "generation": 1,
+      "layerId": "layer-1"
+    },
+    {
+      "phase": "rowFlip",
+      "wallMs": 2.1999999284744263,
+      "ok": true,
+      "bytes": 4194304,
+      "generation": 1,
+      "layerId": "layer-1"
+    },
+    {
+      "phase": "uploadEnqueue",
+      "wallMs": 0.6000000238418579,
+      "ok": true,
+      "bytes": 4194304,
+      "generation": 1,
+      "layerId": "layer-1"
+    },
+    {
+      "phase": "queueAck",
+      "wallMs": 9.300000071525574,
+      "ok": true,
+      "bytes": 0,
+      "generation": 1,
+      "layerId": "layer-1"
+    }
+  ],
+  "scope": "OFF baseline replay began. No captured per-op roles/timestamps/endpoint; cannot classify slow work versus deadlock or claim factor byte/GPU/UI outcome. Target close follows hard deadline. No automatic retry.",
+  "evidence": "temp/device-runs/native-factor-5140-promoted-20261009",
+  "evidenceManifestSHA256": "81307bd4a833e03f3fa3edc98ccf53bf09a8e9bd6e6a869b054d16fe59fca4d3"
+}
