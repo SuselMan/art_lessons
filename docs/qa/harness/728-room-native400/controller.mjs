@@ -33,7 +33,7 @@ const actualAsyncPressure=process.env.QA_ACTUAL_ASYNC_PRESSURE==='1';if(![undefi
 const actualObserved=process.env.QA_ACTUAL_OBSERVED_FIELDS==='1';if(![undefined,'0','1'].includes(process.env.QA_ACTUAL_OBSERVED_FIELDS))throw Error('Explicit observed fields selection');if(actualObserved&&!actualAsyncPressure)throw Error('Observed actual proof requires existing actual pressure proof')
 const endpointExport=process.env.QA_ENDPOINT_EXPORT==='1';if(![undefined,'0','1'].includes(process.env.QA_ENDPOINT_EXPORT))throw Error('Explicit endpoint export selection');
 const app=process.env.QA_APP,entry=process.env.QA_ENTRY_FILE?fs.readFileSync(process.env.QA_ENTRY_FILE,'utf8').trim():null,base=process.env.CDP_BASE,out=process.env.QA_OUT,scenario=process.env.QA_SCENARIO??'first400',captureFields=process.env.QA_CAPTURE_FIELDS==='1'
-if(endpointExport&&(!actualObserved||scenario!=='four400'))throw Error('Endpoint export diagnostic requires observed four400 reference');
+if(endpointExport&&(!actualObserved||!(scenario==='four400'||sourcePrecompile&&scenario==='water-pigment400-long')))throw Error('Endpoint export requires observed four400 or exact source A long reference');
 if(captureFields)throw Error('Primary Room400 timeline forbids owner readback; use separate diagnostic controller');
 if(!['first400','water-pigment400','water-pigment400-long','zigzag400','four400'].includes(scenario))throw Error('Explicit supported scenario required')
 if(!app||!base||!out||!process.env.QA_ORIGIN_MANIFEST||!entry||new URL(entry).protocol!=='https:'||!process.env.QA_MANIFEST||!process.env.QA_PAPER_MANIFEST||!process.env.QA_RUNTIME)throw Error('Explicit trusted QA_ENTRY_FILE, frozen QA_ORIGIN_MANIFEST, QA_APP and output required')
