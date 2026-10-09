@@ -6,6 +6,10 @@ export async function readNativeFrontMaterialRoles(engine,operationIndex,require
  const runtime=engine?._wcNative,owner=runtime?.owner,backend=runtime?.backend
  if(!runtime||!owner||!backend||!runtime.central?.isIdle||engine._wcCanonical?.pending||engine._settle||engine._wcAsyncError)throw Error('Actual canonical idle owner required')
  if(engine.gl.isContextLost()||engine.gl.getError())throw Error('Actual GL unavailable')
+ // Logical FIFO idle can precede existing submitted-work release callbacks.
+ // Diagnostic-only wait occurs after input, before any Q8 read; no hot fence.
+ if(backend.diagnosticScopeState.pending>0)await backend.whenIdle()
+ if(runtime.owner!==owner||!runtime.central.isIdle||engine._wcCanonical?.pending||engine._settle||engine._wcAsyncError)throw Error('Owner changed during submitted-work wait')
  if(backend.diagnosticScopeState.pending!==0||!backend.diagnosticScopeState.live)throw Error('Existing submitted scopes must already be released')
  const field=owner.fields?.current,material=owner.scratch?.peek(owner.target?.buffer)
  if(!field||!material?.inkLoad||!material.inkColor)throw Error('Actual native material roles absent')
