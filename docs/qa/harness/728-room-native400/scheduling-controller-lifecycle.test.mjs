@@ -1,0 +1,11 @@
+import {test} from 'node:test'
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import {spawnSync} from 'node:child_process'
+function run(options){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'native-controller-'));try{const out=path.join(dir,'report.json'),fixture=path.join(dir,'fixture.json');fs.writeFileSync(fixture,JSON.stringify({out,...options}));const child=spawnSync(process.execPath,['docs/qa/harness/728-room-native400/controller.mjs'],{env:{PATH:process.env.PATH,QA_OFFLINE_SCHEDULING_FIXTURE:fixture},encoding:'utf8',timeout:5000});assert.equal(child.signal,null,child.stderr);return{child,report:JSON.parse(fs.readFileSync(out,'utf8'))}}finally{fs.rmSync(dir,{recursive:true,force:true})}}
+test('actual controller subprocess extracts CDP metadata before factor assertions and restores finally',()=>{const {child,report}=run({});assert.equal(child.status,0,child.stderr);assert.equal(report.complete,true);assert.equal(report.actualObserved.consumed.encoded,480);assert.equal(report.metadataResponseShape.type,'string');assert.equal(report.restored,true);assert.deepEqual(report.events,['installed','idle','existingACK','Runtime.evaluate','restore','close'])})
+test('legacy ordering reproduces missing metadata before CDP, remains durable and restored',()=>{const {child,report}=run({legacyOrder:true});assert.equal(child.status,1);assert.equal(report.complete,undefined);assert.match(report.error,/Exact paired\/cache/);assert.equal(report.combinedConsumption,undefined);assert.equal(report.events.includes('Runtime.evaluate'),false);assert.equal(report.restored,true)})
+test('invalid actual consumption retains parsed evidence before failed assertion and finally',()=>{const {child,report}=run({invalid:true});assert.equal(child.status,1);assert.equal(report.combinedConsumption.factorVariants[0].encoded,1);assert.equal(report.metadataResponseShape.type,'string');assert.equal(report.restored,true);assert.match(report.error,/compiled SHA/)})
+test('CDP exception persists failure and restores without inventing metadata',()=>{const {child,report}=run({readerError:true});assert.equal(child.status,1);assert.match(report.error,/mock CDP failure/);assert.equal(report.metadataResponseShape,undefined);assert.equal(report.restored,true)})

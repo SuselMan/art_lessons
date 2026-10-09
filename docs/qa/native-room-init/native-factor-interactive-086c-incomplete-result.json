@@ -1,6 +1,6 @@
 {
   "source": "086c846bed582433195de6b22a6b6a10da40bcf8",
-  "verdict": "INVALID_INTERACTIVE_METADATA_RESPONSE",
+  "verdict": "INVALID_CONTROLLER_ASSERTION_ORDER",
   "modelQualityFailure": false,
   "consumptionProved": false,
   "endpointProved": false,
@@ -34,5 +34,7 @@
   },
   "disposed": true,
   "scope": "Timing snapshots retained but full consumption/endpoint gate incomplete; missing metadata cause unknown. Not physical pen latency or a confirmed UX gain. No automatic hardware retry.",
-  "evidence": "temp/device-runs/native-factor-interactive-086c-promoted-20261009"
+  "evidence": "temp/device-runs/native-factor-interactive-086c-promoted-20261009",
+  "cause": "Factor observed assertion executed before combined consumption extraction. No metadata CDP request occurred; serialization was not the cause.",
+  "supersedesInterpretation": "Previous missing-response diagnosis was incorrect; ordering correction covers both 086c and d353 runs."
 }
