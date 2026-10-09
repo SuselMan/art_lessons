@@ -21,7 +21,7 @@ import {SealedPreviewGlPort} from './SealedPreviewGlPort.mjs';
 import {createPreviewWaterDomain} from './PreviewWaterDomain.mjs';
 /** OFF-only runtime, no canonical callbacks/resources. Construction awaited before input. */
 export async function createOwnedPreviewRuntime(e,morph,{event=()=>{},budgetBytes=3*PREVIEW_BYTES,excluded=[],observe=null,directDisplay=false,materialLinear=false,floatTransport=false,artifactProbe=false,currentSourceSpacing=false,finiteSettling=false,frontCarry=false,inheritedCarry=false,multiscaleCarry=false,prewarmCostDomain=false,carryFieldProbe=false,createBuffer=null,createDomain=createPreviewWaterDomain}={}){
- if(carryFieldProbe&&budgetBytes<25034752)throw Error('Explicit23.875MiB probe ledger required');
+ if(carryFieldProbe&&budgetBytes<25100288)throw Error('Explicit23.9375MiB probe ledger required');
  if(carryFieldProbe&&!multiscaleCarry)throw Error('Carry field probe requires multiscale');
  if(prewarmCostDomain&&!multiscaleCarry)throw Error('Cost path warm requires multiscale');
  if(multiscaleCarry&&!frontCarry)throw Error('Multiscale requires current carry preview');
