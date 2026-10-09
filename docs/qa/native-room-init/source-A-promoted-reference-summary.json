@@ -1,0 +1,152 @@
+{
+  "source": "0f3271f79565a7dd2c35ad22ab5aa34f4191752d",
+  "scenario": "water-pigment400-long",
+  "classification": "Reference succeeded; OFF fresh RAM below1700 before context; ON not run",
+  "pairComplete": false,
+  "referenceReusable": true,
+  "reference": {
+    "complete": true,
+    "ownedContextDisposed": true,
+    "ramStartMiB": 1992.4375,
+    "readyAtPageMs": 21362,
+    "firstDownAtPageMs": 21712.099999964237,
+    "browserCriticalHashes": 4,
+    "browserFactoryHashes": 9,
+    "endpoint": {
+      "width": 1754,
+      "height": 2480,
+      "alpha": 120438,
+      "purple": 120437,
+      "sha": "fc0bed7519107daa85e1709dcfc1188cef4b9a2af4552414fafa6d5d1508f186",
+      "pngSha256": "a9b2336f94e3d51d6e09e3ba1449d9c2a19f4c8c206d7a3692618297d564efd4",
+      "pngBytes": 385407,
+      "comparisonReady": true
+    },
+    "preparedSourcePipelineCount": 15,
+    "selectedSourceHits": [
+      {
+        "key": "stamp:false:false:coverage",
+        "kind": "render",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 6778
+      },
+      {
+        "key": "ribbon:coverage",
+        "kind": "render",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 6539
+      },
+      {
+        "key": "canonicalCompositeRecipe",
+        "kind": "render",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 13408
+      },
+      {
+        "key": "canonicalRawCanvasRecipe",
+        "kind": "render",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 329
+      },
+      {
+        "key": "pairedBrush",
+        "kind": "compute",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 3795
+      },
+      {
+        "key": "singleBrush",
+        "kind": "compute",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 3693
+      }
+    ],
+    "seedPhases": [
+      {
+        "phase": "readPixels",
+        "wallMs": 15.599999964237213,
+        "ok": true,
+        "bytes": 0,
+        "generation": 1,
+        "layerId": "layer-1"
+      },
+      {
+        "phase": "rowFlip",
+        "wallMs": 2.800000011920929,
+        "ok": true,
+        "bytes": 4194304,
+        "generation": 1,
+        "layerId": "layer-1"
+      },
+      {
+        "phase": "uploadEnqueue",
+        "wallMs": 0.5,
+        "ok": true,
+        "bytes": 4194304,
+        "generation": 1,
+        "layerId": "layer-1"
+      },
+      {
+        "phase": "queueAck",
+        "wallMs": 15.899999976158142,
+        "ok": true,
+        "bytes": 0,
+        "generation": 1,
+        "layerId": "layer-1"
+      }
+    ]
+  },
+  "off": {
+    "ramStartMiB": 1618.015625,
+    "failed": true,
+    "contextCreated": false
+  },
+  "on": {
+    "started": false
+  },
+  "evidence": {
+    "promoted": true,
+    "files": [
+      {
+        "name": "reference-report.json",
+        "bytes": 14453,
+        "sha256": "05e3c3b1e87061c8331a4a1ce9ad65172a3fe31a028b0b630eb53fa6875ad5e8"
+      },
+      {
+        "name": "packed-input.json",
+        "bytes": 1423,
+        "sha256": "ceb5f0eb5554a94765ba2a15a503ee084f351fa95374ac5c6e3ee4a9384522ee"
+      },
+      {
+        "name": "reference-native-material.png",
+        "bytes": 385407,
+        "sha256": "a9b2336f94e3d51d6e09e3ba1449d9c2a19f4c8c206d7a3692618297d564efd4"
+      },
+      {
+        "name": "off-report.json",
+        "bytes": 168,
+        "sha256": "87265b54874a0618ed87b0ecd0ff68564b9b10f6b08ef2699e2beed5ce971c24"
+      }
+    ],
+    "referenceReusable": true,
+    "source": "0f3271f79565a7dd2c35ad22ab5aa34f4191752d"
+  },
+  "cleanup": {
+    "ownContextsDisposed": true,
+    "frontendStopped": true,
+    "forwardStopped": true,
+    "disposableFinishAfterVerifiedPromotion": true
+  },
+  "limitations": [
+    "No paired quality or speedup verdict",
+    "Actual generated packed reference differs from prior reference; no cross-reference pixel comparison",
+    "Queue ACK wall not exclusive GPU duration",
+    "Only bounded compact/packed/PNG retained, no raw env/source/body"
+  ]
+}
