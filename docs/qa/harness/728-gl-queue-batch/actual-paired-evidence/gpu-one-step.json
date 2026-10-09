@@ -1,0 +1,148 @@
+{
+  "computedPassport": {
+    "apps/web/src/engine/index.ts": "ad8687731c626d52921c1cbef4a96fb2eddbf221f83cd42db62031cedb90d6d3",
+    "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "2b62d469fd8175b74cefc937fd748668e5f0367109c9cc9c8103d53f3f576c96",
+    "apps/web/src/engine/src/dabs/canonicalStrokeChunk.ts": "d5bfd4ed0f1896c39dd3fa21232b9cc5c92d96c799cb686dfbc4af26b2334197",
+    "apps/web/src/engine/src/raster/RibbonPasses.ts": "5c4b67290da13fa4eb2db648ff798eb92b8b3074aa4b79f948bb8d05ec22839e",
+    "docs/qa/harness/728-gl-queue-batch/PreparedGlSourceDraw.ts": "1a64ba13e061977c3440dd334acc35e784e7a6ba983f300debd6fb86d832c5e1",
+    "docs/qa/harness/728-gl-queue-batch/ownedMaterialRebaseGpu.mjs": "883b7fbd6760bef4c6ffc7bf5753fba055e1d79dc7525fa0def94a708d123713",
+    "docs/qa/harness/728-gl-queue-batch/OwnedGlPreparedSource.ts": "add0d4603a7ffbe4918722d7838601e56ebe70dcd30354888b9e21613f301c6c",
+    "docs/qa/harness/728-gl-queue-batch/TypedGlSourceReplayPrototype.ts": "ab7af9183d768491d864a8641071aed8230780b34859cb72a74c2432a6b281d2",
+    "docs/qa/harness/728-gl-queue-batch/PrewarmedGlOwnerPool.ts": "bc6d0abcc980c6738749638dd921958797007e85da8c881f336b53d1cf8a98c4",
+    "temp/owner-fifo-runtime/OwnerRibbonStrokePainter.ts": "6cd2f03603fc9748157bbe7b8e340ab09a063b397ac71d204cfa91ce0a3d2bee"
+  },
+  "rows": [
+    {
+      "scope": "ONE actual captured-input GPU paired moment step; no animation/material acceptance",
+      "inputPassport": {
+        "ownerSequence": 2,
+        "epoch": 0,
+        "passStep": 0,
+        "passStride": 1,
+        "origin": [
+          448,
+          448
+        ],
+        "side": 128,
+        "packedSha": "df397dd040b4807c901bf17e6258b14087c3603407e49334933678aee835f52a",
+        "paperSha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+        "bytes": 589824,
+        "rawSha256": {
+          "sourceP": "ecbac89bd14c7c74f8c15589bcd85c6af8ff5c7f56c14b4a750b4a77c35a9332",
+          "sourceC": "19f0ef94612e7b8114d27552641854ca1b99fde923ee0d8e37ac425d9c2803f0",
+          "fluid": "d9be80a99fb2a1724cee81b0f53fce0a10dc7c10a5a3a50aac9432a2bbae5aaa",
+          "pressure": "e9ce3b924594be4e88e052fed770e1c0c479cd9d543e5a10795a2e85044d36a6",
+          "path": "53a26254bd96fb9324e0748cdbd5ba9b48bfe4e20cf50c156f6a3016da86b0c0",
+          "oldP": "cdd80e9d97e336dae3301b5ef850ff8e12154c13efca3af1df73115ad73d3708"
+        },
+        "sourceHead": "f36bdb2b23d8a6deb708367e80fedbd6c500a66f",
+        "stage": "before-carry"
+      },
+      "inputLifecycleFail": true,
+      "bytes": 1310720,
+      "t0Changed": 0,
+      "sourceChanged": 0,
+      "hueOutsideSourceConvexRange": 0,
+      "sourceDensityRatioRanges": [
+        [
+          0,
+          0.5
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          0.33333334652706953
+        ]
+      ],
+      "maxAbsVsCpuRoundedInputs": 4.352157850773253e-08,
+      "nonfinite": 0,
+      "negative": 0,
+      "changedValues": 18872,
+      "massBefore": [
+        359.26275432575494,
+        359.26275432575494,
+        359.26275432575494,
+        359.26275432575494,
+        108.16078627994284,
+        170.3921617232263,
+        53.53725595539436,
+        359.26275432575494
+      ],
+      "massAfter": [
+        359.26275761015734,
+        359.26275761015734,
+        359.26275761015734,
+        359.26275761015734,
+        108.1607869436047,
+        170.39216274603413,
+        53.53725619490246,
+        359.26275761015734
+      ],
+      "massErrors": [
+        3.2844023962752544e-06,
+        3.2844023962752544e-06,
+        3.2844023962752544e-06,
+        3.2844023962752544e-06,
+        6.63661865019094e-07,
+        1.0228078224372439e-06,
+        2.3950810401629496e-07,
+        3.2844023962752544e-06
+      ],
+      "hop": 8,
+      "valid": true,
+      "limitations": [
+        "Owned isolated GL state; use standalone diagnostic context, not interleaved engine rendering",
+        "Frozen actual captured donor fractions for at most24steps, no time/evolving solver equivalence",
+        "No coverage/paper/material/reveal; float moment correctness is not animation acceptance"
+      ]
+    }
+  ],
+  "memory": [
+    {
+      "stage": "preflight",
+      "freeMiB": 2148
+    }
+  ],
+  "browserEvents": [
+    {
+      "method": "Page.frameNavigated",
+      "params": {
+        "frame": {
+          "id": "F2F856CF41FC2038D5D0EDD3995D4063",
+          "loaderId": "7B9C5B9966144DD116266ED6C979BECD",
+          "url": "https://10.203.72.1:5353/@fs//home/suselman/projects/pencil-agents/728-solvent-init/docs/qa/harness/728-gl-queue-batch/owner-original-entry.html",
+          "domainAndRegistry": "",
+          "securityOrigin": "https://10.203.72.1:5353",
+          "securityOriginDetails": {
+            "isLocalhost": false
+          },
+          "mimeType": "text/html",
+          "adFrameStatus": {
+            "adFrameType": "none"
+          },
+          "secureContextType": "Secure",
+          "crossOriginIsolatedContextType": "NotIsolated",
+          "gatedAPIFeatures": []
+        },
+        "type": "Navigation"
+      }
+    }
+  ],
+  "valid": true,
+  "executionSourceHead": "68557a6ad9b738d3e6ed85086f79f87bfa50d929",
+  "helperSha256": {
+    "SmallPositivePairedGpu.mjs": "f1ee4946fa29d2aafaff94c5065aeb1a282f9a339fd8af75db0651ed464f9240",
+    "runActualPositivePairedGpu.mjs": "6fd9dc3e40518ffbc0bc992672683f7a407d06a35005c094aa6c2c75979ae474",
+    "Actual128PairedDriverAdapter.mjs": "0a729458bcbed8560d2061c524368060171c4f919d5a7238701abc2c04cacbec"
+  },
+  "postCloseFreeMiB": 2126,
+  "preGpuInfrastructureFailure": "Error: SyntaxError: Unexpected token '<', \"<!doctype \"... is not valid JSON",
+  "limitations": [
+    "Moment gate only, not Grafetto pixels, evolving solver, performance or animation acceptance",
+    "GPU dry-deposit counts were not separately retained; boundary/dry admissibility established by CPU lifted fractions, not a new distinct dry-gap hardware scenario",
+    "Original retained snapshot lifecycle FAIL remains, despite moment step PASS"
+  ]
+}
