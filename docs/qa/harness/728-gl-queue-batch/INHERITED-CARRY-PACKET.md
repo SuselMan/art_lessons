@@ -142,3 +142,30 @@ RAF, separate front setup24 bounded ticks. No GPU duration/Room-quality claim.
 This positive prerequisite allows review of isolated path coupling; it does not
 establish visible Room spreading or SAMEtape canonical endpoint. Unit/inherited
 negative evidence stays intact. Next runtime wiring only after source review.
+
+## OFF Room multiscale executable packet (CPU ready)
+
+Session3b372bfe/runtime614ebde6/tests1c452a4d. Standalone flag
+MULTISCALE_CARRY=1 → diagMultiscaleCarry; requires current CARRY_PREVIEW=1.
+Inherited remains separately selectable. Factory prewarms six mask targets and
+small seed program before input, explicit20054016bytes total19.125MiB. Factory
+throw destroys masks/program after setup fence. Owner takes pair at seal without
+allocation; cancellation detaches, retains physical leases until known-idle,
+then releases path+pressure exactly once; loss no DOWN fence/ reuse.
+
+Ticket.coverage provenance: TypedPreviewPool creates128NEAREST coverage;
+TypedPreviewTransport.step exposes that field; SealedPreviewGlPort.initialize
+resamples ownV→water then PreviewWaterDomain.draw overwrites preview coverage
+alpha with R/A support. It is NOT production material coverage (which remains
+fullreadonly1024). It is NOT pressure. Source/canonical fields unchanged.
+
+Actual session uses production watercolorCarryStrides from source-derived budget,
+whole cycles≤24, maxstride16; pressure/front interleaved with each carry. First
+stride1:seed10+front+pathseed+pair=5draw; laterstride16≤8draw includingfront.
+No scalar rate/dose changes. Existing finiteclock pauses during carry and
+advances timestamp. CPU session complete10 sequence/OLDP-C/sharedpressure/count
+and runtime staleepochdetach/noearlyrelease/doublecleanup tests11PASS.
+EntryHTTP200, computed controllerpassport includes seed/pool/port/session and
+strict effective flag gate before input. Prepared-source generator unchanged.
+Room hardware NOT run yet; primitive positive does not imply Room quality or
+canonical endpoint comparison. Root review/allocation required before device.
