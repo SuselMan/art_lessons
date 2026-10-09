@@ -12,7 +12,7 @@ export async function prepareCanonicalHardwareLinearPipeline(device:GPUDevice,co
  if(existing){if(existing.code!==code)throw new Error('Prepared pressure shader identity changed');return existing.promise}
  const entry:Entry={code,pipeline:null,hits:0,promise:null as unknown as Promise<HardwarePressureCompileProof>}
  const started=performance.now()
- entry.promise=(async()=>{const pipeline=await device.createComputePipelineAsync(canonicalHardwareLinearDescriptor(device,code));entry.pipeline=pipeline;return{completed:true,shaderBytes:code.length,compilerWallMs:performance.now()-started,scope:'exact pipeline compilation only' as const}})()
+ entry.promise=(async()=>{const pipeline=await device.createComputePipelineAsync(canonicalHardwareLinearDescriptor(device,code));entry.pipeline=pipeline;return{completed:true as const,shaderBytes:new TextEncoder().encode(code).byteLength,compilerWallMs:performance.now()-started,scope:'exact pipeline compilation only' as const}})()
  prepared.set(device,entry)
  try{return await entry.promise}catch(error){if(prepared.get(device)===entry)prepared.delete(device);throw error}
 }
@@ -21,4 +21,4 @@ export function preparedCanonicalHardwareLinearPipeline(device:GPUDevice,code:st
  if(entry.code!==code||!entry.pipeline)throw new Error('Pressure pipeline requested before matching async preparation completed')
  entry.hits++;return entry.pipeline
 }
-export function canonicalHardwareLinearPreparationDiagnostics(device:GPUDevice){const entry=prepared.get(device);return entry?{completed:!!entry.pipeline,hits:entry.hits,shaderBytes:entry.code.length}:null}
+export function canonicalHardwareLinearPreparationDiagnostics(device:GPUDevice){const entry=prepared.get(device);return entry?{completed:!!entry.pipeline,hits:entry.hits,shaderBytes:new TextEncoder().encode(entry.code).byteLength}:null}
