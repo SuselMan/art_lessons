@@ -6,3 +6,9 @@ test('actor diagnostic preserves request/response timings and never headers or a
 test('thumbnail403 captures errorcode and post-denial HTTP/store/engine comparison without roomURL',async()=>{
  const cdp=new EventEmitter();cdp.send=async()=>({body:'{"error":"forbidden"}',base64Encoded:false});const t=attachHttpActorTrace(cdp,{evaluate:async()=>({httpActor:'changed',storeActor:'old',engineActor:'old'})});cdp.emit('Network.requestWillBeSent',{requestId:'two',timestamp:10,request:{url:'https://example.test/api/rooms/private-room/thumbnail?secret=x',method:'POST'}});cdp.emit('Network.responseReceived',{requestId:'two',timestamp:11,response:{status:403}});cdp.emit('Network.loadingFinished',{requestId:'two'});await new Promise(r=>setImmediate(r));await t.close();assert.equal(t.records[0].errorCode,'forbidden');assert.equal(t.records[0].after403.httpActor,'changed');assert.equal(t.records[0].endpoint,'/api/rooms/<room>/thumbnail');assert.equal(JSON.stringify(t.records).includes('private-room'),false);
 });
+test('duplicate me requests preserve both response actors even when completion order reverses',async()=>{
+ const cdp=new EventEmitter();cdp.send=async(_method,{requestId})=>({body:JSON.stringify({userId:requestId==='first'?'older-actor':'later-actor'}),base64Encoded:false});const t=attachHttpActorTrace(cdp,{});
+ for(const[id,at]of [['first',1],['second',2]])cdp.emit('Network.requestWillBeSent',{requestId:id,timestamp:at,request:{url:'https://example.test/api/me',method:'GET'}});
+ for(const[id,at]of [['second',3],['first',4]]){cdp.emit('Network.responseReceived',{requestId:id,timestamp:at,response:{status:200}});cdp.emit('Network.loadingFinished',{requestId:id})}
+ await t.close();assert.deepEqual(t.records.map(r=>[r.requestTimestamp,r.responseTimestamp,r.httpActor]),[[1,4,'older-actor'],[2,3,'later-actor']]);
+});
