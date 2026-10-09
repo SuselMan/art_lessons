@@ -1,0 +1,29 @@
+{
+  "verdict": "PASS_BOUNDED_CPU_STRICT_F32_OPERAND_ORACLE",
+  "source": "98f0d385bc5eaccd905dc0f7ab79e34488b8bf6a",
+  "captureSHA": "9076c6393ef9d0630e8e46c2566430b0f2e59a8b08303a31ec30d3ff5485a0bb",
+  "paperSHA": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+  "noiseSHA": "4b528332104d75b6a309d4b4c8a0459268b8b202b17fe09d032cf4d881ed5da8",
+  "actualGeometry": {
+    "width": 1536,
+    "height": 1536,
+    "scale": 1,
+    "origin": [
+      0,
+      -1536
+    ],
+    "texSize": [
+      1754,
+      2480
+    ]
+  },
+  "points": 1089,
+  "neighbors": 8320,
+  "costCases": 99840,
+  "cacheFloatBytes": 18874368,
+  "limitations": [
+    "Sampled actual static input bytes and uniforms, not actual mutable cost/coverage values",
+    "Strict-f32 arithmetic model; WGSL compiler contraction/FMA not proved",
+    "GPU intermediate Q8 material parity remains mandatory"
+  ]
+}
