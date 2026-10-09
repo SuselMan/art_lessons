@@ -1,0 +1,36 @@
+{
+  "scope": "ONE bounded passive30 read-only RAM check; zero contexts/forward/input",
+  "outcome": "Error: Peer RAM admission hold",
+  "rows": [
+    {
+      "contexts": 0,
+      "threshold": 2200,
+      "free": 2130
+    },
+    {
+      "contexts": 0,
+      "threshold": 2200,
+      "free": 2134
+    },
+    {
+      "contexts": 0,
+      "threshold": 2200,
+      "free": 2141
+    },
+    {
+      "contexts": 0,
+      "threshold": 2200,
+      "free": 2150
+    },
+    {
+      "contexts": 0,
+      "threshold": 2200,
+      "free": 2146
+    },
+    {
+      "contexts": 0,
+      "threshold": 2200,
+      "free": 2147
+    }
+  ]
+}
