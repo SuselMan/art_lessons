@@ -976,6 +976,7 @@ function RoomEditor() {
     // are reset here rather than there.
     replayIncompleteRef.current = false
     snapshotGateRef.current = createSnapshotGate(reportInvariant)
+    const ownedSnapshotGate = snapshotGateRef.current
     const engine = new PencilEngine(canvasRef.current, {
       ...watercolorQaOptions(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_TOUCH, import.meta.env.VITE_QA_JOINED_FINISH_DEFERRED, window.location.search),
       diagLog,
@@ -1035,9 +1036,10 @@ function RoomEditor() {
 
     const unhookPageHide = releaseOnPageHide(engine) // (§17.73)
     return () => {
-      engineRef.current = null
-      // (#493) Final thumbnail, then destroy: `engine`, not the nulled ref.
-      retireEngine(engine, boardId, replayIncompleteRef, unhookPageHide)
+      const materialPublishable = engineRef.current === engine && roomContentReadyRef.current && ownedSnapshotGate.ready()
+      if (engineRef.current === engine) engineRef.current = null
+      // Publish only this engine's completed material, never an initial StrictMode canvas.
+      retireEngine(engine, boardId, replayIncompleteRef, unhookPageHide, materialPublishable)
     }
   }, [
     boardId, enginePaper, enginePaperColor, engineInfinite,

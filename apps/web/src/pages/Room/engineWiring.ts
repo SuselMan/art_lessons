@@ -117,9 +117,11 @@ export function retireEngine(
   engine: PencilEngineAPI, boardId: string, replayIncompleteRef: RefObject<boolean>,
   /** (§17.73) releaseOnPageHide's cleanup: the room is going, not the page. */
   unhookPageHide?: () => void,
+  /** Only this engine's completed material may publish; omitted is fail-closed. */
+  materialPublishable = false,
 ): void {
   unhookPageHide?.()
-  if (!replayIncompleteRef.current) {
+  if (materialPublishable && !replayIncompleteRef.current) {
     void uploadThumbnail(boardId, engine)
       .then(uploaded => {
         // (#567) The board strip shows each board's own thumbnail, and this
