@@ -10,6 +10,8 @@
 | Фиолетовый3 | 2.2 | 1.7 |
 | Жёлтый | 2.8 | 2.4 |
 
+Actual closure model census: joined=false, deferred=false, async=false, material=false. DEV stand не включал qaJoinedTouch; эти CPU данные нельзя переносить на production joined-touch path или сравнивать с прежними joined/FIFO измерениями.
+
 Возврат display является CPU submission, не доказательством показанного GPU пикселя. DOWN gl.finish0; существующий `_syncContinuationGpu` в этом обычном Room сценарии не вызывался. Записано491 rAF callback (включая явно помеченный QA idle): медианный интервал16.7, максимум83.3мс, пять интервалов>50мс;191 display-call. Из этих данных нельзя выводить physical FPS или точное OFF/ON ускорение новых live gestures.
 
 Функциональные проверки прошли: пять исходных packed stroke операций, согласованный create/join actor и engineActor, GL0/context lost false, public UI Dry/Undo/Redo с ACK и persisted operation IDs. Undo имеет настоящий target со state undone и меняет whole PNG; Redo того же target возвращает state done и exact Dry endpoint. SHA Dry/Redo `ace889ee66e9dcd648263bcae8ce471e43772083221f469d86338028267a3a9d`, Undo `95f718517a0a785fc5e007fccabcf0be173e121db4584bfe1f1f0b2c014f75ee`. Картинки сохранены для просмотра, художественная оценка здесь не заявлена.
