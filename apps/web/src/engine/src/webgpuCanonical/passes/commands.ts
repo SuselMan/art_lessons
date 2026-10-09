@@ -19,6 +19,7 @@ export class CanonicalSettleCommands {
  private readonly resample:CanonicalResamplePass
  constructor(device:GPUDevice){this.fields=new CanonicalFieldOps(device);this.transport=new CanonicalFieldPasses(device);this.domain=new CanonicalCostDomainPass(device);this.resample=new CanonicalResamplePass(device)}
  retireStaticCache(defer:(cleanup:()=>void)=>void){this.transport.retireStaticCache(defer)}
+ get frontSharedTileDiagnostics(){return this.transport.sharedTileVariantDiagnostics}
  get mode5TileDiagnostics(){return this.fields.mode5TileDiagnostics}
  get identityCopyCalls(){return this.fields.diagnosticIdentityCopyCalls}
  get filmVariantDiagnostics(){return this.transport.filmVariantDiagnostics}

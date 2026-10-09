@@ -25,6 +25,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  diagnosticHardwareLinearInputs=false
  diagnosticIdentityFieldCopy=false
  diagnosticMode5SharedTile=false
+ diagnosticFrontSharedTile=false
  /** OFF-default paired carry, no planner cadence/presentation changes. */
  diagnosticStaticDiffuseHeight=false
  diagnosticStaticFrontCache=false
@@ -33,6 +34,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  diagnosticLazyFrontClimb=false
  diagnosticPairedCarry=false
  retireStaticFrontCache(){this.commands.retireStaticCache(cleanup=>this.owner.retireAfterOwnerScopes(cleanup))}
+ get frontSharedTileDiagnostics(){return this.commands.frontSharedTileDiagnostics}
  get mode5TileDiagnostics(){return this.commands.mode5TileDiagnostics}
  get identityCopyCalls(){return this.commands.identityCopyCalls}
  get filmVariantDiagnostics(){return this.commands.filmVariantDiagnostics}
@@ -156,7 +158,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
   const size = this.owner.paper.texSize
   const paper = { ...resources.paper, staticInputEpoch:this.owner.staticInputEpoch, origin: [x0 / scale, -(y0 / scale + field.h)] as const, texSize: [size[0] / scale, size[1] / scale] as const }
   if (foreignWater && (!foreignWater.field || foreignWater.destroyed)) throw new Error('Foreign water slot has not been uploaded')
-  this.transient.push(this.commands.encode(this.ctx(), { kind: 'waterFront', resources: { ...resources, paper }, noise: this.owner.noise, params: { diagnosticSourceFilter:this.diagnosticFrontSourceFilter,diagnosticStaticCache:this.diagnosticStaticFrontCache,diagnosticStaticCacheFactor:this.diagnosticStaticFrontCacheFactor,diagnosticFilmHoist:this.diagnosticFrontFilmHoist,diagnosticLazyClimb:this.diagnosticLazyFrontClimb,dryCost, costMax: max, climb, floor, stride, foreignFilm: foreignWater?.field ?? undefined } }))
+  this.transient.push(this.commands.encode(this.ctx(), { kind: 'waterFront', resources: { ...resources, paper }, noise: this.owner.noise, params: { diagnosticSharedTileOwner:import.meta.env.DEV&&this.diagnosticFrontSharedTile?this.owner:undefined, diagnosticSourceFilter:this.diagnosticFrontSourceFilter,diagnosticStaticCache:this.diagnosticStaticFrontCache,diagnosticStaticCacheFactor:this.diagnosticStaticFrontCacheFactor,diagnosticFilmHoist:this.diagnosticFrontFilmHoist,diagnosticLazyClimb:this.diagnosticLazyFrontClimb,dryCost, costMax: max, climb, floor, stride, foreignFilm: foreignWater?.field ?? undefined } }))
  }
  wcResample(out: CanonicalFieldBuffer, dx: number, dy: number, width: number, height: number, source: CanonicalFieldBuffer, sx: number, sy: number, ratio: number, mode: 0 | 1 | 2, old: CanonicalFieldBuffer | null = null, base: CanonicalFieldBuffer | null = null, clamp: SettlePlanRect | null = null) {
   if (width <= 0 || height <= 0) return
