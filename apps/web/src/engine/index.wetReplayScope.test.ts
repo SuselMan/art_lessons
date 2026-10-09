@@ -73,3 +73,14 @@ it('intervening live write, failed gesture, destroyed owner and unfinished gestu
   const before=rawWet(e['_paperWet']);expect(()=>e.diagnosticPromoteCompletedWetReplay(packet)).toThrow(kind==='stale'?'changed wet authority':'acceptance');expect(rawWet(e['_paperWet'])).toEqual(before)
  }
 })
+
+it('authority capture rejects existing ID and silent append rejection cannot create completed acceptance',async()=>{
+ const {r,e}=await promotable();e['_log'].append(r.op,{pending:true})
+ const authority=e['_paperWet'].captureDiagnosticAuthority(),before=rawWet(e['_paperWet']),paint=vi.spyOn(e as unknown as {_paintStrokeDabs():void},'_paintStrokeDabs')
+ expect(()=>e.diagnosticCaptureWetReplayAuthority(r.op.strokeId!,r.op.washId!,r.op.id,authority,r.tape.events,{dropped:0,errors:0})).toThrow('already exists');expect(paint).not.toHaveBeenCalled();expect(rawWet(e['_paperWet'])).toEqual(before)
+ const fresh=await promotable();vi.spyOn(fresh.e['_log'],'append').mockReturnValue([])
+ for(const item of fresh.r.samples.filter(item=>item.kind!=='end'))fresh.e.diagnosticDispatchPointerAdmission(fresh.packet,item.kind,item.sample,fresh.r.op.timestamp)
+ const end=fresh.r.samples.find(item=>item.kind==='end')!
+ expect(()=>fresh.e.diagnosticDispatchPointerAdmission(fresh.packet,'end',end.sample,fresh.r.op.timestamp)).toThrow('not accepted')
+ expect(()=>fresh.e.diagnosticPromoteCompletedWetReplay(fresh.packet)).toThrow('acceptance')
+})

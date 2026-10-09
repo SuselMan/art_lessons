@@ -1271,6 +1271,7 @@ interface DiagnosticWetReplayScope {
   gesture?: number
   started: boolean
   authority?: DiagnosticWetAuthority
+  acceptedOperation?: Operation
 }
 
 interface EngineOpts {
@@ -6239,6 +6240,8 @@ export class PencilEngine implements PencilEngineAPI {
 
   diagnosticCaptureWetReplayAuthority(strokeId: string, washId: string, operationId: string,
     authority: DiagnosticWetAuthority, events: readonly WetTranscriptEvent[], completeness: {dropped:number;errors:number}): object {
+    if(this._log.entries.some(entry=>entry.op.id===operationId)||this._opQueue.some(entry=>entry.op.id===operationId))
+      throw Error('Wet replay operation ID already exists')
     const packet = this.diagnosticCaptureWetReplay(strokeId, washId, operationId, authority.snapshot, events, completeness)
     this._admissionPackets.get(packet)!.replay!.authority = authority
     return packet
@@ -6286,8 +6289,8 @@ export class PencilEngine implements PencilEngineAPI {
         if(kind==='end'){
           owned.replay.clock.assertDone()
           if(owned.replay.authority){
-            const operation=this._log.doneOperations().find(op=>op.id===owned.replay!.operationId)
-            if(!operation || operation.type!=='stroke' || operation.userId!==this._userId
+            const operation=owned.replay.acceptedOperation
+            if(!operation || !this._log.doneOperations().includes(operation) || operation.id!==owned.replay.operationId || operation.type!=='stroke' || operation.userId!==this._userId
               || operation.layerId!==owned.layerId || operation.strokeId!==owned.strokeId || operation.washId!==owned.replay.washId)
               throw Error('Wet replay operation not accepted')
             this._completedWetReplays.set(packet,{scope:owned.replay,operation,revision:this._log.revision,layerId:owned.layerId,target:owned.target})
@@ -6898,8 +6901,15 @@ export class PencilEngine implements PencilEngineAPI {
           // dry paper, and an all-zero profile is bytes spent saying nothing.
           ...(this._strokeWet && !isDryProfile(this._strokeWet) ? { wet: this._strokeWet } : {}),
         }
+        const wetReceiptStart=this._wetReplayScope?.authority?this._log.entries.length:null
         if (this._glTiming?.isActive()) this._glTiming.measure('up-log-append', () => this._log.append(op, { pending: true }))
         else this._log.append(op, { pending: true })
+        if(this._wetReplayScope?.authority && wetReceiptStart!==null){
+          const receipt=this._log.entries[wetReceiptStart]
+          if(this._log.entries.length===wetReceiptStart+1 && receipt?.state==='done'
+            && Object.keys(op).every(key=>Reflect.get(receipt.op,key)===Reflect.get(op,key)))
+            this._wetReplayScope.acceptedOperation=receipt.op
+        }
         if (this._wcAsyncLocalStroke) this._queueAsyncLocalToolOp(op, this._wcAsyncLocalStroke)
         // (#537) A peer's live ink still unrecorded on this layer went down
         // interleaved with this gesture's — see _foreignUnrecordedInk.
