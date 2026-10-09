@@ -8,7 +8,7 @@ export interface CanonicalWatercolorRequest {
   cancel(contextLost: boolean): void
 }
 export interface CanonicalWatercolorFIFOContext {
-  advance?(work: Generator<number, void, void>, current: () => boolean, request?: CanonicalWatercolorRequest): IteratorResult<number, void>
+  advance?(work: Generator<number, void, void>, current: () => boolean, request?: CanonicalWatercolorRequest, capability?: object): IteratorResult<number, void>
   blocked(): boolean
   schedule(callback: () => void): number
   unschedule(handle: number): void
@@ -21,8 +21,17 @@ export class WatercolorCanonicalFIFO {
   private frame = 0
   private epoch = 0
   private waiters: Array<(completed: boolean) => void> = []
+  private activeCapability: object | null = null
+  private capabilities: WeakMap<object, { request: CanonicalWatercolorRequest; epoch: number }> | null = null
   private readonly ctx: CanonicalWatercolorFIFOContext
-  constructor(ctx: CanonicalWatercolorFIFOContext) { this.ctx = ctx }
+  constructor(ctx: CanonicalWatercolorFIFOContext, private readonly diagnosticExecutionCapability = false) { this.ctx = ctx }
+  /** Diagnostic-only synchronous witness; never changes pending/ready semantics. */
+  isSoleExecutingOwner(capability: object): boolean {
+    const owned = this.capabilities?.get(capability)
+    return this.diagnosticExecutionCapability && capability === this.activeCapability && !!owned
+      && owned.epoch === this.epoch && owned.request === this.requests[0]
+      && this.requests.length === 1 && !this.ctx.blocked()
+  }
   /** Includes the executing request until its owned generator has completed. */
   get queuedRequestCount(): number { return this.requests.length }
   get pending(): boolean { return this.requests.length > 0 || this.ctx.blocked() }
@@ -60,13 +69,23 @@ export class WatercolorCanonicalFIFO {
   }
   /** One continuation unit, never a synchronous complete-to-idle loop. */
   private advance(): void {
+    if (this.activeCapability) throw Error('Reentrant canonical execution')
     if (this.ctx.blocked()) { this.schedule(); return }
     const request = this.requests[0]
     if (request) {
       const epoch = this.epoch
       try {
         this.work ??= request.execute()
-        const step = this.ctx.advance ? this.ctx.advance(this.work, () => epoch === this.epoch, request) : this.work.next()
+        let step: IteratorResult<number, void>
+        if (this.diagnosticExecutionCapability) {
+          const capability = Object.freeze({})
+          ;(this.capabilities ??= new WeakMap()).set(capability, { request, epoch })
+          this.activeCapability = capability
+          try { step = this.ctx.advance ? this.ctx.advance(this.work, () => epoch === this.epoch, request, capability) : this.work.next() }
+          finally { this.activeCapability = null; this.capabilities!.delete(capability) }
+        } else {
+          step = this.ctx.advance ? this.ctx.advance(this.work, () => epoch === this.epoch, request) : this.work.next()
+        }
         if (epoch !== this.epoch) return
         if (step.done) { this.requests.shift(); this.work = null }
         this.ctx.changed()
