@@ -1839,6 +1839,8 @@ export class PencilEngine implements PencilEngineAPI {
     reveal: boolean; fade: boolean; spread: boolean;
   } | null = null
   private readonly _wcJoinedFinish = new WeakMap<RibbonStrokeScratch, RibbonCanonicalFinish>()
+  /** QA-only narrower mixed lease candidate; no constructor/query/default enable. */
+  private _wcJoinedTouchSnapshotLease = false
   private _wcJoinedTouchLease: WatercolorSettleQueue['current'] = null
   private readonly _wcJoinedTouchInputs = new WeakMap<NonNullable<WatercolorSettleQueue['current']>, {
     readonly preset: string; readonly color: readonly number[]; readonly gesture: number; readonly finish?: RibbonCanonicalFinish
@@ -5979,6 +5981,24 @@ export class PencilEngine implements PencilEngineAPI {
     return this._ruler ? snapToRuler(x, y, this._ruler) : { x, y }
   }
 
+  private _validJoinedTouchSnapshotLease(job: NonNullable<WatercolorSettleQueue['current']>, layerId: string): boolean {
+    const input = this._wcJoinedTouchInputs.get(job)
+    const owned = input?.finish
+    const finish = owned?.finish
+    return !!(input && owned && finish && job.scratch.live
+      && owned.gesture === input.gesture && owned.gesture === job.scratch.gesture
+      && input.gesture === job.scratch.materialGesture
+      && finish.target === this._layers.get(layerId)
+      && finish.profile.normalizeDeposit
+      && finish.preset !== job.scratch.finishContext?.preset
+      && JSON.stringify(finish.preset) === JSON.stringify(job.scratch.finishContext?.preset)
+      && finish.color !== this._opts.graphiteColor
+      && finish.color.every((value, index) => Number.isFinite(value) && value === input.color[index])
+      && finish !== job.scratch.finishContext
+      && owned.paints !== job.scratch.paints
+      && (!owned.dryCtx || owned.dryCtx !== job.scratch.dryCtx))
+  }
+
   private _onStart(e: PointerData): void {
     // (§17.58) Peers' queued watercolour stays queued: landing it here was a
     // one-second hitch on the iPad right at the pen's touch. It lands after
@@ -6027,6 +6047,7 @@ export class PencilEngine implements PencilEngineAPI {
       && oldJob.scratch.live
       && touchInputs !== undefined && touchInputs.gesture === oldJob.scratch.gesture
       && ((this._wcJoinedTouchMixed && touchInputs.finish?.gesture === touchInputs.gesture)
+        || (this._wcJoinedTouchSnapshotLease && this._validJoinedTouchSnapshotLease(oldJob, layerId))
         || (touchInputs.preset === this._opts.pencilType
           && touchInputs.color.every((c, i) => c === this._opts.graphiteColor[i])))
       && openTouch.layerId === layerId && openTouch.signature === touchSignature
@@ -7713,7 +7734,7 @@ export class PencilEngine implements PencilEngineAPI {
       skipContacts = !!layerId && !rebuildingLayer && !unrecordedPeerInk && pureWaterLayerProof(this._log.entries, layerId, this._snapshots.hasCoverage(layerId),
         this._strokeLayerId === layerId && (this._strokeTool !== 'watercolor' || watercolorMixFromPreset(this._opts.pencilType).pigment > 0))
     }
-    return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs, preview, skipContacts, finishMetadata ? { ...finishMetadata, dryCtx: (this._wcJoinedTouchMixed || this._wcJoinedFinishDeferred) && scratch.dryCtx
+    return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs, preview, skipContacts, finishMetadata ? { ...finishMetadata, dryCtx: (this._wcJoinedTouchMixed || this._wcJoinedFinishDeferred || this._wcJoinedTouchSnapshotLease) && scratch.dryCtx
       ? { ...structuredClone({ ...scratch.dryCtx, target: undefined }), target: scratch.dryCtx.target }
       : scratch.dryCtx } : undefined, presentationOwnerLocked)
   }
@@ -8595,7 +8616,7 @@ export class PencilEngine implements PencilEngineAPI {
         return
       }
     }
-    if (this._wcJoinedTouch && (this._wcJoinedTouchMixed || this._wcJoinedFinishDeferred) && !this._wcAsyncFinish && !owned
+    if (this._wcJoinedTouch && (this._wcJoinedTouchMixed || this._wcJoinedFinishDeferred || this._wcJoinedTouchSnapshotLease) && !this._wcAsyncFinish && !owned
       && scratch === this._ribbonStrokeScratch) {
       owned = scratch.captureCanonicalFinish() ?? undefined
       if (owned) this._wcJoinedFinish.set(scratch, owned)
