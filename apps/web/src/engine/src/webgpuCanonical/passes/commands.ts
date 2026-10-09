@@ -19,11 +19,14 @@ export class CanonicalSettleCommands {
  private readonly resample:CanonicalResamplePass
  constructor(device:GPUDevice){this.fields=new CanonicalFieldOps(device);this.transport=new CanonicalFieldPasses(device);this.domain=new CanonicalCostDomainPass(device);this.resample=new CanonicalResamplePass(device)}
  retireStaticCache(defer:(cleanup:()=>void)=>void){this.transport.retireStaticCache(defer)}
+ get identityCopyCalls(){return this.fields.diagnosticIdentityCopyCalls}
  get filmVariantDiagnostics(){return this.transport.filmVariantDiagnostics}
  get factorVariantDiagnostics(){return this.transport.factorVariantDiagnostics}
  get staticFrontCacheCounters(){return this.transport.staticCacheCounters}
  /** Encode exactly one original GPU primitive; caller owns scheduling and cleanup. */
- encode(ctx:CanonicalGpuContext,command:CanonicalSettleCommand):GPUBuffer{
+ encode(ctx:CanonicalGpuContext,command:Extract<CanonicalSettleCommand,{kind:'fieldOp'}>):GPUBuffer|null
+ encode(ctx:CanonicalGpuContext,command:Exclude<CanonicalSettleCommand,{kind:'fieldOp'}>):GPUBuffer
+ encode(ctx:CanonicalGpuContext,command:CanonicalSettleCommand):GPUBuffer|null{
   switch(command.kind){
    case 'fieldOp':return this.fields.run(ctx,command.resources,command.mode,command.k,command.options)
    case 'pigmentColor':return this.fields.run(ctx,{...command.resources,b:command.resources.a,c:command.resources.a},2,1,{c:command.resources.a,d:command.resources.a,tau:command.tau})

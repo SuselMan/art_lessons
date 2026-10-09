@@ -177,10 +177,13 @@ export interface CanonicalFieldOptions {
  gradientFibres?: boolean; pathPacked?: boolean; additiveZeroFaces?: boolean
  /** Explicit override for component oracle; defaults to field.filter metadata. */
  diagnosticHardwareLinearInputs?: boolean
+ /** DEV OFF-only exact mode1 Q8 copy; owner verifies every original input. */
+ diagnosticIdentityCopyOwner?: { ownsLiveField(field:CanonicalGpuField):boolean }
  linearInputMask?: number
 }
 export function canonicalBaselineFieldRecipe():ExactPipelineRecipe{return{key:'sourceFieldOps',kind:'compute',code:CANONICAL_FIELD_OPS_WGSL,descriptor(module){return{label:'Canonical field ops',layout:'auto',compute:{module,entryPoint:'main'}}}}}
 export class CanonicalFieldOps {
+ diagnosticIdentityCopyCalls=0
  private pipeline: GPUComputePipeline | null=null
  private hardwareLinearPipeline:GPUComputePipeline|null=null
  private hardwareLinearSampler:GPUSampler|null=null
@@ -205,7 +208,9 @@ export class CanonicalFieldOps {
   const pipeline=this.device.createComputePipeline({label:'Diagnostic canonical field mode '+mode,layout:this.device.createPipelineLayout({bindGroupLayouts:[this.layout]}),compute:{module:this.module,entryPoint:'main',constants:{FIELD_MODE:mode}}})
   this.specialized.set(mode,pipeline);return pipeline
  }
- run(ctx:CanonicalGpuContext,r:CanonicalPassResources,mode:number,k:number,o:CanonicalFieldOptions={}){
+ run(ctx:CanonicalGpuContext,r:CanonicalPassResources,mode:number,k:number,o?:Omit<CanonicalFieldOptions,'diagnosticIdentityCopyOwner'>&{diagnosticIdentityCopyOwner?:undefined}):GPUBuffer
+ run(ctx:CanonicalGpuContext,r:CanonicalPassResources,mode:number,k:number,o?:CanonicalFieldOptions):GPUBuffer|null
+ run(ctx:CanonicalGpuContext,r:CanonicalPassResources,mode:number,k:number,o:CanonicalFieldOptions={}):GPUBuffer|null{
   if(!Number.isInteger(mode)||mode<0||mode>20)throw new Error('Canonical field mode not yet ported')
   if(ctx.device!==this.device)throw new Error('Canonical device mismatch')
   if(o.gradientFibres&&(o.world?.[2]??0)>0&&(!o.noise||o.noise.width!==251||o.noise.height!==251))throw new Error('Canonical gradient fibres require lattice')
@@ -219,6 +224,15 @@ export class CanonicalFieldOps {
   const rect=canonicalDispatchRect(w,h,o.scissor);new Uint32Array(values.buffer).set(rect,28)
   if(values.slice(0,28).some(v=>!Number.isFinite(v)))throw new Error('Canonical uniforms must be finite')
   if(o.diagnosticHardwareLinearInputs&&this.specializeModes)throw new Error('Combined sampler and specialization diagnostics are not supported')
+  if(import.meta.env.DEV&&o.diagnosticIdentityCopyOwner&&mode===1&&k===0&&(o.world?.[2]??0)===0&&(linearMask&1)===0){
+   const owner=o.diagnosticIdentityCopyOwner,scissor=o.scissor??[0,0,w,h]
+   if([w,h].every(v=>Number.isSafeInteger(v)&&v>0)&&r.a.width===w&&r.a.height===h&&r.a.format==='rgba8unorm'&&r.out.format==='rgba8unorm'&&r.a.filter==='nearest'&&[r.out,...fields].every(f=>owner.ownsLiveField(f))&&(r.a.texture.usage&GPUTextureUsage.COPY_SRC)!==0&&(r.out.texture.usage&GPUTextureUsage.COPY_DST)!==0&&scissor.every(v=>Number.isSafeInteger(v)&&Math.fround(v)===v)&&scissor[0]>=0&&scissor[1]>=0&&scissor[2]>0&&scissor[3]>0&&scissor[0]+scissor[2]<=w&&scissor[1]+scissor[3]<=h){
+    const origin={x:scissor[0],y:h-scissor[1]-scissor[3],z:0}
+    ctx.encoder.copyTextureToTexture({texture:r.a.texture,origin},{texture:r.out.texture,origin},{width:scissor[2],height:scissor[3],depthOrArrayLayers:1})
+    this.diagnosticIdentityCopyCalls++
+    return null
+   }
+  }
   if(o.diagnosticHardwareLinearInputs&&!this.hardwareLinearPipeline)this.hardwareLinearPipeline=preparedCanonicalHardwareLinearPipeline(this.device,CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL)??this.device.createComputePipeline(canonicalHardwareLinearDescriptor(this.device,CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL))
   const pipeline=o.diagnosticHardwareLinearInputs?this.hardwareLinearPipeline!:this.pipelineFor(mode)
   const uniform=this.device.createBuffer({size:128,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(uniform,0,values)
