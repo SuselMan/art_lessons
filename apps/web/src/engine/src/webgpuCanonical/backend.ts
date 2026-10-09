@@ -46,6 +46,11 @@ export class CanonicalWatercolorWebGpu {
  private get sourceWater(){return this.standaloneFields?.water??(this.fallbackWater??=this.createZeroSourceWater())}
  private createZeroSourceWater(){const field=this.createField('constant zero source water',1,1);this.clearField(field);return field}
  private readonly ownedFields=new Set<CanonicalGpuField>()
+ /** DEV QA ledger only; no readback or mutation of resource ownership. */
+ get diagnosticResourceLedger(){
+  if(!import.meta.env.DEV)throw new Error('Native resource ledger is DEV only')
+  return [...this.ownedFields].map(f=>({label:f.label,width:f.width,height:f.height,filter:f.filter,format:f.format,bytes:f.width*f.height*4}))
+ }
  private readonly clearPipeline:GPUComputePipeline
  private readonly context: GPUCanvasContext|null
  private readonly format: GPUTextureFormat
