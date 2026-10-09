@@ -16,7 +16,7 @@ export function assertFirstLiveWarmProof({enabled,markers,readyAt,firstDownAt}){
  if(!enabled){if(completed.length)throw Error('OFF first-live warm unexpectedly ran');return {enabled:false}}
  if(completed.length!==1)throw Error('Expected one first-live warm completion')
  const v=completed[0].value
- if(!v||v.scope!=='prepared source + live composite + raw canvas'||v.plannerWarmed!==false||v.pressureDispatched!==false||v.liveCompositeWarmed!==true||v.rawCanvasWarmed!==true||v.glPublished!==false||!/^[a-f0-9]{64}$/.test(v.sourceSha256??'')||!Number.isFinite(v.peakBytes)||v.peakBytes>96*1024*1024||v.peakBytes<4*1024*1024||!Number.isFinite(v.transientBufferBytes)||v.transientBufferBytes>262144||![0,4].includes(v.sharedResourceDeltaBytes))throw Error('First-live warm scope/resource proof mismatch')
+ if(!v||v.scope!=='prepared source + live composite + raw canvas'||v.plannerWarmed!==false||v.pressureDispatched!==false||v.brushPipelinesConstructed!==true||v.liveCompositeWarmed!==true||v.rawCanvasWarmed!==true||v.glPublished!==false||!/^[a-f0-9]{64}$/.test(v.sourceSha256??'')||!Number.isFinite(v.peakBytes)||v.peakBytes>96*1024*1024||v.peakBytes<4*1024*1024||!Number.isFinite(v.transientBufferBytes)||v.transientBufferBytes>262144||![0,4].includes(v.sharedResourceDeltaBytes))throw Error('First-live warm scope/resource proof mismatch')
  if(![v.completedAt,v.wallMs,readyAt,firstDownAt].every(Number.isFinite)||v.wallMs<0||v.completedAt>readyAt||readyAt>firstDownAt)throw Error('First-live warm must complete before readiness and DOWN')
  return {enabled:true,wallMs:v.wallMs,completedAt:v.completedAt,readyAt,firstDownAt,peakBytes:v.peakBytes,transientBufferBytes:v.transientBufferBytes,sourceSha256:v.sourceSha256,scope:v.scope}
 }
