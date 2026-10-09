@@ -1,0 +1,4934 @@
+{
+  "phase": "closed",
+  "passport": {
+    "docs/qa/harness/728-room-moment/gl-contact-hoist-controller.mjs": "9f2960e804d381384092c179370415e2edbb441dfac99b49eda66fd3ae1b9456",
+    "apps/web/vite.config.ts": "efbc99a6b07bba1396e4627f9fe60819846b6a09702ec7109f190ad26bedb4c3",
+    "apps/web/src/engine/toolOptions.ts": "1925d043fcd1f1e683082d7b3d2ffa505f6cfe7f218351a534914d524226cb06",
+    "apps/web/src/engine/src/presets/pencilPresets.ts": "190a43d91e6b94a6d03ad3763adef08783542bbd20a901bc5ae37d15d902e27c",
+    "apps/web/src/lib/tools/toolSchemas.ts": "3bde1b968ec1d850921e30522b0198fdefd69e6892e8723c59591470012700e8",
+    "apps/web/src/lib/tools/pressureResponseCurves.ts": "10a9dcf3904308063d2c28190091c17fa4e8e1c036d92d9818c1e93e38de6571",
+    "apps/web/src/lib/tools/tiltResponseCurves.ts": "a40446ea0ab58a10953bca5c94ea710369acd4033b7b8bf108506f0f1b2ea743",
+    "apps/web/src/engine/src/watercolor/brushDrag.ts": "febf13b5d339df09c04bcaae38773bf7412abc772f06e4a0002240926adef206",
+    "apps/web/src/engine/src/watercolor/brushDragHoisted.ts": "bc3187f4f73d8aa37d39b9591a389527b1e1b409d2e73bd6300964c822a24ed9",
+    "docs/qa/harness/728-gl-timing/ContactHoistQuality.mjs": "47465ccb301a44054cd41096412380709a3bd50491b004f900ca2b6824a8441b",
+    "apps/web/src/engine/src/raster/CanonicalWatercolorSettlePlan.ts": "bd10157ac1e32f3d3bcf61fe0d3936770c35c05df881019b978efe28bfb012ef",
+    "apps/web/src/engine/src/diagnostics/BoundedGlTiming.ts": "d5dd67ea0b45e2b95accbc6dce0ea3a4220b022fca9695ccb7a8ee4343fe949c",
+    "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "81ae8db2e5a2901112ff3d94b508158671c845a6af0628b692cfa8c962fefd86",
+    "docs/qa/harness/728-gl-timing/GlTiming400Gate.mjs": "2331b3f4f8a171b61fcd5c79943d59c46cc1d412376be4b94b1983472f35ccd2",
+    "apps/web/src/pages/Room/index.tsx": "1c261ae553637d904c76fc09c83c8ba8faa449633ddb081396cd2adf736b0ffa",
+    "apps/web/src/pages/Room/engineWiring.ts": "9f3cfbb4db09571dfe0d091f32fa7a9d4dd11e598e09c5853609e71e7da98278",
+    "apps/web/src/engine/index.ts": "3cbac012e3de3febce31cd5621af8b22bbf1cac91cdd6eb3e0b01ef966899609",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "40e7173707338a9a72b7c7bb263b7be23f9693011c93d5a7c33029e22cad1661",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+    "apps/web/src/engine/src/buffers/RibbonStrokeScratch.ts": "6c92b6683e5c848d14f05053be81a98cd67c8546b5b315797da6e081389e2e34",
+    "apps/web/src/engine/src/dabs/DabSystem.ts": "816911a80216b7e80bdd1ba7c11be3ea2e02bf3560bc629197a5f7961266c5b3",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+    "apps/web/src/engine/src/paper/paperWetness.ts": "9edaf471f083947f82461e78d4fa8e3d46ecd985611abdfc688cc891c4b7762d",
+    "docs/qa/harness/728-room-moment/MixedLeaseNatural400.mjs": "d2368c9fd4c4845e15025f0ede052db04d2c2266396033f37dfcabbe2f2aea9b",
+    "docs/qa/harness/728-room-moment/ContinuousPenStroke.mjs": "7079a6f92c921b2f81e9ab0959864b0954fbb55e53ea29a769ac24b2def2648f",
+    "docs/qa/harness/728-room-moment/ContinuousPenRecipe.mjs": "ed9d5d70c674461acf8478f8a5a0158270e1acc9e31280f7f8fa8beec3155710",
+    "docs/qa/harness/728-room-moment/Fixed400Tape.mjs": "9da0a30763c2aeca29f2ea9a5c1451d71024b16cb8218f6c6e633f49e1940eac",
+    "docs/qa/harness/728-room-moment/Fixed400MaterialGate.mjs": "7eb9188febf8f51737aaf0f861d0b49e80e1a0dff9d9e594e92c57125d2bbcd9",
+    "docs/qa/harness/728-room-moment/MixedLeaseUiLifecycle.mjs": "f269d354d7ad34c6423bf0230474d4b97df59330f6c99c1c43b4b04758f05372",
+    "docs/qa/harness/728-room-moment/MixedLeaseUiAssertions.mjs": "f6c52d47cf4cf81411f9cdf7fe2dafeef4eb64d11bdf2f200f85e510656f3903",
+    "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "edf56db76df946a79940f012a8bb9344a7799c0b5204accc4be7774d6bf9aa83",
+    "docs/qa/harness/728-room-moment/HttpActorTrace.mjs": "3f9d1419dc26ef3cfb61a840ebcf30200db98498fee45fbe43a769dca659e99f",
+    "docs/qa/harness/728-room-moment/ThumbnailQuietGate.mjs": "6023cfe9b6b765f195a6c30c66d24c91a8b28082da5da6d190b8d103dc548aa8",
+    "docs/qa/harness/728-room-moment/Natural400Metrics.mjs": "ca77c44f56a498a0fd95917561486ee3000c499f7192b1271758c1a11c68c741",
+    "docs/qa/harness/728-room-moment/PassiveMemoryGate.mjs": "199f09215e7495d9650e603caa15e2f1a3b68bb0261acc968a9841cc9489c98d"
+  },
+  "paperPassport": {
+    "manifest.json": {
+      "bytes": 6532,
+      "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+    },
+    "fine.e59ea6fa.paper": {
+      "bytes": 3983406,
+      "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+    },
+    "fine.a19fcf63.preview": {
+      "bytes": 59686,
+      "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+    }
+  },
+  "rows": [
+    {
+      "betweenGesture": {
+        "firstUpBegin": 22207.099999904633,
+        "firstUpReturn": 22308.5,
+        "secondDownBegin": 22329.699999928474,
+        "secondDownReturn": 22333.5,
+        "gapFromFirstUpReturnMs": 21.199999928474426
+      },
+      "beforeSecondWet": {
+        "at": 22329.699999928474,
+        "layerId": "layer-1",
+        "x": 300.00000000003104,
+        "y": 299.99999999998806,
+        "radiusForEligibility": 300,
+        "center": 0.985775833333532,
+        "nearForEligibility": true,
+        "anyWet": true,
+        "scope": "readonly real-clock center/eligibility wetness before second DOWN, not whole nib wet payload"
+      },
+      "timing": {
+        "stats": {
+          "capacity": 1024,
+          "recorded": 156,
+          "dropped": 0,
+          "observerErrors": 0,
+          "active": false,
+          "scope": "engine-local captured DOWN/UP only"
+        },
+        "records": [
+          {
+            "input": 1,
+            "phase": "admission-lease",
+            "start": 20369,
+            "end": 20369.099999904633,
+            "value": 0,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": null,
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 20376.099999904633,
+            "end": 20376.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 20381.199999928474,
+            "end": 20381.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 20382,
+            "end": 20382,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 20381.799999952316,
+            "end": 20382.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 20383.899999976158,
+            "end": 20383.899999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "first-pigment-submit",
+            "start": 20386.5,
+            "end": 20386.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "live-generator-exhaust",
+            "start": 20373.399999976158,
+            "end": 20387.599999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "live-composite",
+            "start": 20391,
+            "end": 20391.899999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "display-submit",
+            "start": 20391,
+            "end": 20393.299999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "input-down-through-display",
+            "start": 20368.099999904633,
+            "end": 20395.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "up-tail-geometry",
+            "start": 22207.899999976158,
+            "end": 22208.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 22208.699999928474,
+            "end": 22208.799999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22211.199999928474,
+            "end": 22211.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22211.199999928474,
+            "end": 22211.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 22211.199999928474,
+            "end": 22211.299999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22211.699999928474,
+            "end": 22211.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 22212.699999928474,
+            "end": 22212.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22215.199999928474,
+            "end": 22215.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22215.199999928474,
+            "end": 22215.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 22215.199999928474,
+            "end": 22215.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22215.5,
+            "end": 22215.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 22216.399999976158,
+            "end": 22216.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22218.399999976158,
+            "end": 22218.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22218.399999976158,
+            "end": 22218.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 22218.399999976158,
+            "end": 22218.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22218.799999952316,
+            "end": 22218.799999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 22220,
+            "end": 22220,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22222.099999904633,
+            "end": 22222.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22222.099999904633,
+            "end": 22222.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 22222.099999904633,
+            "end": 22222.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22222.399999976158,
+            "end": 22222.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 22223.099999904633,
+            "end": 22223.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22224.699999928474,
+            "end": 22224.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22224.699999928474,
+            "end": 22224.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 22224.699999928474,
+            "end": 22224.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22225.099999904633,
+            "end": 22225.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 22226.099999904633,
+            "end": 22226.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22227.899999976158,
+            "end": 22227.899999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22227.899999976158,
+            "end": 22227.899999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 22227.899999976158,
+            "end": 22227.899999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22228.199999928474,
+            "end": 22228.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 22229.199999928474,
+            "end": 22229.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22231.199999928474,
+            "end": 22231.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22231.199999928474,
+            "end": 22231.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 22231.199999928474,
+            "end": 22231.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22231.599999904633,
+            "end": 22231.599999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 22232.199999928474,
+            "end": 22232.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22233.599999904633,
+            "end": 22233.599999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22233.599999904633,
+            "end": 22233.599999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 22233.599999904633,
+            "end": 22233.599999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 22233.899999976158,
+            "end": 22233.899999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-generator-exhaust",
+            "start": 22208.599999904633,
+            "end": 22234.599999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-tail-paint",
+            "start": 22208.599999904633,
+            "end": 22236.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-owned-finish-capture",
+            "start": 22237.199999928474,
+            "end": 22237.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-finish-live-composite",
+            "start": 22237.799999952316,
+            "end": 22238,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-reveal-copies",
+            "start": 22238,
+            "end": 22238.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-prep-field-replace-allocate",
+            "start": 22242.399999976158,
+            "end": 22242.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-prep-field-acquire",
+            "start": 22242.099999904633,
+            "end": 22242.599999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-prep-cpu-raster",
+            "start": 22242.799999952316,
+            "end": 22291.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-diffusion-preparation",
+            "start": 22238.899999976158,
+            "end": 22297.299999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-new-solver-start-and-stitch",
+            "start": 22297.299999952316,
+            "end": 22298.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-finish-total",
+            "start": 22236.199999928474,
+            "end": 22298.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "live-composite",
+            "start": 22298.599999904633,
+            "end": 22298.599999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "display-submit",
+            "start": 22298.599999904633,
+            "end": 22301.299999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-pack-dabs",
+            "start": 22301.299999952316,
+            "end": 22302,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-log-append",
+            "start": 22302,
+            "end": 22302.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-local-callback",
+            "start": 22302.5,
+            "end": 22302.799999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-live-end-callback",
+            "start": 22302.799999952316,
+            "end": 22303,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-pending-commit",
+            "start": 22303,
+            "end": 22307.299999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-settle-layers",
+            "start": 22307.299999952316,
+            "end": 22307.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-stroke-end-callback",
+            "start": 22307.5,
+            "end": 22308.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "input-up-total",
+            "start": 22207.299999952316,
+            "end": 22308.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "admission-lease",
+            "start": 22330.399999976158,
+            "end": 22330.399999976158,
+            "value": 1,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": null,
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 22331,
+            "end": 22331,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 22331.699999928474,
+            "end": 22331.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 22331.699999928474,
+            "end": 22331.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 22331.699999928474,
+            "end": 22331.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 22331.699999928474,
+            "end": 22331.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 22331.799999952316,
+            "end": 22331.799999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "first-pigment-submit",
+            "start": 22332.099999904633,
+            "end": 22332.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "live-generator-exhaust",
+            "start": 22330.799999952316,
+            "end": 22332.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "live-composite",
+            "start": 22332.599999904633,
+            "end": 22332.899999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "display-submit",
+            "start": 22332.599999904633,
+            "end": 22333.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "input-down-through-display",
+            "start": 22330.199999928474,
+            "end": 22333.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "up-tail-geometry",
+            "start": 24173.5,
+            "end": 24173.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 24175.099999904633,
+            "end": 24175.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24176.5,
+            "end": 24176.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24176.5,
+            "end": 24176.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 24176.5,
+            "end": 24176.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24176.5,
+            "end": 24176.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24176.899999976158,
+            "end": 24176.899999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 24177.899999976158,
+            "end": 24177.899999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24179.399999976158,
+            "end": 24179.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24179.399999976158,
+            "end": 24179.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 24179.399999976158,
+            "end": 24179.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24179.5,
+            "end": 24179.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24180,
+            "end": 24180,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 24181.399999976158,
+            "end": 24181.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24182.799999952316,
+            "end": 24182.799999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24182.799999952316,
+            "end": 24182.799999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 24182.799999952316,
+            "end": 24182.799999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24182.799999952316,
+            "end": 24182.799999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24183.199999928474,
+            "end": 24183.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 24184.699999928474,
+            "end": 24184.799999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24186.099999904633,
+            "end": 24186.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24186.199999928474,
+            "end": 24186.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 24186.199999928474,
+            "end": 24186.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24186.199999928474,
+            "end": 24186.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24186.5,
+            "end": 24186.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 24187.799999952316,
+            "end": 24187.899999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24189.399999976158,
+            "end": 24189.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24189.399999976158,
+            "end": 24189.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 24189.399999976158,
+            "end": 24189.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24189.5,
+            "end": 24189.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24189.899999976158,
+            "end": 24189.899999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 24190.899999976158,
+            "end": 24190.899999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24192.199999928474,
+            "end": 24192.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24192.199999928474,
+            "end": 24192.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 24192.199999928474,
+            "end": 24192.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24192.199999928474,
+            "end": 24192.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24192.699999928474,
+            "end": 24192.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 24194,
+            "end": 24194,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24195.5,
+            "end": 24195.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24195.5,
+            "end": 24195.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 24195.5,
+            "end": 24195.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24195.5,
+            "end": 24195.5,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24195.899999976158,
+            "end": 24195.899999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 24197,
+            "end": 24197,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24198.299999952316,
+            "end": 24198.299999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24198.299999952316,
+            "end": 24198.299999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 24198.299999952316,
+            "end": 24198.299999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24198.299999952316,
+            "end": 24198.299999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 24198.699999928474,
+            "end": 24198.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-generator-exhaust",
+            "start": 24175,
+            "end": 24200.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-tail-paint",
+            "start": 24173.599999904633,
+            "end": 24201.799999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-owned-finish-capture",
+            "start": 24201.799999952316,
+            "end": 24202.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-finish-live-composite",
+            "start": 24202.099999904633,
+            "end": 24202.299999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-reveal-copies",
+            "start": 24202.399999976158,
+            "end": 24202.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-complete-settle",
+            "start": 24202.899999976158,
+            "end": 24231.899999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-prep-field-clear",
+            "start": 24232,
+            "end": 24232,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-prep-field-acquire",
+            "start": 24232,
+            "end": 24232,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-prep-cpu-raster",
+            "start": 24232,
+            "end": 24244,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-diffusion-preparation",
+            "start": 24231.899999976158,
+            "end": 24244.599999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-new-solver-start-and-stitch",
+            "start": 24244.599999904633,
+            "end": 24244.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-finish-total",
+            "start": 24201.799999952316,
+            "end": 24244.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "live-composite",
+            "start": 24244.699999928474,
+            "end": 24244.699999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "display-submit",
+            "start": 24244.699999928474,
+            "end": 24244.799999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-pack-dabs",
+            "start": 24244.799999952316,
+            "end": 24245.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-log-append",
+            "start": 24245.099999904633,
+            "end": 24245.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-local-callback",
+            "start": 24245.099999904633,
+            "end": 24245.199999928474,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-live-end-callback",
+            "start": 24245.199999928474,
+            "end": 24245.299999952316,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-pending-commit",
+            "start": 24245.299999952316,
+            "end": 24249.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-settle-layers",
+            "start": 24249.099999904633,
+            "end": 24249.099999904633,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-stroke-end-callback",
+            "start": 24249.099999904633,
+            "end": 24249.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "input-up-total",
+            "start": 24173.5,
+            "end": 24249.399999976158,
+            "userId": "3cd698ee-c57e-4f0b-8c5e-403534775092",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          }
+        ]
+      },
+      "enabled": true,
+      "scenario": "pigment-pigment",
+      "fixedInput": true,
+      "sourceSeeds": [
+        {
+          "strokeId": "QAwater001",
+          "seed": [
+            197.659793814433,
+            502.02247191011236
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ]
+        },
+        {
+          "strokeId": "QApigmt002",
+          "seed": [
+            455.4020618556701,
+            738.9775280898876
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ]
+        }
+      ],
+      "metrics": {
+        "downHandlerMs": 3.8000000715255737,
+        "downToSourceBeginMs": 1.100000023841858,
+        "downToSourceEndMs": 2.5,
+        "downToDisplayBeginMs": 2.899999976158142,
+        "downToDisplayEndMs": 3.399999976158142,
+        "upHandlerMs": 76,
+        "upBeginToFirstRafCallbackMs": 102.39999997615814,
+        "upReturnToFirstRafCallbackMs": 26.399999976158142,
+        "upReturnToScheduledHoverMs": 56.199999928474426,
+        "hoverHandlerMs": 0.10000002384185791,
+        "completeSettle": [
+          {
+            "phase": "up",
+            "ms": 29.100000023841858
+          }
+        ],
+        "frameGaps": {
+          "count": 216,
+          "medianMs": 16.700000000000728,
+          "p95Ms": 16.900000000001455,
+          "maxMs": 58.100000071524846
+        },
+        "scope": "CPU submission and synthetic rAF/hover availability; hover deliberately after3frames; not physical visible latency"
+      },
+      "longTasks": [
+        {
+          "at": 20360.899999976158,
+          "end": 20429.899999976158,
+          "ms": 69
+        },
+        {
+          "at": 22205.399999976158,
+          "end": 22361.399999976158,
+          "ms": 156
+        },
+        {
+          "at": 24172.099999904633,
+          "end": 24272.099999904633,
+          "ms": 100
+        },
+        {
+          "at": 35505.199999928474,
+          "end": 35579.199999928474,
+          "ms": 74
+        }
+      ],
+      "pending": true,
+      "lease": true,
+      "downDrains": 0,
+      "glError": 0,
+      "lost": false,
+      "timedEnd": 24305.799999952316,
+      "export": {
+        "begin": 35506.199999928474,
+        "end": 35654.59999990463,
+        "bytes": 1164877
+      },
+      "scope": "Natural clock synthetic actual Room PointerInput; CPU source/display submissions and rAF availability, not physical pen latency or exact authored OFF/ON parity",
+      "hoisted": false,
+      "room": "6pbY2G4A",
+      "queryConstructorFlags": {
+        "hoisted": false,
+        "joined": true,
+        "lease": true,
+        "native": false,
+        "timing": {
+          "capacity": 1024,
+          "recorded": 0,
+          "dropped": 0,
+          "observerErrors": 0,
+          "active": false,
+          "scope": "engine-local captured DOWN/UP only"
+        },
+        "async": false,
+        "deferred": false
+      },
+      "uiControlCounts": null,
+      "timingGate": {
+        "valid": true,
+        "inputs": [
+          {
+            "input": 1,
+            "strokeId": "QAwater001",
+            "leaseAccepted": false,
+            "drainCount": 0,
+            "downMs": 27.100000023841858,
+            "pigmentSubmitMs": 18.40000009536743,
+            "displaySubmitMs": 25.200000047683716
+          },
+          {
+            "input": 2,
+            "strokeId": "QApigmt002",
+            "leaseAccepted": true,
+            "drainCount": 0,
+            "downMs": 3.3000000715255737,
+            "pigmentSubmitMs": 1.899999976158142,
+            "displaySubmitMs": 2.899999976158142
+          }
+        ],
+        "classification": "lease-accepted",
+        "scope": "CPU synchronous DOWN submission, not GPU/physical pixels"
+      },
+      "upTimingGate": {
+        "valid": true,
+        "inputs": [
+          {
+            "input": 1,
+            "strokeId": "QAwater001",
+            "totalMs": 101.20000004768372,
+            "phaseMs": {
+              "up-tail-geometry": 0.6000000238418579,
+              "foreign-water-import": 0.10000002384185791,
+              "scratch-first-touch": 0,
+              "scratch-film-base-copy": 0.10000002384185791,
+              "up-generator-exhaust": 26,
+              "up-tail-paint": 27.600000023841858,
+              "up-owned-finish-capture": 0.5,
+              "up-finish-live-composite": 0.20000004768371582,
+              "up-reveal-copies": 0.6999999284744263,
+              "up-prep-field-replace-allocate": 0.10000002384185791,
+              "up-prep-field-acquire": 0.5,
+              "up-prep-cpu-raster": 48.700000047683716,
+              "up-diffusion-preparation": 58.39999997615814,
+              "up-new-solver-start-and-stitch": 1.2000000476837158,
+              "up-finish-total": 62.300000071525574,
+              "live-composite": 0,
+              "display-submit": 2.700000047683716,
+              "up-pack-dabs": 0.7000000476837158,
+              "up-log-append": 0.3999999761581421,
+              "up-local-callback": 0.2999999523162842,
+              "up-live-end-callback": 0.20000004768371582,
+              "up-pending-commit": 4.299999952316284,
+              "up-settle-layers": 0.20000004768371582,
+              "up-stroke-end-callback": 1
+            },
+            "observedUnionMs": 100.30000019073486,
+            "unknownExclusiveMs": 0.8999998569488525
+          },
+          {
+            "input": 2,
+            "strokeId": "QApigmt002",
+            "totalMs": 75.89999997615814,
+            "phaseMs": {
+              "up-tail-geometry": 0,
+              "foreign-water-import": 0.20000004768371582,
+              "scratch-first-touch": 0,
+              "scratch-film-base-copy": 0,
+              "up-generator-exhaust": 25.09999990463257,
+              "up-tail-paint": 28.200000047683716,
+              "up-owned-finish-capture": 0.2999999523162842,
+              "up-finish-live-composite": 0.20000004768371582,
+              "up-reveal-copies": 0.2999999523162842,
+              "up-complete-settle": 29,
+              "up-prep-field-clear": 0,
+              "up-prep-field-acquire": 0,
+              "up-prep-cpu-raster": 12,
+              "up-diffusion-preparation": 12.699999928474426,
+              "up-new-solver-start-and-stitch": 0.10000002384185791,
+              "up-finish-total": 42.89999997615814,
+              "live-composite": 0,
+              "display-submit": 0.10000002384185791,
+              "up-pack-dabs": 0.2999999523162842,
+              "up-log-append": 0,
+              "up-local-callback": 0.10000002384185791,
+              "up-live-end-callback": 0.10000002384185791,
+              "up-pending-commit": 3.799999952316284,
+              "up-settle-layers": 0,
+              "up-stroke-end-callback": 0.30000007152557373
+            },
+            "observedUnionMs": 75.80000007152557,
+            "unknownExclusiveMs": 0.09999990463256836
+          }
+        ],
+        "betweenGesture": {
+          "firstUpBegin": 22207.099999904633,
+          "firstUpReturn": 22308.5,
+          "secondDownBegin": 22329.699999928474,
+          "secondDownReturn": 22333.5,
+          "gapFromFirstUpReturnMs": 21.199999928474426
+        },
+        "beforeSecondWet": {
+          "at": 22329.699999928474,
+          "layerId": "layer-1",
+          "x": 300.00000000003104,
+          "y": 299.99999999998806,
+          "radiusForEligibility": 300,
+          "center": 0.985775833333532,
+          "nearForEligibility": true,
+          "anyWet": true,
+          "scope": "readonly real-clock center/eligibility wetness before second DOWN, not whole nib wet payload"
+        },
+        "scope": "CPU elapsed interval union, nested phases overlap; no GPU attribution"
+      },
+      "inputPassport": [
+        {
+          "id": "2EAzbSayRC",
+          "strokeId": "QAwater001",
+          "layerId": "layer-1",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "dabCount": null,
+          "dabsPackedSha": "fafe2d0ee2907af10ad03cc75e466d101b4a7d943e95214c8229eefc7850d790",
+          "wetSha": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        },
+        {
+          "id": "3loSJIDKUQ",
+          "strokeId": "QApigmt002",
+          "layerId": "layer-1",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ],
+          "dabCount": null,
+          "dabsPackedSha": "fafe2d0ee2907af10ad03cc75e466d101b4a7d943e95214c8229eefc7850d790",
+          "wetSha": "4f658943e167a30d385e0e2fff76882211974547d243b615997c727e486948c0"
+        }
+      ],
+      "authoredPassport": [
+        {
+          "strokeId": "QAwater001",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "size": 400,
+          "frameCount": 108,
+          "sha": "e2a6d4540088cc88253f2e4f1960e5486213013e745bac2bea4bf8a246082fdc"
+        },
+        {
+          "strokeId": "QApigmt002",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ],
+          "size": 400,
+          "frameCount": 108,
+          "sha": "5b64eb631e19edf47df834644e3e90c607728bdabf605a58287b461beb172181"
+        }
+      ],
+      "producerCalls": 0,
+      "traceCounts": {
+        "markers": 1855,
+        "queue": 220,
+        "frames": 2
+      },
+      "quality": {
+        "hoisted": false,
+        "consumption": 0,
+        "fields": [
+          {
+            "index": 0,
+            "role": "a",
+            "width": 1536,
+            "height": 1536,
+            "sha": "b78fc9078fe63eccaf68d6a9fbef87bce168f3fffb00e65266e8bec86d42008b"
+          },
+          {
+            "index": 0,
+            "role": "b",
+            "width": 1536,
+            "height": 1536,
+            "sha": "09af582bd02800a55474b859bd81ee9532cbc127588532f8f726c5175aedccb1"
+          },
+          {
+            "index": 0,
+            "role": "c",
+            "width": 1536,
+            "height": 1536,
+            "sha": "fce518441e3428fc3c10d534473f08af65f9b5a76662e1ad7dee2d80b44d1153"
+          },
+          {
+            "index": 0,
+            "role": "ca",
+            "width": 1536,
+            "height": 1536,
+            "sha": "a8ba4819e691912380fe6bbb25fde1dd7d993c253a76e45b928d2e9f0e6936b6"
+          },
+          {
+            "index": 0,
+            "role": "cb",
+            "width": 1536,
+            "height": 1536,
+            "sha": "c309707a03e5dfae124355b406cbe216e927318e9447545707bec96d34aebe45"
+          },
+          {
+            "index": 0,
+            "role": "cc",
+            "width": 1536,
+            "height": 1536,
+            "sha": "4aff73dede9fd74c221a8ffaff7bd108d1b07a51a91035a59b8baeed1f7424a2"
+          },
+          {
+            "index": 0,
+            "role": "coverage",
+            "width": 1536,
+            "height": 1536,
+            "sha": "29e08d230f80fc07b5d37d7f0044404e860f0576131fbd30577326d7e4532279"
+          },
+          {
+            "index": 0,
+            "role": "mask",
+            "width": 1536,
+            "height": 1536,
+            "sha": "2336dab5ef28fe3a973cac6629f6694936617f72ca25b29b2d03216fd9ef7f28"
+          },
+          {
+            "index": 0,
+            "role": "pressure",
+            "width": 1536,
+            "height": 1536,
+            "sha": "c309707a03e5dfae124355b406cbe216e927318e9447545707bec96d34aebe45"
+          },
+          {
+            "index": 0,
+            "role": "band",
+            "width": 1536,
+            "height": 1536,
+            "sha": "29e08d230f80fc07b5d37d7f0044404e860f0576131fbd30577326d7e4532279"
+          },
+          {
+            "role": "material",
+            "originX": 0,
+            "originY": 0,
+            "width": 1024,
+            "height": 1024,
+            "nonzero": 1357206,
+            "sha": "eb6394ab3135c9af248cc24a57ddb07f5ec47bb6ae70c07965bbb5d2e8ac8c55"
+          }
+        ],
+        "uploads": [
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "f553e42fce2624bc3f2b648a1ab3067d286ee90dc73b54e113a035440ccbeaff"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "f553e42fce2624bc3f2b648a1ab3067d286ee90dc73b54e113a035440ccbeaff"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 100,
+            "height": 93,
+            "sha": "9697cfbed0f66e3c4500f4856e9fcf62527a3fae56c95d99bd8a83e57a535e84"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 93,
+            "sha": "9ad1275390589122c7c4bee7aadf99c599064667fb3dc5447f790ed306d63e2d"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 96,
+            "sha": "6881f5c9a260b279f6443c567a645c41c91530fef9110ac9169532a277c44e50"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "501db121ac29a00e128b7d3b65aa5b7050e5bfd7633b822d3076dfb21d4875a9"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "f1962688a598a94956becaebcd3a8531dc69ebaa8b571b0681d130d5511d486f"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 95,
+            "height": 116,
+            "sha": "a0ba34c5ee2995cd3b5fd2a0ad341a71f2ea319731ad88cdc41588f0adfa89c3"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 96,
+            "sha": "6881f5c9a260b279f6443c567a645c41c91530fef9110ac9169532a277c44e50"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "df5fb9f92bc6f05e14e890ea207203fb48fe350f0ce05c74ecde4229456b2e92"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "ec95a6ff76328213d45b8438c78ee75c988bcf996de0c257bcac617a63638921"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 95,
+            "height": 116,
+            "sha": "b8443837c596b8ffec37142e0a76dadb6552301ad3d31513de9400e2deee9a8a"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 95,
+            "sha": "639f15b9670423b9f87d599dbbdd56e5c095f347fd42e5bc28b52e8d9fd3154f"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 80,
+            "height": 86,
+            "sha": "a07927ebcfc4f8e744676f8904f6a0b566b9356c55424a94e955a28cc089c50e"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 55,
+            "height": 59,
+            "sha": "74bbef3087d7b2a898b2dac08179d2c511218e18f231c8769de5eee607870886"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "f553e42fce2624bc3f2b648a1ab3067d286ee90dc73b54e113a035440ccbeaff"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "f553e42fce2624bc3f2b648a1ab3067d286ee90dc73b54e113a035440ccbeaff"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 100,
+            "height": 93,
+            "sha": "9697cfbed0f66e3c4500f4856e9fcf62527a3fae56c95d99bd8a83e57a535e84"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 93,
+            "sha": "9ad1275390589122c7c4bee7aadf99c599064667fb3dc5447f790ed306d63e2d"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 96,
+            "sha": "6881f5c9a260b279f6443c567a645c41c91530fef9110ac9169532a277c44e50"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "501db121ac29a00e128b7d3b65aa5b7050e5bfd7633b822d3076dfb21d4875a9"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "f1962688a598a94956becaebcd3a8531dc69ebaa8b571b0681d130d5511d486f"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 95,
+            "height": 116,
+            "sha": "a0ba34c5ee2995cd3b5fd2a0ad341a71f2ea319731ad88cdc41588f0adfa89c3"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 96,
+            "sha": "6881f5c9a260b279f6443c567a645c41c91530fef9110ac9169532a277c44e50"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "df5fb9f92bc6f05e14e890ea207203fb48fe350f0ce05c74ecde4229456b2e92"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "ec95a6ff76328213d45b8438c78ee75c988bcf996de0c257bcac617a63638921"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 95,
+            "height": 116,
+            "sha": "b8443837c596b8ffec37142e0a76dadb6552301ad3d31513de9400e2deee9a8a"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 95,
+            "sha": "639f15b9670423b9f87d599dbbdd56e5c095f347fd42e5bc28b52e8d9fd3154f"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 80,
+            "height": 86,
+            "sha": "a07927ebcfc4f8e744676f8904f6a0b566b9356c55424a94e955a28cc089c50e"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 55,
+            "height": 59,
+            "sha": "74bbef3087d7b2a898b2dac08179d2c511218e18f231c8769de5eee607870886"
+          }
+        ],
+        "whole": {
+          "width": 1024,
+          "height": 1024,
+          "sha": "0f4acc26875720cdddb850c9d98116e4eebf657c3cb9eee9f4c0dc41e4cacf83",
+          "alphaNonzero": 453591
+        },
+        "inputSha": "460c240a18b59a43fc99e41c8185a41694c5cac65f254cfb35ed32ce0a4e1240",
+        "glError": 0,
+        "lost": false,
+        "scope": "Same immutable recorded packed/wet ops canonical replay; independent of natural latency, no normalization"
+      }
+    },
+    {
+      "betweenGesture": {
+        "firstUpBegin": 21292.200000047684,
+        "firstUpReturn": 21371.5,
+        "secondDownBegin": 21387.400000095367,
+        "secondDownReturn": 21390,
+        "gapFromFirstUpReturnMs": 15.900000095367432
+      },
+      "beforeSecondWet": {
+        "at": 21387.400000095367,
+        "layerId": "layer-1",
+        "x": 300.00000000003104,
+        "y": 299.99999999998806,
+        "radiusForEligibility": 300,
+        "center": 0.9858799999992053,
+        "nearForEligibility": true,
+        "anyWet": true,
+        "scope": "readonly real-clock center/eligibility wetness before second DOWN, not whole nib wet payload"
+      },
+      "timing": {
+        "stats": {
+          "capacity": 1024,
+          "recorded": 156,
+          "dropped": 0,
+          "observerErrors": 0,
+          "active": false,
+          "scope": "engine-local captured DOWN/UP only"
+        },
+        "records": [
+          {
+            "input": 1,
+            "phase": "admission-lease",
+            "start": 19461.100000023842,
+            "end": 19461.300000071526,
+            "value": 0,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": null,
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 19468.700000047684,
+            "end": 19468.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 19472.400000095367,
+            "end": 19472.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 19473,
+            "end": 19473,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 19472.900000095367,
+            "end": 19473.200000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 19474.300000071526,
+            "end": 19474.300000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "first-pigment-submit",
+            "start": 19475.600000023842,
+            "end": 19475.700000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "live-generator-exhaust",
+            "start": 19466.200000047684,
+            "end": 19476.100000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "live-composite",
+            "start": 19477.600000023842,
+            "end": 19478.200000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "display-submit",
+            "start": 19477.600000023842,
+            "end": 19478.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "input-down-through-display",
+            "start": 19460.100000023842,
+            "end": 19479.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "down"
+          },
+          {
+            "input": 1,
+            "phase": "up-tail-geometry",
+            "start": 21293.100000023842,
+            "end": 21293.700000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 21293.900000095367,
+            "end": 21293.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21296.400000095367,
+            "end": 21296.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21296.400000095367,
+            "end": 21296.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 21296.400000095367,
+            "end": 21296.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21296.900000095367,
+            "end": 21296.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 21297.900000095367,
+            "end": 21297.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21300.200000047684,
+            "end": 21300.200000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21300.300000071526,
+            "end": 21300.300000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 21300.200000047684,
+            "end": 21300.300000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21300.600000023842,
+            "end": 21300.600000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 21301.400000095367,
+            "end": 21301.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21303.400000095367,
+            "end": 21303.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21303.400000095367,
+            "end": 21303.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 21303.400000095367,
+            "end": 21303.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21303.700000047684,
+            "end": 21303.700000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 21304.5,
+            "end": 21304.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21305.900000095367,
+            "end": 21305.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21305.900000095367,
+            "end": 21305.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 21305.900000095367,
+            "end": 21305.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21306.200000047684,
+            "end": 21306.200000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 21306.900000095367,
+            "end": 21306.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21308.400000095367,
+            "end": 21308.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21308.5,
+            "end": 21308.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 21308.5,
+            "end": 21308.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21308.800000071526,
+            "end": 21308.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 21309.5,
+            "end": 21309.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21311,
+            "end": 21311,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21311,
+            "end": 21311,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 21311,
+            "end": 21311,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21311.400000095367,
+            "end": 21311.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 21311.900000095367,
+            "end": 21311.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21313.5,
+            "end": 21313.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21313.5,
+            "end": 21313.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 21313.5,
+            "end": 21313.600000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21313.900000095367,
+            "end": 21313.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 21314.800000071526,
+            "end": 21314.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21316.5,
+            "end": 21316.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21316.5,
+            "end": 21316.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 21316.5,
+            "end": 21316.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 21316.800000071526,
+            "end": 21316.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-generator-exhaust",
+            "start": 21293.800000071526,
+            "end": 21317.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-tail-paint",
+            "start": 21293.700000047684,
+            "end": 21319.300000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-owned-finish-capture",
+            "start": 21320.400000095367,
+            "end": 21321,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-finish-live-composite",
+            "start": 21321,
+            "end": 21321,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-reveal-copies",
+            "start": 21321.200000047684,
+            "end": 21321.700000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-prep-field-replace-allocate",
+            "start": 21325.800000071526,
+            "end": 21326,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-prep-field-acquire",
+            "start": 21325.400000095367,
+            "end": 21326.100000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-prep-cpu-raster",
+            "start": 21326.200000047684,
+            "end": 21362.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-diffusion-preparation",
+            "start": 21321.900000095367,
+            "end": 21365.200000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-new-solver-start-and-stitch",
+            "start": 21365.300000071526,
+            "end": 21365.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-finish-total",
+            "start": 21319.300000071526,
+            "end": 21365.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "live-composite",
+            "start": 21365.900000095367,
+            "end": 21365.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "display-submit",
+            "start": 21365.900000095367,
+            "end": 21367.200000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-pack-dabs",
+            "start": 21367.200000047684,
+            "end": 21367.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-log-append",
+            "start": 21367.5,
+            "end": 21367.700000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-local-callback",
+            "start": 21367.800000071526,
+            "end": 21368,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-live-end-callback",
+            "start": 21368,
+            "end": 21368,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-pending-commit",
+            "start": 21368,
+            "end": 21370.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-settle-layers",
+            "start": 21370.5,
+            "end": 21370.700000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "up-stroke-end-callback",
+            "start": 21370.700000047684,
+            "end": 21371.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 1,
+            "phase": "input-up-total",
+            "start": 21292.5,
+            "end": 21371.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "admission-lease",
+            "start": 21387.900000095367,
+            "end": 21388,
+            "value": 1,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": null,
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 21388.300000071526,
+            "end": 21388.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 21388.5,
+            "end": 21388.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 21388.5,
+            "end": 21388.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 21388.5,
+            "end": 21388.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 21388.5,
+            "end": 21388.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 21388.700000047684,
+            "end": 21388.700000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "first-pigment-submit",
+            "start": 21388.900000095367,
+            "end": 21388.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "live-generator-exhaust",
+            "start": 21388.300000071526,
+            "end": 21388.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "live-composite",
+            "start": 21389.300000071526,
+            "end": 21389.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "display-submit",
+            "start": 21389.300000071526,
+            "end": 21389.700000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "input-down-through-display",
+            "start": 21387.700000047684,
+            "end": 21390,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "down"
+          },
+          {
+            "input": 2,
+            "phase": "up-tail-geometry",
+            "start": 23225.300000071526,
+            "end": 23225.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 23227.100000023842,
+            "end": 23227.100000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23228.600000023842,
+            "end": 23228.600000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23228.600000023842,
+            "end": 23228.600000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 23228.600000023842,
+            "end": 23228.600000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23228.600000023842,
+            "end": 23228.600000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23228.900000095367,
+            "end": 23228.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 23230,
+            "end": 23230,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23231.400000095367,
+            "end": 23231.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23231.400000095367,
+            "end": 23231.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 23231.400000095367,
+            "end": 23231.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23231.400000095367,
+            "end": 23231.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23231.800000071526,
+            "end": 23231.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 23232.700000047684,
+            "end": 23232.700000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23233.900000095367,
+            "end": 23233.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23233.900000095367,
+            "end": 23233.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 23233.900000095367,
+            "end": 23233.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23233.900000095367,
+            "end": 23233.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23234.300000071526,
+            "end": 23234.300000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 23235.100000023842,
+            "end": 23235.100000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23236.5,
+            "end": 23236.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23236.5,
+            "end": 23236.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 23236.5,
+            "end": 23236.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23236.5,
+            "end": 23236.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23236.800000071526,
+            "end": 23236.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 23237.700000047684,
+            "end": 23237.700000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23238.900000095367,
+            "end": 23238.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23238.900000095367,
+            "end": 23238.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 23238.900000095367,
+            "end": 23238.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23238.900000095367,
+            "end": 23238.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23239.200000047684,
+            "end": 23239.200000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 23240.100000023842,
+            "end": 23240.100000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23241.400000095367,
+            "end": 23241.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23241.400000095367,
+            "end": 23241.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 23241.400000095367,
+            "end": 23241.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23241.400000095367,
+            "end": 23241.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23241.800000071526,
+            "end": 23241.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 23243,
+            "end": 23243,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23244.800000071526,
+            "end": 23244.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23244.800000071526,
+            "end": 23244.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 23244.800000071526,
+            "end": 23244.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23244.800000071526,
+            "end": 23244.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23245.300000071526,
+            "end": 23245.300000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 23246.5,
+            "end": 23246.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23248.5,
+            "end": 23248.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23248.5,
+            "end": 23248.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 23248.5,
+            "end": 23248.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23248.5,
+            "end": 23248.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 23248.900000095367,
+            "end": 23248.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-generator-exhaust",
+            "start": 23226.900000095367,
+            "end": 23250.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-tail-paint",
+            "start": 23225.5,
+            "end": 23252.300000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-owned-finish-capture",
+            "start": 23252.300000071526,
+            "end": 23252.600000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-finish-live-composite",
+            "start": 23252.600000023842,
+            "end": 23252.800000071526,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-reveal-copies",
+            "start": 23252.800000071526,
+            "end": 23253.200000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-complete-settle",
+            "start": 23253.300000071526,
+            "end": 23287.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-prep-field-clear",
+            "start": 23287.600000023842,
+            "end": 23287.600000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-prep-field-acquire",
+            "start": 23287.600000023842,
+            "end": 23287.700000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-prep-cpu-raster",
+            "start": 23287.700000047684,
+            "end": 23308.600000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-diffusion-preparation",
+            "start": 23287.5,
+            "end": 23310.200000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-new-solver-start-and-stitch",
+            "start": 23310.200000047684,
+            "end": 23310.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-finish-total",
+            "start": 23252.300000071526,
+            "end": 23310.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "live-composite",
+            "start": 23310.5,
+            "end": 23310.5,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "display-submit",
+            "start": 23310.5,
+            "end": 23312.600000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-pack-dabs",
+            "start": 23312.700000047684,
+            "end": 23319.700000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-log-append",
+            "start": 23320,
+            "end": 23320.100000023842,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-local-callback",
+            "start": 23320.100000023842,
+            "end": 23320.200000047684,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-live-end-callback",
+            "start": 23320.200000047684,
+            "end": 23320.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-pending-commit",
+            "start": 23320.400000095367,
+            "end": 23324.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-settle-layers",
+            "start": 23324.400000095367,
+            "end": 23324.400000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "up-stroke-end-callback",
+            "start": 23324.400000095367,
+            "end": 23324.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          },
+          {
+            "input": 2,
+            "phase": "input-up-total",
+            "start": 23225.300000071526,
+            "end": 23324.900000095367,
+            "userId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002",
+            "scope": "up"
+          }
+        ]
+      },
+      "enabled": true,
+      "scenario": "pigment-pigment",
+      "fixedInput": true,
+      "sourceSeeds": [
+        {
+          "strokeId": "QAwater001",
+          "seed": [
+            197.659793814433,
+            502.02247191011236
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ]
+        },
+        {
+          "strokeId": "QApigmt002",
+          "seed": [
+            455.4020618556701,
+            738.9775280898876
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ]
+        }
+      ],
+      "metrics": {
+        "downHandlerMs": 2.5999999046325684,
+        "downToSourceBeginMs": 0.8999999761581421,
+        "downToSourceEndMs": 1.5,
+        "downToDisplayBeginMs": 1.899999976158142,
+        "downToDisplayEndMs": 2.299999952316284,
+        "upHandlerMs": 99.60000002384186,
+        "upBeginToFirstRafCallbackMs": 118.39999997615814,
+        "upReturnToFirstRafCallbackMs": 18.799999952316284,
+        "upReturnToScheduledHoverMs": 49.199999928474426,
+        "hoverHandlerMs": 0.10000002384185791,
+        "completeSettle": [
+          {
+            "phase": "up",
+            "ms": 34.199999928474426
+          }
+        ],
+        "frameGaps": {
+          "count": 216,
+          "medianMs": 16.700000000000728,
+          "p95Ms": 16.900000000001455,
+          "maxMs": 51.39999997615814
+        },
+        "scope": "CPU submission and synthetic rAF/hover availability; hover deliberately after3frames; not physical visible latency"
+      },
+      "longTasks": [
+        {
+          "at": 19453,
+          "end": 19515,
+          "ms": 62
+        },
+        {
+          "at": 21290.600000023842,
+          "end": 21412.600000023842,
+          "ms": 122
+        },
+        {
+          "at": 23224.100000023842,
+          "end": 23342.100000023842,
+          "ms": 118
+        },
+        {
+          "at": 34523.700000047684,
+          "end": 34630.700000047684,
+          "ms": 107
+        }
+      ],
+      "pending": true,
+      "lease": true,
+      "downDrains": 0,
+      "glError": 0,
+      "lost": false,
+      "timedEnd": 23374.200000047684,
+      "export": {
+        "begin": 34524.700000047684,
+        "end": 34724.90000009537,
+        "bytes": 1164877
+      },
+      "scope": "Natural clock synthetic actual Room PointerInput; CPU source/display submissions and rAF availability, not physical pen latency or exact authored OFF/ON parity",
+      "hoisted": true,
+      "room": "s0GVDVm3",
+      "queryConstructorFlags": {
+        "hoisted": true,
+        "joined": true,
+        "lease": true,
+        "native": false,
+        "timing": {
+          "capacity": 1024,
+          "recorded": 0,
+          "dropped": 0,
+          "observerErrors": 0,
+          "active": false,
+          "scope": "engine-local captured DOWN/UP only"
+        },
+        "async": false,
+        "deferred": false
+      },
+      "uiControlCounts": null,
+      "timingGate": {
+        "valid": true,
+        "inputs": [
+          {
+            "input": 1,
+            "strokeId": "QAwater001",
+            "leaseAccepted": false,
+            "drainCount": 0,
+            "downMs": 19.800000071525574,
+            "pigmentSubmitMs": 15.600000023841858,
+            "displaySubmitMs": 18.700000047683716
+          },
+          {
+            "input": 2,
+            "strokeId": "QApigmt002",
+            "leaseAccepted": true,
+            "drainCount": 0,
+            "downMs": 2.299999952316284,
+            "pigmentSubmitMs": 1.2000000476837158,
+            "displaySubmitMs": 2
+          }
+        ],
+        "classification": "lease-accepted",
+        "scope": "CPU synchronous DOWN submission, not GPU/physical pixels"
+      },
+      "upTimingGate": {
+        "valid": true,
+        "inputs": [
+          {
+            "input": 1,
+            "strokeId": "QAwater001",
+            "totalMs": 79,
+            "phaseMs": {
+              "up-tail-geometry": 0.6000000238418579,
+              "foreign-water-import": 0,
+              "scratch-first-touch": 0,
+              "scratch-film-base-copy": 0.20000004768371582,
+              "up-generator-exhaust": 23.600000023841858,
+              "up-tail-paint": 25.600000023841858,
+              "up-owned-finish-capture": 0.5999999046325684,
+              "up-finish-live-composite": 0,
+              "up-reveal-copies": 0.5,
+              "up-prep-field-replace-allocate": 0.19999992847442627,
+              "up-prep-field-acquire": 0.6999999284744263,
+              "up-prep-cpu-raster": 36.60000002384186,
+              "up-diffusion-preparation": 43.299999952316284,
+              "up-new-solver-start-and-stitch": 0.6000000238418579,
+              "up-finish-total": 46.60000002384186,
+              "live-composite": 0,
+              "display-submit": 1.2999999523162842,
+              "up-pack-dabs": 0.2999999523162842,
+              "up-log-append": 0.20000004768371582,
+              "up-local-callback": 0.19999992847442627,
+              "up-live-end-callback": 0,
+              "up-pending-commit": 2.5,
+              "up-settle-layers": 0.20000004768371582,
+              "up-stroke-end-callback": 0.7999999523162842
+            },
+            "observedUnionMs": 78.29999995231628,
+            "unknownExclusiveMs": 0.7000000476837158
+          },
+          {
+            "input": 2,
+            "strokeId": "QApigmt002",
+            "totalMs": 99.60000002384186,
+            "phaseMs": {
+              "up-tail-geometry": 0.19999992847442627,
+              "foreign-water-import": 0,
+              "scratch-first-touch": 0,
+              "scratch-film-base-copy": 0,
+              "up-generator-exhaust": 23.5,
+              "up-tail-paint": 26.800000071525574,
+              "up-owned-finish-capture": 0.2999999523162842,
+              "up-finish-live-composite": 0.20000004768371582,
+              "up-reveal-copies": 0.3999999761581421,
+              "up-complete-settle": 34.199999928474426,
+              "up-prep-field-clear": 0,
+              "up-prep-field-acquire": 0.10000002384185791,
+              "up-prep-cpu-raster": 20.899999976158142,
+              "up-diffusion-preparation": 22.700000047683716,
+              "up-new-solver-start-and-stitch": 0.2999999523162842,
+              "up-finish-total": 58.199999928474426,
+              "live-composite": 0,
+              "display-submit": 2.100000023841858,
+              "up-pack-dabs": 7,
+              "up-log-append": 0.10000002384185791,
+              "up-local-callback": 0.10000002384185791,
+              "up-live-end-callback": 0.20000004768371582,
+              "up-pending-commit": 4,
+              "up-settle-layers": 0,
+              "up-stroke-end-callback": 0.5
+            },
+            "observedUnionMs": 99.20000004768372,
+            "unknownExclusiveMs": 0.3999999761581421
+          }
+        ],
+        "betweenGesture": {
+          "firstUpBegin": 21292.200000047684,
+          "firstUpReturn": 21371.5,
+          "secondDownBegin": 21387.400000095367,
+          "secondDownReturn": 21390,
+          "gapFromFirstUpReturnMs": 15.900000095367432
+        },
+        "beforeSecondWet": {
+          "at": 21387.400000095367,
+          "layerId": "layer-1",
+          "x": 300.00000000003104,
+          "y": 299.99999999998806,
+          "radiusForEligibility": 300,
+          "center": 0.9858799999992053,
+          "nearForEligibility": true,
+          "anyWet": true,
+          "scope": "readonly real-clock center/eligibility wetness before second DOWN, not whole nib wet payload"
+        },
+        "scope": "CPU elapsed interval union, nested phases overlap; no GPU attribution"
+      },
+      "inputPassport": [
+        {
+          "id": "tQDl-_DzeR",
+          "strokeId": "QAwater001",
+          "layerId": "layer-1",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "dabCount": null,
+          "dabsPackedSha": "fafe2d0ee2907af10ad03cc75e466d101b4a7d943e95214c8229eefc7850d790",
+          "wetSha": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        },
+        {
+          "id": "wwrmMMN32g",
+          "strokeId": "QApigmt002",
+          "layerId": "layer-1",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ],
+          "dabCount": null,
+          "dabsPackedSha": "fafe2d0ee2907af10ad03cc75e466d101b4a7d943e95214c8229eefc7850d790",
+          "wetSha": "4f658943e167a30d385e0e2fff76882211974547d243b615997c727e486948c0"
+        }
+      ],
+      "authoredPassport": [
+        {
+          "strokeId": "QAwater001",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "size": 400,
+          "frameCount": 108,
+          "sha": "e2a6d4540088cc88253f2e4f1960e5486213013e745bac2bea4bf8a246082fdc"
+        },
+        {
+          "strokeId": "QApigmt002",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ],
+          "size": 400,
+          "frameCount": 108,
+          "sha": "5b64eb631e19edf47df834644e3e90c607728bdabf605a58287b461beb172181"
+        }
+      ],
+      "producerCalls": 28,
+      "traceCounts": {
+        "markers": 1839,
+        "queue": 220,
+        "frames": 2
+      },
+      "quality": {
+        "hoisted": true,
+        "consumption": 28,
+        "fields": [
+          {
+            "index": 0,
+            "role": "a",
+            "width": 1536,
+            "height": 1536,
+            "sha": "b78fc9078fe63eccaf68d6a9fbef87bce168f3fffb00e65266e8bec86d42008b"
+          },
+          {
+            "index": 0,
+            "role": "b",
+            "width": 1536,
+            "height": 1536,
+            "sha": "09af582bd02800a55474b859bd81ee9532cbc127588532f8f726c5175aedccb1"
+          },
+          {
+            "index": 0,
+            "role": "c",
+            "width": 1536,
+            "height": 1536,
+            "sha": "fce518441e3428fc3c10d534473f08af65f9b5a76662e1ad7dee2d80b44d1153"
+          },
+          {
+            "index": 0,
+            "role": "ca",
+            "width": 1536,
+            "height": 1536,
+            "sha": "a8ba4819e691912380fe6bbb25fde1dd7d993c253a76e45b928d2e9f0e6936b6"
+          },
+          {
+            "index": 0,
+            "role": "cb",
+            "width": 1536,
+            "height": 1536,
+            "sha": "c309707a03e5dfae124355b406cbe216e927318e9447545707bec96d34aebe45"
+          },
+          {
+            "index": 0,
+            "role": "cc",
+            "width": 1536,
+            "height": 1536,
+            "sha": "4aff73dede9fd74c221a8ffaff7bd108d1b07a51a91035a59b8baeed1f7424a2"
+          },
+          {
+            "index": 0,
+            "role": "coverage",
+            "width": 1536,
+            "height": 1536,
+            "sha": "29e08d230f80fc07b5d37d7f0044404e860f0576131fbd30577326d7e4532279"
+          },
+          {
+            "index": 0,
+            "role": "mask",
+            "width": 1536,
+            "height": 1536,
+            "sha": "2336dab5ef28fe3a973cac6629f6694936617f72ca25b29b2d03216fd9ef7f28"
+          },
+          {
+            "index": 0,
+            "role": "pressure",
+            "width": 1536,
+            "height": 1536,
+            "sha": "c309707a03e5dfae124355b406cbe216e927318e9447545707bec96d34aebe45"
+          },
+          {
+            "index": 0,
+            "role": "band",
+            "width": 1536,
+            "height": 1536,
+            "sha": "29e08d230f80fc07b5d37d7f0044404e860f0576131fbd30577326d7e4532279"
+          },
+          {
+            "role": "material",
+            "originX": 0,
+            "originY": 0,
+            "width": 1024,
+            "height": 1024,
+            "nonzero": 1357206,
+            "sha": "eb6394ab3135c9af248cc24a57ddb07f5ec47bb6ae70c07965bbb5d2e8ac8c55"
+          }
+        ],
+        "uploads": [
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "f553e42fce2624bc3f2b648a1ab3067d286ee90dc73b54e113a035440ccbeaff"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "f553e42fce2624bc3f2b648a1ab3067d286ee90dc73b54e113a035440ccbeaff"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 100,
+            "height": 93,
+            "sha": "9697cfbed0f66e3c4500f4856e9fcf62527a3fae56c95d99bd8a83e57a535e84"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 93,
+            "sha": "9ad1275390589122c7c4bee7aadf99c599064667fb3dc5447f790ed306d63e2d"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 96,
+            "sha": "6881f5c9a260b279f6443c567a645c41c91530fef9110ac9169532a277c44e50"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "501db121ac29a00e128b7d3b65aa5b7050e5bfd7633b822d3076dfb21d4875a9"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "f1962688a598a94956becaebcd3a8531dc69ebaa8b571b0681d130d5511d486f"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 95,
+            "height": 116,
+            "sha": "a0ba34c5ee2995cd3b5fd2a0ad341a71f2ea319731ad88cdc41588f0adfa89c3"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 96,
+            "sha": "6881f5c9a260b279f6443c567a645c41c91530fef9110ac9169532a277c44e50"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "df5fb9f92bc6f05e14e890ea207203fb48fe350f0ce05c74ecde4229456b2e92"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "ec95a6ff76328213d45b8438c78ee75c988bcf996de0c257bcac617a63638921"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 95,
+            "height": 116,
+            "sha": "b8443837c596b8ffec37142e0a76dadb6552301ad3d31513de9400e2deee9a8a"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 95,
+            "sha": "639f15b9670423b9f87d599dbbdd56e5c095f347fd42e5bc28b52e8d9fd3154f"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 80,
+            "height": 86,
+            "sha": "a07927ebcfc4f8e744676f8904f6a0b566b9356c55424a94e955a28cc089c50e"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 55,
+            "height": 59,
+            "sha": "74bbef3087d7b2a898b2dac08179d2c511218e18f231c8769de5eee607870886"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "f553e42fce2624bc3f2b648a1ab3067d286ee90dc73b54e113a035440ccbeaff"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "f553e42fce2624bc3f2b648a1ab3067d286ee90dc73b54e113a035440ccbeaff"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 100,
+            "height": 93,
+            "sha": "9697cfbed0f66e3c4500f4856e9fcf62527a3fae56c95d99bd8a83e57a535e84"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 93,
+            "sha": "9ad1275390589122c7c4bee7aadf99c599064667fb3dc5447f790ed306d63e2d"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 96,
+            "sha": "6881f5c9a260b279f6443c567a645c41c91530fef9110ac9169532a277c44e50"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "501db121ac29a00e128b7d3b65aa5b7050e5bfd7633b822d3076dfb21d4875a9"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "f1962688a598a94956becaebcd3a8531dc69ebaa8b571b0681d130d5511d486f"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 95,
+            "height": 116,
+            "sha": "a0ba34c5ee2995cd3b5fd2a0ad341a71f2ea319731ad88cdc41588f0adfa89c3"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 96,
+            "sha": "6881f5c9a260b279f6443c567a645c41c91530fef9110ac9169532a277c44e50"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "df5fb9f92bc6f05e14e890ea207203fb48fe350f0ce05c74ecde4229456b2e92"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 115,
+            "height": 93,
+            "sha": "ec95a6ff76328213d45b8438c78ee75c988bcf996de0c257bcac617a63638921"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 95,
+            "height": 116,
+            "sha": "b8443837c596b8ffec37142e0a76dadb6552301ad3d31513de9400e2deee9a8a"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 93,
+            "height": 95,
+            "sha": "639f15b9670423b9f87d599dbbdd56e5c095f347fd42e5bc28b52e8d9fd3154f"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 80,
+            "height": 86,
+            "sha": "a07927ebcfc4f8e744676f8904f6a0b566b9356c55424a94e955a28cc089c50e"
+          },
+          {
+            "name": "uploadFlow",
+            "width": 55,
+            "height": 59,
+            "sha": "74bbef3087d7b2a898b2dac08179d2c511218e18f231c8769de5eee607870886"
+          }
+        ],
+        "whole": {
+          "width": 1024,
+          "height": 1024,
+          "sha": "0f4acc26875720cdddb850c9d98116e4eebf657c3cb9eee9f4c0dc41e4cacf83",
+          "alphaNonzero": 453591
+        },
+        "inputSha": "460c240a18b59a43fc99e41c8185a41694c5cac65f254cfb35ed32ce0a4e1240",
+        "glError": 0,
+        "lost": false,
+        "scope": "Same immutable recorded packed/wet ops canonical replay; independent of natural latency, no normalization"
+      }
+    }
+  ],
+  "httpActorTrace": [
+    [
+      {
+        "requestId": "7284.117",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 543875.238616,
+        "wallTime": 1791568889.438656,
+        "status": 200,
+        "responseTimestamp": 543875.393707,
+        "responseObservedWallTime": 1791568889618,
+        "httpActor": "3cd698ee-c57e-4f0b-8c5e-403534775092"
+      },
+      {
+        "requestId": "7284.641",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 543894.058204,
+        "wallTime": 1791568908.258266,
+        "status": 200,
+        "responseTimestamp": 543894.114735,
+        "responseObservedWallTime": 1791568908343,
+        "httpActor": "3cd698ee-c57e-4f0b-8c5e-403534775092"
+      },
+      {
+        "requestId": "7284.758",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 543895.873427,
+        "wallTime": 1791568910.073495,
+        "status": 200,
+        "responseTimestamp": 543895.955939,
+        "responseObservedWallTime": 1791568910179,
+        "httpActor": "3cd698ee-c57e-4f0b-8c5e-403534775092"
+      },
+      {
+        "requestId": "7284.1270",
+        "method": "POST",
+        "endpoint": "/api/rooms/<room>/thumbnail",
+        "requestTimestamp": 543914.189886,
+        "wallTime": 1791568928.389954,
+        "status": 200,
+        "responseTimestamp": 543914.325313,
+        "responseObservedWallTime": 1791568928550
+      },
+      {
+        "requestId": "7284.1286",
+        "method": "POST",
+        "endpoint": "/api/rooms/<room>/thumbnail",
+        "requestTimestamp": 543920.170931,
+        "wallTime": 1791568934.370928,
+        "status": 200,
+        "responseTimestamp": 543920.228513,
+        "responseObservedWallTime": 1791568934449
+      }
+    ],
+    [
+      {
+        "requestId": "13224.117",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 543971.267645,
+        "wallTime": 1791568985.46702,
+        "status": 200,
+        "responseTimestamp": 543971.35427,
+        "responseObservedWallTime": 1791568985608,
+        "httpActor": "d3880ae2-63d4-4c01-aa6a-baa0695314c1"
+      },
+      {
+        "requestId": "13224.639",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 543989.67484,
+        "wallTime": 1791569003.874282,
+        "status": 200,
+        "responseTimestamp": 543989.723175,
+        "responseObservedWallTime": 1791569003948,
+        "httpActor": "d3880ae2-63d4-4c01-aa6a-baa0695314c1"
+      },
+      {
+        "requestId": "13224.756",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 543991.365526,
+        "wallTime": 1791569005.565015,
+        "status": 200,
+        "responseTimestamp": 543991.442488,
+        "responseObservedWallTime": 1791569005661,
+        "httpActor": "d3880ae2-63d4-4c01-aa6a-baa0695314c1"
+      },
+      {
+        "requestId": "13224.1284",
+        "method": "POST",
+        "endpoint": "/api/rooms/<room>/thumbnail",
+        "requestTimestamp": 544008.971245,
+        "wallTime": 1791569023.170771,
+        "status": 200,
+        "responseTimestamp": 544009.074317,
+        "responseObservedWallTime": 1791569023293
+      },
+      {
+        "requestId": "13224.1300",
+        "method": "POST",
+        "endpoint": "/api/rooms/<room>/thumbnail",
+        "requestTimestamp": 544014.975038,
+        "wallTime": 1791569029.174547,
+        "status": 200,
+        "responseTimestamp": 544015.070554,
+        "responseObservedWallTime": 1791569029324
+      }
+    ]
+  ],
+  "memory": [
+    {
+      "phase": "preflight",
+      "enabled": true,
+      "hoisted": false,
+      "free": 2023,
+      "attempt": 0,
+      "elapsedMs": 1437
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 1786
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 1773
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 1739
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 1650
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 1618
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 1517
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 1580
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 1599
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 1601
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 1360
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 1100
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 1129
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 1128
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 958
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 938
+    },
+    {
+      "phase": "HOIST_OFF",
+      "free": 981
+    },
+    {
+      "phase": "closed-arm",
+      "free": 1569
+    },
+    {
+      "phase": "preflight",
+      "enabled": true,
+      "hoisted": true,
+      "free": 1569,
+      "attempt": 0,
+      "elapsedMs": 1219
+    },
+    {
+      "phase": "preflight",
+      "enabled": true,
+      "hoisted": true,
+      "free": 1972,
+      "attempt": 1,
+      "elapsedMs": 7727
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1773
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1779
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1743
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1665
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1627
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1516
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1544
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1607
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1572
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1353
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1110
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1135
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1134
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1171
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1211
+    },
+    {
+      "phase": "HOIST_ON",
+      "free": 1267
+    },
+    {
+      "phase": "closed-arm",
+      "free": 1589
+    },
+    {
+      "phase": "closed",
+      "free": 1591
+    }
+  ],
+  "memoryProbes": [
+    {
+      "phase": "preflight",
+      "elapsedMs": 1435.817964,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1548.6442179999995,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1735.033100999999,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1712.969161000001,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1658.112799999999,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1856.4087160000017,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create:await-server-room-state",
+      "elapsedMs": 1416.7600840000014,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create:await-server-room-state",
+      "elapsedMs": 1544.1316740000038,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create:await-server-room-state",
+      "elapsedMs": 1642.6314490000004,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create:await-server-room-state",
+      "elapsedMs": 1611.1694530000022,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create:await-server-room-state",
+      "elapsedMs": 1366.9403280000042,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1397.197871000004,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1500.2509350000037,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1498.0057689999958,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "same-packed-quality",
+      "elapsedMs": 1345.327231999996,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "same-packed-quality",
+      "elapsedMs": 1387.7412119999935,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "same-packed-quality",
+      "elapsedMs": 1436.0590159999992,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "same-packed-quality",
+      "elapsedMs": 1481.4694220000092,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "same-packed-quality",
+      "elapsedMs": 1369.6950970000034,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "same-packed-quality",
+      "elapsedMs": 1218.9232189999893,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "same-packed-quality",
+      "elapsedMs": 1241.2153300000064,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1737.86413300001,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1554.4582479999954,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1548.6751000000077,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1628.9317210000008,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1636.2014099999942,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create:await-server-room-state",
+      "elapsedMs": 1315.9258120000013,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create:await-server-room-state",
+      "elapsedMs": 1727.8502719999815,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create:await-server-room-state",
+      "elapsedMs": 1642.6156550000014,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create:await-server-room-state",
+      "elapsedMs": 1842.4694850000087,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1445.96162799999,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1306.6889969999902,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1288.8296100000152,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1317.6600610000023,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "same-packed-quality",
+      "elapsedMs": 1231.203886000003,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "same-packed-quality",
+      "elapsedMs": 1333.5831269999908,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "same-packed-quality",
+      "elapsedMs": 1225.9960510000237,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "same-packed-quality",
+      "elapsedMs": 1300.8001820000063,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "closed",
+      "elapsedMs": 1219.355327999976,
+      "timedOut": false,
+      "success": true
+    }
+  ],
+  "errors": [],
+  "networkErrors": [],
+  "result": {
+    "identity": {
+      "actor": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+      "engineActor": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+      "roomId": "s0GVDVm3",
+      "authenticatedId": "d3880ae2-63d4-4c01-aa6a-baa0695314c1",
+      "locked": false
+    },
+    "queryConstructorFlags": {
+      "hoisted": true,
+      "joined": true,
+      "lease": true,
+      "native": false,
+      "timing": {
+        "capacity": 1024,
+        "recorded": 0,
+        "dropped": 0,
+        "observerErrors": 0,
+        "active": false,
+        "scope": "engine-local captured DOWN/UP only"
+      },
+      "async": false,
+      "deferred": false
+    },
+    "qualityPair": {
+      "equal": true,
+      "scope": "Same immutable OFF recorded packed/wet replay; natural pointer timing inputs separate"
+    },
+    "armMode": "OFF_ON",
+    "valid": true,
+    "scope": "Natural400 separate authored Room tapes, CPU submissions and rAF availability; not physical visible latency or exact OFF/ON pixel parity"
+  },
+  "provenance": {
+    "sourceHead": "6e5fd7a7",
+    "sharedPrebundle": false,
+    "bootDecouple": true,
+    "scope": "ONE sequential Surface OFF/ON; canonical quality same OFF recorded immutable tape; natural CPU timing not repeatable causal gain"
+  },
+  "comparability": {
+    "authoredPassportsEqual": true,
+    "sourceSeedsEqual": true,
+    "packedHashesEqual": true,
+    "wetHashesEqual": true,
+    "historyIdsEqual": false,
+    "limitation": "Actual elapsed/cadence differ; fixed order and one sample, no gain conclusion"
+  }
+}
