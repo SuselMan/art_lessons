@@ -1,0 +1,164 @@
+{
+  "scope": "28 actual field computations; seed upload repeats not counted as compute",
+  "argumentIdentity": "Float64 bit pattern including signed zero",
+  "calls": 335780,
+  "uniqueGlobal": 95903,
+  "duplicateGlobal": 239877,
+  "uniqueByStroke": [
+    95903,
+    95903
+  ],
+  "groups": [
+    {
+      "calls": 12902,
+      "uniqueArguments": 4771,
+      "duplicateArguments": 8131
+    },
+    {
+      "calls": 12948,
+      "uniqueArguments": 7990,
+      "duplicateArguments": 4958
+    },
+    {
+      "calls": 6485,
+      "uniqueArguments": 4098,
+      "duplicateArguments": 2387
+    },
+    {
+      "calls": 12970,
+      "uniqueArguments": 8196,
+      "duplicateArguments": 4774
+    },
+    {
+      "calls": 12934,
+      "uniqueArguments": 8826,
+      "duplicateArguments": 4108
+    },
+    {
+      "calls": 12934,
+      "uniqueArguments": 8826,
+      "duplicateArguments": 4108
+    },
+    {
+      "calls": 12839,
+      "uniqueArguments": 12839,
+      "duplicateArguments": 0
+    },
+    {
+      "calls": 12970,
+      "uniqueArguments": 8009,
+      "duplicateArguments": 4961
+    },
+    {
+      "calls": 12934,
+      "uniqueArguments": 7600,
+      "duplicateArguments": 5334
+    },
+    {
+      "calls": 12934,
+      "uniqueArguments": 7600,
+      "duplicateArguments": 5334
+    },
+    {
+      "calls": 12839,
+      "uniqueArguments": 12839,
+      "duplicateArguments": 0
+    },
+    {
+      "calls": 12096,
+      "uniqueArguments": 7591,
+      "duplicateArguments": 4505
+    },
+    {
+      "calls": 14876,
+      "uniqueArguments": 7438,
+      "duplicateArguments": 7438
+    },
+    {
+      "calls": 5229,
+      "uniqueArguments": 2685,
+      "duplicateArguments": 2544
+    },
+    {
+      "calls": 12902,
+      "uniqueArguments": 4771,
+      "duplicateArguments": 8131
+    },
+    {
+      "calls": 12948,
+      "uniqueArguments": 7990,
+      "duplicateArguments": 4958
+    },
+    {
+      "calls": 6485,
+      "uniqueArguments": 4098,
+      "duplicateArguments": 2387
+    },
+    {
+      "calls": 12970,
+      "uniqueArguments": 8196,
+      "duplicateArguments": 4774
+    },
+    {
+      "calls": 12934,
+      "uniqueArguments": 8826,
+      "duplicateArguments": 4108
+    },
+    {
+      "calls": 12934,
+      "uniqueArguments": 8826,
+      "duplicateArguments": 4108
+    },
+    {
+      "calls": 12839,
+      "uniqueArguments": 12839,
+      "duplicateArguments": 0
+    },
+    {
+      "calls": 12970,
+      "uniqueArguments": 8009,
+      "duplicateArguments": 4961
+    },
+    {
+      "calls": 12934,
+      "uniqueArguments": 7600,
+      "duplicateArguments": 5334
+    },
+    {
+      "calls": 12934,
+      "uniqueArguments": 7600,
+      "duplicateArguments": 5334
+    },
+    {
+      "calls": 12839,
+      "uniqueArguments": 12839,
+      "duplicateArguments": 0
+    },
+    {
+      "calls": 12096,
+      "uniqueArguments": 7591,
+      "duplicateArguments": 4505
+    },
+    {
+      "calls": 14876,
+      "uniqueArguments": 7438,
+      "duplicateArguments": 7438
+    },
+    {
+      "calls": 5229,
+      "uniqueArguments": 2685,
+      "duplicateArguments": 2544
+    }
+  ],
+  "identityExact": true,
+  "flows30Exact": true,
+  "fixtureSHA": "f3c81b4c5a7e987d60510a2625f41de4375fc5866cc859cca2024c661fd162e1",
+  "perGroupDuplicates": 117164,
+  "perGroupHitRate": 0.3489308475787718,
+  "perStrokeHitRate": 0.4287747930192388,
+  "globalHitRate": 0.7143873965096194,
+  "sourceSHA": {
+    "apps/web/src/engine/src/watercolor/brushDrag.ts": "febf13b5d339df09c04bcaae38773bf7412abc772f06e4a0002240926adef206",
+    "docs/qa/harness/728-gl-timing/contact-real-tape-cpu.mts": "6b5f58079f3490f5babe8335fdfa7fa08140474ff8b6d6325f54826fbbbb6295"
+  }
+}
