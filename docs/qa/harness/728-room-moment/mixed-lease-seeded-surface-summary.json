@@ -1,0 +1,1264 @@
+{
+  "phase": "closed",
+  "passport": {
+    "apps/web/src/engine/index.ts": "65943327f878bf891196a6ea10a6a20fab9f8083c8fc494b029af52bc432baa0",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "40e7173707338a9a72b7c7bb263b7be23f9693011c93d5a7c33029e22cad1661",
+    "apps/web/src/engine/src/raster/WatercolorSettlePlan.ts": "5ac3ba4c012d343765ff20ae84d915df871b34bf637ab6b6b09797feb1c77a9c",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+    "apps/web/src/engine/src/buffers/RibbonStrokeScratch.ts": "24210ad3fb76a8e25c76a6d6d25f6c2a4142d0c98df3889d504ba36750c14d54",
+    "apps/web/src/engine/src/dabs/DabSystem.ts": "816911a80216b7e80bdd1ba7c11be3ea2e02bf3560bc629197a5f7961266c5b3",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+    "apps/web/src/engine/src/paper/paperWetness.ts": "9edaf471f083947f82461e78d4fa8e3d46ecd985611abdfc688cc891c4b7762d",
+    "docs/qa/harness/728-room-moment/MixedLeaseSameInput.mjs": "8c0c854f20e36b762060a026c308e2ab1d01c91d2a31b015bd6abdf8cc79d451",
+    "docs/qa/harness/728-room-moment/MixedLeaseInput.mjs": "e6f649f58905586894d68f2991c8247bb7a410d181f039fc63c2214d9592e835",
+    "docs/qa/harness/728-room-moment/ControlledInputClock.mjs": "0151de7234aade1499c41c9639fed1337ba540b57e27ecbe0df4664c46725fd6"
+  },
+  "paperPassport": {
+    "manifest.json": {
+      "bytes": 6532,
+      "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+    },
+    "fine.e59ea6fa.paper": {
+      "bytes": 3983406,
+      "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+    },
+    "fine.a19fcf63.preview": {
+      "bytes": 59686,
+      "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+    }
+  },
+  "memory": [
+    {
+      "phase": "preflight",
+      "enabled": false,
+      "free": 2022
+    },
+    {
+      "phase": "OFF",
+      "free": 1776
+    },
+    {
+      "phase": "OFF",
+      "free": 1753
+    },
+    {
+      "phase": "closed-arm",
+      "free": 1746
+    },
+    {
+      "phase": "preflight",
+      "enabled": true,
+      "free": 1752
+    },
+    {
+      "phase": "ON",
+      "free": 1759
+    },
+    {
+      "phase": "ON",
+      "free": 1739
+    },
+    {
+      "phase": "closed-arm",
+      "free": 1752
+    },
+    {
+      "phase": "closed",
+      "free": 1746
+    }
+  ],
+  "memoryProbes": [
+    {
+      "phase": "preflight",
+      "elapsedMs": 1381.2721079999997,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "OFF",
+      "elapsedMs": 1716.7293109999991,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "OFF",
+      "elapsedMs": 1567.8768630000013,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "OFF",
+      "elapsedMs": 1161.5838719999992,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "OFF",
+      "elapsedMs": 1182.3592519999984,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "OFF",
+      "elapsedMs": 1294.9568849999996,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "ON",
+      "elapsedMs": 1804.6438340000022,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "ON",
+      "elapsedMs": 1609.323977,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "ON",
+      "elapsedMs": 1120.3068530000019,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "ON",
+      "elapsedMs": 1269.0389129999967,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "closed",
+      "elapsedMs": 1759.988658000002,
+      "timedOut": false,
+      "success": true
+    }
+  ],
+  "errors": [],
+  "networkErrors": [],
+  "result": {
+    "valid": true,
+    "differences": {
+      "admissions": [
+        {
+          "pending": true,
+          "leases": 0,
+          "downDrains": 1,
+          "upDrains": 0,
+          "sourceCommands": 0
+        },
+        {
+          "pending": true,
+          "leases": 1,
+          "downDrains": 0,
+          "upDrains": 1,
+          "sourceCommands": 8
+        }
+      ],
+      "inputEqual": true,
+      "semanticHistoryEqual": true,
+      "wetProfiles": [
+        [
+          "",
+          "ffffffffffffffffffff"
+        ],
+        [
+          "",
+          "ffffffffffffffffffff"
+        ]
+      ],
+      "fieldMismatches": [],
+      "wholeEqual": true,
+      "glErrors": [
+        0,
+        0
+      ],
+      "lost": [
+        false,
+        false
+      ]
+    },
+    "scope": "Controlled model-clock actual overlapping pointer inputs; 25 roles/export/semantic history, not natural physical pen latency"
+  },
+  "rows": [
+    {
+      "enabled": false,
+      "proof": {
+        "enabled": false,
+        "predecessorPending": true,
+        "leaseAdmissions": 0,
+        "downDrains": 1,
+        "upDrains": 0,
+        "sourceCommands": 0,
+        "effectiveInputs": [
+          {
+            "strokeId": "QAwater001",
+            "preset": "normal:100:0:PB29:round",
+            "size": 24,
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "samples": [
+              {
+                "pressure": 1,
+                "tiltX": 0,
+                "tiltY": 0,
+                "speed": 0,
+                "pointerType": "pen",
+                "x": 40,
+                "y": 64,
+                "timeStamp": 10
+              },
+              {
+                "pressure": 1,
+                "tiltX": 0,
+                "tiltY": 0,
+                "speed": 0,
+                "pointerType": "pen",
+                "x": 64,
+                "y": 64,
+                "timeStamp": 26
+              },
+              {
+                "pressure": 1,
+                "tiltX": 0,
+                "tiltY": 0,
+                "speed": 0,
+                "pointerType": "pen",
+                "x": 88,
+                "y": 64,
+                "timeStamp": 42
+              }
+            ]
+          },
+          {
+            "strokeId": "QApigmt002",
+            "preset": "normal:100:100:PB29:round",
+            "size": 24,
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "samples": [
+              {
+                "pressure": 1,
+                "tiltX": 0,
+                "tiltY": 0,
+                "speed": 0,
+                "pointerType": "pen",
+                "x": 64,
+                "y": 64,
+                "timeStamp": 58
+              },
+              {
+                "pressure": 1,
+                "tiltX": 0,
+                "tiltY": 0,
+                "speed": 0,
+                "pointerType": "pen",
+                "x": 76,
+                "y": 64,
+                "timeStamp": 74
+              },
+              {
+                "pressure": 1,
+                "tiltX": 0,
+                "tiltY": 0,
+                "speed": 0,
+                "pointerType": "pen",
+                "x": 88,
+                "y": 64,
+                "timeStamp": 90
+              }
+            ]
+          }
+        ],
+        "sourceInputs": [
+          {
+            "strokeId": "QAwater001",
+            "preset": "normal:100:0:PB29:round",
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "wet": "0",
+            "seed": [
+              197.659793814433,
+              502.02247191011236
+            ]
+          },
+          {
+            "strokeId": "QAwater001",
+            "preset": "normal:100:0:PB29:round",
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "wet": "0000",
+            "seed": [
+              197.659793814433,
+              502.02247191011236
+            ]
+          },
+          {
+            "strokeId": "QAwater001",
+            "preset": "normal:100:0:PB29:round",
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "wet": "00000000000000000000",
+            "seed": [
+              197.659793814433,
+              502.02247191011236
+            ]
+          },
+          {
+            "strokeId": "QApigmt002",
+            "preset": "normal:100:100:PB29:round",
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "wet": "f",
+            "seed": [
+              455.4020618556701,
+              738.9775280898876
+            ]
+          },
+          {
+            "strokeId": "QApigmt002",
+            "preset": "normal:100:100:PB29:round",
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "wet": "ff",
+            "seed": [
+              455.4020618556701,
+              738.9775280898876
+            ]
+          },
+          {
+            "strokeId": "QApigmt002",
+            "preset": "normal:100:100:PB29:round",
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "wet": "fffffffffffffffff",
+            "seed": [
+              455.4020618556701,
+              738.9775280898876
+            ]
+          }
+        ],
+        "scope": "Real private pointer pipeline; synchronous fixed input, not physical pen latency"
+      },
+      "inputSHA": "51fbad2f28668ef79e824a095ce56468c4be9d12b4c108705aeffdbfed83cf9f",
+      "sourceInputs": [
+        {
+          "strokeId": "QAwater001",
+          "preset": "normal:100:0:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "wet": "0",
+          "seed": [
+            197.659793814433,
+            502.02247191011236
+          ]
+        },
+        {
+          "strokeId": "QAwater001",
+          "preset": "normal:100:0:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "wet": "0000",
+          "seed": [
+            197.659793814433,
+            502.02247191011236
+          ]
+        },
+        {
+          "strokeId": "QAwater001",
+          "preset": "normal:100:0:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "wet": "00000000000000000000",
+          "seed": [
+            197.659793814433,
+            502.02247191011236
+          ]
+        },
+        {
+          "strokeId": "QApigmt002",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "wet": "f",
+          "seed": [
+            455.4020618556701,
+            738.9775280898876
+          ]
+        },
+        {
+          "strokeId": "QApigmt002",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "wet": "ff",
+          "seed": [
+            455.4020618556701,
+            738.9775280898876
+          ]
+        },
+        {
+          "strokeId": "QApigmt002",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "wet": "fffffffffffffffff",
+          "seed": [
+            455.4020618556701,
+            738.9775280898876
+          ]
+        }
+      ],
+      "sourceInputsSHA": "dac878e4657c8ce3637f4c2f2c6c6c31e6adfe2db020b2e23b5f5f93dec62ab6",
+      "semanticHistory": [
+        {
+          "id": "id0",
+          "type": "stroke",
+          "userId": "mixed-input-actor",
+          "layerId": "L",
+          "tool": "watercolor",
+          "preset": "normal:100:0:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "dabsPacked": "1:AAAgQgAAgEIAAIA/AAAAAAAAAABxPYpBAACAPwAAAACkcH0/AAAAALgeNUIAAIBCAACAPwAAAAAAAAAAfoy5QQAAgD8AAAAApHB9PwAAAEJxPUpCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCKVxfQgAAgEIAAIA/AAAAAAAAAAAAAMBBAACAPwAAAACkcH0/AAAAQuF6dEIAAIBCAACAPwAAAAAAAAAAAADAQQAAgD8AAAAApHB9PwAAAELNzIRCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCKVyPQgAAgEIAAIA/AAAAAAAAAAAAAMBBAACAPwAAAACkcH0/AAAAQoXrmUIAAIBCAACAPwAAAAAAAAAAAADAQQAAgD8AAAAApHB9PwAAAELheqRCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCPQqvQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQj0Kr0IAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEI9Cq9CAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCPQqvQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQj0Kr0IAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEI9Cq9CAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCPQqvQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQj0Kr0IAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJSeLFCAACAQrgeRT0AAAAAAAAAAIXroEEAAIA/AAAAAKRwfT8AAABCZuazQgAAgELD9Sg9AAAAAAAAAAA9CpVBAACAPwAAAACkcH0/AAAAQntUtkIAAIBCzcwMPQAAAAAAAAAA9iiJQQAAgD8AAAAApHB9PwAAAEKPwrhCAACAQq5H4TwAAAAAAAAAAFyPekEAAIA/AAAAAKRwfT8AAABCpDC7QgAAgELD9ag8AAAAAAAAAADNzGJBAACAPwAAAACkcH0/AAAAQrievUIAAIBCrkdhPAAAAAAAAAAAPQpLQQAAgD8AAAAApHB9PwAAAELNDMBCAACAQq5H4TsAAAAAAAAAAK5HM0EAAIA/AAAAAKRwfT8AAABC4XrCQgAAgEIAAAAAAAAAAAAAAAAfhRtBAACAPwAAAACkcH0/AAAAQg==",
+          "timestamp": 1791490000000,
+          "strokeId": "id1",
+          "washId": "id2",
+          "seq": 1
+        },
+        {
+          "id": "id3",
+          "type": "stroke",
+          "userId": "mixed-input-actor",
+          "layerId": "L",
+          "tool": "watercolor",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "dabsPacked": "1:AACAQgAAgEIAAIA/AAAAAAAAAABxPYpBAACAPwAAAACkcH0/AAAAAFyPikIAAIBCAACAPwAAAAAAAAAAfoy5QQAAgD8AAAAApHB9PwAAAEK4HpVCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCFK6fQgAAgEIAAIA/AAAAAAAAAAAAAMBBAACAPwAAAACkcH0/AAAAQnE9qkIAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJxPapCAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCcT2qQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQnE9qkIAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJxPapCAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCcT2qQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQnE9qkIAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJxPapCAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABChausQgAAgEK4HkU9AAAAAAAAAACF66BBAACAPwAAAACkcH0/AAAAQpoZr0IAAIBCw/UoPQAAAAAAAAAAPQqVQQAAgD8AAAAApHB9PwAAAEKuh7FCAACAQs3MDD0AAAAAAAAAAPYoiUEAAIA/AAAAAKRwfT8AAABCw/WzQgAAgEKuR+E8AAAAAAAAAABcj3pBAACAPwAAAACkcH0/AAAAQtdjtkIAAIBCw/WoPAAAAAAAAAAAzcxiQQAAgD8AAAAApHB9PwAAAELs0bhCAACAQq5HYTwAAAAAAAAAAD0KS0EAAIA/AAAAAKRwfT8AAABCAEC7QgAAgEKuR+E7AAAAAAAAAACuRzNBAACAPwAAAACkcH0/AAAAQhSuvUIAAIBCAAAAAAAAAAAAAAAAH4UbQQAAgD8AAAAApHB9PwAAAEI=",
+          "timestamp": 1791490000000,
+          "strokeId": "id4",
+          "washId": "id2",
+          "wet": "ffffffffffffffffffff",
+          "seq": 2
+        }
+      ],
+      "semanticHistorySHA": "2aa8c12cfcf35b3bfd43f38a682fd3f319fe48d0554ac060b81642dc196f58c0",
+      "rawHistory": [
+        {
+          "id": "ZM7ig0gQ1d",
+          "type": "stroke",
+          "userId": "mixed-input-actor",
+          "layerId": "L",
+          "tool": "watercolor",
+          "preset": "normal:100:0:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "dabsPacked": "1:AAAgQgAAgEIAAIA/AAAAAAAAAABxPYpBAACAPwAAAACkcH0/AAAAALgeNUIAAIBCAACAPwAAAAAAAAAAfoy5QQAAgD8AAAAApHB9PwAAAEJxPUpCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCKVxfQgAAgEIAAIA/AAAAAAAAAAAAAMBBAACAPwAAAACkcH0/AAAAQuF6dEIAAIBCAACAPwAAAAAAAAAAAADAQQAAgD8AAAAApHB9PwAAAELNzIRCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCKVyPQgAAgEIAAIA/AAAAAAAAAAAAAMBBAACAPwAAAACkcH0/AAAAQoXrmUIAAIBCAACAPwAAAAAAAAAAAADAQQAAgD8AAAAApHB9PwAAAELheqRCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCPQqvQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQj0Kr0IAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEI9Cq9CAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCPQqvQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQj0Kr0IAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEI9Cq9CAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCPQqvQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQj0Kr0IAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJSeLFCAACAQrgeRT0AAAAAAAAAAIXroEEAAIA/AAAAAKRwfT8AAABCZuazQgAAgELD9Sg9AAAAAAAAAAA9CpVBAACAPwAAAACkcH0/AAAAQntUtkIAAIBCzcwMPQAAAAAAAAAA9iiJQQAAgD8AAAAApHB9PwAAAEKPwrhCAACAQq5H4TwAAAAAAAAAAFyPekEAAIA/AAAAAKRwfT8AAABCpDC7QgAAgELD9ag8AAAAAAAAAADNzGJBAACAPwAAAACkcH0/AAAAQrievUIAAIBCrkdhPAAAAAAAAAAAPQpLQQAAgD8AAAAApHB9PwAAAELNDMBCAACAQq5H4TsAAAAAAAAAAK5HM0EAAIA/AAAAAKRwfT8AAABC4XrCQgAAgEIAAAAAAAAAAAAAAAAfhRtBAACAPwAAAACkcH0/AAAAQg==",
+          "timestamp": 1791490000000,
+          "strokeId": "QAwater001",
+          "washId": "xd9yeKgKeh",
+          "seq": 1
+        },
+        {
+          "id": "TyUzTuX5hS",
+          "type": "stroke",
+          "userId": "mixed-input-actor",
+          "layerId": "L",
+          "tool": "watercolor",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "dabsPacked": "1:AACAQgAAgEIAAIA/AAAAAAAAAABxPYpBAACAPwAAAACkcH0/AAAAAFyPikIAAIBCAACAPwAAAAAAAAAAfoy5QQAAgD8AAAAApHB9PwAAAEK4HpVCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCFK6fQgAAgEIAAIA/AAAAAAAAAAAAAMBBAACAPwAAAACkcH0/AAAAQnE9qkIAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJxPapCAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCcT2qQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQnE9qkIAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJxPapCAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCcT2qQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQnE9qkIAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJxPapCAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABChausQgAAgEK4HkU9AAAAAAAAAACF66BBAACAPwAAAACkcH0/AAAAQpoZr0IAAIBCw/UoPQAAAAAAAAAAPQqVQQAAgD8AAAAApHB9PwAAAEKuh7FCAACAQs3MDD0AAAAAAAAAAPYoiUEAAIA/AAAAAKRwfT8AAABCw/WzQgAAgEKuR+E8AAAAAAAAAABcj3pBAACAPwAAAACkcH0/AAAAQtdjtkIAAIBCw/WoPAAAAAAAAAAAzcxiQQAAgD8AAAAApHB9PwAAAELs0bhCAACAQq5HYTwAAAAAAAAAAD0KS0EAAIA/AAAAAKRwfT8AAABCAEC7QgAAgEKuR+E7AAAAAAAAAACuRzNBAACAPwAAAACkcH0/AAAAQhSuvUIAAIBCAAAAAAAAAAAAAAAAH4UbQQAAgD8AAAAApHB9PwAAAEI=",
+          "timestamp": 1791490000000,
+          "strokeId": "QApigmt002",
+          "washId": "xd9yeKgKeh",
+          "wet": "ffffffffffffffffffff",
+          "seq": 2
+        }
+      ],
+      "fields": [
+        {
+          "label": "scratch:original",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 0,
+          "sha": "de2f256064a0af797747c2b97505dc0b9f3df0de4f489eac731c23ae9ca9cc31"
+        },
+        {
+          "label": "scratch:coverage",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 5162,
+          "sha": "971ac9240c863e6106d9a841eeb65e67e1c9fe938e88743aa543e385607be01b"
+        },
+        {
+          "label": "scratch:inkLoad",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 6188,
+          "sha": "b5de2dd16c882973bcdffa82b939f468323e87702e30f54433b34431995e3364"
+        },
+        {
+          "label": "scratch:inkColor",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 6181,
+          "sha": "6f57dee368d289e23c22436f2f9a17781c5bb123f0159cb0e7da7e05bc7fa08e"
+        },
+        {
+          "label": "scratch:inkDry",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 6188,
+          "sha": "0145f66313b791d308875da78c212087095618630c5524dd1086c9903bf1962a"
+        },
+        {
+          "label": "scratch:colorDry",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 6181,
+          "sha": "1f064775402e5a00b3cc0cce2c9324fa1cf7e66b38ad5a742c3ff6305cd37006"
+        },
+        {
+          "label": "scratch:solventLoad",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 2862,
+          "sha": "67f6dd723942224ead071585a06da404b4b76c481347a157b7b1424c67476ba6"
+        },
+        {
+          "label": "scratch:solventBase",
+          "absent": true
+        },
+        {
+          "label": "scratch:inkBase",
+          "absent": true
+        },
+        {
+          "label": "scratch:colorBase",
+          "absent": true
+        },
+        {
+          "label": "scratch:strokeInk",
+          "absent": true
+        },
+        {
+          "label": "scratch:strokeColor",
+          "absent": true
+        },
+        {
+          "label": "scratch:inkSettled",
+          "absent": true
+        },
+        {
+          "label": "scratch:colorSettled",
+          "absent": true
+        },
+        {
+          "label": "field:a",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 6188,
+          "sha": "e6252b07cb7b04ce8d4070bf374ddccbc5120ee54fc37132bee016f787db857c"
+        },
+        {
+          "label": "field:b",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 2408,
+          "sha": "0d884a9f628715775ef74c29187226907520cf5f93043dd8891424fdd284ad4a"
+        },
+        {
+          "label": "field:c",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 6188,
+          "sha": "ba9ce60ba96841016011a5f2d497693ca38750d72d050548a96f9dd0eb71f4e4"
+        },
+        {
+          "label": "field:ca",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 6181,
+          "sha": "90f993f112e9449ccd7754ed0aa728147ea67997a3c8357ee56250900a84fa3a"
+        },
+        {
+          "label": "field:cb",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 2188,
+          "sha": "f061d84d6276ca473d04e2f2d6c49d2fa792ae8810f8378ac9cac6e98a227cfa"
+        },
+        {
+          "label": "field:cc",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 6181,
+          "sha": "7ba629d09170445102f08b38562e852b269f8c9cb551adadd1305d634e745f60"
+        },
+        {
+          "label": "field:coverage",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 5162,
+          "sha": "2f27785b6049eaad62a220b6666a99e4d3689ee4c5cf4183d003b72651ea576e"
+        },
+        {
+          "label": "field:mask",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 4847,
+          "sha": "9d5d390822285c794aa6c0fb18e0f1240b1ca16db37ef74b49355b0bbbe544ab"
+        },
+        {
+          "label": "field:pressure",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 2244,
+          "sha": "364019a147acda565c20b43e7a0b4ca62b9f52d2bcabcc6691ac113bc59ed5da"
+        },
+        {
+          "label": "field:band",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 5162,
+          "sha": "2f27785b6049eaad62a220b6666a99e4d3689ee4c5cf4183d003b72651ea576e"
+        },
+        {
+          "label": "material",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 4638,
+          "sha": "9e55e3e6f81c99513cb5a630ba4b74b72495f93c8897d158a913f1b4bbf43547"
+        }
+      ],
+      "whole": {
+        "width": 128,
+        "height": 128,
+        "sha": "ae199a30a6d419107c4b9cd052b7b160cdb1e80ed047388011fa34d2fc14b2cf",
+        "alphaNonzero": 1546
+      },
+      "glError": 0,
+      "lost": false,
+      "inputWallMs": 92.40000003576279,
+      "clockProof": {
+        "realBudgetCalls": 1,
+        "frameClockAdvance": 0.2999999523162842
+      },
+      "scope": "Controlled model-clock overlapping real pointer pipeline. ID bijection only; wet and packed dabs exact. Wall timing is diagnostic, not natural continuous pen experience."
+    },
+    {
+      "enabled": true,
+      "proof": {
+        "enabled": true,
+        "predecessorPending": true,
+        "leaseAdmissions": 1,
+        "downDrains": 0,
+        "upDrains": 1,
+        "sourceCommands": 8,
+        "effectiveInputs": [
+          {
+            "strokeId": "QAwater001",
+            "preset": "normal:100:0:PB29:round",
+            "size": 24,
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "samples": [
+              {
+                "pressure": 1,
+                "tiltX": 0,
+                "tiltY": 0,
+                "speed": 0,
+                "pointerType": "pen",
+                "x": 40,
+                "y": 64,
+                "timeStamp": 10
+              },
+              {
+                "pressure": 1,
+                "tiltX": 0,
+                "tiltY": 0,
+                "speed": 0,
+                "pointerType": "pen",
+                "x": 64,
+                "y": 64,
+                "timeStamp": 26
+              },
+              {
+                "pressure": 1,
+                "tiltX": 0,
+                "tiltY": 0,
+                "speed": 0,
+                "pointerType": "pen",
+                "x": 88,
+                "y": 64,
+                "timeStamp": 42
+              }
+            ]
+          },
+          {
+            "strokeId": "QApigmt002",
+            "preset": "normal:100:100:PB29:round",
+            "size": 24,
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "samples": [
+              {
+                "pressure": 1,
+                "tiltX": 0,
+                "tiltY": 0,
+                "speed": 0,
+                "pointerType": "pen",
+                "x": 64,
+                "y": 64,
+                "timeStamp": 58
+              },
+              {
+                "pressure": 1,
+                "tiltX": 0,
+                "tiltY": 0,
+                "speed": 0,
+                "pointerType": "pen",
+                "x": 76,
+                "y": 64,
+                "timeStamp": 74
+              },
+              {
+                "pressure": 1,
+                "tiltX": 0,
+                "tiltY": 0,
+                "speed": 0,
+                "pointerType": "pen",
+                "x": 88,
+                "y": 64,
+                "timeStamp": 90
+              }
+            ]
+          }
+        ],
+        "sourceInputs": [
+          {
+            "strokeId": "QAwater001",
+            "preset": "normal:100:0:PB29:round",
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "wet": "0",
+            "seed": [
+              197.659793814433,
+              502.02247191011236
+            ]
+          },
+          {
+            "strokeId": "QAwater001",
+            "preset": "normal:100:0:PB29:round",
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "wet": "0000",
+            "seed": [
+              197.659793814433,
+              502.02247191011236
+            ]
+          },
+          {
+            "strokeId": "QAwater001",
+            "preset": "normal:100:0:PB29:round",
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "wet": "00000000000000000000",
+            "seed": [
+              197.659793814433,
+              502.02247191011236
+            ]
+          },
+          {
+            "strokeId": "QApigmt002",
+            "preset": "normal:100:100:PB29:round",
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "wet": "f",
+            "seed": [
+              455.4020618556701,
+              738.9775280898876
+            ]
+          },
+          {
+            "strokeId": "QApigmt002",
+            "preset": "normal:100:100:PB29:round",
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "wet": "ff",
+            "seed": [
+              455.4020618556701,
+              738.9775280898876
+            ]
+          },
+          {
+            "strokeId": "QApigmt002",
+            "preset": "normal:100:100:PB29:round",
+            "color": [
+              0.3,
+              0.15,
+              0.55
+            ],
+            "wet": "fffffffffffffffff",
+            "seed": [
+              455.4020618556701,
+              738.9775280898876
+            ]
+          }
+        ],
+        "scope": "Real private pointer pipeline; synchronous fixed input, not physical pen latency"
+      },
+      "inputSHA": "51fbad2f28668ef79e824a095ce56468c4be9d12b4c108705aeffdbfed83cf9f",
+      "sourceInputs": [
+        {
+          "strokeId": "QAwater001",
+          "preset": "normal:100:0:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "wet": "0",
+          "seed": [
+            197.659793814433,
+            502.02247191011236
+          ]
+        },
+        {
+          "strokeId": "QAwater001",
+          "preset": "normal:100:0:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "wet": "0000",
+          "seed": [
+            197.659793814433,
+            502.02247191011236
+          ]
+        },
+        {
+          "strokeId": "QAwater001",
+          "preset": "normal:100:0:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "wet": "00000000000000000000",
+          "seed": [
+            197.659793814433,
+            502.02247191011236
+          ]
+        },
+        {
+          "strokeId": "QApigmt002",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "wet": "f",
+          "seed": [
+            455.4020618556701,
+            738.9775280898876
+          ]
+        },
+        {
+          "strokeId": "QApigmt002",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "wet": "ff",
+          "seed": [
+            455.4020618556701,
+            738.9775280898876
+          ]
+        },
+        {
+          "strokeId": "QApigmt002",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "wet": "fffffffffffffffff",
+          "seed": [
+            455.4020618556701,
+            738.9775280898876
+          ]
+        }
+      ],
+      "sourceInputsSHA": "dac878e4657c8ce3637f4c2f2c6c6c31e6adfe2db020b2e23b5f5f93dec62ab6",
+      "semanticHistory": [
+        {
+          "id": "id0",
+          "type": "stroke",
+          "userId": "mixed-input-actor",
+          "layerId": "L",
+          "tool": "watercolor",
+          "preset": "normal:100:0:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "dabsPacked": "1:AAAgQgAAgEIAAIA/AAAAAAAAAABxPYpBAACAPwAAAACkcH0/AAAAALgeNUIAAIBCAACAPwAAAAAAAAAAfoy5QQAAgD8AAAAApHB9PwAAAEJxPUpCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCKVxfQgAAgEIAAIA/AAAAAAAAAAAAAMBBAACAPwAAAACkcH0/AAAAQuF6dEIAAIBCAACAPwAAAAAAAAAAAADAQQAAgD8AAAAApHB9PwAAAELNzIRCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCKVyPQgAAgEIAAIA/AAAAAAAAAAAAAMBBAACAPwAAAACkcH0/AAAAQoXrmUIAAIBCAACAPwAAAAAAAAAAAADAQQAAgD8AAAAApHB9PwAAAELheqRCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCPQqvQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQj0Kr0IAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEI9Cq9CAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCPQqvQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQj0Kr0IAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEI9Cq9CAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCPQqvQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQj0Kr0IAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJSeLFCAACAQrgeRT0AAAAAAAAAAIXroEEAAIA/AAAAAKRwfT8AAABCZuazQgAAgELD9Sg9AAAAAAAAAAA9CpVBAACAPwAAAACkcH0/AAAAQntUtkIAAIBCzcwMPQAAAAAAAAAA9iiJQQAAgD8AAAAApHB9PwAAAEKPwrhCAACAQq5H4TwAAAAAAAAAAFyPekEAAIA/AAAAAKRwfT8AAABCpDC7QgAAgELD9ag8AAAAAAAAAADNzGJBAACAPwAAAACkcH0/AAAAQrievUIAAIBCrkdhPAAAAAAAAAAAPQpLQQAAgD8AAAAApHB9PwAAAELNDMBCAACAQq5H4TsAAAAAAAAAAK5HM0EAAIA/AAAAAKRwfT8AAABC4XrCQgAAgEIAAAAAAAAAAAAAAAAfhRtBAACAPwAAAACkcH0/AAAAQg==",
+          "timestamp": 1791490000000,
+          "strokeId": "id1",
+          "washId": "id2",
+          "seq": 1
+        },
+        {
+          "id": "id3",
+          "type": "stroke",
+          "userId": "mixed-input-actor",
+          "layerId": "L",
+          "tool": "watercolor",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "dabsPacked": "1:AACAQgAAgEIAAIA/AAAAAAAAAABxPYpBAACAPwAAAACkcH0/AAAAAFyPikIAAIBCAACAPwAAAAAAAAAAfoy5QQAAgD8AAAAApHB9PwAAAEK4HpVCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCFK6fQgAAgEIAAIA/AAAAAAAAAAAAAMBBAACAPwAAAACkcH0/AAAAQnE9qkIAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJxPapCAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCcT2qQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQnE9qkIAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJxPapCAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCcT2qQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQnE9qkIAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJxPapCAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABChausQgAAgEK4HkU9AAAAAAAAAACF66BBAACAPwAAAACkcH0/AAAAQpoZr0IAAIBCw/UoPQAAAAAAAAAAPQqVQQAAgD8AAAAApHB9PwAAAEKuh7FCAACAQs3MDD0AAAAAAAAAAPYoiUEAAIA/AAAAAKRwfT8AAABCw/WzQgAAgEKuR+E8AAAAAAAAAABcj3pBAACAPwAAAACkcH0/AAAAQtdjtkIAAIBCw/WoPAAAAAAAAAAAzcxiQQAAgD8AAAAApHB9PwAAAELs0bhCAACAQq5HYTwAAAAAAAAAAD0KS0EAAIA/AAAAAKRwfT8AAABCAEC7QgAAgEKuR+E7AAAAAAAAAACuRzNBAACAPwAAAACkcH0/AAAAQhSuvUIAAIBCAAAAAAAAAAAAAAAAH4UbQQAAgD8AAAAApHB9PwAAAEI=",
+          "timestamp": 1791490000000,
+          "strokeId": "id4",
+          "washId": "id2",
+          "wet": "ffffffffffffffffffff",
+          "seq": 2
+        }
+      ],
+      "semanticHistorySHA": "2aa8c12cfcf35b3bfd43f38a682fd3f319fe48d0554ac060b81642dc196f58c0",
+      "rawHistory": [
+        {
+          "id": "ikKeqvMs2k",
+          "type": "stroke",
+          "userId": "mixed-input-actor",
+          "layerId": "L",
+          "tool": "watercolor",
+          "preset": "normal:100:0:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "dabsPacked": "1:AAAgQgAAgEIAAIA/AAAAAAAAAABxPYpBAACAPwAAAACkcH0/AAAAALgeNUIAAIBCAACAPwAAAAAAAAAAfoy5QQAAgD8AAAAApHB9PwAAAEJxPUpCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCKVxfQgAAgEIAAIA/AAAAAAAAAAAAAMBBAACAPwAAAACkcH0/AAAAQuF6dEIAAIBCAACAPwAAAAAAAAAAAADAQQAAgD8AAAAApHB9PwAAAELNzIRCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCKVyPQgAAgEIAAIA/AAAAAAAAAAAAAMBBAACAPwAAAACkcH0/AAAAQoXrmUIAAIBCAACAPwAAAAAAAAAAAADAQQAAgD8AAAAApHB9PwAAAELheqRCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCPQqvQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQj0Kr0IAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEI9Cq9CAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCPQqvQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQj0Kr0IAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEI9Cq9CAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCPQqvQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQj0Kr0IAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJSeLFCAACAQrgeRT0AAAAAAAAAAIXroEEAAIA/AAAAAKRwfT8AAABCZuazQgAAgELD9Sg9AAAAAAAAAAA9CpVBAACAPwAAAACkcH0/AAAAQntUtkIAAIBCzcwMPQAAAAAAAAAA9iiJQQAAgD8AAAAApHB9PwAAAEKPwrhCAACAQq5H4TwAAAAAAAAAAFyPekEAAIA/AAAAAKRwfT8AAABCpDC7QgAAgELD9ag8AAAAAAAAAADNzGJBAACAPwAAAACkcH0/AAAAQrievUIAAIBCrkdhPAAAAAAAAAAAPQpLQQAAgD8AAAAApHB9PwAAAELNDMBCAACAQq5H4TsAAAAAAAAAAK5HM0EAAIA/AAAAAKRwfT8AAABC4XrCQgAAgEIAAAAAAAAAAAAAAAAfhRtBAACAPwAAAACkcH0/AAAAQg==",
+          "timestamp": 1791490000000,
+          "strokeId": "QAwater001",
+          "washId": "hRXvnmDdUT",
+          "seq": 1
+        },
+        {
+          "id": "YwrlGwdqF0",
+          "type": "stroke",
+          "userId": "mixed-input-actor",
+          "layerId": "L",
+          "tool": "watercolor",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "dabsPacked": "1:AACAQgAAgEIAAIA/AAAAAAAAAABxPYpBAACAPwAAAACkcH0/AAAAAFyPikIAAIBCAACAPwAAAAAAAAAAfoy5QQAAgD8AAAAApHB9PwAAAEK4HpVCAACAQgAAgD8AAAAAAAAAAAAAwEEAAIA/AAAAAKRwfT8AAABCFK6fQgAAgEIAAIA/AAAAAAAAAAAAAMBBAACAPwAAAACkcH0/AAAAQnE9qkIAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJxPapCAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCcT2qQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQnE9qkIAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJxPapCAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABCcT2qQgAAgEIAAIA/AAAAAAAAAADNzKxBAACAPwAAAACkcH0/AAAAQnE9qkIAAIBCAACAPwAAAAAAAAAAzcysQQAAgD8AAAAApHB9PwAAAEJxPapCAACAQgAAgD8AAAAAAAAAAM3MrEEAAIA/AAAAAKRwfT8AAABChausQgAAgEK4HkU9AAAAAAAAAACF66BBAACAPwAAAACkcH0/AAAAQpoZr0IAAIBCw/UoPQAAAAAAAAAAPQqVQQAAgD8AAAAApHB9PwAAAEKuh7FCAACAQs3MDD0AAAAAAAAAAPYoiUEAAIA/AAAAAKRwfT8AAABCw/WzQgAAgEKuR+E8AAAAAAAAAABcj3pBAACAPwAAAACkcH0/AAAAQtdjtkIAAIBCw/WoPAAAAAAAAAAAzcxiQQAAgD8AAAAApHB9PwAAAELs0bhCAACAQq5HYTwAAAAAAAAAAD0KS0EAAIA/AAAAAKRwfT8AAABCAEC7QgAAgEKuR+E7AAAAAAAAAACuRzNBAACAPwAAAACkcH0/AAAAQhSuvUIAAIBCAAAAAAAAAAAAAAAAH4UbQQAAgD8AAAAApHB9PwAAAEI=",
+          "timestamp": 1791490000000,
+          "strokeId": "QApigmt002",
+          "washId": "hRXvnmDdUT",
+          "wet": "ffffffffffffffffffff",
+          "seq": 2
+        }
+      ],
+      "fields": [
+        {
+          "label": "scratch:original",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 0,
+          "sha": "de2f256064a0af797747c2b97505dc0b9f3df0de4f489eac731c23ae9ca9cc31"
+        },
+        {
+          "label": "scratch:coverage",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 5162,
+          "sha": "971ac9240c863e6106d9a841eeb65e67e1c9fe938e88743aa543e385607be01b"
+        },
+        {
+          "label": "scratch:inkLoad",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 6188,
+          "sha": "b5de2dd16c882973bcdffa82b939f468323e87702e30f54433b34431995e3364"
+        },
+        {
+          "label": "scratch:inkColor",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 6181,
+          "sha": "6f57dee368d289e23c22436f2f9a17781c5bb123f0159cb0e7da7e05bc7fa08e"
+        },
+        {
+          "label": "scratch:inkDry",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 6188,
+          "sha": "0145f66313b791d308875da78c212087095618630c5524dd1086c9903bf1962a"
+        },
+        {
+          "label": "scratch:colorDry",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 6181,
+          "sha": "1f064775402e5a00b3cc0cce2c9324fa1cf7e66b38ad5a742c3ff6305cd37006"
+        },
+        {
+          "label": "scratch:solventLoad",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 2862,
+          "sha": "67f6dd723942224ead071585a06da404b4b76c481347a157b7b1424c67476ba6"
+        },
+        {
+          "label": "scratch:solventBase",
+          "absent": true
+        },
+        {
+          "label": "scratch:inkBase",
+          "absent": true
+        },
+        {
+          "label": "scratch:colorBase",
+          "absent": true
+        },
+        {
+          "label": "scratch:strokeInk",
+          "absent": true
+        },
+        {
+          "label": "scratch:strokeColor",
+          "absent": true
+        },
+        {
+          "label": "scratch:inkSettled",
+          "absent": true
+        },
+        {
+          "label": "scratch:colorSettled",
+          "absent": true
+        },
+        {
+          "label": "field:a",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 6188,
+          "sha": "e6252b07cb7b04ce8d4070bf374ddccbc5120ee54fc37132bee016f787db857c"
+        },
+        {
+          "label": "field:b",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 2408,
+          "sha": "0d884a9f628715775ef74c29187226907520cf5f93043dd8891424fdd284ad4a"
+        },
+        {
+          "label": "field:c",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 6188,
+          "sha": "ba9ce60ba96841016011a5f2d497693ca38750d72d050548a96f9dd0eb71f4e4"
+        },
+        {
+          "label": "field:ca",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 6181,
+          "sha": "90f993f112e9449ccd7754ed0aa728147ea67997a3c8357ee56250900a84fa3a"
+        },
+        {
+          "label": "field:cb",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 2188,
+          "sha": "f061d84d6276ca473d04e2f2d6c49d2fa792ae8810f8378ac9cac6e98a227cfa"
+        },
+        {
+          "label": "field:cc",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 6181,
+          "sha": "7ba629d09170445102f08b38562e852b269f8c9cb551adadd1305d634e745f60"
+        },
+        {
+          "label": "field:coverage",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 5162,
+          "sha": "2f27785b6049eaad62a220b6666a99e4d3689ee4c5cf4183d003b72651ea576e"
+        },
+        {
+          "label": "field:mask",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 4847,
+          "sha": "9d5d390822285c794aa6c0fb18e0f1240b1ca16db37ef74b49355b0bbbe544ab"
+        },
+        {
+          "label": "field:pressure",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 2244,
+          "sha": "364019a147acda565c20b43e7a0b4ca62b9f52d2bcabcc6691ac113bc59ed5da"
+        },
+        {
+          "label": "field:band",
+          "width": 1536,
+          "height": 1536,
+          "bytes": 9437184,
+          "nonzero": 5162,
+          "sha": "2f27785b6049eaad62a220b6666a99e4d3689ee4c5cf4183d003b72651ea576e"
+        },
+        {
+          "label": "material",
+          "width": 128,
+          "height": 128,
+          "bytes": 65536,
+          "nonzero": 4638,
+          "sha": "9e55e3e6f81c99513cb5a630ba4b74b72495f93c8897d158a913f1b4bbf43547"
+        }
+      ],
+      "whole": {
+        "width": 128,
+        "height": 128,
+        "sha": "ae199a30a6d419107c4b9cd052b7b160cdb1e80ed047388011fa34d2fc14b2cf",
+        "alphaNonzero": 1546
+      },
+      "glError": 0,
+      "lost": false,
+      "inputWallMs": 104.30000001192093,
+      "clockProof": {
+        "realBudgetCalls": 1,
+        "frameClockAdvance": 0.699999988079071
+      },
+      "scope": "Controlled model-clock overlapping real pointer pipeline. ID bijection only; wet and packed dabs exact. Wall timing is diagnostic, not natural continuous pen experience."
+    }
+  ]
+}
