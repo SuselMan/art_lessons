@@ -70,3 +70,5 @@ Follow-up: bounded per-field NumberMap проверен и отклонён: ful
 - [ ] Admitted wet actual Engine replay HOLD: transcript lacks DOWN join/checkpoint/UP wash clock stages; same foreign-source wash requires immutable scratch/GPU owner, not only PaperWetness fork. Three concrete prerequisites in `728-gl-admitted-wet-engine-feasibility.md`; no new framework.
 
 - [x] Typed missing DOWN/checkpoint/UP clock/query recording with actual clock values and strict CPU stage/batch cursor. No Engine provider activation; owner/material/merge blockers remain.
+
+- [x] CPU actual Engine fresh normal20/100 fork replay: exact whole Operation после live paper/tool/layer mutation; typed clock/getter + per-dispatch isolation, negative callback TOCTOU/throw/reentrancy. Constructor-only DEV, MockGL, no runtime activation. GPU ownership/foreign wash/live merge/UX остаются HOLD. Подробнее: `728-gl-wet-engine-fork-replay.md`.

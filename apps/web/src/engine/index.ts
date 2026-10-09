@@ -1,4 +1,4 @@
-import type {WetTranscriptEvent, WetClockStage} from './src/paper/WetTranscript'
+import {WetClockCursor, type WetTranscriptEvent, type WetClockStage} from './src/paper/WetTranscript'
 import { BoundedGlTiming } from './src/diagnostics/BoundedGlTiming'
 import type {RoomNativeRuntime} from './src/webgpuCanonical/roomNativeRuntime'
 import { ribbonDabTouchesTile } from './src/dabs/dabWorldHalfExtents'
@@ -102,7 +102,7 @@ import { appendWatercolorLift } from './src/presets/watercolorLift'
 
 
 
-import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paper/paperWetness'
+import { PaperWetness, type DiagnosticWetSnapshot, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paper/paperWetness'
 import { wetOverlayPixels, wetOverlayWorkspace, type WetOverlayWorkspace } from './src/paper/wetOverlayPixels'
 
 export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
@@ -257,6 +257,8 @@ const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 export interface PencilEngineOptions {
   /** CPU-only internal admission seam; no Room/query activation. */
   diagnosticPointerAdmission?: boolean
+  /** Isolated constructor-only CPU fresh-wash replay; no Room/query activation. */
+  diagnosticWetReplay?: boolean
   /** Internal DEV CPU transcript only; requires diagnosticPointerAdmission. */
   diagnosticWetTranscript?: (event: WetTranscriptEvent) => void
   /** Isolated WebGL2 compatibility/MRT prototype; default OFF, no fallback. */
@@ -1259,6 +1261,17 @@ function liveStrokeKey(peerId: string, strokeId: string, layerId: string): strin
 const MAX_LIVE_GESTURES_PER_PEER = 8
 const MAX_CANCELLED_LIVE_GESTURES = 64
 
+interface DiagnosticWetReplayScope {
+  paper: PaperWetness
+  clock: WetClockCursor
+  batch: number
+  washId: string
+  operationId: string
+  scratch?: RibbonStrokeScratch
+  gesture?: number
+  started: boolean
+}
+
 interface EngineOpts {
   deskColor: [number, number, number]
   pencilType: string
@@ -1529,11 +1542,15 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetTranscriptErrors = 0
   private _wetTranscriptBatch = 0
   private _wetClockOrdinal = 0
+  private _diagnosticWetReplay = false
+  private _wetReplayScope: DiagnosticWetReplayScope | null = null
+  private _wetReplayFailed = false
+  private _admittedPointerWashId: string | null = null
   private _diagnosticPointerAdmission = false
   private _admittedPointerStrokeId: string | null = null
   private _admittedPointerTimestamp: number | null = null
   private _admittedPointerPacket: object | null = null
-  private _admissionPackets = new WeakMap<object, { opts: EngineOpts; layerId: string; target: unknown; ruler: RulerLine | null; nibAngle: number; nibAnchor: NibAnchor; tilt: TiltResponse; strokeId: string; revision: number }>()
+  private _admissionPackets = new WeakMap<object, { opts: EngineOpts; layerId: string; target: unknown; ruler: RulerLine | null; nibAngle: number; nibAnchor: NibAnchor; tilt: TiltResponse; strokeId: string; revision: number; replay?: DiagnosticWetReplayScope }>()
   private _opts: EngineOpts
   private _grainMode: number | undefined
   private _charcoalGrainMode: number | undefined
@@ -2310,6 +2327,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
     this._diagnosticPointerAdmission = import.meta.env.DEV && options.diagnosticPointerAdmission === true
+    this._diagnosticWetReplay = this._diagnosticPointerAdmission && options.diagnosticWetReplay === true
     if (this._diagnosticPointerAdmission && options.diagnosticWetTranscript) this._wetTranscriptObserver = options.diagnosticWetTranscript
     this.canvas = canvas
     if (import.meta.env.DEV && options.diagnosticHoistedContactRaster && (options.nativeWatercolor || options.asyncFinish || options.joinedFinishDeferred || options.joinedTouchMixed || options.materialPresentation)) throw Error('Hoisted contact raster requires ordinary GL arm')
@@ -6188,30 +6206,72 @@ export class PencilEngine implements PencilEngineAPI {
     return packet
   }
 
+  private _wetReplayIsolated(): boolean {
+    return !this._locked && !this._wcNativeEnabled && !this._wcAsyncFinish && !this._wcMaterialPresentation
+      && !this._wcCanonical.pending && !this._opQueue.length && !this._peerLiveStrokes.size && !this._peerPreviews.size
+      && !this._rebuildJobs.size && !this._pendingRebuilds.size && !this._unsettledLayers.size
+      && !this._pendingLocalHistoryId && !this._localHistoryFailure && !this._queuedHistoryRepairOwners.size
+      && !this._onLocalOperation && !this._onLiveStrokeDabs && !this._onLiveStrokeEnd && !this._onPreviewApplied
+      && !this._onQueuedOperationApplied && !this._onInvariant && !this._onSnapshotHistoryRepairNeeded
+      && !Object.values(this._handlers).some(Boolean)
+  }
+
+  /** Fresh normal20/100 CPU scope only. Snapshot is model data, NOT GPU ownership. */
+  diagnosticCaptureWetReplay(strokeId: string, washId: string, operationId: string, snapshot: DiagnosticWetSnapshot,
+    events: readonly WetTranscriptEvent[], completeness: {dropped:number;errors:number}): object {
+    if (!this._diagnosticWetReplay || this._wetReplayFailed || !strokeId || !washId || !operationId
+      || this._opts.tool !== 'watercolor' || this._opts.pencilType !== 'normal:20:100:PB29:round'
+      || !this._activeId || !this._layers.has(this._activeId) || this._strokeLayerId || this._wash || this._settle
+      || this._contextLost || this._destroyed || !this._wetReplayIsolated())
+      throw Error('Wet replay requires isolated fresh owner without callbacks/peer material')
+    const firstBatch = events.find(event => event.kind === 'clock' && event.stage === 'sample-batch')
+    if (!firstBatch || firstBatch.kind !== 'clock' || firstBatch.batch === null) throw Error('Missing wet replay batch')
+    const replay: DiagnosticWetReplayScope = {paper:PaperWetness.forkDiagnosticSnapshot(snapshot),
+      clock:new WetClockCursor(events,completeness),batch:firstBatch.batch-1,washId,operationId,started:false}
+    const packet = Object.freeze({})
+    this._admissionPackets.set(packet,{opts:structuredClone(this._opts),layerId:this._activeId,target:this._layers.get(this._activeId),
+      ruler:this._ruler?structuredClone(this._ruler):null,nibAngle:this._nibAngleRadians,nibAnchor:this._nibAnchor,
+      tilt:structuredClone(this._tiltResponse),strokeId,revision:this._log.revision,replay})
+    return packet
+  }
+
   diagnosticDispatchPointerAdmission(packet: object, kind: 'start' | 'move' | 'end', e: PointerData, receiptWallTime: number): void {
+    if (this._wetReplayScope) { this._wetReplayFailed=true;this._locked=true;throw Error('Reentrant wet replay admission') }
     if (!Number.isFinite(receiptWallTime)) throw Error('Pointer admission invalid receipt time')
     const owned = this._admissionPackets.get(packet)
     if (!this._diagnosticPointerAdmission || !owned || this._destroyed || this._contextLost
-      || this._layers.get(owned.layerId) !== owned.target || this._log.revision !== owned.revision || this._settle || this._wash
+      || this._wetReplayFailed || this._layers.get(owned.layerId) !== owned.target || this._log.revision !== owned.revision || this._settle
+      || (owned.replay ? (kind === 'start' ? owned.replay.started || !!this._wash : !owned.replay.started || this._wash?.id !== owned.replay.washId || this._ribbonStrokeScratch !== owned.replay.scratch || owned.replay.scratch?.gesture !== owned.replay.gesture) : !!this._wash)
       || this._wcCanonical.pending || this._paper.scale !== owned.opts.paperScale
-      || kind === 'start' && !!this._strokeLayerId || kind !== 'start' && this._strokeId !== owned.strokeId)
+      || owned.replay && !this._wetReplayIsolated()
+      || kind === 'start' && !!this._strokeLayerId || kind !== 'start' && this._strokeId !== owned.strokeId) {
+      if(owned?.replay){this._wetReplayFailed=true;this._locked=true;this._admissionPackets.delete(packet)}
       throw Error('Pointer admission stale/unsupported owner')
+    }
     const previous = { opts: this._opts, active: this._activeId, ruler: this._ruler,
-      nibAngle: this._nibAngleRadians, nibAnchor: this._nibAnchor, tilt: this._tiltResponse, id: this._admittedPointerStrokeId, timestamp: this._admittedPointerTimestamp, packet: this._admittedPointerPacket }
+      nibAngle: this._nibAngleRadians, nibAnchor: this._nibAnchor, tilt: this._tiltResponse, id: this._admittedPointerStrokeId, timestamp: this._admittedPointerTimestamp, packet: this._admittedPointerPacket, replay:this._wetReplayScope, washId:this._admittedPointerWashId, observerErrors:this._wetTranscriptErrors }
     this._opts = structuredClone(owned.opts); this._activeId = owned.layerId; this._ruler = owned.ruler
     this._nibAngleRadians = owned.nibAngle; this._nibAnchor = owned.nibAnchor; this._tiltResponse = owned.tilt
     this._admittedPointerStrokeId = owned.strokeId; this._admittedPointerTimestamp = receiptWallTime; this._admittedPointerPacket = packet
+    this._wetReplayScope=owned.replay??null;this._admittedPointerWashId=owned.replay?.washId??null
     try {
       if (kind === 'start') this._onStart(e)
       else if (kind === 'move') this._onMove(e)
       else this._onEnd(e)
+      if(owned.replay){
+        if(this._wetReplayFailed||this._wetTranscriptErrors!==previous.observerErrors)throw Error('Failed wet replay observer/owner')
+        if(kind==='start'){if(this._strokeId!==owned.strokeId||this._wash?.id!==owned.replay.washId||!this._ribbonStrokeScratch)throw Error('Wet replay start refused');owned.replay.started=true;owned.replay.scratch=this._ribbonStrokeScratch;owned.replay.gesture=this._ribbonStrokeScratch.gesture}
+        if(kind==='end')owned.replay.clock.assertDone()
+      }
     } catch (error) {
+      if(owned.replay){this._wetReplayFailed=true;this._locked=true}
       this._admissionPackets.delete(packet)
       throw error
     } finally {
       this._opts = previous.opts; this._activeId = previous.active; this._ruler = previous.ruler
       this._nibAngleRadians = previous.nibAngle; this._nibAnchor = previous.nibAnchor; this._tiltResponse = previous.tilt
       this._admittedPointerStrokeId = previous.id; this._admittedPointerTimestamp = previous.timestamp; this._admittedPointerPacket = previous.packet
+      this._wetReplayScope=previous.replay;this._admittedPointerWashId=previous.washId
       if (kind === 'end') this._admissionPackets.delete(packet)
     }
   }
@@ -6265,7 +6325,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._wcJoinedTouchLease !== oldJob) this._wcJoinedTouchLease = null
     const openTouch = this._wash
     const touchInputs = oldJob ? this._wcJoinedTouchInputs.get(oldJob) : undefined
-    const touchNow = performance.now()
+    const touchNow = this._wetReplayScope ? this._inputWetTime('admission-touch') : performance.now()
     if (this._wetTranscriptObserver && this._opts.tool === 'watercolor') this._recordWetClock('admission-touch', touchNow)
     const touchSignature = watercolorWashSignature(this._opts.pencilType, this._opts.graphiteColor)
     const joinedTouch = this._wcJoinedTouch && !this._wcAsyncFinish && !this._wcMaterialPresentation
@@ -6280,8 +6340,8 @@ export class PencilEngine implements PencilEngineAPI {
           && touchInputs.color.every((c, i) => c === this._opts.graphiteColor[i])))
       && openTouch.layerId === layerId && openTouch.signature === touchSignature
       && touchNow - openTouch.endedAt <= WASH_JOIN_MS
-      && ((this._wetTranscriptObserver ? this._recordWetNear(layerId, e.x, e.y, this._opts.size * 0.75, touchNow) : this._paperWet.anyWetNear(layerId, e.x, e.y, this._opts.size * 0.75, touchNow))
-        || watercolorMixFromPreset(this._opts.pencilType).pigment <= 0 && (this._wetTranscriptObserver ? this._recordWetAny(layerId, touchNow) : this._paperWet.anyWet(layerId, touchNow))
+      && (((this._wetTranscriptObserver || this._wetReplayScope) ? this._recordWetNear(layerId, e.x, e.y, this._opts.size * 0.75, touchNow) : this._paperWet.anyWetNear(layerId, e.x, e.y, this._opts.size * 0.75, touchNow))
+        || watercolorMixFromPreset(this._opts.pencilType).pigment <= 0 && ((this._wetTranscriptObserver || this._wetReplayScope) ? this._recordWetAny(layerId, touchNow) : this._paperWet.anyWet(layerId, touchNow))
         || touchNow - openTouch.endedAt <= WASH_RECENT_MS)
     if (this._glTiming) this._glTiming.mark('admission-lease', joinedTouch ? 1 : 0)
     if (joinedTouch) this._wcJoinedTouchLease = oldJob
@@ -6321,10 +6381,10 @@ export class PencilEngine implements PencilEngineAPI {
     // profile behind for the next one to inherit.
     this._strokeWet = ''
     this._liveWetQueue = ''
-    this._paperWet.dropPending()
+    if(this._wetReplayScope)this._inputModelWet.dropPending();else this._paperWet.dropPending()
     if (this._wetTranscriptObserver && this._strokeTool === 'watercolor') this._observeWet({kind:'drop-pending'})
     if (profile.normalizeDeposit) {
-      const now = performance.now()
+      const now = this._wetReplayScope ? this._inputWetTime('wash-join') : performance.now()
       if (this._wetTranscriptObserver && this._strokeTool === 'watercolor') this._recordWetClock('wash-join', now)
       const open = this._wash
       // (#536) Joining is a physical question, not a bookkeeping one: did the
@@ -6338,7 +6398,7 @@ export class PencilEngine implements PencilEngineAPI {
       // matters for the case the field cannot speak to: a nearly dry brush
       // wetted almost nothing, so the wash it belongs to has to be allowed to
       // continue on recency alone.
-      const landedWet = this._wetTranscriptObserver
+      const landedWet = this._wetTranscriptObserver || this._wetReplayScope
         ? this._recordWetNear(layerId, e.x, e.y, this._opts.size * 0.75, now)
         : this._paperWet.anyWetNear(layerId, e.x, e.y, this._opts.size * 0.75, now)
       // (#536) Clean water is *about* the paint already there, so it joins the
@@ -6350,7 +6410,7 @@ export class PencilEngine implements PencilEngineAPI {
       // landing rule: a mark set down on dry paper away from the wash is a new
       // mark, however wet the wash still is.
       const waterOnly = watercolorMixFromPreset(this._opts.pencilType).pigment <= 0
-      const washStillWet = waterOnly && open !== null && (this._wetTranscriptObserver ? this._recordWetAny(open.layerId, now) : this._paperWet.anyWet(open.layerId, now))
+      const washStillWet = waterOnly && open !== null && ((this._wetTranscriptObserver || this._wetReplayScope) ? this._recordWetAny(open.layerId, now) : this._paperWet.anyWet(open.layerId, now))
       const joins = open !== null
         && open.layerId === layerId
         && open.signature === washSignature
@@ -6371,7 +6431,7 @@ export class PencilEngine implements PencilEngineAPI {
         this._ribbonStrokeScratch = open.scratch
       } else {
         this._retireAsyncScratch(this._wash?.scratch)
-        this._washId = nanoid(10)
+        this._washId = this._admittedPointerWashId ?? nanoid(10)
         this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
         this._wash = {
           id: this._washId, layerId, signature: washSignature,
@@ -6380,8 +6440,8 @@ export class PencilEngine implements PencilEngineAPI {
       }
       // (§17.55/§17.56) Before this stroke paints, and before its scratch
       // starts a new gesture: a join carries the wash as it stood.
-      if (this._wetTranscriptObserver && this._strokeTool === 'watercolor') {
-        const wall = Date.now(); this._recordWetClock('checkpoint-wall', wall)
+      if (this._wetReplayScope || this._wetTranscriptObserver && this._strokeTool === 'watercolor') {
+        const wall = this._wetReplayScope ? this._inputWetTime('checkpoint-wall') : Date.now(); if(this._wetTranscriptObserver)this._recordWetClock('checkpoint-wall', wall)
         this._checkpointBeforeWash(layerId, this._washId!, this._userId, wall)
       } else this._checkpointBeforeWash(layerId, this._washId!, this._userId, Date.now())
       this._ribbonStrokeScratch.beginStroke()
@@ -6745,7 +6805,7 @@ export class PencilEngine implements PencilEngineAPI {
       // and still wet, so the buffers stay open for the next band to pool into.
       // Torn down in _onStart when something makes the next stroke a different
       // wash, and by _clearWash on tool/layer changes and teardown.
-      this._wash.endedAt = this._dryAtPenUp ? -Infinity : performance.now()
+      this._wash.endedAt = this._dryAtPenUp ? -Infinity : this._wetReplayScope ? this._inputWetTime('wash-ended') : performance.now()
       if (this._wetTranscriptObserver && this._strokeTool === 'watercolor' && !this._dryAtPenUp) this._recordWetClock('wash-ended', this._wash.endedAt)
     } else {
       this._retireAsyncScratch(this._ribbonStrokeScratch ?? undefined)
@@ -6798,7 +6858,7 @@ export class PencilEngine implements PencilEngineAPI {
       const dabsPacked = this._glTiming?.isActive() ? this._glTiming.measure('up-pack-dabs', () => packDabs(this._strokeDabs)) : packDabs(this._strokeDabs)
       for (const targetId of [layerId, ...this._strokeExtraLayerIds]) {
         const op: Operation = {
-          id: nanoid(10), type: 'stroke', userId: this._userId,
+          id: this._wetReplayScope?.operationId ?? nanoid(10), type: 'stroke', userId: this._userId,
           layerId: targetId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
           dabsPacked, timestamp: this._admittedPointerTimestamp ?? Date.now(),
           ...(this._strokeId ? { strokeId: this._strokeId } : {}),
@@ -6852,7 +6912,10 @@ export class PencilEngine implements PencilEngineAPI {
     // (#536) …and only now may the *next* stroke read it. It has been on screen
     // since the first dab — see PaperWetness._pending on why those are two
     // different questions.
-    if (transcriptOwner) {
+    if(this._wetReplayScope){
+      const commit=()=>{const now=this._inputWetTime('pending-commit');this._inputModelWet.commitPending(now)}
+      if(this._glTiming?.isActive())this._glTiming.measure('up-pending-commit',commit);else commit()
+    } else if (transcriptOwner) {
       const commit = () => { const now = performance.now(); this._recordWetClock('pending-commit', now, null, transcriptOwner, layerId); this._paperWet.commitPending(now); this._observeWet({kind:'commit',strokeId:transcriptOwner,now}) }
       if (this._glTiming?.isActive()) this._glTiming.measure('up-pending-commit', commit)
       else commit()
@@ -6935,13 +6998,19 @@ export class PencilEngine implements PencilEngineAPI {
    *  `elapsedMs` is this call's dabs' distance from _strokeStartTimestamp —
    *  a peer's live-stroke reveal (previewOperation) plays them back at this
    *  pacing. */
+  private get _inputModelWet(): PaperWetness { return this._wetReplayScope?.paper ?? this._paperWet }
+  private _inputWetTime(stage: WetClockStage, batch: number | null = null): number {
+    if(!this._wetReplayScope)throw Error('Missing scoped wet clock')
+    return this._wetReplayScope.clock.next(stage,batch)
+  }
+
   private _recordWetNear(layerId: string, x: number, y: number, radius: number, now: number): boolean {
-    const value = this._paperWet.anyWetNear(layerId, x, y, radius, now)
-    this._observeWet({kind:'any-near',layerId,x,y,radius,now,value}); return value
+    const value = (this._wetReplayScope?this._inputModelWet:this._paperWet).anyWetNear(layerId, x, y, radius, now)
+    if(this._wetTranscriptObserver)this._observeWet({kind:'any-near',layerId,x,y,radius,now,value}); return value
   }
   private _recordWetAny(layerId: string, now: number): boolean {
-    const value = this._paperWet.anyWet(layerId, now)
-    this._observeWet({kind:'any',layerId,now,value}); return value
+    const value = (this._wetReplayScope?this._inputModelWet:this._paperWet).anyWet(layerId, now)
+    if(this._wetTranscriptObserver)this._observeWet({kind:'any',layerId,now,value}); return value
   }
 
   private _recordWetClock(stage: WetClockStage, value: number, batch: number | null = null, strokeId: string | null = this._strokeId, layerId: string | null = this._strokeLayerId ?? this._activeId): void {
@@ -6996,19 +7065,20 @@ export class PencilEngine implements PencilEngineAPI {
     // the operation will eventually carry.
     let batchWet: string | undefined
     if (this._strokeTool === 'watercolor') {
-      const now = performance.now()
+      const replayBatch=this._wetReplayScope?++this._wetReplayScope.batch:null
+      const now = this._wetReplayScope?this._inputWetTime('sample-batch',replayBatch):performance.now()
       let seen = ''
       const nibMul = this._resolvePreset(this._strokeTool, this._strokePreset).sizeMultiplier
       if (this._wetTranscriptObserver && this._strokeId) {
-        const batch = ++this._wetTranscriptBatch
+        const batch = replayBatch ?? ++this._wetTranscriptBatch
         this._recordWetClock('sample-batch', now, batch)
         for (const dab of dabs) {
           const radius = dab.size * 0.5 * nibMul * Math.max(dab.aspectRatio, 1)
-          const value = this._paperWet.sampleUnderNib(layerId, dab.x, dab.y, radius, now)
+          const value = (this._wetReplayScope?this._inputModelWet:this._paperWet).sampleUnderNib(layerId, dab.x, dab.y, radius, now)
           seen += quantizeWet(value)
           this._observeWet({kind:'sample',strokeId:this._strokeId,layerId,x:dab.x,y:dab.y,radius,now,value,batch})
         }
-      } else for (const dab of dabs) seen += quantizeWet(this._paperWet.sampleUnderNib(layerId, dab.x, dab.y, dab.size * 0.5 * nibMul * Math.max(dab.aspectRatio, 1), now))
+      } else for (const dab of dabs) seen += quantizeWet((this._wetReplayScope?this._inputModelWet:this._paperWet).sampleUnderNib(layerId, dab.x, dab.y, dab.size * 0.5 * nibMul * Math.max(dab.aspectRatio, 1), now))
       this._strokeWet += seen
       this._liveWetQueue += seen
       batchWet = seen
@@ -7039,8 +7109,8 @@ export class PencilEngine implements PencilEngineAPI {
     // nothing — so the sheen ran on where the record had stopped, and pigment
     // dropped into the far end of a scribbled puddle had nothing to run in.
     if (this._strokeTool === 'watercolor') {
-      const now = performance.now()
-      if (this._wetTranscriptObserver && this._strokeId) this._recordWetClock('deposit-batch', now, this._wetTranscriptBatch)
+      const now = this._wetReplayScope?this._inputWetTime('deposit-batch',this._wetReplayScope.batch):performance.now()
+      if (this._wetTranscriptObserver && this._strokeId) this._recordWetClock('deposit-batch', now, this._wetReplayScope?.batch??this._wetTranscriptBatch)
       const water = watercolorMixFromPreset(this._strokePreset).water
       for (let i = 0; i < dabs.length; i++) {
         const dab = dabs[i]
@@ -7055,11 +7125,11 @@ export class PencilEngine implements PencilEngineAPI {
         // the mark cannot come to different conclusions about how wet it was.
         const drained = watercolorPaperDrained(wetAt(batchWet, i), water)
         if (drained > 0) {
-          this._paperWet.drain(layerId, dab.x, dab.y, dab.size * 0.5, drained)
+          (this._wetReplayScope?this._inputModelWet:this._paperWet).drain(layerId, dab.x, dab.y, dab.size * 0.5, drained)
           if (this._wetTranscriptObserver && this._strokeId) this._observeWet({kind:'drain',strokeId:this._strokeId,layerId,x:dab.x,y:dab.y,radius:dab.size*0.5,fraction:drained})
         }
-        this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5, standing?.get(dab) ?? water, now, true, this._dabPool.get(dab) ?? 0)
-        if (this._wetTranscriptObserver && this._strokeId) this._observeWet({kind:'deposit',strokeId:this._strokeId,layerId,x:dab.x,y:dab.y,radius:dab.size*0.5,amount:standing?.get(dab)??water,now,pool:this._dabPool.get(dab)??0,batch:this._wetTranscriptBatch})
+        (this._wetReplayScope?this._inputModelWet:this._paperWet).deposit(layerId, dab.x, dab.y, dab.size * 0.5, standing?.get(dab) ?? water, now, true, this._dabPool.get(dab) ?? 0)
+        if (this._wetTranscriptObserver && this._strokeId) this._observeWet({kind:'deposit',strokeId:this._strokeId,layerId,x:dab.x,y:dab.y,radius:dab.size*0.5,amount:standing?.get(dab)??water,now,pool:this._dabPool.get(dab)??0,batch:this._wetReplayScope?.batch??this._wetTranscriptBatch})
       }
       this._scheduleDryingRepaint()
     }
@@ -7281,6 +7351,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _flushStrokeChunk(): void {
+    if(this._wetReplayScope)throw Error('Isolated wet replay does not support source chunks')
     const layerId = this._strokeLayerId
     if (!layerId || !this._strokeDabs.length) return
     // (#520) Per layer, exactly as _onEnd's own dispatch is — see its comment.
@@ -9361,6 +9432,7 @@ export class PencilEngine implements PencilEngineAPI {
      *  it did not paint. */
     standing?: ReadonlyMap<Dab, number>, opId?: string,
   ): void {
+    if(this._wetReplayScope)throw Error('Foreign wet replay cannot enter isolated input scope')
     if (opId) {
       if (this._wetReplayRevision !== this._log.revision) {
         this._wetReplayIds = wetReplayOperationIds(this._log.doneOperations())
