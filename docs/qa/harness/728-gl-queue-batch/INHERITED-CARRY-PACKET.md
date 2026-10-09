@@ -169,3 +169,24 @@ EntryHTTP200, computed controllerpassport includes seed/pool/port/session and
 strict effective flag gate before input. Prepared-source generator unchanged.
 Room hardware NOT run yet; primitive positive does not imply Room quality or
 canonical endpoint comparison. Root review/allocation required before device.
+
+## ONE actual Room multiscale result
+
+HEADa237d9bb; paperHTTP200/SHA4c631b8c…; actual runtimeSHA3ec1197b…
+Raw owner-water-dab-multiscale-surface.json/compact summary/new tape in device-runs.
+Fresh1963/controller2025/min859/post2038MiB; own target closed/RELEASE.
+GL0/lostfalse, history target/redo exact02109b4dc054a9157ab7bea289618d85cef96508e436fa0a91489941db7b3a32;
+undo empty. Original SAME NEWtape endpoint remains OPEN, no comparison claim.
+Owner2 requestedfront28/cap16 but actual10: complete10stride cycle finishes
+before reaching front cap. This is explicit visual schedule limitation, not
+canonical same schedule. First carry~108.7ms afterUP; filmstrip samples
+77.7/109.5/315.3/712.9/1212.1/2112ms, handoff0/66.2/191.7ms.
+Combined P/C alpha5.248039381→5.248039429(+9.14e-9 relative), peak.110383.
+Carry14total; CPU submission40.1/max34.6ms, material3.2/max.3ms, not GPU duration.
+CostDomain lazy compile is a hypothesis for cold stall, not demonstrated cause.
+ActualmoviePNG5 viewed: tiny violet core with slight lateral halo, broad visible
+movement still weak. NOT artist-ready, no whole smoothness/performance claim.
+ActualRoom source8 SHA not captured; primitive separately proved source readonly.
+No shader/material/dose changes to strengthen appearance. Next offline attribution
+must separate incomplete pressure support from already diffused peak and physical
+carry schedule; arbitrary coefficient increase is not justified.
