@@ -3,9 +3,10 @@ import {CanonicalRoomTileBridge} from './roomTileBridge'
 import {CanonicalRibbonDeposit,canonicalRibbonRecipe} from './deposit'
 import {CanonicalStampDeposit,canonicalStampRecipe} from './stamp'
 import {CanonicalBrushContact,canonicalBrushRecipe} from './brush'
-import {it,expect,vi} from 'vitest'
+import {it,expect,vi,afterEach} from 'vitest'
 import {prepareExactPipeline,preparedExactPipeline,retireExactPipelinePreparation,type ExactPipelineRecipe} from './exactPipelinePreparation'
 import {firstContactPipelineRecipes,prepareFirstContactPipelines} from './sourcePipelinePreparation'
+afterEach(()=>vi.unstubAllGlobals())
 const recipe:ExactPipelineRecipe={key:'unit',code:'shader',kind:'compute',descriptor:module=>({layout:'auto',compute:{module,entryPoint:'main'}})}
 it('prepares exact shared 12 render + 3 compute recipes with zero field allocation/dispatch',async()=>{
  const recipes=firstContactPipelineRecipes();expect(recipes.filter(x=>x.kind==='render')).toHaveLength(12);expect(recipes.filter(x=>x.kind==='compute')).toHaveLength(3)
@@ -60,4 +61,11 @@ it('default cache MISS preserves one shared shader module and exact descriptor, 
  expect(descriptors).toEqual([canonicalStampRecipe('coverage').descriptor(module)])
  retireExactPipelinePreparation(prepared)
  expect(()=>new CanonicalStampDeposit(prepared,{} as never,true)).toThrow('retired')
+})
+it('constructor rejects pending prepared coverage without compiling a fallback module',async()=>{
+ let resolve!:(p:GPURenderPipeline)=>void,modules=0
+ const device={createShaderModule:()=>{modules++;return{}},createRenderPipelineAsync:()=>new Promise<GPURenderPipeline>(r=>{resolve=r})} as unknown as GPUDevice
+ const pending=prepareExactPipeline(device,canonicalStampRecipe('coverage'));await Promise.resolve()
+ expect(()=>new CanonicalStampDeposit(device,{} as never,true)).toThrow('not prepared');expect(modules).toBe(1)
+ resolve({} as GPURenderPipeline);await pending
 })
