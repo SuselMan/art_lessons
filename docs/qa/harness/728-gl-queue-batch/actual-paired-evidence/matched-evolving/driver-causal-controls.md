@@ -1,0 +1,11 @@
+# Two predefined conductance controls (CPU only)
+
+Same captured P/C, same12 macrosteps ×64 unit substeps, same evolving full128 actual pressure and wet eligibility, same 5/6 calibration. Controls replace currentP/capacity/directional conductance, not support/paper shape. Strengthg=.023421498890197356 is original firstdriver outflow averaged with capturedsource coarse mass, fixed before runs; no tuning/search.
+
+A: homogeneous isotropic4:1 axis/diagonal common fractions. B: smooth radial outward biasβ1, normalized by direction length; opposite pairs sumconstant. Blocked support removes outgoing fractions without renormalization. Float cancellation of1+dot at opposite direction is clamped only to nonnegative machine-zero. CFL<=g, identical fractions for8 moments; mass/hue/dry guards PASS.
+
+Viewed minimal0/12PNG. Evolving actual-driver unitmoments64 had M2=207.177,h4=.026384,peak=.517068 and spikes. A: M2=192.144,h4=.002362,peak=.400686, coreR8=.197907, haloR24=.012418. B: M2=220.542,h4=.003613,peak=.359997, coreR8=.153274, haloR24=.022170. Both controls remove spikes. B spreads more than baseline while staying round, so reduced spread cannot explain its absence of spikes. Drift/diffusion differ in these controls; not an exact mechanism attribution between currentP reduction, capacity and uphill weight.
+
+This localizes the defect to inhomogeneous actual driver conductance interacting with transport, rather than inherent unit-hop stencil alone. It does NOT prove natural watercolor, fullrenderer equivalence or a selected replacement. Do not make GPU demo from controls.
+
+Mathematical next discriminator: mass positivity/hue require column-stochastic transport only. A symmetric translation-invariant diffusion is additionally row-stochastic, hence obeys a peak maximum principle. Variable donor fractions can have incoming row sum>1 and amplify highpixel peaks while preserving all masses. Coarse four-centre density may order neighboring cells differently from unsampled highsource pixels; lifting its common fractions onto highsource need not be a local diffusion of that highdensity. Separate this driver interpolation/currentP issue from pressure/capacity bias in one future declared experiment; no third sweep was run here.
