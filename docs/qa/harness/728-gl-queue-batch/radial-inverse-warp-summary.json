@@ -1,0 +1,102 @@
+{
+  "identity": {
+    "size": 1024,
+    "wetRadius": 240,
+    "scale": 1,
+    "curveK": 0,
+    "mobileShare": 0.35,
+    "sums": {
+      "source": 314.15926535897245,
+      "withoutDeterminant": 314.15926535897245,
+      "withDeterminant": 314.15926535897245,
+      "mixedFixedMobile": 314.15926535897245
+    },
+    "samples": [
+      {
+        "radius": 0.7071067811865476,
+        "source": 0.9950124791926823,
+        "withoutDeterminant": 0.9950124791926823,
+        "withDeterminant": 0.9950124791926823,
+        "mixedFixedMobile": 0.9950124791926823,
+        "forwardDet": 1
+      },
+      {
+        "radius": 15.508062419270821,
+        "source": 0.09026549560978431,
+        "withoutDeterminant": 0.09026549560978431,
+        "withDeterminant": 0.09026549560978431,
+        "mixedFixedMobile": 0.09026549560978431,
+        "forwardDet": 1
+      },
+      {
+        "radius": 31.503968004046726,
+        "source": 0.00004893586474225795,
+        "withoutDeterminant": 0.00004893586474225795,
+        "withDeterminant": 0.00004893586474225795,
+        "mixedFixedMobile": 0.00004893586474225795,
+        "forwardDet": 1
+      },
+      {
+        "radius": 63.50196847342608,
+        "source": 3.0695521574098595e-18,
+        "withoutDeterminant": 3.0695521574098595e-18,
+        "withDeterminant": 3.0695521574098595e-18,
+        "mixedFixedMobile": 3.0695521574098595e-18,
+        "forwardDet": 1
+      }
+    ],
+    "minForwardDet": 1,
+    "maxForwardDet": 1,
+    "scope": "Analytic radial Gaussian, smooth boundary-preserving injective radial map F(r)=R*tanh(k*r/R)/tanh(k), with k/tanh(k)=scale and identity limit k0. No low-resolution displacement interpolation, raster filtering, real paper/solvent mask or material prior. Identity at scale1 is mathematical; real GPU t0 needs actual raster check."
+  },
+  "expanded": {
+    "size": 1024,
+    "wetRadius": 240,
+    "scale": 5,
+    "curveK": 4.999545608576161,
+    "mobileShare": 0.35,
+    "sums": {
+      "source": 314.15926535897245,
+      "withoutDeterminant": 7430.333743180931,
+      "withDeterminant": 314.1592653589515,
+      "mixedFixedMobile": 314.1592653589637
+    },
+    "samples": [
+      {
+        "radius": 0.7071067811865476,
+        "source": 0.9950124791926823,
+        "withoutDeterminant": 0.9998000188416934,
+        "withDeterminant": 0.039992463544539975,
+        "mixedFixedMobile": 0.6607554737158325,
+        "forwardDet": 24.999710701197664
+      },
+      {
+        "radius": 15.508062419270821,
+        "source": 0.09026549560978431,
+        "withoutDeterminant": 0.9080384185608741,
+        "withDeterminant": 0.0365246817169176,
+        "mixedFixedMobile": 0.07145621074728095,
+        "forwardDet": 24.86095363126153
+      },
+      {
+        "radius": 31.503968004046726,
+        "source": 0.00004893586474225795,
+        "withoutDeterminant": 0.6692345360090992,
+        "withDeterminant": 0.02739669993636933,
+        "mixedFixedMobile": 0.009620653289811732,
+        "forwardDet": 24.42756016467097
+      },
+      {
+        "radius": 63.50196847342608,
+        "source": 3.0695521574098595e-18,
+        "withoutDeterminant": 0.18404872718750348,
+        "withDeterminant": 0.008108903838812298,
+        "mixedFixedMobile": 0.0028381163435843063,
+        "forwardDet": 22.697115522146937
+      }
+    ],
+    "minForwardDet": 0.0012484801323554156,
+    "maxForwardDet": 24.999710701197664,
+    "scope": "Analytic radial Gaussian, smooth boundary-preserving injective radial map F(r)=R*tanh(k*r/R)/tanh(k), with k/tanh(k)=scale and identity limit k0. No low-resolution displacement interpolation, raster filtering, real paper/solvent mask or material prior. Identity at scale1 is mathematical; real GPU t0 needs actual raster check."
+  }
+}
