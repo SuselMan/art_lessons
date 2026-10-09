@@ -1,0 +1,151 @@
+{
+  "computedPassport": {
+    "residualSourceGpu.mjs": "a035506e6cc2852db292db0802a5e35c9d9625b828ebd242882a339140a5ecb6",
+    "PreviewManualMaterial.mjs": "cf03ba9811075c361998c0a36e3e6ab21dfd3d9aa5d2249cd2962f5150a19877",
+    "PreviewResidualMaterial.mjs": "d30ac59989e2b5fe8fa918f76d2c19180b319216062157674b42a0f26db26352",
+    "PreviewInitialMomentPool.mjs": "7f2372085d8d13da5eff7e89904227d881d75a45e7e5986ef1f206ca5acd2031",
+    "residual-source-entry.html": "87407d14412ee7b41152dbe1e92feffa08d190336fc2029b825f6193777a86bc"
+  },
+  "httpPassport": {
+    "residualSourceGpu.mjs": "a035506e6cc2852db292db0802a5e35c9d9625b828ebd242882a339140a5ecb6",
+    "PreviewManualMaterial.mjs": "cf03ba9811075c361998c0a36e3e6ab21dfd3d9aa5d2249cd2962f5150a19877",
+    "PreviewResidualMaterial.mjs": "d30ac59989e2b5fe8fa918f76d2c19180b319216062157674b42a0f26db26352",
+    "PreviewInitialMomentPool.mjs": "7f2372085d8d13da5eff7e89904227d881d75a45e7e5986ef1f206ca5acd2031"
+  },
+  "report": {
+    "compositeCalls": 4,
+    "pigmentLevel": 1,
+    "originalNonzero": 12288,
+    "sourceNonzero": 16384,
+    "sourceUnchanged": {
+      "changed": 0,
+      "max": 0,
+      "exact": true
+    },
+    "sourceSha": "f9a146543b81776d342ce4c736fd2a7d9071ad8d47dbb83f6788fabac7332bb3",
+    "scope": "Actual source-only SAME captured production composite, no Room/settle/movie proof",
+    "spacing": 114.0175425099138,
+    "stages": [
+      {
+        "name": "actual-source",
+        "error": 0
+      },
+      {
+        "name": "float-allocation",
+        "error": 0
+      },
+      {
+        "name": "production-resample",
+        "error": 0
+      },
+      {
+        "name": "immutable-initial-copy",
+        "error": 0
+      },
+      {
+        "name": "fixed-zero",
+        "error": 0
+      },
+      {
+        "name": "residual-compile",
+        "error": 0
+      },
+      {
+        "name": "original-draw",
+        "error": 0
+      },
+      {
+        "name": "original-roi-copy",
+        "error": 0
+      },
+      {
+        "name": "original-read",
+        "error": 0
+      },
+      {
+        "name": "source-before-read",
+        "error": 0
+      },
+      {
+        "name": "residual-draw",
+        "error": 0
+      },
+      {
+        "name": "residual-roi-copy",
+        "error": 0
+      },
+      {
+        "name": "residual-read",
+        "error": 0
+      },
+      {
+        "name": "float-read-p",
+        "error": 0
+      },
+      {
+        "name": "float-read-p",
+        "error": 0
+      },
+      {
+        "name": "float-read-c",
+        "error": 0
+      },
+      {
+        "name": "float-read-c",
+        "error": 0
+      },
+      {
+        "name": "source-after-read",
+        "error": 0
+      }
+    ],
+    "copies": [
+      {
+        "role": "p",
+        "changed": 0,
+        "max": 0,
+        "exact": true,
+        "nonzero": 51684,
+        "sha": "6df5a7a7114a3362175be4c6f45d876f371d80b550f6081025b3bf061944f29b"
+      },
+      {
+        "role": "c",
+        "changed": 0,
+        "max": 0,
+        "exact": true,
+        "nonzero": 51572,
+        "sha": "e8bd3ce85271f60dede4d168ed71b396a4fc57003faac93e550421fdecd24a29"
+      }
+    ],
+    "pixels": {
+      "changed": 0,
+      "max": 0,
+      "exact": true
+    },
+    "originalSha": "e78287b9fc1d22d60bff7bfb2c84c07fcec9e7f4104e2506039c4b15fd20e28c",
+    "residualSha": "e78287b9fc1d22d60bff7bfb2c84c07fcec9e7f4104e2506039c4b15fd20e28c",
+    "readBytes": 1114112,
+    "lost": false,
+    "samplers": 16,
+    "pass": true
+  },
+  "memory": [
+    {
+      "stage": "preflight",
+      "freeMiB": 2097
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1869
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1819
+    },
+    {
+      "stage": "postclose",
+      "freeMiB": 1825
+    }
+  ],
+  "valid": true
+}
