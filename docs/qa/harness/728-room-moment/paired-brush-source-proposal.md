@@ -75,7 +75,7 @@ texture identities distinct от BOTH output; outputs distincteachother. Finitep
 radius/scale, finite nonnegative gain. FlowRect finitexy/positivewh; negative normalized
 origin допустим (contact partially outsidefield). Scissor integernonnegative/inbounds,
 zeroextent valid no-op. No extra flip/rotation: current GL-bottomup rect/scissor и WGSL
-row-top transform 그대로; use EXACT suppliedrect. Same activeencoder/ownerquantum.
+row-top transform без изменений; use EXACT suppliedrect. Same activeencoder/ownerquantum.
 
 Pair uniform80bytes == первые80bytes single96 (single дополнительные16 outputselector):
 step/texel/flowRect/gain/P,C,water filterbits/scissor/dispatch identicalf32/u32. Same
@@ -85,3 +85,12 @@ andpresent remain existing planner AFTER commoncompute; no new quantum/substeps.
 `NativeBrushPairContract` proposal-only CPU3/3PASS checks DEVselection, OFFresource
 inertness, dimensions/format/filter/ownership/alias/rect/scalarnegativecases and flow
 resolution allowance. Product does not import harness, runtime/backend untouched.
+
+
+Actual encoder CPU probe1/1PASS (`node --import tsx --test NativeBrushPairEncoding.test.mjs`):
+реальный `CanonicalBrushContact` с recording fakeGPUdevice делает twoSingles+paired.
+Первые80 uniformbytes совпадают буквально, включая f32gain/step/filterbits иu32dispatch;
+sourcebinding identities1..5 теже, workgroupdispatch5×3 identical при clippedscissor.
+Pair outputsbinding6/7 exactdestinations. Actual shader module strings differonly
+uniformselector/outputbinding/store substitution. Это source/encoding witness, неGPU
+execution/precision/parity. Surface/Shadercompiler/realdevice в этом тесте отсутствуют.
