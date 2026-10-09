@@ -1,0 +1,62 @@
+{
+  "source": "23f5ebb842a0f424aba80bbbf9727d6fc70fa252",
+  "scenario": "water-pigment400",
+  "actualAsyncPressure": {
+    "requested": true,
+    "compile": {
+      "completed": true,
+      "shaderBytes": 11996,
+      "compilerWallMs": 1138.199999988079,
+      "scope": "exact pipeline compilation only",
+      "shaderSHA": "664ac12d3a663e6463bc6e9dc9a198b2c43ea041fde25bcce3cb1192442cafba",
+      "dispatches": 0,
+      "fieldBytes": 0
+    },
+    "readyDiagnostics": {
+      "completed": true,
+      "hits": 0,
+      "shaderBytes": 11996
+    },
+    "scope": "Actual runtime compile only; no injected pipeline, no GPU duration claim",
+    "final": {
+      "completed": true,
+      "hits": 1,
+      "shaderBytes": 11996
+    }
+  },
+  "readyAt": 11264.399999976158,
+  "firstDownAt": 11668.600000023842,
+  "endpointFrame": {
+    "label": "endpoint-only",
+    "width": 1554,
+    "height": 1698,
+    "changed": 0,
+    "purple": 18130,
+    "sha": "b3987b37960100faf2b77db0de0b112e8a612709d269f45620a58b69feb495cc",
+    "gl": 0,
+    "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency"
+  },
+  "errors": [],
+  "final": {
+    "ready": true,
+    "pending": false,
+    "lost": false,
+    "gl": 0,
+    "actualAsyncPressureEnabled": true,
+    "asyncCarryPressure": {
+      "completed": true,
+      "hits": 1,
+      "shaderBytes": 11996
+    }
+  },
+  "rafMaxMs": 350.0,
+  "status": "FUNCTIONAL_RUNTIME_PROOF_ONLY; controller completion/cleanup unverified",
+  "limitations": [
+    "Surface actual browser, not Samsung",
+    "Two short400 dabs; no physical input latency or sustained drawing proof",
+    "Report persisted endpoint before memory SSH timeout; process no longer running, CDP9455 unavailable",
+    "No explicit owned-context disposal ACK; disposeOnDetach configured, not independently confirmed",
+    "No new hardware repeat"
+  ],
+  "memoryError": "Error: spawnSync ssh ETIMEDOUT"
+}
