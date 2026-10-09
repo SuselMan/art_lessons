@@ -1,0 +1,8 @@
+export function summarizeTimelineTrace(trace){
+ const events=trace.traceEvents;if(!Array.isArray(events))throw Error('Trace events absent')
+ const names=new Map(),processes=new Map();for(const e of events){if(e.ph==='M'&&e.name==='thread_name')names.set(e.pid+':'+e.tid,e.args?.name??'');if(e.ph==='M'&&e.name==='process_name')processes.set(e.pid,e.args?.name??'')}
+ const threads=[...names].map(([key,name])=>({key,name,process:processes.get(Number(key.split(':')[0]))??'',completeSpans:events.filter(e=>e.ph==='X'&&e.pid+':'+e.tid===key).length}))
+ const marks=events.filter(e=>e.name==='QA_NATIVE_FIRST_DOWN'||e.name==='QA_NATIVE_FIRST_IDLE').map(e=>({name:e.name,tsUs:e.ts,pid:e.pid,tid:e.tid,phase:e.ph}))
+ const spans=events.filter(e=>e.ph==='X'&&Number.isFinite(e.dur)&&e.dur>=10000).sort((a,b)=>b.dur-a.dur).slice(0,50).map(e=>({name:e.name,category:e.cat,pid:e.pid,tid:e.tid,thread:names.get(e.pid+':'+e.tid)??'',process:processes.get(e.pid)??'',startUs:e.ts,durationMs:e.dur/1000}))
+ return{eventCount:events.length,threads,marks,topCompleteSpansOver10ms:spans,gpuThreadMetadataAvailable:threads.some(t=>/CrGpuMain|GPU/i.test(t.name+' '+t.process)),rendererMainMetadataAvailable:threads.some(t=>/CrRendererMain|RendererMain/i.test(t.name)),scope:'Chromium recorded timeline spans; absent thread/event is not proof of no work. GPU process wall spans are not physical GPU execution timestamps.'}
+}
