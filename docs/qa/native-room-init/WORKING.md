@@ -20,3 +20,5 @@ CPU readiness: 34 targeted tests (actual source executor, actual Room executor, 
 Partial encoded-write ledger: DEV diagnosticContentVersions OFF, WeakMap только opt-in; upload/staging/clear/copy destination counters после успешной команды. complete=false всегда; raster/compute/brush/composite authority не закрыта. Два actual-backend CPU helper tests и appTS перед локальным commit; hardware не запускался. Никакого COW/reorder разрешения.
 
 - [x] CPU ACK-overlap proposal: actual Executor + deterministic sentinel queue, 3 tests; app TS. Private publication snapshot/order, late-version/retirement rejection и stale new-owner GL seed проверены. Production FIFO unchanged; private GPU view/version authority ещё отсутствуют. См. native-ack-overlap-cpu-model.md. Early admission остаётся HOLD.
+
+- [x] Не подключённая private publication host factory: два actual raw bridge canvas, active lease до import finally, no extra ACK/fence. CPU tests + app TS; logical max 8 MiB при1024², physical swapchain unknown. Runtime/defaults неизменны, stale new-owner seed не разрешён, early admission HOLD.
