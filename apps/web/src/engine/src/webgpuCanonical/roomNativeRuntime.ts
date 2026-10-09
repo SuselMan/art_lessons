@@ -1,3 +1,5 @@
+import {prepareFirstContactPipelines} from './sourcePipelinePreparation'
+import {exactPipelinePreparationDiagnostics,retireExactPipelinePreparation} from './exactPipelinePreparation'
 import {prepareObservedFieldPipeline,observedFieldPreparationDiagnostics} from './passes/observedFieldPreload'
 import {CANONICAL_DIFFUSE_WGSL,CANONICAL_WATER_FRONT_WGSL} from './passes/kernels'
 import {prepareCanonicalHardwareLinearPipeline,canonicalHardwareLinearPreparationDiagnostics} from './passes/hardwarePressurePreload'
@@ -22,6 +24,7 @@ import {canonicalSourceRevealRect} from './strokeScratchMetadata'
 export interface RoomNativeRuntimeContext {
  /** DEV QA only: pressure D sampler in canonical carry15/16; OFF default. */
  /** QA-only detached raw canvas warmup; no source/settle warmup. */
+ diagnosticSourcePrecompile?:boolean
  diagnosticFirstLiveWarmup?:boolean
  diagnosticRawCanvasWarmup?:boolean
  diagnosticCarryHardwarePressure?:boolean
@@ -59,7 +62,9 @@ export class RoomNativeRuntime {
  private finishScalars:PreparedRibbonCpuDelivery['input']['scalars']|null=null
  private retirements:Promise<void>[]=[]
  private constructor(backend:CanonicalWatercolorWebGpu,ctx:RoomNativeRuntimeContext){this.backend=backend;this.ctx=ctx;this.tipContactQa=installNativeTipA(backend,ctx.diagnosticTipContactA===true);this.central=new RoomNativeCentralAdapter(ctx.fifo,ctx.changed)}
+ get sourcePipelinePreparation(){return exactPipelinePreparationDiagnostics(this.backend.device)}
  static async create(ctx:RoomNativeRuntimeContext){
+  if(import.meta.env.DEV&&ctx.diagnosticSourcePrecompile===true&&(ctx.diagnosticFirstLiveWarmup||ctx.diagnosticRawCanvasWarmup||ctx.diagnosticTipContactA))throw Error('Exact source preparation requires dispatch warm and tip variants OFF')
   if(import.meta.env.DEV&&ctx.diagnosticFirstLiveWarmup===true&&ctx.diagnosticRawCanvasWarmup===true)throw new Error('Separate first-live and raw-only warmup arms required')
   console.info('[native-room-init]','paper:load-start')
   const la=await getPaperBytes(ctx.paper),resolution=Math.sqrt(la.length/2)
@@ -87,7 +92,7 @@ export class RoomNativeRuntime {
    }
    }
    // Independent exact descriptors share the same device; all three must succeed before any warmup or READY.
-   if(import.meta.env.DEV&&(ctx.diagnosticAsyncObservedFields===true||ctx.diagnosticAsyncCarryPressure===true))await Promise.all([prepareObserved(),preparePressure()])
+   if(import.meta.env.DEV&&(ctx.diagnosticSourcePrecompile===true||ctx.diagnosticAsyncObservedFields===true||ctx.diagnosticAsyncCarryPressure===true))await Promise.all([prepareObserved(),preparePressure(),(async()=>{if(ctx.diagnosticSourcePrecompile===true){console.info('[native-room-init]','source-precompile:start');const proofs=await prepareFirstContactPipelines(backend.device);console.info('[native-room-init]','source-precompile:completed',JSON.stringify({proofs,dispatches:0,fieldBytes:0}))}})()])
    if(import.meta.env.DEV&&ctx.diagnosticRawCanvasWarmup===true){
     const started=performance.now()
     console.info('[native-room-init]','raw-warm:start',started)
@@ -108,7 +113,7 @@ export class RoomNativeRuntime {
     console.info('[native-room-init]','first-live-warm:completed',JSON.stringify({...ledger,completedAt:performance.now(),wallMs:performance.now()-started,input:'detached synthetic production CPU corpus400; not captured user operation'}))
    }
    return new RoomNativeRuntime(backend,ctx)
-  }catch(error){backend.destroy();throw error}
+  }catch(error){retireExactPipelinePreparation(backend.device);backend.destroy();throw error}
  }
  consume(request:PreparedRibbonCpuDelivery,target:ILayerBuffer,path:'live'|'append'|'rebuild'):boolean {
   if(this.retired)throw new Error('Native Room runtime retired')
@@ -188,6 +193,6 @@ export class RoomNativeRuntime {
  async retire(reason:'clear'|'rebuild'|'snapshot'|'context-loss'|'unmount'){
   if(this.retired)return;this.retired=true
   if(this.owner)this.trackRetirement(this.owner.retire(reason));else if(this.queued)await this.central.cancel(reason)
-  await Promise.allSettled(this.retirements);this.backend.destroy()
+  await Promise.allSettled(this.retirements);retireExactPipelinePreparation(this.backend.device);this.backend.destroy()
  }
 }

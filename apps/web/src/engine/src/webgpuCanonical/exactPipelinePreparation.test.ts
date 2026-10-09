@@ -1,0 +1,43 @@
+import {CanonicalRibbonDeposit,canonicalRibbonRecipe} from './deposit'
+import {CanonicalStampDeposit,canonicalStampRecipe} from './stamp'
+import {CanonicalBrushContact,canonicalBrushRecipe} from './brush'
+import {it,expect} from 'vitest'
+import {prepareExactPipeline,preparedExactPipeline,retireExactPipelinePreparation,type ExactPipelineRecipe} from './exactPipelinePreparation'
+import {firstContactPipelineRecipes,prepareFirstContactPipelines} from './sourcePipelinePreparation'
+const recipe:ExactPipelineRecipe={key:'unit',code:'shader',kind:'compute',descriptor:module=>({layout:'auto',compute:{module,entryPoint:'main'}})}
+it('prepares exact shared 12 render + 3 compute recipes with zero field allocation/dispatch',async()=>{
+ const recipes=firstContactPipelineRecipes();expect(recipes.filter(x=>x.kind==='render')).toHaveLength(12);expect(recipes.filter(x=>x.kind==='compute')).toHaveLength(3)
+ let render=0,compute=0
+ const device={createShaderModule:()=>({}),createRenderPipelineAsync:async()=>({render:++render}),createComputePipelineAsync:async()=>({compute:++compute})} as unknown as GPUDevice
+ const proofs=await prepareFirstContactPipelines(device);expect(proofs).toHaveLength(15);expect([render,compute]).toEqual([12,3])
+ for(const r of recipes){const a=preparedExactPipeline(device,r);expect(a).toBe(preparedExactPipeline(device,r))}
+ // Mock deliberately has no texture/buffer/queue/encoder API: any such work fails.
+})
+it('isolates devices, refuses changed code or descriptors, and keeps failed compiler retryable',async()=>{
+ let fail=true;const result={} as GPUComputePipeline
+ const device={createShaderModule:()=>({}),createComputePipelineAsync:async()=>{if(fail)throw Error('compile rejected');return result}} as unknown as GPUDevice
+ await expect(prepareExactPipeline(device,recipe)).rejects.toThrow('compile rejected');expect(preparedExactPipeline(device,recipe)).toBeUndefined()
+ fail=false;await prepareExactPipeline(device,recipe);expect(preparedExactPipeline(device,recipe)).toBe(result)
+ expect(preparedExactPipeline({} as GPUDevice,recipe)).toBeUndefined()
+ await expect(prepareExactPipeline(device,{...recipe,code:'changed'})).rejects.toThrow('identity')
+ expect(()=>preparedExactPipeline(device,{...recipe,descriptor:module=>({layout:'auto',compute:{module,entryPoint:'other'}})})).toThrow('identity')
+})
+it('retirement rejects late completion and all parallel rejection promises remain handled',async()=>{
+ let resolve!:(value:GPUComputePipeline)=>void
+ const device={createShaderModule:()=>({}),createComputePipelineAsync:()=>new Promise<GPUComputePipeline>(r=>{resolve=r})} as unknown as GPUDevice
+ const pending=prepareExactPipeline(device,recipe),handled=expect(pending).rejects.toThrow('retired');await Promise.resolve()
+ expect(()=>preparedExactPipeline(device,recipe)).toThrow('not prepared');retireExactPipelinePreparation(device);resolve({} as GPUComputePipeline);await handled
+ expect(preparedExactPipeline(device,recipe)).toBeUndefined()
+ await expect(prepareExactPipeline(device,recipe)).rejects.toThrow('retired')
+})
+it('production stamp/ribbon/brush factories consume the same async-created pipeline objects',async()=>{
+ const device={createShaderModule:()=>({}),createRenderPipelineAsync:async()=>({}),createComputePipelineAsync:async()=>({})} as unknown as GPUDevice
+ const recipes=[canonicalStampRecipe('coverage'),canonicalRibbonRecipe('coverage'),canonicalBrushRecipe(),canonicalBrushRecipe(true)]
+ await Promise.all(recipes.map(r=>prepareExactPipeline(device,r)))
+ const stamp=new CanonicalStampDeposit(device,{} as never,true),ribbon=new CanonicalRibbonDeposit(device,{} as never,true),brush=new CanonicalBrushContact(device)
+ expect(Reflect.get(stamp,'coverage')).toBe(preparedExactPipeline(device,recipes[0]))
+ expect(ribbon.coverage).toBe(preparedExactPipeline(device,recipes[1]))
+ expect(Reflect.get(brush,'pipeline')).toBe(preparedExactPipeline(device,recipes[2]))
+ expect(Reflect.get(brush,'singlePipeline')).toBe(preparedExactPipeline(device,recipes[3]))
+ // No synchronous createPipeline API exists on this device: fallback would fail.
+})

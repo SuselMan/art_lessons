@@ -1,3 +1,4 @@
+import {preparedExactPipeline,type ExactPipelineRecipe} from './exactPipelinePreparation'
 import { withTransientGpuBuffers } from './transientBuffers'
 /// <reference types="@webgpu/types" />
 import { CANONICAL_NOISE_WGSL } from './noise'
@@ -65,6 +66,12 @@ const layout: GPUVertexBufferLayout = { arrayStride: 44, attributes: [
 const over: GPUBlendState = { color: { operation: 'add', srcFactor: 'one', dstFactor: 'one-minus-src-alpha' }, alpha: { operation: 'add', srcFactor: 'one', dstFactor: 'one-minus-src-alpha' } }
 const maximum: GPUBlendState = { color: { operation: 'max', srcFactor: 'one', dstFactor: 'one' }, alpha: { operation: 'max', srcFactor: 'one', dstFactor: 'one' } }
 const add: GPUBlendState = { color: { operation: 'add', srcFactor: 'one', dstFactor: 'one' }, alpha: { operation: 'add', srcFactor: 'one', dstFactor: 'one' } }
+export function canonicalRibbonRecipe(key:string):ExactPipelineRecipe{return{key:'ribbon:'+key,kind:'render',code:CANONICAL_RIBBON_WGSL,moduleLabel:'production ribbon deposit',descriptor(module){
+  const mode=key.endsWith('max')?'max':'add',entryPoint=key==='coverage'?'coverage':key.slice(0,-3)
+  const blend=key==='coverage'?over:mode==='max'?maximum:add
+  const targets=Array.from({length:entryPoint==='ink'?2:1},()=>({format:'rgba8unorm' as const,blend}))
+  return {label:'production ribbon '+key,layout:'auto',vertex:{module:module,entryPoint:'vs',buffers:[layout]},fragment:{module:module,entryPoint,targets},primitive:{topology:'triangle-list'}}
+ }}}
 export class CanonicalRibbonDeposit {
  private readonly pipelines=new Map<string,GPURenderPipeline>()
  private readonly device:GPUDevice
@@ -80,10 +87,8 @@ export class CanonicalRibbonDeposit {
  }
  private pipeline(key:string){
   const existing=this.pipelines.get(key);if(existing)return existing
-  const mode=key.endsWith('max')?'max':'add',entryPoint=key==='coverage'?'coverage':key.slice(0,-3)
-  const blend=key==='coverage'?over:mode==='max'?maximum:add
-  const targets=Array.from({length:entryPoint==='ink'?2:1},()=>({format:'rgba8unorm' as const,blend}))
-  const pipeline=this.device.createRenderPipeline({label:'production ribbon '+key,layout:'auto',vertex:{module:this.module,entryPoint:'vs',buffers:[layout]},fragment:{module:this.module,entryPoint,targets},primitive:{topology:'triangle-list'}})
+  const recipe=canonicalRibbonRecipe(key)
+  const pipeline=(preparedExactPipeline(this.device,recipe) as GPURenderPipeline|undefined)??this.device.createRenderPipeline(recipe.descriptor(this.module) as GPURenderPipelineDescriptor)
   this.pipelines.set(key,pipeline);return pipeline
  }
 

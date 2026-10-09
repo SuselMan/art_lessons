@@ -1,3 +1,4 @@
+import {preparedExactPipeline,type ExactPipelineRecipe} from '../exactPipelinePreparation'
 import { canonicalDispatchRect } from '../dispatchRect'
 /// <reference types="@webgpu/types" />
 import {canonicalHardwareLinearDescriptor,preparedCanonicalHardwareLinearPipeline} from './hardwarePressurePreload'
@@ -178,6 +179,7 @@ export interface CanonicalFieldOptions {
  diagnosticHardwareLinearInputs?: boolean
  linearInputMask?: number
 }
+export function canonicalBaselineFieldRecipe():ExactPipelineRecipe{return{key:'sourceFieldOps',kind:'compute',code:CANONICAL_FIELD_OPS_WGSL,descriptor(module){return{label:'Canonical field ops',layout:'auto',compute:{module,entryPoint:'main'}}}}}
 export class CanonicalFieldOps {
  private pipeline: GPUComputePipeline | null=null
  private hardwareLinearPipeline:GPUComputePipeline|null=null
@@ -196,7 +198,7 @@ export class CanonicalFieldOps {
   return CANONICAL_FIELD_OPS_WGSL.slice(0,start)+'fn capillary(uv:vec2f)->f32{return 1.0;}\n'+CANONICAL_FIELD_OPS_WGSL.slice(end)
  }
  private pipelineFor(mode:number):GPUComputePipeline {
-  if(!this.specializeModes){if(!this.pipeline)this.pipeline=this.device.createComputePipeline({label:'Canonical field ops',layout:'auto',compute:{module:this.device.createShaderModule({code:this.shaderCode()}),entryPoint:'main'}});return this.pipeline}
+  if(!this.specializeModes){if(!this.pipeline)this.pipeline=(!this.omitDeadCapillary?preparedExactPipeline(this.device,canonicalBaselineFieldRecipe()) as GPUComputePipeline|undefined:undefined)??this.device.createComputePipeline(canonicalBaselineFieldRecipe().descriptor(this.device.createShaderModule({code:this.shaderCode()})) as GPUComputePipelineDescriptor);return this.pipeline}
   const cached=this.specialized.get(mode);if(cached)return cached
   if(!this.layout)this.layout=this.device.createBindGroupLayout({entries:[...Array.from({length:7},(_,binding)=>({binding,visibility:GPUShaderStage.COMPUTE,texture:{sampleType:'float' as const,viewDimension:'2d' as const}})),{binding:7,visibility:GPUShaderStage.COMPUTE,storageTexture:{access:'write-only',format:'rgba8unorm',viewDimension:'2d'}},{binding:8,visibility:GPUShaderStage.COMPUTE,buffer:{type:'uniform',minBindingSize:128}}]})
   if(!this.module)this.module=this.device.createShaderModule({code:'override FIELD_MODE:i32=-1;\n'+this.shaderCode().replace('let mode=u.scalars.y;','let mode=f32(FIELD_MODE);')})

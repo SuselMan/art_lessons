@@ -36,3 +36,32 @@ it('one rejected compiler denies READY, destroys owner once, handles remaining r
  calls[0].reject(Error('device destroyed'));calls[2].reject(Error('device destroyed'))
  await new Promise(r=>setTimeout(r,0))
 })
+function setupSource(){
+ const calls:{resolve:(v:never)=>void;reject:(e:Error)=>void}[]=[]
+ const compile=()=>new Promise<never>((resolve,reject)=>calls.push({resolve,reject}))
+ const device={createShaderModule:()=>({}),createRenderPipelineAsync:compile,createComputePipelineAsync:compile} as unknown as GPUDevice
+ const backend={device,destroy:vi.fn()};state.create.mockResolvedValue(backend)
+ vi.stubGlobal('document',{createElement:()=>({})});vi.spyOn(console,'info').mockImplementation(()=>{})
+ return{calls,backend}
+}
+it('exact source preparation admits 15 pipelines before READY with no dispatch or field allocation',async()=>{
+ const {calls,backend}=setupSource();let ready=false
+ const ctx={...context(),diagnosticAsyncObservedFields:false,diagnosticAsyncCarryPressure:false,diagnosticSourcePrecompile:true}
+ const pending=RoomNativeRuntime.create(ctx).then(r=>{ready=true;return r})
+ await vi.waitFor(()=>expect(calls).toHaveLength(15))
+ for(const call of calls.slice(0,14))call.resolve({} as never)
+ await new Promise(r=>setTimeout(r,0));expect(ready).toBe(false)
+ calls[14].resolve({} as never);const runtime=await pending
+ expect(runtime.sourcePipelinePreparation).toHaveLength(15);expect(runtime.sourcePipelinePreparation.every(x=>x.completed&&x.hits===0)).toBe(true)
+ await runtime.retire('unmount');expect(runtime.sourcePipelinePreparation).toHaveLength(0);expect(backend.destroy).toHaveBeenCalledOnce()
+})
+it('source compiler rejection destroys owner once, retires cache, handles remaining promises',async()=>{
+ const {calls,backend}=setupSource();const pending=RoomNativeRuntime.create({...context(),diagnosticAsyncObservedFields:false,diagnosticAsyncCarryPressure:false,diagnosticSourcePrecompile:true})
+ const failed=expect(pending).rejects.toThrow('source rejected');await vi.waitFor(()=>expect(calls).toHaveLength(15));calls[0].reject(Error('source rejected'));await failed
+ expect(backend.destroy).toHaveBeenCalledOnce();for(const call of calls.slice(1))call.reject(Error('device destroyed'));await new Promise(r=>setTimeout(r,0))
+})
+it('source preparation excludes detached dispatch warm and altered tip before backend allocation',async()=>{
+ state.create.mockClear()
+ for(const variant of [{diagnosticFirstLiveWarmup:true},{diagnosticRawCanvasWarmup:true},{diagnosticTipContactA:true}])await expect(RoomNativeRuntime.create({...context(),diagnosticSourcePrecompile:true,...variant})).rejects.toThrow('dispatch warm')
+ expect(state.create).not.toHaveBeenCalled()
+})

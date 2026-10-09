@@ -1,9 +1,11 @@
+import {preparedExactPipeline,type ExactPipelineRecipe} from './exactPipelinePreparation'
 import { withTransientGpuBuffers } from './transientBuffers'
 /// <reference types="@webgpu/types" />
 import { CANONICAL_COMPOSITE_WGSL } from './compositeShader'
 import type { CanonicalCompositeUniforms, CanonicalGpuField, CanonicalWatercolorFields } from './types'
 /** Full production watercolor composite with migrate=0 (the production
  * profile's invariant). Nonzero migration is explicitly unsupported. */
+export function canonicalCompositeRecipe():ExactPipelineRecipe{return{key:'canonicalCompositeRecipe',kind:'render',code:CANONICAL_COMPOSITE_WGSL,moduleLabel:'canonical production watercolor composite',descriptor(module){return {layout:'auto',vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'fs',targets:[{format:'rgba8unorm'}]}}}}}
 export class CanonicalComposite {
  private readonly device: GPUDevice
  private readonly pipeline: GPURenderPipeline
@@ -12,7 +14,8 @@ export class CanonicalComposite {
  constructor(device: GPUDevice) {
   this.device=device
   const module=device.createShaderModule({label:'canonical production watercolor composite',code:CANONICAL_COMPOSITE_WGSL})
-  this.pipeline=device.createRenderPipeline({layout:'auto',vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'fs',targets:[{format:'rgba8unorm'}]}})
+  const recipe=canonicalCompositeRecipe()
+  this.pipeline=(preparedExactPipeline(device,recipe) as GPURenderPipeline|undefined)??device.createRenderPipeline(recipe.descriptor(module) as GPURenderPipelineDescriptor)
   this.clamp=device.createSampler({minFilter:'nearest',magFilter:'nearest'})
   this.repeat=device.createSampler({minFilter:'linear',magFilter:'linear',addressModeU:'repeat',addressModeV:'repeat'})
  }

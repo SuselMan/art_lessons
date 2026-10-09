@@ -1,3 +1,4 @@
+import {preparedExactPipeline,type ExactPipelineRecipe} from './exactPipelinePreparation'
 import { canonicalDispatchRect } from './dispatchRect'
 import { withTransientGpuBuffers } from './transientBuffers'
 /// <reference types="@webgpu/types" />
@@ -74,11 +75,12 @@ export const CANONICAL_SINGLE_TEXTURE_BRUSH_WGSL=CANONICAL_TEXTURE_BRUSH_WGSL
  .replace('@group(0) @binding(7) var outColor:texture_storage_2d<rgba8unorm,write>;','')
  .replace(' textureStore(outPigment,vec2i(q),clamp(P/255.0,vec4f(0),vec4f(1)));\n textureStore(outColor,vec2i(q),clamp(C/255.0,vec4f(0),vec4f(1)));',
   ' textureStore(outPigment,vec2i(q),clamp(select(P,C,u.output.x>.5)/255.0,vec4f(0),vec4f(1)));')
+export function canonicalBrushRecipe(single=false):ExactPipelineRecipe{return{key:single?'singleBrush':'pairedBrush',kind:'compute',code:single?CANONICAL_SINGLE_TEXTURE_BRUSH_WGSL:CANONICAL_TEXTURE_BRUSH_WGSL,moduleLabel:single?'canonical single Q8 brush contact':'canonical paired Q8 brush contact',descriptor(module){return{layout:'auto',compute:{module,entryPoint:'brush'}}}}}
 export class CanonicalBrushContact {
  private readonly device: GPUDevice
  private readonly pipeline: GPUComputePipeline
  private readonly singlePipeline:GPUComputePipeline
- constructor(device:GPUDevice) {this.device=device;const module=device.createShaderModule({label:'canonical paired Q8 brush contact',code:CANONICAL_TEXTURE_BRUSH_WGSL});this.pipeline=device.createComputePipeline({layout:'auto',compute:{module,entryPoint:'brush'}});const singleModule=device.createShaderModule({label:'canonical single Q8 brush contact',code:CANONICAL_SINGLE_TEXTURE_BRUSH_WGSL});this.singlePipeline=device.createComputePipeline({layout:'auto',compute:{module:singleModule,entryPoint:'brush'}})}
+ constructor(device:GPUDevice) {this.device=device;const module=device.createShaderModule({label:'canonical paired Q8 brush contact',code:CANONICAL_TEXTURE_BRUSH_WGSL});this.pipeline=(preparedExactPipeline(device,canonicalBrushRecipe()) as GPUComputePipeline|undefined)??device.createComputePipeline(canonicalBrushRecipe().descriptor(module) as GPUComputePipelineDescriptor);const singleModule=device.createShaderModule({label:'canonical single Q8 brush contact',code:CANONICAL_SINGLE_TEXTURE_BRUSH_WGSL});this.singlePipeline=(preparedExactPipeline(device,canonicalBrushRecipe(true)) as GPUComputePipeline|undefined)??device.createComputePipeline(canonicalBrushRecipe(true).descriptor(singleModule) as GPUComputePipelineDescriptor)}
  encode(ctx:CanonicalGpuContext,fields:{pigment:CanonicalGpuField;color:CanonicalGpuField;flow:CanonicalGpuField;water:CanonicalGpuField;outPigment:CanonicalGpuField;outColor:CanonicalGpuField},step:readonly[number,number],gain:number,flowRect:readonly[number,number,number,number],scissor?:readonly[number,number,number,number]):GPUBuffer[] {
   return withTransientGpuBuffers(retain=>{
   const f=fields;if([f.pigment,f.color,f.flow,f.water].some(a=>a.texture===f.outPigment.texture||a.texture===f.outColor.texture)||f.outPigment.texture===f.outColor.texture)throw new Error('Canonical brush requires distinct read/write fields')

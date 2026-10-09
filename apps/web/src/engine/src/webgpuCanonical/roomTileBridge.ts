@@ -1,3 +1,4 @@
+import {preparedExactPipeline,type ExactPipelineRecipe} from './exactPipelinePreparation'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { CanonicalGpuField } from './types'
 
@@ -23,6 +24,7 @@ const shader=`
  * at owner-controlled stage boundaries, with exclusive ownership of the tile.
  * Canvas copy is an experiment; never claim zero-copy or Q8 equality before
  * actual GPU comparison. No paper/wet shader is included. */
+export function canonicalRawCanvasRecipe():ExactPipelineRecipe{return{key:'canonicalRawCanvasRecipe',kind:'render',code:shader,moduleLabel:'DEV raw Q8 Room tile bridge',descriptor(module){return {layout:'auto',vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'fs',targets:[{format:'rgba8unorm'}]},primitive:{topology:'triangle-list'}}}}}
 export class CanonicalRoomTileBridge {
  readonly canvas:HTMLCanvasElement
  private readonly context:GPUCanvasContext
@@ -34,7 +36,8 @@ export class CanonicalRoomTileBridge {
   const context=canvas.getContext('webgpu');if(!context)throw new Error('Room tile bridge WebGPU canvas unsupported')
   this.context=context;context.configure({device,format:'rgba8unorm',alphaMode:'premultiplied',usage:GPUTextureUsage.RENDER_ATTACHMENT|GPUTextureUsage.COPY_SRC})
   const module=device.createShaderModule({label:'DEV raw Q8 Room tile bridge',code:shader})
-  this.pipeline=device.createRenderPipeline({layout:'auto',vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'fs',targets:[{format:'rgba8unorm'}]},primitive:{topology:'triangle-list'}})
+  const recipe=canonicalRawCanvasRecipe()
+  this.pipeline=(preparedExactPipeline(device,recipe) as GPURenderPipeline|undefined)??device.createRenderPipeline(recipe.descriptor(module) as GPURenderPipelineDescriptor)
  }
  async copyByReadback(field:CanonicalGpuField,target:AccumulationBuffer,read:(field:CanonicalGpuField)=>Promise<Uint8Array>,current:()=>boolean=()=>true):Promise<void> {
   this.guard(field,target)

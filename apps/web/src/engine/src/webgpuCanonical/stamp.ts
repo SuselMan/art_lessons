@@ -1,3 +1,4 @@
+import {preparedExactPipeline,type ExactPipelineRecipe} from './exactPipelinePreparation'
 import { withTransientGpuBuffers } from './transientBuffers'
 /// <reference types="@webgpu/types" />
 import { CANONICAL_NOISE_WGSL } from './noise'
@@ -71,7 +72,14 @@ export function canonicalStampShader(literalVertex=false,cpuTrig=false):string {
  return cpuTrig?result.replace("let c=cos(u.shape.x);let s=sin(u.shape.x);","let c=u.clip.z;let s=u.clip.w;"):result
 }
 
+export function canonicalStampRecipe(key:string,literalVertex=false,cpuTrig=false):ExactPipelineRecipe{return{key:'stamp:'+literalVertex+':'+cpuTrig+':'+key,kind:'render',code:canonicalStampShader(literalVertex,cpuTrig),moduleLabel:'production watercolor nib deposit',descriptor(module){
+  const mode=key.endsWith('max')?'max':'add',entryPoint=key==='coverage'?'coverage':key.slice(0,-3)
+  const blend:GPUBlendState=key==='coverage'?{color:{operation:'add',srcFactor:'one',dstFactor:'one-minus-src-alpha'},alpha:{operation:'add',srcFactor:'one',dstFactor:'one-minus-src-alpha'}}:{color:{operation:mode,srcFactor:'one',dstFactor:'one'},alpha:{operation:mode,srcFactor:'one',dstFactor:'one'}}
+  const targets=Array.from({length:entryPoint==='ink'?2:1},()=>({format:'rgba8unorm' as const,blend}))
+  return {layout:'auto',vertex:{module:module,entryPoint:'vs'},fragment:{module:module,entryPoint,targets}}
+ }}}
 export class CanonicalStampDeposit {
+ private readonly literalVertex:boolean
  private readonly cpuTrig:boolean
  private readonly device:GPUDevice
  private readonly noise:CanonicalGpuField
@@ -79,16 +87,14 @@ export class CanonicalStampDeposit {
  private readonly pipelines=new Map<string,GPURenderPipeline>()
  private get coverage(){return this.pipeline('coverage')}
  constructor(device:GPUDevice,noise:CanonicalGpuField,lazy=false,literalVertex=false,cpuTrig=false){
-  this.device=device;this.noise=noise;this.cpuTrig=cpuTrig
+  this.device=device;this.noise=noise;this.cpuTrig=cpuTrig;this.literalVertex=literalVertex
   this.module=device.createShaderModule({label:'production watercolor nib deposit',code:canonicalStampShader(literalVertex,cpuTrig)})
   if(!lazy)for(const key of ['coverage','inkmax','inkadd','pigmentOnlymax','pigmentOnlyadd','colorOnlymax','colorOnlyadd'])this.pipeline(key)
  }
  private pipeline(key:string){
   const existing=this.pipelines.get(key);if(existing)return existing
-  const mode=key.endsWith('max')?'max':'add',entryPoint=key==='coverage'?'coverage':key.slice(0,-3)
-  const blend:GPUBlendState=key==='coverage'?{color:{operation:'add',srcFactor:'one',dstFactor:'one-minus-src-alpha'},alpha:{operation:'add',srcFactor:'one',dstFactor:'one-minus-src-alpha'}}:{color:{operation:mode,srcFactor:'one',dstFactor:'one'},alpha:{operation:mode,srcFactor:'one',dstFactor:'one'}}
-  const targets=Array.from({length:entryPoint==='ink'?2:1},()=>({format:'rgba8unorm' as const,blend}))
-  const pipeline=this.device.createRenderPipeline({layout:'auto',vertex:{module:this.module,entryPoint:'vs'},fragment:{module:this.module,entryPoint,targets}})
+  const recipe=canonicalStampRecipe(key,this.literalVertex,this.cpuTrig)
+  const pipeline=(preparedExactPipeline(this.device,recipe) as GPURenderPipeline|undefined)??this.device.createRenderPipeline(recipe.descriptor(this.module) as GPURenderPipelineDescriptor)
   this.pipelines.set(key,pipeline);return pipeline
  }
 
