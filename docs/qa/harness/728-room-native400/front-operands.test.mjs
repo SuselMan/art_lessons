@@ -17,3 +17,5 @@ test('cache neighbor address matches original f32 pixel expression at boundary c
   assert.deepEqual(cached,old)
  }
 })
+
+test('nonfinite actual paper scalar fails before original GPU producer',()=>{const f=fixture(),c=installFrontOperandCapture(f.Adapter,f.options);try{f.setActive(true);f.a.owner.paper.scale=NaN;assert.throws(()=>f.invoke(),/scalar/);assert.equal(f.count(),0)}finally{c.restore()}})

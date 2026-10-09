@@ -19,8 +19,9 @@ export function installFrontOperandCapture(Adapter, options) {
         dryCost,costMax,climb,floor,stride,foreignWet:foreignWater?1:0,
         deviceIdentity:identity(owner.device),paperIdentity:identity(paper.field.texture),noiseIdentity:identity(noise.texture),
         paperSHA:options.paperSHA,noiseSHA:options.noiseSHA,sourceSHA:options.sourceSHA}
-      const numeric=[current.width,current.height,current.x0,current.y0,current.scale,...current.paperOrigin,...current.paperTexSize,current.paperScale,dryCost,costMax,climb,floor,stride]
+      const numeric=[current.width,current.height,current.sourceWidth,current.sourceHeight,current.outWidth,current.outHeight,current.paperTextureWidth,current.paperTextureHeight,current.noiseWidth,current.noiseHeight,current.x0,current.y0,current.scale,...current.paperOrigin,...current.paperTexSize,current.paperScale,dryCost,costMax,climb,floor,stride]
       if(!numeric.every(Number.isFinite)||current.width<=0||current.height<=0||scale<=0)throw Error('Invalid actual scalar operands')
+      if(![current.width,current.height,current.sourceWidth,current.sourceHeight,current.outWidth,current.outHeight,current.paperTextureWidth,current.paperTextureHeight].every(v=>Number.isInteger(v)&&v>0)||current.sourceWidth!==current.width||current.sourceHeight!==current.height||current.outWidth!==current.width||current.outHeight!==current.height||noise.width!==251||noise.height!==251)throw Error('Actual operand dimensions mismatch')
       if(snapshot && JSON.stringify(snapshot)!==JSON.stringify(current))throw Error('Selected outer-front operands changed')
       snapshot??=current;calls++
     }
