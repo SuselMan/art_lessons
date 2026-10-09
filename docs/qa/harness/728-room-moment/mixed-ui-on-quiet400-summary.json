@@ -1,0 +1,559 @@
+{
+  "scope": "Fixed authored input under real scheduler; raw wet/packed equality separate, rAF not physical visible latency",
+  "result": {
+    "identity": {
+      "actor": "c1a9176f-430a-4080-a043-e6ce13dd8299",
+      "engineActor": "c1a9176f-430a-4080-a043-e6ce13dd8299",
+      "roomId": "9jGkDkf8",
+      "authenticatedId": "c1a9176f-430a-4080-a043-e6ce13dd8299",
+      "locked": false
+    },
+    "queryConstructorFlags": {
+      "joined": true,
+      "lease": true,
+      "native": false
+    },
+    "uiControlCounts": [
+      {
+        "control": "/^(\u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c|Undo)$/",
+        "count": 1
+      },
+      {
+        "control": "/^(\u0412\u0435\u0440\u043d\u0443\u0442\u044c|Redo)$/",
+        "count": 1
+      },
+      {
+        "control": "/^(\u0412\u044b\u0441\u0443\u0448\u0438\u0442\u044c \u0432\u0441\u0451|Dry everything)$/",
+        "count": 1
+      }
+    ],
+    "valid": false,
+    "error": "Error: Loaded exit thumbnail not exactly one200",
+    "failedPhase": "loaded-exit",
+    "partialSummary": {
+      "ui": {
+        "phase": "complete",
+        "at": 49720.30000001192,
+        "operations": [
+          {
+            "id": "8LejssF3JH",
+            "type": "stroke",
+            "strokeId": "QAwater001"
+          },
+          {
+            "id": "PIQdtCYjbk",
+            "type": "stroke",
+            "strokeId": "QApigmt002"
+          },
+          {
+            "id": "UHDFS7VvwA",
+            "type": "operation_undo",
+            "target": "PIQdtCYjbk"
+          },
+          {
+            "id": "8veZJt28Jq",
+            "type": "operation_redo",
+            "target": "PIQdtCYjbk"
+          },
+          {
+            "id": "TPu7Ga-YhW",
+            "type": "paper_dry"
+          }
+        ],
+        "pending": false,
+        "settle": false,
+        "rebuilds": 0
+      },
+      "operations": [
+        {
+          "id": "8LejssF3JH",
+          "type": "stroke",
+          "strokeId": "QAwater001"
+        },
+        {
+          "id": "PIQdtCYjbk",
+          "type": "stroke",
+          "strokeId": "QApigmt002"
+        },
+        {
+          "id": "UHDFS7VvwA",
+          "type": "operation_undo",
+          "target": "PIQdtCYjbk"
+        },
+        {
+          "id": "8veZJt28Jq",
+          "type": "operation_redo",
+          "target": "PIQdtCYjbk"
+        },
+        {
+          "id": "TPu7Ga-YhW",
+          "type": "paper_dry"
+        }
+      ],
+      "locked": false,
+      "pending": false,
+      "settle": false,
+      "rows": 2,
+      "markers": 1857
+    }
+  },
+  "passport": {
+    "apps/web/src/pages/Room/index.tsx": "017a2174c74b786f4d164d253eb826384e2334a1c5771bb3d130f1e1b58ddfe5",
+    "apps/web/src/pages/Room/engineWiring.ts": "9f3cfbb4db09571dfe0d091f32fa7a9d4dd11e598e09c5853609e71e7da98278",
+    "apps/web/src/engine/index.ts": "c24529a44328d550251d3d51acdd3cf0e5518ae79167ce9eb2aa2c6ea07b0de6",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "40e7173707338a9a72b7c7bb263b7be23f9693011c93d5a7c33029e22cad1661",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+    "apps/web/src/engine/src/buffers/RibbonStrokeScratch.ts": "24210ad3fb76a8e25c76a6d6d25f6c2a4142d0c98df3889d504ba36750c14d54",
+    "apps/web/src/engine/src/dabs/DabSystem.ts": "816911a80216b7e80bdd1ba7c11be3ea2e02bf3560bc629197a5f7961266c5b3",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+    "apps/web/src/engine/src/paper/paperWetness.ts": "9edaf471f083947f82461e78d4fa8e3d46ecd985611abdfc688cc891c4b7762d",
+    "docs/qa/harness/728-room-moment/MixedLeaseNatural400.mjs": "58b877b38ee5b6bc0b1d6c4ef557b7b3523778520b60513fd1c47f34386e03f4",
+    "docs/qa/harness/728-room-moment/ContinuousPenStroke.mjs": "7079a6f92c921b2f81e9ab0959864b0954fbb55e53ea29a769ac24b2def2648f",
+    "docs/qa/harness/728-room-moment/ContinuousPenRecipe.mjs": "ed9d5d70c674461acf8478f8a5a0158270e1acc9e31280f7f8fa8beec3155710",
+    "docs/qa/harness/728-room-moment/Fixed400Tape.mjs": "9da0a30763c2aeca29f2ea9a5c1451d71024b16cb8218f6c6e633f49e1940eac",
+    "docs/qa/harness/728-room-moment/Fixed400MaterialGate.mjs": "7eb9188febf8f51737aaf0f861d0b49e80e1a0dff9d9e594e92c57125d2bbcd9",
+    "docs/qa/harness/728-room-moment/MixedLeaseUiLifecycle.mjs": "f269d354d7ad34c6423bf0230474d4b97df59330f6c99c1c43b4b04758f05372",
+    "docs/qa/harness/728-room-moment/MixedLeaseUiAssertions.mjs": "f6c52d47cf4cf81411f9cdf7fe2dafeef4eb64d11bdf2f200f85e510656f3903",
+    "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "66f3f567102bc60c14ed84b388b00a1c68d1b8c89ebdb63523c240b362c0ed83",
+    "docs/qa/harness/728-room-moment/HttpActorTrace.mjs": "3f9d1419dc26ef3cfb61a840ebcf30200db98498fee45fbe43a769dca659e99f",
+    "docs/qa/harness/728-room-moment/ThumbnailQuietGate.mjs": "6023cfe9b6b765f195a6c30c66d24c91a8b28082da5da6d190b8d103dc548aa8",
+    "docs/qa/harness/728-room-moment/Natural400Metrics.mjs": "ca77c44f56a498a0fd95917561486ee3000c499f7192b1271758c1a11c68c741",
+    "docs/qa/harness/728-room-moment/PassiveMemoryGate.mjs": "199f09215e7495d9650e603caa15e2f1a3b68bb0261acc968a9841cc9489c98d"
+  },
+  "paperPassport": {
+    "manifest.json": {
+      "bytes": 6532,
+      "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+    },
+    "fine.e59ea6fa.paper": {
+      "bytes": 3983406,
+      "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+    },
+    "fine.a19fcf63.preview": {
+      "bytes": 59686,
+      "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+    }
+  },
+  "rows": [
+    {
+      "enabled": true,
+      "fixedInput": true,
+      "queryConstructorFlags": {
+        "joined": true,
+        "lease": true,
+        "native": false
+      },
+      "uiControlCounts": [
+        {
+          "control": "/^(\u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c|Undo)$/",
+          "count": 1
+        },
+        {
+          "control": "/^(\u0412\u0435\u0440\u043d\u0443\u0442\u044c|Redo)$/",
+          "count": 1
+        },
+        {
+          "control": "/^(\u0412\u044b\u0441\u0443\u0448\u0438\u0442\u044c \u0432\u0441\u0451|Dry everything)$/",
+          "count": 1
+        }
+      ],
+      "uiLifecycle": {
+        "before": {
+          "sha": "9b4564173d928f831472bd1e92a24c9b671a38ce679d7eb0f82dece46ee91016",
+          "width": 1024,
+          "height": 1024,
+          "nonwhite": 1048576,
+          "glError": 0,
+          "lost": false
+        },
+        "undo": {
+          "sha": "5ed2f5dbb52772768d27373c4f6e563624c4b2c5521654dbf73dadf97417f6ec",
+          "width": 1024,
+          "height": 1024,
+          "nonwhite": 1048576,
+          "glError": 0,
+          "lost": false
+        },
+        "redo": {
+          "sha": "9b4564173d928f831472bd1e92a24c9b671a38ce679d7eb0f82dece46ee91016",
+          "width": 1024,
+          "height": 1024,
+          "nonwhite": 1048576,
+          "glError": 0,
+          "lost": false
+        },
+        "dry": {
+          "sha": "9b4564173d928f831472bd1e92a24c9b671a38ce679d7eb0f82dece46ee91016",
+          "width": 1024,
+          "height": 1024,
+          "nonwhite": 1048576,
+          "glError": 0,
+          "lost": false
+        },
+        "beforeHistory": [
+          {
+            "id": "8LejssF3JH",
+            "type": "stroke",
+            "strokeId": "QAwater001"
+          },
+          {
+            "id": "PIQdtCYjbk",
+            "type": "stroke",
+            "strokeId": "QApigmt002"
+          }
+        ],
+        "undoHistory": [
+          {
+            "id": "8LejssF3JH",
+            "type": "stroke",
+            "strokeId": "QAwater001"
+          },
+          {
+            "id": "UHDFS7VvwA",
+            "type": "operation_undo"
+          }
+        ],
+        "redoHistory": [
+          {
+            "id": "8LejssF3JH",
+            "type": "stroke",
+            "strokeId": "QAwater001"
+          },
+          {
+            "id": "PIQdtCYjbk",
+            "type": "stroke",
+            "strokeId": "QApigmt002"
+          },
+          {
+            "id": "UHDFS7VvwA",
+            "type": "operation_undo"
+          },
+          {
+            "id": "8veZJt28Jq",
+            "type": "operation_redo"
+          }
+        ],
+        "wetBeforeDry": 7107,
+        "wetAfterDry": 0,
+        "operations": [
+          {
+            "id": "8LejssF3JH",
+            "type": "stroke",
+            "strokeId": "QAwater001"
+          },
+          {
+            "id": "PIQdtCYjbk",
+            "type": "stroke",
+            "strokeId": "QApigmt002"
+          },
+          {
+            "id": "UHDFS7VvwA",
+            "type": "operation_undo",
+            "target": "PIQdtCYjbk"
+          },
+          {
+            "id": "8veZJt28Jq",
+            "type": "operation_redo",
+            "target": "PIQdtCYjbk"
+          },
+          {
+            "id": "TPu7Ga-YhW",
+            "type": "paper_dry"
+          }
+        ],
+        "scope": "Actual buttons, dry op, whole after canonical idle. No inside timing readbacks."
+      },
+      "thumbnailQuietProof": {
+        "elapsedMs": 795,
+        "lastResponseObservedWallTime": 1791547415601,
+        "pending": false,
+        "remainingMs": 0,
+        "quietMs": 3250,
+        "scope": "Passive QA quiet since latest observed thumbnail RESPONSE; no network suppression/retry"
+      },
+      "pending": true,
+      "lease": true,
+      "downDrains": 0,
+      "metrics": {
+        "downHandlerMs": 2.400000035762787,
+        "downToSourceBeginMs": 0.6000000238418579,
+        "downToSourceEndMs": 1.300000011920929,
+        "downToDisplayBeginMs": 1.7000000476837158,
+        "downToDisplayEndMs": 2,
+        "upHandlerMs": 86.40000003576279,
+        "upBeginToFirstRafCallbackMs": 106.40000003576279,
+        "upReturnToFirstRafCallbackMs": 20,
+        "upReturnToScheduledHoverMs": 45.30000001192093,
+        "hoverHandlerMs": 0.09999996423721313,
+        "completeSettle": [
+          {
+            "phase": "up",
+            "ms": 35.60000002384186
+          }
+        ],
+        "frameGaps": {
+          "count": 216,
+          "medianMs": 16.69999999999709,
+          "p95Ms": 16.900000000001455,
+          "maxMs": 33.29999999999927
+        },
+        "scope": "CPU submission and synthetic rAF/hover availability; hover deliberately after3frames; not physical visible latency"
+      },
+      "glError": 0,
+      "lost": false,
+      "longTasks": [
+        {
+          "at": 25923.19999998808,
+          "end": 26059.19999998808,
+          "ms": 136
+        },
+        {
+          "at": 27856.5,
+          "end": 27963.5,
+          "ms": 107
+        },
+        {
+          "at": 39206.30000001192,
+          "end": 39308.30000001192,
+          "ms": 102
+        }
+      ],
+      "export": {
+        "begin": 39207.39999997616,
+        "end": 39387.30000001192,
+        "bytes": 1164877
+      },
+      "loadedExit": {
+        "beginWallTime": 1791547418884,
+        "expectedPath": "/create",
+        "actualPath": "/create",
+        "uploads": [
+          {
+            "requestId": "2096.1308",
+            "method": "POST",
+            "endpoint": "/api/rooms/<room>/thumbnail",
+            "requestTimestamp": 522406.620892,
+            "wallTime": 1791547420.948033,
+            "status": 200,
+            "responseTimestamp": 522407.056551,
+            "responseObservedWallTime": 1791547422814
+          },
+          {
+            "requestId": "2096.1314",
+            "method": "POST",
+            "endpoint": "/api/rooms/<room>/thumbnail",
+            "requestTimestamp": 522410.020895,
+            "wallTime": 1791547424.347976,
+            "status": 200,
+            "responseTimestamp": 522410.257604,
+            "responseObservedWallTime": 1791547424607
+          }
+        ],
+        "scope": "Actual Leave UI after timed input/export; no additional shader read instrumentation"
+      },
+      "sourceSeeds": [
+        {
+          "strokeId": "QAwater001",
+          "seed": [
+            197.659793814433,
+            502.02247191011236
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ]
+        },
+        {
+          "strokeId": "QApigmt002",
+          "seed": [
+            455.4020618556701,
+            738.9775280898876
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "strokeId": "QAwater001",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "count": 104,
+          "arcLength": 1645.226915060252,
+          "packedSHA": "fafe2d0ee2907af10ad03cc75e466d101b4a7d943e95214c8229eefc7850d790",
+          "wetSHA": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "operationSHA": "16ef4c9f72d1bdf7f47eadb867dbeddb219083c03222c5d42e80713c464154b9"
+        },
+        {
+          "strokeId": "QApigmt002",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ],
+          "count": 104,
+          "arcLength": 1645.226915060252,
+          "packedSHA": "fafe2d0ee2907af10ad03cc75e466d101b4a7d943e95214c8229eefc7850d790",
+          "wetSHA": "4f658943e167a30d385e0e2fff76882211974547d243b615997c727e486948c0",
+          "operationSHA": "4b8a1b19720ef063492e1c25a7742a711c12c73cc0cafa60f85fc3a2fd6f2427"
+        }
+      ],
+      "cadence": [
+        {
+          "ordinal": 0,
+          "frames": 108,
+          "handlers": 110,
+          "duration": 1935
+        },
+        {
+          "ordinal": 1,
+          "frames": 108,
+          "handlers": 110,
+          "duration": 1904.199999988079
+        }
+      ],
+      "phaseCosts": {
+        "display-submission": {
+          "count": 319,
+          "total": 366.40000051259995,
+          "max": 8.5
+        },
+        "down": {
+          "count": 2,
+          "total": 15.5,
+          "max": 13.099999964237213
+        },
+        "up": {
+          "count": 2,
+          "total": 186.4000000357628,
+          "max": 100
+        },
+        "pigment-source": {
+          "count": 32,
+          "total": 58.09999996423721,
+          "max": 25.099999964237213
+        },
+        "settleQueue:advance": {
+          "count": 746,
+          "total": 101.69999974966049,
+          "max": 1.600000023841858
+        },
+        "settleQueue:tick": {
+          "count": 751,
+          "total": 134.099999666214,
+          "max": 1.699999988079071
+        },
+        "completeSettle": {
+          "count": 1,
+          "total": 35.60000002384186,
+          "max": 35.60000002384186
+        },
+        "post-up-raf": {
+          "count": 3,
+          "total": 0,
+          "max": 0
+        },
+        "next-hover": {
+          "count": 1,
+          "total": 0.09999996423721313,
+          "max": 0.09999996423721313
+        }
+      }
+    }
+  ],
+  "memory": [
+    {
+      "phase": "preflight",
+      "enabled": true,
+      "free": 2129,
+      "attempt": 0,
+      "elapsedMs": 1332
+    },
+    {
+      "phase": "ON",
+      "free": 1933
+    },
+    {
+      "phase": "ON",
+      "free": 1934
+    },
+    {
+      "phase": "ON",
+      "free": 1911
+    },
+    {
+      "phase": "ON",
+      "free": 1887
+    },
+    {
+      "phase": "ON",
+      "free": 1820
+    },
+    {
+      "phase": "ON",
+      "free": 1793
+    },
+    {
+      "phase": "ON",
+      "free": 1625
+    },
+    {
+      "phase": "ON",
+      "free": 1706
+    },
+    {
+      "phase": "ON",
+      "free": 1728
+    },
+    {
+      "phase": "ON",
+      "free": 1715
+    },
+    {
+      "phase": "ON",
+      "free": 1672
+    },
+    {
+      "phase": "ON",
+      "free": 1279
+    },
+    {
+      "phase": "ON",
+      "free": 1277
+    },
+    {
+      "phase": "ON",
+      "free": 1342
+    },
+    {
+      "phase": "ON",
+      "free": 1209
+    },
+    {
+      "phase": "ON",
+      "free": 1159
+    },
+    {
+      "phase": "ON",
+      "free": 1213
+    },
+    {
+      "phase": "closed",
+      "free": 1593
+    }
+  ],
+  "errors": [],
+  "networkErrors": [],
+  "classification": "ON actual UI Undo/Redo/Dry PASS; quiet response PASS; two200 thumbnail writes in broad pre-dialog exit window made exactone assertion overstrict. Rejoin not executed, no paired pixel claim."
+}
