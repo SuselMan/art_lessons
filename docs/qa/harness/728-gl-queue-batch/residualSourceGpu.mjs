@@ -1,5 +1,7 @@
 import{PreviewInitialMomentPool,RESIDUAL_MULTISCALE_BYTES}from'./PreviewInitialMomentPool.mjs';
 import{createPreviewManualMaterial}from'./PreviewManualMaterial.mjs';
+/** Preserve production render-target draw contract on an owned plain Float descriptor. */
+export function residualFixtureDrawTarget(gl,field){return{...field,beginReplaceDraw(){gl.bindFramebuffer(gl.FRAMEBUFFER,field.fbo);gl.viewport(0,0,field.width,field.height);gl.disable(gl.BLEND)},endDraw(){gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.disable(gl.BLEND);gl.blendEquation(gl.FUNC_ADD)}}}
 /** Tiny source-only t0 gate. No Room, FIFO, settle, movie or latency assertion. */
 export async function runResidualSourceGpu(){
  const[{PencilEngine},{RibbonStrokeScratch},{ribbonProfileFor},{AccumulationBuffer}]=await Promise.all([import('/src/engine/index.ts'),import('/src/engine/src/buffers/RibbonStrokeScratch.ts'),import('/src/engine/src/dabs/ribbonProfile.ts'),import('/src/engine/src/buffers/AccumulationBuffer.ts')]);
@@ -17,7 +19,7 @@ export async function runResidualSourceGpu(){
   if(!captured||!captured[6]||!captured[7])throw Error('Actual P/C composite capture absent');checkpoint('actual-source');
   const sourceP=captured[6],sourceC=captured[7],target=captured[0].buffer;
   pool=new PreviewInitialMomentPool(e.gl,{budgetBytes:RESIDUAL_MULTISCALE_BYTES,excluded:[sourceP,sourceC,target,captured[4],captured[5]]});mobile=pool.take();initial=pool.take();fixed=pool.take();checkpoint('float-allocation');
-  for(const[out,src]of[[mobile.fields.p,sourceP],[mobile.fields.c,sourceC]])e._watercolorPasses.wcResample(out,0,0,128,128,src,0,0,8,0);checkpoint('production-resample');
+  for(const[out,src]of[[mobile.fields.p,sourceP],[mobile.fields.c,sourceC]])e._watercolorPasses.wcResample(residualFixtureDrawTarget(e.gl,out),0,0,128,128,src,0,0,8,0);checkpoint('production-resample');
   initial.initialize(mobile.fields.p,mobile.fields.c);checkpoint('immutable-initial-copy');
   for(const f of Object.values(fixed.fields)){e.gl.bindFramebuffer(e.gl.FRAMEBUFFER,f.fbo);e.gl.disable(e.gl.SCISSOR_TEST);e.gl.colorMask(true,true,true,true);e.gl.clearColor(0,0,0,0);e.gl.clear(e.gl.COLOR_BUFFER_BIT)}checkpoint('fixed-zero');
   manual=await createPreviewManualMaterial(e._ribbonPasses,{finiteSettling:true,residualMaterial:true});checkpoint('residual-compile');
