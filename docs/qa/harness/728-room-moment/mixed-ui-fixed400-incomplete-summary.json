@@ -1,0 +1,313 @@
+{
+  "scope": "Fixed authored input under real scheduler; raw wet/packed equality separate, rAF not physical visible latency",
+  "result": {
+    "identity": {
+      "actor": "9063f7d2-8cab-4744-93d2-e2744d61e699",
+      "engineActor": "9063f7d2-8cab-4744-93d2-e2744d61e699",
+      "roomId": "8nuonyRN",
+      "authenticatedId": "9063f7d2-8cab-4744-93d2-e2744d61e699",
+      "locked": false
+    },
+    "queryConstructorFlags": {
+      "joined": true,
+      "lease": false,
+      "native": false
+    },
+    "valid": false,
+    "error": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: /^(Отменить|Undo)$/ }) resolved to 2 elements:\n    1) <button aria-label=\"Отменить\" title=\"Отменить  Ctrl+Z\" class=\"_headerIconBtn_vwl67_190\">…</button> aka getByRole('button', { name: 'Отменить', description: 'Отменить Ctrl+Z', exact: true })\n    2) <button data-slot=\"6\" aria-pressed=\"false\" class=\"_btn_1jfe6_56\" aria-label=\"Отменить\" title=\"Отменить  Ctrl+Z — удерживайте, чтобы изменить кнопку\">…</button> aka getByRole('button', { name: 'Отменить', description: 'Отменить Ctrl+Z — удерживайте, чтобы изменить кнопку' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: /^(Отменить|Undo)$/ })\u001b[22m\n",
+    "failedPhase": "ui-lifecycle",
+    "partialSummary": {
+      "locked": false,
+      "pending": false,
+      "settle": false,
+      "liveRows": 2,
+      "liveMarkers": 1633
+    }
+  },
+  "passport": {
+    "apps/web/src/pages/Room/index.tsx": "017a2174c74b786f4d164d253eb826384e2334a1c5771bb3d130f1e1b58ddfe5",
+    "apps/web/src/pages/Room/engineWiring.ts": "9f3cfbb4db09571dfe0d091f32fa7a9d4dd11e598e09c5853609e71e7da98278",
+    "apps/web/src/engine/index.ts": "c24529a44328d550251d3d51acdd3cf0e5518ae79167ce9eb2aa2c6ea07b0de6",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "40e7173707338a9a72b7c7bb263b7be23f9693011c93d5a7c33029e22cad1661",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+    "apps/web/src/engine/src/buffers/RibbonStrokeScratch.ts": "24210ad3fb76a8e25c76a6d6d25f6c2a4142d0c98df3889d504ba36750c14d54",
+    "apps/web/src/engine/src/dabs/DabSystem.ts": "816911a80216b7e80bdd1ba7c11be3ea2e02bf3560bc629197a5f7961266c5b3",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+    "apps/web/src/engine/src/paper/paperWetness.ts": "9edaf471f083947f82461e78d4fa8e3d46ecd985611abdfc688cc891c4b7762d",
+    "docs/qa/harness/728-room-moment/MixedLeaseNatural400.mjs": "58b877b38ee5b6bc0b1d6c4ef557b7b3523778520b60513fd1c47f34386e03f4",
+    "docs/qa/harness/728-room-moment/ContinuousPenStroke.mjs": "7079a6f92c921b2f81e9ab0959864b0954fbb55e53ea29a769ac24b2def2648f",
+    "docs/qa/harness/728-room-moment/ContinuousPenRecipe.mjs": "ed9d5d70c674461acf8478f8a5a0158270e1acc9e31280f7f8fa8beec3155710",
+    "docs/qa/harness/728-room-moment/Fixed400Tape.mjs": "9da0a30763c2aeca29f2ea9a5c1451d71024b16cb8218f6c6e633f49e1940eac",
+    "docs/qa/harness/728-room-moment/Fixed400MaterialGate.mjs": "7eb9188febf8f51737aaf0f861d0b49e80e1a0dff9d9e594e92c57125d2bbcd9",
+    "docs/qa/harness/728-room-moment/MixedLeaseUiLifecycle.mjs": "040ed38147946afbd38169d13c182a75058c87f59b59d8b83c0df5c2fa0c8e67",
+    "docs/qa/harness/728-room-moment/MixedLeaseUiAssertions.mjs": "3bcdc6d9b49d8ddd710bd4203b15359825885884176c0410e29431a12f1ccb79",
+    "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "66f3f567102bc60c14ed84b388b00a1c68d1b8c89ebdb63523c240b362c0ed83",
+    "docs/qa/harness/728-room-moment/HttpActorTrace.mjs": "c174786be5cd5f4cfe02043e71a0d875ccf4f83f05722407fa166da548f4a8ba",
+    "docs/qa/harness/728-room-moment/Natural400Metrics.mjs": "ca77c44f56a498a0fd95917561486ee3000c499f7192b1271758c1a11c68c741",
+    "docs/qa/harness/728-room-moment/PassiveMemoryGate.mjs": "199f09215e7495d9650e603caa15e2f1a3b68bb0261acc968a9841cc9489c98d"
+  },
+  "paperPassport": {
+    "manifest.json": {
+      "bytes": 6532,
+      "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+    },
+    "fine.e59ea6fa.paper": {
+      "bytes": 3983406,
+      "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+    },
+    "fine.a19fcf63.preview": {
+      "bytes": 59686,
+      "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+    }
+  },
+  "rows": [
+    {
+      "enabled": false,
+      "fixedInput": true,
+      "queryConstructorFlags": {
+        "joined": true,
+        "lease": false,
+        "native": false
+      },
+      "pending": true,
+      "lease": false,
+      "downDrains": 1,
+      "metrics": {
+        "downHandlerMs": 31.599999964237213,
+        "downToSourceBeginMs": 26.5,
+        "downToSourceEndMs": 27.899999976158142,
+        "downToDisplayBeginMs": 28.69999998807907,
+        "downToDisplayEndMs": 31.099999964237213,
+        "upHandlerMs": 58.80000001192093,
+        "upBeginToFirstRafCallbackMs": 95.19999998807907,
+        "upReturnToFirstRafCallbackMs": 36.39999997615814,
+        "upReturnToScheduledHoverMs": 56.5,
+        "hoverHandlerMs": 0,
+        "completeSettle": [
+          {
+            "phase": "down",
+            "ms": 24.69999998807907
+          }
+        ],
+        "frameGaps": {
+          "count": 216,
+          "medianMs": 16.700000000000728,
+          "p95Ms": 17,
+          "maxMs": 1183.4000000000015
+        },
+        "scope": "CPU submission and synthetic rAF/hover availability; hover deliberately after3frames; not physical visible latency"
+      },
+      "glError": 0,
+      "lost": false,
+      "longTasks": [
+        {
+          "at": 18976.30000001192,
+          "end": 19055.30000001192,
+          "ms": 79
+        },
+        {
+          "at": 20857.80000001192,
+          "end": 21028.80000001192,
+          "ms": 171
+        },
+        {
+          "at": 23978.600000023842,
+          "end": 24073.600000023842,
+          "ms": 95
+        },
+        {
+          "at": 34761.700000047684,
+          "end": 34864.700000047684,
+          "ms": 103
+        }
+      ],
+      "export": {
+        "begin": 34762.700000047684,
+        "end": 34945.40000003576,
+        "bytes": 1164877
+      },
+      "sourceSeeds": [
+        {
+          "strokeId": "QAwater001",
+          "seed": [
+            197.659793814433,
+            502.02247191011236
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ]
+        },
+        {
+          "strokeId": "QApigmt002",
+          "seed": [
+            455.4020618556701,
+            738.9775280898876
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "strokeId": "QAwater001",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "count": 104,
+          "arcLength": 1645.226915060252,
+          "packedSHA": "fafe2d0ee2907af10ad03cc75e466d101b4a7d943e95214c8229eefc7850d790",
+          "wetSHA": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "operationSHA": "c1f1da9d622f11c431da835220c7dcf2309023e3ecc440b71150bf2cae302a4a"
+        },
+        {
+          "strokeId": "QApigmt002",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ],
+          "count": 104,
+          "arcLength": 1645.226915060252,
+          "packedSHA": "fafe2d0ee2907af10ad03cc75e466d101b4a7d943e95214c8229eefc7850d790",
+          "wetSHA": "4f658943e167a30d385e0e2fff76882211974547d243b615997c727e486948c0",
+          "operationSHA": "3cde85ac77b38e321e5af4c70185d168b885dc03d2ade4301b53993ec585a2df"
+        }
+      ],
+      "cadence": [
+        {
+          "ordinal": 0,
+          "frames": 108,
+          "handlers": 110,
+          "duration": 1949.7000000476837
+        },
+        {
+          "ordinal": 1,
+          "frames": 108,
+          "handlers": 110,
+          "duration": 3080.900000035763
+        }
+      ],
+      "phaseCosts": {
+        "display-submission": {
+          "count": 308,
+          "total": 366.39999932050705,
+          "max": 11.699999988079071
+        },
+        "down": {
+          "count": 2,
+          "total": 60.09999996423721,
+          "max": 31.599999964237213
+        },
+        "up": {
+          "count": 2,
+          "total": 127.50000005960464,
+          "max": 68.70000004768372
+        },
+        "completeSettle": {
+          "count": 1,
+          "total": 24.69999998807907,
+          "max": 24.69999998807907
+        },
+        "pigment-source": {
+          "count": 32,
+          "total": 49.500000059604645,
+          "max": 20.399999976158142
+        },
+        "settleQueue:advance": {
+          "count": 642,
+          "total": 81.30000132322311,
+          "max": 1.399999976158142
+        },
+        "settleQueue:tick": {
+          "count": 642,
+          "total": 107.90000104904175,
+          "max": 1.399999976158142
+        },
+        "post-up-raf": {
+          "count": 3,
+          "total": 0,
+          "max": 0
+        },
+        "next-hover": {
+          "count": 1,
+          "total": 0,
+          "max": 0
+        }
+      }
+    }
+  ],
+  "memory": [
+    {
+      "phase": "preflight",
+      "enabled": false,
+      "free": 2213,
+      "attempt": 0,
+      "elapsedMs": 1452
+    },
+    {
+      "phase": "OFF",
+      "free": 1961
+    },
+    {
+      "phase": "OFF",
+      "free": 1946
+    },
+    {
+      "phase": "OFF",
+      "free": 1918
+    },
+    {
+      "phase": "OFF",
+      "free": 1890
+    },
+    {
+      "phase": "OFF",
+      "free": 1813
+    },
+    {
+      "phase": "OFF",
+      "free": 1690
+    },
+    {
+      "phase": "OFF",
+      "free": 1730
+    },
+    {
+      "phase": "OFF",
+      "free": 1770
+    },
+    {
+      "phase": "OFF",
+      "free": 1714
+    },
+    {
+      "phase": "OFF",
+      "free": 1312
+    },
+    {
+      "phase": "OFF",
+      "free": 1268
+    },
+    {
+      "phase": "OFF",
+      "free": 1299
+    },
+    {
+      "phase": "closed",
+      "free": 1691
+    }
+  ],
+  "errors": [],
+  "networkErrors": []
+}
