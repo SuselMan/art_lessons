@@ -62,3 +62,60 @@ it('DEV publication rejection marker retains original failure and cancellation',
  for(let n=0;n<10&&fifo.pending;n++){await Promise.resolve();const first=frames.entries().next().value;if(first){frames.delete(first[0]);first[1]()}}
  expect(errors).toEqual([failure]);expect(phases).toContain('publish:failed');expect(phases).not.toContain('complete');expect(fifo.pending).toBe(false)
 })
+
+it('explicit cap8/16/32 changes only quantum grouping, preserving material/source bytes and order',async()=>{
+ const run=async(cap:number|undefined)=>{
+  const frames=new Map<number,()=>void>();let handle=0,step=0,cycles=0
+  const material=new Uint8Array(40),events:string[]=[],groups:number[]=[],errors:unknown[]=[]
+  const fifo=new WatercolorCanonicalFIFO({blocked:()=>false,schedule:cb=>{frames.set(++handle,cb);return handle},unschedule:h=>frames.delete(h),changed:vi.fn(),failed:e=>errors.push(e)})
+  const central=new RoomNativeCentralAdapter(fifo,vi.fn());if(cap!==undefined)central.setDiagnosticMaterialQuantumCap(cap)
+  const done=central.admitFactory(()=>({step:()=>{material[step]=step+1;events.push('step'+step);return ++step===40},finish:()=>events.push('finish'),publish:()=>{events.push('publish');return Promise.resolve()},dispose:()=>events.push('dispose')}))
+  central.enqueueSource(()=>events.push('sourceAfter:'+material.reduce((a,b)=>a+b,0)),()=>Promise.resolve())
+  for(let n=0;n<100&&fifo.pending;n++){await Promise.resolve();const first=frames.entries().next().value;if(first){const before=step;frames.delete(first[0]);first[1]();cycles++;if(step>before)groups.push(step-before)}}
+  await done;expect(errors).toEqual([]);return{material,events,groups,cycles}
+ }
+ const defaultRun=await run(undefined),eight=await run(8),sixteen=await run(16),thirtytwo=await run(32)
+ for(const r of [eight,sixteen,thirtytwo]){expect(r.material).toEqual(defaultRun.material);expect(r.events).toEqual(defaultRun.events)}
+ expect(defaultRun.groups).toEqual(eight.groups);expect(eight.groups).toEqual([8,8,8,8,8]);expect(sixteen.groups).toEqual([16,16,8]);expect(thirtytwo.groups).toEqual([32,8])
+ expect(thirtytwo.cycles).toBeLessThan(eight.cycles)
+})
+it('quantum cap validates finite exact choices and retains4 ms CPU stop',async()=>{
+ const frames=new Map<number,()=>void>();let handle=0,steps=0
+ const fifo=new WatercolorCanonicalFIFO({blocked:()=>false,schedule:cb=>{frames.set(++handle,cb);return handle},unschedule:h=>frames.delete(h),changed:vi.fn(),failed:vi.fn()})
+ const central=new RoomNativeCentralAdapter(fifo,vi.fn())
+ for(const cap of [NaN,Infinity,-1,0,1,8.5,64])expect(()=>central.setDiagnosticMaterialQuantumCap(cap)).toThrow()
+ central.setDiagnosticMaterialQuantumCap(32)
+ const clock=vi.spyOn(performance,'now');let tick=0;clock.mockImplementation(()=>tick+=3)
+ try{
+  const done=central.admitFactory(()=>({step:()=>++steps===3,finish:()=>{},dispose:()=>{}}))
+  const frame=frames.entries().next().value!;frames.delete(frame[0]);frame[1]();expect(steps).toBe(2)
+  for(let n=0;n<10&&fifo.pending;n++){await Promise.resolve();const first=frames.entries().next().value;if(first){frames.delete(first[0]);first[1]()}}
+  await done
+ }finally{clock.mockRestore()}
+})
+
+it('all caps preserve publication barrier, cancellation/device loss and original failures',async()=>{
+ for(const cap of [8,16,32])for(const mode of ['held','cancel','loss','step-error','finish-error','publish-error']){
+  const frames=new Map<number,()=>void>();let handle=0,steps=0,disposed=0,published=0,next=0,release!:()=>void
+  const original=Error('original '+mode),errors:unknown[]=[]
+  const fifo=new WatercolorCanonicalFIFO({blocked:()=>false,schedule:cb=>{frames.set(++handle,cb);return handle},unschedule:h=>frames.delete(h),changed:vi.fn(),failed:e=>errors.push(e)})
+  const central=new RoomNativeCentralAdapter(fifo,vi.fn());central.setDiagnosticMaterialQuantumCap(cap)
+  const held=new Promise<void>(r=>{release=r})
+  const done=central.admitFactory(()=>({step:()=>{if(mode==='step-error')throw original;return ++steps===33},finish:()=>{if(mode==='finish-error')throw original},publish:()=>{published++;return mode==='publish-error'?Promise.reject(original):held},dispose:()=>{disposed++}}))
+  let rejection:unknown;const observed=done.catch(e=>{rejection=e})
+  central.enqueueSource(()=>{next++},()=>Promise.resolve())
+  const pump=async()=>{await Promise.resolve();const first=frames.entries().next().value;if(first){frames.delete(first[0]);first[1]()}}
+  if(mode==='cancel'||mode==='loss'){await pump();fifo.cancel(mode==='loss');release();for(let n=0;n<4;n++)await pump();await observed;expect(rejection).toBeInstanceOf(Error);expect(next).toBe(0);expect(disposed).toBe(1);expect(fifo.pending).toBe(false)}
+  else if(mode==='held'){for(let n=0;n<12;n++)await pump();expect(published).toBe(1);expect(next).toBe(0);release();for(let n=0;n<30&&fifo.pending;n++)await pump();await observed;expect(rejection).toBeUndefined();expect(next).toBe(1);expect(disposed).toBe(1)}
+  else{for(let n=0;n<30&&fifo.pending;n++)await pump();await observed;expect(rejection).toBe(original);expect(errors).toEqual([original]);expect(next).toBe(0);expect(disposed).toBe(1);expect(fifo.pending).toBe(false)}
+ }
+})
+it('cap is captured at material admission, not changed halfway through its job',async()=>{
+ const frames=new Map<number,()=>void>();let handle=0,steps=0
+ const fifo=new WatercolorCanonicalFIFO({blocked:()=>false,schedule:cb=>{frames.set(++handle,cb);return handle},unschedule:h=>frames.delete(h),changed:vi.fn(),failed:vi.fn()})
+ const central=new RoomNativeCentralAdapter(fifo,vi.fn())
+ const done=central.admitFactory(()=>({step:()=>++steps===10,finish:()=>{},dispose:()=>{}}));central.setDiagnosticMaterialQuantumCap(32)
+ const first=frames.entries().next().value!;frames.delete(first[0]);first[1]();expect(steps).toBe(8)
+ for(let n=0;n<10&&fifo.pending;n++){await Promise.resolve();const frame=frames.entries().next().value;if(frame){frames.delete(frame[0]);frame[1]()}}
+ await done
+})

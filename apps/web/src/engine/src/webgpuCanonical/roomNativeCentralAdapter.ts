@@ -10,6 +10,12 @@ export class RoomNativeCentralAdapter implements RoomNativeCentralOwner {
  private readonly changed:()=>void
  private executing=false
  private ordinal=0
+ private materialQuantumCap=8
+ /** Explicit DEV-only experiment; material/publication order and4 ms budget stay unchanged. */
+ setDiagnosticMaterialQuantumCap(value:number){
+  if(!import.meta.env.DEV||!Number.isFinite(value)||![8,16,32].includes(value))throw new Error('DEV material quantum cap must be8/16/32')
+  this.materialQuantumCap=value
+ }
  /** DEV observer is OFF unless explicitly installed; never controls admission. */
  diagnosticObserver:((event:NativeFifoMarker)=>void)|null=null
  private mark(request:number,kind:NativeFifoMarker['kind'],phase:string){
@@ -44,6 +50,7 @@ export class RoomNativeCentralAdapter implements RoomNativeCentralOwner {
  /** Prepare INSIDE the already queued boundary, never append a nested settle
   * behind later source packets. The same packet owns all original passes. */
  admitFactory(prepare:()=>RoomNativeMaterialJob|null):Promise<void> {
+  const quantumCap=this.materialQuantumCap
   return new Promise((resolve,reject)=>{
    let disposed=false,settled=false,job:RoomNativeMaterialJob|null=null
    const close=()=>{if(!disposed){disposed=true;job?.dispose()}}
@@ -60,7 +67,7 @@ export class RoomNativeCentralAdapter implements RoomNativeCentralOwner {
      while(!done){
       const start=performance.now();let count=0
       owner.executing=true
-      try{do{owner.mark(id,'material','step:start');done=job.step();owner.mark(id,'material','step:done');count++}while(!done&&count<8&&performance.now()-start<4)}finally{owner.executing=false}
+      try{do{owner.mark(id,'material','step:start');done=job.step();owner.mark(id,'material','step:done');count++}while(!done&&count<quantumCap&&performance.now()-start<4)}finally{owner.executing=false}
       if(!done)yield -1
      }
      owner.mark(id,'material','finish:start')
