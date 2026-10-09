@@ -1,0 +1,160 @@
+{
+  "scope": "Synthetic four-pixel high source, zero-sum low residual; not actual retained highFloat128",
+  "input": {
+    "mass": [
+      1,
+      0,
+      0,
+      0
+    ],
+    "delta": [
+      -0.25,
+      -0.15,
+      0.15,
+      0.25
+    ],
+    "lambda": [
+      1,
+      0,
+      1,
+      1
+    ],
+    "globalLambda": 0,
+    "tau": [
+      0.7,
+      1.4,
+      0.35
+    ]
+  },
+  "clip": {
+    "mass": 1.15,
+    "negative": 0,
+    "channels": [
+      1.15,
+      1.15,
+      1.15,
+      1.15,
+      0.20124999999999998,
+      0.40249999999999997,
+      0.10062499999999999,
+      1.15
+    ],
+    "hueRatios": [
+      [
+        0.6999999999999998,
+        1.3999999999999997,
+        0.3499999999999999
+      ],
+      null,
+      [
+        0.7,
+        1.4,
+        0.35
+      ],
+      [
+        0.7,
+        1.4,
+        0.35
+      ]
+    ]
+  },
+  "localLambda": {
+    "mass": 1.15,
+    "negative": 0,
+    "channels": [
+      1.15,
+      1.15,
+      1.15,
+      1.15,
+      0.20124999999999998,
+      0.40249999999999997,
+      0.10062499999999999,
+      1.15
+    ],
+    "hueRatios": [
+      [
+        0.6999999999999998,
+        1.3999999999999997,
+        0.3499999999999999
+      ],
+      null,
+      [
+        0.7,
+        1.4,
+        0.35
+      ],
+      [
+        0.7,
+        1.4,
+        0.35
+      ]
+    ]
+  },
+  "globalLambda": {
+    "mass": 1,
+    "negative": 0,
+    "channels": [
+      1,
+      1,
+      1,
+      1,
+      0.175,
+      0.35,
+      0.0875,
+      1
+    ],
+    "hueRatios": [
+      [
+        0.7,
+        1.4,
+        0.35
+      ],
+      null,
+      null,
+      null
+    ]
+  },
+  "commonTransport": {
+    "mass": 1,
+    "negative": 0,
+    "channels": [
+      1,
+      1,
+      1,
+      1,
+      0.17499999999999996,
+      0.3499999999999999,
+      0.08749999999999998,
+      1
+    ],
+    "hueRatios": [
+      [
+        0.6999999999999998,
+        1.3999999999999997,
+        0.3499999999999999
+      ],
+      [
+        0.6999999999999998,
+        1.3999999999999997,
+        0.3499999999999999
+      ],
+      [
+        0.6999999999999998,
+        1.3999999999999997,
+        0.3499999999999999
+      ],
+      [
+        0.6999999999999998,
+        1.3999999999999997,
+        0.3499999999999999
+      ]
+    ]
+  },
+  "identityExact": true,
+  "limitations": [
+    "Local lambda does not conserve mass; global lambda can freeze the entire scene",
+    "Same lambda preserves a single colour only when P/C delta already has consistent ratios; quantized multicolour delta does not guarantee that",
+    "Column-stochastic shared transport preserves positivity/channel mass and keeps colour ratios in donor convex hull",
+    "This matrix is a witness, not a derived velocity field or practical GPU algorithm"
+  ]
+}
