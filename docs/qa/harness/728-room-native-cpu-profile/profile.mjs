@@ -1,9 +1,10 @@
 import fs from 'node:fs'
 export function summarizeCpuProfile(profile){
- const nodes=new Map(profile.nodes.map(n=>[n.id,n])),exclusive=new Map();let clock=profile.startTime,total=0
+ const nodes=new Map(profile.nodes.map(n=>[n.id,n])),exclusive=new Map(),counts=new Map();let clock=profile.startTime,total=0
  if((profile.samples?.length??0)!==(profile.timeDeltas?.length??0))throw Error('CPU profile samples/timeDeltas mismatch')
- for(let i=0;i<(profile.samples?.length??0);i++){const us=profile.timeDeltas[i];if(!Number.isFinite(us)||us<0||!nodes.has(profile.samples[i]))throw Error('Invalid CPU profile sample');clock+=us;total+=us;exclusive.set(profile.samples[i],(exclusive.get(profile.samples[i])??0)+us)}
- const rows=profile.nodes.map(n=>({id:n.id,function:n.callFrame.functionName||'(anonymous)',url:n.callFrame.url,line:n.callFrame.lineNumber+1,exclusiveMs:(exclusive.get(n.id)??0)/1000,children:n.children??[]}));
+ for(let i=0;i<(profile.samples?.length??0);i++){const us=profile.timeDeltas[i];if(!Number.isFinite(us)||us<0||!nodes.has(profile.samples[i]))throw Error('Invalid CPU profile sample');clock+=us;total+=us;exclusive.set(profile.samples[i],(exclusive.get(profile.samples[i])??0)+us);counts.set(profile.samples[i],(counts.get(profile.samples[i])??0)+1)}
+ const inclusive=(id,seen=new Set())=>{if(seen.has(id))throw Error('CPU profile call graph cycle');seen.add(id);let us=exclusive.get(id)??0;for(const child of nodes.get(id).children??[]){if(!nodes.has(child))throw Error('CPU profile child absent');us+=inclusive(child,new Set(seen))}return us}
+ const rows=profile.nodes.map(n=>({id:n.id,function:n.callFrame.functionName||'(anonymous)',url:n.callFrame.url,line:n.callFrame.lineNumber+1,exclusiveMs:(exclusive.get(n.id)??0)/1000,inclusiveMs:inclusive(n.id)/1000,sampleCount:counts.get(n.id)??0,children:n.children??[]}));
  return{sampledMs:total/1000,startTimeUs:profile.startTime,endTimeUs:profile.endTime,sampleEndUs:clock,topExclusive:[...rows].sort((a,b)=>b.exclusiveMs-a.exclusiveMs).slice(0,30),nodes:rows,scope:'V8 CPU sampling attribution; idle/program/native frames are not GPU duration. Profiler changes scheduling; no uninstrumented performance A/B.'}
 }
 export async function startFirstWaterCpuProfile(send,readClock){await send('Profiler.enable');await send('Profiler.setSamplingInterval',{interval:1000});const before=await readClock();await send('Profiler.start');return{beforeStartBrowserMs:before,afterStartBrowserMs:await readClock()}}
