@@ -1,0 +1,30 @@
+{
+  "unit": {
+    "steps": 30,
+    "mass": 12.566370614359103,
+    "initialMass": 12.566370614359109,
+    "support": 585,
+    "harmonic4": 0.0258613981500985,
+    "harmonic8": 0.049335591053544604,
+    "scope": "Uniform wet disc, four-axis paired donor graph with equal edges; omits actual GPU pressure/capacity/noise. Harmonics describe this conditional oracle only."
+  },
+  "dyadic": {
+    "steps": 30,
+    "mass": 12.566370614359212,
+    "initialMass": 12.566370614359109,
+    "support": 2285,
+    "harmonic4": 0.00039811133588547117,
+    "harmonic8": 0.001874557026207578,
+    "scope": "Uniform wet disc, four-axis paired donor graph with equal edges; omits actual GPU pressure/capacity/noise. Harmonics describe this conditional oracle only."
+  },
+  "clamp": {
+    "baselineMass": 314.15926535897245,
+    "unclampedMass": 314.159265358969,
+    "clampedMass": 317.69747359060455,
+    "negativeClampAdded": 3.538208231634352,
+    "upperClampRemoved": 0,
+    "centerBefore": 0.9950124791926823,
+    "centerAfter": 0.17270304960628435,
+    "scope": "Mean-downsample radial Gaussian, conservative redistributed low mass, literal scalar base+bilerp(delta) clamp; not actual four-tap GPU source/pressure."
+  }
+}
