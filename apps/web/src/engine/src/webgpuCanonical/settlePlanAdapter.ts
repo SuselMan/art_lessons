@@ -27,10 +27,12 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  diagnosticStaticDiffuseHeight=false
  diagnosticStaticFrontCache=false
  diagnosticFrontFilmHoist=false
+ diagnosticStaticFrontCacheFactor=false
  diagnosticLazyFrontClimb=false
  diagnosticPairedCarry=false
  retireStaticFrontCache(){this.commands.retireStaticCache(cleanup=>this.owner.retireAfterOwnerScopes(cleanup))}
  get filmVariantDiagnostics(){return this.commands.filmVariantDiagnostics}
+ get factorVariantDiagnostics(){return this.commands.factorVariantDiagnostics}
  get staticFrontCacheCounters(){return this.commands.staticFrontCacheCounters}
  pairedCarryCalls=0
  diagnosticCarryOracleIndex:number|undefined
@@ -149,7 +151,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
   const size = this.owner.paper.texSize
   const paper = { ...resources.paper, staticInputEpoch:this.owner.staticInputEpoch, origin: [x0 / scale, -(y0 / scale + field.h)] as const, texSize: [size[0] / scale, size[1] / scale] as const }
   if (foreignWater && (!foreignWater.field || foreignWater.destroyed)) throw new Error('Foreign water slot has not been uploaded')
-  this.transient.push(this.commands.encode(this.ctx(), { kind: 'waterFront', resources: { ...resources, paper }, noise: this.owner.noise, params: { diagnosticSourceFilter:this.diagnosticFrontSourceFilter,diagnosticStaticCache:this.diagnosticStaticFrontCache,diagnosticFilmHoist:this.diagnosticFrontFilmHoist,diagnosticLazyClimb:this.diagnosticLazyFrontClimb,dryCost, costMax: max, climb, floor, stride, foreignFilm: foreignWater?.field ?? undefined } }))
+  this.transient.push(this.commands.encode(this.ctx(), { kind: 'waterFront', resources: { ...resources, paper }, noise: this.owner.noise, params: { diagnosticSourceFilter:this.diagnosticFrontSourceFilter,diagnosticStaticCache:this.diagnosticStaticFrontCache,diagnosticStaticCacheFactor:this.diagnosticStaticFrontCacheFactor,diagnosticFilmHoist:this.diagnosticFrontFilmHoist,diagnosticLazyClimb:this.diagnosticLazyFrontClimb,dryCost, costMax: max, climb, floor, stride, foreignFilm: foreignWater?.field ?? undefined } }))
  }
  wcResample(out: CanonicalFieldBuffer, dx: number, dy: number, width: number, height: number, source: CanonicalFieldBuffer, sx: number, sy: number, ratio: number, mode: 0 | 1 | 2, old: CanonicalFieldBuffer | null = null, base: CanonicalFieldBuffer | null = null, clamp: SettlePlanRect | null = null) {
   if (width <= 0 || height <= 0) return

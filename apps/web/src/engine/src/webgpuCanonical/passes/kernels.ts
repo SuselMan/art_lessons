@@ -147,6 +147,14 @@ export const CANONICAL_FRONT_CACHE_PREP_WGSL=CANONICAL_CACHED_WATER_FRONT_WGSL.s
  textureStore(staticFrontCache,vec2i(q),vec4f(hj,climb,0,0));
 }`;
 
+/** Separate DEV variant: cache the exact RHS factor before the original f32 multiply. */
+export const CANONICAL_FACTOR_CACHED_WATER_FRONT_WGSL=CANONICAL_CACHED_WATER_FRONT_WGSL.replace(
+ 'climb=textureLoad(staticFrontCache,vec2i(q),0).g;',
+ 'climb=u.coefficients.x*textureLoad(staticFrontCache,vec2i(q),0).g;');
+export const CANONICAL_FRONT_FACTOR_CACHE_PREP_WGSL=CANONICAL_FRONT_CACHE_PREP_WGSL.replace(
+ 'let climb=u.coefficients.x*(1.0+4.0*smoothstep(0.5,0.64,fbm((px+u.paperOrigin)*0.025+vec2f(41,7))));',
+ 'let climb=(1.0+4.0*smoothstep(0.5,0.64,fbm((px+u.paperOrigin)*0.025+vec2f(41,7))));');
+
 /** Original diffusion arithmetic with static height loads only. */
 export const CANONICAL_CACHED_DIFFUSE_WGSL=CANONICAL_DIFFUSE_WGSL
  .replace('@compute @workgroup_size','@group(0) @binding(7) var staticHeight:texture_2d<f32>;\n@compute @workgroup_size')

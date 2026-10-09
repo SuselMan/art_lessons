@@ -21,3 +21,10 @@ it('encoding failure destroys created resources and leaves no HIT',()=>{const f=
 it('device loss closes cache without reallocating',async()=>{const f=fixture();f.run();f.lose();await Promise.resolve();expect(()=>f.run()).toThrow(/unavailable/);expect(f.textures[0].destroy).toHaveBeenCalledOnce();expect(f.textures).toHaveLength(1)})
 
 it('buffer allocation rejection retires the preceding texture',()=>{const f=fixture();vi.spyOn(f.device,'createBuffer').mockImplementationOnce(()=>{throw Error('allocation failed')});expect(()=>f.run()).toThrow('allocation failed');expect(f.textures[0].destroy).toHaveBeenCalledOnce();expect(f.buffers).toHaveLength(0);f.cache.destroy()})
+it('factor cache reuses 0/20/30 but never aliases the scaled variant or stale paper',()=>{
+ const f=fixture();const run=(climb:number,r=f.resources)=>f.cache.getOrEncode(f.ctx,r,{width:251,height:251,texture:noiseTexture,view:{}} as CanonicalGpuField,[climb,.85,164,1],new Float32Array(20),undefined,false,true);const noiseTexture={} as GPUTexture
+ run(30);run(0);run(-0);run(20);expect(f.cache.prepCalls).toBe(1);expect(f.cache.hitCalls).toBe(3)
+ expect(run(20,{...f.resources,paper:{...f.resources.paper,staticInputEpoch:'new'}})).toBeNull()
+ expect(f.cache.getOrEncode(f.ctx,f.resources,{width:251,height:251,texture:noiseTexture,view:{}} as CanonicalGpuField,[30,.85,164,1],new Float32Array(20))).toBeNull()
+ let ack!:()=>void;f.cache.retire(release=>{ack=release});expect(run(20)).toBeNull();expect(f.cache.retainedBytes).toBe(18*1024*1024);expect(f.textures).toHaveLength(1);ack();run(20);expect(f.textures).toHaveLength(2);f.cache.destroy()
+})

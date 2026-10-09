@@ -67,3 +67,16 @@ it('film diagnostic passport records actual compiled source and only successful 
  p.waterFront(f.ctx,f.resources,field(251,251),{...params,diagnosticFilmHoist:true});expect(p.filmVariantDiagnostics[0].encoded).toBe(2)
  vi.spyOn(f.device,'createBindGroup').mockImplementation(()=>{throw Error('bind failed')});expect(()=>p.waterFront(f.ctx,f.resources,field(251,251),{...params,diagnosticFilmHoist:true})).toThrow();expect(p.filmVariantDiagnostics[0].encoded).toBe(2)
 })
+it('factor flag selects a distinct actual pipeline and preserves all original uniforms/dispatches',()=>{
+ const f=fixture(),p=new CanonicalFieldPasses(f.device),noise=field(251,251),codes:string[]=[]
+ vi.spyOn(CanonicalStaticFrontCache.prototype,'getOrEncode').mockReturnValue({} as GPUTextureView)
+ vi.spyOn(f.device,'createShaderModule').mockImplementation(d=>{codes.push(d.code);return {} as GPUShaderModule})
+ const params={dryCost:80,costMax:164,climb:30,floor:.85,stride:1,diagnosticStaticCache:true}
+ p.waterFront(f.ctx,f.resources,noise,params)
+ p.waterFront(f.ctx,f.resources,noise,{...params,diagnosticStaticCacheFactor:true})
+ p.waterFront(f.ctx,f.resources,noise,{...params,climb:20,diagnosticStaticCacheFactor:true})
+ expect(codes).toHaveLength(2);expect(codes[0]).toContain('climb=textureLoad(staticFrontCache,vec2i(q),0).g;');expect(codes[1]).toContain('climb=u.coefficients.x*textureLoad(staticFrontCache,vec2i(q),0).g;')
+ expect(p.factorVariantDiagnostics).toHaveLength(1);expect(p.factorVariantDiagnostics[0]).toEqual({staticCache:true,code:codes[1],encoded:2});
+ vi.spyOn(f.device,'createBindGroup').mockImplementation(()=>{throw Error('failedfactorbind')});expect(()=>p.waterFront(f.ctx,f.resources,noise,{...params,diagnosticStaticCacheFactor:true})).toThrow('failedfactorbind');expect(p.factorVariantDiagnostics[0].encoded).toBe(2);
+ expect(f.writes[0]).toEqual(f.writes[1]);expect(f.writes[2][8]).toBe(20);expect(f.dispatches).toEqual([[2,1],[2,1],[2,1]])
+})
