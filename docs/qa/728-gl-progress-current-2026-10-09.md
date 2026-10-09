@@ -55,3 +55,6 @@ Follow-up: bounded per-field NumberMap проверен и отклонён: ful
 ### Критерий следующих смотрин
 
 Новая ссылка/флаг предлагается только после независимого source review и fresh actual fullquality/lifecycle gate выбранного пакета: immutable input/seed/wet/бумага, exact material/whole, actual consumption без fallback, GL0/lostfalse, Undo/Redo/Dry/rejoin. Performance отдельно должен улучшить обе паузы (DOWN→firstsource/composite и UP→nextinteractive), без исчезновения/прозрачного временного мазка. Одна adaptive серия или ускорившийся kernel недостаточны. До этого5381 не изменяем/не перезагружаем пользовательский room, новые CPU prototypes не называем готовыми смотринaми.
+
+- [x] Retained pointer admission CPU foundation: actual PointerInput/coalesced samples + actual FIFO, immutable DOWN packet, explicit overflow/cancel; 14 combined tests + app TS PASS. Runtime OFF.
+- [ ] Actual Engine admitted-context integration / packed wet-ID parity: HOLD — current start reads mutable clock/wet/wash/constraints and generates IDs. Packet-only tests не доказывают Engine parity или UX gain. Подробнее: `728-gl-retained-pointer-foundation.md`.
