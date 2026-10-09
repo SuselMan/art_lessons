@@ -1,0 +1,146 @@
+{
+  "computedPassport": {
+    "apps/web/public/paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+    "apps/web/public/paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+    "docs/qa/harness/728-gl-queue-batch/PreviewCentreInk.mjs": "3bb2c2b333b1a429f8ff4080d99ede7aeb62b522282f836c944b551f76a296c5",
+    "docs/qa/harness/728-gl-queue-batch/PreviewSameStateInk.mjs": "50790ca26a9230e249a29f1b76940204b37974db333c8279b1afdd81f53b35bf",
+    "docs/qa/harness/728-gl-queue-batch/ResidualMaterialRatioAudit.mjs": "d22d18f907bb2c8a15a58498fd6c078c6fb70820866f51a7d8b7b320c3c47e95",
+    "docs/qa/harness/728-gl-queue-batch/NextPreviewDisplayWitness.mjs": "bff09dcc744698357900a1f30e56f60442c5b7f3c4061c8cfe5fade79e2d0c3b",
+    "docs/qa/harness/728-room-moment/previewPairedBilinear.mjs": "55cb982dc9ccf08777490dbd39c350052853f60c593fe0611b01c3514162d005",
+    "docs/qa/harness/728-gl-queue-batch/PreviewResidualMaterial.mjs": "77265e5fc697f1f57fd1d47ec0e678e04bc0d40f138a5f83f23f1be724e291fa",
+    "docs/qa/harness/728-gl-queue-batch/PreviewManualMaterial.mjs": "8dd81ed937cc115c791b318b5afc7571c6f2cc4ca4542fc893b80d0aa1edd601",
+    "apps/web/src/engine/index.ts": "ad8687731c626d52921c1cbef4a96fb2eddbf221f83cd42db62031cedb90d6d3",
+    "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "2b62d469fd8175b74cefc937fd748668e5f0367109c9cc9c8103d53f3f576c96",
+    "apps/web/src/engine/src/dabs/canonicalStrokeChunk.ts": "d5bfd4ed0f1896c39dd3fa21232b9cc5c92d96c799cb686dfbc4af26b2334197",
+    "docs/qa/harness/728-gl-queue-batch/owner-fifo-install.mjs": "9f136d3d5db8e2132686f7c86cae536d5aeab65d5ba7a079804c78d37854e617",
+    "docs/qa/harness/728-gl-queue-batch/owner-fifo-entry.html": "69855bab75b903bd8e429bb67db9f4a7d2d90c517a5c3081e138a7c56b0f31a6",
+    "docs/qa/harness/728-gl-queue-batch/ownerFifoRoomScenario.mjs": "f579b76f71c2ba844db03030afbf622c8ac786ad362a8e5e7d98e3c9ea020679",
+    "temp/owner-fifo-runtime/source-passport.json": "e8cd120ebb32468361435fc4011b98ae030f35d516e3b4eac9dc38428fadc4ab",
+    "docs/qa/harness/728-gl-queue-batch/ResidualAngularGpu.mjs": "c175df580f1ebe48a88c469abfcd56ec621577ab55e886acec5fa673ea571103",
+    "docs/qa/harness/728-gl-queue-batch/ResidualAngularMetrics.mjs": "51188cda90aa438eb555f8b9fade9c5e025c0e4e0e7b619d6892f9712b9945bb",
+    "docs/qa/harness/728-gl-queue-batch/OwnedGlPreparedSource.ts": "add0d4603a7ffbe4918722d7838601e56ebe70dcd30354888b9e21613f301c6c",
+    "docs/qa/harness/728-gl-queue-batch/OwnedPresentationMorphBridge.mjs": "dfa5598a1c826f4d7570d1b2f44b9db9dd9e51b541a5c6586f441e8331454aaa",
+    "docs/qa/harness/728-gl-queue-batch/ReservedVisualScratch.mjs": "2b947016b00925cb59292acac18eab68a000bb2f4a10ae71846d88c6d1f6464c",
+    "docs/qa/harness/728-gl-queue-batch/PrewarmedEngineRevealSlots.ts": "14b40772d539e54ccae6c5fc800e19c432206405237cb10f406aef4a8b5c297f",
+    "docs/qa/harness/728-gl-queue-batch/OwnedVisibleProbe.mjs": "aced5df9b72a18beee25b10922bbb2e516d7b06b6124186fa5ca0a44b7b47ab8",
+    "docs/qa/harness/728-gl-queue-batch/RetainedWaterProbe.mjs": "35cc5fde7cdfe8680c8004474580cac37e9ae6f36cc710ce1132a5202e108da0",
+    "docs/qa/harness/728-gl-queue-batch/OwnedPreviewRuntime.mjs": "7d243e874fadd298ed95f2d50ff9892389ed51d7a7f03bd9cb59d97ad4f21382",
+    "docs/qa/harness/728-gl-queue-batch/OwnedPreviewReleaseGuard.mjs": "b51a714eb2f62cf05f520a1ca7b7aa86a781fab69969bf9560c0f55fabb1e153",
+    "docs/qa/harness/728-gl-queue-batch/OwnedPreviewDisplayField.mjs": "74f981cc6b265b698eb183d9cc03823bcb082a1fc13fbb6e3255e71482805ca9",
+    "docs/qa/harness/728-gl-queue-batch/PrewarmedPreviewPool.mjs": "de5f6913e190ef720d189103c943ef9c7807efc962d77075e91b1191318d500e",
+    "docs/qa/harness/728-gl-queue-batch/SealedPreviewTransport.mjs": "dc73f1aa47df2ed0ee406749c4893ad61aa97b32401062fde3df183d00a48dc3",
+    "docs/qa/harness/728-gl-queue-batch/SealedPreviewGlPort.mjs": "d2982c5e1dd3a4ac0574fe1c16db6c6a11f917031978c10fe1335ccd36cdd3c0",
+    "docs/qa/harness/728-gl-queue-batch/PreviewWaterDomain.mjs": "675d4363e698346a2db3027ac51b011064a038dce8fb42ff92551b05b3adb08d",
+    "docs/qa/harness/728-gl-queue-batch/PreviewFloatProbe.mjs": "2ae2f8baaa77e9d068f2959773fe91124a75b7a5c6006a296b04ab540f67ad38",
+    "docs/qa/harness/728-gl-queue-batch/PreviewFixedPool.mjs": "b19d45762345db91811d6de5ec6da9a1d2f22e378edcd32786cd277fd028e46a",
+    "docs/qa/harness/728-gl-queue-batch/PreviewInheritedGeometry.mjs": "37da3aaa606d9409734dd4ce07985e5faf800de530e7a9e45b448147ce1052c6",
+    "docs/qa/harness/728-gl-queue-batch/PreviewPathPool.mjs": "9b6b847f65a3c004ca84f21945adddb10bd52cf435453acf5511371f3537826e",
+    "docs/qa/harness/728-gl-queue-batch/PreviewCostPathWarm.mjs": "938409eb6615446cbfc1f2037ffaadd18d67e21fd82e6f675f7cf9666c2b7343",
+    "docs/qa/harness/728-gl-queue-batch/PreviewCarryFieldProbe.mjs": "f76ddbc46870cbd8eaac8fcecc93d7454070aa0e836fe77a10b6fc8facc2e392",
+    "docs/qa/harness/728-gl-queue-batch/serializeCarryFieldProbe.mjs": "0aa695b3ba4b89dd709e476a0e0313d1048d18c22969925a949c0cf9dfbc9ec7",
+    "docs/qa/harness/728-gl-queue-batch/PreviewWetPathSeed.mjs": "2b9097e6e5755a9f61837c02b9b12e6d9e24245069950130e3d288839d85c200",
+    "docs/qa/harness/728-gl-queue-batch/PreviewMultiscaleCarry.mjs": "dffef5a04c1c044c44bb4f8ab755070c0e220df2c3a0416e3799bf7fc492392c",
+    "docs/qa/harness/728-gl-queue-batch/PreviewPressurePool.mjs": "e6a956078631eb3235e0cf0da52dd843e815cd815dbed7113bfbe649cf3a03d1",
+    "docs/qa/harness/728-gl-queue-batch/PreviewCarrySession.mjs": "b6c5aa0704a07dc62516646746d148d3556e241082c3ddaba61bfcaf7965d9e8",
+    "docs/qa/harness/728-gl-queue-batch/completeFrontCycles.mjs": "25de4983ce3fe1d949cbdbea29817c755536c9ac36ae032d6b13e36e4747db80",
+    "docs/qa/harness/728-gl-queue-batch/ownerLaunchFlags.mjs": "16127064f9dc315399d97861d470c6db1987f66592117762f5a2f3854bd1fe19",
+    "docs/qa/harness/728-gl-queue-batch/InitialMaterialComparator.mjs": "1d0822c51941ce6e5041b148ce923603335e115c7264b11e7660c0fb1d59a1e9",
+    "docs/qa/harness/728-gl-queue-batch/PreviewInitialMomentPool.mjs": "7f2372085d8d13da5eff7e89904227d881d75a45e7e5986ef1f206ca5acd2031",
+    "docs/qa/harness/728-gl-queue-batch/analyzeInitialMaterialComparison.mjs": "2a4cff2528b9d72507ccdf4c739dd751150f2d7c62b0ca16350856477cb1b9c7",
+    "docs/qa/harness/728-gl-queue-batch/PreviewCarrySourceOptions.mjs": "4adf82e5f55c6f17c1545c27bb28abb112ff75a996869b1fabc72471ca32f8f2",
+    "docs/qa/harness/728-gl-queue-batch/PreviewCarryContract.mjs": "252b7641c2f7b021315bde33c263ed79b87714039224530d92d58b390f5257c5",
+    "docs/qa/harness/728-gl-queue-batch/PreviewFrontCarryGlPort.mjs": "4a2f305a6c3c634a942216ffcdd4b3dbc2ea426e9b7ade5306cb2bcef170c0b4",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+    "docs/qa/harness/728-gl-queue-batch/PreviewFixedAccumulator.mjs": "8768f9a2b926b86580fcacfe3900a0e3f3b688003e3505ee947682e9d4f8b0dc",
+    "docs/qa/harness/728-gl-queue-batch/PreviewFractionalDiffuse.mjs": "13f4811f740d06c9c8a21bcb39371d22e4c1997703956e552315720e0479420b",
+    "docs/qa/harness/728-gl-queue-batch/PreviewSettlingBudget.mjs": "b791ff2a51c652307d9c8272fd1bebef6a54f148fb593a78306b33b773f0b8f0",
+    "docs/qa/harness/728-gl-queue-batch/PreviewDiffusionClock.mjs": "cf22b5b4037e34e2ebd86099207cc00b2d9182905671be0fcd8034806c1950a1",
+    "apps/web/src/engine/src/watercolor/wetDiffusion.ts": "8873ebb15fa8f7ede8b03f8c8c0cefb63e9dd4b13eb42612273795d3b96075b6",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+    "docs/qa/harness/728-gl-queue-batch/PreviewMaterialArtifactProbe.mjs": "4cc73cca7c20b1c1789f2b1981688aedd09178a2f8401a391768a78b46c08713",
+    "docs/qa/harness/728-gl-queue-batch/PreviewSourceSpacing.mjs": "c51b47131576f87e8db5f5015bc9354f831c9e63fa93444079f41d6884c9b5c6",
+    "docs/qa/harness/728-gl-queue-batch/prepare-owner-fifo-runtime.mjs": "2b57a44a535755e4176f1bee4d23f0ee35c2e69c5f59b39c1e6dd3cb4574a3fc",
+    "docs/qa/harness/728-gl-queue-batch/PreviewMaterialDiagnostic.mjs": "3e637b2638b1ca7471963fcd92ac658ea287f94e061ef552a33c1fbb3d1e4105",
+    "docs/qa/harness/728-gl-queue-batch/PreviewMaterialRoiTarget.mjs": "e44a6304ec0bbe94e1e67b864de5a8d488fd88a93619600765ee05e553a14f1b",
+    "docs/qa/harness/728-room-moment/TypedPreviewPool.mjs": "f79eec8212265ea192059b4044f02de5f523f4410d4fc3306e3e7b6911f7ba6c",
+    "docs/qa/harness/728-room-moment/TypedPreviewTransport.mjs": "ae60ec59d96ea1470acbc4bfbd221c7d61ba8c4197c2ef75b80fa1db11056f8b",
+    "docs/qa/harness/728-room-moment/PreviewPairedFloatAllocator.mjs": "d1c1c0822c56a8a78efd08d1ed3f729ef11343e166d0f5dea5c1ada3f2048b14",
+    "docs/qa/harness/728-gl-queue-batch/PreviewMaterialSampling.mjs": "4c89b2fcc524f07606b3f6987bea314816d1a6b2ee7261658948fe421c720930",
+    "docs/qa/harness/728-gl-queue-batch/PreviewFieldMoments.mjs": "d49b5c3b61581a307845136f9cebb467d32a0ebf0639b8bbc08ba809cbd4c01f",
+    "docs/qa/harness/728-gl-queue-batch/PreviewRadialProbe.mjs": "0f64d851bf72ff8390e079978bd3c3ca5908b38b1c5262173838a03d2e53f2f3",
+    "docs/qa/harness/728-gl-queue-batch/ownerDeviceContract.mjs": "c79ea6978e535c82330595b134d462efbf0c95d8ac9b0ee8679da6ce28ddb4fe",
+    "docs/qa/harness/728-gl-queue-batch/PrewarmWetOverlayTexture.mjs": "2982d60b1bd636ea37d3a4acdd051bdd0bc4e255070df7e3c2116c30aa0aef37",
+    "docs/qa/harness/728-gl-queue-batch/OwnedMorphFilmstrip.mjs": "2111c51b4ddc03e8660b2bdb97e89e3b83b80bd184e052001ba4aa6bdc7a299c",
+    "docs/qa/harness/728-gl-queue-batch/WetUploadProbe.mjs": "489aa4ab52f2238bc6a6516a62b0b2a699d6b5d8c18595a92cc10ec3de1c0bb5"
+  },
+  "provenance": {
+    "device": "surface",
+    "ramMetric": "Windows FreePhysicalMemory",
+    "paper": {
+      "engine": "fine",
+      "loaded": true,
+      "file": "fine.e59ea6fa.paper",
+      "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+      "httpSha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+    }
+  },
+  "memory": [
+    {
+      "stage": "preflight",
+      "freeMiB": 2239
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 2032
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1987
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1963
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1941
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1858
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1605
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1791
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1835
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1851
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1354
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 990
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1018
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1002
+    }
+  ],
+  "valid": true
+}
