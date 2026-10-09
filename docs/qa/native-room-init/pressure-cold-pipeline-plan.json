@@ -1,0 +1,15 @@
+{
+  "issue": 728,
+  "scope": "OFF QA hardware-pressure pipeline, not production regular sampler",
+  "actualRuns": [
+    {"name":"attribution92", "firstHardwareLinearCreateBrowserMs":15505, "sharedDecoderStallStartBrowserMs":15758.91, "stallWallMs":1021.123, "materialQueueBound":false},
+    {"name":"selectedFrontFence92", "firstHardwareLinearCreateBrowserMs":13083.3, "sharedDecoderStallStartBrowserMs":13085.418, "stallWallMs":1092.64, "isolatedSelectedFourFrontWallMs":16.6},
+    {"name":"inflight2-92", "firstHardwareLinearCreateBrowserMs":12764.4, "sharedDecoderStallStartBrowserMs":12766.3, "stallWallMs":1102.909, "materialInflightPeak":2}
+  ],
+  "interpretation":"Strong chronological cold first-use candidate. Shared decoder trace does not identify shader compiler or physical GPU execution. Previous front blame is not demonstrated. Bound2 negative does not justify default promotion.",
+  "nextQAControl":"Compile exact existing CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL using createComputePipelineAsync on actual Room device before READY; reuse exact returned pipeline for same factory descriptor. No shader arithmetic, fields, dispatch, history or publication changes. CapOFF, pressureON, source/livewarmON, selectedOFF, CPUOFF; timeline+planner observer unchanged.",
+  "guard":"Actual frozen fieldOps HTTP digest and shader digest, strict descriptor matching before factory substitution, unsupported/rejected async API is FAIL with backend cleanup; actual hits positive before success.",
+  "tradeoff":"Compilation cost moves into readiness; compare readiness total and firstwater/drain/rAF separately. Persistent browser/driver binary caches can change coldness between runs; do not clear caches or claim causal net gain from historical unpaired timing.",
+  "primaryApi":"https://gpuweb.github.io/types/interfaces/GPUDevice.html#createComputePipelineAsync",
+  "apiContract":"Promise resolves when pipeline is ready to use without additional delay; prevents queue timeline blocking on pipeline compilation. Does not guarantee first bind/dispatch driver work or full rendering latency."
+}
