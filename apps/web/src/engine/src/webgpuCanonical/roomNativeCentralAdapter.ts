@@ -55,7 +55,7 @@ export class RoomNativeCentralAdapter implements RoomNativeCentralOwner {
      owner.mark(id,'material','prepare:start')
      owner.executing=true;try{job=prepare()}finally{owner.executing=false}
      owner.mark(id,'material','prepare:done')
-     if(!job){settled=true;resolve();return}
+     if(!job){owner.mark(id,'material','prepare:empty');settled=true;resolve();return}
      let done=false
      while(!done){
       const start=performance.now();let count=0
