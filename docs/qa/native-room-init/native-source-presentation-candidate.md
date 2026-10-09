@@ -45,3 +45,35 @@ with flag OFF/ON; own publication lease tests (stale/matching/partial/rebuild/lo
 no duplicate delivery, bounded allocation, and actual first/next live contact.
 The existing A15 replay equality covers precompile, not this new overlay. No
 hardware or overlay implementation has yet been run under this proposal.
+
+## Follow-up eligibility: hold geometry-only preview
+
+A geometry-only GL overlay is not eligible for implementation: it can reproduce
+the earlier pencil-like live appearance, has no normalized watercolor blending
+proof, and may visibly jump when pigment material replaces it. The preferred
+candidate is a native own-contact branch that uses the exact existing source and
+live composite factories. Architecture stays on hold until its ownership proof.
+
+`emitPrepared` mutates gesture/film metadata, coverage, ink and color. Its exact
+live composite reads original/coverage/inkLoad/inkColor. Isolating only geometry
+therefore cannot preserve this appearance. A preview lease needs a coherent
+previous-source boundary, immutable copies of required material records and an
+independent output tile. Four live inputs plus output already imply20 MiB for
+1024 RGBA8, before film/base/solvent roles required by the exact source operator;
+this is a lower bound, not an allocation budget or performance claim.
+
+CPU admission is too early to copy: prior queued source packets may not yet have
+mutated those records. The f273 capture had eight source packets after UP. A
+candidate snapshot must be encoded after that original source tail and before
+its settle, preserving command-queue order. The next contact can then draw only
+against that immutable native snapshot while canonical settle continues against
+its own records. It must not mutate the canonical delivery clocks, record another
+accepted chunk, sample partially settled foreign water or silently remove base
+and film roles. Byte-exact clone contract and native blend equality are not yet
+proven; source preadmission is therefore not enabled.
+
+The upcoming ONE FIFO trace selects whether waiting is chiefly canonical passes
+or publication. If publication dominates, a narrower independent immutable
+output/display lease may suffice; it still needs GPU completion-before-canvas
+publication and bounded disposal. Removing that ownership wait without a lease
+would expose a texture that later commands can mutate and is unsafe.
