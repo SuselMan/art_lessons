@@ -6,7 +6,7 @@ export async function stopFirstWaterTrace(send,readClock,ws,out,started){
  const beforeStopBrowserMs=await readClock();let listener,timer
  const complete=new Promise((resolve,reject)=>{listener=raw=>{const event=JSON.parse(raw);if(event.method==='Tracing.tracingComplete')resolve(event.params)};ws.on('message',listener);timer=setTimeout(()=>reject(Error('Bounded tracingComplete timeout')),15000)})
  complete.catch(()=>{}) // preserve bounded rejection even if Tracing.end fails first
- let handle,bytes=0;const filename=out+'/first-water-trace.json',fd=fs.openSync(filename,'wx')
+ let handle,bytes=0;const filename=out+'/first-water-trace.json',fd=fs.openSync(filename,'wx',0o600)
  try{
   await send('Tracing.end');const result=await complete;handle=result.stream;if(!handle)throw Error('Trace stream absent')
   while(true){const chunk=await send('IO.read',{handle,size:65536});const buffer=validateTraceChunk(chunk,bytes);fs.writeSync(fd,buffer);bytes+=buffer.length;if(chunk.eof)break}
