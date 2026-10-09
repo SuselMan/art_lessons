@@ -10,7 +10,7 @@ it('hashes exact Float32 bits and detached clone cannot mutate source',async()=>
 })
 it('rejects nonfinite scalar metadata',()=>{expect(()=>serializeWarmPacket({commands:[],rect:[0,0,NaN,1],film:false,waterOnly:true})).toThrow('Nonfinite')})
 it('preserves preexisting resource records and permits only shared zero4bytes',async()=>{
- const {assertWarmResourceRetirement:f}=await import('./warmPacket'),paper={label:'paper',width:2,height:2,filter:'linear',format:'rgba8unorm',bytes:16} as const,zero={label:'constant zero source water',width:1,height:1,filter:'nearest',format:'rgba8unorm',bytes:4} as const
+ const {assertWarmResourceRetirement:f}=await import('./warmPacket'),paper={id:1,label:'paper',width:2,height:2,filter:'linear',format:'rgba8unorm',bytes:16} as const,zero={id:20,label:'constant zero source water',width:1,height:1,filter:'nearest',format:'rgba8unorm',bytes:4} as const
  expect(f([paper],[paper])).toBe(0);expect(f([paper],[paper,zero])).toBe(4)
- expect(()=>f([paper],[zero])).toThrow('preexisting');expect(()=>f([paper],[paper,{...zero,label:'leak'}])).toThrow('unexpected')
+ expect(()=>f([paper],[{...paper,id:21}])).toThrow('preexisting');expect(()=>f([paper],[zero])).toThrow('preexisting');expect(()=>f([paper],[paper,{...zero,label:'leak'}])).toThrow('unexpected')
 })
