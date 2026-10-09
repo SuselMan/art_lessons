@@ -5,7 +5,7 @@ export function glTiming400Gate({stats,records,expected,userId,layerId,pendingBe
  if(!pendingBeforeSecond||expected?.length!==2||!userId||!layerId)return fail('Missing pending/owned input');
  const inputs=[];
  for(let i=0;i<2;i++){
-  const rows=records.filter(r=>r.input===i+1),own=rows.filter(r=>r.strokeId===expected[i].strokeId);
+  const rows=records.filter(r=>r.input===i+1&&r.scope==='down'),own=rows.filter(r=>r.strokeId===expected[i].strokeId);
   if(rows.some(r=>r.userId!==userId||r.layerId!==layerId||!Number.isFinite(r.start)||!Number.isFinite(r.end)||r.end<r.start))return fail('Owner/timing mismatch');
   const only=phase=>{const found=own.filter(r=>r.phase===phase);return found.length===1?found[0]:null};
   const down=only('input-down-through-display'),pigment=only('first-pigment-submit'),display=only('display-submit');

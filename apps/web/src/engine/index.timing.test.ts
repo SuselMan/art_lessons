@@ -108,3 +108,44 @@ it('strict Room option is DEV only, refuses duplicate/native/deferred and reache
   expect(e['_wcJoinedFinishDeferred']).toBe(false)
   expect(()=>createTestEngine({diagnosticGlTiming:true,nativeWatercolor:true})).toThrow('ordinary synchronous')
 })
+
+it('UP retains actual owner after runtime clears stroke and exceptions restore observer scope', async () => {
+  const e=await setup(true)
+  simulateStrokeStart(e,24,32)
+  const id=e['_strokeId']!
+  simulateStrokeEnd(e,40,32)
+  const rows=e.getDiagnosticGlTiming()!.filter(r=>r.scope==='up')
+  expect(rows.length).toBeGreaterThan(0)
+  expect(rows.every(r=>r.strokeId===id&&r.userId==='a'&&r.layerId==='L')).toBe(true)
+  expect(rows.map(r=>r.phase)).toContain('up-tail-geometry')
+  expect(rows.map(r=>r.phase)).toContain('up-finish-total')
+  expect(rows.map(r=>r.phase)).toContain('up-diffusion-preparation')
+  expect(rows.map(r=>r.phase)).toContain('up-new-solver-start-and-stitch')
+  expect(rows.map(r=>r.phase)).toContain('up-local-callback')
+  expect(rows.map(r=>r.phase)).toContain('up-pending-commit')
+  expect(rows.at(-1)?.phase).toBe('input-up-total')
+  expect(e['_strokeId']).toBeNull()
+  expect(e.getDiagnosticGlTimingStats()).toMatchObject({active:false,dropped:0,observerErrors:0})
+  simulateStrokeStart(e,24,32)
+  const sentinel=Error('end callback failed')
+  e['_handlers'].strokeEnd=()=>{throw sentinel}
+  expect(()=>simulateStrokeEnd(e,40,32)).toThrow(sentinel)
+  expect(e.getDiagnosticGlTimingStats()).toMatchObject({active:false,observerErrors:0})
+  const last=e.getDiagnosticGlTiming()!.at(-1)!
+  expect(last.phase).toBe('input-up-total')
+  expect(last.scope).toBe('up')
+})
+
+it('UP observer refuses a foreign or absent gesture instead of borrowing the last local ordinal', () => {
+  let ticks=0
+  const t=new BoundedGlTiming(()=>++ticks)
+  t.beginInput('a','L');t.setStrokeId('owned');t.endInput()
+  expect(t.beginUp('peer','L','owned')).toBe(false)
+  expect(t.beginUp('a','L','different')).toBe(false)
+  expect(t.beginUp('a','L',null)).toBe(false)
+  expect(t.stats()).toMatchObject({active:false,observerErrors:3,recorded:0})
+  expect(ticks).toBe(0)
+  expect(t.beginUp('a','L','owned')).toBe(true)
+  t.measure('owned-up',()=>17);t.endInput()
+  expect(t.export()[0]).toMatchObject({input:1,scope:'up',strokeId:'owned',userId:'a',layerId:'L'})
+})

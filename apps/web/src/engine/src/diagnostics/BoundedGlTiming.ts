@@ -1,5 +1,5 @@
 /** DEV CPU submission observations; never GPU duration or physical visibility. */
-export type GlTimingRecord = Readonly<{ input: number; phase: string; start: number; end: number; value?: number; userId: string | null; layerId: string | null; strokeId: string | null }>
+export type GlTimingRecord = Readonly<{ input: number; phase: string; start: number; end: number; value?: number; userId: string | null; layerId: string | null; strokeId: string | null; scope: 'down' | 'up' }>
 export class BoundedGlTiming {
   private readonly records: (GlTimingRecord | undefined)[]
   private cursor = 0
@@ -7,6 +7,7 @@ export class BoundedGlTiming {
   private input = 0
   private pigmentSeen = false
   private active = false
+  private scope: 'down' | 'up' | null = null
   private userId: string | null = null
   private layerId: string | null = null
   private strokeId: string | null = null
@@ -18,13 +19,21 @@ export class BoundedGlTiming {
     this.records = new Array(Math.max(1, Math.min(1024, Math.floor(capacity) || 1024)))
   }
   beginInput(userId: string | null = null, layerId: string | null = null): void {
-    this.input++; this.pigmentSeen = false; this.active = true
+    this.input++; this.pigmentSeen = false; this.active = true; this.scope = 'down'
     this.userId = userId; this.layerId = layerId; this.strokeId = null
   }
-  endInput(): void { this.active = false }
+  beginUp(userId: string, layerId: string | null, strokeId: string | null): boolean {
+    if (this.active || !strokeId || this.strokeId !== strokeId || this.userId !== userId || this.layerId !== layerId) {
+      this.observerErrors++; return false
+    }
+    this.active = true; this.scope = 'up'; return true
+  }
+  endInput(): void { this.active = false; this.scope = null }
+  phaseScope(): 'down' | 'up' | null { return this.scope }
+
   isActive(): boolean { return this.active }
   setStrokeId(id: string | null): void { if (this.active) this.strokeId = id }
-  stats() { return { capacity: this.records.length, recorded: this.size, dropped: this.dropped, observerErrors: this.observerErrors, active: this.active, scope: 'engine-local synchronous DOWN only' } }
+  stats() { return { capacity: this.records.length, recorded: this.size, dropped: this.dropped, observerErrors: this.observerErrors, active: this.active, scope: 'engine-local captured DOWN/UP only' } }
 
   begin(): number | null { if (!this.active) return null; try { const t = this.clock(); if (!Number.isFinite(t)) { this.observerErrors++; return null } return t } catch { this.observerErrors++; return null } }
   end(phase: string, start: number | null, value?: number): void {
@@ -32,7 +41,7 @@ export class BoundedGlTiming {
     try {
       const end = this.clock()
       if (!Number.isFinite(end) || end < start) { this.observerErrors++; return }
-      this.records[this.cursor] = { input: this.input, phase, start, end, value, userId: this.userId, layerId: this.layerId, strokeId: this.strokeId }
+      this.records[this.cursor] = { input: this.input, phase, start, end, value, userId: this.userId, layerId: this.layerId, strokeId: this.strokeId, scope: this.scope! }
       if (this.size === this.records.length) this.dropped++
       this.cursor = (this.cursor + 1) % this.records.length
       this.size = Math.min(this.size + 1, this.records.length)
@@ -40,7 +49,7 @@ export class BoundedGlTiming {
   }
   mark(phase: string, value?: number): void { this.end(phase, this.begin(), value) }
   firstPigment(): void {
-    if (!this.active || !this.strokeId || this.pigmentSeen) return
+    if (!this.active || this.scope !== 'down' || !this.strokeId || this.pigmentSeen) return
     this.pigmentSeen = true
     this.mark('first-pigment-submit')
   }

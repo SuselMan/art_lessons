@@ -6618,6 +6618,13 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _onEnd(e: PointerData): void {
+    const timing = this._glTiming
+    if (!timing || !this._strokeLayerId || !timing.beginUp(this._userId, this._strokeLayerId, this._strokeId)) return this._onEndUntimed(e)
+    try { return timing.measure('input-up-total', () => this._onEndUntimed(e)) }
+    finally { timing.endInput() }
+  }
+
+  private _onEndUntimed(e: PointerData): void {
     const layerId = this._strokeLayerId
     if (!layerId) return
     // (#517) `startStroke` always emits the touch-down dab, so every stroke
@@ -6637,6 +6644,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._dwellTimer) { clearInterval(this._dwellTimer); this._dwellTimer = null }
     this._dwellCfg = null
     const t0 = this._debug ? performance.now() : 0
+    const geometryStart = this._glTiming?.begin() ?? null
     const dabs = this._dabs.endStroke(this._physicalSize, e.speed)
     if (this._strokeTool === 'liner') applyLinerEndTaper(dabs, e.speed)
     // #454: the same post-process one tool over, and far deeper — a liner
@@ -6654,8 +6662,16 @@ export class PencilEngine implements PencilEngineAPI {
       applyWatercolorPooling(dabs, e.speed, ribbonProfileFor('watercolor', this._strokePreset).waterLevel)
       appendWatercolorLift(dabs, this._strokeChunkTail ? [this._strokeChunkTail, ...this._strokeDabs] : this._strokeDabs)
     }
-    if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
-    if (this._ribbonStrokeScratch && !this._wcAsyncLocalStroke) this._finishRibbonStroke(this._ribbonStrokeScratch, true)
+    this._glTiming?.end('up-tail-geometry', geometryStart)
+    if (dabs.length) {
+      if (this._glTiming?.isActive()) this._glTiming.measure('up-tail-paint', () => this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp))
+      else this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
+    }
+    if (this._ribbonStrokeScratch && !this._wcAsyncLocalStroke) {
+      const scratch = this._ribbonStrokeScratch
+      if (this._glTiming?.isActive()) this._glTiming.measure('up-finish-total', () => this._finishRibbonStroke(scratch, true))
+      else this._finishRibbonStroke(scratch, true)
+    }
     if (this._wash && this._wash.scratch === this._ribbonStrokeScratch) {
       // (#468 v7) A wash outlives its strokes — the paint is still on the paper
       // and still wet, so the buffers stay open for the next band to pool into.
@@ -6710,7 +6726,7 @@ export class PencilEngine implements PencilEngineAPI {
       // (OperationLog._gestureEntries), and the packing is done once and
       // handed to all of them: a dab is ~53 packed bytes and an erase can be
       // thousands of them.
-      const dabsPacked = packDabs(this._strokeDabs)
+      const dabsPacked = this._glTiming?.isActive() ? this._glTiming.measure('up-pack-dabs', () => packDabs(this._strokeDabs)) : packDabs(this._strokeDabs)
       for (const targetId of [layerId, ...this._strokeExtraLayerIds]) {
         const op: Operation = {
           id: nanoid(10), type: 'stroke', userId: this._userId,
@@ -6722,7 +6738,8 @@ export class PencilEngine implements PencilEngineAPI {
           // dry paper, and an all-zero profile is bytes spent saying nothing.
           ...(this._strokeWet && !isDryProfile(this._strokeWet) ? { wet: this._strokeWet } : {}),
         }
-        this._log.append(op, { pending: true })
+        if (this._glTiming?.isActive()) this._glTiming.measure('up-log-append', () => this._log.append(op, { pending: true }))
+        else this._log.append(op, { pending: true })
         if (this._wcAsyncLocalStroke) this._queueAsyncLocalToolOp(op, this._wcAsyncLocalStroke)
         // (#537) A peer's live ink still unrecorded on this layer went down
         // interleaved with this gesture's — see _foreignUnrecordedInk.
@@ -6735,7 +6752,8 @@ export class PencilEngine implements PencilEngineAPI {
         // its own half-finished output, and the picture comes back subtly
         // different. Washes last a second or two, so this only defers.
         if (!this._wash) this._maybeCheckpoint(targetId)
-        this._onLocalOperation?.(op)
+        if (this._glTiming?.isActive()) this._glTiming.measure('up-local-callback', () => this._onLocalOperation?.(op))
+        else this._onLocalOperation?.(op)
       }
     }
     // (#429) Deliberately no final flush of the live queue: whatever is still
@@ -6744,7 +6762,11 @@ export class PencilEngine implements PencilEngineAPI {
     // twice would buy nothing and cost a packet at the busiest moment of the
     // gesture. Peers paint the streamed prefix, the operation paints the tail
     // — see _claimLivePaintedDabs.
-    if (this._strokeId) this._onLiveStrokeEnd?.(this._strokeId)
+    if (this._strokeId) {
+      const id = this._strokeId
+      if (this._glTiming?.isActive()) this._glTiming.measure('up-live-end-callback', () => this._onLiveStrokeEnd?.(id))
+      else this._onLiveStrokeEnd?.(id)
+    }
     this._liveDabQueue = []
     // Only now: the operation built just above still needed it, and _onEnd
     // tears the marker scratch down well before reaching here.
@@ -6760,13 +6782,16 @@ export class PencilEngine implements PencilEngineAPI {
     // (#536) …and only now may the *next* stroke read it. It has been on screen
     // since the first dab — see PaperWetness._pending on why those are two
     // different questions.
-    this._paperWet.commitPending(performance.now())
+    if (this._glTiming?.isActive()) this._glTiming.measure('up-pending-commit', () => this._paperWet.commitPending(performance.now()))
+    else this._paperWet.commitPending(performance.now())
     // The paper is now wetter than it was, and nothing else will ask for a
     // frame until the next stroke — so this is where watching it dry starts.
     if (this._paperWet.peak(performance.now()) > 0.01) this._scheduleDryingRepaint()
     // (#537) The pen is up: whatever was waiting for it to re-settle can now.
-    this._settleLayers()
-    this._handlers.strokeEnd?.(e)
+    if (this._glTiming?.isActive()) this._glTiming.measure('up-settle-layers', () => this._settleLayers())
+    else this._settleLayers()
+    if (this._glTiming?.isActive()) this._glTiming.measure('up-stroke-end-callback', () => this._handlers.strokeEnd?.(e))
+    else this._handlers.strokeEnd?.(e)
   }
 
   /** (#494) A one-line wrapper over presetForTool (presets/resolvePreset.ts,
@@ -7431,7 +7456,7 @@ export class PencilEngine implements PencilEngineAPI {
       let r = work.next()
       while (!r.done) r = work.next()
       return r.value
-    } finally { this._glTiming?.end('live-generator-exhaust', timingStart) }
+    } finally { this._glTiming?.end(this._glTiming.phaseScope() === 'up' ? 'up-generator-exhaust' : 'live-generator-exhaust', timingStart) }
   }
 
   /** (§17.70) _paintRibbonDabs as a generator that yields after every draw of
@@ -8166,7 +8191,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _completeSettle(): void {
     const timing = this._glTiming
     if (!timing?.isActive()) return this._completeSettleUntimed()
-    return timing.measure('admission-complete-settle', () => this._completeSettleUntimed())
+    return timing.measure(timing.phaseScope() === 'up' ? 'up-complete-settle' : 'admission-complete-settle', () => this._completeSettleUntimed())
   }
 
   private _completeSettleUntimed(): void {
@@ -8781,7 +8806,10 @@ export class PencilEngine implements PencilEngineAPI {
       && this._wcJoinedTouchInputs.get(this._settle)?.finish?.gesture === this._wcJoinedTouchInputs.get(this._settle)?.gesture
       && this._wcJoinedTouchInputs.get(this._settle)?.finish !== undefined
       && this._wcJoinedDeferred === null && this._strokeLayerId) {
-      if (this._liveComposite?.scratch === scratch) this._flushLiveComposite()
+      if (this._liveComposite?.scratch === scratch) {
+      if (this._glTiming?.phaseScope() === 'up') this._glTiming.measure('up-finish-live-composite', () => this._flushLiveComposite())
+      else this._flushLiveComposite()
+    }
       const finish = scratch.captureCanonicalFinish()
       if (finish) {
         this._holdAsyncScratch(scratch)
@@ -8794,14 +8822,19 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if (this._wcJoinedTouch && (this._wcJoinedTouchMixed || this._wcJoinedFinishDeferred || this._wcJoinedTouchSnapshotLease) && !this._wcAsyncFinish && !owned
       && scratch === this._ribbonStrokeScratch) {
-      owned = scratch.captureCanonicalFinish() ?? undefined
+      owned = this._glTiming?.phaseScope() === 'up'
+        ? this._glTiming.measure('up-owned-finish-capture', () => scratch.captureCanonicalFinish() ?? undefined)
+        : scratch.captureCanonicalFinish() ?? undefined
       if (owned) this._wcJoinedFinish.set(scratch, owned)
     }
     // (#536, §17.22) Whatever the last batches left for the frame lands now,
     // for every ribbon tool: the marker's scratch is torn down right after
     // this, and for watercolor the settle below is spread over frames while
     // the tile must already show the whole mark.
-    if (this._liveComposite?.scratch === scratch) this._flushLiveComposite()
+    if (this._liveComposite?.scratch === scratch) {
+      if (this._glTiming?.phaseScope() === 'up') this._glTiming.measure('up-finish-live-composite', () => this._flushLiveComposite())
+      else this._flushLiveComposite()
+    }
     const ctx = owned?.finish ?? scratch.finishContext
     if (!ctx || !ctx.profile.normalizeDeposit) return
     // (§17.44) Which film this settle consumes - see releaseFilm.
@@ -8809,6 +8842,7 @@ export class PencilEngine implements PencilEngineAPI {
     const { target, preset, profile, color, opacity, bounds, fieldSeed } = ctx
     const targets = this._resolveWithinSheet(target, profile.normalizeDeposit ? this._wcSheetClamp(bounds) : bounds)
     if (!targets.length) return
+    const revealStart = this._glTiming?.phaseScope() === 'up' ? this._glTiming.begin() : null
     if (reveal && fade) for (const tile of targets) this._revealWash(tile, target)
     // Own these copies, not a later reveal over the same tile. An older
     // settle may complete while this stroke is starting its next one.
@@ -8829,6 +8863,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
       return held ? [{ buffer: tile.buffer, held }] : []
     }) : []
+    this._glTiming?.end('up-reveal-copies', revealStart)
     const startReveal = (): void => {
       if (!revealCopies.length) return
       const now = performance.now()
@@ -8911,6 +8946,7 @@ export class PencilEngine implements PencilEngineAPI {
         radiusPx: Math.max(prevDry?.radiusPx ?? 0, ctx.radiusPx),
         standing: Math.max(prevDry?.standing ?? 0, standing),
       }
+      const prepStart = this._glTiming?.phaseScope() === 'up' ? this._glTiming.begin() : null
       const job = this._diffuseWashOps(
         scratch, targets, bounds, bloom, ctx.radiusPx,
         profile.waterLevel, ctx.landedWet, standing,
@@ -8938,6 +8974,7 @@ export class PencilEngine implements PencilEngineAPI {
         owned,
         this._wcAsyncFinish && !!owned && this._wcAsyncOwners.has(scratch),
       )
+      this._glTiming?.end('up-diffusion-preparation', prepStart)
       if (job) {
         compositeBounds = job.compositeDomain
         const complete = (): void => {
@@ -8964,7 +9001,9 @@ export class PencilEngine implements PencilEngineAPI {
         if ((reveal || spread) && typeof requestAnimationFrame === 'function') {
           // (§17.53) A sliced rebuild's buffer is not on screen yet: nothing to redraw.
           const shown = [...this._layers.values()].includes(target)
+          const startSolverAt = this._glTiming?.phaseScope() === 'up' ? this._glTiming.begin() : null
           this._startSettle(scratch, job.ops, spread && !reveal && shown ? () => { complete(); this._displayIfNotSuspended() } : complete, { isAlive: () => scratch.live, abort: job.dispose }, settledGesture)
+          this._glTiming?.end('up-new-solver-start-and-stitch', startSolverAt)
           return
         }
         try {
