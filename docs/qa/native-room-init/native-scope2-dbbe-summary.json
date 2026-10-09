@@ -1,0 +1,198 @@
+{
+  "source": "dbbe55c0e1cd4a54a04b850625e32414fa4d443e",
+  "scope": "ONE scope2 quantum8 usefulness probe; not paired speedup or samepacked parity",
+  "materialQuantumCap": {
+    "selected": 8,
+    "actual": 8,
+    "cpuBudgetMs": 4,
+    "scope": "DEV original ordered material step cap; no change to source/publication waits"
+  },
+  "materialScopeCap": {
+    "selected": 2,
+    "actual": 2,
+    "scope": "DEV existing owner completion scope limit before material step, no additional waits"
+  },
+  "readyAtMs": 21079.69999998808,
+  "phases": [
+    {
+      "label": "long-water400",
+      "downAt": 21820.69999998808,
+      "nextPendingAtDown": false,
+      "nextSettlingAtDown": false,
+      "downToSourceEntryWallMs": 61.200000047683716,
+      "downToCanvasPublicationEntryWallMs": 120.90000003576279,
+      "scope": "Own-stroke source JS entry; next canvas publication call may include prior work, not physical first pixel or GPU duration"
+    },
+    {
+      "label": "pigment-on-long-water400",
+      "downAt": 30245.80000001192,
+      "nextPendingAtDown": true,
+      "nextSettlingAtDown": false,
+      "downToSourceEntryWallMs": 3145.399999976158,
+      "downToCanvasPublicationEntryWallMs": 3153.699999988079,
+      "scope": "Own-stroke source JS entry; next canvas publication call may include prior work, not physical first pixel or GPU duration"
+    }
+  ],
+  "final": {
+    "gl": 0,
+    "lost": false,
+    "error": null,
+    "native": true,
+    "ready": true
+  },
+  "export": {
+    "width": 1754,
+    "height": 2480,
+    "alpha": 120417,
+    "purple": 120416,
+    "sha": "579f6a604a4a4e7b53db4ca9149e79d4821769a3eb14f70f78a60eac07818609",
+    "pngSha256": "913ac104b43cd31f0680b5cb0194dfdbfb5874e8d9fb94d89f9a69b7aecc4c67",
+    "pngBytes": 384981,
+    "comparisonReady": true
+  },
+  "seedBridgeCosts": [
+    {
+      "phase": "readPixels",
+      "wallMs": 16,
+      "ok": true,
+      "bytes": 0,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T12:40:01.760Z"
+    },
+    {
+      "phase": "rowFlip",
+      "wallMs": 3.699999988079071,
+      "ok": true,
+      "bytes": 4194304,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T12:40:01.761Z"
+    },
+    {
+      "phase": "uploadEnqueue",
+      "wallMs": 0.699999988079071,
+      "ok": true,
+      "bytes": 4194304,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T12:40:01.763Z"
+    },
+    {
+      "phase": "queueAck",
+      "wallMs": 14.899999976158142,
+      "ok": true,
+      "bytes": 0,
+      "generation": 1,
+      "layerId": "layer-1",
+      "receivedAt": "2026-10-09T12:40:01.764Z"
+    }
+  ],
+  "sourceAdmissionToExecutionMs": 3143.7999999523163,
+  "remainingPriorMaterialUntilPublishMs": 3096.5,
+  "priorPublicationWallMs": 23.899999976158142,
+  "publicationCompleteToNextExecuteMs": 23.399999976158142,
+  "remainingStepCount": 294,
+  "remainingStepEntryWallSumMs": 99.1000000834465,
+  "previousPublishToGlImportEntryWallMs": 23.599999964237213,
+  "previousGlImportEntryWallMs": 0.19999998807907104,
+  "observedPendingScopePeak": 3,
+  "scopeBlockedCount": 281,
+  "priorMaterialBlockedCount": 203,
+  "remainingPriorMaterialBlockedCount": 184,
+  "raf": {
+    "count": 190,
+    "maxGapMs": 17.0,
+    "over33": 0
+  },
+  "originalReportNormalization": {
+    "originalPrettyBytes": 596012,
+    "normalizedBytes": 380031,
+    "semanticEqualityVerifiedBeforePromotion": true,
+    "originalPrettySHA256": null,
+    "limitation": "Original pretty/normalized SHA was not separately recorded before disposable cleanup; durable compact/packed/PNG SHA are verified by evidence manifest."
+  },
+  "priorMaterialTimeline": [
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "admitted",
+      "at": 29568,
+      "queued": 8,
+      "label": "long-water400",
+      "strokeId": "WqI5ELGlC5",
+      "pendingScopes": 0
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "prepare:start",
+      "at": 29908.69999998808,
+      "queued": 1,
+      "label": "long-water400",
+      "strokeId": "WqI5ELGlC5",
+      "pendingScopes": 0
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "prepare:done",
+      "at": 29946.900000035763,
+      "queued": 1,
+      "label": "long-water400",
+      "strokeId": "WqI5ELGlC5",
+      "pendingScopes": 1
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "finish:start",
+      "at": 33340.60000002384,
+      "queued": 3,
+      "label": "long-water400",
+      "strokeId": "WqI5ELGlC5",
+      "pendingScopes": 2
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "finish:done",
+      "at": 33343.90000003576,
+      "queued": 3,
+      "label": "long-water400",
+      "strokeId": "WqI5ELGlC5",
+      "pendingScopes": 3
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "publish:start",
+      "at": 33343.90000003576,
+      "queued": 3,
+      "label": "long-water400",
+      "strokeId": "WqI5ELGlC5",
+      "pendingScopes": 3
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "publish:done",
+      "at": 33367.80000001192,
+      "queued": 3,
+      "label": "long-water400",
+      "strokeId": "WqI5ELGlC5",
+      "pendingScopes": 0
+    },
+    {
+      "request": 16,
+      "kind": "material",
+      "phase": "complete",
+      "at": 33374,
+      "queued": 3,
+      "label": "long-water400",
+      "strokeId": "WqI5ELGlC5",
+      "pendingScopes": 1
+    }
+  ],
+  "verdict": "Functional PASS; next latency still over3s. OFF default remains. No cap4 auto, samepacked parity OPEN."
+}
