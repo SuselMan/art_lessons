@@ -1,7 +1,7 @@
 /** Actual Room PointerInput, five bounded strokes; no additional GPU fences. */
 export async function runPhysicalBatchLive({enabled,deadlineMs=90000}={}){
  const e=window.__engine,store=window.__roomStore?.getState();if(!window.__physicalBatchRoomReady||!store||e._locked)throw Error('Actual ready Room required');
- const flags=window.__physicalBatchRoomFlags;if(flags.physicalBatchTwo!==enabled||Object.entries(flags).some(([k,v])=>k!=='physicalBatchTwo'&&v))throw Error('Isolated effective flags required');
+ const flags={...window.__physicalBatchRoomFlags,bandBatch:!!e._ribbonPainter?.diagnosticBandBatch,webgl2:!!e._opts.diagnosticWebgl2,mrt:!!e._opts.diagnosticBrushMrt,frontConstructor:!!e._opts.diagnosticFrontBatch,...Object.fromEntries(Object.entries(e._wcAb??{}).map(([k,v])=>['ab:'+k,!!v]))};if(flags.physicalBatchTwo!==enabled||Object.entries(flags).some(([k,v])=>k!=='physicalBatchTwo'&&v))throw Error('Isolated effective flags required');
  const canvas=[...document.querySelectorAll('canvas')].find(c=>c.className.includes('canvas')&&c.width>500);if(!canvas)throw Error('Actual drawing canvas missing');const rafTimeline=[];const frame=()=>new Promise(resolve=>requestAnimationFrame(t=>{if(rafTimeline.length<1024)rafTimeline.push({at:t,phase});resolve(t)})),deadline=performance.now()+deadlineMs,rows=[],display=[];let phase='idle',down=null,syncs=0,downFinish=0;
  const originalDisplay=e._display,originalSync=e._syncContinuationGpu,originalFinish=e.gl.finish,cap=canvas.setPointerCapture,release=canvas.releasePointerCapture;
  const now=()=>performance.now(),check=()=>{if(now()>deadline||e.gl.isContextLost())throw Error('Bounded deadline/loss')};
