@@ -1,4 +1,4 @@
-import {preparedExactPipeline,type ExactPipelineRecipe} from './exactPipelinePreparation'
+import {hasPreparedExactPipeline,preparedExactPipeline,type ExactPipelineRecipe} from './exactPipelinePreparation'
 import { withTransientGpuBuffers } from './transientBuffers'
 /// <reference types="@webgpu/types" />
 import { CANONICAL_NOISE_WGSL } from './noise'
@@ -76,19 +76,19 @@ export class CanonicalRibbonDeposit {
  private readonly pipelines=new Map<string,GPURenderPipeline>()
  private readonly device:GPUDevice
  private readonly noise:CanonicalGpuField
- private readonly module:GPUShaderModule
+ private module:GPUShaderModule|null
  get coverage(){return this.pipeline('coverage')}
  get ink(){return this.pipeline('inkadd')}
  get inkMax(){return this.pipeline('inkmax')}
  constructor(device:GPUDevice,noise:CanonicalGpuField,lazy=false){
   this.device=device;this.noise=noise
-  this.module=device.createShaderModule({label:'production ribbon deposit',code:CANONICAL_RIBBON_WGSL})
+  this.module=hasPreparedExactPipeline(device,canonicalRibbonRecipe('coverage'))?null:device.createShaderModule({label:'production ribbon deposit',code:CANONICAL_RIBBON_WGSL})
   if(!lazy)for(const key of ['coverage','inkmax','inkadd','pigmentOnlymax','pigmentOnlyadd','colorOnlymax','colorOnlyadd'])this.pipeline(key)
  }
  private pipeline(key:string){
   const existing=this.pipelines.get(key);if(existing)return existing
   const recipe=canonicalRibbonRecipe(key)
-  const pipeline=(preparedExactPipeline(this.device,recipe) as GPURenderPipeline|undefined)??this.device.createRenderPipeline(recipe.descriptor(this.module) as GPURenderPipelineDescriptor)
+  const pipeline=(preparedExactPipeline(this.device,recipe) as GPURenderPipeline|undefined)??this.device.createRenderPipeline(recipe.descriptor(this.module??=this.device.createShaderModule({label:'production ribbon deposit',code:CANONICAL_RIBBON_WGSL})) as GPURenderPipelineDescriptor)
   this.pipelines.set(key,pipeline);return pipeline
  }
 

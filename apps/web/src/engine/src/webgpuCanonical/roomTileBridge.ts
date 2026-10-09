@@ -35,9 +35,8 @@ export class CanonicalRoomTileBridge {
   this.device=device;this.canvas=canvas;canvas.width=width;canvas.height=height
   const context=canvas.getContext('webgpu');if(!context)throw new Error('Room tile bridge WebGPU canvas unsupported')
   this.context=context;context.configure({device,format:'rgba8unorm',alphaMode:'premultiplied',usage:GPUTextureUsage.RENDER_ATTACHMENT|GPUTextureUsage.COPY_SRC})
-  const module=device.createShaderModule({label:'DEV raw Q8 Room tile bridge',code:shader})
   const recipe=canonicalRawCanvasRecipe()
-  this.pipeline=(preparedExactPipeline(device,recipe) as GPURenderPipeline|undefined)??device.createRenderPipeline(recipe.descriptor(module) as GPURenderPipelineDescriptor)
+  this.pipeline=(preparedExactPipeline(device,recipe) as GPURenderPipeline|undefined)??device.createRenderPipeline(recipe.descriptor(device.createShaderModule({label:'DEV raw Q8 Room tile bridge',code:shader})) as GPURenderPipelineDescriptor)
  }
  async copyByReadback(field:CanonicalGpuField,target:AccumulationBuffer,read:(field:CanonicalGpuField)=>Promise<Uint8Array>,current:()=>boolean=()=>true):Promise<void> {
   this.guard(field,target)

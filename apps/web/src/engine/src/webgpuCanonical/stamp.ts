@@ -1,4 +1,4 @@
-import {preparedExactPipeline,type ExactPipelineRecipe} from './exactPipelinePreparation'
+import {hasPreparedExactPipeline,preparedExactPipeline,type ExactPipelineRecipe} from './exactPipelinePreparation'
 import { withTransientGpuBuffers } from './transientBuffers'
 /// <reference types="@webgpu/types" />
 import { CANONICAL_NOISE_WGSL } from './noise'
@@ -83,18 +83,18 @@ export class CanonicalStampDeposit {
  private readonly cpuTrig:boolean
  private readonly device:GPUDevice
  private readonly noise:CanonicalGpuField
- private readonly module:GPUShaderModule
+ private module:GPUShaderModule|null
  private readonly pipelines=new Map<string,GPURenderPipeline>()
  private get coverage(){return this.pipeline('coverage')}
  constructor(device:GPUDevice,noise:CanonicalGpuField,lazy=false,literalVertex=false,cpuTrig=false){
   this.device=device;this.noise=noise;this.cpuTrig=cpuTrig;this.literalVertex=literalVertex
-  this.module=device.createShaderModule({label:'production watercolor nib deposit',code:canonicalStampShader(literalVertex,cpuTrig)})
+  this.module=hasPreparedExactPipeline(device,canonicalStampRecipe('coverage',literalVertex,cpuTrig))?null:device.createShaderModule({label:'production watercolor nib deposit',code:canonicalStampShader(literalVertex,cpuTrig)})
   if(!lazy)for(const key of ['coverage','inkmax','inkadd','pigmentOnlymax','pigmentOnlyadd','colorOnlymax','colorOnlyadd'])this.pipeline(key)
  }
  private pipeline(key:string){
   const existing=this.pipelines.get(key);if(existing)return existing
   const recipe=canonicalStampRecipe(key,this.literalVertex,this.cpuTrig)
-  const pipeline=(preparedExactPipeline(this.device,recipe) as GPURenderPipeline|undefined)??this.device.createRenderPipeline(recipe.descriptor(this.module) as GPURenderPipelineDescriptor)
+  const pipeline=(preparedExactPipeline(this.device,recipe) as GPURenderPipeline|undefined)??this.device.createRenderPipeline(recipe.descriptor(this.module??=this.device.createShaderModule({label:'production watercolor nib deposit',code:canonicalStampShader(this.literalVertex,this.cpuTrig)})) as GPURenderPipelineDescriptor)
   this.pipelines.set(key,pipeline);return pipeline
  }
 

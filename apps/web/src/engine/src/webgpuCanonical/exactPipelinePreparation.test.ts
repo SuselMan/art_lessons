@@ -1,7 +1,9 @@
+import {CanonicalComposite} from './render'
+import {CanonicalRoomTileBridge} from './roomTileBridge'
 import {CanonicalRibbonDeposit,canonicalRibbonRecipe} from './deposit'
 import {CanonicalStampDeposit,canonicalStampRecipe} from './stamp'
 import {CanonicalBrushContact,canonicalBrushRecipe} from './brush'
-import {it,expect} from 'vitest'
+import {it,expect,vi} from 'vitest'
 import {prepareExactPipeline,preparedExactPipeline,retireExactPipelinePreparation,type ExactPipelineRecipe} from './exactPipelinePreparation'
 import {firstContactPipelineRecipes,prepareFirstContactPipelines} from './sourcePipelinePreparation'
 const recipe:ExactPipelineRecipe={key:'unit',code:'shader',kind:'compute',descriptor:module=>({layout:'auto',compute:{module,entryPoint:'main'}})}
@@ -27,17 +29,35 @@ it('retirement rejects late completion and all parallel rejection promises remai
  const device={createShaderModule:()=>({}),createComputePipelineAsync:()=>new Promise<GPUComputePipeline>(r=>{resolve=r})} as unknown as GPUDevice
  const pending=prepareExactPipeline(device,recipe),handled=expect(pending).rejects.toThrow('retired');await Promise.resolve()
  expect(()=>preparedExactPipeline(device,recipe)).toThrow('not prepared');retireExactPipelinePreparation(device);resolve({} as GPUComputePipeline);await handled
- expect(preparedExactPipeline(device,recipe)).toBeUndefined()
+ expect(()=>preparedExactPipeline(device,recipe)).toThrow('retired')
  await expect(prepareExactPipeline(device,recipe)).rejects.toThrow('retired')
 })
 it('production stamp/ribbon/brush factories consume the same async-created pipeline objects',async()=>{
  const device={createShaderModule:()=>({}),createRenderPipelineAsync:async()=>({}),createComputePipelineAsync:async()=>({})} as unknown as GPUDevice
  const recipes=[canonicalStampRecipe('coverage'),canonicalRibbonRecipe('coverage'),canonicalBrushRecipe(),canonicalBrushRecipe(true)]
- await Promise.all(recipes.map(r=>prepareExactPipeline(device,r)))
+ await prepareFirstContactPipelines(device)
+ device.createShaderModule=()=>{throw Error('Cache HIT must not create shader module')}
+ device.createSampler=()=>({} as GPUSampler)
+ vi.stubGlobal('GPUTextureUsage',{RENDER_ATTACHMENT:1,COPY_SRC:2})
+ const composite=new CanonicalComposite(device),raw=new CanonicalRoomTileBridge(device,{getContext:()=>({configure:()=>{}})} as unknown as HTMLCanvasElement,1024,1024)
+ expect(Reflect.get(composite,'pipeline')).toBe(preparedExactPipeline(device,firstContactPipelineRecipes().find(r=>r.key==='canonicalCompositeRecipe')!))
+ expect(Reflect.get(raw,'pipeline')).toBe(preparedExactPipeline(device,firstContactPipelineRecipes().find(r=>r.key==='canonicalRawCanvasRecipe')!))
+ vi.unstubAllGlobals()
  const stamp=new CanonicalStampDeposit(device,{} as never,true),ribbon=new CanonicalRibbonDeposit(device,{} as never,true),brush=new CanonicalBrushContact(device)
  expect(Reflect.get(stamp,'coverage')).toBe(preparedExactPipeline(device,recipes[0]))
  expect(ribbon.coverage).toBe(preparedExactPipeline(device,recipes[1]))
  expect(Reflect.get(brush,'pipeline')).toBe(preparedExactPipeline(device,recipes[2]))
  expect(Reflect.get(brush,'singlePipeline')).toBe(preparedExactPipeline(device,recipes[3]))
  // No synchronous createPipeline API exists on this device: fallback would fail.
+})
+it('default cache MISS preserves one shared shader module and exact descriptor, isolated from another device',async()=>{
+ const prepared={createShaderModule:()=>({}),createRenderPipelineAsync:async()=>({})} as unknown as GPUDevice
+ await prepareExactPipeline(prepared,canonicalStampRecipe('coverage'))
+ let modules=0;const module={} as GPUShaderModule,descriptors:GPURenderPipelineDescriptor[]=[],sync={} as GPURenderPipeline
+ const other={createShaderModule:()=>{modules++;return module},createRenderPipeline:(d:GPURenderPipelineDescriptor)=>{descriptors.push(d);return sync}} as unknown as GPUDevice
+ const instance=new CanonicalStampDeposit(other,{} as never,true);expect(modules).toBe(1)
+ expect(Reflect.get(instance,'coverage')).toBe(sync);expect(modules).toBe(1)
+ expect(descriptors).toEqual([canonicalStampRecipe('coverage').descriptor(module)])
+ retireExactPipelinePreparation(prepared)
+ expect(()=>new CanonicalStampDeposit(prepared,{} as never,true)).toThrow('retired')
 })

@@ -33,10 +33,17 @@ export async function prepareExactPipeline(device:GPUDevice,recipe:ExactPipeline
  });slot.entries.set(recipe.key,entry)
  try{return await entry.promise}catch(error){if(slot.entries.get(recipe.key)===entry)slot.entries.delete(recipe.key);throw error}
 }
-export function preparedExactPipeline(device:GPUDevice,recipe:ExactPipelineRecipe):Pipeline|undefined{
- const entry=devices.get(device)?.entries.get(recipe.key);if(!entry)return undefined
+function matchingPreparedEntry(device:GPUDevice,recipe:ExactPipelineRecipe){
+ const slot=devices.get(device);if(slot?.retired)throw Error('Exact preparation retired')
+ const entry=slot?.entries.get(recipe.key);if(!entry)return undefined
  if(entry.identity!==exactPipelineRecipeIdentity(recipe)||entry.code!==recipe.code||!entry.pipeline)throw Error('Exact pipeline not prepared with matching identity: '+recipe.key)
- entry.hits++;return entry.pipeline
+ return entry
+}
+/** Non-consuming constructor gate; only a DEV precompiled exact recipe can defer module creation. */
+export function hasPreparedExactPipeline(device:GPUDevice,recipe:ExactPipelineRecipe){return!!matchingPreparedEntry(device,recipe)}
+export function preparedExactPipeline(device:GPUDevice,recipe:ExactPipelineRecipe):Pipeline|undefined{
+ const entry=matchingPreparedEntry(device,recipe);if(!entry)return undefined
+ entry.hits++;return entry.pipeline!
 }
 export function exactPipelinePreparationDiagnostics(device:GPUDevice){return [...(devices.get(device)?.entries??[])].map(([key,e])=>({key,kind:e.kind,completed:!!e.pipeline,hits:e.hits,shaderBytes:new TextEncoder().encode(e.code).byteLength}))}
 export function retireExactPipelinePreparation(device:GPUDevice){const slot=devices.get(device);if(slot){slot.retired=true;slot.entries.clear()}}

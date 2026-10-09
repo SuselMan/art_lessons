@@ -13,9 +13,8 @@ export class CanonicalComposite {
  private readonly repeat: GPUSampler
  constructor(device: GPUDevice) {
   this.device=device
-  const module=device.createShaderModule({label:'canonical production watercolor composite',code:CANONICAL_COMPOSITE_WGSL})
   const recipe=canonicalCompositeRecipe()
-  this.pipeline=(preparedExactPipeline(device,recipe) as GPURenderPipeline|undefined)??device.createRenderPipeline(recipe.descriptor(module) as GPURenderPipelineDescriptor)
+  this.pipeline=(preparedExactPipeline(device,recipe) as GPURenderPipeline|undefined)??device.createRenderPipeline(recipe.descriptor(device.createShaderModule({label:'canonical production watercolor composite',code:CANONICAL_COMPOSITE_WGSL})) as GPURenderPipelineDescriptor)
   this.clamp=device.createSampler({minFilter:'nearest',magFilter:'nearest'})
   this.repeat=device.createSampler({minFilter:'linear',magFilter:'linear',addressModeU:'repeat',addressModeV:'repeat'})
  }
