@@ -1,0 +1,116 @@
+{
+  "source": "d5e9709ae2e54215339a648d75f6072e9581d0ee",
+  "stage": "complete",
+  "complete": true,
+  "error": null,
+  "errors": [],
+  "actualObserved": {
+    "ready": {
+      "proofs": [
+        {
+          "kind": "waterFront",
+          "compilerWallMs": 441.19999998807907,
+          "shaderBytes": 4022
+        },
+        {
+          "kind": "diffuse",
+          "compilerWallMs": 366,
+          "shaderBytes": 3135
+        }
+      ],
+      "shaderSHAs": [
+        "7f6d4a85ed974652751c04b5627c998daa289856dceaf7ad9be3373279b63acd",
+        "3f2d13101ac86a41bac904b150292370ad8cf3784a87d34f275f243de24bdf12"
+      ],
+      "dispatches": 0,
+      "fieldBytes": 0
+    },
+    "consumed": [
+      {
+        "kind": "waterFront",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 4022
+      },
+      {
+        "kind": "diffuse",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 3135
+      }
+    ]
+  },
+  "actualAsyncPressure": {
+    "requested": true,
+    "compile": {
+      "completed": true,
+      "shaderBytes": 11996,
+      "compilerWallMs": 1389.699999988079,
+      "scope": "exact pipeline compilation only",
+      "shaderSHA": "664ac12d3a663e6463bc6e9dc9a198b2c43ea041fde25bcce3cb1192442cafba",
+      "dispatches": 0,
+      "fieldBytes": 0
+    },
+    "readyDiagnostics": {
+      "completed": true,
+      "hits": 0,
+      "shaderBytes": 11996
+    },
+    "scope": "Actual runtime compile only; no injected pipeline, no GPU duration claim",
+    "final": {
+      "completed": true,
+      "hits": 1,
+      "shaderBytes": 11996
+    }
+  },
+  "ramStart": 2074.2265625,
+  "ram": 1176.03515625,
+  "memoryError": null,
+  "ownedContextDisposed": true,
+  "ownedContextDisposeError": null,
+  "ownTargetCloseRequested": true,
+  "endpointFrame": {
+    "label": "endpoint-only",
+    "width": 1554,
+    "height": 1698,
+    "changed": 0,
+    "purple": 18125,
+    "sha": "4844948dd0c3b7ba37bc1f275d092882e708361b4cd17c6d59931651ee59dc56",
+    "gl": 0,
+    "scope": "Actual default framebuffer diagnostic readback; observer effect, NOT physical latency"
+  },
+  "firstDownAt": 26242.80000001192,
+  "readyAt": 25855.80000001192,
+  "maxRafMs": 183.40000000000146,
+  "final": {
+    "ready": true,
+    "pending": false,
+    "lost": false,
+    "gl": 0,
+    "observedFields": [
+      {
+        "kind": "waterFront",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 4022
+      },
+      {
+        "kind": "diffuse",
+        "completed": true,
+        "hits": 1,
+        "shaderBytes": 3135
+      }
+    ],
+    "asyncCarryPressure": {
+      "completed": true,
+      "hits": 1,
+      "shaderBytes": 11996
+    }
+  },
+  "limitations": [
+    "Single real Surface browser proof with two short400 gestures",
+    "rAF intervals are scheduling, not GPU duration or physical pen latency",
+    "Exact pipeline compilation moves waits beforeREADY; no total loading gain claim",
+    "Material/history parity and sustained drawing not tested"
+  ]
+}
