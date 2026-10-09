@@ -49,3 +49,4 @@ it('rejects carry without all explicit finite float presentation prerequisites b
  expect(()=>installOwnerFifo({} as any,{diagnosticCarryPreview:true})).toThrow(/Carry requires/)
  expect(()=>installOwnerFifo({} as any,{diagnosticCarryPreview:true,diagnosticFinitePreview:true,diagnosticFloatPreview:true,diagnosticEarlyPreview:true,diagnosticDirectPreview:true,diagnosticArtifactProbe:true})).toThrow(/Carry requires/)
 })
+it('inherited horizon cannot silently enable without carry',()=>{expect(()=>installOwnerFifo({}as any,{diagnosticInheritedCarry:true})).toThrow(/Inherited geometry requires/)})
