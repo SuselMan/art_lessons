@@ -131,3 +131,25 @@ it('drains the real confirmed stream before requesting first snapshot at the adv
     expect(log.find(q => q.op.id === clear.id)?.state).toBe('undone')
   } finally { engine.destroy() }
 })
+
+it.each(['restored', 'failed'] as const)('records only successfully restored server history for reconnect (%s, #739)', async status => {
+  const engine = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
+  const op: Operation = { type: 'layer_add', id: 'layer6', seq: 106048, userId: 'A', timestamp: 6, layerId: 'L', name: 'Layer' }
+  const deps: RestoreRoomStateDeps = {
+    boardId: 'room', restoreFromSnapshot: vi.fn().mockResolvedValue(status), backfillHistory: vi.fn().mockResolvedValue(undefined),
+    applyRemoteOp: vi.fn(), syncFromLogNow: vi.fn(), markJoinRestoreDone: vi.fn(), dispatchParticipants: vi.fn(),
+    setRestoreFailure: vi.fn(), setRoomContentReady: vi.fn(), finishOpenTimer: vi.fn(), notifyReplayIncomplete: vi.fn(),
+    getSnapshotUploader: () => null, latestKnownSeqRef: { current: 0 }, replayIncompleteRef: { current: false },
+    pendingPreviewsRef: { current: createPendingPreviews() }, openTimerRef: { current: null }, replayGate: createReplayGate(),
+  }
+  try {
+    await restoreRoomState(engine, { latestSnapshotSeq: 106000, tailOperations: [op], participants: [], palette: [], frozen: false },
+      { mode: 'join', alreadyHadSeq: 0 }, deps)
+    expect(deps.latestKnownSeqRef.current).toBe(status === 'restored' ? 106048 : 0)
+    if (status === 'restored') {
+      await restoreRoomState(engine, { latestSnapshotSeq: 106000, tailOperations: [], participants: [], palette: [], frozen: false },
+        { mode: 'catchup', alreadyHadSeq: deps.latestKnownSeqRef.current }, deps)
+      expect(deps.restoreFromSnapshot).toHaveBeenCalledOnce()
+    }
+  } finally { engine.destroy() }
+})
