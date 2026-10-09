@@ -1,0 +1,40 @@
+{
+  "source": "d353c8f60bf162f3de97feb21141aecdb0e26a38",
+  "verdict": "INVALID_CONTROLLER_ORDERING_BEFORE_METADATA_READ",
+  "cause": "Factor observed-consumption assertion executed before combined metadata extraction. Both086c andd353 runs stop here; no CDP metadata call occurred. Previous missing-response interpretation was incorrect.",
+  "modelQualityFailure": false,
+  "consumptionProved": false,
+  "endpointProved": false,
+  "rawTimingObservations": [
+    {
+      "label": "long-water400",
+      "downAt": 22650.5,
+      "nextPendingAtDown": false,
+      "nextSettlingAtDown": false,
+      "downToSourceEntryWallMs": 61.5,
+      "downToCanvasPublicationEntryWallMs": 109.10000002384186,
+      "scope": "Own-stroke source JS entry; next canvas publication call may include prior work, not physical first pixel or GPU duration"
+    },
+    {
+      "label": "pigment-on-long-water400",
+      "downAt": 30619.5,
+      "nextPendingAtDown": true,
+      "nextSettlingAtDown": false,
+      "downToSourceEntryWallMs": 475.6999999284744,
+      "downToCanvasPublicationEntryWallMs": 482.7999999523163,
+      "scope": "Own-stroke source JS entry; next canvas publication call may include prior work, not physical first pixel or GPU duration"
+    }
+  ],
+  "responseWitnessPresent": false,
+  "publicationCostCount": 72,
+  "schedulingRowCount": 1906,
+  "restore": {
+    "strokeDescriptorData": true,
+    "displayOriginal": true,
+    "observerRestored": true,
+    "cacheArmRestored": true
+  },
+  "disposed": true,
+  "scope": "Raw timing observations only. No physical pen latency/full gate/UX gain claim. No automatic retry; CPU orchestration proof required.",
+  "evidence": "temp/device-runs/native-factor-interactive-d353-promoted-20261009"
+}
