@@ -1,0 +1,338 @@
+{
+  "source": "4dd3f9e9ec61fb8a012156ee290140befcabb27b",
+  "verdict": "EXACT_10_Q8_ROLES_AND_ENDPOINT_PASS",
+  "mode": "cache-factor",
+  "constantFlags": {
+    "paired": true,
+    "staticCache": true,
+    "film": false,
+    "quantum": 8,
+    "scopeCap": 0
+  },
+  "limitations": [
+    "Fixed OFF then ON order; differences are descriptive, not a causal speedup estimate.",
+    "First material job GPU pass sums exclude copies/upload outside passes, CPU, queue wait and second job.",
+    "Packed replay is not human pen latency. Prior5140 baseline timeout remains unexplained."
+  ],
+  "endpoint": {
+    "width": 1754,
+    "height": 2480,
+    "alpha": 121475,
+    "purple": 121474,
+    "sha": "f66c8e66bf6dd053297fbd45d6102664432842adab58bb7eee4c6de3e2ce98b4",
+    "pngSha256": "75b8dd9c05adde08387b53394c9a6cbac06a4337eeb5de818f07c817ec8a4ae6"
+  },
+  "arms": {
+    "off": {
+      "readyAtMs": 22087.899999976158,
+      "replayWallMs": 4901.300000071526,
+      "capturedWindowWallMs": 1389.7999999523163,
+      "allMeasuredPassTotalMs": 1231.814656,
+      "passCount": 544,
+      "ranking": [
+        {
+          "label": "Canonical waterFront",
+          "count": 240,
+          "totalMs": 790.03648,
+          "meanMs": 3.291818
+        },
+        {
+          "label": "Canonical brush paired",
+          "count": 210,
+          "totalMs": 235.208704,
+          "meanMs": 1.120041
+        },
+        {
+          "label": "Canonical fieldOp 5",
+          "count": 18,
+          "totalMs": 68.288512,
+          "meanMs": 3.793806
+        },
+        {
+          "label": "Canonical fieldOp 15",
+          "count": 16,
+          "totalMs": 38.862848,
+          "meanMs": 2.428928
+        },
+        {
+          "label": "Canonical fieldOp 1",
+          "count": 18,
+          "totalMs": 33.030144,
+          "meanMs": 1.835008
+        },
+        {
+          "label": "Canonical fieldOp 6",
+          "count": 2,
+          "totalMs": 19.595264,
+          "meanMs": 9.797632
+        },
+        {
+          "label": "Canonical fieldOp 2",
+          "count": 2,
+          "totalMs": 12.255232,
+          "meanMs": 6.127616
+        },
+        {
+          "label": "Canonical diffuse",
+          "count": 13,
+          "totalMs": 11.730944,
+          "meanMs": 0.90238
+        },
+        {
+          "label": "Canonical fieldOp 18",
+          "count": 1,
+          "totalMs": 5.832704,
+          "meanMs": 5.832704
+        },
+        {
+          "label": "static front cache prepare",
+          "count": 1,
+          "totalMs": 1.96608,
+          "meanMs": 1.96608
+        },
+        {
+          "label": "Canonical fieldOp 19",
+          "count": 2,
+          "totalMs": 1.769472,
+          "meanMs": 0.884736
+        },
+        {
+          "label": "Canonical composite",
+          "count": 1,
+          "totalMs": 1.703936,
+          "meanMs": 1.703936
+        },
+        {
+          "label": "Canonical fieldOp 12",
+          "count": 1,
+          "totalMs": 1.6384,
+          "meanMs": 1.6384
+        },
+        {
+          "label": "Canonical fieldOp 14",
+          "count": 1,
+          "totalMs": 1.6384,
+          "meanMs": 1.6384
+        },
+        {
+          "label": "Canonical fieldOp 11",
+          "count": 1,
+          "totalMs": 1.441792,
+          "meanMs": 1.441792
+        },
+        {
+          "label": "Canonical fieldOp 3",
+          "count": 1,
+          "totalMs": 1.31072,
+          "meanMs": 1.31072
+        },
+        {
+          "label": "Canonical fieldOp 0",
+          "count": 1,
+          "totalMs": 1.179648,
+          "meanMs": 1.179648
+        },
+        {
+          "label": "Canonical fieldOp 7",
+          "count": 1,
+          "totalMs": 1.179648,
+          "meanMs": 1.179648
+        },
+        {
+          "label": "Canonical fieldOp 4",
+          "count": 1,
+          "totalMs": 1.114112,
+          "meanMs": 1.114112
+        },
+        {
+          "label": "Canonical fieldOp 20",
+          "count": 1,
+          "totalMs": 1.048576,
+          "meanMs": 1.048576
+        },
+        {
+          "label": "Canonical fieldOp 10",
+          "count": 1,
+          "totalMs": 0.98304,
+          "meanMs": 0.98304
+        },
+        {
+          "label": "Canonical clear full",
+          "count": 11,
+          "totalMs": 0.0,
+          "meanMs": 0.0
+        }
+      ],
+      "cache": {
+        "prep": 2,
+        "hits": 430,
+        "fallbacks": 48,
+        "retainedBytes": 0,
+        "cleanupFailures": 0
+      },
+      "factorVariant": [],
+      "stageCount": 26,
+      "allStagesCompleted": true,
+      "disposed": true
+    },
+    "on": {
+      "readyAtMs": 23774.600000023842,
+      "replayWallMs": 4698.899999976158,
+      "capturedWindowWallMs": 1457.6000000238419,
+      "allMeasuredPassTotalMs": 1139.474432,
+      "passCount": 544,
+      "ranking": [
+        {
+          "label": "Canonical waterFront",
+          "count": 240,
+          "totalMs": 707.657728,
+          "meanMs": 2.948573
+        },
+        {
+          "label": "Canonical brush paired",
+          "count": 210,
+          "totalMs": 231.866368,
+          "meanMs": 1.104125
+        },
+        {
+          "label": "Canonical fieldOp 5",
+          "count": 18,
+          "totalMs": 68.288512,
+          "meanMs": 3.793806
+        },
+        {
+          "label": "Canonical fieldOp 15",
+          "count": 16,
+          "totalMs": 40.63232,
+          "meanMs": 2.53952
+        },
+        {
+          "label": "Canonical fieldOp 1",
+          "count": 18,
+          "totalMs": 32.768,
+          "meanMs": 1.820444
+        },
+        {
+          "label": "Canonical fieldOp 6",
+          "count": 2,
+          "totalMs": 22.9376,
+          "meanMs": 11.4688
+        },
+        {
+          "label": "Canonical diffuse",
+          "count": 13,
+          "totalMs": 15.007744,
+          "meanMs": 1.154441
+        },
+        {
+          "label": "Canonical fieldOp 2",
+          "count": 2,
+          "totalMs": 2.359296,
+          "meanMs": 1.179648
+        },
+        {
+          "label": "static front cache prepare",
+          "count": 1,
+          "totalMs": 2.031616,
+          "meanMs": 2.031616
+        },
+        {
+          "label": "Canonical fieldOp 19",
+          "count": 2,
+          "totalMs": 1.769472,
+          "meanMs": 0.884736
+        },
+        {
+          "label": "Canonical composite",
+          "count": 1,
+          "totalMs": 1.6384,
+          "meanMs": 1.6384
+        },
+        {
+          "label": "Canonical fieldOp 12",
+          "count": 1,
+          "totalMs": 1.6384,
+          "meanMs": 1.6384
+        },
+        {
+          "label": "Canonical fieldOp 14",
+          "count": 1,
+          "totalMs": 1.6384,
+          "meanMs": 1.6384
+        },
+        {
+          "label": "Canonical fieldOp 11",
+          "count": 1,
+          "totalMs": 1.441792,
+          "meanMs": 1.441792
+        },
+        {
+          "label": "Canonical fieldOp 3",
+          "count": 1,
+          "totalMs": 1.31072,
+          "meanMs": 1.31072
+        },
+        {
+          "label": "Canonical fieldOp 0",
+          "count": 1,
+          "totalMs": 1.245184,
+          "meanMs": 1.245184
+        },
+        {
+          "label": "Canonical fieldOp 18",
+          "count": 1,
+          "totalMs": 1.179648,
+          "meanMs": 1.179648
+        },
+        {
+          "label": "Canonical fieldOp 7",
+          "count": 1,
+          "totalMs": 1.179648,
+          "meanMs": 1.179648
+        },
+        {
+          "label": "Canonical fieldOp 4",
+          "count": 1,
+          "totalMs": 1.114112,
+          "meanMs": 1.114112
+        },
+        {
+          "label": "Canonical fieldOp 10",
+          "count": 1,
+          "totalMs": 1.048576,
+          "meanMs": 1.048576
+        },
+        {
+          "label": "Canonical fieldOp 20",
+          "count": 1,
+          "totalMs": 0.720896,
+          "meanMs": 0.720896
+        },
+        {
+          "label": "Canonical clear full",
+          "count": 11,
+          "totalMs": 0.0,
+          "meanMs": 0.0
+        }
+      ],
+      "cache": {
+        "prep": 2,
+        "hits": 478,
+        "fallbacks": 0,
+        "retainedBytes": 0,
+        "cleanupFailures": 0
+      },
+      "factorVariant": [
+        {
+          "staticCache": true,
+          "encoded": 480,
+          "shaderBytes": 4500,
+          "shaderSHA": "48022e162c4148228cefca3b5adad251a7f2b0db347fd97a270382c4f1cf26a4"
+        }
+      ],
+      "stageCount": 26,
+      "allStagesCompleted": true,
+      "disposed": true
+    }
+  }
+}
