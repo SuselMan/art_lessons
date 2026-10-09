@@ -41,3 +41,15 @@ actual same-tape radius/water/wet/standing/bounds, no GPU reads; same-call/
 result/this/restore tested. Next comparison can collect endpoint AND scalar
 contract in one bounded original cohort. No additional device run authorized
 by this report.
+
+Original comparison f841 ONE was INVALID before result, not a quality failure:
+raw `owner-water-dab-carry-original-surface.json`, pre2132/controller2120/
+post2051MiB, no memory abort, own target closed/RELEASE. Stage label module-import
+covered the entire async call, so it did NOT establish failure during imports.
+CDP error «Inspected target navigated or closed» had no corresponding captured
+contextDestroyed/new-navigation event; expected loader/defaultcontext2 were
+valid before call. No retry. Added bounded CPU progress markers to distinguish
+engine import/constructor/paper wait/append/idle and one≤1s passive page-state
+capture on error (no GPU reads), keeping primary error and navigation evidence.
+Endpoint and canonical scalar comparison remain OPEN. Next hardware needs new
+allocation; controller fix is attribution, not a claimed navigation-race cure.
