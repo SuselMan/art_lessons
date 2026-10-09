@@ -1,0 +1,269 @@
+{
+  "phase": "closed",
+  "passport": {
+    "apps/web/src/pages/Room/index.tsx": "017a2174c74b786f4d164d253eb826384e2334a1c5771bb3d130f1e1b58ddfe5",
+    "apps/web/src/pages/Room/engineWiring.ts": "9f3cfbb4db09571dfe0d091f32fa7a9d4dd11e598e09c5853609e71e7da98278",
+    "apps/web/src/engine/index.ts": "65943327f878bf891196a6ea10a6a20fab9f8083c8fc494b029af52bc432baa0",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "40e7173707338a9a72b7c7bb263b7be23f9693011c93d5a7c33029e22cad1661",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+    "apps/web/src/engine/src/buffers/RibbonStrokeScratch.ts": "24210ad3fb76a8e25c76a6d6d25f6c2a4142d0c98df3889d504ba36750c14d54",
+    "apps/web/src/engine/src/dabs/DabSystem.ts": "816911a80216b7e80bdd1ba7c11be3ea2e02bf3560bc629197a5f7961266c5b3",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+    "apps/web/src/engine/src/paper/paperWetness.ts": "9edaf471f083947f82461e78d4fa8e3d46ecd985611abdfc688cc891c4b7762d",
+    "docs/qa/harness/728-room-moment/MixedLeaseNatural400.mjs": "7697fd37ad066072284f65a87f4f92002321298b647815401960759540d3cbb1",
+    "docs/qa/harness/728-room-moment/ContinuousPenStroke.mjs": "f745e5903531aae7efc63077ea09e77f6c471ce975e082ef038ef515d78cb642",
+    "docs/qa/harness/728-room-moment/ContinuousPenRecipe.mjs": "ed9d5d70c674461acf8478f8a5a0158270e1acc9e31280f7f8fa8beec3155710",
+    "docs/qa/harness/728-room-moment/HttpActorTrace.mjs": "c174786be5cd5f4cfe02043e71a0d875ccf4f83f05722407fa166da548f4a8ba",
+    "docs/qa/harness/728-room-moment/Natural400Metrics.mjs": "ca77c44f56a498a0fd95917561486ee3000c499f7192b1271758c1a11c68c741",
+    "docs/qa/harness/728-room-moment/PassiveMemoryGate.mjs": "199f09215e7495d9650e603caa15e2f1a3b68bb0261acc968a9841cc9489c98d"
+  },
+  "paperPassport": {
+    "manifest.json": {
+      "bytes": 6532,
+      "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+    },
+    "fine.e59ea6fa.paper": {
+      "bytes": 3983406,
+      "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+    },
+    "fine.a19fcf63.preview": {
+      "bytes": 59686,
+      "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+    }
+  },
+  "memory": [
+    {
+      "phase": "preflight",
+      "enabled": false,
+      "free": 1981,
+      "attempt": 0,
+      "elapsedMs": 1488
+    },
+    {
+      "phase": "OFF",
+      "free": 1757
+    },
+    {
+      "phase": "OFF",
+      "free": 1753
+    },
+    {
+      "phase": "OFF",
+      "free": 1728
+    },
+    {
+      "phase": "OFF",
+      "free": 1690
+    },
+    {
+      "phase": "OFF",
+      "free": 1600
+    },
+    {
+      "phase": "OFF",
+      "free": 1417
+    },
+    {
+      "phase": "OFF",
+      "free": 1162
+    },
+    {
+      "phase": "OFF",
+      "free": 1204
+    },
+    {
+      "phase": "OFF",
+      "free": 1206
+    },
+    {
+      "phase": "OFF",
+      "free": 1612
+    },
+    {
+      "phase": "closed",
+      "free": 1891
+    }
+  ],
+  "memoryProbes": [
+    {
+      "phase": "preflight",
+      "elapsedMs": 1487.5221540000002,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1689.8740080000007,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1735.3103079999983,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1734.9018389999983,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1597.1141050000006,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1899.9440929999982,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create:await-server-room-state",
+      "elapsedMs": 1273.038904000001,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1426.421927000003,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 3031.5097069999974,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "loaded-exit",
+      "elapsedMs": 1322.9429419999942,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "loaded-exit",
+      "elapsedMs": 1173.3784910000031,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "closed",
+      "elapsedMs": 1573.8806069999991,
+      "timedOut": false,
+      "success": true
+    }
+  ],
+  "errors": [],
+  "networkErrors": [],
+  "httpActorTrace": [
+    [
+      {
+        "requestId": "19256.117",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 515705.450314,
+        "wallTime": 1791540719.818863,
+        "status": 200,
+        "responseTimestamp": 515705.532514,
+        "httpActor": "904226a8-f6e8-4023-963f-c04d304edd4b"
+      },
+      {
+        "requestId": "19256.638",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 515723.67208,
+        "wallTime": 1791540738.040688,
+        "status": 200,
+        "responseTimestamp": 515723.72312,
+        "httpActor": "904226a8-f6e8-4023-963f-c04d304edd4b"
+      },
+      {
+        "requestId": "19256.645",
+        "method": "POST",
+        "endpoint": "/api/rooms/<room>/thumbnail",
+        "requestTimestamp": 515724.209306,
+        "wallTime": 1791540738.577869,
+        "status": 200,
+        "responseTimestamp": 515724.264741
+      },
+      {
+        "requestId": "19256.654",
+        "method": "POST",
+        "endpoint": "/api/rooms/<room>/thumbnail",
+        "requestTimestamp": 515729.605415,
+        "wallTime": 1791540743.97405,
+        "status": 200,
+        "responseTimestamp": 515729.696773
+      },
+      {
+        "requestId": "19256.661",
+        "method": "POST",
+        "endpoint": "/api/rooms/<room>/thumbnail",
+        "requestTimestamp": 515737.981164,
+        "wallTime": 1791540752.349785,
+        "status": 200,
+        "responseTimestamp": 515738.148598
+      }
+    ]
+  ],
+  "result": {
+    "valid": false,
+    "error": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation to \"https://10.203.72.1:5381/\" until \"load\"\n============================================================",
+    "failedPhase": "loaded-exit"
+  },
+  "arms": [
+    {
+      "enabled": false,
+      "scenario": "pigment-pigment",
+      "metrics": {
+        "downHandlerMs": 20.19999998807907,
+        "downToSourceBeginMs": 15.699999988079071,
+        "downToSourceEndMs": 16.30000001192093,
+        "downToDisplayBeginMs": 16.80000001192093,
+        "downToDisplayEndMs": 19.900000035762787,
+        "upHandlerMs": 62.5,
+        "upBeginToFirstRafCallbackMs": 97.80000001192093,
+        "upReturnToFirstRafCallbackMs": 35.30000001192093,
+        "upReturnToScheduledHoverMs": 66.39999997615814,
+        "hoverHandlerMs": 0,
+        "completeSettle": [
+          {
+            "phase": "down",
+            "ms": 14.700000047683716
+          }
+        ],
+        "frameGaps": {
+          "count": 139,
+          "medianMs": 16.700000000000728,
+          "p95Ms": 17.100000000002183,
+          "maxMs": 1166.7000000000007
+        },
+        "scope": "CPU submission and synthetic rAF/hover availability; hover deliberately after3frames; not physical visible latency"
+      },
+      "pending": true,
+      "lease": false,
+      "downDrains": 1,
+      "glError": 0,
+      "lost": false,
+      "export": {
+        "begin": 42483.200000047684,
+        "end": 42593.700000047684,
+        "bytes": 1159899
+      },
+      "loadedExit": null,
+      "frameCounts": [
+        104,
+        35
+      ],
+      "handlerCounts": [
+        106,
+        37
+      ]
+    }
+  ]
+}

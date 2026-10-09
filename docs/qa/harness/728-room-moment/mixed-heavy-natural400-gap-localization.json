@@ -1,0 +1,157 @@
+{
+  "scope": "Read-only existing OFF trace; no GPU completion instrumentation or causal proof",
+  "largestGaps": [
+    {
+      "ordinal": 1,
+      "frameTimestampBegin": 32465.7,
+      "frameTimestampEnd": 33632.4,
+      "gapMs": 1166.7000000000007,
+      "handlers": [
+        {
+          "phase": "move",
+          "at": 32482.80000001192,
+          "end": 32489.600000023842
+        }
+      ],
+      "markers": [
+        {
+          "kind": "pigment-source",
+          "at": 32483.80000001192,
+          "end": 32486.80000001192,
+          "ordinal": 1
+        }
+      ]
+    },
+    {
+      "ordinal": 0,
+      "frameTimestampBegin": 30385.100000023842,
+      "frameTimestampEnd": 30448.9,
+      "gapMs": 63.7999999761596,
+      "handlers": [
+        {
+          "phase": "down",
+          "at": 30385.400000035763,
+          "end": 30416.5
+        }
+      ],
+      "markers": [
+        {
+          "kind": "display-submission",
+          "at": 30411.5,
+          "end": 30414.30000001192,
+          "ordinal": 0
+        },
+        {
+          "kind": "down",
+          "at": 30387.900000035763,
+          "end": 30416.400000035763,
+          "ordinal": 0,
+          "pending": false,
+          "lease": false
+        }
+      ]
+    },
+    {
+      "ordinal": 1,
+      "frameTimestampBegin": 33632.4,
+      "frameTimestampEnd": 33682.3,
+      "gapMs": 49.900000000001455,
+      "handlers": [
+        {
+          "phase": "move",
+          "at": 33655.700000047684,
+          "end": 33692
+        }
+      ],
+      "markers": [
+        {
+          "kind": "display-submission",
+          "at": 33649.30000001192,
+          "end": 33655.60000002384,
+          "ordinal": 1
+        },
+        {
+          "kind": "pigment-source",
+          "at": 33658.40000003576,
+          "end": 33659.60000002384,
+          "ordinal": 1
+        },
+        {
+          "kind": "pigment-source",
+          "at": 33668.200000047684,
+          "end": 33685.10000002384,
+          "ordinal": 1
+        }
+      ]
+    },
+    {
+      "ordinal": 1,
+      "frameTimestampBegin": 32357,
+      "frameTimestampEnd": 32398.9,
+      "gapMs": 41.900000000001455,
+      "handlers": [
+        {
+          "phase": "down",
+          "at": 32357,
+          "end": 32377.5
+        }
+      ],
+      "markers": [
+        {
+          "kind": "completeSettle",
+          "at": 32357.5,
+          "end": 32372.200000047684,
+          "ordinal": 1,
+          "phase": "down"
+        },
+        {
+          "kind": "pigment-source",
+          "at": 32373,
+          "end": 32373.600000023842,
+          "ordinal": 1
+        },
+        {
+          "kind": "display-submission",
+          "at": 32374.100000023842,
+          "end": 32377.200000047684,
+          "ordinal": 1
+        },
+        {
+          "kind": "down",
+          "at": 32357.30000001192,
+          "end": 32377.5,
+          "ordinal": 1,
+          "pending": true,
+          "lease": false
+        }
+      ]
+    },
+    {
+      "ordinal": 1,
+      "frameTimestampBegin": 33682.3,
+      "frameTimestampEnd": 33715.6,
+      "gapMs": 33.299999999995634,
+      "handlers": [
+        {
+          "phase": "move",
+          "at": 33693.90000003576,
+          "end": 33728.30000001192
+        }
+      ],
+      "markers": [
+        {
+          "kind": "display-submission",
+          "at": 33693.10000002384,
+          "end": 33693.80000001192,
+          "ordinal": 1
+        },
+        {
+          "kind": "pigment-source",
+          "at": 33697.30000001192,
+          "end": 33721.10000002384,
+          "ordinal": 1
+        }
+      ]
+    }
+  ]
+}

@@ -6,13 +6,15 @@ export async function runMixedLeaseNatural400({enabled,deadlineMs=90000,scenario
  const e=window.__engine,s=window.__roomStore?.getState();if(typeof enabled!=='boolean'||!e||!s||e._locked||!e._paper.loaded)throw Error('Drawable Room and explicit arm required');
  if(e._settle||e._wcCanonical.pending||e._wcNative||e._wcAsyncFinish||e._wcMaterialPresentation||e._wcJoinedTouchMixed||e._wcJoinedFinishDeferred)throw Error('Fresh product model required');
  const canvas=[...document.querySelectorAll('canvas')].find(c=>c.className.includes('canvas')&&c.width>500);if(!canvas)throw Error('Actual Room canvas missing');
- const deadline=performance.now()+deadlineMs,markers=[],queue=[],rows=[],originals=new Map();let sourceDepth=0;let ordinal=-1,phase='',old=null,pending=false,lease=false,downDrains=0;
+ const deadline=performance.now()+deadlineMs,markers=[],queue=[],rows=[],originals=new Map();let observer=null;const longTasks=[];let sourceDepth=0;let ordinal=-1,phase='',old=null,pending=false,lease=false,downDrains=0;
  const add=(kind,at,end,extra={})=>{if(markers.length<2048)markers.push({kind,at,end,ordinal,...extra})};
  const wrap=(name,fn)=>{const original=e[name];if(typeof original!=='function')throw Error('Missing actual method '+name);originals.set(name,original);e[name]=fn(original)};
  const saved={joined:e._wcJoinedTouch,lease:e._wcJoinedTouchSnapshotLease};
  const partial=()=>window.__mixedNatural400Partial={enabled,pending,lease,downDrains,markers,queue,rows};
  try{
   e._wcJoinedTouch=true;e._wcJoinedTouchSnapshotLease=enabled;
+  if(typeof PerformanceObserver==='function'&&PerformanceObserver.supportedEntryTypes?.includes('longtask')){observer=new PerformanceObserver(list=>{for(const entry of list.getEntries())if(longTasks.length<128)longTasks.push({at:entry.startTime,end:entry.startTime+entry.duration,ms:entry.duration})});observer.observe({entryTypes:['longtask']})}
+  wrap('_runSlice',original=>function(...args){const at=performance.now();try{return original.apply(this,args)}finally{add('runSlice',at,performance.now(),{phase})}});
   wrap('_onStart',original=>function(...args){const at=performance.now();phase='down';if(ordinal===1){old=this._settle;pending=!!old}try{return original.apply(this,args)}finally{if(ordinal===1)lease=!!old&&this._wcJoinedTouchLease===old;add('down',at,performance.now(),{pending,lease});phase=''}});
   wrap('_onEnd',original=>function(...args){const at=performance.now();phase='up';try{return original.apply(this,args)}finally{add('up',at,performance.now());phase=''}});
   wrap('_completeSettle',original=>function(...args){const at=performance.now();if(ordinal===1&&phase==='down')downDrains++;try{return original.apply(this,args)}finally{add('completeSettle',at,performance.now(),{phase})}});
@@ -36,6 +38,6 @@ export async function runMixedLeaseNatural400({enabled,deadlineMs=90000,scenario
   const tape=e.getOperations().filter(o=>o.type==='stroke');if(tape.length!==2||tape.some(o=>!o.dabsPacked))throw Error('Two genuine packed strokes required');
   const glError=e.gl.getError(),lost=e.gl.isContextLost();if(!pending||(enabled?(!lease||downDrains!==0):(lease||downDrains<1))||glError||lost)throw Error('Actual pending/admission/GL guard');
   const metrics=natural400Metrics({markers,rows});
-  return{enabled,scenario,metrics,pending,lease,downDrains,rows,markers,queue,tape,glError,lost,timedEnd,export:{begin:exportBegin,end:performance.now(),bytes:blob.size},scope:'Natural clock synthetic actual Room PointerInput; CPU source/display submissions and rAF availability, not physical pen latency or exact authored OFF/ON parity'};
- }finally{partial();for(const[name,original]of originals)e[name]=original;e._wcJoinedTouch=saved.joined;e._wcJoinedTouchSnapshotLease=saved.lease}
+  return{enabled,scenario,metrics,longTasks,pending,lease,downDrains,rows,markers,queue,tape,glError,lost,timedEnd,export:{begin:exportBegin,end:performance.now(),bytes:blob.size},scope:'Natural clock synthetic actual Room PointerInput; CPU source/display submissions and rAF availability, not physical pen latency or exact authored OFF/ON parity'};
+ }finally{observer?.disconnect();partial();for(const[name,original]of originals)e[name]=original;e._wcJoinedTouch=saved.joined;e._wcJoinedTouchSnapshotLease=saved.lease}
 }
