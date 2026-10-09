@@ -1,0 +1,61 @@
+{
+  "scope": "Actual GPU optical PNG deformation only; darkness != pigment mass. No paper/water/reveal or physical latency interpretation.",
+  "frames": [
+    {
+      "step": 0,
+      "actualElapsedMs": 1.9000000357627869,
+      "rgbChangedPixels": 0,
+      "rgbMaxAbsVs0": 0,
+      "rgbMeanAbsVs0": 0.0,
+      "darknessWeightedCentre": [
+        75.65079537613778,
+        51.376700157846486
+      ],
+      "darknessWeightedSecondMoment": 187.52256414643057,
+      "darknessSum": 829.7960784313725,
+      "supportPixelsDensityOver1percent": 1532
+    },
+    {
+      "step": 4,
+      "actualElapsedMs": 431.19999998807907,
+      "rgbChangedPixels": 1810,
+      "rgbMaxAbsVs0": 67,
+      "rgbMeanAbsVs0": 0.93768310546875,
+      "darknessWeightedCentre": [
+        75.58141294280553,
+        51.272258342579946
+      ],
+      "darknessWeightedSecondMoment": 201.45908950867724,
+      "darknessSum": 855.2862745098039,
+      "supportPixelsDensityOver1percent": 1643
+    },
+    {
+      "step": 8,
+      "actualElapsedMs": 834.3000000119209,
+      "rgbChangedPixels": 2002,
+      "rgbMaxAbsVs0": 98,
+      "rgbMeanAbsVs0": 1.45257568359375,
+      "darknessWeightedCentre": [
+        75.54051668733536,
+        51.186022829107564
+      ],
+      "darknessWeightedSecondMoment": 210.06283920195804,
+      "darknessSum": 866.4549019607844,
+      "supportPixelsDensityOver1percent": 1744
+    },
+    {
+      "step": 12,
+      "actualElapsedMs": 1230.6000000238419,
+      "rgbChangedPixels": 2127,
+      "rgbMaxAbsVs0": 115,
+      "rgbMeanAbsVs0": 1.7839762369791667,
+      "darknessWeightedCentre": [
+        75.51979446455681,
+        51.1062891330321
+      ],
+      "darknessWeightedSecondMoment": 216.30489871338509,
+      "darknessSum": 873.0901960784314,
+      "supportPixelsDensityOver1percent": 1864
+    }
+  ]
+}
