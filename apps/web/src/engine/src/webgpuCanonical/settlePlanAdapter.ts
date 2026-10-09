@@ -17,7 +17,9 @@ type BufferField = Pick<SettlePlanField<CanonicalFieldBuffer>, 'w' | 'h' | 'cove
 /** Executes the ORIGINAL planner's GPU calls. Own resource operations and
  * uploads join the same encoder, preserving their position between passes. */
 export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuffer, CanonicalUploadSlot> {
- readonly diagnosticBrushMrt = false
+ get diagnosticBrushMrt(){return import.meta.env.DEV&&this.diagnosticNativeBrushPair}
+ diagnosticNativeBrushPair=false
+ pairedBrushCalls=0
  /** Diagnostic-only hardware sampling arm for existing LINEAR non-paper field inputs. */
  diagnosticFrontSourceFilter?:import('./passes/frontSampling').CanonicalFrontSourceSampling
  diagnosticHardwareLinearInputs=false
@@ -142,9 +144,17 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
   if (width <= 0 || height <= 0) return
   this.transient.push(this.commands.encode(this.ctx(), { kind: 'resample', out: out.field, source: source.field, old: (old ?? source).field, base: (base ?? source).field, params: { baseSize: base ? [base.width, base.height] : [out.width, out.height], dstOrigin: [dx, dy], srcOrigin: [sx, sy], ratio, mode, clamp: clamp ?? [0, 0, source.width, source.height], scissor: [dx, dy, width, height] } }))
  }
- brushPair(_field: BufferField, _flow: CanonicalUploadSlot, _radius: number, _scale: number, _pigment: CanonicalFieldBuffer, _outPigment: CanonicalFieldBuffer, _color: CanonicalFieldBuffer, _outColor: CanonicalFieldBuffer, _rect: SettlePlanRect, _scissor: SettlePlanRect, _gain: number): boolean {
-  // Keep the original two-pass schedule; do not silently enable MRT here.
-  return false
+ brushPair(field: BufferField, flow: CanonicalUploadSlot, radius: number, scale: number, pigment: CanonicalFieldBuffer, outPigment: CanonicalFieldBuffer, color: CanonicalFieldBuffer, outColor: CanonicalFieldBuffer, rect: SettlePlanRect, scissor: SettlePlanRect, gain: number): boolean {
+  if(!this.diagnosticBrushMrt)return false
+  if(!Number.isInteger(field.w)||field.w<1||!Number.isInteger(field.h)||field.h<1)throw Error('Native paired brush invalid field extent')
+  const buffers=[pigment,color,field.coverage,outPigment,outColor]
+  for(const b of buffers){if(b.owner!==this.owner||b.destroyed||!this.owner.ownsLiveField(b.field)||b.width!==field.w||b.height!==field.h||b.field.width!==b.width||b.field.height!==b.height||b.field.format!=='rgba8unorm'||b.filter!==b.field.filter)throw Error('Native paired brush requires live same-owner Q8 dimensions')}
+  if(!flow.field||flow.destroyed||!this.owner.ownsLiveField(flow.field)||flow.field.format!=='rgba8unorm')throw Error('Native paired brush requires owned uploaded flow')
+  if([pigment.field,color.field,field.coverage.field,flow.field].some(f=>f.texture===outPigment.texture||f.texture===outColor.texture)||outPigment.texture===outColor.texture)throw Error('Native paired brush aliases pre-pulse inputs')
+  if(!Number.isFinite(radius)||radius<=0||!Number.isFinite(scale)||scale<=0||!Number.isFinite(gain)||gain<0||rect.length!==4||scissor.length!==4||rect.some(v=>!Number.isFinite(v))||rect[2]<=0||rect[3]<=0||scissor.some(v=>!Number.isInteger(v)||v<0)||scissor[0]+scissor[2]>field.w||scissor[1]+scissor[3]>field.h)throw Error('Native paired brush invalid original pulse geometry')
+  const step=Math.max(1,Math.round(radius*.25/scale))
+  this.transient.push(...this.brush.encode(this.ctx(),{pigment:pigment.field,color:color.field,flow:flow.field,water:field.coverage.field,outPigment:outPigment.field,outColor:outColor.field},[step/field.w,step/field.h],gain,rect,scissor))
+  this.pairedBrushCalls++;return true
  }
  brushPass(field: BufferField, flow: CanonicalUploadSlot, radius: number, scale: number, source: CanonicalFieldBuffer, out: CanonicalFieldBuffer, pigment: CanonicalFieldBuffer, rect: SettlePlanRect, scissor: SettlePlanRect, color: CanonicalFieldBuffer, gain: number) {
   if (!flow.field || flow.destroyed) throw new Error('Native contact flow is unavailable')

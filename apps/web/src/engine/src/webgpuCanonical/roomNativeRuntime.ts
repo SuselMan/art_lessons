@@ -26,6 +26,7 @@ export interface RoomNativeRuntimeContext {
  diagnosticTimestampQueries?:boolean
  /** DEV QA only: pressure D sampler in canonical carry15/16; OFF default. */
  /** QA-only detached raw canvas warmup; no source/settle warmup. */
+ diagnosticNativeBrushPair?:boolean
  diagnosticSourcePrecompile?:boolean
  diagnosticFirstLiveWarmup?:boolean
  diagnosticRawCanvasWarmup?:boolean
@@ -70,6 +71,7 @@ export class RoomNativeRuntime {
  private constructor(backend:CanonicalWatercolorWebGpu,ctx:RoomNativeRuntimeContext){this.backend=backend;this.ctx=ctx;this.tipContactQa=installNativeTipA(backend,ctx.diagnosticTipContactA===true);this.central=new RoomNativeCentralAdapter(ctx.fifo,ctx.changed)}
  get sourcePipelinePreparation(){return exactPipelinePreparationDiagnostics(this.backend.device)}
  static async create(ctx:RoomNativeRuntimeContext){
+  if(import.meta.env.DEV&&ctx.diagnosticNativeBrushPair&&(ctx.diagnosticMomentTransport||ctx.diagnosticMomentGpuAudit||ctx.diagnosticMomentVector))throw Error('Separate original native paired brush arm required')
   if(import.meta.env.DEV&&ctx.diagnosticSourcePrecompile===true&&(ctx.diagnosticFirstLiveWarmup||ctx.diagnosticRawCanvasWarmup||ctx.diagnosticTipContactA))throw Error('Exact source preparation requires dispatch warm and tip variants OFF')
   if(import.meta.env.DEV&&ctx.diagnosticFirstLiveWarmup===true&&ctx.diagnosticRawCanvasWarmup===true)throw new Error('Separate first-live and raw-only warmup arms required')
   console.info('[native-room-init]','paper:load-start')
@@ -164,7 +166,7 @@ export class RoomNativeRuntime {
  get carryPressureDiagnostics(){return this.owner?.carryPressureDiagnostics??null}
  private ownerFor(scratch:RibbonStrokeScratch,tile:PaintTarget,layerId:string,targetLayer:ILayerBuffer){
   if(this.owner&&(this.scratch!==scratch||this.tile?.buffer!==tile.buffer||this.targetLayer!==targetLayer)){this.trackRetirement(this.owner.retire('rebuild',false));this.owner=null}
-  if(!this.owner){this.generation++;this.scratch=scratch;this.tile=tile;this.targetLayer=targetLayer;this.owner=new CanonicalRoomWatercolorExecutor(this.backend,{tile:tile.buffer,originX:tile.originX,originY:tile.originY,layerId,generation:this.generation,delivery:scratch,central:this.central,diagnosticMomentVector:this.ctx.diagnosticMomentVector,diagnosticMomentGpuAudit:this.ctx.diagnosticMomentGpuAudit,diagnosticCarryHardwarePressure:this.ctx.diagnosticCarryHardwarePressure,bridgeMode:'canvas',bridgeCanvas:document.createElement('canvas')})}
+  if(!this.owner){this.generation++;this.scratch=scratch;this.tile=tile;this.targetLayer=targetLayer;this.owner=new CanonicalRoomWatercolorExecutor(this.backend,{tile:tile.buffer,originX:tile.originX,originY:tile.originY,layerId,generation:this.generation,delivery:scratch,central:this.central,diagnosticNativeBrushPair:this.ctx.diagnosticNativeBrushPair,diagnosticMomentVector:this.ctx.diagnosticMomentVector,diagnosticMomentGpuAudit:this.ctx.diagnosticMomentGpuAudit,diagnosticCarryHardwarePressure:this.ctx.diagnosticCarryHardwarePressure,bridgeMode:'canvas',bridgeCanvas:document.createElement('canvas')})}
   return this.owner
  }
  finish(scratch:RibbonStrokeScratch,metadata:RibbonFinishMetadata):void {

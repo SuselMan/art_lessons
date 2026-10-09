@@ -288,6 +288,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   if (snapshot.width !== this.options.width || snapshot.height !== this.options.height) throw new Error('Canonical snapshot dimensions mismatch')
   for (const name of names) this.upload(this.fields[name], snapshot.fields[name])
  }
+ ownsLiveField(field:CanonicalGpuField){return !this.destroyed&&this.ownedFields.has(field)}
  whenIdle() { return this.device.queue.onSubmittedWorkDone() }
  destroy() { if (this.destroyed) return; this.destroyed = true; this.diagnosticTimestamps?.destroy(); this.diagnosticTimestamps=null; try{for (const field of this.ownedFields) field.texture.destroy(); this.ownedFields.clear(); for(const field of this.pendingRetired)field.texture.destroy(); this.pendingRetired.clear(); this.activeRetired.forEach(field=>field.texture.destroy()); this.activeRetired=[]; this.activeBuffers.forEach(buffer=>buffer.destroy()); this.activeBuffers=[]}finally{this.flushOwnerRetirements();try{this.context?.unconfigure()}finally{this.device.destroy()}} }
 }

@@ -271,6 +271,7 @@ export interface PencilEngineOptions {
   diagnosticFirstLiveWarmup?: boolean
   diagnosticRawCanvasWarmup?: boolean
   diagnosticCarryHardwarePressure?: boolean
+  diagnosticNativeBrushPair?: boolean
   diagnosticSourcePrecompile?: boolean
   diagnosticAsyncObservedFields?: boolean
   diagnosticAsyncCarryPressure?: boolean
@@ -1870,6 +1871,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _wcFirstLiveWarmupEnabled=false
   private _wcRawCanvasWarmupEnabled=false
   private _wcCarryHardwarePressureEnabled=false
+  private _wcNativeBrushPairEnabled=false
   private _wcSourcePrecompileEnabled=false
   private _wcAsyncObservedFieldsEnabled=false
   private _wcAsyncCarryPressureEnabled=false
@@ -2302,6 +2304,8 @@ export class PencilEngine implements PencilEngineAPI {
     if(this._wcFirstLiveWarmupEnabled&&this._wcRawCanvasWarmupEnabled)throw Error('Separate first-live and raw-only warmup arms required')
     this._wcCarryHardwarePressureEnabled=import.meta.env.DEV&&options.diagnosticCarryHardwarePressure===true
     if(this._wcCarryHardwarePressureEnabled&&!this._wcNativeEnabled)throw Error('DEV carry pressure sampling requires nativeWatercolor')
+    this._wcNativeBrushPairEnabled=import.meta.env.DEV&&options.diagnosticNativeBrushPair===true
+    if(this._wcNativeBrushPairEnabled&&(!this._wcNativeEnabled||options.diagnosticWebgl2||options.diagnosticBrushMrt||options.diagnosticFrontBatch||options.diagnosticMomentTransport||options.diagnosticMomentGpuAudit||options.diagnosticMomentVector))throw Error('Native paired brush requires separate original native runtime')
     this._wcSourcePrecompileEnabled=import.meta.env.DEV&&options.diagnosticSourcePrecompile===true
     if(this._wcSourcePrecompileEnabled&&(!this._wcNativeEnabled||options.diagnosticFirstLiveWarmup||options.diagnosticRawCanvasWarmup||options.diagnosticTipContactA))throw Error('Exact source preparation requires native and no dispatch warm/tip variants')
     this._wcAsyncObservedFieldsEnabled=import.meta.env.DEV&&options.diagnosticAsyncObservedFields===true
@@ -2747,7 +2751,7 @@ export class PencilEngine implements PencilEngineAPI {
     const epoch=this._wcNativeInitEpoch
     if(!this._wcNativeReady)this._wcNativeReady=this._paper.ready().then(async()=>{
       const {RoomNativeRuntime}=await import('./src/webgpuCanonical/roomNativeRuntime')
-      const runtime=await RoomNativeRuntime.create({diagnosticSourcePrecompile:this._wcSourcePrecompileEnabled,diagnosticAsyncObservedFields:import.meta.env.DEV&&this._wcAsyncObservedFieldsEnabled,diagnosticFirstLiveWarmup:this._wcFirstLiveWarmupEnabled,diagnosticRawCanvasWarmup:this._wcRawCanvasWarmupEnabled,diagnosticAsyncCarryPressure:this._wcAsyncCarryPressureEnabled,diagnosticCarryHardwarePressure:this._wcCarryHardwarePressureEnabled,diagnosticTipContactA:this._wcTipContactAEnabled,diagnosticMomentVector:this._wcMomentVectorEnabled,diagnosticMomentGpuAudit:this._wcMomentGpuAuditEnabled,diagnosticMomentTransport:this._wcMomentTransportEnabled,fifo:this._wcCanonical,paper:this._paper.type,paperScale:this._paper.scale,paperWorld:this._paper.worldSize(),board:this._pageSize(),
+      const runtime=await RoomNativeRuntime.create({diagnosticNativeBrushPair:this._wcNativeBrushPairEnabled,diagnosticSourcePrecompile:this._wcSourcePrecompileEnabled,diagnosticAsyncObservedFields:import.meta.env.DEV&&this._wcAsyncObservedFieldsEnabled,diagnosticFirstLiveWarmup:this._wcFirstLiveWarmupEnabled,diagnosticRawCanvasWarmup:this._wcRawCanvasWarmupEnabled,diagnosticAsyncCarryPressure:this._wcAsyncCarryPressureEnabled,diagnosticCarryHardwarePressure:this._wcCarryHardwarePressureEnabled,diagnosticTipContactA:this._wcTipContactAEnabled,diagnosticMomentVector:this._wcMomentVectorEnabled,diagnosticMomentGpuAudit:this._wcMomentGpuAuditEnabled,diagnosticMomentTransport:this._wcMomentTransportEnabled,fifo:this._wcCanonical,paper:this._paper.type,paperScale:this._paper.scale,paperWorld:this._paper.worldSize(),board:this._pageSize(),
         resolve:(target,bounds)=>this._resolveWithinSheet(target,this._wcSheetClamp(bounds)),layerId:target=>[...this._layers].find(([,buffer])=>buffer===target)?.[0]??[...this._rebuildJobs].find(([,job])=>job.fresh===target)?.[0]??this._wcNativeReplayTargets.get(target),changed:()=>this._scheduleDisplay(),failed:error=>{this._wcAsyncError=error}})
       if(this._destroyed||epoch!==this._wcNativeInitEpoch){await runtime.retire('unmount');return}
       this._wcNative=runtime

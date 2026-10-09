@@ -76,3 +76,9 @@ it('physical batch2 defaults OFF, exact DEV only, rejects duplicates and invalid
  expect(parse(false,'?qaPhysicalBatchTwo=bad&qaPhysicalBatchTwo=1').diagnosticPhysicalBatchTwo).toBe(false)
  for(const q of ['?qaPhysicalBatchTwo=true','?qaPhysicalBatchTwo=1&qaPhysicalBatchTwo=0'])expect(()=>parse(true,q)).toThrow()
 })
+it('native paired brush is separate strict DEV option, requiring original native arm',()=>{
+ expect(parse(false,'?wcNative=1&wcNativeBrushPair=1').diagnosticNativeBrushPair).toBe(false)
+ expect(parse(true,'').diagnosticNativeBrushPair).toBe(false)
+ expect(parse(true,'?wcNative=1&wcNativeBrushPair=1')).toMatchObject({diagnosticNativeBrushPair:true,diagnosticBrushMrt:false})
+ for(const query of ['?wcNativeBrushPair=1','?wcNative=1&wcNativeBrushPair=yes','?wcNative=1&wcNativeBrushPair=1&wcNativeBrushPair=0','?wcNative=1&wcNativeBrushPair=1&wcMomentTransport=1','?wcNative=1&wcNativeBrushPair=1&wcGl2=1'])expect(()=>parse(true,query)).toThrow()
+})

@@ -254,7 +254,8 @@
           "retirementCleanupFailures": 0,
           "scope": "Final Q8 cost/coverage/material roles after operation idle; no earlier outward-cost snapshot, no hot reads"
         }
-      ]
+      ],
+      "totalGpuNanoseconds": "1618935808"
     },
     "on": {
       "complete": true,
@@ -508,7 +509,8 @@
           "retirementCleanupFailures": 0,
           "scope": "Final Q8 cost/coverage/material roles after operation idle; no earlier outward-cost snapshot, no hot reads"
         }
-      ]
+      ],
+      "totalGpuNanoseconds": "1451163648"
     }
   },
   "ramAdmissions": [
