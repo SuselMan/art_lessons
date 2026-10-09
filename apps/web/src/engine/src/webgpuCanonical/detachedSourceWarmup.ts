@@ -6,6 +6,7 @@ import {CanonicalFieldOps} from './passes/fieldOps'
 import {runDetachedWarmup} from './detachedWarmup'
 import {CanonicalSingleTileFinish,type CanonicalTileLiveInput} from './finishTile'
 import {CanonicalRoomTileBridge} from './roomTileBridge'
+import {CanonicalPlanAdapter} from './settlePlanAdapter'
 import {cloneWarmPacket,warmPacketSha256,assertWarmResourceRetirement} from './warmPacket'
 
 /** QA-only shader-first-use packet. Caller supplies ALREADY prepared immutable
@@ -39,6 +40,9 @@ async function warmSourcePacket(backend:CanonicalWatercolorWebGpu,segment:Prepar
   const pool=new CanonicalScratchPool(owner),tile=new CanonicalFieldBuffer(owner,1024,1024,'nearest','QA detached prepared source tile'),scratch=new CanonicalTileScratch(pool,true,true),ops=new CanonicalFieldOps(backend.device)
   backend.device.pushErrorScope('validation')
   try{
+   // Match first actual Room owner construction. This compiles both canonical
+   // brush pipeline descriptors; no brush/planner dispatch is added.
+   if(liveCopy)new CanonicalPlanAdapter(owner)
    const encoder=backend.device.createCommandEncoder({label:'QA detached original source warmup'})
    let release=()=>{}
    try{const encoded=backend.encodeOwnerCommands(encoder,()=>{
@@ -64,5 +68,5 @@ async function warmSourcePacket(backend:CanonicalWatercolorWebGpu,segment:Prepar
  if(await warmPacketSha256(identity)!==sourceSha256)throw new Error('Prepared warm source mutated during execution')
  const afterResources=backend.diagnosticResourceLedger
  const sharedResourceDeltaBytes=assertWarmResourceRetirement(beforeResources,afterResources)
- return{...result,sourceSha256,vertexBytes,transientBufferBytes,sharedResourceDeltaBytes,scope:liveCopy?'prepared source + live composite + raw canvas':'prepared source only',plannerWarmed:false,pressureDispatched:false,liveCompositeWarmed:!!liveCopy,rawCanvasWarmed:!!liveCopy,glPublished:false}
+ return{...result,sourceSha256,vertexBytes,transientBufferBytes,sharedResourceDeltaBytes,scope:liveCopy?'prepared source + live composite + raw canvas':'prepared source only',plannerWarmed:false,pressureDispatched:false,brushPipelinesConstructed:!!liveCopy,liveCompositeWarmed:!!liveCopy,rawCanvasWarmed:!!liveCopy,glPublished:false}
 }
