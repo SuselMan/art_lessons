@@ -23,3 +23,7 @@
 ## Следующий meaningful gate
 
 После восстановления устройства отдельно собрать OFF/ON из фиксированного HEAD с private flag injection до первого stroke; один и тот же packed water→pigment log, одинаковые paper/preset/size/source passports. Проверить named mobile/fixed P/C, water/coverage/cost, декодированный whole export и exact operation history после canonical idle. Отдельный живой двухштриховый длинный 400 сценарий измеряет DOWN→first source submission, `_completeSettle` и rAF, а не физическое pen-to-photon. Пропавший пигмент, потерянный gesture, GL error, alias или неравный endpoint — FAIL, без whitelist. До этих gates кандидат не передаётся художнику и не включается по умолчанию.
+
+### Важное ограничение существующего replay harness
+
+`runPhysicalBatchSameTape` вызывает `appendOperation(..., remote)` и ждёт canonical idle после каждого op. Он не вызывает `_onStart` со вторым DOWN поверх unfinished predecessor, поэтому такой PASS не доказывает snapshot lease. Положительный gate обязан подтвердить в ON хотя бы один `_wcJoinedTouchLease === oldJob` до нового source и отсутствие DOWN drain, а в OFF — фактический drain. Сначала воспроизвести одинаковые decoded packed dabs/события с одинаковым межштриховым интервалом без idle, затем дождаться общего idle и сравнить fields/export/history. Отдельный последовательный replay остаётся canonical reference, но не заменяет этот overlapping input gate.
