@@ -10,7 +10,7 @@ export function fenceSelectedMaterialJob(job,queue,index,record,callbacks={}){
    if(state==='after'){state='complete';return savedDone}
    const done=job.step();next++;return done
   },
-  finish(){if(!alive)throw Error('Selected fence job disposed');if(state!=='complete')throw Error('Selected operation fence did not complete');return job.finish()},
+  finish(){if(!alive)throw Error('Selected fence job disposed');if(state!=='complete')throw Error('Selected operation fence did not complete');record('fence.job:finish',{originalStepCalls:next,operationIndex:index});return job.finish()},
   publish:job.publish?()=>job.publish():undefined,
   dispose(){if(disposed)return;disposed=true;alive=false;return job.dispose()}
  }
