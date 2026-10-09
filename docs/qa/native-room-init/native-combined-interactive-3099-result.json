@@ -1,0 +1,841 @@
+{
+  "source": "309991f07b0ae01aaed56f47bf9f772a5df72235",
+  "scope": "Synthetic pointer to original JS submit, existing queue-prefix ACK, GL display/rAF opportunity; not physical first pixel or isolated GPU quantum duration",
+  "proof": {
+    "latency": [
+      {
+        "label": "long-water400",
+        "requestId": 1,
+        "ownerEpoch": 1,
+        "downAt": 22603.5,
+        "firstSubmitAt": 22669.600000023842,
+        "ackAt": 22702,
+        "touchToSubmitMs": 66.10000002384186,
+        "submitToAckPrefixMs": 32.39999997615814
+      },
+      {
+        "label": "pigment-on-long-water400",
+        "requestId": 17,
+        "ownerEpoch": 1,
+        "downAt": 30812.800000071526,
+        "firstSubmitAt": 31184.300000071526,
+        "ackAt": 31191,
+        "touchToSubmitMs": 371.5,
+        "submitToAckPrefixMs": 6.699999928474426
+      }
+    ],
+    "actualUpToNextDownMs": 1611.7000000476837,
+    "declaredMinimumGapMs": 100,
+    "submittedScopes": 440,
+    "scope": "Synthetic pointer to original JS submit, existing queue-prefix ACK, GL display/rAF opportunity; not physical first pixel or isolated GPU quantum duration"
+  },
+  "combinedConsumption": {
+    "cache": {
+      "prep": 2,
+      "hits": 430,
+      "fallbacks": 48,
+      "retainedBytes": 0,
+      "cleanupFailures": 0
+    },
+    "paired": true,
+    "pairedCalls": 210,
+    "film": false,
+    "filmVariants": []
+  },
+  "beforeSecond": {
+    "pending": true,
+    "wetPeak": 0.9891300000001987,
+    "owner": true,
+    "coverage": true
+  },
+  "restore": {
+    "strokeDescriptorData": true,
+    "displayOriginal": true,
+    "observerRestored": true,
+    "cacheArmRestored": true
+  },
+  "endpoint": {
+    "width": 1754,
+    "height": 2480,
+    "alpha": 121475,
+    "purple": 121474,
+    "sha": "f66c8e66bf6dd053297fbd45d6102664432842adab58bb7eee4c6de3e2ce98b4",
+    "pngSha256": "75b8dd9c05adde08387b53394c9a6cbac06a4337eeb5de818f07c817ec8a4ae6",
+    "pngBytes": 388212,
+    "comparisonReady": true
+  },
+  "publicationCosts": [
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.5,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 1,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 35.5,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 1,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 1,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 1.6999999284744263,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 1,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.09999990463256836,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 2,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 8.299999952316284,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 2,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 2,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.5,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 2,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.10000002384185791,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 3,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 6.099999904632568,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 3,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 3,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.3999999761581421,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 3,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.10000002384185791,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 4,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 6.300000071525574,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 4,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 4,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.6000000238418579,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 4,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.20000004768371582,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 5,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 8.900000095367432,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 5,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 5,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.3999999761581421,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 5,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.20000004768371582,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 6,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 5.700000047683716,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 6,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 6,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.30000007152557373,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 6,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.09999990463256836,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 7,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 6.699999928474426,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 7,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 7,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.3999999761581421,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 7,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.20000004768371582,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 8,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 16.100000023841858,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 8,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 8,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.2999999523162842,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 8,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 9,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 11.600000023841858,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 9,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0.10000002384185791,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 9,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.5,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 9,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 10,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 6.599999904632568,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 10,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0.10000002384185791,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 10,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.3999999761581421,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 10,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.19999992847442627,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 11,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 12.800000071525574,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 11,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 11,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.3999999761581421,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 11,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.09999990463256836,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 12,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 6.600000023841858,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 12,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 12,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.3999999761581421,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 12,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.10000002384185791,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 13,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 6.200000047683716,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 13,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 13,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.2999999523162842,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 13,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.09999990463256836,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 14,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 13.100000023841858,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 14,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 14,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.30000007152557373,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 14,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.09999990463256836,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 15,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 7.899999976158142,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 15,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 15,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.2999999523162842,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 15,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.19999992847442627,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 16,
+      "fifoEpoch": 0,
+      "requestKind": "material"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 181.79999995231628,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 16,
+      "fifoEpoch": 0,
+      "requestKind": "material"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 16,
+      "fifoEpoch": 0,
+      "requestKind": "material"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.19999992847442627,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 16,
+      "fifoEpoch": 0,
+      "requestKind": "material"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.20000004768371582,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 17,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 5.699999928474426,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 17,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 17,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.2999999523162842,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 17,
+      "fifoEpoch": 0,
+      "requestKind": "source"
+    },
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.5,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 18,
+      "fifoEpoch": 0,
+      "requestKind": "material"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 516.1000000238419,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 18,
+      "fifoEpoch": 0,
+      "requestKind": "material"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 18,
+      "fifoEpoch": 0,
+      "requestKind": "material"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.5,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 18,
+      "fifoEpoch": 0,
+      "requestKind": "material"
+    }
+  ],
+  "nextRelevantPhases": [
+    {
+      "kind": "fifoPhase",
+      "fifoEpoch": 0,
+      "requestId": 16,
+      "ownerEpoch": null,
+      "requestKind": "material",
+      "phase": "prepare:start",
+      "queued": 1,
+      "cancelled": false,
+      "at": 29565.600000023842
+    },
+    {
+      "kind": "fifoPhase",
+      "fifoEpoch": 0,
+      "requestId": 16,
+      "ownerEpoch": null,
+      "requestKind": "material",
+      "phase": "prepare:done",
+      "queued": 1,
+      "cancelled": false,
+      "at": 29612.800000071526
+    },
+    {
+      "kind": "fifoPhase",
+      "fifoEpoch": 0,
+      "requestId": 16,
+      "ownerEpoch": null,
+      "requestKind": "material",
+      "phase": "finish:start",
+      "queued": 2,
+      "cancelled": false,
+      "at": 30967.900000095367
+    },
+    {
+      "kind": "fifoPhase",
+      "fifoEpoch": 0,
+      "requestId": 16,
+      "ownerEpoch": null,
+      "requestKind": "material",
+      "phase": "finish:done",
+      "queued": 2,
+      "cancelled": false,
+      "at": 30971.200000047684
+    },
+    {
+      "kind": "fifoPhase",
+      "fifoEpoch": 0,
+      "requestId": 16,
+      "ownerEpoch": null,
+      "requestKind": "material",
+      "phase": "publish:start",
+      "queued": 2,
+      "cancelled": false,
+      "at": 30971.200000047684
+    },
+    {
+      "kind": "fifoPhase",
+      "fifoEpoch": 0,
+      "requestId": 16,
+      "ownerEpoch": null,
+      "requestKind": "material",
+      "phase": "publish:done",
+      "queued": 2,
+      "cancelled": false,
+      "at": 31154.700000047684
+    },
+    {
+      "kind": "fifoPhase",
+      "fifoEpoch": 0,
+      "requestId": 16,
+      "ownerEpoch": null,
+      "requestKind": "material",
+      "phase": "complete",
+      "queued": 2,
+      "cancelled": false,
+      "at": 31167.700000047684
+    },
+    {
+      "kind": "fifoPhase",
+      "fifoEpoch": 0,
+      "requestId": 17,
+      "ownerEpoch": null,
+      "requestKind": "source",
+      "phase": "execute",
+      "queued": 1,
+      "cancelled": false,
+      "at": 31182.400000095367
+    },
+    {
+      "kind": "fifoPhase",
+      "fifoEpoch": 0,
+      "requestId": 17,
+      "ownerEpoch": null,
+      "requestKind": "source",
+      "phase": "publish:start",
+      "queued": 1,
+      "cancelled": false,
+      "at": 31184.600000023842
+    },
+    {
+      "kind": "fifoPhase",
+      "fifoEpoch": 0,
+      "requestId": 17,
+      "ownerEpoch": null,
+      "requestKind": "source",
+      "phase": "publish:done",
+      "queued": 1,
+      "cancelled": false,
+      "at": 31191.700000047684
+    },
+    {
+      "kind": "fifoPhase",
+      "fifoEpoch": 0,
+      "requestId": 17,
+      "ownerEpoch": null,
+      "requestKind": "source",
+      "phase": "complete",
+      "queued": 1,
+      "cancelled": false,
+      "at": 31201.200000047684
+    }
+  ],
+  "verdict": "Functional/ownership PASS. Interactive latency improvement not demonstrated: next DOWN\u2192submit371.5 ms, prior-material existing queue-prefix ACK181.8 ms. Fixed separate runs and different actual gap are not causal A/B."
+}
