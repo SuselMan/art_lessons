@@ -25,7 +25,7 @@ export async function runMixedLeaseNatural400({enabled,deadlineMs=90000}={}){
    rows.push(await continuousPenStroke(e,canvas,{deadline,ordinal,observe:q=>{if(queue.length<1024)queue.push(q)}}));partial();
    // No RAF/idle between water UP and pigment DOWN.
   }
-  ordinal=2;const afterUp=performance.now();for(let i=0;i<3;i++){const at=await new Promise(requestAnimationFrame);add('post-up-raf',at,at,{afterUp})}
+  ordinal=2;const afterUp=performance.now();for(let i=0;i<3;i++){const frameTimestamp=await new Promise(requestAnimationFrame),at=performance.now();add('post-up-raf',at,at,{afterUp,frameTimestamp})}
   // The next harmless actual PointerInput sample measures handler availability after UP.
   const nextBegin=performance.now();e._pointer._handleMove({pointerType:'pen',pointerId:728,buttons:0,clientX:0,clientY:0,pressure:0,timeStamp:nextBegin,preventDefault(){},getCoalescedEvents(){return[]}});add('next-hover',nextBegin,performance.now());partial();
   const timedEnd=performance.now();while(e._settle||e._wcCanonical.pending||e._rebuildJobs.size){if(performance.now()>deadline||e.gl.isContextLost())throw Error('Bounded canonical drain');await new Promise(requestAnimationFrame)}
