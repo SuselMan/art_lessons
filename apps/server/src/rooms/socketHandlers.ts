@@ -445,7 +445,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         ack({ ok: false, error: 'server_busy' })
         return
       }
-      const result = joinRoom(roomId, userId, displayName, socket.id)
+      const result = joinRoom(roomId, userId, displayName, socket.id, true)
       if (!result.ok) {
         releaseRoomIfUnused(roomId)
         log.info({ socketId: socket.id, roomId, error: result.error }, 'join_room rejected')

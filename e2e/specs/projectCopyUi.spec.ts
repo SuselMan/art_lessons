@@ -114,6 +114,9 @@ test('copy-and-open failure clears the full-screen loader and allows another act
 })
 
 test('copy and open keeps the loader through the request and enters the new room', async ({ page }) => {
+  // Establish the real identity cookie before mocking display-only profile data.
+  // Otherwise concurrent HTTP/socket requests can create different guest identities.
+  expect((await page.request.get('/api/me')).status()).toBe(200)
   await page.route('**/api/me', route => route.fulfill({ json: { userId: source.ownerId, email: 'ui@example.test', name: 'UI tester' } }))
   const target = await createRoom(page, 'Copy destination')
   await waitForRoomReady(page)
@@ -137,6 +140,9 @@ test('copy and open keeps the loader through the request and enters the new room
 })
 
 test('copy entry reports a missing connection and opens automatically when it returns', async ({ page }) => {
+  // Establish the real identity cookie before mocking display-only profile data.
+  // Otherwise concurrent HTTP/socket requests can create different guest identities.
+  expect((await page.request.get('/api/me')).status()).toBe(200)
   await page.route('**/api/me', route => route.fulfill({ json: { userId: source.ownerId, email: 'ui@example.test', name: 'UI tester' } }))
   const target = await createRoom(page, 'Connection recovery')
   await waitForRoomReady(page)

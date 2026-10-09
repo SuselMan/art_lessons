@@ -226,7 +226,7 @@ export function createRoom(
   boardOfSocket.set(socketId, room.id)
   currentSocketForParticipant.set(participantKey(room.id, ownerId), socketId)
   persistRoomCreate(room, passwordHash)
-  persistParticipant(room.id, ownerId, ownerName)
+  persistParticipant(room.id, ownerId, ownerName, passwordHash)
   persistPalette(room.id, palette)
   return { room, participant }
 }
@@ -285,7 +285,7 @@ export function hashRoomPassword(password: string): string {
  *  admitted to their own room without one. Callers reaching this without
  *  passing the gate first are letting anyone in. */
 export function joinRoom(
-  roomId: string, userId: string, name: string, socketId: string,
+  roomId: string, userId: string, name: string, socketId: string, freshlyAuthorized = false,
 ): JoinRoomOutcome {
   const record = rooms.get(roomId)
   if (!record) return { ok: false, error: 'not_found' }
@@ -322,7 +322,7 @@ export function joinRoom(
   // The RoomParticipant row is the lesson's: it is what "Мои уроки" lists and
   // what an invite_only lesson re-admits by, and a board is neither listed nor
   // a thing one is admitted to.
-  persistParticipant(lessonId, userId, name)
+  persistParticipant(lessonId, userId, name, freshlyAuthorized ? lesson.passwordHash ?? null : undefined)
   return { ok: true, participant, lessonId, previousBoardId: previous?.boardId }
 }
 

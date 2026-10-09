@@ -537,7 +537,7 @@ describe('index coverage invalidated after room_state (#728)', () => {
       '/api/rooms/old-room/snapshots/ink/99500',
     ])
   })
-  it('retries the same dependency page when reconnect temporarily removes room membership (#739)', async () => {
+  it('retries the same dependency page after a temporary service failure', async () => {
     const urls: string[] = []
     let attempts = 0
     const op: Operation = { id: 'ink', seq: 3, type: 'stroke', userId: 'A', timestamp: 3,
@@ -547,7 +547,7 @@ describe('index coverage invalidated after room_state (#728)', () => {
         seq: 5, layerState: ONE_LAYER_STATE, layers: [],
       }) }
       urls.push(url)
-      if (++attempts === 1) return { status: 403, ok: false, json: async () => ({ error: 'forbidden' }) }
+      if (++attempts === 1) return { status: 503, ok: false, json: async () => ({ error: 'forbidden' }) }
       return { status: 200, ok: true, json: async () => url.includes('beforeSeq=6') ? [op] : [] }
     }) as unknown as typeof fetch
     const history = vi.fn().mockResolvedValue(undefined)
@@ -555,12 +555,12 @@ describe('index coverage invalidated after room_state (#728)', () => {
     expect(urls[0]).toBe(urls[1])
     expect(history).toHaveBeenCalledWith([op])
   })
-  it('stops after bounded retries when snapshot access remains forbidden (#739)', async () => {
+  it('does not retry forbidden snapshot access', async () => {
     const fetch = vi.fn().mockResolvedValue({ status: 403, ok: false, json: async () => ({ error: 'forbidden' }) })
     global.fetch = fetch
     const { sink, begun } = recordingSink()
     expect((await restoreLatestSnapshot('denied', sink, { sleep: noSleep })).status).toBe('failed')
-    expect(fetch).toHaveBeenCalledTimes(SNAPSHOT_FETCH_ATTEMPTS)
+    expect(fetch).toHaveBeenCalledTimes(1)
     expect(begun).toEqual([])
   })
   it('never requests heavy prefix history for fully covered safe layers', async () => {

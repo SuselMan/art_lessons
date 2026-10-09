@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { Operation, Room } from '@grafetto/shared'
 
 import { prisma } from '../db/prisma.js'
@@ -26,11 +27,17 @@ export function persistRoomCreate(room: Room, passwordHash: string | undefined):
 /** (#226) `name` is refreshed on every join, not just written once: it is what
  *  this person calls themselves *now*, and the access panel showing a name
  *  they abandoned three lessons ago would be worse than showing none. */
-export function persistParticipant(roomId: string, userId: string, name: string): void {
+export function passwordGrant(hash: string | null | undefined): string | null {
+  return hash ? createHash('sha256').update(hash).digest('hex') : null
+}
+
+export function persistParticipant(roomId: string, userId: string, name: string, passwordHash?: string | null): void {
+  // Automatic board moves refresh the name, never a password permission.
+  const grant = passwordHash === undefined ? {} : { passwordGrant: passwordGrant(passwordHash) }
   enqueueWrite(roomId, () => prisma.roomParticipant.upsert({
     where: { roomId_userId: { roomId, userId } },
-    create: { roomId, userId, name },
-    update: { lastActiveAt: new Date(), name },
+    create: { roomId, userId, name, ...grant },
+    update: { lastActiveAt: new Date(), name, ...grant },
   }))
 }
 

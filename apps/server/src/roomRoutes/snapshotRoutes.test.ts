@@ -9,7 +9,7 @@ import { registerSnapshotRoutes } from './snapshotRoutes.js'
 // properties of the routes, not of rooms.ts, and roomSnapshots.test.ts covers
 // the storage side separately.
 const mockRooms = vi.hoisted(() => ({
-  getParticipant: vi.fn(),
+  mayReadBoardContent: vi.fn(),
   getSnapshotIndex: vi.fn(),
   getLayerSnapshot: vi.fn(),
   getOperationsBefore: vi.fn(),
@@ -17,7 +17,7 @@ const mockRooms = vi.hoisted(() => ({
   // (#595) Every board in these tests is a shared one.
   canSeeResidentBoard: () => true,
 }))
-vi.mock('../rooms/rooms.js', () => mockRooms)
+vi.mock('../rooms/boardContentAccess.js', () => mockRooms)
 vi.mock('../rooms/classroom.js', () => mockRooms)
 vi.mock('../rooms/snapshotStore.js', () => mockRooms)
 
@@ -33,7 +33,7 @@ function buildApp(): FastifyInstance {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockRooms.getParticipant.mockReturnValue({ userId: 'student' })
+  mockRooms.mayReadBoardContent.mockResolvedValue(true)
 })
 
 describe('GET /api/rooms/:roomId/snapshots/index', () => {
@@ -71,8 +71,8 @@ describe('GET /api/rooms/:roomId/snapshots/index', () => {
     expect(res.statusCode).toBe(204)
   })
 
-  it('refuses a caller who is not a live participant', async () => {
-    mockRooms.getParticipant.mockReturnValue(undefined)
+  it('refuses a caller without content access', async () => {
+    mockRooms.mayReadBoardContent.mockResolvedValue(false)
     const res = await buildApp().inject({ method: 'GET', url: '/api/rooms/room-1/snapshots/index' })
     expect(res.statusCode).toBe(403)
     expect(mockRooms.getSnapshotIndex).not.toHaveBeenCalled()
@@ -157,8 +157,8 @@ describe('GET /api/rooms/:roomId/snapshots/:layerId/:seq', () => {
   // The pixels of a password-protected room must not be reachable by guessing
   // its id over plain HTTP — the socket-level password check is upstream of
   // this, and `getParticipant` is what carries its result here.
-  it('refuses a caller who is not a live participant', async () => {
-    mockRooms.getParticipant.mockReturnValue(undefined)
+  it('refuses a caller without content access', async () => {
+    mockRooms.mayReadBoardContent.mockResolvedValue(false)
     const res = await buildApp().inject({ method: 'GET', url: '/api/rooms/room-1/snapshots/layer-1/200' })
     expect(res.statusCode).toBe(403)
     expect(mockRooms.getLayerSnapshot).not.toHaveBeenCalled()
@@ -214,8 +214,8 @@ describe('POST /api/rooms/:roomId/snapshots', () => {
     expect(res.statusCode).toBe(404)
   })
 
-  it('refuses a caller who is not a live participant', async () => {
-    mockRooms.getParticipant.mockReturnValue(undefined)
+  it('refuses a caller without content access', async () => {
+    mockRooms.mayReadBoardContent.mockResolvedValue(false)
 
     const res = await post({ seq: 100, layerState: {}, layers: {} })
 

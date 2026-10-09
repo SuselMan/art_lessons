@@ -2,8 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import type { SnapshotUploadResult } from '@grafetto/shared'
 
 import { apiRoute } from '../http/apiRoute.js'
-import { canSeeResidentBoard } from '../rooms/classroom.js'
-import { getParticipant } from '../rooms/rooms.js'
+import { mayReadBoardContent } from '../rooms/boardContentAccess.js'
 import { getLayerSnapshot, getOperationsBefore, getSnapshotIndex, saveSnapshot } from '../rooms/snapshotStore.js'
 
 const MAX_BACKFILL_PAGE_SIZE = 500
@@ -12,26 +11,13 @@ const MAX_BACKFILL_PAGE_SIZE = 500
 // room's snapshot while still bounding a broken/malicious upload.
 const SNAPSHOT_UPLOAD_BODY_LIMIT_BYTES = 20 * 1024 * 1024
 
-/** HTTP surface for the #149 epic's client-baked snapshots — kept off the
- *  Socket.io channel (see saveSnapshot's own doc comment on why: infrequent,
- *  several-MB, non-realtime payloads don't belong on the same transport as
- *  live stroke relay). All three routes require the caller to currently be a
- *  live participant of the room (i.e. already passed join_room's own
- *  password check) — otherwise a plain HTTP client could pull a password-
- *  protected room's content by guessing its id, bypassing the socket-level
- *  password check entirely. */
-/** In the lesson live, and (#595) allowed to see this particular board — a
- *  classmate's personal board is not everyone's just because the lesson is. */
-function mayUseBoard(roomId: string, userId: string): boolean {
-  return getParticipant(roomId, userId) !== undefined && canSeeResidentBoard(roomId, userId)
-}
-
+/** Snapshot HTTP access is a durable join permission, independent of sockets. */
 export function registerSnapshotRoutes(app: FastifyInstance): void {
   apiRoute(app, 'POST /api/rooms/:roomId/snapshots',
     { bodyLimit: SNAPSHOT_UPLOAD_BODY_LIMIT_BYTES },
     async (request, reply) => {
       const { roomId } = request.params
-      if (!mayUseBoard(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
+      if (!await mayReadBoardContent(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
 
       const { seq, layerState, layers } = request.body
       // (#371) `layers` maps layerId to one base64 gzipped `encodeLayerTiles`
@@ -87,7 +73,7 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
   // that had baked and uploaded those pixels minutes earlier.
   apiRoute(app, 'GET /api/rooms/:roomId/snapshots/index', async (request, reply) => {
     const { roomId } = request.params
-    if (!mayUseBoard(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
+    if (!await mayReadBoardContent(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
 
     const index = await getSnapshotIndex(roomId)
     if (!index) return reply.code(204).send(undefined)
@@ -108,7 +94,7 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
   apiRoute(app, 'GET /api/rooms/:roomId/snapshots/:layerId/:seq',
     async (request, reply) => {
       const { roomId, layerId } = request.params
-      if (!mayUseBoard(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
+      if (!await mayReadBoardContent(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
 
       const seq = Number(request.params.seq)
       if (!Number.isInteger(seq)) return reply.code(400).send({ error: 'bad_request' })
@@ -116,7 +102,7 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
       const snapshot = await getLayerSnapshot(roomId, layerId, seq)
       if (!snapshot) return reply.code(404).send({ error: 'not_found' })
 
-      // `private` is load-bearing, not boilerplate: participation is checked
+      // `private` is load-bearing, not boilerplate: access is checked
       // per request above, so this content is authorized to one user and must
       // never sit in a shared cache. `immutable` is honest here in the way it
       // usually isn't — the bytes for this exact (room, layer, seq) can never
@@ -152,7 +138,7 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
   apiRoute(app, 'GET /api/rooms/:roomId/operations',
     async (request, reply) => {
       const { roomId } = request.params
-      if (!mayUseBoard(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
+      if (!await mayReadBoardContent(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
 
       const beforeSeq = Number(request.query.beforeSeq)
       const limit = Math.min(Number(request.query.limit ?? String(MAX_BACKFILL_PAGE_SIZE)), MAX_BACKFILL_PAGE_SIZE)
