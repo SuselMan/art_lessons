@@ -53,3 +53,30 @@ it('running coverage follows owner metadata predicate in both initialization and
  track=true;f.owner.initialize(segment,8);f.owner.execute({} as any,segment,8)
  expect(running).toHaveBeenCalledTimes(2);expect(f.e.coverageFilmGesture).toBe(8);expect(f.events).toEqual(['coverage:coverage:cov:cov','coverage:coverage:cov:cov'])
 })
+
+it('CPU ownership proposal catches mutated actual source binding pointers before encoding',async()=>{
+ const {captureNativeSourceReadSet,assertNativeSourceReadSetIdentity}=await import('./sourceOwnershipContract')
+ const f=fixture();let live=true;const input=()=>({layerId:'layer-1',generation:1,backend:f.backend,ownsLiveField:()=>live,fields:{coverage:f.e.coverage,pigment:f.e.inkLoad,color:f.e.inkColor,inkBase:f.film.inkBase,colorBase:f.film.colorBase,strokeInk:f.film.strokeInk,strokeColor:f.film.strokeColor,solvent:f.solvent.load,solventBase:f.solvent.base,solventFilm:f.solvent.film}})
+ const snapshot=captureNativeSourceReadSet(input());f.e.inkLoad.clear();expect(assertNativeSourceReadSetIdentity(snapshot,input())).toEqual({identity:true,contentRevisionProven:false,earlyAdmissionAuthorized:false});const segment={commands:[stamp('coverage'),stamp('solvent'),stamp('pigment'),stamp('color')],rect:[0,0,32,32] as const,film:true,waterOnly:false}
+ const original=f.backend.encodePreparedStamp
+ f.backend.encodePreparedStamp=(...args:any[])=>{expect(assertNativeSourceReadSetIdentity(snapshot,input()).earlyAdmissionAuthorized).toBe(false);return original(...args)}
+ f.owner.execute({} as any,segment,1);expect(original).toHaveBeenCalledTimes(4)
+ // Initialization selects current scratch objects; prepared commands alone do
+ // not freeze the buffer pointers subsequently bound by actual source.execute.
+ f.owner.initialize(segment,1);f.e.coverage=f.buffer('otherCoverage')
+ expect(()=>f.owner.execute({} as any,segment,1)).toThrow('read set changed: coverage')
+ expect(original).toHaveBeenCalledTimes(4)
+ f.e.coverage=snapshot.fields.find(x=>x.role==='coverage')!.buffer;live=false
+ expect(()=>f.owner.execute({} as any,segment,1)).toThrow('read set changed');live=true
+ expect(()=>assertNativeSourceReadSetIdentity(snapshot,{...input(),generation:2})).toThrow('epoch')
+})
+it('CPU pending-source disjoint proof rejects same-owner and partial COW, never grants early admission',async()=>{
+ const {captureNativeSourceReadSet,assertNativePendingSourceDisjoint}=await import('./sourceOwnershipContract')
+ const f=fixture(),old=captureNativeSourceReadSet({layerId:'L',generation:1,backend:f.backend,ownsLiveField:()=>true,fields:{coverage:f.e.coverage,pigment:f.e.inkLoad,color:f.e.inkColor}})
+ expect(()=>assertNativePendingSourceDisjoint(old,old)).toThrow('generation')
+ const partial=captureNativeSourceReadSet({layerId:'L',generation:2,backend:f.backend,ownsLiveField:()=>true,fields:{coverage:f.e.coverage,pigment:f.buffer('newP'),color:f.buffer('newC')}})
+ expect(()=>assertNativePendingSourceDisjoint(old,partial)).toThrow('alias')
+ const full=captureNativeSourceReadSet({layerId:'L',generation:2,backend:f.backend,ownsLiveField:()=>true,fields:{coverage:f.buffer('newV'),pigment:f.buffer('newP'),color:f.buffer('newC')}})
+ expect(assertNativePendingSourceDisjoint(old,full)).toEqual({disjoint:true,baselineCopyProven:false,publicationOrderingProven:false,earlyAdmissionAuthorized:false})
+ expect(()=>captureNativeSourceReadSet({layerId:'L',generation:2,backend:f.backend,ownsLiveField:()=>true,fields:{coverage:{...f.e.coverage,owner:{}}}})).toThrow('owner')
+})

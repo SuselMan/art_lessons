@@ -36,7 +36,7 @@ it('pressure QA leaves OFF identity and restores sampling after a failed carry',
 it('retirement releases owner-local resources even when shared GPU completion rejects',async()=>{
  const destroyed=vi.fn(),cancel=vi.fn(async()=>{}),gpuLost=new Error('GPU completion lost')
  const owner=Object.create(CanonicalRoomWatercolorExecutor.prototype) as CanonicalRoomWatercolorExecutor
- Object.assign(owner,{retired:false,retirement:null,central:{cancel},backend:{whenIdle:async()=>{throw gpuLost}},foreignAux:new Map(),adapter:{disposeCarryOracle:destroyed},planner:{destroyTextures:destroyed},scratch:{tiles:{destroy:destroyed}},target:{buffer:{destroy:destroyed}},fields:{destroy:destroyed},pool:{destroy:destroyed},bridge:{destroy:destroyed}})
+ Object.assign(owner,{retired:false,retirement:null,central:{cancel},backend:{whenIdle:async()=>{throw gpuLost}},foreignAux:new Map(),adapter:{retireStaticFrontCache:()=>{},disposeCarryOracle:destroyed},planner:{destroyTextures:destroyed},scratch:{tiles:{destroy:destroyed}},target:{buffer:{destroy:destroyed}},fields:{destroy:destroyed},pool:{destroy:destroyed},bridge:{destroy:destroyed}})
  await expect(owner.retire('context-loss',false)).rejects.toBe(gpuLost)
  expect(cancel).not.toHaveBeenCalled();expect(destroyed).toHaveBeenCalledTimes(7)
 })
@@ -68,7 +68,7 @@ describe('GPU-only carrier candidate',()=>{
   const owner=Object.create(CanonicalRoomWatercolorExecutor.prototype) as CanonicalRoomWatercolorExecutor,copy=vi.fn(),clear=vi.fn(),release=vi.fn(),publish=vi.fn(async()=>{})
   const material={copyTo:copy,readBytes:vi.fn(()=>{throw Error('8MB observer')})},entry={inkLoad:material,inkColor:material,inkBase:{},colorBase:{},strokeInk:{clear},strokeColor:{clear},coverage:{}}
   const read={mapAsync:async()=>{if(invalid===2)Object.assign(owner,{retired:true})},getMappedRange:()=>new Uint32Array([invalid]).buffer,unmap(){},destroy:vi.fn()}
-  Object.assign(owner,{diagnosticMomentGpuAudit:true,retired:false,pendingMoment:{chunk:{ordinal:0,segment:{rect:[0,0,1,1],film:true},momentRecipe:{},live:{}}},target:{buffer:{height:1,width:1}},scratch:{tiles:{peek:()=>entry}},backend:{device:{createBuffer:()=>read},whenIdle:async()=>{}},adapter:{retain(){},runQuantum(fn:(ctx:unknown)=>void){fn({encoder:{copyBufferToBuffer(){}}})}},momentSeam:{encodeAfterLanding:()=>({buffers:[],invalid:{},release})},finish:{encodeLive:()=>[]},momentReport:[],publishWithoutDrain:publish})
+  Object.assign(owner,{diagnosticMomentGpuAudit:true,retired:false,pendingMoment:{chunk:{ordinal:0,segment:{rect:[0,0,1,1],film:true},momentRecipe:{},live:{}}},target:{buffer:{height:1,width:1}},scratch:{captureMetadata:()=>({}),tiles:{peek:()=>entry}},backend:{device:{createBuffer:()=>read},whenIdle:async()=>{}},adapter:{retain(){},runQuantum(fn:(ctx:unknown)=>void){fn({encoder:{copyBufferToBuffer(){}}})}},momentSeam:{encodeAfterLanding:()=>({buffers:[],invalid:{},release})},finish:{encodeLive:()=>[]},momentReport:[],publishWithoutDrain:publish})
   if(invalid===2)await expect(owner.publishCurrentToGl()).rejects.toThrow('generation retired');else await owner.publishCurrentToGl();expect(material.readBytes).not.toHaveBeenCalled();expect(copy).toHaveBeenCalledTimes(invalid?0:2);expect(clear).toHaveBeenCalledTimes(invalid?0:2);expect(release).toHaveBeenCalledOnce();expect(read.destroy).toHaveBeenCalledOnce();if(invalid!==2)expect(owner.momentReport[0]).toMatchObject({supported:!invalid,applied:!invalid,violations:invalid});else expect(publish).not.toHaveBeenCalled()
  })
 })
@@ -81,10 +81,51 @@ it('zero-rate keeps full film/base decomposition, not only displayed P/C',async(
  const record=(value:number)=>({value,copyTo(dest:{value:number}){dest.value=this.value},clear(){this.value=0}})
  const entry={inkLoad:record(120),inkColor:record(90),inkBase:record(20),colorBase:record(10),strokeInk:record(100),strokeColor:record(80),coverage:record(200),filmGesture:3}
  const before=JSON.stringify(entry),mobileBefore=entry.inkLoad.value-entry.inkBase.value,read={mapAsync:async()=>{},getMappedRange:()=>new Uint32Array([0]).buffer,unmap(){},destroy:vi.fn()},release=vi.fn(),publish=vi.fn(async()=>{})
- Object.assign(owner,{diagnosticMomentGpuAudit:true,retired:false,pendingMoment:{chunk:{ordinal:0,segment:{rect:[0,0,1,1],film:true},momentRecipe:{mixRate:0,advectionRate:0},live:{}}},target:{buffer:{height:1,width:1}},scratch:{tiles:{peek:()=>entry}},backend:{device:{createBuffer:()=>read},whenIdle:async()=>{}},adapter:{retain(){},runQuantum(fn:(ctx:unknown)=>void){fn({encoder:{copyBufferToBuffer(){}}})}},momentSeam:{encodeAfterLanding:()=>({buffers:[],invalid:{},release})},finish:{encodeLive:()=>[]},momentReport:[],publishWithoutDrain:publish})
+ Object.assign(owner,{diagnosticMomentGpuAudit:true,retired:false,pendingMoment:{chunk:{ordinal:0,segment:{rect:[0,0,1,1],film:true},momentRecipe:{mixRate:0,advectionRate:0},live:{}}},target:{buffer:{height:1,width:1}},scratch:{captureMetadata:()=>({}),tiles:{peek:()=>entry}},backend:{device:{createBuffer:()=>read},whenIdle:async()=>{}},adapter:{retain(){},runQuantum(fn:(ctx:unknown)=>void){fn({encoder:{copyBufferToBuffer(){}}})}},momentSeam:{encodeAfterLanding:()=>({buffers:[],invalid:{},release})},finish:{encodeLive:()=>[]},momentReport:[],publishWithoutDrain:publish})
  await owner.publishCurrentToGl()
  expect(JSON.stringify(entry)).toBe(before);expect(entry.inkLoad.value-entry.inkBase.value).toBe(mobileBefore);expect(mobileBefore).toBe(100)
  expect(release).toHaveBeenCalledOnce();expect(read.destroy).toHaveBeenCalledOnce();expect(publish).toHaveBeenCalledOnce()
  // Previous unconditional rebase counterexample: same visible120, but mobile0.
  expect(entry.inkLoad.value-entry.inkLoad.value).toBe(0)
+})
+
+function ownershipFixture(enabled=true){
+ const owner=Object.create(CanonicalRoomWatercolorExecutor.prototype) as CanonicalRoomWatercolorExecutor
+ const fields=new Set<object>(),backend={ownsLiveField:(field:object)=>fields.has(field)}
+ const buffer=()=>{const field={};fields.add(field);return{owner:backend,field,width:32,height:32,destroyed:false}}
+ const target={buffer:buffer()},entry={coverage:buffer(),inkLoad:buffer(),inkColor:buffer()},settle={pressure:buffer()},glTile={}
+ Object.assign(owner,{retired:false,diagnosticSourceOwnershipAssertions:enabled,diagnosticPublication:false,backend,target,glTile,layerId:'L',generation:1,fields:{existingFieldForOwnership:settle},scratch:{captureMetadata:()=>({}),tiles:{peek:()=>entry}},bridgeMode:'canvas'})
+ return{owner,buffer,target,entry,settle,glTile,fields}
+}
+it('DEV owner readset prevents late GL import after same-generation target pointer replacement',async()=>{
+ const f=ownershipFixture();let release!:()=>void;const imported=vi.fn(),held=new Promise<void>(r=>{release=r})
+ Object.assign(f.owner,{bridge:{copyByCanvas:async(_field:unknown,_target:unknown,current:()=>boolean)=>{await held;if(current())imported()}}})
+ const pending=(f.owner as any).publishWithoutDrain(),checked=expect(pending).rejects.toThrow('read set changed: target')
+ f.target.buffer=f.buffer();release();await checked;expect(imported).not.toHaveBeenCalled()
+})
+it('DEV prepare verifies existing role references and dimensions; OFF never queries ledger',()=>{
+ for(const enabled of [false,true]){const f=ownershipFixture(enabled)
+  Object.assign(f.owner,{central:{isIdle:true},adapter:{runQuantum:(cb:()=>unknown)=>cb()},planner:{prepare:()=>{f.settle.pressure=f.buffer();return null}}})
+  if(enabled)expect(()=>f.owner.prepareSettle({bounds:{}} as any)).toThrow('read set changed: settle:pressure')
+  else{(f.owner as any).backend.ownsLiveField=()=>{throw Error('OFF ledger queried')};expect(f.owner.prepareSettle({bounds:{}} as any)).toBe(null)}
+ }
+})
+it('DEV source validates pre-existing scratch references before live encode and rejects lost ledger publication',async()=>{
+ const f=ownershipFixture(),live=vi.fn()
+ Object.assign(f.owner,{central:{isIdle:true},accepted:new Set(),adapter:{runQuantum:(cb:(ctx:any)=>unknown)=>cb({encoder:{}}),retain:()=>{}},source:{execute:()=>{f.entry.inkLoad=f.buffer();return[]}},finish:{encodeLive:live}})
+ Object.assign((f.owner as any).scratch,{gesture:0,activateMaterialFilm:()=>{},paints:new Set(),delivery:{}})
+ const chunk={path:'live',layerId:'L',generation:1,strokeId:'fixed',ordinal:0,materialGesture:1,segment:{},live:{},metadata:{gesture:1,paints:new Set(),brushTravel:[],wetContacts:[],foreignSources:null,dryCtx:null}}
+ expect(()=>f.owner.emitPrepared(chunk as any)).toThrow('read set changed: scratch:inkLoad');expect(live).not.toHaveBeenCalled()
+ const g=ownershipFixture();let release!:()=>void;const held=new Promise<void>(r=>{release=r}),imported=vi.fn()
+ Object.assign(g.owner,{bridge:{copyByCanvas:async(_field:unknown,_target:unknown,current:()=>boolean)=>{await held;if(current())imported()}}})
+ const pending=(g.owner as any).publishWithoutDrain(),checked=expect(pending).rejects.toThrow('read set changed')
+ g.fields.clear();release();await checked;expect(imported).not.toHaveBeenCalled()
+})
+
+it('DEV failed post-prepare ownership validation disposes the allocated job and preserves primary error',()=>{
+ for(const cleanupThrows of [false,true]){const f=ownershipFixture(),disposed=vi.fn(()=>{if(cleanupThrows)throw Error('secondary dispose')}),retired=vi.fn(),warning=vi.spyOn(console,'warn').mockImplementation(()=>{})
+  try{Object.assign(f.owner,{central:{isIdle:true},adapter:{runQuantum:(cb:()=>unknown)=>cb(),retireStaticFrontCache:retired},planner:{prepare:()=>{f.settle.pressure=f.buffer();return{dispose:disposed}}}})
+   expect(()=>f.owner.prepareSettle({bounds:{}} as any)).toThrow('read set changed: settle:pressure');expect(disposed).toHaveBeenCalledOnce();expect(retired).toHaveBeenCalledOnce();expect(warning).toHaveBeenCalledTimes(cleanupThrows?1:0)
+  }finally{warning.mockRestore()}
+ }
 })

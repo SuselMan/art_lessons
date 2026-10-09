@@ -6,6 +6,8 @@ import { createCanonicalSettleField, destroyCanonicalSettleField, type Canonical
 export class CanonicalPlanFieldOwner {
  private readonly backend: CanonicalWatercolorWebGpu
  private current: CanonicalSettleField | null = null
+ /** Read-only existing allocation passport; no fieldFor/clear/allocation. */
+ get existingFieldForOwnership(){return this.current}
  private disposed = false
  constructor(backend: CanonicalWatercolorWebGpu) { this.backend = backend }
  fieldFor(width: number, height: number, captureClearsInputs = false): CanonicalSettleField {

@@ -119,3 +119,17 @@ it('cap is captured at material admission, not changed halfway through its job',
  for(let n=0;n<10&&fifo.pending;n++){await Promise.resolve();const frame=frames.entries().next().value;if(frame){frames.delete(frame[0]);frame[1]()}}
  await done
 })
+
+it('frozen next source input does not release a material publication ownership dependency',async()=>{
+ const frames=new Map<number,()=>void>();let handle=0,release!:()=>void
+ const fifo=new WatercolorCanonicalFIFO({blocked:()=>false,schedule:cb=>{frames.set(++handle,cb);return handle},unschedule:h=>frames.delete(h),changed:vi.fn(),failed:e=>{throw e}})
+ const central=new RoomNativeCentralAdapter(fifo,vi.fn()),material={version:0},preparedNext=Object.freeze({version:2}),seen:number[]=[]
+ const held=new Promise<void>(resolve=>{release=resolve})
+ const done=central.admitFactory(()=>({step:()=>{material.version=1;return true},finish:()=>{},publish:async()=>{await held;seen.push(material.version)},dispose:()=>{}}))
+ central.enqueueSource(()=>{material.version=preparedNext.version},async()=>{})
+ const pump=async()=>{await Promise.resolve();const frame=frames.entries().next().value;if(frame){frames.delete(frame[0]);frame[1]()}}
+ for(let i=0;i<10;i++)await pump()
+ expect(material.version).toBe(1);expect(seen).toEqual([]);expect(fifo.pending).toBe(true)
+ release();for(let i=0;i<30&&fifo.pending;i++)await pump();await done
+ expect(seen).toEqual([1]);expect(material.version).toBe(2);expect(fifo.pending).toBe(false)
+})

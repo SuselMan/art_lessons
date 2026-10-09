@@ -1,3 +1,4 @@
+import {captureNativeSourceReadSet,assertNativeSourceReadSetIdentity,type NativeSourceOwnershipInput} from './sourceOwnershipContract'
 import {observeSeedBridge} from './seedBridgeCost'
 import {WetBrushMomentSourceSeam} from '../experiments/wetBrushMomentSourceSeam'
 import {auditMomentRecords} from '../experiments/wetBrushMomentGpu'
@@ -78,13 +79,15 @@ export class CanonicalRoomWatercolorExecutor {
  private pendingMoment:{chunk:RoomNativePreparedChunk}|null=null
  readonly momentReport:{ordinal:number;supported:boolean;violations:number;maxExcess:number|null;examples:unknown[];applied:boolean;auditMode?:'cpu-rgba'|'gpu-counter'|'gpu-vector'}[]=[]
  private readonly foreignAux=new Map<string,{scratch:CanonicalTileScratch;source:CanonicalSourcePhaseExecutor}>()
+ private readonly diagnosticSourceOwnershipAssertions:boolean
  private retired=false
  private retirement:Promise<void>|null=null
  private readonly ready:Promise<void>
- constructor(backend:CanonicalWatercolorWebGpu,options:{tile:AccumulationBuffer;originX:number;originY:number;layerId:string;generation:number;delivery:Pick<CanonicalStrokeChunkState,'brushTravel'|'wetContacts'>;central:RoomNativeCentralOwner;bridgeMode:'readback'|'canvas';bridgeCanvas:HTMLCanvasElement;diagnosticSchedulingObserver?:boolean;diagnosticNativeBrushPair?:boolean;diagnosticMomentGpuAudit?:boolean;diagnosticMomentVector?:boolean;diagnosticCarryHardwarePressure?:boolean}) {
+ constructor(backend:CanonicalWatercolorWebGpu,options:{tile:AccumulationBuffer;originX:number;originY:number;layerId:string;generation:number;delivery:Pick<CanonicalStrokeChunkState,'brushTravel'|'wetContacts'>;central:RoomNativeCentralOwner;bridgeMode:'readback'|'canvas';bridgeCanvas:HTMLCanvasElement;diagnosticSourceOwnershipAssertions?:boolean;diagnosticSchedulingObserver?:boolean;diagnosticNativeBrushPair?:boolean;diagnosticMomentGpuAudit?:boolean;diagnosticMomentVector?:boolean;diagnosticCarryHardwarePressure?:boolean}) {
   if(options.tile.width!==1024||options.tile.height!==1024||options.originX!==0||options.originY!==0)throw new Error('DEV Room native executor requires one origin-zero1024 tile; no silent GL fallback')
   if(options.diagnosticMomentVector&&!options.diagnosticMomentGpuAudit)throw Error('DEV vector moment requires GPU audit')
   if(!options.central.isIdle)throw new Error('Seed native Room tile only at a central idle boundary')
+  this.diagnosticSourceOwnershipAssertions=import.meta.env.DEV&&options.diagnosticSourceOwnershipAssertions===true
   this.backend=backend;this.glTile=options.tile;this.layerId=options.layerId;this.generation=options.generation;this.central=options.central;this.bridgeMode=options.bridgeMode
   this.adapter=new CanonicalPlanAdapter(backend);this.adapter.diagnosticOwnerEpoch=options.generation;this.adapter.diagnosticNativeBrushPair=import.meta.env.DEV&&options.diagnosticNativeBrushPair===true;
   const carryPressureEnabled=import.meta.env.DEV&&options.diagnosticCarryHardwarePressure===true;
@@ -117,7 +120,9 @@ export class CanonicalRoomWatercolorExecutor {
   // Immutable outputs of the ONE CPU advance are installed for this queued material boundary.
   this.scratch.delivery.brushTravel=chunk.metadata.brushTravel.map(v=>({...v}))
   this.scratch.delivery.wetContacts=chunk.metadata.wetContacts.map(v=>({...v}))
+  const sourceOwnership=this.captureOwnership()
   this.adapter.runQuantum(ctx=>this.adapter.retain(this.source.execute(ctx.encoder,chunk.segment,chunk.materialGesture)))
+  this.validateOwnership(sourceOwnership)
   this.adapter.runQuantum(ctx=>this.adapter.retain(this.finish.encodeLive(ctx.encoder,chunk.live)))
   if(chunk.momentRecipe)this.pendingMoment={chunk}
   this.accepted.add(key)
@@ -139,7 +144,9 @@ export class CanonicalRoomWatercolorExecutor {
  prepareSettle(input:RoomNativeSettleInput):RoomNativeMaterialJob|null {
   this.assertLive()
   if(!this.central.isIdle)throw new Error('Central Room owner must serialize settle admission')
+  const prepareOwnership=this.captureOwnership()
   const job=this.adapter.runQuantum(()=>this.planner.prepare(this.scratch,[this.target],input.bounds,input.bloom,input.radiusPx,input.waterLevel,input.landedWet,input.standing,input.wetPeak,input.dwellMs,undefined,false,this.scratch.captureMetadata(),true))
+  try{this.validateOwnership(prepareOwnership)}catch(error){if(job){try{disposeNativeMaterialResources(this.adapter,()=>job.dispose())}catch{console.warn('[native-source-ownership]','Prepared job cleanup failed')}}throw error}
   if(!job)return null
   let next=0,disposed=false,finished=false
   const task:RoomNativeMaterialJob={
@@ -210,8 +217,11 @@ export class CanonicalRoomWatercolorExecutor {
  private async publishWithoutDrain():Promise<void> {
   this.assertLive()
   if(this.diagnosticPublication){const passport=this.central.diagnosticCurrentPassport;this.bridge.diagnosticCost=passport?cost=>console.info('[native-room-publication]',JSON.stringify({...cost,...passport,ownerEpoch:this.generation,layerId:this.layerId})):null}
-  if(this.bridgeMode==='canvas')await this.bridge.copyByCanvas(this.target.buffer.field,this.glTile,()=>!this.retired)
-  else await this.bridge.copyByReadback(this.target.buffer.field,this.glTile,field=>this.backend.readField(field),()=>!this.retired)
+  const publishOwnership=this.captureOwnership(),glTile=this.glTile
+  const current=()=>{if(this.retired)return false;this.validateOwnership(publishOwnership);if(this.diagnosticSourceOwnershipAssertions&&this.glTile!==glTile)throw Error('Native publication GL target changed');return true}
+  if(this.bridgeMode==='canvas')await this.bridge.copyByCanvas(this.target.buffer.field,this.glTile,current)
+  else await this.bridge.copyByReadback(this.target.buffer.field,this.glTile,field=>this.backend.readField(field),current)
+  this.validateOwnership(publishOwnership)
  }
  retire(reason:Parameters<RoomNativeCentralOwner['cancel']>[0],cancelCentral=true):Promise<void> {
   if(this.retirement)return this.retirement
@@ -225,6 +235,20 @@ export class CanonicalRoomWatercolorExecutor {
   for(const auxiliary of this.foreignAux.values())auxiliary.scratch.destroy();this.foreignAux.clear()
   this.adapter.retireStaticFrontCache();this.adapter.disposeCarryOracle();this.planner.destroyTextures();this.scratch.tiles.destroy();this.target.buffer.destroy();this.fields.destroy();this.pool.destroy();this.bridge.destroy()
   }
+ }
+ private ownershipInput():NativeSourceOwnershipInput {
+  const fields:Record<string,NativeSourceOwnershipInput['fields'][string]>={target:this.target.buffer}
+  for(const [prefix,value]of [['scratch',this.scratch.tiles.peek(this.target.buffer)],['settle',this.fields.existingFieldForOwnership]] as const){if(value)for(const [role,buffer]of Object.entries(value)){if(buffer&&typeof buffer==='object'&&'field'in buffer)fields[prefix+':'+role]=buffer as typeof this.target.buffer}}
+  return{layerId:this.layerId,generation:this.generation,backend:this.backend,ownsLiveField:field=>this.backend.ownsLiveField(field as import('./types').CanonicalGpuField),fields}
+ }
+ private captureOwnership(){return this.diagnosticSourceOwnershipAssertions?captureNativeSourceReadSet(this.ownershipInput()):null}
+ private validateOwnership(snapshot:ReturnType<typeof captureNativeSourceReadSet>|null){
+  if(!snapshot)return
+  this.assertLive();const input=this.ownershipInput(),fields:Record<string,NativeSourceOwnershipInput['fields'][string]>={}
+  // Source/prepare may legitimately allocate previously absent roles. Verify
+  // all roles that existed before the call; no claim about immutable bytes.
+  for(const row of snapshot.fields)fields[row.role]=input.fields[row.role]
+  assertNativeSourceReadSetIdentity(snapshot,{...input,fields})
  }
  private assertLive(){if(this.retired)throw new Error('Native Room tile generation retired')}
 }
