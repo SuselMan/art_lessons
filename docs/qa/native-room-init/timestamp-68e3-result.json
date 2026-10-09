@@ -1,0 +1,244 @@
+{
+  "source": "68e38ca15d1f09022f7c156dd46fbe04e34a8b7c",
+  "verdict": "PASS_SCOPED_FIRST_WATER_MATERIAL_JOB",
+  "scope": "753 measured GPU pass spans, first nonempty material request after actual pen DOWN; no source/live/bridge copies or causal speedup proof",
+  "window": {
+    "request": 16,
+    "start": 34140.5,
+    "end": 35690,
+    "armedAt": 26135.100000023842,
+    "emptyCandidates": 0,
+    "nonempty": true,
+    "interleaved": false
+  },
+  "capturedWindowWallMs": 1549.5,
+  "passCount": 753,
+  "gpuSpanSumNanoseconds": "1583480832",
+  "ranking": [
+    {
+      "label": "Canonical waterFront",
+      "count": 240,
+      "totalNanoseconds": "976289792",
+      "meanNanosecondsFloor": "4067874"
+    },
+    {
+      "label": "Canonical brush single",
+      "count": 420,
+      "totalNanoseconds": "437256192",
+      "meanNanosecondsFloor": "1041086"
+    },
+    {
+      "label": "Canonical fieldOp 5",
+      "count": 18,
+      "totalNanoseconds": "51511296",
+      "meanNanosecondsFloor": "2861738"
+    },
+    {
+      "label": "Canonical fieldOp 15",
+      "count": 16,
+      "totalNanoseconds": "38404096",
+      "meanNanosecondsFloor": "2400256"
+    },
+    {
+      "label": "Canonical fieldOp 1",
+      "count": 18,
+      "totalNanoseconds": "35258368",
+      "meanNanosecondsFloor": "1958798"
+    },
+    {
+      "label": "Canonical diffuse",
+      "count": 13,
+      "totalNanoseconds": "11796480",
+      "meanNanosecondsFloor": "907421"
+    },
+    {
+      "label": "Canonical fieldOp 6",
+      "count": 2,
+      "totalNanoseconds": "9699328",
+      "meanNanosecondsFloor": "4849664"
+    },
+    {
+      "label": "Canonical fieldOp 7",
+      "count": 1,
+      "totalNanoseconds": "7012352",
+      "meanNanosecondsFloor": "7012352"
+    },
+    {
+      "label": "Canonical fieldOp 0",
+      "count": 1,
+      "totalNanoseconds": "1966080",
+      "meanNanosecondsFloor": "1966080"
+    },
+    {
+      "label": "Canonical composite",
+      "count": 1,
+      "totalNanoseconds": "1769472",
+      "meanNanosecondsFloor": "1769472"
+    },
+    {
+      "label": "Canonical fieldOp 4",
+      "count": 1,
+      "totalNanoseconds": "1769472",
+      "meanNanosecondsFloor": "1769472"
+    },
+    {
+      "label": "Canonical fieldOp 2",
+      "count": 2,
+      "totalNanoseconds": "1638400",
+      "meanNanosecondsFloor": "819200"
+    },
+    {
+      "label": "Canonical fieldOp 10",
+      "count": 1,
+      "totalNanoseconds": "1572864",
+      "meanNanosecondsFloor": "1572864"
+    },
+    {
+      "label": "Canonical fieldOp 14",
+      "count": 1,
+      "totalNanoseconds": "1310720",
+      "meanNanosecondsFloor": "1310720"
+    },
+    {
+      "label": "Canonical fieldOp 12",
+      "count": 1,
+      "totalNanoseconds": "1245184",
+      "meanNanosecondsFloor": "1245184"
+    },
+    {
+      "label": "Canonical fieldOp 11",
+      "count": 1,
+      "totalNanoseconds": "1179648",
+      "meanNanosecondsFloor": "1179648"
+    },
+    {
+      "label": "Canonical fieldOp 19",
+      "count": 2,
+      "totalNanoseconds": "1179648",
+      "meanNanosecondsFloor": "589824"
+    },
+    {
+      "label": "Canonical fieldOp 3",
+      "count": 1,
+      "totalNanoseconds": "983040",
+      "meanNanosecondsFloor": "983040"
+    },
+    {
+      "label": "Canonical fieldOp 18",
+      "count": 1,
+      "totalNanoseconds": "917504",
+      "meanNanosecondsFloor": "917504"
+    },
+    {
+      "label": "Canonical fieldOp 20",
+      "count": 1,
+      "totalNanoseconds": "720896",
+      "meanNanosecondsFloor": "720896"
+    },
+    {
+      "label": "Canonical clear full",
+      "count": 11,
+      "totalNanoseconds": "0",
+      "meanNanosecondsFloor": "0"
+    }
+  ],
+  "endpoint": {
+    "purplePixels": 24960,
+    "gl": 0,
+    "lost": false,
+    "export": {
+      "width": 1754,
+      "height": 2480,
+      "alpha": 121036,
+      "purple": 121035,
+      "sha": "00911239c29961f13f63633cddf67deb5e4c43942c571eacb12590229664a119",
+      "pngSha256": "bc4fa879243df01c8e2e42c8613d823a4a13619b6fc6405d611441509a67341d",
+      "pngBytes": 387217,
+      "comparisonReady": true
+    }
+  },
+  "sourceFileSHA": [
+    {
+      "path": "apps/web/src/engine/index.ts",
+      "sha256": "064185c8cbf12f51d35453e4d09d275b241b19691353ff59587d7b6a97c4b3d8"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/backend.ts",
+      "sha256": "7fea9eaa8cbadba05d8f93aae00c50e067138039577983a3b2e3821c53c12afd"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts",
+      "sha256": "5117766be2999b4894a2ac3ba730d14304613bca22646fa9d51dba4dbca09c3d"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/roomWatercolorExecutor.ts",
+      "sha256": "4a2a4ffcd36a666bc97e1062f85c263a8672eb8f3cf16fca7c9cbe7c0cc11090"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/brush.ts",
+      "sha256": "f40dcc8dc244c8bf536f59f9418fd3186fe50831a440ae703b51fa3a9a77fbf1"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/deposit.ts",
+      "sha256": "b096510916c955c7a3906c2918d9c3dd5398ff3d3dce57d8801a562742765e58"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/exactPipelinePreparation.ts",
+      "sha256": "323681e3acfff346a94f6c4e15cbabb5ef6f34f1c48868891079b1788681e789"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/passes/fieldOps.ts",
+      "sha256": "955083e325a27d7d615e6ca50b02be4cd3e0a59f6e1358679eb55aaff68c6502"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/render.ts",
+      "sha256": "3c706f3ee2fdd9958423e0e9726eb47570c652e084d9e7c753a0c0115bab12c7"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/roomNativeCentralAdapter.ts",
+      "sha256": "1086547946541d064fba9226935796127f7aed9c6e7a3ede41225387596f668b"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/roomTileBridge.ts",
+      "sha256": "a8be4b3f406bea8a1d4fabb5593cd5c8afc57ecffc75dab4462a2a0784e0e736"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/seedBridgeCost.ts",
+      "sha256": "5cd4901fe0fd67198ece24ea7f8f73c1f71574da2de91a28576528512587e7c8"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/sourcePipelinePreparation.ts",
+      "sha256": "e694d7fb6e7662e2fb9cf39bfad6dcbf3dfa32fc2a4e7652c43372cda86c633b"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/stamp.ts",
+      "sha256": "27e8292da3ace0cb03d437e8ff01845eb57f475141819afdee4880aff03c1478"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/diagnosticPassTimestamps.ts",
+      "sha256": "7aa601d34d8dac95c90fc6f5b3e81e422e2c0bb3e977b89760137b01a4dbb4f7"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/diagnosticTimestampDevice.ts",
+      "sha256": "3218a9f2d67a0d6665ea1eb09b19ca9df7cc33c4410dfb4ef33c063191749857"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/passes/fieldBasic.ts",
+      "sha256": "75b7ddecd723ebdbf180f8f6698721fd21a1095165aa9de946e7235877a89887"
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/settlePlanAdapter.ts",
+      "sha256": "15550cfbc2c001f6057b731eb12e5f64188a4640b90540098aefdbd53d2fec96"
+    }
+  ],
+  "originalPrettyReport": {
+    "sha256": "7078501bd1acd0ec005139a3b4942e3208e7ceba9a851c587022d1e56395bb43",
+    "bytes": 659254
+  },
+  "normalizedSameJSON": true,
+  "referenceReusable": true,
+  "durableEvidence": "temp/device-runs/native-timestamp-68e3-promoted-20261009",
+  "postCleanupRamMiB": 2133.390625,
+  "observedPositiveDurationGcdNanoseconds": 65536,
+  "zeroDurationPassCount": 11
+}
