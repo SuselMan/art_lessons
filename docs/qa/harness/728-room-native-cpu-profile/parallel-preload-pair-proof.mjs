@@ -24,6 +24,7 @@ export function assertSourcePrecompilePair(reference,off,on){
  const all=[reference,off,on],tape=reference.packedTape
  const required=['stamp:false:false:coverage','ribbon:coverage','canonicalCompositeRecipe','canonicalRawCanvasRecipe','pairedBrush','singleBrush']
  if(reference.scenario!=='water-pigment400-long'||tape?.length!==2||!reference.sourcePreparation?.ready||!/^[a-f0-9]{40}$/.test(reference.source??''))throw Error('Exact source A long reference required')
+ if(tape[0].tool!=='watercolor'||tape[1].tool!=='watercolor'||tape[0].preset!=='normal:100:0:PB29:round'||tape[1].preset!=='normal:100:100:PB29:round'||JSON.stringify(tape[0].color)!==JSON.stringify([.2,0,.6])||JSON.stringify(tape[1].color)!==JSON.stringify([.2,0,.6]))throw Error('Fixed water/pigment source roles differ')
  const passport=reference.sourcePipelinePassport
  if(passport?.length!==15||new Set(passport.map(x=>x.key)).size!==15||passport.some(x=>! /^[a-f0-9]{64}$/.test(x.shaderSHA)||! /^[a-f0-9]{64}$/.test(x.descriptorSHA))||JSON.stringify(reference.sourceRequiredKeys)!==JSON.stringify(required))throw Error('Exact A recipe passport/subset required')
  for(const r of all){

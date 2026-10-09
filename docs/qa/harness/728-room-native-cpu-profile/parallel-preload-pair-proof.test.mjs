@@ -23,12 +23,13 @@ function sourceFixture(){
  const passport=Array.from({length:15},(_,i)=>({key:required[i]??'unused'+i,kind:i<12?'render':'compute',shaderSHA:hash,descriptorSHA:hash}))
  const ready={dispatches:0,fieldBytes:0,resourceBefore:[{bytes:16}],resourceAfter:[{bytes:16}],proofs:passport.map(p=>({...p,completed:true}))}
  for(const r of [ref,off,on]){r.source='b'.repeat(40);r.scenario='water-pigment400-long';r.packedTape=r.packedTape.slice(0,2);r.sourcePipelinePassport=structuredClone(passport);r.sourceRequiredKeys=[...required]}
- ref.sourcePreparation={ready};off.replay.mapped=off.replay.mapped.slice(0,2);on.replay.mapped=on.replay.mapped.slice(0,2)
+ for(const r of [ref,off,on]){r.packedTape[0].tool='watercolor';r.packedTape[1].tool='watercolor';r.packedTape[0].preset='normal:100:0:PB29:round';r.packedTape[1].preset='normal:100:100:PB29:round';for(const o of r.packedTape)o.color=[.2,0,.6]}
+ ref.sourcePreparation={ready};off.replay.mapped=off.replay.mapped.slice(0,2);on.replay.mapped=on.replay.mapped.slice(0,2);for(const r of [off,on])r.replay.mapped=ref.packedTape.map(o=>({...structuredClone(o),layerId:'fresh'}))
  for(const r of [off,on]){r.scheduler={actualPreload:true,sourcePrecompile:r===on,fullWarm:false,rawWarm:false,inflightLimit:0,asyncPressure:false};r.actualPreparation=structuredClone(on.actualPreparation)}
  on.sourcePreparation={ready:structuredClone(ready),consumed:required.map(key=>({key,completed:true,hits:1}))}
  return[ref,off,on]
 }
 test('source A exact long two-op pair leaves existing3 ON',()=>assert.equal(assertSourcePrecompilePair(...sourceFixture()).rows.length,2))
 test('source A rejects wrong mode/warm/ops/seed/HIT/passports',()=>{
- for(const mutate of [r=>r[1].scheduler.actualPreload=false,r=>r[2].scheduler.fullWarm=true,r=>r[2].scheduler.rawWarm=true,r=>r[1].replay.mapped[0].dabsPacked='other',r=>r[2].sourcePreparation.ready.fieldBytes=4,r=>r[2].sourcePreparation.ready.resourceAfter=[],r=>r[2].sourcePreparation.consumed[1].hits=0,r=>r[1].actualPreparation.consumed.pressure.hits=0,r=>r[2].sourcePipelinePassport[0].descriptorSHA='f'.repeat(64),r=>r[0].scenario='four400',r=>r[1].export.sha='wrong',r=>r[2].sourceRequiredKeys.pop()]){const rows=sourceFixture();mutate(rows);assert.throws(()=>assertSourcePrecompilePair(...rows))}
+ for(const mutate of [r=>r[1].scheduler.actualPreload=false,r=>r[2].scheduler.fullWarm=true,r=>r[2].scheduler.rawWarm=true,r=>r[1].replay.mapped[0].dabsPacked='other',r=>r[2].sourcePreparation.ready.fieldBytes=4,r=>r[2].sourcePreparation.ready.resourceAfter=[],r=>r[2].sourcePreparation.consumed[1].hits=0,r=>r[1].actualPreparation.consumed.pressure.hits=0,r=>r[2].sourcePipelinePassport[0].descriptorSHA='f'.repeat(64),r=>r[0].scenario='four400',r=>r[0].packedTape[0].preset='normal:100:100:PB29:round',r=>r[1].export.sha='wrong',r=>r[2].sourceRequiredKeys.pop()]){const rows=sourceFixture();mutate(rows);assert.throws(()=>assertSourcePrecompilePair(...rows))}
 })
