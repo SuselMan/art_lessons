@@ -476,14 +476,27 @@ export class PaperWetness {
   }
 
   prune(now: number): void {
-    this._invalidateDiagnosticAuthority()
+    const track = import.meta.env.DEV && this._diagnosticAuthorityArmed
+    const oldMinCx = track ? this._box?.minCx : undefined
+    const oldMinCy = track ? this._box?.minCy : undefined
+    const oldMaxCx = track ? this._box?.maxCx : undefined
+    const oldMaxCy = track ? this._box?.maxCy : undefined
+    let changed = false
     for (const [layerId, cells] of this._layers) {
       for (const [k, cell] of cells) {
-        if (now - cell.at >= WET_DRY_MS) cells.delete(k)
+        if (now - cell.at >= WET_DRY_MS) {
+          cells.delete(k)
+          if (track) changed = true
+        }
       }
-      if (!cells.size) this._layers.delete(layerId)
+      if (!cells.size) {
+        this._layers.delete(layerId)
+        if (track) changed = true
+      }
     }
     this._recomputeBox()
+    if (track && (changed || !Object.is(oldMinCx, this._box?.minCx) || !Object.is(oldMinCy, this._box?.minCy)
+      || !Object.is(oldMaxCx, this._box?.maxCx) || !Object.is(oldMaxCy, this._box?.maxCy))) this._invalidateDiagnosticAuthority()
   }
 
   /** (#536) Drops a layer's water outright. Undo and "clear layer" call it:

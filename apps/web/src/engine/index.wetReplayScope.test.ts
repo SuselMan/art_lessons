@@ -87,7 +87,7 @@ it('authority capture rejects existing ID and silent append rejection cannot cre
  expect(()=>fresh.e.diagnosticPromoteCompletedWetReplay(fresh.packet)).toThrow('acceptance')
 })
 
-it('fresh empty natural RAF replay records live mutator reason without disabling drying or bypassing authority',async()=>{
+it('fresh empty natural RAF no-op drying prune preserves authority and completed promotion',async()=>{
  const r=await recorded(true);await new Promise(resolve=>setTimeout(resolve,1000))
  const e=await setup({diagnosticPointerAdmission:true,diagnosticWetReplay:true});e['_paperWet'].clear();const live=e['_paperWet'],authority=live.captureDiagnosticAuthority(),revision=Reflect.get(live,'_diagnosticMutationRevision'),before=rawWet(live),calls:Array<{name:string;changed:boolean;stack:string}>=[]
  for(const name of ['deposit','drain','dropPending','commitPending','prune','forgetLayer','clear'] as const){const original=live[name].bind(live);vi.spyOn(live,name).mockImplementation(((...args:unknown[])=>{const prior=JSON.stringify(rawWet(live)),stack=Error().stack??'';const result=Reflect.apply(original,live,args);calls.push({name,changed:prior!==JSON.stringify(rawWet(live)),stack});return result}) as never)}
@@ -97,5 +97,5 @@ it('fresh empty natural RAF replay records live mutator reason without disabling
  let error:string|null=null;try{e.diagnosticPromoteCompletedWetReplay(packet)}catch(e){error=String(e)}
  const evidence={error,revisionBefore:revision,revisionAfter:Reflect.get(live,'_diagnosticMutationRevision'),calls,liveUnchanged:JSON.stringify(before)===JSON.stringify(rawWet(live))}
  if(process.env.QA_WET_CPU_TRACE){mkdirSync(dirname(process.env.QA_WET_CPU_TRACE),{recursive:true});writeFileSync(process.env.QA_WET_CPU_TRACE,JSON.stringify(evidence,null,2))}
- expect(error).toContain('authority');expect(calls.some(call=>call.name==='prune'&&!call.changed)).toBe(true);expect(evidence.liveUnchanged).toBe(true)
+ expect(error).toBeNull();expect(calls.some(call=>call.name==='prune'&&!call.changed)).toBe(true);expect(evidence.revisionAfter).toBe(revision+1);expect(rawWet(live)).toEqual(rawWet(PaperWetness.forkDiagnosticSnapshot(r.finalWet)))
 })
