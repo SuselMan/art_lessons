@@ -1,0 +1,129 @@
+--- a/apps/web/src/engine/src/webgpuCanonical/passes/fieldOps.ts
++++ b/apps/web/src/engine/src/webgpuCanonical/passes/fieldOps.ts
+@@ -1,5 +1,6 @@
+ import { canonicalDispatchRect } from '../dispatchRect'
+ /// <reference types="@webgpu/types" />
++import {canonicalHardwareLinearDescriptor,preparedCanonicalHardwareLinearPipeline} from './hardwarePressurePreload'
+ import type { CanonicalGpuContext, CanonicalGpuField, CanonicalPassResources } from '../types'
+ export const CANONICAL_FIELD_OPS_WGSL = `
+ struct Params { dimsDir:vec4f,tau:vec4f,scalars:vec4f,scissor:vec4f,originSize:vec4f,bandWorld:vec4f,worldExtra:vec4f,dispatch:vec4u }
+@@ -216,7 +217,7 @@
+   const rect=canonicalDispatchRect(w,h,o.scissor);new Uint32Array(values.buffer).set(rect,28)
+   if(values.slice(0,28).some(v=>!Number.isFinite(v)))throw new Error('Canonical uniforms must be finite')
+   if(o.diagnosticHardwareLinearInputs&&this.specializeModes)throw new Error('Combined sampler and specialization diagnostics are not supported')
+-  if(o.diagnosticHardwareLinearInputs&&!this.hardwareLinearPipeline)this.hardwareLinearPipeline=this.device.createComputePipeline({label:'DIAGNOSTIC canonical hardware LINEAR fields',layout:'auto',compute:{module:this.device.createShaderModule({code:CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL}),entryPoint:'main'}})
++  if(o.diagnosticHardwareLinearInputs&&!this.hardwareLinearPipeline)this.hardwareLinearPipeline=preparedCanonicalHardwareLinearPipeline(this.device,CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL)??this.device.createComputePipeline(canonicalHardwareLinearDescriptor(this.device,CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL))
+   const pipeline=o.diagnosticHardwareLinearInputs?this.hardwareLinearPipeline!:this.pipelineFor(mode)
+   const uniform=this.device.createBuffer({size:128,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(uniform,0,values)
+   const entries:GPUBindGroupEntry[]=fields.map((f,binding)=>({binding,resource:f.view}))
+--- a/apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts
++++ b/apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts
+@@ -1,3 +1,5 @@
++import {prepareCanonicalHardwareLinearPipeline,canonicalHardwareLinearPreparationDiagnostics} from './passes/hardwarePressurePreload'
++import {CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL} from './passes/fieldOps'
+ import {installNativeTipA,type NativeTipQaProof} from '../experiments/nativeTipContactQa'
+ import {prepareMomentSegment,type MomentContactState} from '../experiments/wetBrushMomentRecipe'
+ import {expandCanonicalPaperLa} from './paperExpansion'
+@@ -21,6 +23,7 @@
+  diagnosticFirstLiveWarmup?:boolean
+  diagnosticRawCanvasWarmup?:boolean
+  diagnosticCarryHardwarePressure?:boolean
++ diagnosticAsyncCarryPressure?:boolean
+  diagnosticTipContactA?:boolean
+  diagnosticMomentTransport?:boolean
+  diagnosticMomentGpuAudit?:boolean
+@@ -62,6 +65,13 @@
+   const canvas=document.createElement('canvas')
+   const backend=await CanonicalWatercolorWebGpu.create({canvas,roomOwnedResources:true,onInitStage:stage=>console.info('[native-room-init]',stage),width:1024,height:1024,paper:{bytes,width:resolution,height:resolution,origin:[0,0],texSize:[ctx.paperWorld.w,ctx.paperWorld.h],scale:ctx.paperScale}})
+   try{
++   if(import.meta.env.DEV&&ctx.diagnosticAsyncCarryPressure===true){
++    if(ctx.diagnosticCarryHardwarePressure!==true)throw new Error('Async carry pressure requires hardware pressure diagnostic')
++    console.info('[native-room-init]','pressure-async-compile:start')
++    const proof=await prepareCanonicalHardwareLinearPipeline(backend.device,CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL)
++    const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL))
++    console.info('[native-room-init]','pressure-async-compile:completed',JSON.stringify({...proof,shaderSHA:Array.from(new Uint8Array(hash),v=>v.toString(16).padStart(2,'0')).join(''),dispatches:0,fieldBytes:0}))
++   }
+    if(import.meta.env.DEV&&ctx.diagnosticRawCanvasWarmup===true){
+     const started=performance.now()
+     console.info('[native-room-init]','raw-warm:start',started)
+@@ -123,6 +133,7 @@
+   this.queued=true
+   this.central.enqueueSource(()=>{if(this.scratch!==recipient||this.targetLayer!==target||!this.owner)throw new Error('Native foreign-water recipient layer/generation mismatch');this.owner.importForeign(gesture)},async()=>{})
+  }
++ get asyncCarryPressureDiagnostics(){return canonicalHardwareLinearPreparationDiagnostics(this.backend.device)}
+  get carryPressureDiagnostics(){return this.owner?.carryPressureDiagnostics??null}
+  private ownerFor(scratch:RibbonStrokeScratch,tile:PaintTarget,layerId:string,targetLayer:ILayerBuffer){
+   if(this.owner&&(this.scratch!==scratch||this.tile?.buffer!==tile.buffer||this.targetLayer!==targetLayer)){this.trackRetirement(this.owner.retire('rebuild',false));this.owner=null}
+--- a/apps/web/src/engine/index.ts
++++ b/apps/web/src/engine/index.ts
+@@ -271,6 +271,7 @@
+   diagnosticFirstLiveWarmup?: boolean
+   diagnosticRawCanvasWarmup?: boolean
+   diagnosticCarryHardwarePressure?: boolean
++  diagnosticAsyncCarryPressure?: boolean
+   /** DEV new-model coupled brush transport. Requires nativeWatercolor. */
+   diagnosticMomentTransport?: boolean
+   diagnosticMomentGpuAudit?: boolean
+@@ -1865,6 +1866,7 @@
+   private _wcFirstLiveWarmupEnabled=false
+   private _wcRawCanvasWarmupEnabled=false
+   private _wcCarryHardwarePressureEnabled=false
++  private _wcAsyncCarryPressureEnabled=false
+   private _wcMomentTransportEnabled=false
+   private _wcMomentGpuAuditEnabled=false
+   private _wcMomentVectorEnabled=false
+@@ -2294,6 +2296,8 @@
+     if(this._wcFirstLiveWarmupEnabled&&this._wcRawCanvasWarmupEnabled)throw Error('Separate first-live and raw-only warmup arms required')
+     this._wcCarryHardwarePressureEnabled=import.meta.env.DEV&&options.diagnosticCarryHardwarePressure===true
+     if(this._wcCarryHardwarePressureEnabled&&!this._wcNativeEnabled)throw Error('DEV carry pressure sampling requires nativeWatercolor')
++    this._wcAsyncCarryPressureEnabled=import.meta.env.DEV&&options.diagnosticAsyncCarryPressure===true
++    if(this._wcAsyncCarryPressureEnabled&&(!this._wcNativeEnabled||!this._wcCarryHardwarePressureEnabled))throw Error('DEV async pressure compilation requires nativeWatercolor and hardware pressure')
+     this._wcTipContactAEnabled=import.meta.env.DEV&&options.diagnosticTipContactA===true
+     if(this._wcTipContactAEnabled&&!this._wcNativeEnabled)throw Error('DEV tipA requires nativeWatercolor')
+     this._wcMomentTransportEnabled=import.meta.env.DEV&&options.diagnosticMomentTransport===true
+@@ -2733,7 +2737,7 @@
+     const epoch=this._wcNativeInitEpoch
+     if(!this._wcNativeReady)this._wcNativeReady=this._paper.ready().then(async()=>{
+       const {RoomNativeRuntime}=await import('./src/webgpuCanonical/roomNativeRuntime')
+-      const runtime=await RoomNativeRuntime.create({diagnosticFirstLiveWarmup:this._wcFirstLiveWarmupEnabled,diagnosticRawCanvasWarmup:this._wcRawCanvasWarmupEnabled,diagnosticCarryHardwarePressure:this._wcCarryHardwarePressureEnabled,diagnosticTipContactA:this._wcTipContactAEnabled,diagnosticMomentVector:this._wcMomentVectorEnabled,diagnosticMomentGpuAudit:this._wcMomentGpuAuditEnabled,diagnosticMomentTransport:this._wcMomentTransportEnabled,fifo:this._wcCanonical,paper:this._paper.type,paperScale:this._paper.scale,paperWorld:this._paper.worldSize(),board:this._pageSize(),
++      const runtime=await RoomNativeRuntime.create({diagnosticFirstLiveWarmup:this._wcFirstLiveWarmupEnabled,diagnosticRawCanvasWarmup:this._wcRawCanvasWarmupEnabled,diagnosticAsyncCarryPressure:this._wcAsyncCarryPressureEnabled,diagnosticCarryHardwarePressure:this._wcCarryHardwarePressureEnabled,diagnosticTipContactA:this._wcTipContactAEnabled,diagnosticMomentVector:this._wcMomentVectorEnabled,diagnosticMomentGpuAudit:this._wcMomentGpuAuditEnabled,diagnosticMomentTransport:this._wcMomentTransportEnabled,fifo:this._wcCanonical,paper:this._paper.type,paperScale:this._paper.scale,paperWorld:this._paper.worldSize(),board:this._pageSize(),
+         resolve:(target,bounds)=>this._resolveWithinSheet(target,this._wcSheetClamp(bounds)),layerId:target=>[...this._layers].find(([,buffer])=>buffer===target)?.[0]??[...this._rebuildJobs].find(([,job])=>job.fresh===target)?.[0]??this._wcNativeReplayTargets.get(target),changed:()=>this._scheduleDisplay(),failed:error=>{this._wcAsyncError=error}})
+       if(this._destroyed||epoch!==this._wcNativeInitEpoch){await runtime.retire('unmount');return}
+       this._wcNative=runtime
+--- a/apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts
++++ b/apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts
+@@ -4,7 +4,7 @@
+ 
+ /** Constructor flags only. Production values and existing explicit DEV opt-ins
+  * stay identical; diagnostic selection does not own material or scheduling. */
+-export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: string | undefined, search: string): Pick<PencilEngineOptions, 'asyncFinish' | 'joinedTouch' | 'joinedTouchMixed' | 'bandBatch' | 'joinedFinishDeferred' | 'materialPresentation' | 'diagnosticWebgl2' | 'diagnosticBrushMrt' | 'diagnosticFrontBatch' | 'nativeWatercolor' | 'diagnosticPhysicalBatchTwo' | 'diagnosticSolverBatch' | 'diagnosticMomentTransport' | 'diagnosticMomentGpuAudit' | 'diagnosticMomentVector' | 'diagnosticTipContactA' | 'diagnosticCarryHardwarePressure' | 'diagnosticRawCanvasWarmup' | 'diagnosticFirstLiveWarmup'> {
++export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: string | undefined, search: string): Pick<PencilEngineOptions, 'asyncFinish' | 'joinedTouch' | 'joinedTouchMixed' | 'bandBatch' | 'joinedFinishDeferred' | 'materialPresentation' | 'diagnosticWebgl2' | 'diagnosticBrushMrt' | 'diagnosticFrontBatch' | 'nativeWatercolor' | 'diagnosticPhysicalBatchTwo' | 'diagnosticSolverBatch' | 'diagnosticMomentTransport' | 'diagnosticMomentGpuAudit' | 'diagnosticMomentVector' | 'diagnosticTipContactA' | 'diagnosticAsyncCarryPressure' | 'diagnosticCarryHardwarePressure' | 'diagnosticRawCanvasWarmup' | 'diagnosticFirstLiveWarmup'> {
+  const query = new URLSearchParams(search)
+  const flag=(name:string)=>{
+   if(!dev)return false
+@@ -15,7 +15,7 @@
+  const diagnosticPhysicalBatchTwo=flag('qaPhysicalBatchTwo')
+  const diagnosticFirstLiveWarmup=flag('wcFirstLiveWarmup')
+  const diagnosticRawCanvasWarmup=flag('wcRawCanvasWarmup')
+- const diagnosticCarryHardwarePressure=flag('wcCarryHardwarePressure')
++ const diagnosticCarryHardwarePressure=flag('wcCarryHardwarePressure'),diagnosticAsyncCarryPressure=flag('wcAsyncCarryPressure')
+  const diagnosticTipContactA=flag('wcTipA')
+  const diagnosticMomentVector=flag('wcMomentVector')
+  const diagnosticMomentGpuAudit=flag('wcMomentGpuAudit')
+@@ -23,6 +23,7 @@
+  if(diagnosticFirstLiveWarmup&&!nativeWatercolor)throw new Error('wcFirstLiveWarmup requires wcNative=1')
+  if(diagnosticFirstLiveWarmup&&diagnosticRawCanvasWarmup)throw new Error('Separate first-live and raw-only warmup arms required')
+  if(diagnosticRawCanvasWarmup&&!nativeWatercolor)throw new Error('wcRawCanvasWarmup requires wcNative=1')
++ if(diagnosticAsyncCarryPressure&&(!nativeWatercolor||!diagnosticCarryHardwarePressure))throw new Error('wcAsyncCarryPressure requires wcNative=1 and wcCarryHardwarePressure=1')
+  if(diagnosticCarryHardwarePressure&&!nativeWatercolor)throw new Error('wcCarryHardwarePressure requires wcNative=1')
+  if(diagnosticTipContactA&&!nativeWatercolor)throw new Error('wcTipA requires wcNative=1')
+  if(diagnosticMomentVector&&!diagnosticMomentGpuAudit)throw new Error('wcMomentVector requires wcMomentGpuAudit=1')
+@@ -31,7 +32,7 @@
+  const diagnosticWebgl2=flag('wcGl2'),diagnosticBrushMrt=flag('wcMrt'),diagnosticFrontBatch=flag('wcFrontBatch')
+  if(diagnosticBrushMrt&&!diagnosticWebgl2)throw new Error('wcMrt requires wcGl2=1')
+  return {
+-  diagnosticPhysicalBatchTwo,diagnosticFirstLiveWarmup,diagnosticRawCanvasWarmup,diagnosticCarryHardwarePressure,diagnosticTipContactA,nativeWatercolor,diagnosticMomentTransport,diagnosticMomentGpuAudit,diagnosticMomentVector,diagnosticWebgl2,diagnosticBrushMrt,diagnosticFrontBatch,
++  diagnosticPhysicalBatchTwo,diagnosticFirstLiveWarmup,diagnosticRawCanvasWarmup,diagnosticAsyncCarryPressure,diagnosticCarryHardwarePressure,diagnosticTipContactA,nativeWatercolor,diagnosticMomentTransport,diagnosticMomentGpuAudit,diagnosticMomentVector,diagnosticWebgl2,diagnosticBrushMrt,diagnosticFrontBatch,
+   asyncFinish: false,
+   joinedTouch: !dev || joinedTouchQaEnabled(dev, joined, search),
+   joinedTouchMixed: dev && query.get('qaJoinedTouchMixed') === '1',
