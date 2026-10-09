@@ -10,6 +10,7 @@ import type { CanonicalCompositeUniforms, CanonicalGpuField, CanonicalGpuSnapsho
 
 export interface CanonicalWebGpuOptions {
  /** OFF, DEV-only capability negotiation for isolated timestamp measurements. */
+ diagnosticContentVersions?:boolean
  diagnosticTimestampQueries?:boolean
  /** Room owns its material fields and presentation; default prototype remains eager. */
  roomOwnedResources?:boolean
@@ -34,6 +35,10 @@ export class CanonicalWatercolorWebGpu {
  private standaloneFields:CanonicalWatercolorFields|null=null
  get fields():CanonicalWatercolorFields {if(!this.standaloneFields)throw new Error('Room-owned backend has no standalone material fields');return this.standaloneFields}
  readonly paper: CanonicalPaper
+ private diagnosticEncodedVersions:WeakMap<CanonicalGpuField,number>|null=null
+ /** Partial encoded-write authority: not submission/completion, never freeze. */
+ diagnosticFieldContentVersion(field:CanonicalGpuField){return{enabled:this.diagnosticEncodedVersions!==null,knownEncodedWrites:this.diagnosticEncodedVersions&&this.ownedFields.has(field)?this.diagnosticEncodedVersions.get(field)??0:null,complete:false as const,coverage:'upload/staging/clear/copy helpers only'}}
+ private noteDiagnosticEncodedWrite(field:CanonicalGpuField){if(this.diagnosticEncodedVersions&&this.ownedFields.has(field))this.diagnosticEncodedVersions.set(field,(this.diagnosticEncodedVersions.get(field)??0)+1)}
  private staticPaperEpoch=0
  private staticNoiseEpoch=0
  private readonly retiredOwnerResources=new Set<()=>void>()
@@ -98,6 +103,7 @@ export class CanonicalWatercolorWebGpu {
  diagnosticComputeFullClearCalls=0
  readonly options: CanonicalWebGpuOptions
  private constructor(device: GPUDevice, options: CanonicalWebGpuOptions) {
+  this.diagnosticEncodedVersions=import.meta.env.DEV&&options.diagnosticContentVersions===true?new WeakMap():null
   this.device=device;this.options=options
   options.onInitStage?.('backend:start')
   const context = options.roomOwnedResources?null:options.canvas.getContext('webgpu'); if (!options.roomOwnedResources&&!context) throw new Error('WebGPU canvas unavailable')
@@ -157,6 +163,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   const field:CanonicalGpuField={ width, height, label, filter, format: 'rgba8unorm', texture, view: texture.createView() };this.ownedFields.add(field);this.resourceLedgerIds.set(field,++this.resourceLedgerSequence);return field
  }
  destroyField(field:CanonicalGpuField) {
+  this.diagnosticEncodedVersions?.delete(field)
   if(this.ownedFields.delete(field)){if(this.activeEncoder)this.activeRetired.push(field);else if(this.pendingScopes)this.pendingRetired.add(field);else field.texture.destroy()}
  }
  /** Synchronous planner quantum: owner operations join the caller's encoder.
@@ -179,7 +186,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   const pitch=Math.ceil(field.width*4/256)*256,stagingBytes=new Uint8Array(pitch*field.height)
   for(let row=0;row<field.height;row++){const sourceRow=rawGlRows?field.height-row-1:row;stagingBytes.set(bytes.subarray(sourceRow*field.width*4,(sourceRow+1)*field.width*4),row*pitch)}
   const buffer=this.device.createBuffer({size:stagingBytes.length,usage:GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(buffer,0,stagingBytes)
-  encoder.copyBufferToTexture({buffer,bytesPerRow:pitch},{texture:field.texture},[field.width,field.height]);return[buffer]
+  encoder.copyBufferToTexture({buffer,bytesPerRow:pitch},{texture:field.texture},[field.width,field.height]);this.noteDiagnosticEncodedWrite(field);return[buffer]
  }
  encodeUploadGlLuminance(encoder:GPUCommandEncoder,field:CanonicalGpuField,bytes:Uint8Array):GPUBuffer[] {
   if(bytes.length!==field.width*field.height)throw new Error('Canonical luminance upload dimensions mismatch')
@@ -190,7 +197,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   if (bytes.byteLength !== field.width * field.height * 4) throw new Error(`Canonical RGBA8 upload size mismatch: ${field.label}`)
   if(this.activeEncoder){this.activeBuffers.push(...this.encodeUploadRgba(this.activeEncoder,field,bytes));return}
   this.noteStaticWrite(field)
-  this.device.queue.writeTexture({ texture: field.texture }, bytes as Uint8Array<ArrayBuffer>, { bytesPerRow: field.width * 4 }, { width: field.width, height: field.height })
+  this.device.queue.writeTexture({ texture: field.texture }, bytes as Uint8Array<ArrayBuffer>, { bytesPerRow: field.width * 4 }, { width: field.width, height: field.height });this.noteDiagnosticEncodedWrite(field)
  }
  encodePreparedRibbon(encoder:GPUCommandEncoder,batch:CanonicalRibbonBatch,phase:CanonicalRasterPhase,targets:CanonicalRasterTargets):GPUBuffer[] {
   if(this.destroyed)throw new Error('Canonical WebGPU backend destroyed')
@@ -228,7 +235,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   if(src.texture===dst.texture)throw new Error('Canonical texture self-copy unsupported')
   if(!size[0]||!size[1])return
   this.noteStaticWrite(dst)
-  const selected=encoder??this.activeEncoder;const commands=selected??this.device.createCommandEncoder();commands.copyTextureToTexture({texture:src.texture,origin:[...srcOrigin]},{texture:dst.texture,origin:[...dstOrigin]},[...size]);if(!selected)this.device.queue.submit([commands.finish()])
+  const selected=encoder??this.activeEncoder;const commands=selected??this.device.createCommandEncoder();commands.copyTextureToTexture({texture:src.texture,origin:[...srcOrigin]},{texture:dst.texture,origin:[...dstOrigin]},[...size]);this.noteDiagnosticEncodedWrite(dst);if(!selected)this.device.queue.submit([commands.finish()])
  }
  copyField(src:CanonicalGpuField,dst:CanonicalGpuField,encoder?:GPUCommandEncoder) {
   if(src.width!==dst.width||src.height!==dst.height)throw new Error('Canonical field copy dimensions mismatch')
@@ -237,12 +244,12 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
  encodeClearField(encoder:GPUCommandEncoder,field:CanonicalGpuField,rect?:readonly[number,number,number,number]):GPUBuffer[] {
   this.noteStaticWrite(field)
   if(!rect&&this.options.diagnosticComputeFullClear){this.diagnosticComputeFullClearCalls++;rect=[0,0,field.width,field.height]}
-  if(!rect){const pass=encoder.beginRenderPass({label:import.meta.env.DEV?'Canonical clear full':undefined,colorAttachments:[{view:field.view,loadOp:'clear',storeOp:'store',clearValue:[0,0,0,0]}]});pass.end();return[]}
+  if(!rect){const pass=encoder.beginRenderPass({label:import.meta.env.DEV?'Canonical clear full':undefined,colorAttachments:[{view:field.view,loadOp:'clear',storeOp:'store',clearValue:[0,0,0,0]}]});pass.end();this.noteDiagnosticEncodedWrite(field);return[]}
   if(rect.some(v=>!Number.isInteger(v))||rect[2]<0||rect[3]<0)throw new Error('Canonical clear rectangle requires integer coordinates and nonnegative size')
   const x=Math.max(0,Math.min(field.width,rect[0])),y=Math.max(0,Math.min(field.height,rect[1])),right=Math.max(x,Math.min(field.width,rect[0]+rect[2])),bottom=Math.max(y,Math.min(field.height,rect[1]+rect[3]))
   if(right===x||bottom===y)return[]
   const buffer=this.device.createBuffer({size:16,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(buffer,0,new Uint32Array([x,y,right-x,bottom-y]))
-  const group=this.device.createBindGroup({layout:this.clearPipeline.getBindGroupLayout(0),entries:[{binding:0,resource:field.view},{binding:1,resource:{buffer}}]}),pass=encoder.beginComputePass({label:import.meta.env.DEV?'Canonical clear rect':undefined});pass.setPipeline(this.clearPipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil((right-x)/8),Math.ceil((bottom-y)/8));pass.end();return[buffer]
+  const group=this.device.createBindGroup({layout:this.clearPipeline.getBindGroupLayout(0),entries:[{binding:0,resource:field.view},{binding:1,resource:{buffer}}]}),pass=encoder.beginComputePass({label:import.meta.env.DEV?'Canonical clear rect':undefined});pass.setPipeline(this.clearPipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil((right-x)/8),Math.ceil((bottom-y)/8));pass.end();this.noteDiagnosticEncodedWrite(field);return[buffer]
  }
  clearField(field:CanonicalGpuField,rect?:readonly[number,number,number,number]) {
   if(this.activeEncoder){this.activeBuffers.push(...this.encodeClearField(this.activeEncoder,field,rect));return}
@@ -291,5 +298,5 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
  }
  ownsLiveField(field:CanonicalGpuField){return !this.destroyed&&this.ownedFields.has(field)}
  whenIdle() { return this.device.queue.onSubmittedWorkDone() }
- destroy() { if (this.destroyed) return; this.destroyed = true; this.diagnosticTimestamps?.destroy(); this.diagnosticTimestamps=null; try{for (const field of this.ownedFields) field.texture.destroy(); this.ownedFields.clear(); for(const field of this.pendingRetired)field.texture.destroy(); this.pendingRetired.clear(); this.activeRetired.forEach(field=>field.texture.destroy()); this.activeRetired=[]; this.activeBuffers.forEach(buffer=>buffer.destroy()); this.activeBuffers=[]}finally{this.flushOwnerRetirements();try{this.context?.unconfigure()}finally{this.device.destroy()}} }
+ destroy() { if (this.destroyed) return; this.destroyed = true; this.diagnosticEncodedVersions=null; this.diagnosticTimestamps?.destroy(); this.diagnosticTimestamps=null; try{for (const field of this.ownedFields) field.texture.destroy(); this.ownedFields.clear(); for(const field of this.pendingRetired)field.texture.destroy(); this.pendingRetired.clear(); this.activeRetired.forEach(field=>field.texture.destroy()); this.activeRetired=[]; this.activeBuffers.forEach(buffer=>buffer.destroy()); this.activeBuffers=[]}finally{this.flushOwnerRetirements();try{this.context?.unconfigure()}finally{this.device.destroy()}} }
 }

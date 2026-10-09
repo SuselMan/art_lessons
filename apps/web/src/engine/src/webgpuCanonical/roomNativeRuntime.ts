@@ -29,6 +29,7 @@ export interface RoomNativeRuntimeContext {
  /** QA-only detached raw canvas warmup; no source/settle warmup. */
  diagnosticSchedulingObserver?:boolean
  diagnosticNativeBrushPair?:boolean
+ diagnosticContentVersions?:boolean
  diagnosticSourceOwnershipAssertions?:boolean
  diagnosticSourcePrecompile?:boolean
  diagnosticFirstLiveWarmup?:boolean
@@ -85,7 +86,7 @@ export class RoomNativeRuntime {
   const bytes=expandCanonicalPaperLa(la)
   console.info('[native-room-init]','paper:expand-done',bytes.length)
   const canvas=document.createElement('canvas')
-  const backend=await CanonicalWatercolorWebGpu.create({canvas,roomOwnedResources:true,diagnosticTimestampQueries:ctx.diagnosticTimestampQueries,onInitStage:stage=>console.info('[native-room-init]',stage),width:1024,height:1024,paper:{bytes,width:resolution,height:resolution,origin:[0,0],texSize:[ctx.paperWorld.w,ctx.paperWorld.h],scale:ctx.paperScale}})
+  const backend=await CanonicalWatercolorWebGpu.create({canvas,roomOwnedResources:true,diagnosticContentVersions:ctx.diagnosticContentVersions,diagnosticTimestampQueries:ctx.diagnosticTimestampQueries,onInitStage:stage=>console.info('[native-room-init]',stage),width:1024,height:1024,paper:{bytes,width:resolution,height:resolution,origin:[0,0],texSize:[ctx.paperWorld.w,ctx.paperWorld.h],scale:ctx.paperScale}})
   try{
    if(import.meta.env.DEV&&ctx.diagnosticAsyncCarryPressure===true&&ctx.diagnosticCarryHardwarePressure!==true)throw new Error('Async carry pressure requires hardware pressure diagnostic')
    const prepareObserved=async()=>{

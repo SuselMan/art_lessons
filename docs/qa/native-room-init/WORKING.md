@@ -16,3 +16,5 @@ CPU prototype defaultOFF проверяет actual Runtime→Executor references
 Для reviewable QA baseline: wcNative + source preparation + pressure/observed3 + pairedON; cache+factorON только owned QA hook. Film/tile/mode5/identity OFF, cap8/4мс, scope0. Не публиковались push/main/deploy или новый пользовательский сервис.
 
 CPU readiness: 34 targeted tests (actual source executor, actual Room executor, actual central FIFO) и tsconfig.app PASS. Same-generation field replacement, stale epoch/foreign owner/liveledger loss, held publication и allocated-job cleanup проверены. Старый retirement fixture дополнен существующим retireStaticFrontCache callback; продуктовый cleanup не изменялся ради fixture. Samebuffer.clear остаётся content gate HOLD. Успешный prepare identity не является immutable byte proof.
+
+Partial encoded-write ledger: DEV diagnosticContentVersions OFF, WeakMap только opt-in; upload/staging/clear/copy destination counters после успешной команды. complete=false всегда; raster/compute/brush/composite authority не закрыта. Два actual-backend CPU helper tests и appTS перед локальным commit; hardware не запускался. Никакого COW/reorder разрешения.

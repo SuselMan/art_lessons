@@ -1,0 +1,518 @@
+{
+  "scope": "Actual backend own methods/accessors/constructor; not whole-project writers",
+  "sourcePath": "apps/web/src/engine/src/webgpuCanonical/backend.ts",
+  "memberCount": 51,
+  "completeContentAuthority": false,
+  "rows": [
+    {
+      "name": "fields",
+      "kind": "GetAccessor",
+      "line": 36,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "diagnosticFieldContentVersion",
+      "kind": "MethodDeclaration",
+      "line": 40,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "noteDiagnosticEncodedWrite",
+      "kind": "MethodDeclaration",
+      "line": 41,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "staticInputEpoch",
+      "kind": "GetAccessor",
+      "line": 45,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "noteStaticWrite",
+      "kind": "MethodDeclaration",
+      "line": 46,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "retireAfterOwnerScopes",
+      "kind": "MethodDeclaration",
+      "line": 47,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "diagnosticRetirementCleanupFailures",
+      "kind": "GetAccessor",
+      "line": 49,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "flushOwnerRetirements",
+      "kind": "MethodDeclaration",
+      "line": 50,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "deposit",
+      "kind": "GetAccessor",
+      "line": 59,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "stamps",
+      "kind": "GetAccessor",
+      "line": 60,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "composite",
+      "kind": "GetAccessor",
+      "line": 61,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "brush",
+      "kind": "GetAccessor",
+      "line": 62,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "sourceWater",
+      "kind": "GetAccessor",
+      "line": 64,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "createZeroSourceWater",
+      "kind": "MethodDeclaration",
+      "line": 65,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "diagnosticResourceLedger",
+      "kind": "GetAccessor",
+      "line": 70,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "diagnosticScopeState",
+      "kind": "GetAccessor",
+      "line": 79,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "beginDiagnosticTimestampCapture",
+      "kind": "MethodDeclaration",
+      "line": 90,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "setDiagnosticTimestampWindow",
+      "kind": "MethodDeclaration",
+      "line": 94,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "discardDiagnosticTimestampCandidate",
+      "kind": "MethodDeclaration",
+      "line": 95,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "diagnosticTimestampQuantum",
+      "kind": "MethodDeclaration",
+      "line": 96,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "readDiagnosticTimestampsAfterInput",
+      "kind": "MethodDeclaration",
+      "line": 97,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "constructor",
+      "kind": "Constructor",
+      "line": 105,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "support",
+      "kind": "MethodDeclaration",
+      "line": 143,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "create",
+      "kind": "MethodDeclaration",
+      "line": 148,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "createField",
+      "kind": "MethodDeclaration",
+      "line": 161,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "destroyField",
+      "kind": "MethodDeclaration",
+      "line": 165,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "encodeOwnerCommands",
+      "kind": "MethodDeclaration",
+      "line": 171,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "encodeUploadRgba",
+      "kind": "MethodDeclaration",
+      "line": 183,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": true
+    },
+    {
+      "name": "encodeUploadGlLuminance",
+      "kind": "MethodDeclaration",
+      "line": 191,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "upload",
+      "kind": "MethodDeclaration",
+      "line": 196,
+      "queueSubmit": false,
+      "writeTexture": true,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": true
+    },
+    {
+      "name": "encodePreparedRibbon",
+      "kind": "MethodDeclaration",
+      "line": 202,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": true,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "encodePreparedStamp",
+      "kind": "MethodDeclaration",
+      "line": 207,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": true,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "appendPreparedRibbon",
+      "kind": "MethodDeclaration",
+      "line": 211,
+      "queueSubmit": true,
+      "writeTexture": false,
+      "encodeCall": true,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "appendPreparedStamp",
+      "kind": "MethodDeclaration",
+      "line": 218,
+      "queueSubmit": true,
+      "writeTexture": false,
+      "encodeCall": true,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "brushContact",
+      "kind": "MethodDeclaration",
+      "line": 224,
+      "queueSubmit": true,
+      "writeTexture": false,
+      "encodeCall": true,
+      "copyTexture": true,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "copyRegion",
+      "kind": "MethodDeclaration",
+      "line": 232,
+      "queueSubmit": true,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": true,
+      "knownVersionWriter": true
+    },
+    {
+      "name": "copyField",
+      "kind": "MethodDeclaration",
+      "line": 240,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "encodeClearField",
+      "kind": "MethodDeclaration",
+      "line": 244,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": true
+    },
+    {
+      "name": "clearField",
+      "kind": "MethodDeclaration",
+      "line": 254,
+      "queueSubmit": true,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "clear",
+      "kind": "MethodDeclaration",
+      "line": 258,
+      "queueSubmit": true,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "resizeViewport",
+      "kind": "MethodDeclaration",
+      "line": 266,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "presentField",
+      "kind": "MethodDeclaration",
+      "line": 269,
+      "queueSubmit": true,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "compositeInto",
+      "kind": "MethodDeclaration",
+      "line": 274,
+      "queueSubmit": true,
+      "writeTexture": false,
+      "encodeCall": true,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "present",
+      "kind": "MethodDeclaration",
+      "line": 279,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "settle",
+      "kind": "MethodDeclaration",
+      "line": 280,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "readField",
+      "kind": "MethodDeclaration",
+      "line": 281,
+      "queueSubmit": true,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": true,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "readSnapshot",
+      "kind": "MethodDeclaration",
+      "line": 290,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "restoreSnapshot",
+      "kind": "MethodDeclaration",
+      "line": 295,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "ownsLiveField",
+      "kind": "MethodDeclaration",
+      "line": 299,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "whenIdle",
+      "kind": "MethodDeclaration",
+      "line": 300,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    },
+    {
+      "name": "destroy",
+      "kind": "MethodDeclaration",
+      "line": 301,
+      "queueSubmit": false,
+      "writeTexture": false,
+      "encodeCall": false,
+      "copyTexture": false,
+      "knownVersionWriter": false
+    }
+  ]
+}
