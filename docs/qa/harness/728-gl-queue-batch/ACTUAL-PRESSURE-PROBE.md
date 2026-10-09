@@ -19,3 +19,9 @@ Root-specific qaReuse changes are absent in this isolated worktree: cherry-pick 
 ## First complete-cycle hardware attempt: invalid launch
 
 Raw owner-water-dab-completecycles-surface.json: conflicting DIAGNOSTIC_OWNER_MORPH=1 and DIAGNOSTIC_MATERIAL_REBASE=1 rejected at owner-ready, zero input rows. No candidate performance/quality conclusion. Own target closed, postRAM2045 MiB. Correct next launch is MATERIAL_REBASE=1 with OWNER_MORPH absent. Added CPU launch compatibility check before target creation; no automatic retry.
+
+## Corrected complete-cycle ONE Surface
+
+HEAD08e1690d; raw owner-water-dab-completecycles-corrected-surface.json; new saved tape owner-water-dab-completecycles-tape.json SHA 8177fc625dc1044afcde5141cc5fcd22c80eef4517cb4580f7c6ec42881a571e. Own target closed; post2036 MiB, minimum879. valid=true, errors0/lostfalse. Owner2 actual28front/30carry, ≤8draw/tick CPU contract; CPU carry maximum2.4ms/material0.7ms (submission, not GPU timer). Combined P/C mass5.426470653→5.426470825 (+3.15e-8 relative); support24→2399, combined peak0.0687156. Internal meaningful Dry/Undo/Redo exact af83f417f2d1726a35319d46da9c6cf35d9b4602a90248be58f1a16ba7e20c94. Original SAMEnewtape remains OPEN.
+
+PNG5 visually shows preserved violet core with faint lateral spread, not dramatic broad flow or artist-ready proof. Filmstrip and float readback perturb timing; no same-packed hardware A/B or whole performance claim. Images: temp/device-runs/owner-water-dab-completecycles-corrected-surface-morph-{0,1,5}.png. Next analysis should quantify visible radial growth versus mass support, avoiding arbitrary coefficient/dose boosts.
