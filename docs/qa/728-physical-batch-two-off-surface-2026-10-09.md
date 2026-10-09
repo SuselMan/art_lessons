@@ -1,0 +1,11 @@
+# Actual batch2 paired gate: только OFF выполнен
+
+Один выделенный cohort immutableROOT99acba42/browserQAe5d954b4. OFF original remote replay успешно завершён, но strict console404 остановил контроллер передON. Ошибка URL в старом новомcontroller не записывался — источник404 **неизвестен**, favicon лишь гипотеза. Suppression отсутствует; paired parity и speedup не доказаны. Никакого повторного запуска.
+
+OFF:4 saved packed operations,25namedroles включая material, GL0/lostfalse; flags physical2/solver/contact/front/presentation/continuation/fence всеfalse. Replay6088.3ms до readbacks; readback/export3010ms отдельная диагностическая работа. rAFmax33.3ms. Material SHA `9c7600d5ff165bd4d7f886bf3e6fc6dca398763abfb8de59aa9b23a26d6be2b9` **совпал с actual5367author endpoint**. Whole decodedPNG SHA `3442d38e889df65f75ed5706a1b8d8d4d568a0cb308440892228455ffe9551e2`. Это полезный original-replay endpoint контроль, не OFF/ON parity.
+
+Original tape compactSHA `700cfe2338a301f549eab40c06a3d8229c9fb56662c71fb0e63a74313e6cd15b`; returned recordSHA `6bad8b974cc7e29e37578ecb9ba16de7ae9a0214f76115a2b6f5dccbc5c02c06`. Полная причина доказана offline: source OperationLog.append (:231) присваивает local array-indexseq; добавленная fixturelayer0 сдвигает исходные stroke0..3 в1..4. SHA **полного исходного tape с единственной предсказанной seq заменой1..4 точно равен returnedSHA**, значит ни одного другого изменения в packed/settings/IDs/wet/time/wash нет. Genericseq-ignore запрещён. Следующийguard требует exactoriginaltapeSHA плюс exactexpectedfixtureseqSHA каждой arm и равенства actualrecorded SHA arms; сохранит полный recordedTape.
+
+Исправленный offlinecontroller включает CDP Network.responseReceived до navigation, bounded32requestId/status/URLpath/resourceType/mimeType (query/auth/hash удалены), unknownerrors по-прежнемуFAIL. FournegativeNode tests+output-refusal test; никаких GPU queries/fences добавлено. Frozen5368не меняется; correctedpacket долженбыть новымimmutablepath/port после parentreview.
+
+RAM pre1904/min1357/post1658MiB, own page/context закрыты, Surface RELEASE. Raw `temp/fast-watercolor-night/physical-batch-two-surface-20261009/report.json` с OFF fields/timing/hashes сохранён. ON не выполнялся, художественных выводов нет.
