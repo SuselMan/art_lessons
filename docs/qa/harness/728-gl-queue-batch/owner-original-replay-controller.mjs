@@ -8,6 +8,7 @@ const browserEvents=[];let target;const base=process.env.CDP_BASE??'http://127.0
 const freeMiB=()=>Number(execFileSync('ssh',['surface','powershell -NoProfile -Command "[math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1024)"'],{encoding:'utf8',timeout:15000}).trim());
 const save=()=>fs.writeFileSync(out,JSON.stringify({rows,memory,memoryAbort},null,2));
 const passportPaths=['apps/web/src/engine/index.ts','apps/web/src/engine/src/dabs/RibbonStrokePainter.ts','apps/web/src/engine/src/dabs/canonicalStrokeChunk.ts','apps/web/src/engine/src/raster/RibbonPasses.ts','docs/qa/harness/728-gl-queue-batch/PreparedGlSourceDraw.ts','docs/qa/harness/728-gl-queue-batch/ownerOriginalReplay.mjs'];
+passportPaths.push('docs/qa/harness/728-gl-queue-batch/PreviewCanonicalOptionsProbe.mjs');
 const computedPassport=Object.fromEntries(passportPaths.map(p=>[p,createHash('sha256').update(fs.readFileSync(p)).digest('hex')]));
 const tapePath=process.env.TAPE_PATH??'temp/device-runs/owner-fifo-original-tape.json',tape=JSON.parse(fs.readFileSync(tapePath,'utf8'));const tapeSHA=createHash('sha256').update(JSON.stringify(tape)).digest('hex');
 try{
@@ -17,7 +18,7 @@ try{
  stage='bootstrap';await wait(()=>evaluate('document.readyState==="complete" && window.__ownerOriginalPageReady===true && !!document.getElementById("surface")'));
  stage='module-import';
  const moduleUrl='/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/ownerOriginalReplay.mjs';
- const report=await evaluate(async({url,input})=>(await import(url)).runOwnerOriginalReplay(input),{url:moduleUrl,input:{tape,allowWaterFirst:process.env.ALLOW_WATER_FIRST==='1',expectedStrokes:Number(process.env.EXPECTED_STROKES??3),engineUrl:'/src/engine/index.ts'}});rows.push(report);
+ const report=await evaluate(async({url,input})=>(await import(url)).runOwnerOriginalReplay(input),{url:moduleUrl,input:{tape,capturePrepare:process.env.SOURCE_OPTIONS_PROBE==='1',allowWaterFirst:process.env.ALLOW_WATER_FIRST==='1',expectedStrokes:Number(process.env.EXPECTED_STROKES??3),engineUrl:'/src/engine/index.ts'}});rows.push(report);
  result={computedPassport,tapeSHA,rows,memory,memoryAbort,browserEvents,valid:!memoryAbort&&!report.glError&&!report.lost};fs.writeFileSync(out,JSON.stringify(result,null,2));
 }catch(e){result={computedPassport,tapeSHA,rows,memory,memoryAbort,browserEvents,stage,navigation:{expected:navigationGate?.navigation,frame:navigationGate?.frame,contextId:navigationGate?.contextId,contexts:[...(navigationGate?.contexts.values()??[])]},error:String(e),valid:false};fs.writeFileSync(out,JSON.stringify(result,null,2));process.exitCode=1}
 finally{clearInterval(interval);await closeOwn();console.log(JSON.stringify({out,valid:result.valid,error:result.error}))}
