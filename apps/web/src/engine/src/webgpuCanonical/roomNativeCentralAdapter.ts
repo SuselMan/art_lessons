@@ -11,6 +11,11 @@ export class RoomNativeCentralAdapter implements RoomNativeCentralOwner {
  private executing=false
  private ordinal=0
  private materialQuantumCap=8
+ private materialScopeCap=0
+ setDiagnosticMaterialScopeCap(value:number){
+  if(!import.meta.env.DEV||!Number.isFinite(value)||![0,2,4].includes(value))throw new Error('DEV material scope cap must be0/2/4')
+  this.materialScopeCap=value
+ }
  /** Explicit DEV-only experiment; material/publication order and4 ms budget stay unchanged. */
  setDiagnosticMaterialQuantumCap(value:number){
   if(!import.meta.env.DEV||!Number.isFinite(value)||![8,16,32].includes(value))throw new Error('DEV material quantum cap must be8/16/32')
@@ -50,7 +55,7 @@ export class RoomNativeCentralAdapter implements RoomNativeCentralOwner {
  /** Prepare INSIDE the already queued boundary, never append a nested settle
   * behind later source packets. The same packet owns all original passes. */
  admitFactory(prepare:()=>RoomNativeMaterialJob|null):Promise<void> {
-  const quantumCap=this.materialQuantumCap
+  const quantumCap=this.materialQuantumCap,scopeCap=this.materialScopeCap
   return new Promise((resolve,reject)=>{
    let disposed=false,settled=false,job:RoomNativeMaterialJob|null=null
    const close=()=>{if(!disposed){disposed=true;job?.dispose()}}
@@ -63,11 +68,12 @@ export class RoomNativeCentralAdapter implements RoomNativeCentralOwner {
      owner.executing=true;try{job=prepare()}finally{owner.executing=false}
      owner.mark(id,'material','prepare:done')
      if(!job){owner.mark(id,'material','prepare:empty');settled=true;resolve();return}
+     if(scopeCap&&!job.canStep)throw new Error('Native material scope guard unavailable')
      let done=false
      while(!done){
       const start=performance.now();let count=0
       owner.executing=true
-      try{do{owner.mark(id,'material','step:start');done=job.step();owner.mark(id,'material','step:done');count++}while(!done&&count<quantumCap&&performance.now()-start<4)}finally{owner.executing=false}
+      try{do{if(scopeCap&&!job.canStep!(scopeCap)){owner.mark(id,'material','scope:blocked');break}owner.mark(id,'material','step:start');done=job.step();owner.mark(id,'material','step:done');count++}while(!done&&count<quantumCap&&performance.now()-start<4)}finally{owner.executing=false}
       if(!done)yield -1
      }
      owner.mark(id,'material','finish:start')

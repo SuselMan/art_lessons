@@ -18,6 +18,7 @@ import {CanonicalRoomTileBridge,canonicalTopRowsToGlRows} from './roomTileBridge
 
 export interface RoomNativeMaterialJob {
  /** Executes one ORIGINAL pass/Q8 boundary. Owner schedules; executor has no timer. */
+ canStep?(maxPending:number):boolean
  step():boolean
  finish():void
  publish?():Promise<void>
@@ -139,6 +140,7 @@ export class CanonicalRoomWatercolorExecutor {
   if(!job)return null
   let next=0,disposed=false,finished=false
   const task:RoomNativeMaterialJob={
+   canStep:maxPending=>{this.assertLive();const state=this.backend.diagnosticScopeState;if(!state.live)throw new Error('Native material scope owner destroyed');return state.pending<maxPending},
    step:()=>{this.assertLive();if(disposed||finished)throw new Error('Native Room job already closed');if(next<job.ops.length)this.adapter.runQuantum(()=>job.ops[next++]());return next===job.ops.length},
    finish:()=>{this.assertLive();if(disposed||finished||next!==job.ops.length)throw new Error('Native Room finish before canonical passes complete');this.adapter.runQuantum(ctx=>{job.finish();this.adapter.retain(this.finish.encode(ctx.encoder,{...input,settleComplete:true,settledGesture:this.scratch.gesture,materialGesture:this.scratch.materialGesture,bounds:job.compositeDomain}))});finished=true},
    publish:()=>this.publishWithoutDrain(),
