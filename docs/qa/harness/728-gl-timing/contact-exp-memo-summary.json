@@ -1,0 +1,91 @@
+{
+  "scope": "VPS CPU same actual 2stroke contact producer; rejected cache prototype, not runtime/device",
+  "candidate": "per-field NumberMap exp memo, released at field return",
+  "inputExact": true,
+  "flows30Exact": true,
+  "samples": [
+    {
+      "arm": "OFF",
+      "ms": 25.44109400000002
+    },
+    {
+      "arm": "ON",
+      "ms": 87.70933400000013
+    },
+    {
+      "arm": "ON",
+      "ms": 66.10585300000002
+    },
+    {
+      "arm": "OFF",
+      "ms": 21.413267000000133
+    },
+    {
+      "arm": "OFF",
+      "ms": 22.186067000000094
+    },
+    {
+      "arm": "ON",
+      "ms": 68.40576799999985
+    },
+    {
+      "arm": "ON",
+      "ms": 66.44517399999995
+    },
+    {
+      "arm": "OFF",
+      "ms": 24.10622000000012
+    },
+    {
+      "arm": "OFF",
+      "ms": 20.453868000000057
+    },
+    {
+      "arm": "ON",
+      "ms": 64.61453400000028
+    },
+    {
+      "arm": "ON",
+      "ms": 62.206736999999976
+    },
+    {
+      "arm": "OFF",
+      "ms": 21.445314000000053
+    },
+    {
+      "arm": "OFF",
+      "ms": 21.35196700000006
+    },
+    {
+      "arm": "ON",
+      "ms": 65.25300199999992
+    },
+    {
+      "arm": "ON",
+      "ms": 70.62078700000029
+    },
+    {
+      "arm": "OFF",
+      "ms": 20.503772000000026
+    }
+  ],
+  "medianMs": {
+    "OFF": 21.429290500000093,
+    "ON": 66.27551349999999
+  },
+  "reference": "existing hoist",
+  "memory": {
+    "totalUniqueEntriesAcross28Fields": 218616,
+    "maxEntriesOneField": 12839,
+    "numericKeyValuePayloadLowerBoundTotalBytes": 3497856,
+    "numericKeyValuePayloadLowerBoundPeakBytes": 205424,
+    "excludes": "Map bucket/node/boxed-number allocator overhead; not measured retained RSS"
+  },
+  "fixtureSHA": "f3c81b4c5a7e987d60510a2625f41de4375fc5866cc859cca2024c661fd162e1",
+  "sourceSHA": {
+    "docs/qa/harness/728-gl-timing/BrushDragExpMemo.ts": "4b7810c17b8c7590de780932ef0f298f05eed07453ffea46d6a5aed8273d0d4a",
+    "docs/qa/harness/728-gl-timing/contact-real-tape-cpu.mts": "eda6b4c722b1fa1a3285bfdbc42175e8c5b5a0cfcf3ddb31834e4c7d5da292a0",
+    "apps/web/src/engine/src/watercolor/brushDragHoisted.ts": "bc3187f4f73d8aa37d39b9591a389527b1e1b409d2e73bd6300964c822a24ed9"
+  },
+  "decision": "REJECT; one matched series about3.1x slower; no follow-up benchmark or runtime wiring"
+}

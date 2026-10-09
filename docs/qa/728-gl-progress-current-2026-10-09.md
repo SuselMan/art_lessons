@@ -24,3 +24,5 @@
 Hit rate не доказательство ускорения. Float64 bit extraction/Map lookup/hash/alloc и объём95k unique keys могут превысить цену native Math.exp, а глобальный cache удерживает историю и не имеет пока lifecycle/budget. Поэтому runtime memo не добавлен и performance benchmark не запускался. Compact `contact-exp-bits-summary.json` содержит group counts/source/fixtureSHA без raw arguments/operations. Если выбирать следующий кандидат, только bounded per-group CPU prototype с неизменным original fallback и exact byte gate; сначала доказать экономию, не обещать её по проценту попаданий.
 
 Плавность пока не достигнута: выигрыши отдельных CPU/GPU kernels не означают быстрый critical path до первого пигмента, а перенос finish наUP может увеличить паузу после отрыва. Рабочее направление остаётся точное сокращение обязательного source/publication work с сохранением material ownership и серверного порядка.
+
+Follow-up: bounded per-field NumberMap проверен и отклонён: fullinput/30hash exact, но21.43→66.28ms (≈3.1× хуже).100edge+nonfinite cases PASS. Runtime memo не добавлен, дальнейший benchmark остановлен; см.728-gl-contact-exp-memo-rejected.md.

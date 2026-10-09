@@ -11,6 +11,7 @@ import { wetAt } from '../../../../apps/web/src/engine/src/paper/paperWetness'
 import { brushDragContactGroups, brushDragField } from '../../../../apps/web/src/engine/src/watercolor/brushDrag'
 import { brushDragFieldHoisted } from '../../../../apps/web/src/engine/src/watercolor/brushDragHoisted'
 import { brushDragFieldColumnMemo } from './BrushDragColumnMemo'
+import { brushDragFieldExpMemo } from './BrushDragExpMemo'
 import { foreignWaterStencil } from '../../../../apps/web/src/engine/src/watercolor/foreignWater'
 import { noteRibbonWetContacts } from '../../../../apps/web/src/engine/src/dabs/ribbonDrawable'
 const file=process.env.QA_CONTACT_INPUT,out=process.env.QA_CONTACT_OUT
@@ -30,7 +31,9 @@ const strokes=ops.map((op:any)=>{
 const generate=(fn:typeof brushDragField)=>strokes.map(s=>s.groups.map(g=>fn(g.travel,g.rect)!))
 const columnMode=process.env.QA_CONTACT_COLUMN==='1'
 const reference=process.env.QA_CONTACT_REFERENCE_HOIST==='1'?brushDragFieldHoisted:brushDragField
-const candidate=columnMode?brushDragFieldColumnMemo:brushDragFieldHoisted
+const expMemoMode=process.env.QA_CONTACT_EXP_MEMO==='1'
+if(expMemoMode&&columnMode)throw Error('Separate candidate arms required')
+const candidate=expMemoMode?brushDragFieldExpMemo:columnMode?brushDragFieldColumnMemo:brushDragFieldHoisted
 const coldArm=process.env.QA_CONTACT_COLD_ARM
 const samples:{arm:string;ms:number}[]=[],results:any={}
 if(coldArm){if(!['OFF','ON'].includes(coldArm))throw Error('Unknown cold arm');const begin=performance.now(),data=generate(coldArm==='OFF'?reference:candidate);samples.push({arm:coldArm,ms:performance.now()-begin});results[coldArm]=data}
@@ -72,7 +75,7 @@ if(process.env.QA_CONTACT_SPLIT==='1'){
  }
  split={scope:'matched actual same-wash empty-foreign path only; no nonempty scanline estimate',sameWash:true,foreignUploads:0,samplesByLeaf}
 }
-const report={split,scope:'VPS CPU exact recorded canonical contact producer replay; not natural UP timing or physical device',inputExact,actualCanonicalFlowSequenceExact:exact,fixtureSHA:hash(fs.readFileSync(file)),reference:process.env.QA_CONTACT_REFERENCE_HOIST==='1'?'runtime hoist':'original',candidate:columnMode?'CPU-only column Float64 products':'runtime hoist',workspaceMode:'none; actual plan diagnosticReuseFlowRaster=false and no Engine/Room wiring',sourceSHA:['brushDrag','brushDragHoisted'].map(n=>({name:n,sha:hash(fs.readFileSync(new URL('../../../../apps/web/src/engine/src/watercolor/'+n+'.ts',import.meta.url)))})),prototypeSHA:columnMode?hash(fs.readFileSync(new URL('./BrushDragColumnMemo.ts',import.meta.url))):null,samples,strokes:strokes.map((s:any,strokeIndex:number)=>({strokeId:s.op.strokeId,dabCount:s.dabs.length,drawableCount:s.drawable.length,travelCount:s.travel.length,groups:s.groups.map((g:any)=>({dabCount:g.travel.length,rect:g.rect,cellCount:Math.ceil(g.rect.w/4)*Math.ceil(g.rect.h/4),boundingPixelDabUpper:Math.ceil(g.rect.w/4)*Math.ceil(g.rect.h/4)*g.travel.length,census:census(g,strokeIndex)}))}))}
+const report={split,scope:'VPS CPU exact recorded canonical contact producer replay; not natural UP timing or physical device',inputExact,actualCanonicalFlowSequenceExact:exact,fixtureSHA:hash(fs.readFileSync(file)),reference:process.env.QA_CONTACT_REFERENCE_HOIST==='1'?'runtime hoist':'original',candidate:expMemoMode?'CPU-only per-field exp Map':columnMode?'CPU-only column Float64 products':'runtime hoist',workspaceMode:'none; actual plan diagnosticReuseFlowRaster=false and no Engine/Room wiring',sourceSHA:['brushDrag','brushDragHoisted'].map(n=>({name:n,sha:hash(fs.readFileSync(new URL('../../../../apps/web/src/engine/src/watercolor/'+n+'.ts',import.meta.url)))})),prototypeSHA:columnMode?hash(fs.readFileSync(new URL('./BrushDragColumnMemo.ts',import.meta.url))):null,samples,strokes:strokes.map((s:any,strokeIndex:number)=>({strokeId:s.op.strokeId,dabCount:s.dabs.length,drawableCount:s.drawable.length,travelCount:s.travel.length,groups:s.groups.map((g:any)=>({dabCount:g.travel.length,rect:g.rect,cellCount:Math.ceil(g.rect.w/4)*Math.ceil(g.rect.h/4),boundingPixelDabUpper:Math.ceil(g.rect.w/4)*Math.ceil(g.rect.h/4)*g.travel.length,census:census(g,strokeIndex)}))}))}
 Object.assign(report,{expMemo:expMemoEnabled?{scope:'28 actual field computations; seed upload repeats not counted as compute',argumentIdentity:'Float64 bit pattern including signed zero',calls:expCallsTotal,uniqueGlobal:expGlobal.size,duplicateGlobal:expCallsTotal-expGlobal.size,uniqueByStroke:expStroke.map(s=>s.size)}:null})
 fs.writeFileSync(out,JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify({out,inputExact,exact,samples,strokes:report.strokes.map(s=>({dabs:s.dabCount,drawable:s.drawableCount,travel:s.travelCount,groups:s.groups.length}))}))
 if(!exact||!inputExact)process.exitCode=1
