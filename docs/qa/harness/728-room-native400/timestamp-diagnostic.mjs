@@ -19,17 +19,27 @@ export function assertTimestampRows(rows,capacity=1024){
  for(const row of rows){if(!Number.isInteger(row.index)||row.index<0||row.index>=capacity||indices.has(row.index)||!Number.isInteger(row.quantum)||row.quantum<1||!['render','compute'].includes(row.kind)||typeof row.label!=='string'||row.label.length>160||typeof row.nanoseconds!=='string'||!/^\d{1,20}$/.test(row.nanoseconds))throw Error('Invalid bounded GPU timestamp row');indices.add(row.index)}
  return{passCount:rows.length,compute:rows.filter(r=>r.kind==='compute').length,render:rows.filter(r=>r.kind==='render').length,scope:'GPU pass duration in nanoseconds; no copy/upload outside passes, CPU wall, queue wait or causal gain'}
 }
-/** Select exactly the first existing material request, never later source/job. */
-export function installFirstMaterialTimestampWindow(runtime,central){
- const prior=central.diagnosticObserver,scope={request:null,start:null,end:null,empty:false}
+/** First nonempty material job AFTER actual pen DOWN; original FIFO is unchanged. */
+export function installFirstMaterialTimestampWindow(runtime,central,eventTarget=document,now=()=>performance.now()){
+ const prior=central.diagnosticObserver,scope={request:null,start:null,end:null,armedAt:null,emptyCandidates:0,nonempty:false,interleaved:false}
  runtime.setDiagnosticTimestampWindow(false)
  let restored=false
+ const down=event=>{if(event.pointerType==='pen'&&scope.armedAt===null)scope.armedAt=now()}
  const observer=event=>{
-  if(event.kind==='material'&&scope.request===null&&event.phase==='prepare:start'){scope.request=event.request;scope.start=event.at;runtime.setDiagnosticTimestampWindow(true)}
-  if(event.kind==='material'&&event.request===scope.request&&(event.phase==='finish:done'||event.phase==='prepare:empty')){runtime.setDiagnosticTimestampWindow(false);scope.end=event.at;scope.empty=event.phase==='prepare:empty'}
+  if(scope.armedAt!==null){
+   if(event.kind==='material'&&scope.request===null&&event.phase==='prepare:start'){scope.request=event.request;scope.start=event.at;runtime.setDiagnosticTimestampWindow(true)}
+   else if(scope.request!==null&&scope.end===null&&((event.kind==='source'&&event.phase==='execute')||(event.kind==='material'&&event.request!==scope.request&&event.phase==='prepare:start')))scope.interleaved=true
+   if(event.kind==='material'&&event.request===scope.request){
+    if(event.phase==='step:start')scope.nonempty=true
+    if(event.phase==='prepare:empty'){runtime.setDiagnosticTimestampWindow(false);runtime.discardDiagnosticTimestampCandidate();scope.emptyCandidates++;scope.request=null;scope.start=null;scope.nonempty=false}
+    if(event.phase==='finish:done'){runtime.setDiagnosticTimestampWindow(false);scope.end=event.at}
+   }
+  }
   prior?.(event)
  }
+ const restore=()=>{if(restored)return;restored=true;try{eventTarget.removeEventListener('pointerdown',down,true)}finally{try{runtime.setDiagnosticTimestampWindow(false)}finally{if(central.diagnosticObserver===observer)central.diagnosticObserver=prior}}}
  central.diagnosticObserver=observer
- return{scope,restore(){if(restored)return;restored=true;runtime.setDiagnosticTimestampWindow(false);if(central.diagnosticObserver===observer)central.diagnosticObserver=prior}}
+ try{eventTarget.addEventListener('pointerdown',down,{capture:true})}catch(error){try{restore()}catch{/* Preserve original install rejection after attempting every cleanup. */}throw error}
+ return{scope,restore}
 }
-export function assertFirstMaterialTimestampWindow(scope){if(!Number.isInteger(scope?.request)||scope.request<1||!Number.isFinite(scope.start)||!Number.isFinite(scope.end)||scope.end<scope.start||scope.empty)throw Error('First material timestamp window incomplete');return scope}
+export function assertFirstMaterialTimestampWindow(scope){if(!Number.isInteger(scope?.request)||scope.request<0||!Number.isFinite(scope.armedAt)||!Number.isFinite(scope.start)||!Number.isFinite(scope.end)||scope.start<scope.armedAt||scope.end<scope.start||!scope.nonempty||scope.interleaved)throw Error('First material timestamp window incomplete');return scope}

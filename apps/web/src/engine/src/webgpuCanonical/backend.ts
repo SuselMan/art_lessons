@@ -77,6 +77,7 @@ export class CanonicalWatercolorWebGpu {
   this.diagnosticTimestamps=new DiagnosticPassTimestamps(this.device,capacity);this.diagnosticTimestampWindow=true
  }
  setDiagnosticTimestampWindow(active:boolean){if(!import.meta.env.DEV||typeof active!=='boolean'||!this.diagnosticTimestamps)throw new Error('Timestamp window unavailable');this.diagnosticTimestampWindow=active}
+ discardDiagnosticTimestampCandidate(){if(!import.meta.env.DEV||!this.diagnosticTimestamps||this.diagnosticTimestampWindow)throw new Error('Timestamp discard requires paused capture');this.diagnosticTimestamps.discardRecordedRows()}
  diagnosticTimestampQuantum(encoder:GPUCommandEncoder){return this.diagnosticTimestampWindow?this.diagnosticTimestamps?.begin(encoder)??null:null}
  async readDiagnosticTimestampsAfterInput(){
   if(!this.diagnosticTimestamps)throw new Error('Timestamp capture unavailable')

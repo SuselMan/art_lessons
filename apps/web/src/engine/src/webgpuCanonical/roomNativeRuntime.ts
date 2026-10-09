@@ -48,6 +48,7 @@ export interface RoomNativeRuntimeContext {
 export class RoomNativeRuntime {
  beginDiagnosticTimestampCapture(capacity=256){if(this.ctx.fifo.pending||this.retired)throw new Error('Timestamp capture requires canonical idle');this.backend.beginDiagnosticTimestampCapture(capacity)}
  setDiagnosticTimestampWindow(active:boolean){this.backend.setDiagnosticTimestampWindow(active)}
+ discardDiagnosticTimestampCandidate(){this.backend.discardDiagnosticTimestampCandidate()}
  readDiagnosticTimestampsAfterInput(){if(this.ctx.fifo.pending||this.retired)throw new Error('Timestamp read requires canonical idle after input');return this.backend.readDiagnosticTimestampsAfterInput()}
  get observedFieldPreparation(){return observedFieldPreparationDiagnostics(this.backend.device)}
  readonly tipContactQa:NativeTipQaProof

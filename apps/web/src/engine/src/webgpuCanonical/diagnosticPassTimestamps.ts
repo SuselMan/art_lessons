@@ -60,4 +60,7 @@ export class DiagnosticPassTimestamps {
   }finally{read?.destroy();resolved?.destroy();this.destroy()}
  }
  destroy(){if(this.closed)return;this.closed=true;this.queries.destroy();this.rows.length=0}
+ /** Empty selected material candidates are not part of the measured job.
+  * Reserved query indices remain unused; no GPU operation or reuse is introduced. */
+ discardRecordedRows(){if(this.closed||this.reading||this.active)throw new Error('Timestamp discard while unavailable');this.rows.length=0}
 }
