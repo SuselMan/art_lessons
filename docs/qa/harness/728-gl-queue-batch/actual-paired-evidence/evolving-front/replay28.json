@@ -1,0 +1,63 @@
+{
+  "scope": "Actual captured full128 operands CPU28 existingfront relaxation, Q8 nearest rounding approximation; not coupled pigment animation",
+  "sourceHead": "01e68c6da5ac32b98c96141d86bd789b61c49c15",
+  "rawSha": {
+    "cost": "a85fcf9e9d849ca291d17991a2385ee6ab9ae7d14dc998f3d5a8cdbac86df15b",
+    "water": "afd56dd2ea9f7a2ce69f8a176d37aa5eb53217d71638530216e4158382381592",
+    "paper": "88ee822ef74f079ad8f759efd10072607305a3cc4d5cac6caadb91f594546e63",
+    "foreign": "de2f256064a0af797747c2b97505dc0b9f3df0de4f489eac731c23ae9ca9cc31"
+  },
+  "paperSha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+  "frontScalars": {
+    "costMax": 24,
+    "dryCost": 24,
+    "floor": 0.85,
+    "stride": 1,
+    "foreignWet": 0
+  },
+  "band": 0.7708333333333334,
+  "rows": [
+    {
+      "step": 0,
+      "reached": 23,
+      "admitted": 23,
+      "dryReach": 0
+    },
+    {
+      "step": 1,
+      "reached": 45,
+      "admitted": 44,
+      "dryReach": 0
+    },
+    {
+      "step": 4,
+      "reached": 144,
+      "admitted": 137,
+      "dryReach": 0
+    },
+    {
+      "step": 8,
+      "reached": 312,
+      "admitted": 269,
+      "dryReach": 0
+    },
+    {
+      "step": 16,
+      "reached": 424,
+      "admitted": 294,
+      "dryReach": 0
+    },
+    {
+      "step": 28,
+      "reached": 424,
+      "admitted": 294,
+      "dryReach": 0
+    }
+  ],
+  "limitations": [
+    "Paper/water fixed full actual operands; pressure evolves eachstep",
+    "ActualGL primitive1 PASS;28CPUQ8 rounding is approximate (dither/GPU precision differ)",
+    "P/C oldsnapshot source differs; do not attach this front to it as actualsameinput",
+    "Existing minplusfront mayrun onto drypaper at dryCost, not pigment drybarrier equivalence"
+  ]
+}
