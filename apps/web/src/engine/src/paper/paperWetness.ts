@@ -95,7 +95,32 @@ function key(cx: number, cy: number): number {
 /** Opaque schema-version token; not a live content revision or merge authority. */
 export interface DiagnosticWetSnapshot { readonly version: 1; readonly cellCount: number; readonly recordCount: number }
 
+/** Opaque one-use validation capability; grants no installation or merge. */
+export interface DiagnosticWetAuthority { readonly version: 1; readonly snapshot: DiagnosticWetSnapshot }
+
 export class PaperWetness {
+  private static readonly _diagnosticAuthorities = new WeakMap<object, {owner: PaperWetness; revision: number}>()
+  private _diagnosticMutationRevision = 0
+  private _diagnosticAuthorityArmed = false
+  private _invalidateDiagnosticAuthority(): void {
+    if (import.meta.env.DEV && this._diagnosticAuthorityArmed) this._diagnosticMutationRevision++
+  }
+  captureDiagnosticAuthority(maxRecords = 8192): DiagnosticWetAuthority {
+    const snapshot = this.captureDiagnosticSnapshot(maxRecords)
+    this._diagnosticAuthorityArmed = true
+    const token: DiagnosticWetAuthority = Object.freeze({version: 1, snapshot})
+    PaperWetness._diagnosticAuthorities.set(token, {owner: this, revision: this._diagnosticMutationRevision})
+    return token
+  }
+  /** Consumes even on rejection. Success means unchanged model, not material readiness. */
+  validateDiagnosticAuthority(token: DiagnosticWetAuthority): void {
+    if (!import.meta.env.DEV) throw Error('Wet authority is DEV-only')
+    const held = PaperWetness._diagnosticAuthorities.get(token)
+    PaperWetness._diagnosticAuthorities.delete(token)
+    if (!held || token.version !== 1 || held.owner !== this || held.revision !== this._diagnosticMutationRevision)
+      throw Error('Unknown, consumed, foreign or changed wet authority')
+  }
+
   private static readonly _diagnosticSnapshots = new WeakMap<object, PaperWetness>()
   /** DEV CPU proof only. No clock read, decay, prune, live restore or merge. */
   captureDiagnosticSnapshot(maxRecords = 8192): DiagnosticWetSnapshot {
@@ -179,6 +204,7 @@ export class PaperWetness {
     /** (#680, s17.81) The dab's pool, 0..1 - see WetCell.p. */
     pool = 0,
   ): void {
+    this._invalidateDiagnosticAuthority()
     if (amount <= 0) return
     const into = pending ? this._pending : this._layers
     let cells = into.get(layerId)
@@ -257,6 +283,7 @@ export class PaperWetness {
    *  it is laying itself, for the same reason it may not read it (see
    *  _pending's own note, and the bug it was written for). */
   drain(layerId: string, x: number, y: number, radiusPx: number, fraction: number): void {
+    this._invalidateDiagnosticAuthority()
     if (fraction <= 0) return
     const cells = this._layers.get(layerId)
     if (!cells) return
@@ -298,6 +325,7 @@ export class PaperWetness {
   /** Moves the gesture's own water into the committed field. Called at pen-up:
    *  from here on the next stroke may read it, which is the whole point. */
   commitPending(now: number): void {
+    this._invalidateDiagnosticAuthority()
     for (const [layerId, cells] of this._pending) {
       let dst = this._layers.get(layerId)
       if (!dst) { dst = new Map(); this._layers.set(layerId, dst) }
@@ -324,6 +352,7 @@ export class PaperWetness {
   /** Throws away the gesture's own water without committing it — the stroke was
    *  abandoned, or its own operation never happened. */
   dropPending(): void {
+    this._invalidateDiagnosticAuthority()
     this._pending.clear()
     this._drained.clear()
   }
@@ -424,6 +453,7 @@ export class PaperWetness {
   }
 
   prune(now: number): void {
+    this._invalidateDiagnosticAuthority()
     for (const [layerId, cells] of this._layers) {
       for (const [k, cell] of cells) {
         if (now - cell.at >= WET_DRY_MS) cells.delete(k)
@@ -440,12 +470,14 @@ export class PaperWetness {
    *  takes other strokes' with it, which is a small over-correction on a field
    *  that is ephemeral anyway and dries in seconds. */
   forgetLayer(layerId: string): void {
+    this._invalidateDiagnosticAuthority()
     this._layers.delete(layerId)
     this._pending.delete(layerId)
     this._recomputeBox()
   }
 
   clear(): void {
+    this._invalidateDiagnosticAuthority()
     this._layers.clear()
     this._pending.clear()
     this._drained.clear()
