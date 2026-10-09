@@ -53,3 +53,12 @@ test('diagnostic exception never prevents canonical carry',async()=>{
  installOwnedBeforeCarryCapture({passes,enabled:true,describe:()=>({ownerSequence:2}),capture(){throw Error('capture failure')},onCaptured:r=>{observed=r}});
  passes.fieldOp(null,null,null,15,.5);assert.equal(calls,1);assert.match(observed.error.message,/capture failure/);
 });
+test('MRT dispatch and fallback capture once without changing production flags',async()=>{
+ const {installOwnedBeforeCarryCapture}=await import('./OwnedBeforeCarryCapture.mjs');
+ for(const accepted of [true,false]){
+  let reads=0,pairs=0,legacy=0,route;const passes={diagnosticCarryMrt:true,fieldOp(){legacy++},carryPair(){pairs++;return accepted}};const originalPair=passes.carryPair,originalOp=passes.fieldOp;
+  installOwnedBeforeCarryCapture({passes,enabled:true,describe:()=>({ownerSequence:2,epoch:0,passStep:1,passStride:2}),capture:(_a,_p,r)=>{reads++;route=r;return{};}});
+  const paired=passes.carryPair(null,null,null,null,null,.5,{origin:[2,.35]});if(!paired){passes.fieldOp(null,null,null,16,.5);passes.fieldOp(null,null,null,15,.5);}
+  assert.equal(reads,1);assert.equal(pairs,1);assert.equal(legacy,accepted?0:2);assert.equal(route,'carryPair-dispatch');assert.equal(passes.diagnosticCarryMrt,true);assert.equal(passes.carryPair,originalPair);assert.equal(passes.fieldOp,originalOp);
+ }
+});
