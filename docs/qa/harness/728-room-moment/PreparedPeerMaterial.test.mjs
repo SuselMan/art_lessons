@@ -1,0 +1,2 @@
+import test from'node:test';import assert from'node:assert/strict';import{alphaRegions}from'./PreparedPeerMaterial.mjs';
+test('hidden RGB on transparent pixels cannot prove either layer material',()=>{const data=new Uint8Array(1024*1024*4);data[(300*1024+300)*4]=200;assert.equal(alphaRegions(data,1024,1024).author.alphaNonzero,0);data[(300*1024+300)*4+3]=100;data[(720*1024+720)*4+3]=100;const regions=alphaRegions(data,1024,1024);assert.equal(regions.author.alphaNonzero,1);assert.equal(regions.peer.alphaNonzero,1);assert.throws(()=>alphaRegions(data,512,512));});
