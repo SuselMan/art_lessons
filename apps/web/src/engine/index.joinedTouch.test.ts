@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { createTestEngine, makeLayerAdd, paperReady, simulateStroke, simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd, makeStroke, dab } from './testing/engineTestUtils'
+import { createTestEngine, makeLayerAdd, paperReady, simulateStroke, simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd, makeStroke, dab, readLayerPixels } from './testing/engineTestUtils'
 import type { PencilEngine } from './index'
 const engines: PencilEngine[] = []
 afterEach(() => { for (const e of engines.splice(0)) if (!e['_destroyed']) e.destroy() })
@@ -479,4 +479,48 @@ it('ordinary undo completes pending material before network emission; failing dr
   vi.spyOn(f as unknown as { _completeSettle(): void }, '_completeSettle').mockImplementation(() => { throw Error('CPU drain sentinel') })
   expect(() => f.undo()).toThrow('CPU drain sentinel'); expect(emit).not.toHaveBeenCalled()
   expect(f.getOperations().some(op => op.type === 'operation_undo')).toBe(false)
+})
+it('DEV queued history retains exact identity, rejects repeated controls/source, gates export, and emits only after FIFO apply', async () => {
+  const e = await setup(false), target=e.getOperations().filter(op=>op.type==='stroke').at(-1)!, emitted: string[]=[]
+  e['_queuedLocalHistoryDev']=true; e['_onLocalOperation']=op=>emitted.push(op.id)
+  const drain=vi.spyOn(e as unknown as { _completeSettle():void },'_completeSettle'),forget=vi.spyOn(e['_paperWet'],'forgetLayer')
+  expect(e.undo()?.id).toBe(target.id); expect(drain).not.toHaveBeenCalled()
+  const intent=e['_opQueue'][0].op
+  expect(intent.type).toBe('operation_undo'); expect('targetOpId' in intent&&intent.targetOpId).toBe(target.id)
+  expect(e.undo()).toBeNull(); expect(e.redo()).toBeNull(); expect(e['_opQueue']).toHaveLength(1); expect(e.getOperations().some(op=>op.id===intent.id)).toBe(false)
+  simulateStrokeStart(e,24,32); expect(e['_strokeLayerId']).toBeNull(); expect(drain).not.toHaveBeenCalled()
+  expect(await e.exportPNG(true)).toBeNull(); expect(e.bakeNetworkSnapshot('L')).toBeNull();expect(forget).not.toHaveBeenCalled(); expect(emitted).toEqual([])
+  e['_completeSettle'](); const queued=e['_opQueue'].shift()!; e['_applyQueuedOperation'](queued.op,queued.source)
+  expect(emitted).toEqual([intent.id]);expect(forget).toHaveBeenCalledWith('L'); expect(e['_pendingLocalHistoryId']).toBeNull()
+  expect(e.getOperations().some(op=>op.id===target.id)).toBe(false)
+  expect(e.redo()?.id).toBe(target.id); expect(e.getOperations().some(op=>op.id===target.id)).toBe(true)
+})
+it('context loss and destroy cancel only unaccepted local history intent, preserving source journal', async()=>{
+  for(const kind of ['loss','destroy']){const e=await setup(false);e['_queuedLocalHistoryDev']=true;const target=e.getOperations().filter(op=>op.type==='stroke').at(-1)!, emit=vi.fn();e['_onLocalOperation']=emit;e.undo();const intent=e['_pendingLocalHistoryId'];expect(intent).toBeTruthy();if(kind==='loss')e['_handleContextLost']({preventDefault(){}} as Event);else e.destroy();expect(e['_pendingLocalHistoryId']).toBeNull();expect(e['_opQueue'].some(q=>q.op.id===intent)).toBe(false);expect(emit).not.toHaveBeenCalled();expect(e.getOperations().some(op=>op.id===target.id)).toBe(true);if(kind==='loss'){e['_handleContextRestored']();expect(e.getOperations().some(op=>op.id===target.id)).toBe(true);expect(e.getOperations().some(op=>op.id===intent)).toBe(false)}}})
+
+it('DEV FIFO undo retains later peer identity and converges material with ordinary history after natural boundary', async()=>{
+ const off=await setup(false),on=await setup(false);on['_queuedLocalHistoryDev']=true
+ const peer=makeStroke('peer','L',[dab(10,10),dab(20,10)],{tool:'pencil',preset:'HB'})
+ const undo=on.undo()!,id=on['_pendingLocalHistoryId']!;on.appendOperation(peer,'remote')
+ expect(on['_opQueue'].map(q=>q.op.id)).toEqual([id,peer.id]);expect(on['_log'].entries.some(entry=>entry.op.id===peer.id)).toBe(false)
+ off.undo();off.appendOperation(peer,'remote');off['_completeSettle']();off['_flushOpQueue']()
+ on['_completeSettle']();while(on['_opQueue'].length){const q=on['_opQueue'].shift()!;on['_applyQueuedOperation'](q.op,q.source)}
+ expect(on['_log'].entries.find(entry=>entry.op.id===undo.id)?.state).toBe('undone')
+ expect(on.getOperations().some(op=>op.id===peer.id)).toBe(true)
+ expect(readLayerPixels(on,'L')).toEqual(readLayerPixels(off,'L'))
+ on.redo();off.redo();expect(readLayerPixels(on,'L')).toEqual(readLayerPixels(off,'L'))
+})
+it('queued history failure is explicit, blocks stale publication, and restores unemitted exact target', async()=>{
+ const e=await setup(false);e['_queuedLocalHistoryDev']=true;const target=e.undo()!,intent=e['_pendingLocalHistoryId']!,emit=vi.fn();e['_onLocalOperation']=emit
+ expect(()=>e.suspendDisplay()).toThrow('busy');expect(e['_displaySuspendDepth']).toBe(0)
+ e['_completeSettle']();const q=e['_opQueue'].shift()!;vi.spyOn(e as unknown as {_applyHistoryChange(op:typeof target):void},'_applyHistoryChange').mockImplementation(()=>{throw Error('history repair sentinel')})
+ expect(()=>e['_applyQueuedOperation'](q.op,q.source)).toThrow('history repair sentinel');expect(emit).not.toHaveBeenCalled();expect(e['_localHistoryOutcome']).toMatchObject({id:intent,state:'failed'});expect(e.getOperations().some(op=>op.id===target.id)).toBe(true);expect(e.getOperations().some(op=>op.id===intent)).toBe(false);expect(await e.exportPNG(true)).toBeNull();expect(e.undo()).toBeNull()
+})
+it('queued history callback failure never rolls back accepted control; unrelated queued peer remains',async()=>{
+ const e=await setup(false);e['_queuedLocalHistoryDev']=true;const target=e.undo()!,intent=e['_pendingLocalHistoryId']!;const peer=makeStroke('peer','L',[dab(5,5)],{tool:'pencil',preset:'HB'});e.appendOperation(peer,'remote');const callback=vi.fn(()=>{throw Error('accepted callback sentinel')});e['_onLocalOperation']=callback;e['_completeSettle']();const q=e['_opQueue'].shift()!
+ expect(()=>e['_applyQueuedOperation'](q.op,q.source)).toThrow('accepted callback sentinel');expect(callback).toHaveBeenCalledOnce();expect(e['_onLocalOperation']).toBe(callback);expect(e['_log'].entries.find(x=>x.op.id===target.id)?.state).toBe('undone');expect(e['_log'].entries.find(x=>x.op.id===intent)?.state).toBe('done');expect(e['_opQueue'].map(x=>x.op.id)).toEqual([peer.id]);expect(e.getQueuedHistoryStatus()).toMatchObject({id:intent,state:'failed'});expect(await e.exportPNG(true)).toBeNull()
+})
+it('queued local history uses existing rAF drain without forcing pending settle',async()=>{
+ const e=await setup(false),frames=new Map<number,FrameRequestCallback>();let id=0;vi.stubGlobal('requestAnimationFrame',(fn:FrameRequestCallback)=>{frames.set(++id,fn);return id});vi.stubGlobal('cancelAnimationFrame',()=>{})
+ try{e['_queuedLocalHistoryDev']=true;const emit=vi.fn();e['_onLocalOperation']=emit;e.undo();const intent=e['_pendingLocalHistoryId'];const drain=vi.spyOn(e as unknown as {_completeSettle():void},'_completeSettle');frames.get(e['_opDrainRaf'])!(performance.now());expect(drain).not.toHaveBeenCalled();expect(emit).not.toHaveBeenCalled();expect(e['_pendingLocalHistoryId']).toBe(intent);e['_completeSettle']();frames.get(e['_opDrainRaf'])!(performance.now());expect(emit).toHaveBeenCalledOnce();expect(emit.mock.calls[0][0].id).toBe(intent);expect(e.getQueuedHistoryStatus()?.state).toBe('applied')}finally{vi.unstubAllGlobals()}
 })
