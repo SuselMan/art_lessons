@@ -1,0 +1,175 @@
+{
+  "source": "caa653bfeec5f1f4d2c110ca7eb59def746f2964",
+  "verdict": "PASS_SCOPED_INTERACTIVE_FACTOR_CONSUMPTION",
+  "notPhysicalPenLatency": true,
+  "notCausalSpeedup": true,
+  "readyAtMs": 21088.600000023842,
+  "latency": [
+    {
+      "label": "long-water400",
+      "requestId": 1,
+      "ownerEpoch": 1,
+      "downAt": 21839.700000047684,
+      "firstSubmitAt": 21884.900000095367,
+      "ackAt": 21908.300000071526,
+      "touchToSubmitMs": 45.200000047683716,
+      "submitToAckPrefixMs": 23.399999976158142
+    },
+    {
+      "label": "pigment-on-long-water400",
+      "requestId": 17,
+      "ownerEpoch": 1,
+      "downAt": 29940.900000095367,
+      "firstSubmitAt": 30302.200000047684,
+      "ackAt": 30308.400000095367,
+      "touchToSubmitMs": 361.2999999523163,
+      "submitToAckPrefixMs": 6.200000047683716
+    }
+  ],
+  "actualUpToSecondDownMs": 1639.3000000715256,
+  "declaredMinimumGapMs": 100,
+  "timeline": [
+    {
+      "requestId": 16,
+      "kind": "material",
+      "phase": "finish:start",
+      "relativeSecondDownMs": 209.1
+    },
+    {
+      "requestId": 16,
+      "kind": "material",
+      "phase": "finish:done",
+      "relativeSecondDownMs": 212.6
+    },
+    {
+      "requestId": 16,
+      "kind": "material",
+      "phase": "publish:start",
+      "relativeSecondDownMs": 212.6
+    },
+    {
+      "requestId": 16,
+      "kind": "material",
+      "phase": "publish:done",
+      "relativeSecondDownMs": 338.1
+    },
+    {
+      "requestId": 16,
+      "kind": "material",
+      "phase": "complete",
+      "relativeSecondDownMs": 342.1
+    },
+    {
+      "requestId": 17,
+      "kind": "source",
+      "phase": "execute",
+      "relativeSecondDownMs": 360.0
+    },
+    {
+      "requestId": 17,
+      "kind": "source",
+      "phase": "publish:start",
+      "relativeSecondDownMs": 361.5
+    },
+    {
+      "requestId": 17,
+      "kind": "source",
+      "phase": "publish:done",
+      "relativeSecondDownMs": 368.0
+    },
+    {
+      "requestId": 17,
+      "kind": "source",
+      "phase": "complete",
+      "relativeSecondDownMs": 375.4
+    }
+  ],
+  "priorRequestPublicationCosts": [
+    {
+      "phase": "canvasSubmit",
+      "wallMs": 0.30000007152557373,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 16,
+      "fifoEpoch": 0,
+      "requestKind": "material"
+    },
+    {
+      "phase": "queuePrefixAck",
+      "wallMs": 123.60000002384186,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 16,
+      "fifoEpoch": 0,
+      "requestKind": "material"
+    },
+    {
+      "phase": "glStateRead",
+      "wallMs": 0,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 16,
+      "fifoEpoch": 0,
+      "requestKind": "material"
+    },
+    {
+      "phase": "glCanvasImport",
+      "wallMs": 0.30000007152557373,
+      "ok": true,
+      "ownerEpoch": 1,
+      "requestId": 16,
+      "fifoEpoch": 0,
+      "requestKind": "material"
+    }
+  ],
+  "pendingScopesAtPriorPublish": [
+    336,
+    337,
+    338,
+    339,
+    340,
+    341,
+    342
+  ],
+  "combinedConsumption": {
+    "factor": true,
+    "factorVariants": [
+      {
+        "staticCache": true,
+        "encoded": 480,
+        "shaderBytes": 4500,
+        "shaderSHA": "48022e162c4148228cefca3b5adad251a7f2b0db347fd97a270382c4f1cf26a4"
+      }
+    ],
+    "cache": {
+      "prep": 2,
+      "hits": 478,
+      "fallbacks": 0,
+      "retainedBytes": 0,
+      "cleanupFailures": 0
+    },
+    "paired": true,
+    "pairedCalls": 210,
+    "film": false,
+    "filmVariants": []
+  },
+  "restore": {
+    "strokeDescriptorData": true,
+    "displayOriginal": true,
+    "observerRestored": true,
+    "cacheArmRestored": true
+  },
+  "endpoint": {
+    "sha": "f66c8e66bf6dd053297fbd45d6102664432842adab58bb7eee4c6de3e2ce98b4",
+    "pngSha256": "75b8dd9c05adde08387b53394c9a6cbac06a4337eeb5de818f07c817ec8a4ae6",
+    "purple": 121474,
+    "alpha": 121475
+  },
+  "durableEvidence": "temp/device-runs/native-factor-final-caa-promoted-20261009/reference-report.json",
+  "limitations": [
+    "Fixed order and different actual gaps prevent causal comparison with prior runs.",
+    "ACK includes queue prefix completion and callback delivery, not exclusive GPU duration.",
+    "GL display/rAF markers are opportunities, not physical first pixel."
+  ],
+  "nextCandidate": "Reduce exact tail work preceding prior material publication; FIFO source cannot start until old material finish and publication. Need exact ownership/byte proof before changing pass/copy work; no scheduler reorder."
+}
