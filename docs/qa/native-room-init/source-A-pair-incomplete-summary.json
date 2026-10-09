@@ -1,0 +1,41 @@
+{
+  "source": "52dcc122589c728f63869006549fd739a0e8f4f4",
+  "runtimeSourceBeforeQaEndpointGateFix": "386a1f276d61064d1623f6c061f7f00b9a692b32",
+  "device": "Surface / Chrome 154 / WebGPU",
+  "scenario": "water-pigment400-long",
+  "pairComplete": false,
+  "classification": "Reference succeeded; OFF RAM admission blocked before context; ON not run",
+  "reference": {
+    "complete": true,
+    "ownedContextDisposed": true,
+    "ramStartMiB": 2022.15625,
+    "lastInRunRamMiB": 948.94921875,
+    "readyAtPageMs": 21208.30000001192,
+    "firstDownAtPageMs": 21591.80000001192,
+    "browserCriticalHashesChecked": 4,
+    "browserFactoryHashesChecked": 9,
+    "endpoint": {
+      "width": 1754,
+      "height": 2480,
+      "alphaPixels": 121684,
+      "purplePixels": 121683,
+      "decodedRgbaSha": "7031c0f0c2d15d2ece9fa790e260abc56d72ed678719abb5e9bb748e0116bd83",
+      "pngBytes": 388488
+    },
+    "selectedSourceCacheHits": [
+      {"key": "stamp:false:false:coverage", "hits": 1},
+      {"key": "ribbon:coverage", "hits": 1},
+      {"key": "canonicalCompositeRecipe", "hits": 1},
+      {"key": "canonicalRawCanvasRecipe", "hits": 1},
+      {"key": "pairedBrush", "hits": 1},
+      {"key": "singleBrush", "hits": 1}
+    ],
+    "observedFieldHits": [{"kind": "waterFront", "hits": 1}, {"kind": "diffuse", "hits": 1}],
+    "seedWallMs": {"readPixels": 16.30000001192093, "rowFlip": 3.299999952316284, "uploadEnqueue": 0.699999988079071, "queueAck": 22.599999964237213}
+  },
+  "off": {"error": "RAM preflight below1700MiB", "ramStartMiB": 1464.73828125, "contextCreated": false},
+  "on": {"started": false},
+  "cleanup": {"surfaceReleased": true, "frontendStopped": true, "forwardStopped": true, "paperSymlinkRemoved": true, "disposableRemoved": true, "freshRamMiB": 1827.31640625},
+  "evidenceLoss": "Disposable finish removed raw reports and reference PNG before extraction. Compact contains only values already read in tool outputs. Reference cannot be reused for future paired material comparison.",
+  "limitations": ["No paired quality verdict or performance gain", "Seed phases are wall time; queue ACK is not GPU duration and cannot be added as exclusive execution cost", "Full raw preparation passports no longer retained", "No real pen latency measurement"]
+}
