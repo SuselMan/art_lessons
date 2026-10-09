@@ -29,6 +29,7 @@ export class CanonicalFieldPasses {
     if (kind === 'waterFront' && (!noise || noise.width !== 251 || noise.height !== 251)) throw new Error('Canonical water front requires production 251x251 lattice')
     const uniforms = packPassUniforms(resources, coefficients, wet)
     const uniform = this.device.createBuffer({ label: 'Canonical ' + kind + ' uniforms', size: uniforms.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
+    try {
     this.device.queue.writeBuffer(uniform, 0, uniforms)
     const cache=staticCache?(this.staticCache??=new CanonicalStaticFrontCache(this.device)).getOrEncode(ctx,resources,noise!,kind==='diffuse'?[0,0,0,coefficients[2]]:coefficients,kind==='diffuse'?packPassUniforms(resources,[0,0,0,coefficients[2]],wet):uniforms,cachePrepTimestampWrites,kind==='diffuse'):null
     const pipeline = this.pipeline(kind,lazyClimb,!!cache,sourceSampling)
@@ -49,6 +50,11 @@ export class CanonicalFieldPasses {
     this.counters[kind]++; this.counters.pixels += resources.out.width * resources.out.height
     // Returned resource must be destroyed AFTER caller submits/completes encoder.
     return uniform
+    } catch (error) {
+      // Ownership transfers only on return; failed encoding has no caller ledger.
+      try { uniform.destroy() } catch { /* Preserve the encoding error. */ }
+      throw error
+    }
   }
   get staticCacheCounters(){return this.staticCache?{prep:this.staticCache.prepCalls,hits:this.staticCache.hitCalls,fallbacks:this.staticCache.fallbackCalls,retainedBytes:this.staticCache.retainedBytes,cleanupFailures:this.staticCache.cleanupFailures}:null}
   diffuse(ctx: CanonicalGpuContext, resources: CanonicalPassResources, radius: number, knight: boolean, d = 0.09, b = 0.03,options:{diagnosticStaticHeightCache?:boolean;noise?:CanonicalGpuField;timestampWrites?:GPUComputePassTimestampWrites;cachePrepTimestampWrites?:GPUComputePassTimestampWrites}={}) {

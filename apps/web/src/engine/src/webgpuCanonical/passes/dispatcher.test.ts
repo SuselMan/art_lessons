@@ -2,12 +2,13 @@ import { afterEach, expect, it, vi } from 'vitest'
 import type { CanonicalGpuContext, CanonicalGpuField, CanonicalPassResources } from '../types'
 import { CanonicalFieldPasses, packPassUniforms } from './dispatcher'
 import { CanonicalBasicFieldPass } from './fieldBasic'
-afterEach(() => vi.unstubAllGlobals())
+import { CanonicalStaticFrontCache } from './staticFrontCache'
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 const field = (width=16,height=8):CanonicalGpuField => { const value={width,height,label:'fixture',filter:'nearest' as const,format:'rgba8unorm' as const,texture:{} as GPUTexture,view:{} as GPUTextureView};return value }
 function fixture() {
   vi.stubGlobal('GPUBufferUsage',{UNIFORM:64,COPY_DST:8})
   const buffers:GPUBuffer[]=[], writes:Float32Array[]=[], dispatches:number[][]=[], entries:GPUBindGroupEntry[][]=[]
-  const device={queue:{writeBuffer(_b:unknown,_o:unknown,data:Float32Array){writes.push(data.slice())}},createBuffer(){const b={} as GPUBuffer;buffers.push(b);return b},createShaderModule:()=>({}),createComputePipeline:()=>({getBindGroupLayout:()=>({})}),createBindGroup(d:GPUBindGroupDescriptor){entries.push([...d.entries]);return {}}} as unknown as GPUDevice
+  const device={lost:new Promise(()=>{}),queue:{writeBuffer(_b:unknown,_o:unknown,data:Float32Array){writes.push(data.slice())}},createBuffer(){const b={destroy:vi.fn()} as unknown as GPUBuffer;buffers.push(b);return b},createShaderModule:()=>({}),createComputePipeline:()=>({getBindGroupLayout:()=>({})}),createBindGroup(d:GPUBindGroupDescriptor){entries.push([...d.entries]);return {}}} as unknown as GPUDevice
   const encoder={beginComputePass:()=>({setPipeline(){},setBindGroup(){},dispatchWorkgroups(x:number,y:number){dispatches.push([x,y])},end(){}})} as unknown as GPUCommandEncoder
   const ctx={device,encoder,nearest:{} as GPUSampler,linear:{} as GPUSampler} satisfies CanonicalGpuContext
   const resources:CanonicalPassResources={a:field(),b:field(),coverage:field(),out:field(),paper:{field:field(2048,2048),origin:[3,-11],texSize:[256,256],scale:1.5},world:{x:6,y:6,width:32,height:16}}
@@ -41,4 +42,21 @@ it('front source LINEAR diagnostic records exact source filter without changing 
  const g=fixture(),linearDefault={...g.resources,a:{...g.resources.a,filter:'linear' as const}}
  new CanonicalFieldPasses(g.device).waterFront(g.ctx,linearDefault,field(251,251),{dryCost:5,costMax:20,climb:3,floor:.2,stride:1})
  expect(Array.from(g.writes[0].slice(12))).toEqual([5,0,0,0])
+})
+
+it('destroys untransferred uniforms exactly once on cache preparation failure',()=>{
+ const f=fixture(),error=new Error('cache preparation failed')
+ vi.spyOn(CanonicalStaticFrontCache.prototype,'getOrEncode').mockImplementation(()=>{throw error})
+ expect(()=>new CanonicalFieldPasses(f.device).waterFront(f.ctx,f.resources,field(251,251),{dryCost:5,costMax:20,climb:3,floor:.2,stride:1,diagnosticStaticCache:true})).toThrow(error)
+ expect(f.buffers).toHaveLength(1);expect(f.buffers[0].destroy).toHaveBeenCalledTimes(1)
+ expect(f.dispatches).toHaveLength(0)
+})
+it('transfers successful uniforms and preserves original errors when cleanup fails',()=>{
+ const f=fixture(),p=new CanonicalFieldPasses(f.device)
+ const buffer=p.diffuse(f.ctx,f.resources,1,false)
+ expect(buffer.destroy).not.toHaveBeenCalled()
+ const error=new Error('bind failed')
+ vi.spyOn(f.device,'createBindGroup').mockImplementation(()=>{throw error})
+ vi.spyOn(f.device,'createBuffer').mockImplementation(()=>({destroy:()=>{throw new Error('cleanup failed')}} as unknown as GPUBuffer))
+ expect(()=>p.diffuse(f.ctx,f.resources,1,false)).toThrow(error)
 })
