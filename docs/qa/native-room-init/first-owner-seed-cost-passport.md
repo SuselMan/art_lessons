@@ -30,3 +30,17 @@ The CPU seed explicitly allocates **8 MiB** of JS byte arrays (readback + revers
 - Keep field clears and immutable film copies until read/write dependency proofs justify a reduction. Grouping commands into the existing owner encoder can reduce submissions; it cannot eliminate required memory initialization or change base snapshots into mutable aliases.
 
 Same-packed A OFF/ON material parity remains required before presenting a quality-preserving optimization. No speedup is claimed by this source audit.
+
+### Cost markers (offline implementation, no new hardware result)
+
+DEV native executor now emits `native-room-seed` scalar records for existing
+`readPixels`, `rowFlip`, `uploadEnqueue`, and `queueAck` boundaries. Durations
+are wall time; queue ACK includes pending queue work and is not GPU execution
+ time. The marker adds no fence, no copy, and no persistent source bytes. Byte
+counts are CPU input lengths for flip/upload; zero on read/ACK means no input
+byte count supplied by the observer, not zero transfer. Failure records preserve
+original exceptions, and a failing diagnostic sink cannot alter material work.
+
+A runtime buffer pool is conditional on measured allocation/GC cost. Each
+executor seeds once; retaining a free pair would retain 8 MiB and would not remove
+readPixels, row flipping, upload, or queue completion. No pool is introduced.

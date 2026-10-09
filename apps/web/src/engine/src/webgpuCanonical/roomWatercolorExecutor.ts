@@ -1,3 +1,4 @@
+import {observeSeedBridge} from './seedBridgeCost'
 import {WetBrushMomentSourceSeam} from '../experiments/wetBrushMomentSourceSeam'
 import {auditMomentRecords} from '../experiments/wetBrushMomentGpu'
 import type {MomentContactRecipe} from '../experiments/wetBrushMomentRecipe'
@@ -92,7 +93,7 @@ export class CanonicalRoomWatercolorExecutor {
   this.planner=new CanonicalWatercolorSettlePlan({fieldFor:(w,h,c)=>this.fields.fieldFor(w,h,c),paperWorldSize:()=>({w:backend.paper.texSize[0],h:backend.paper.texSize[1]}),pool:()=>this.pool,supportsFilm:()=>true,ab:()=>({noDiffuse:false,noCarry:false,opDry:false}),shouldPreview:()=>false,passes:()=>this.adapter,uploads:this.adapter.uploads})
   this.diagnosticMomentVector=options.diagnosticMomentVector===true
   this.diagnosticMomentGpuAudit=options.diagnosticMomentGpuAudit===true
-  backend.upload(this.target.buffer.field,canonicalTopRowsToGlRows(options.tile.readPixels(),1024,1024));this.ready=backend.whenIdle()
+  this.ready=import.meta.env.DEV?observeSeedBridge(()=>options.tile.readPixels(),bytes=>canonicalTopRowsToGlRows(bytes,1024,1024),bytes=>backend.upload(this.target.buffer.field,bytes),()=>backend.whenIdle(),cost=>console.info('[native-room-seed]',JSON.stringify({...cost,generation:this.generation,layerId:this.layerId}))):(()=>{backend.upload(this.target.buffer.field,canonicalTopRowsToGlRows(options.tile.readPixels(),1024,1024));return backend.whenIdle()})()
  }
  async seedReady(){await this.ready;this.assertLive()}
  /** All three existing engine pixel paths call THIS SAME method after the
