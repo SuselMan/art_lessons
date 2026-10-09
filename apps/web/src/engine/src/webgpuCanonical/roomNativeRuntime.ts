@@ -18,6 +18,7 @@ import {canonicalSourceRevealRect} from './strokeScratchMetadata'
 export interface RoomNativeRuntimeContext {
  /** DEV QA only: pressure D sampler in canonical carry15/16; OFF default. */
  /** QA-only detached raw canvas warmup; no source/settle warmup. */
+ diagnosticFirstLiveWarmup?:boolean
  diagnosticRawCanvasWarmup?:boolean
  diagnosticCarryHardwarePressure?:boolean
  diagnosticTipContactA?:boolean
@@ -52,6 +53,7 @@ export class RoomNativeRuntime {
  private retirements:Promise<void>[]=[]
  private constructor(backend:CanonicalWatercolorWebGpu,ctx:RoomNativeRuntimeContext){this.backend=backend;this.ctx=ctx;this.tipContactQa=installNativeTipA(backend,ctx.diagnosticTipContactA===true);this.central=new RoomNativeCentralAdapter(ctx.fifo,ctx.changed)}
  static async create(ctx:RoomNativeRuntimeContext){
+  if(import.meta.env.DEV&&ctx.diagnosticFirstLiveWarmup===true&&ctx.diagnosticRawCanvasWarmup===true)throw new Error('Separate first-live and raw-only warmup arms required')
   console.info('[native-room-init]','paper:load-start')
   const la=await getPaperBytes(ctx.paper),resolution=Math.sqrt(la.length/2)
   console.info('[native-room-init]','paper:expand-start',la.length)
@@ -69,6 +71,15 @@ export class RoomNativeRuntime {
      const ledger=await warmDetachedRawCanvas(backend,bridge)
      console.info('[native-room-init]','raw-warm:completed',JSON.stringify({scope:'raw canvas only',completedAt:performance.now(),wallMs:performance.now()-started,peakBytes:ledger.peakBytes,sourceWarmed:false,pressureWarmed:false,compositeWarmed:false}))
     }finally{bridge.destroy()}
+   }
+   if(import.meta.env.DEV&&ctx.diagnosticFirstLiveWarmup===true){
+    if(ctx.diagnosticRawCanvasWarmup===true)throw new Error('Separate first-live and raw-only warmup arms required')
+    const started=performance.now()
+    console.info('[native-room-init]','first-live-warm:start',started)
+    const [{warmDetachedFirstLiveUse},{createWarmCorpusPacket,createWarmCorpusLive}]=await Promise.all([import('./detachedSourceWarmup'),import('./warmCorpusPacket')])
+    const packet=createWarmCorpusPacket(),live=createWarmCorpusLive()
+    const ledger=await warmDetachedFirstLiveUse(backend,packet,live)
+    console.info('[native-room-init]','first-live-warm:completed',JSON.stringify({...ledger,completedAt:performance.now(),wallMs:performance.now()-started,input:'detached synthetic production CPU corpus400; not captured user operation'}))
    }
    return new RoomNativeRuntime(backend,ctx)
   }catch(error){backend.destroy();throw error}
