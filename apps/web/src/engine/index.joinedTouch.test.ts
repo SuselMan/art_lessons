@@ -207,3 +207,24 @@ it('mixed capture without overlap preserves legacy prepare scalars and folded dr
   }
   expect(observations[1]).toEqual(observations[0])
 })
+
+it('product joinedTouch drains water-to-pigment before the first new source draw', async () => {
+  const e = await setup(true, false, 'normal:100:0:PB29:round')
+  const previous = e['_settle']!
+  e.setPencil('normal:100:100:PB29:round')
+  const order: string[] = []
+  const complete = e['_completeSettle'].bind(e)
+  const draw = e['_drawRibbonNibPass'].bind(e)
+  vi.spyOn(e as unknown as { _completeSettle(): void }, '_completeSettle').mockImplementation(() => {
+    order.push('complete'); complete()
+  })
+  vi.spyOn(e as unknown as { _drawRibbonNibPass: typeof e['_drawRibbonNibPass'] }, '_drawRibbonNibPass').mockImplementation((...args) => {
+    order.push('source'); return draw(...args)
+  })
+  simulateStrokeStart(e, 24, 32)
+  expect(order.indexOf('complete')).toBeGreaterThanOrEqual(0)
+  expect(order.indexOf('source')).toBeGreaterThan(order.indexOf('complete'))
+  expect(e['_settle']).not.toBe(previous)
+  expect(e['_wcJoinedTouchLease']).toBeNull()
+  simulateStrokeEnd(e, 40, 32)
+})
