@@ -446,3 +446,19 @@ it('peer Undo and Redo queued during mixed input keep their exact target and FIF
     expect(e['_wcJoinedTouchLease']).toBeNull()
   } finally { globalThis.requestAnimationFrame = raf; globalThis.cancelAnimationFrame = cancel }
 })
+
+it('ordinary sender start after an unfinished remote water op must drain its predecessor', async () => {
+  const e = await setup(true, false, 'normal:100:100:PB29:round', false)
+  e['_completeSettle'](); e['_clearWash'](false)
+  e['_sliceLimits'].budgetMs = 0 // Force a pending live peer slice; not a timing measurement.
+  const remote = makeStroke('peer', 'L', [dab(24, 32, { size: 8 }), dab(32, 32, { size: 8 })], { strokeId: 'PeerWater0', tool: 'watercolor', preset: 'normal:100:0:PB29:round', color: [.3, .15, .55] })
+  e.appendOperation(remote, 'remote')
+  expect(e['_settle']).not.toBeNull()
+  const drain = vi.spyOn(e as unknown as { _completeSettle(): void }, '_completeSettle')
+  simulateStrokeStart(e, 24, 32)
+  expect(drain).toHaveBeenCalled()
+  expect(e['_wcJoinedTouchLease']).toBeNull()
+  simulateStrokeEnd(e, 40, 32)
+  e['_completeSettle']()
+  expect(e.getOperations().filter(op => op.type === 'stroke').some(op => op.id === remote.id)).toBe(true)
+})

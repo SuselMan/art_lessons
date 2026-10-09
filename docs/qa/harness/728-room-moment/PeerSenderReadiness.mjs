@@ -1,0 +1,3 @@
+/** Catch-up readiness is necessary, but does not mean live peer work is idle. */
+export function peerSenderReady(s){return !!(s?.materialReady&&s.receivedExpected&&s.settle===false&&s.canonical===false&&s.rebuilds===0&&s.queue===0&&s.active===false)}
+export function actualPeerSenderReadiness(expectedId){const e=window.__engine,gate=window.__roomMaterialReady?.();return{materialReady:!!gate?.ready,receivedExpected:expectedId?window.__peerLeasePointer.received.some(o=>o.id===expectedId):true,settle:!!e._settle,canonical:!!e._wcCanonical.pending,rebuilds:e._rebuildJobs.size,queue:e._opQueue.length,active:!!e._strokeLayerId}}

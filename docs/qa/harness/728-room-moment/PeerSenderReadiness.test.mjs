@@ -1,0 +1,3 @@
+import test from'node:test';import assert from'node:assert/strict';import{peerSenderReady}from'./PeerSenderReadiness.mjs';
+const idle={materialReady:true,receivedExpected:true,settle:false,canonical:false,rebuilds:0,queue:0,active:false};
+test('canBake does not prove live sender idle; all actual pending signals fail closed',()=>{assert.equal(peerSenderReady(idle),true);for(const[k,v]of Object.entries({materialReady:false,receivedExpected:false,settle:true,canonical:true,rebuilds:1,queue:1,active:true}))assert.equal(peerSenderReady({...idle,[k]:v}),false,k);assert.equal(peerSenderReady({materialReady:true}),false);});

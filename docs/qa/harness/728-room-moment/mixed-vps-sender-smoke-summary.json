@@ -1,0 +1,124 @@
+{
+  "phase": "closed",
+  "startedAt": 1791551737084,
+  "endedAt": 1791551750669,
+  "markers": [
+    {
+      "observedAt": 1791551745820,
+      "kind": "down",
+      "phase": "begin",
+      "at": 3029.300000000745,
+      "active": false,
+      "pending": false,
+      "lease": false
+    },
+    {
+      "observedAt": 1791551745844,
+      "kind": "down",
+      "phase": "end",
+      "at": 3048.5,
+      "active": true,
+      "pending": false,
+      "lease": false
+    },
+    {
+      "observedAt": 1791551745845,
+      "kind": "move",
+      "phase": "begin",
+      "at": 3048.599999997765,
+      "active": true,
+      "pending": false,
+      "lease": false
+    },
+    {
+      "observedAt": 1791551745846,
+      "kind": "move",
+      "phase": "end",
+      "at": 3049.300000000745,
+      "active": true,
+      "pending": false,
+      "lease": false
+    },
+    {
+      "observedAt": 1791551745852,
+      "kind": "move",
+      "phase": "begin",
+      "at": 3049.5,
+      "active": true,
+      "pending": false,
+      "lease": false
+    },
+    {
+      "observedAt": 1791551745856,
+      "kind": "move",
+      "phase": "end",
+      "at": 3061.39999999851,
+      "active": true,
+      "pending": false,
+      "lease": false
+    },
+    {
+      "observedAt": 1791551745856,
+      "kind": "up",
+      "phase": "begin",
+      "at": 3061.800000000745,
+      "active": true,
+      "pending": false,
+      "lease": false
+    },
+    {
+      "observedAt": 1791551745883,
+      "kind": "up",
+      "phase": "end",
+      "at": 3087.699999999255,
+      "active": false,
+      "pending": true,
+      "lease": false
+    },
+    {
+      "observedAt": 1791551750589,
+      "kind": "up",
+      "phase": "begin",
+      "at": 7794.39999999851,
+      "active": false,
+      "pending": true,
+      "lease": false
+    },
+    {
+      "observedAt": 1791551750589,
+      "kind": "up",
+      "phase": "end",
+      "at": 7794.599999997765,
+      "active": false,
+      "pending": true,
+      "lease": false
+    }
+  ],
+  "errors": [],
+  "result": {
+    "room": "RyRU5iv9",
+    "identity": {
+      "actor": "61873922-1983-4756-b90f-365f83fe2e8d",
+      "lease": false,
+      "ready": {
+        "owner": true,
+        "contentReady": true,
+        "snapshotReady": true,
+        "incomplete": false,
+        "latestKnownSeq": 0,
+        "ready": true
+      },
+      "visibility": "visible",
+      "rafAt": 2712.800000000745
+    },
+    "operations": [
+      {
+        "id": "LRTikNXbe2",
+        "type": "stroke",
+        "userId": "61873922-1983-4756-b90f-365f83fe2e8d"
+      }
+    ],
+    "valid": true
+  },
+  "scope": "Isolated VPS software sender; no Surface/GPU hardware/performance claim"
+}
