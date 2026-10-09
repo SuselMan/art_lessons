@@ -37,3 +37,11 @@ Controlpublication Undo/Dry/peer/structural operations обязаны дожда
 4. GPUcapture/copycost неизвестен, поэтомунеобещатькороткийUP. Полнейшийнaturalrender/protocolgate обязателендоflag/UI.
 
 58ff прототипдоказываетFIFOprotocol/orderedPlantrace, аэтотcensusформулируетнедостающийphysicalownerproof. No runtimeactivation/nohardware/no newCOW. Broadstudyнаэтомостановлено.
+
+## Structural passport is not a material version
+
+CPU-only `OwnedReadsetPassport.ts` фиксирует actual buffer/gl/texture/logical+physical extent references. В `AccumulationBuffer` отсутствует authoritative content revision. Новыйactualbuffer test выполняетclear черезproduction method, свидетельствуетGLclear submission и показывает, что structuralpassport остаётсяvalid. Это специально **отрицательное доказательство** достаточностиidentityguard, не pixel proof.
+
+Direct source admission сpending retained/preparing owner блокируется независимо отidentity. Actual existingFIFO сохраняет следующийsource request и выполняетегоactualbuffer.clear ровноодинраз послеpublish предыдущегоowner. Failed/cancelled statusesневыдаютdirectwrite capability. Outside-FIFO directwrite guard также учитываетcanonicalpending; ужеadmitted queued source исполняетсяпоFIFOownership, не поglobalpending (которыйвключаетсамэтотrequest). TestsнеобещаютUIотзывчивость: safeexclusiveowner можетперенестиожиданиевnextsource.
+
+Любойotherwriter, которыйобходиточередь, можетизменитьтежеtexturebytesнезаметнодляpassport. Поэтому runtimeadmission остаётсяHOLDдоproof всехmaterialwriters/публикацииилиrealcontentrevisionauthority. Новыйversioncounter/GPUcopy/flag/previewневнедрён.11targettests +appTS PASS; lifecycle/protocolпроверка, неactualGPUfreeze.
