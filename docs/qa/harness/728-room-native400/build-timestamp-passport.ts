@@ -24,6 +24,9 @@ if(typeof fine.texture!=='string'||path.basename(fine.texture)!==fine.texture)th
 const height=new Uint8Array(gunzipSync(fs.readFileSync(path.join(paper,fine.texture))))
 if(height.length!==2048*2048)throw Error('Production Fine2048 height required')
 const paperLaSha256=sha(buildPaperCatch(height,fine.catchLut))
+const lattice=Buffer.from(fs.readFileSync(path.join(runtime,'apps/web/src/engine/src/raster/watercolorNoise.txt'),'utf8'),'base64'),rgba=new Uint8Array(lattice.length*4)
+if(lattice.length!==251*251)throw Error('Exact production lattice required');for(let k=0;k<lattice.length;k++)rgba.set([lattice[k],lattice[k],lattice[k],255],k*4)
+const noiseRgbaSha256=sha(rgba)
 const write=(name:string,value:unknown)=>{const dest=path.join(out,name);if(fs.existsSync(dest)||fs.existsSync(dest+'.tmp'))throw Error('Refuse overwrite passport');fs.writeFileSync(dest+'.tmp',typeof value==='string'?value:JSON.stringify(value),{mode:0o600,flag:'wx'});fs.renameSync(dest+'.tmp',dest)}
-write('source-manifest.json',{head,files});write('paper-manifest.json',{files:paperFiles,sourceReuse:'current existing baked paper; no copy/bake'});write('origin-manifest.json',{head,origin:origin.origin,sourceOrigin:origin.origin,paperLaSha256,sourcePipelinePassport:sourcePipelinePassport(),sourceRequiredKeys:sourceShort400RequiredKeys,observedShaderSHAs:[CANONICAL_WATER_FRONT_WGSL,CANONICAL_DIFFUSE_WGSL].map(sha)});write('entry',origin.origin+'/create')
+write('source-manifest.json',{head,files});write('paper-manifest.json',{files:paperFiles,sourceReuse:'current existing baked paper; no copy/bake'});write('origin-manifest.json',{head,origin:origin.origin,sourceOrigin:origin.origin,paperLaSha256,noiseRgbaSha256,sourcePipelinePassport:sourcePipelinePassport(),sourceRequiredKeys:sourceShort400RequiredKeys,observedShaderSHAs:[CANONICAL_WATER_FRONT_WGSL,CANONICAL_DIFFUSE_WGSL].map(sha)});write('entry',origin.origin+'/create')
 console.info(JSON.stringify({head,sourceFileCount:files.length,paperFileCount:paperFiles.length,scope:'Offline exact current-source passport, no hardware'}))
