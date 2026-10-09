@@ -13,7 +13,23 @@
       ],
       "darknessWeightedSecondMoment": 187.52256414643057,
       "darknessSum": 829.7960784313725,
-      "supportPixelsDensityOver1percent": 1532
+      "supportPixelsDensityOver1percent": 1532,
+      "period8OpticalModulation": {
+        "x": 0.0032734648791087188,
+        "y": 0.009787880379117972
+      },
+      "fixedCentreHarmonics": {
+        "h4": {
+          "magnitude": 0.006323154003223372,
+          "cos": 0.00575504747947693,
+          "sin": 0.0026194856474976162
+        },
+        "h8": {
+          "magnitude": 0.0009053044995471851,
+          "cos": 0.00033427656124298166,
+          "sin": -0.0008413295534473673
+        }
+      }
     },
     {
       "step": 4,
@@ -27,7 +43,23 @@
       ],
       "darknessWeightedSecondMoment": 201.45908950867724,
       "darknessSum": 855.2862745098039,
-      "supportPixelsDensityOver1percent": 1643
+      "supportPixelsDensityOver1percent": 1643,
+      "period8OpticalModulation": {
+        "x": 0.0031390230105162054,
+        "y": 0.008248641873571856
+      },
+      "fixedCentreHarmonics": {
+        "h4": {
+          "magnitude": 0.019881880417471035,
+          "cos": -0.019268202378578903,
+          "sin": 0.004901586073175139
+        },
+        "h8": {
+          "magnitude": 0.013491391713995873,
+          "cos": -0.01268750887278743,
+          "sin": -0.004587457790913912
+        }
+      }
     },
     {
       "step": 8,
@@ -41,7 +73,23 @@
       ],
       "darknessWeightedSecondMoment": 210.06283920195804,
       "darknessSum": 866.4549019607844,
-      "supportPixelsDensityOver1percent": 1744
+      "supportPixelsDensityOver1percent": 1744,
+      "period8OpticalModulation": {
+        "x": 0.00276418048395723,
+        "y": 0.00779886969158286
+      },
+      "fixedCentreHarmonics": {
+        "h4": {
+          "magnitude": 0.030845143168646852,
+          "cos": -0.030341619234628053,
+          "sin": 0.005550585493006174
+        },
+        "h8": {
+          "magnitude": 0.017560739812461357,
+          "cos": -0.016631428338704953,
+          "sin": -0.005636947239019286
+        }
+      }
     },
     {
       "step": 12,
@@ -55,7 +103,23 @@
       ],
       "darknessWeightedSecondMoment": 216.30489871338509,
       "darknessSum": 873.0901960784314,
-      "supportPixelsDensityOver1percent": 1864
+      "supportPixelsDensityOver1percent": 1864,
+      "period8OpticalModulation": {
+        "x": 0.0026620721715262465,
+        "y": 0.0077118251177112325
+      },
+      "fixedCentreHarmonics": {
+        "h4": {
+          "magnitude": 0.03690173699902889,
+          "cos": -0.03639744799254528,
+          "sin": 0.006079800422337863
+        },
+        "h8": {
+          "magnitude": 0.01868712826256959,
+          "cos": -0.017699546819440547,
+          "sin": -0.00599456462874153
+        }
+      }
     }
   ]
 }

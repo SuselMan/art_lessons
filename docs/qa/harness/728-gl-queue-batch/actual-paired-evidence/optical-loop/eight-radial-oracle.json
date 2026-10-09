@@ -1,0 +1,82 @@
+{
+  "scope": "Synthetic radial flat cost/capacity/wet comparison, hop1; NOT actual captured pressure or GPU result",
+  "formula": "4axes weights1/4;8neighbors axial4 diagonal1, total rate5/6 matches second moment in linear flat regime",
+  "rows": [
+    {
+      "step": 0,
+      "four": {
+        "mass": 113.05653837257977,
+        "secondMoment": 71.79400776006241,
+        "fourthMomentSigned": -94.96694205672247,
+        "fourthMomentIsotropyError": 0.0002191246474153541,
+        "h4": 0.014252221279468248,
+        "addedFourthAnisotropy": 0
+      },
+      "eight": {
+        "mass": 113.05653837257977,
+        "secondMoment": 71.79400776006241,
+        "fourthMomentSigned": -94.96694205672247,
+        "fourthMomentIsotropyError": 0.0002191246474153541,
+        "h4": 0.014252221279468248,
+        "addedFourthAnisotropy": 0
+      }
+    },
+    {
+      "step": 4,
+      "four": {
+        "mass": 113.05653837257965,
+        "secondMoment": 72.49391940497547,
+        "fourthMomentSigned": -55.0186487674946,
+        "fourthMomentIsotropyError": 0.00012449314167972442,
+        "h4": 0.014129174590614075,
+        "addedFourthAnisotropy": 39.94829328922788
+      },
+      "eight": {
+        "mass": 113.05653837257995,
+        "secondMoment": 72.49391618360508,
+        "fourthMomentSigned": -94.8311048654723,
+        "fourthMomentIsotropyError": 0.00021455935430699495,
+        "h4": 0.01411601714479102,
+        "addedFourthAnisotropy": 0.13583719125017524
+      }
+    },
+    {
+      "step": 8,
+      "four": {
+        "mass": 113.05653837258008,
+        "secondMoment": 73.1938103289332,
+        "fourthMomentSigned": -13.901898765354417,
+        "fourthMomentIsotropyError": 0.00003085396155521728,
+        "h4": 0.014008172450198116,
+        "addedFourthAnisotropy": 81.06504329136806
+      },
+      "eight": {
+        "mass": 113.05653837258016,
+        "secondMoment": 73.1938042992396,
+        "fourthMomentSigned": -93.98093658406287,
+        "fourthMomentIsotropyError": 0.0002085451059376764,
+        "h4": 0.01398238900864601,
+        "addedFourthAnisotropy": 0.986005472659599
+      }
+    },
+    {
+      "step": 12,
+      "four": {
+        "mass": 113.05653837258,
+        "secondMoment": 73.89366638005443,
+        "fourthMomentSigned": 27.043868380831555,
+        "fourthMomentIsotropyError": 0.00005887948255633848,
+        "h4": 0.013889149612811312,
+        "addedFourthAnisotropy": 122.01081043755403
+      },
+      "eight": {
+        "mass": 113.05653837258012,
+        "secondMoment": 73.89366597700008,
+        "fourthMomentSigned": -93.39723806490656,
+        "fourthMomentIsotropyError": 0.00020330189690081666,
+        "h4": 0.013851254644782835,
+        "addedFourthAnisotropy": 1.5697039918159135
+      }
+    }
+  ]
+}
