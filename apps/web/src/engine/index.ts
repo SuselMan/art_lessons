@@ -1,4 +1,4 @@
-import type {WetTranscriptEvent} from './src/paper/WetTranscript'
+import type {WetTranscriptEvent, WetClockStage} from './src/paper/WetTranscript'
 import { BoundedGlTiming } from './src/diagnostics/BoundedGlTiming'
 import type {RoomNativeRuntime} from './src/webgpuCanonical/roomNativeRuntime'
 import { ribbonDabTouchesTile } from './src/dabs/dabWorldHalfExtents'
@@ -1528,6 +1528,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetTranscriptObserver: ((event: WetTranscriptEvent) => void) | null = null
   private _wetTranscriptErrors = 0
   private _wetTranscriptBatch = 0
+  private _wetClockOrdinal = 0
   private _diagnosticPointerAdmission = false
   private _admittedPointerStrokeId: string | null = null
   private _admittedPointerTimestamp: number | null = null
@@ -6265,6 +6266,7 @@ export class PencilEngine implements PencilEngineAPI {
     const openTouch = this._wash
     const touchInputs = oldJob ? this._wcJoinedTouchInputs.get(oldJob) : undefined
     const touchNow = performance.now()
+    if (this._wetTranscriptObserver && this._opts.tool === 'watercolor') this._recordWetClock('admission-touch', touchNow)
     const touchSignature = watercolorWashSignature(this._opts.pencilType, this._opts.graphiteColor)
     const joinedTouch = this._wcJoinedTouch && !this._wcAsyncFinish && !this._wcMaterialPresentation
       && this._wcSourceFilmRebase && !this._settlePlan.splitQuanta
@@ -6278,8 +6280,8 @@ export class PencilEngine implements PencilEngineAPI {
           && touchInputs.color.every((c, i) => c === this._opts.graphiteColor[i])))
       && openTouch.layerId === layerId && openTouch.signature === touchSignature
       && touchNow - openTouch.endedAt <= WASH_JOIN_MS
-      && (this._paperWet.anyWetNear(layerId, e.x, e.y, this._opts.size * 0.75, touchNow)
-        || watercolorMixFromPreset(this._opts.pencilType).pigment <= 0 && this._paperWet.anyWet(layerId, touchNow)
+      && ((this._wetTranscriptObserver ? this._recordWetNear(layerId, e.x, e.y, this._opts.size * 0.75, touchNow) : this._paperWet.anyWetNear(layerId, e.x, e.y, this._opts.size * 0.75, touchNow))
+        || watercolorMixFromPreset(this._opts.pencilType).pigment <= 0 && (this._wetTranscriptObserver ? this._recordWetAny(layerId, touchNow) : this._paperWet.anyWet(layerId, touchNow))
         || touchNow - openTouch.endedAt <= WASH_RECENT_MS)
     if (this._glTiming) this._glTiming.mark('admission-lease', joinedTouch ? 1 : 0)
     if (joinedTouch) this._wcJoinedTouchLease = oldJob
@@ -6323,6 +6325,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._wetTranscriptObserver && this._strokeTool === 'watercolor') this._observeWet({kind:'drop-pending'})
     if (profile.normalizeDeposit) {
       const now = performance.now()
+      if (this._wetTranscriptObserver && this._strokeTool === 'watercolor') this._recordWetClock('wash-join', now)
       const open = this._wash
       // (#536) Joining is a physical question, not a bookkeeping one: did the
       // brush come down in something that is still wet? A pure timer answered
@@ -6335,9 +6338,9 @@ export class PencilEngine implements PencilEngineAPI {
       // matters for the case the field cannot speak to: a nearly dry brush
       // wetted almost nothing, so the wash it belongs to has to be allowed to
       // continue on recency alone.
-      const landedWet = this._paperWet.anyWetNear(
-        layerId, e.x, e.y, this._opts.size * 0.75, now,
-      )
+      const landedWet = this._wetTranscriptObserver
+        ? this._recordWetNear(layerId, e.x, e.y, this._opts.size * 0.75, now)
+        : this._paperWet.anyWetNear(layerId, e.x, e.y, this._opts.size * 0.75, now)
       // (#536) Clean water is *about* the paint already there, so it joins the
       // open wash if that wash's paper is still wet anywhere, not only if the
       // brush happened to come down on it. Read off Ilya's own log: he laid a
@@ -6347,7 +6350,7 @@ export class PencilEngine implements PencilEngineAPI {
       // landing rule: a mark set down on dry paper away from the wash is a new
       // mark, however wet the wash still is.
       const waterOnly = watercolorMixFromPreset(this._opts.pencilType).pigment <= 0
-      const washStillWet = waterOnly && open !== null && this._paperWet.anyWet(open.layerId, now)
+      const washStillWet = waterOnly && open !== null && (this._wetTranscriptObserver ? this._recordWetAny(open.layerId, now) : this._paperWet.anyWet(open.layerId, now))
       const joins = open !== null
         && open.layerId === layerId
         && open.signature === washSignature
@@ -6377,7 +6380,10 @@ export class PencilEngine implements PencilEngineAPI {
       }
       // (§17.55/§17.56) Before this stroke paints, and before its scratch
       // starts a new gesture: a join carries the wash as it stood.
-      this._checkpointBeforeWash(layerId, this._washId!, this._userId, Date.now())
+      if (this._wetTranscriptObserver && this._strokeTool === 'watercolor') {
+        const wall = Date.now(); this._recordWetClock('checkpoint-wall', wall)
+        this._checkpointBeforeWash(layerId, this._washId!, this._userId, wall)
+      } else this._checkpointBeforeWash(layerId, this._washId!, this._userId, Date.now())
       this._ribbonStrokeScratch.beginStroke()
     } else {
       this._washId = null
@@ -6740,6 +6746,7 @@ export class PencilEngine implements PencilEngineAPI {
       // Torn down in _onStart when something makes the next stroke a different
       // wash, and by _clearWash on tool/layer changes and teardown.
       this._wash.endedAt = this._dryAtPenUp ? -Infinity : performance.now()
+      if (this._wetTranscriptObserver && this._strokeTool === 'watercolor' && !this._dryAtPenUp) this._recordWetClock('wash-ended', this._wash.endedAt)
     } else {
       this._retireAsyncScratch(this._ribbonStrokeScratch ?? undefined)
     }
@@ -6846,7 +6853,7 @@ export class PencilEngine implements PencilEngineAPI {
     // since the first dab — see PaperWetness._pending on why those are two
     // different questions.
     if (transcriptOwner) {
-      const commit = () => { const now = performance.now(); this._paperWet.commitPending(now); this._observeWet({kind:'commit',strokeId:transcriptOwner,now}) }
+      const commit = () => { const now = performance.now(); this._recordWetClock('pending-commit', now, null, transcriptOwner, layerId); this._paperWet.commitPending(now); this._observeWet({kind:'commit',strokeId:transcriptOwner,now}) }
       if (this._glTiming?.isActive()) this._glTiming.measure('up-pending-commit', commit)
       else commit()
     } else if (this._glTiming?.isActive()) this._glTiming.measure('up-pending-commit', () => this._paperWet.commitPending(performance.now()))
@@ -6928,6 +6935,19 @@ export class PencilEngine implements PencilEngineAPI {
    *  `elapsedMs` is this call's dabs' distance from _strokeStartTimestamp —
    *  a peer's live-stroke reveal (previewOperation) plays them back at this
    *  pacing. */
+  private _recordWetNear(layerId: string, x: number, y: number, radius: number, now: number): boolean {
+    const value = this._paperWet.anyWetNear(layerId, x, y, radius, now)
+    this._observeWet({kind:'any-near',layerId,x,y,radius,now,value}); return value
+  }
+  private _recordWetAny(layerId: string, now: number): boolean {
+    const value = this._paperWet.anyWet(layerId, now)
+    this._observeWet({kind:'any',layerId,now,value}); return value
+  }
+
+  private _recordWetClock(stage: WetClockStage, value: number, batch: number | null = null, strokeId: string | null = this._strokeId, layerId: string | null = this._strokeLayerId ?? this._activeId): void {
+    this._observeWet({kind:'clock',stage,value,batch,ordinal:++this._wetClockOrdinal,layerId,strokeId})
+  }
+
   private _observeWet(event: WetTranscriptEvent): void {
     try { this._wetTranscriptObserver?.(event) } catch { this._wetTranscriptErrors++ }
   }
@@ -6981,6 +7001,7 @@ export class PencilEngine implements PencilEngineAPI {
       const nibMul = this._resolvePreset(this._strokeTool, this._strokePreset).sizeMultiplier
       if (this._wetTranscriptObserver && this._strokeId) {
         const batch = ++this._wetTranscriptBatch
+        this._recordWetClock('sample-batch', now, batch)
         for (const dab of dabs) {
           const radius = dab.size * 0.5 * nibMul * Math.max(dab.aspectRatio, 1)
           const value = this._paperWet.sampleUnderNib(layerId, dab.x, dab.y, radius, now)
@@ -7019,6 +7040,7 @@ export class PencilEngine implements PencilEngineAPI {
     // dropped into the far end of a scribbled puddle had nothing to run in.
     if (this._strokeTool === 'watercolor') {
       const now = performance.now()
+      if (this._wetTranscriptObserver && this._strokeId) this._recordWetClock('deposit-batch', now, this._wetTranscriptBatch)
       const water = watercolorMixFromPreset(this._strokePreset).water
       for (let i = 0; i < dabs.length; i++) {
         const dab = dabs[i]

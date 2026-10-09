@@ -24,3 +24,24 @@ Scope: this proves model transcript capture/replay, not GPU pixels, physical
 latency, next source admission, old GPU owner immutability or fork→live merge.
 Actual Engine admitted watercolor context remains unsupported/HOLD. No device,
 frontend, scheduler, brush physics, publication or source preview changes.
+
+## Typed clock recording extension
+
+Actual model clock stages now include admission-touch, wash-join,
+checkpoint-wall (Date), sample-batch, deposit-batch, wash-ended, pending-commit.
+Each record carries Engine-local ordinal and explicit batch or null; pre-ID DOWN
+records honestly carry null strokeId. Final commit keeps the retiring stroke/layer
+identity after Engine clears active fields. Dry-at-UP sets -Infinity without a
+clock read, so it creates no wash-ended clock record; replay later must preserve
+that branch instead of inventing a timestamp. Diagnostic/RAF clocks are excluded.
+
+DOWN anyWetNear/anyWet calls also record exact args/result; independent fork
+checks their results against the same initial model. Clock callcount remains one
+per original model read: OFF original direct calls retained, ON records values
+already read, no extra performance/Date call. Observers remain DEV-only guarded.
+
+Typed CPU cursor snapshots only clock rows, rejects incomplete/errors/dropped,
+invalid/gapped/reordered ordinal, wrong stage/batch, duplicate consumption,
+unfinished consumption; failure is latched. It is NOT installed as an Engine or
+global provider. Actual Engine fixture consumes all its generated stages exactly;
+negative stage/order/batch cases fail. No GPU material capture or runtime replay.

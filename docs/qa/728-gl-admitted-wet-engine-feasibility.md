@@ -51,3 +51,5 @@ scheduler, live merge or pixels activation without later ownership/UI proof.
 Conclusion: prerequisites (especially same foreign-source scratch) exceed the
 remaining narrow CPU budget; keep admitted watercolor unsupported. No new device,
 frontend, dependency or source implementation was started for this feasibility.
+
+Update: missing clock/query RECORDING implemented separately; typed cursor is CPU-only and has no Engine injection. Model accessor + retained GPU wash owner + merge remain HOLD. Original missing-stage description above records the prerequisite at6204, not current recording completeness.

@@ -68,3 +68,5 @@ Follow-up: bounded per-field NumberMap проверен и отклонён: ful
 - [ ] Deferred watercolor Engine admission + GPU ownership + fork→live merge remain HOLD; CPU transcript is not UX/pixel/device proof.
 
 - [ ] Admitted wet actual Engine replay HOLD: transcript lacks DOWN join/checkpoint/UP wash clock stages; same foreign-source wash requires immutable scratch/GPU owner, not only PaperWetness fork. Three concrete prerequisites in `728-gl-admitted-wet-engine-feasibility.md`; no new framework.
+
+- [x] Typed missing DOWN/checkpoint/UP clock/query recording with actual clock values and strict CPU stage/batch cursor. No Engine provider activation; owner/material/merge blockers remain.
