@@ -1,0 +1,721 @@
+{
+  "phase": "closed",
+  "passport": {
+    "apps/web/src/engine/src/diagnostics/BoundedGlTiming.ts": "f5f35458a15370f837ea2c7a928dac0784861d177801ccbd2c2603d7371fdb93",
+    "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "81ae8db2e5a2901112ff3d94b508158671c845a6af0628b692cfa8c962fefd86",
+    "docs/qa/harness/728-gl-timing/GlTiming400Gate.mjs": "7d87e55444c0c9a746599a08a8122ff31f3e3bf2908cd4ee2d1cf0b913d2f95e",
+    "apps/web/src/pages/Room/index.tsx": "1c261ae553637d904c76fc09c83c8ba8faa449633ddb081396cd2adf736b0ffa",
+    "apps/web/src/pages/Room/engineWiring.ts": "9f3cfbb4db09571dfe0d091f32fa7a9d4dd11e598e09c5853609e71e7da98278",
+    "apps/web/src/engine/index.ts": "571cd61e1f008ac943f5f7f2e5f87fac3d35413d054059c4ca6fa4917b5e0b41",
+    "apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts": "40e7173707338a9a72b7c7bb263b7be23f9693011c93d5a7c33029e22cad1661",
+    "apps/web/src/engine/src/raster/shaders.ts": "050272b1ebb1695c738fb472fadc1eb9953e9472544586c14b73cb512997134e",
+    "apps/web/src/engine/src/buffers/RibbonStrokeScratch.ts": "6c92b6683e5c848d14f05053be81a98cd67c8546b5b315797da6e081389e2e34",
+    "apps/web/src/engine/src/dabs/DabSystem.ts": "816911a80216b7e80bdd1ba7c11be3ea2e02bf3560bc629197a5f7961266c5b3",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "0ead17d8ad534e0a4986a94f1c7fa7e994133eba2b83a69816c23e99be3dda3b",
+    "apps/web/src/engine/src/paper/paperWetness.ts": "9edaf471f083947f82461e78d4fa8e3d46ecd985611abdfc688cc891c4b7762d",
+    "docs/qa/harness/728-room-moment/MixedLeaseNatural400.mjs": "15079fd43ec883751c4adb0daf73f8c5f650f2a4c910e16ac3fc6712fdb293b2",
+    "docs/qa/harness/728-room-moment/ContinuousPenStroke.mjs": "7079a6f92c921b2f81e9ab0959864b0954fbb55e53ea29a769ac24b2def2648f",
+    "docs/qa/harness/728-room-moment/ContinuousPenRecipe.mjs": "ed9d5d70c674461acf8478f8a5a0158270e1acc9e31280f7f8fa8beec3155710",
+    "docs/qa/harness/728-room-moment/Fixed400Tape.mjs": "9da0a30763c2aeca29f2ea9a5c1451d71024b16cb8218f6c6e633f49e1940eac",
+    "docs/qa/harness/728-room-moment/Fixed400MaterialGate.mjs": "7eb9188febf8f51737aaf0f861d0b49e80e1a0dff9d9e594e92c57125d2bbcd9",
+    "docs/qa/harness/728-room-moment/MixedLeaseUiLifecycle.mjs": "f269d354d7ad34c6423bf0230474d4b97df59330f6c99c1c43b4b04758f05372",
+    "docs/qa/harness/728-room-moment/MixedLeaseUiAssertions.mjs": "f6c52d47cf4cf81411f9cdf7fe2dafeef4eb64d11bdf2f200f85e510656f3903",
+    "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "0c44438f2c91a110ce55472d6ca39660d4d0f743011934cb5d382271d7bbcbec",
+    "docs/qa/harness/728-room-moment/HttpActorTrace.mjs": "3f9d1419dc26ef3cfb61a840ebcf30200db98498fee45fbe43a769dca659e99f",
+    "docs/qa/harness/728-room-moment/ThumbnailQuietGate.mjs": "6023cfe9b6b765f195a6c30c66d24c91a8b28082da5da6d190b8d103dc548aa8",
+    "docs/qa/harness/728-room-moment/Natural400Metrics.mjs": "ca77c44f56a498a0fd95917561486ee3000c499f7192b1271758c1a11c68c741",
+    "docs/qa/harness/728-room-moment/PassiveMemoryGate.mjs": "199f09215e7495d9650e603caa15e2f1a3b68bb0261acc968a9841cc9489c98d"
+  },
+  "paperPassport": {
+    "manifest.json": {
+      "bytes": 6532,
+      "sha": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+    },
+    "fine.e59ea6fa.paper": {
+      "bytes": 3983406,
+      "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+    },
+    "fine.a19fcf63.preview": {
+      "bytes": 59686,
+      "sha": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+    }
+  },
+  "rows": [
+    {
+      "timing": {
+        "stats": {
+          "capacity": 1024,
+          "recorded": 23,
+          "dropped": 0,
+          "observerErrors": 0,
+          "active": false,
+          "scope": "engine-local synchronous DOWN only"
+        },
+        "records": [
+          {
+            "input": 1,
+            "phase": "admission-lease",
+            "start": 19825,
+            "end": 19825.100000023842,
+            "value": 0,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": null
+          },
+          {
+            "input": 1,
+            "phase": "foreign-water-import",
+            "start": 19833.200000047684,
+            "end": 19833.300000071526,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 19838.300000071526,
+            "end": 19838.700000047684,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 19838.899999976158,
+            "end": 19838.899999976158,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-film-base-copy",
+            "start": 19838.800000071526,
+            "end": 19839.200000047684,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001"
+          },
+          {
+            "input": 1,
+            "phase": "scratch-first-touch",
+            "start": 19840.700000047684,
+            "end": 19840.700000047684,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001"
+          },
+          {
+            "input": 1,
+            "phase": "first-pigment-submit",
+            "start": 19842.600000023842,
+            "end": 19842.600000023842,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001"
+          },
+          {
+            "input": 1,
+            "phase": "live-generator-exhaust",
+            "start": 19830.300000071526,
+            "end": 19843.399999976158,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001"
+          },
+          {
+            "input": 1,
+            "phase": "live-composite",
+            "start": 19846.600000023842,
+            "end": 19847.800000071526,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001"
+          },
+          {
+            "input": 1,
+            "phase": "display-submit",
+            "start": 19846.5,
+            "end": 19849.300000071526,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001"
+          },
+          {
+            "input": 1,
+            "phase": "input-down-through-display",
+            "start": 19824.399999976158,
+            "end": 19851.5,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QAwater001"
+          },
+          {
+            "input": 2,
+            "phase": "admission-lease",
+            "start": 21815.100000023842,
+            "end": 21815.100000023842,
+            "value": 1,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": null
+          },
+          {
+            "input": 2,
+            "phase": "foreign-water-import",
+            "start": 21816.200000047684,
+            "end": 21816.200000047684,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 21817.200000047684,
+            "end": 21817.200000047684,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 21817.200000047684,
+            "end": 21817.200000047684,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-film-base-copy",
+            "start": 21817.200000047684,
+            "end": 21817.300000071526,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 21817.300000071526,
+            "end": 21817.300000071526,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002"
+          },
+          {
+            "input": 2,
+            "phase": "scratch-first-touch",
+            "start": 21817.700000047684,
+            "end": 21817.700000047684,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002"
+          },
+          {
+            "input": 2,
+            "phase": "first-pigment-submit",
+            "start": 21818.100000023842,
+            "end": 21818.100000023842,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002"
+          },
+          {
+            "input": 2,
+            "phase": "live-generator-exhaust",
+            "start": 21816,
+            "end": 21818.200000047684,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002"
+          },
+          {
+            "input": 2,
+            "phase": "live-composite",
+            "start": 21818.899999976158,
+            "end": 21819.399999976158,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002"
+          },
+          {
+            "input": 2,
+            "phase": "display-submit",
+            "start": 21818.899999976158,
+            "end": 21819.899999976158,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002"
+          },
+          {
+            "input": 2,
+            "phase": "input-down-through-display",
+            "start": 21814.399999976158,
+            "end": 21820.600000023842,
+            "userId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+            "layerId": "layer-1",
+            "strokeId": "QApigmt002"
+          }
+        ]
+      },
+      "enabled": true,
+      "scenario": "pigment-pigment",
+      "fixedInput": true,
+      "sourceSeeds": [
+        {
+          "strokeId": "QAwater001",
+          "seed": [
+            197.659793814433,
+            502.02247191011236
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ]
+        },
+        {
+          "strokeId": "QApigmt002",
+          "seed": [
+            455.4020618556701,
+            738.9775280898876
+          ],
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ]
+        }
+      ],
+      "metrics": {
+        "downHandlerMs": 6.200000047683716,
+        "downToSourceBeginMs": 1.5,
+        "downToSourceEndMs": 3.8000000715255737,
+        "downToDisplayBeginMs": 4.5,
+        "downToDisplayEndMs": 5.5,
+        "upHandlerMs": 110.69999992847443,
+        "upBeginToFirstRafCallbackMs": 137.89999997615814,
+        "upReturnToFirstRafCallbackMs": 27.200000047683716,
+        "upReturnToScheduledHoverMs": 55.300000071525574,
+        "hoverHandlerMs": 0,
+        "completeSettle": [
+          {
+            "phase": "up",
+            "ms": 43
+          }
+        ],
+        "frameGaps": {
+          "count": 216,
+          "medianMs": 16.700000000000728,
+          "p95Ms": 17,
+          "maxMs": 73.19999992847443
+        },
+        "scope": "CPU submission and synthetic rAF/hover availability; hover deliberately after3frames; not physical visible latency"
+      },
+      "longTasks": [
+        {
+          "at": 19818.800000071526,
+          "end": 19895.800000071526,
+          "ms": 77
+        },
+        {
+          "at": 21694.300000071526,
+          "end": 21857.300000071526,
+          "ms": 163
+        },
+        {
+          "at": 23661.100000023842,
+          "end": 23798.100000023842,
+          "ms": 137
+        },
+        {
+          "at": 35044.700000047684,
+          "end": 35155.700000047684,
+          "ms": 111
+        }
+      ],
+      "pending": true,
+      "lease": true,
+      "downDrains": 0,
+      "glError": 0,
+      "lost": false,
+      "timedEnd": 23828.200000047684,
+      "export": {
+        "begin": 35045.700000047684,
+        "end": 35245.300000071526,
+        "bytes": 1164877
+      },
+      "scope": "Natural clock synthetic actual Room PointerInput; CPU source/display submissions and rAF availability, not physical pen latency or exact authored OFF/ON parity",
+      "room": "bNpo-v7u",
+      "queryConstructorFlags": {
+        "joined": true,
+        "lease": true,
+        "native": false,
+        "timing": {
+          "capacity": 1024,
+          "recorded": 0,
+          "dropped": 0,
+          "observerErrors": 0,
+          "active": false,
+          "scope": "engine-local synchronous DOWN only"
+        },
+        "async": false,
+        "deferred": false
+      },
+      "uiControlCounts": null,
+      "timingGate": {
+        "valid": true,
+        "inputs": [
+          {
+            "input": 1,
+            "strokeId": "QAwater001",
+            "leaseAccepted": false,
+            "drainCount": 0,
+            "downMs": 27.100000023841858,
+            "pigmentSubmitMs": 18.200000047683716,
+            "displaySubmitMs": 24.90000009536743
+          },
+          {
+            "input": 2,
+            "strokeId": "QApigmt002",
+            "leaseAccepted": true,
+            "drainCount": 0,
+            "downMs": 6.200000047683716,
+            "pigmentSubmitMs": 3.700000047683716,
+            "displaySubmitMs": 5.5
+          }
+        ],
+        "classification": "lease-accepted",
+        "scope": "CPU synchronous DOWN submission, not GPU/physical pixels"
+      },
+      "inputPassport": [
+        {
+          "id": "SDCljzWUfL",
+          "strokeId": "QAwater001",
+          "layerId": "layer-1",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "dabCount": null,
+          "dabsPackedSha": "fafe2d0ee2907af10ad03cc75e466d101b4a7d943e95214c8229eefc7850d790",
+          "wetSha": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        },
+        {
+          "id": "CvoLqAkyZA",
+          "strokeId": "QApigmt002",
+          "layerId": "layer-1",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ],
+          "dabCount": null,
+          "dabsPackedSha": "fafe2d0ee2907af10ad03cc75e466d101b4a7d943e95214c8229eefc7850d790",
+          "wetSha": "4f658943e167a30d385e0e2fff76882211974547d243b615997c727e486948c0"
+        }
+      ],
+      "authoredPassport": [
+        {
+          "strokeId": "QAwater001",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.3,
+            0.15,
+            0.55
+          ],
+          "size": 400,
+          "frameCount": 108,
+          "sha": "e2a6d4540088cc88253f2e4f1960e5486213013e745bac2bea4bf8a246082fdc"
+        },
+        {
+          "strokeId": "QApigmt002",
+          "preset": "normal:100:100:PB29:round",
+          "color": [
+            0.15,
+            0.5,
+            0.3
+          ],
+          "size": 400,
+          "frameCount": 108,
+          "sha": "5b64eb631e19edf47df834644e3e90c607728bdabf605a58287b461beb172181"
+        }
+      ],
+      "traceCounts": {
+        "markers": 1846,
+        "queue": 220,
+        "frames": 2
+      }
+    }
+  ],
+  "httpActorTrace": [
+    null,
+    [
+      {
+        "requestId": "14572.117",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 537803.972248,
+        "wallTime": 1791562818.207484,
+        "status": 200,
+        "responseTimestamp": 537804.112993,
+        "responseObservedWallTime": 1791562818371,
+        "httpActor": "245e62cf-509c-414f-a0a0-2bfabb235df3"
+      },
+      {
+        "requestId": "14572.640",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 537825.368012,
+        "wallTime": 1791562839.603314,
+        "status": 200,
+        "responseTimestamp": 537825.423133,
+        "responseObservedWallTime": 1791562839754,
+        "httpActor": "245e62cf-509c-414f-a0a0-2bfabb235df3"
+      },
+      {
+        "requestId": "14572.757",
+        "method": "GET",
+        "endpoint": "/api/me",
+        "requestTimestamp": 537828.138059,
+        "wallTime": 1791562842.373391,
+        "status": 200,
+        "responseTimestamp": 537828.196669,
+        "responseObservedWallTime": 1791562842467,
+        "httpActor": "245e62cf-509c-414f-a0a0-2bfabb235df3"
+      },
+      {
+        "requestId": "14572.1283",
+        "method": "POST",
+        "endpoint": "/api/rooms/<room>/thumbnail",
+        "requestTimestamp": 537845.197465,
+        "wallTime": 1791562859.432792,
+        "status": 200,
+        "responseTimestamp": 537845.277001,
+        "responseObservedWallTime": 1791562859551
+      },
+      {
+        "requestId": "14572.1296",
+        "method": "POST",
+        "endpoint": "/api/rooms/<room>/thumbnail",
+        "requestTimestamp": 537851.193629,
+        "wallTime": 1791562865.428946,
+        "status": 200,
+        "responseTimestamp": 537851.28918,
+        "responseObservedWallTime": 1791562865568
+      }
+    ]
+  ],
+  "memory": [
+    {
+      "phase": "preflight",
+      "enabled": true,
+      "free": 2067,
+      "attempt": 0,
+      "elapsedMs": 2035
+    },
+    {
+      "phase": "ON",
+      "free": 1801
+    },
+    {
+      "phase": "ON",
+      "free": 1811
+    },
+    {
+      "phase": "ON",
+      "free": 1779
+    },
+    {
+      "phase": "ON",
+      "free": 1763
+    },
+    {
+      "phase": "ON",
+      "free": 1691
+    },
+    {
+      "phase": "ON",
+      "free": 1660
+    },
+    {
+      "phase": "ON",
+      "free": 1517
+    },
+    {
+      "phase": "ON",
+      "free": 1615
+    },
+    {
+      "phase": "ON",
+      "free": 1615
+    },
+    {
+      "phase": "ON",
+      "free": 1545
+    },
+    {
+      "phase": "ON",
+      "free": 1217
+    },
+    {
+      "phase": "ON",
+      "free": 1194
+    },
+    {
+      "phase": "ON",
+      "free": 1235
+    },
+    {
+      "phase": "closed-arm",
+      "free": 1565
+    },
+    {
+      "phase": "closed",
+      "free": 1565
+    }
+  ],
+  "memoryProbes": [
+    {
+      "phase": "preflight",
+      "elapsedMs": 2033.1561239999999,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1792.7889480000013,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1674.6746839999996,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1446.2730050000027,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1474.592574000002,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1434.1584980000007,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create",
+      "elapsedMs": 1661.3694160000014,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create:await-server-room-state",
+      "elapsedMs": 1504.4438769999979,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create:await-server-room-state",
+      "elapsedMs": 1660.8817600000039,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create:await-server-room-state",
+      "elapsedMs": 1647.797391,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "create:await-server-room-state",
+      "elapsedMs": 1559.988983000003,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1336.0351190000001,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1600.9948270000023,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1346.4746169999999,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "live-input",
+      "elapsedMs": 1378.7615030000015,
+      "timedOut": false,
+      "success": true
+    },
+    {
+      "phase": "closed",
+      "elapsedMs": 1257.8124379999936,
+      "timedOut": false,
+      "success": true
+    }
+  ],
+  "errors": [],
+  "networkErrors": [],
+  "result": {
+    "identity": {
+      "actor": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+      "engineActor": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+      "roomId": "bNpo-v7u",
+      "authenticatedId": "245e62cf-509c-414f-a0a0-2bfabb235df3",
+      "locked": false
+    },
+    "queryConstructorFlags": {
+      "joined": true,
+      "lease": true,
+      "native": false,
+      "timing": {
+        "capacity": 1024,
+        "recorded": 0,
+        "dropped": 0,
+        "observerErrors": 0,
+        "active": false,
+        "scope": "engine-local synchronous DOWN only"
+      },
+      "async": false,
+      "deferred": false
+    },
+    "armMode": "ON",
+    "valid": true,
+    "scope": "Natural400 separate authored Room tapes, CPU submissions and rAF availability; not physical visible latency or exact OFF/ON pixel parity"
+  },
+  "evidenceLimits": {
+    "actualFirstUpToSecondDownGapMs": null,
+    "beforeSecondWetValue": null,
+    "reason": "Compact controller retained pending plus packed/wet hashes, but removed actual between-gesture marker endpoints and no initial wet value was sampled. No hardcoded gap/wet claimed.",
+    "measurement": "Positive nib submission and synchronous CPU attribution only; no physical pixels/GPU wait proof."
+  }
+}
