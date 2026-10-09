@@ -1,0 +1,9 @@
+# Возможность исключить нулевые pigment pass
+
+Это предложение, не включённая оптимизация. Preset с pigment=0 не является доказательством нулевого pigment поля: canonical P записывает `(amount*water, amount*wet, amount*strength, amount)`. При нулевой strength канал B нулевой, а R/G/A могут хранить ненулевой carrier. Нельзя применять существующий full-P-zero fast path, обнуляя эти каналы.
+
+Достаточное условие для существующего fast path: exact owner-local P и C во всех участвующих scratch/base/foreign inputs доказанно нулевые по всем каналам. Доказательство начинается только с точного clear всего extent, переносится exact copy из доказанно нулевого источника и сохраняется операторами с математически доказанным f(0)=0 при фактических остальных inputs. Любая запись исходного pigment/color source, неизвестный foreign input, remobilization старой краски, чтение неизвестного target или частичный clear без доказательства остального extent переводит состояние в unknown. Unknown никогда не разрешает shortcut.
+
+Для обычного pure-water рисунка это условие пока не выполняется: runtime.emitPrepared консервативно сбрасывает pigmentInputsKnownZero; default native prepare передаёт skipZeroPigmentContacts=false. Чтобы исключить массовую работу, нужен отдельный символический контракт **нулевой pigment mass**, с сохранением carrier каналов и всех Q8 storage границ. Это иной контракт, его нельзя подменить нынешним full-zero флагом. Сначала для каждого кандидата выписать формулы P/C выхода и доказать эквивалентность при B=0, включая влияние на wetness, rims и remobilization. Если неизвестен donor/ownership, fallback к исходным pass.
+
+Следующий узкий шаг: по timestamp pass rows выбрать реально дорогие mass-only операторы, доказать их нулевой вклад при этих guards, затем CPU byte oracle на нормальном и foreign/remobilization сценариях. До такого доказательства никакого preset shortcut и удаления carry/diffuse/rim pass.
