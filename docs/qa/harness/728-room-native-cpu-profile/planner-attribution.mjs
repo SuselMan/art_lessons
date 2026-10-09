@@ -12,5 +12,5 @@ export function installPlannerAttribution(Adapter,device,record,isActive){
   return original.apply(this,args)
  })
  for(const kind of ['createComputePipeline','createRenderPipeline'])wrap(device,kind,original=>function(descriptor){const id=++serial,started=performance.now();record('pipeline.create:start',{id,kind,label:descriptor?.label??'',entryPoint:descriptor?.compute?.entryPoint??descriptor?.vertex?.entryPoint??'',source:'GPUDevice.'+kind});let outcome='fulfilled';try{return original.call(this,descriptor)}catch(error){outcome='rejected';throw error}finally{record('pipeline.create:end',{id,kind,wallCpuMs:performance.now()-started,outcome})}})
- return()=>{for(const restore of undo.reverse())restore()}
+ const restore=()=>{for(const item of undo.reverse())item()};restore.currentQuantum=()=>current?{id:current.id,passes:current.passes.map(p=>({...p})),overflow:!!current.overflow}:null;return restore
 }
