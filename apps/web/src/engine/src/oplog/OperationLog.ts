@@ -565,6 +565,10 @@ export class OperationLog {
     const states = new Map(scratch.entries.map(e => [e.op.id, e.state]))
     for (const entry of this._entries) {
       const key = identity(entry.op)
+      if (key && affected.has(key) && !added.has(entry.op.id) && entry.state === 'undone' && states.get(entry.op.id) !== 'undone') unresolved.add(key)
+    }
+    for (const entry of this._entries) {
+      const key = identity(entry.op)
       if (!key || !affected.has(key) || unresolved.has(key) || entry.state === 'gone') continue
       const state = states.get(entry.op.id)
       if (state === undefined || state === entry.state) continue

@@ -107,3 +107,12 @@ it('uncertain page is not checkpoint-covered/preloaded or counted; retry succeed
   expect(covered).toHaveBeenCalledOnce(); expect(preload).toHaveBeenCalledOnce()
   io.absorbHistorical([A, U]); expect(covered).toHaveBeenCalledOnce(); expect(preload).toHaveBeenCalledOnce(); expect(log.pixelOpDoneCount('L')).toBe(0)
 })
+
+it('known later Redo cannot contradict held undone terminal state with unknown still-later Undo', () => {
+  const log = new OperationLog(); fold(log, [B]); log.applyUndo('B', 'u')
+  const R: Operation = { id: 'R', seq: 3, type: 'operation_redo', userId: 'u', timestamp: 3, targetOpId: 'B' }
+  const prior = log.entries.map(e => ({ ...e, op: { ...e.op } })), revision = log.revision
+  const io = absorb(log, [A, R])
+  expect(io.historicalGestureUnresolved()).toHaveLength(1); expect(log.entries).toEqual(prior); expect(log.revision).toBe(revision)
+  expect(log.layerPixelOps('L')).toEqual([]); expect(log.pixelOpDoneCount('L')).toBe(0)
+})
