@@ -1,6 +1,6 @@
 import {carryMrt300} from './carryMrt'
 import type {SettlePlanFieldOptions} from '../watercolor/SettlePlanContracts'
-import {StaticPaperCache} from './staticPaperCache'
+import {StaticPaperCache,WC_STATIC_PAPER_PREP_FRAG} from './staticPaperCache'
 import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_WATER_FRONT_INVARIANT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { diagnosticWebgl2Raw } from './diagnosticWebgl2'
 import { brushMrt300 } from './brushMrt'
@@ -251,7 +251,7 @@ export class WatercolorPasses {
     gl.drawArrays(gl.TRIANGLES, 0, 6)
     dst.endDraw()
     if(import.meta.env.DEV && this.diagnosticAfterWaterFront){
-      try{this.diagnosticAfterWaterFront({gl,dst,src,film:field.coverage,w:field.w,h:field.h,stride})}catch(error){this.diagnosticWaterFrontCaptureError=String(error)}
+      try{this.diagnosticAfterWaterFront({gl,dst,src,film:field.coverage,w:field.w,h:field.h,stride,preparation:{ctx:this.ctx,fragment:WC_STATIC_PAPER_PREP_FRAG,origin:[x0/scale,-(y0/scale+field.h)],paperSize:[paperTexW/scale,paperTexH/scale],paperScale:this.ctx.paperScale(),climb}})}catch(error){this.diagnosticWaterFrontCaptureError=String(error)}
     }
   }
 
