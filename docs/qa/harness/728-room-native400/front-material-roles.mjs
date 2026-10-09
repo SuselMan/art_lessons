@@ -26,7 +26,8 @@ export async function readNativeFrontMaterialRoles(engine,operationIndex,require
  }
  if(requirePigment&&(!roles.pigment.nonzero||!roles.color.nonzero))throw Error('Actual pigment/color roles empty')
  if(engine._wcCanonical?.pending||!runtime.central.isIdle||engine.gl.isContextLost()||engine.gl.getError())throw Error('Owner changed during idle capture')
- return{operationIndex,roles,frontFilmHoist:owner.adapter.diagnosticFrontFilmHoist===true,nativeBrushPair:owner.adapter.diagnosticNativeBrushPair===true,pairedBrushCalls:owner.adapter.pairedBrushCalls??0,cache:owner.adapter.staticFrontCacheCounters,retirementCleanupFailures:backend.diagnosticRetirementCleanupFailures,scope:'Final Q8 cost/coverage/material roles after operation idle; no earlier outward-cost snapshot, no hot reads'}
+ const filmVariant=[];for(const row of owner.adapter.filmVariantDiagnostics??[]){const code=new TextEncoder().encode(row.code);filmVariant.push({staticCache:row.staticCache,encoded:row.encoded,shaderBytes:code.length,shaderSHA:Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',code)),x=>x.toString(16).padStart(2,'0')).join('')})}
+ return{operationIndex,roles,filmVariant,frontFilmHoist:owner.adapter.diagnosticFrontFilmHoist===true,nativeBrushPair:owner.adapter.diagnosticNativeBrushPair===true,pairedBrushCalls:owner.adapter.pairedBrushCalls??0,cache:owner.adapter.staticFrontCacheCounters,retirementCleanupFailures:backend.diagnosticRetirementCleanupFailures,scope:'Final Q8 cost/coverage/material roles after operation idle; no earlier outward-cost snapshot, no hot reads'}
 }
 export function assertFrontMaterialRolePair(off,on,mode='front-cache'){
  if(!Array.isArray(off)||!Array.isArray(on)||off.length!==2||on.length!==2)throw Error('Two per-operation captures required')

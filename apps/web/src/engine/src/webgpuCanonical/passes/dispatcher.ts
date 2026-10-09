@@ -9,6 +9,8 @@ import { CANONICAL_DIFFUSE_WGSL, CANONICAL_WATER_FRONT_WGSL,CANONICAL_CACHED_WAT
  * Caller retains uniform buffers until submitted work has finished. */
 export class CanonicalFieldPasses {
   private readonly pipelines = new Map<string, GPUComputePipeline>()
+  private filmVariants:Map<string,{staticCache:boolean;code:string;encoded:number}>|null=null
+  get filmVariantDiagnostics(){return [...(this.filmVariants?.values()??[])].map(row=>({...row}))}
   private sourceSampler:GPUSampler|null=null
   private staticCache:CanonicalStaticFrontCache|null=null
   readonly counters = { diffuse: 0, waterFront: 0, pixels: 0 }
@@ -18,7 +20,9 @@ export class CanonicalFieldPasses {
   private pipeline(kind: 'diffuse' | 'waterFront',lazyClimb=false,staticCache=false,sourceSampling?:CanonicalFrontSourceSampling,filmHoist=false) {
     let pipeline = this.pipelines.get(kind+':'+lazyClimb+':'+staticCache+':'+(sourceSampling??'legacy')+':'+filmHoist)
     if (!pipeline) {
-      pipeline = (!lazyClimb&&!staticCache&&!sourceSampling&&!filmHoist?preparedObservedFieldPipeline(this.device,kind,kind==='diffuse'?CANONICAL_DIFFUSE_WGSL:CANONICAL_WATER_FRONT_WGSL):undefined)??this.device.createComputePipeline({ label: 'Canonical ' + kind, layout: 'auto', compute: { module: this.device.createShaderModule({ label: 'Canonical ' + kind, code: kind === 'diffuse' ? (staticCache?CANONICAL_CACHED_DIFFUSE_WGSL:CANONICAL_DIFFUSE_WGSL) : frontFilmHoistShader(frontSamplingShader(staticCache?CANONICAL_CACHED_WATER_FRONT_WGSL:CANONICAL_WATER_FRONT_WGSL,sourceSampling),filmHoist) }), entryPoint: 'main',constants:kind==='waterFront'?staticCache?{DIAGNOSTIC_LAZY_CLIMB:0,DIAGNOSTIC_STATIC_FRONT_CACHE:1}:{DIAGNOSTIC_LAZY_CLIMB:lazyClimb?1:0}:undefined } })
+      const code=kind==='diffuse'?(staticCache?CANONICAL_CACHED_DIFFUSE_WGSL:CANONICAL_DIFFUSE_WGSL):frontFilmHoistShader(frontSamplingShader(staticCache?CANONICAL_CACHED_WATER_FRONT_WGSL:CANONICAL_WATER_FRONT_WGSL,sourceSampling),filmHoist)
+      pipeline = (!lazyClimb&&!staticCache&&!sourceSampling&&!filmHoist?preparedObservedFieldPipeline(this.device,kind,kind==='diffuse'?CANONICAL_DIFFUSE_WGSL:CANONICAL_WATER_FRONT_WGSL):undefined)??this.device.createComputePipeline({ label: 'Canonical ' + kind, layout: 'auto', compute: { module: this.device.createShaderModule({ label: 'Canonical ' + kind, code }), entryPoint: 'main',constants:kind==='waterFront'?staticCache?{DIAGNOSTIC_LAZY_CLIMB:0,DIAGNOSTIC_STATIC_FRONT_CACHE:1}:{DIAGNOSTIC_LAZY_CLIMB:lazyClimb?1:0}:undefined } })
+      if(filmHoist)(this.filmVariants??=new Map()).set(staticCache+':'+lazyClimb+':'+(sourceSampling??'legacy'),{staticCache,code,encoded:0})
       this.pipelines.set(kind+':'+lazyClimb+':'+staticCache+':'+(sourceSampling??'legacy')+':'+filmHoist, pipeline)
     }
     return pipeline
@@ -48,6 +52,7 @@ export class CanonicalFieldPasses {
     const pass = ctx.encoder.beginComputePass({ label: 'Canonical ' + kind,timestampWrites })
     pass.setPipeline(pipeline); pass.setBindGroup(0, bind)
     pass.dispatchWorkgroups(Math.ceil(resources.out.width / 8), Math.ceil(resources.out.height / 8)); pass.end()
+    if(filmHoist)this.filmVariants!.get(!!cache+':'+lazyClimb+':'+(sourceSampling??'legacy'))!.encoded++
     this.counters[kind]++; this.counters.pixels += resources.out.width * resources.out.height
     // Returned resource must be destroyed AFTER caller submits/completes encoder.
     return uniform

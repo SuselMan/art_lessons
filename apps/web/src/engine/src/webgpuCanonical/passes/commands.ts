@@ -19,6 +19,7 @@ export class CanonicalSettleCommands {
  private readonly resample:CanonicalResamplePass
  constructor(device:GPUDevice){this.fields=new CanonicalFieldOps(device);this.transport=new CanonicalFieldPasses(device);this.domain=new CanonicalCostDomainPass(device);this.resample=new CanonicalResamplePass(device)}
  retireStaticCache(defer:(cleanup:()=>void)=>void){this.transport.retireStaticCache(defer)}
+ get filmVariantDiagnostics(){return this.transport.filmVariantDiagnostics}
  get staticFrontCacheCounters(){return this.transport.staticCacheCounters}
  /** Encode exactly one original GPU primitive; caller owns scheduling and cleanup. */
  encode(ctx:CanonicalGpuContext,command:CanonicalSettleCommand):GPUBuffer{

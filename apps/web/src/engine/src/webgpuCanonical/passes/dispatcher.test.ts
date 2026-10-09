@@ -60,3 +60,10 @@ it('transfers successful uniforms and preserves original errors when cleanup fai
  vi.spyOn(f.device,'createBuffer').mockImplementation(()=>({destroy:()=>{throw new Error('cleanup failed')}} as unknown as GPUBuffer))
  expect(()=>p.diffuse(f.ctx,f.resources,1,false)).toThrow(error)
 })
+it('film diagnostic passport records actual compiled source and only successful dispatches',()=>{
+ const f=fixture(),p=new CanonicalFieldPasses(f.device),params={dryCost:5,costMax:20,climb:3,floor:.2,stride:1}
+ p.waterFront(f.ctx,f.resources,field(251,251),params);expect(p.filmVariantDiagnostics).toEqual([])
+ p.waterFront(f.ctx,f.resources,field(251,251),{...params,diagnosticFilmHoist:true});expect(p.filmVariantDiagnostics[0].encoded).toBe(1);expect(p.filmVariantDiagnostics[0].code).toContain('if(!filmReady){film=')
+ p.waterFront(f.ctx,f.resources,field(251,251),{...params,diagnosticFilmHoist:true});expect(p.filmVariantDiagnostics[0].encoded).toBe(2)
+ vi.spyOn(f.device,'createBindGroup').mockImplementation(()=>{throw Error('bind failed')});expect(()=>p.waterFront(f.ctx,f.resources,field(251,251),{...params,diagnosticFilmHoist:true})).toThrow();expect(p.filmVariantDiagnostics[0].encoded).toBe(2)
+})

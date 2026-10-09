@@ -11,5 +11,5 @@ export function installFrontCacheArm(Adapter,enabled,dev,filmEnabled=false){
   return original.apply(this,args)
  }
  Adapter.prototype.waterFrontStep=wrapped
- return{restore(){if(restored)return;restored=true;if(Adapter.prototype.waterFrontStep!==wrapped)throw Error('Cache arm ownership changed');Adapter.prototype.waterFrontStep=original;for(const [owner,prior]of owners){owner.diagnosticStaticFrontCache=prior.cache;owner.diagnosticFrontFilmHoist=prior.film};owners.clear()}}
+ return{get restored(){return restored},restore(){if(restored)return;restored=true;if(Adapter.prototype.waterFrontStep!==wrapped)throw Error('Cache arm ownership changed');Adapter.prototype.waterFrontStep=original;for(const [owner,prior]of owners){owner.diagnosticStaticFrontCache=prior.cache;owner.diagnosticFrontFilmHoist=prior.film};owners.clear()}}
 }

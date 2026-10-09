@@ -30,6 +30,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  diagnosticLazyFrontClimb=false
  diagnosticPairedCarry=false
  retireStaticFrontCache(){this.commands.retireStaticCache(cleanup=>this.owner.retireAfterOwnerScopes(cleanup))}
+ get filmVariantDiagnostics(){return this.commands.filmVariantDiagnostics}
  get staticFrontCacheCounters(){return this.commands.staticFrontCacheCounters}
  pairedCarryCalls=0
  diagnosticCarryOracleIndex:number|undefined
