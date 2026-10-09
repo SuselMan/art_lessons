@@ -69,19 +69,25 @@ export class RoomNativeRuntime {
   const canvas=document.createElement('canvas')
   const backend=await CanonicalWatercolorWebGpu.create({canvas,roomOwnedResources:true,onInitStage:stage=>console.info('[native-room-init]',stage),width:1024,height:1024,paper:{bytes,width:resolution,height:resolution,origin:[0,0],texSize:[ctx.paperWorld.w,ctx.paperWorld.h],scale:ctx.paperScale}})
   try{
+   if(import.meta.env.DEV&&ctx.diagnosticAsyncCarryPressure===true&&ctx.diagnosticCarryHardwarePressure!==true)throw new Error('Async carry pressure requires hardware pressure diagnostic')
+   const prepareObserved=async()=>{
    if(import.meta.env.DEV&&ctx.diagnosticAsyncObservedFields===true){
     console.info('[native-room-init]','observed-fields-async:start')
     const proofs=await Promise.all([prepareObservedFieldPipeline(backend.device,'waterFront',CANONICAL_WATER_FRONT_WGSL),prepareObservedFieldPipeline(backend.device,'diffuse',CANONICAL_DIFFUSE_WGSL)])
     const shaderSHAs=await Promise.all([CANONICAL_WATER_FRONT_WGSL,CANONICAL_DIFFUSE_WGSL].map(async code=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(code))),v=>v.toString(16).padStart(2,'0')).join('')))
     console.info('[native-room-init]','observed-fields-async:completed',JSON.stringify({proofs,shaderSHAs,dispatches:0,fieldBytes:0}))
    }
+   }
+   const preparePressure=async()=>{
    if(import.meta.env.DEV&&ctx.diagnosticAsyncCarryPressure===true){
-    if(ctx.diagnosticCarryHardwarePressure!==true)throw new Error('Async carry pressure requires hardware pressure diagnostic')
     console.info('[native-room-init]','pressure-async-compile:start')
     const proof=await prepareCanonicalHardwareLinearPipeline(backend.device,CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL)
     const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL))
     console.info('[native-room-init]','pressure-async-compile:completed',JSON.stringify({...proof,shaderSHA:Array.from(new Uint8Array(hash),v=>v.toString(16).padStart(2,'0')).join(''),dispatches:0,fieldBytes:0}))
    }
+   }
+   // Independent exact descriptors share the same device; all three must succeed before any warmup or READY.
+   if(import.meta.env.DEV&&(ctx.diagnosticAsyncObservedFields===true||ctx.diagnosticAsyncCarryPressure===true))await Promise.all([prepareObserved(),preparePressure()])
    if(import.meta.env.DEV&&ctx.diagnosticRawCanvasWarmup===true){
     const started=performance.now()
     console.info('[native-room-init]','raw-warm:start',started)
