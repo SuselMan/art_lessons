@@ -69,3 +69,10 @@ it('first LIVE warm is separate native DEV opt-in and invalid requests fail befo
  for(const q of ['?wcFirstLiveWarmup=1','?wcNative=1&wcFirstLiveWarmup=yes','?wcNative=1&wcFirstLiveWarmup=1&wcFirstLiveWarmup=0','?wcNative=1&wcFirstLiveWarmup=1&wcRawCanvasWarmup=1'])expect(()=>parse(true,q)).toThrow()
  for(const q of ['?wcNative=1&wcFirstLiveWarmup=1','?wcFirstLiveWarmup=bad&wcFirstLiveWarmup=1','?wcNative=1&wcFirstLiveWarmup=1&wcRawCanvasWarmup=1'])expect(parse(false,q).diagnosticFirstLiveWarmup).toBe(false)
 })
+
+it('physical batch2 defaults OFF, exact DEV only, rejects duplicates and invalid bits',()=>{
+ expect(parse(true,'').diagnosticPhysicalBatchTwo).toBe(false)
+ expect(parse(true,'?qaPhysicalBatchTwo=1').diagnosticPhysicalBatchTwo).toBe(true)
+ expect(parse(false,'?qaPhysicalBatchTwo=bad&qaPhysicalBatchTwo=1').diagnosticPhysicalBatchTwo).toBe(false)
+ for(const q of ['?qaPhysicalBatchTwo=true','?qaPhysicalBatchTwo=1&qaPhysicalBatchTwo=0'])expect(()=>parse(true,q)).toThrow()
+})

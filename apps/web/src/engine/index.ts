@@ -259,6 +259,8 @@ export interface PencilEngineOptions {
   diagnosticBrushMrt?: boolean
   diagnosticFrontBatch?: boolean
   /** OFF diagnostic: bounded same-class canonical solver units per frame. */
+  /** DEV QA only: two ordered physical settle steps per frame; default OFF. */
+  diagnosticPhysicalBatchTwo?: boolean
   diagnosticSolverBatch?: boolean
   /** (#728) Accept provisional pointer input while canonical wet material
    * finishes in FIFO order. Export/snapshot readiness waits for that queue.
@@ -2280,6 +2282,7 @@ export class PencilEngine implements PencilEngineAPI {
     this.canvas = canvas
     this._wcJoinedTouch = options.joinedTouch ?? false
     this._ribbonPainter.diagnosticBandBatch = options.bandBatch ?? false
+    this._settleQueue.diagnosticPhysicalBatchTwoEnabled = import.meta.env.DEV && options.diagnosticPhysicalBatchTwo === true
     this._settleQueue.diagnosticSolverBatchEnabled = options.diagnosticSolverBatch ?? false
     this._wcJoinedFinishDeferred = options.joinedFinishDeferred ?? false
     this._wcJoinedTouchMixed = options.joinedTouchMixed ?? false
