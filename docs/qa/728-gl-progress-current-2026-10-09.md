@@ -72,3 +72,6 @@ Follow-up: bounded per-field NumberMap проверен и отклонён: ful
 - [x] Typed missing DOWN/checkpoint/UP clock/query recording with actual clock values and strict CPU stage/batch cursor. No Engine provider activation; owner/material/merge blockers remain.
 
 - [x] CPU actual Engine fresh normal20/100 fork replay: exact whole Operation после live paper/tool/layer mutation; typed clock/getter + per-dispatch isolation, negative callback TOCTOU/throw/reentrancy. Constructor-only DEV, MockGL, no runtime activation. GPU ownership/foreign wash/live merge/UX остаются HOLD. Подробнее: `728-gl-wet-engine-fork-replay.md`.
+
+- [x] Isolated actual Surface256 freshnormal20/100 replay+guarded modelpromotion: exact fullOperation/fullrawWet/PNGdecodedRGBA, GL0/errorsdrop0, source6/paper3passport. Source c92; scopedquality only, **не latency/Room/foreignwash/GPUowner protocol**. См. `728-gl-wet-replay-c92-surface-result.md`.
+- [ ] Runtime queued watercolor admission/immutable GPUowner/foreignwash/livemerge/fullUI+performance остаются HOLD. На quota30% новые проверки/реализация/устройства остановлены; manual5381/shared4558 сохранены, ownedresources отсутствуют.
