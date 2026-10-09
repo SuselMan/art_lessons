@@ -1,0 +1,127 @@
+{
+  "source": "350f6e5cf3032f6ac37029c4918174f577790457",
+  "scope": "Synthetic pointer to original JS submit, existing queue-prefix ACK, GL display/rAF opportunity; not physical first pixel or isolated GPU quantum duration",
+  "latency": [
+    {
+      "label": "long-water400",
+      "requestId": 1,
+      "ownerEpoch": 1,
+      "downAt": 23099.300000071526,
+      "firstSubmitAt": 23157.200000047684,
+      "ackAt": 23179.399999976158,
+      "touchToSubmitMs": 57.89999997615814,
+      "submitToAckPrefixMs": 22.199999928474426
+    },
+    {
+      "label": "pigment-on-long-water400",
+      "requestId": 17,
+      "ownerEpoch": 1,
+      "downAt": 32261.200000047684,
+      "firstSubmitAt": 32544.600000023842,
+      "ackAt": 32591.300000071526,
+      "touchToSubmitMs": 283.39999997615814,
+      "submitToAckPrefixMs": 46.700000047683716
+    }
+  ],
+  "actualUpToNextDownMs": 1871.3000000715256,
+  "observerRows": 1916,
+  "observerDropped": 0,
+  "observerErrors": 0,
+  "beforeSecond": {
+    "pending": true,
+    "wetPeak": 0.9862641666670641,
+    "owner": true,
+    "coverage": true
+  },
+  "restore": {
+    "strokeDescriptorData": true,
+    "displayOriginal": true,
+    "observerRestored": true
+  },
+  "final": {
+    "gl": 0,
+    "lost": false,
+    "error": null,
+    "native": true,
+    "ready": true
+  },
+  "endpoint": {
+    "width": 1754,
+    "height": 2480,
+    "alpha": 121475,
+    "purple": 121474,
+    "sha": "f66c8e66bf6dd053297fbd45d6102664432842adab58bb7eee4c6de3e2ce98b4",
+    "pngSha256": "75b8dd9c05adde08387b53394c9a6cbac06a4337eeb5de818f07c817ec8a4ae6",
+    "pngBytes": 388212,
+    "comparisonReady": true
+  },
+  "publication": [
+    {
+      "phase": "fixedStrokeId",
+      "strokeId": "qaNat40001",
+      "at": 23101.300000071526
+    },
+    {
+      "phase": "sourcePublishDone",
+      "label": "long-water400",
+      "strokeId": "qaNat40001",
+      "request": 1,
+      "at": 23187.300000071526
+    },
+    {
+      "phase": "display:entry",
+      "label": "long-water400",
+      "strokeId": "qaNat40001",
+      "request": 1,
+      "at": 23191.800000071526
+    },
+    {
+      "phase": "display:return",
+      "label": "long-water400",
+      "strokeId": "qaNat40001",
+      "request": 1,
+      "at": 23192.100000023842
+    },
+    {
+      "phase": "rafAfterPublish",
+      "label": "long-water400",
+      "strokeId": "qaNat40001",
+      "request": 1,
+      "at": 23192.5
+    },
+    {
+      "phase": "fixedStrokeId",
+      "strokeId": "qaNat40002",
+      "at": 32262.800000071526
+    },
+    {
+      "phase": "sourcePublishDone",
+      "label": "pigment-on-long-water400",
+      "strokeId": "qaNat40002",
+      "request": 17,
+      "at": 32591.399999976158
+    },
+    {
+      "phase": "display:entry",
+      "label": "pigment-on-long-water400",
+      "strokeId": "qaNat40002",
+      "request": 17,
+      "at": 32591.899999976158
+    },
+    {
+      "phase": "display:return",
+      "label": "pigment-on-long-water400",
+      "strokeId": "qaNat40002",
+      "request": 17,
+      "at": 32592
+    },
+    {
+      "phase": "rafAfterPublish",
+      "label": "pigment-on-long-water400",
+      "strokeId": "qaNat40002",
+      "request": 17,
+      "at": 32592.100000023842
+    }
+  ],
+  "evidencePath": "/home/suselman/projects/pencil-agents/728-bounded-ui-optin/temp/device-runs/native-scheduling-350f-promoted-20261009"
+}
