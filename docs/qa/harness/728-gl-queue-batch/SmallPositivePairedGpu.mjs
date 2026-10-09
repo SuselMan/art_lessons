@@ -31,3 +31,11 @@ export function createSmallPositivePairedGpu(gl,{enabled=false,budgetBytes=0}={}
   readPair({original=false}={}){alive();if(original&&steps>1)throw Error('Original target reused after first step');if(!initialized)throw Error('Initialize before read');const pair={};for(let role=0;role<2;role++){const a=new Float32Array(65536);gl.bindFramebuffer(gl.FRAMEBUFFER,fields[(original?0:front)*2+role].fbo);gl.readPixels(0,0,128,128,gl.RGBA,gl.FLOAT,a);pair[role===0?'p':'c']=a;}gl.bindFramebuffer(gl.FRAMEBUFFER,null);if(gl.getError()!==gl.NO_ERROR)throw Error('Positive Float32 read');return pair;},
   disposeAfterKnownIdle(){if(disposed)return;disposed=true;cleanup()},limitations:['Owned isolated GL state; use standalone diagnostic context, not interleaved engine rendering','Frozen actual captured donor fractions for at most24steps, no time/evolving solver equivalence','No coverage/paper/material/reveal; float moment correctness is not animation acceptance']};
 }
+/** Float32 operation-order oracle for shader orientation; FMA differences stay tolerance-based. */
+export function positiveGpuGatherOracle({p,c,fractions,hop}){
+ const output={p:new Float32Array(p.length),c:new Float32Array(c.length)},f=Math.fround;
+ for(let y=0;y<128;y++)for(let x=0;x<128;x++){const i=y*128+x;let retention=f(1-fractions[i*4]);for(let d=1;d<4;d++)retention=f(retention-fractions[i*4+d]);
+  for(const role of ['p','c'])for(let k=0;k<4;k++){let value=f((role==='p'?p:c)[i*4+k]*retention);for(const[xx,yy,d]of[[x-hop,y,0],[x+hop,y,1],[x,y-hop,2],[x,y+hop,3]])if(xx>=0&&xx<128&&yy>=0&&yy<128){const j=yy*128+xx;value=f(value+f((role==='p'?p:c)[j*4+k]*fractions[j*4+d]));}output[role][i*4+k]=value;}
+ }
+ return output;
+}
