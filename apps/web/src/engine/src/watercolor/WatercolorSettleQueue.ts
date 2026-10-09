@@ -91,6 +91,9 @@ export class WatercolorSettleQueue {
    * after syncGpu EACH unit. No capture/upload/presentation barrier crossing. */
   diagnosticSolverBatchEnabled = false
 
+  /** OFF QA: adjacent tagged physical units only, max2 and synced4ms. */
+  diagnosticPhysicalBatchTwoEnabled = false
+
   /** Diagnostic cap variants share the same wall budget and lifecycle guards. */
   contactBatchMax: 4 | 8 | 16 = 4
 
@@ -229,21 +232,21 @@ export class WatercolorSettleQueue {
     const perTick = this.ctx.isDrawing() || late ? 1
       : Math.min(this.ctx.backlogMax(), WatercolorSettleQueue.WET_SETTLE_OPS_PER_TICK + this.ctx.backlogSize())
     for (let k = 0; k < perTick && this._settle === s; k++) {
-      const batchable = (this.contactBatchEnabled || this.diagnosticSolverBatchEnabled) && contactPulses.has(s.ops[s.next]) ? contactPulses
-        : (this.frontBatchEnabled || this.diagnosticSolverBatchEnabled) && frontSteps.has(s.ops[s.next]) ? frontSteps : null
+      const batchable = (this.contactBatchEnabled || this.diagnosticSolverBatchEnabled || this.diagnosticPhysicalBatchTwoEnabled) && contactPulses.has(s.ops[s.next]) ? contactPulses
+        : (this.frontBatchEnabled || this.diagnosticSolverBatchEnabled || this.diagnosticPhysicalBatchTwoEnabled) && frontSteps.has(s.ops[s.next]) ? frontSteps : null
       const presentationToken = this.presentationBatchEnabled ? presentationTokens.get(s.ops[s.next]) : undefined
       const sameBatch = (op: () => void): boolean => batchable ? batchable.has(op)
         : !!presentationToken && presentationTokens.get(op) === presentationToken
       if ((batchable || presentationToken) && !late && !this.ctx.isDrawing() && this.ctx.syncGpu) {
         const batchAt = performance.now()
-        const cap = !this.diagnosticSolverBatchEnabled && batchable === contactPulses && (this.contactBatchMax === 8 || this.contactBatchMax === 16)
+        const cap = this.diagnosticPhysicalBatchTwoEnabled ? 2 : !this.diagnosticSolverBatchEnabled && batchable === contactPulses && (this.contactBatchMax === 8 || this.contactBatchMax === 16)
           ? this.contactBatchMax : 4
         for (let n = 0; n < cap && this._settle === s && sameBatch(s.ops[s.next]); n++) {
           this.advance()
           // Submission time alone does not bound queued GPU work. Synchronize
           // every pulse, so a slow device overruns by only one existing step.
           this.ctx.syncGpu()
-          if (performance.now() - batchAt >= (this.diagnosticSolverBatchEnabled ? 8 : 4) || this.ctx.isDrawing()) break
+          if (performance.now() - batchAt >= (this.diagnosticSolverBatchEnabled && !this.diagnosticPhysicalBatchTwoEnabled ? 8 : 4) || this.ctx.isDrawing()) break
         }
         break // Per-tick backlog acceleration must not multiply this budget.
       }
