@@ -1,0 +1,247 @@
+{
+  "captureInputValid": true,
+  "diagnosticLifecyclePass": false,
+  "callbackError": "TypeError: globalThis.__captureOwnedBeforeCarry is not a function",
+  "cpuCandidate": {
+    "allowed": true,
+    "kind": "bounded-diagnostic-evidence",
+    "bytes": 589824,
+    "massErrors": [
+      3.467448550509289e-12,
+      3.467448550509289e-12,
+      3.467448550509289e-12,
+      3.467448550509289e-12,
+      1.6342482922482304e-12,
+      2.8421709430404007e-13,
+      1.2150280781497713e-12,
+      3.467448550509289e-12
+    ],
+    "changedValues": 19211
+  },
+  "passport": {
+    "ownerSequence": 2,
+    "epoch": 0,
+    "passStep": 0,
+    "passStride": 1,
+    "origin": [
+      448,
+      448
+    ],
+    "side": 128,
+    "packedSha": "df397dd040b4807c901bf17e6258b14087c3603407e49334933678aee835f52a",
+    "paperSha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+    "bytes": 589824,
+    "rawSha256": {
+      "sourceP": "ecbac89bd14c7c74f8c15589bcd85c6af8ff5c7f56c14b4a750b4a77c35a9332",
+      "sourceC": "19f0ef94612e7b8114d27552641854ca1b99fde923ee0d8e37ac425d9c2803f0",
+      "fluid": "d9be80a99fb2a1724cee81b0f53fce0a10dc7c10a5a3a50aac9432a2bbae5aaa",
+      "pressure": "e9ce3b924594be4e88e052fed770e1c0c479cd9d543e5a10795a2e85044d36a6",
+      "path": "53a26254bd96fb9324e0748cdbd5ba9b48bfe4e20cf50c156f6a3016da86b0c0",
+      "oldP": "cdd80e9d97e336dae3301b5ef850ff8e12154c13efca3af1df73115ad73d3708"
+    },
+    "sourceHead": "f36bdb2b23d8a6deb708367e80fedbd6c500a66f",
+    "stage": "before-carry"
+  },
+  "recipe": {
+    "bounds": {
+      "minX": 402.9232654571533,
+      "minY": 378.5722827911377,
+      "maxX": 644.3494396209717,
+      "maxY": 619.998456954956
+    },
+    "preset": {
+      "opacity": 0.99,
+      "hardness": 0.88,
+      "sizeMultiplier": 1
+    },
+    "profile": {
+      "stampsOnly": false,
+      "coverageInkMode": 6,
+      "stampFlow": null,
+      "nibShape": "ellipse",
+      "cornerFraction": 0,
+      "aaPx": 3,
+      "ink": true,
+      "inkEdgeFalloff": 0,
+      "compositeInkMode": 9,
+      "curvatureTolerancePx": 0.15,
+      "minHalfWidthPx": 0.75,
+      "paperRim": 0,
+      "wetEdgeRadiusPx": 0,
+      "spreadPx": 3,
+      "saturateInk": 0.2,
+      "normalizeDeposit": true,
+      "thinNibInkRefPx": 0,
+      "waterDepletion": true,
+      "waterLevel": 1,
+      "pigmentLevel": 1,
+      "pigmentStrength": 1,
+      "bristleCombs": 4,
+      "bristleInk": 0,
+      "spreadOfRadius": 2.52,
+      "cloud": 0.19,
+      "edgeSoft": 0.4,
+      "edgeWander": 0.42,
+      "tideLo": 0.24,
+      "tideHi": 0.6,
+      "strokeDir": [
+        1,
+        0
+      ],
+      "dryContact": 0,
+      "granulation": 0.1375,
+      "pigmentOpacity": 0.1,
+      "depositPerRadius": 0.21525,
+      "stampInkShare": 0.82,
+      "wetEdge": 0,
+      "migrate": 0,
+      "migrateOfRadius": 0.55,
+      "migrateLo": 0.34,
+      "migrateHi": 0.85,
+      "diagnosticReadFluid": true
+    },
+    "color": [
+      0.3,
+      0.15,
+      0.55
+    ],
+    "opacity": 0.9900000095367432,
+    "fieldSeed": [
+      418.9090881347656,
+      486.57073974609375
+    ],
+    "spreadPx": 3,
+    "fringeWater": 1,
+    "migratePx": 0,
+    "dabSpacing": 88,
+    "strokeDir": [
+      1,
+      0
+    ],
+    "bristleRadiusPx": 200.0000050113672,
+    "previewSourceFluid": {
+      "waterLevel": 1,
+      "landedWet": 1,
+      "wetPeak": 1,
+      "standingPeak": 0
+    },
+    "previewSourceGeometry": {
+      "firstGap": 0,
+      "tipDiameter": 45.42617416381836
+    }
+  },
+  "packedSource": "[{\"commands\":[{\"kind\":\"stamp\",\"phase\":\"coverage\",\"inkMode\":6,\"stamp\":{\"center\":[523.6363525390625,499.2853698730469],\"radius\":22.71308708190918,\"aspect\":1,\"angle\":0,\"pressure\":0.800000011920929,\"opacity\":0,\"nibShape\":\"ellipse\",\"cornerRadius\":0,\"inkEdge\":0,\"inkWater\":1,\"paperWet\":1,\"inkStrength\":1,\"puddle\":1,\"pigmentPool\":1,\"acrossLocal\":[0,1],\"inkClip\":0,\"inkBlend\":\"max\",\"uniforms\":{\"aaPx\":3,\"washWater\":1,\"waterRetain\":1,\"bristleCombs\":50,\"bristleInk\":0,\"tau\":[0,0,0],\"worldOrigin\":[0,0],\"mottleSeed\":[0,0],\"cloudDeposit\":0.19,\"granDeposit\":0.1375,\"poolBlot\":0,\"useAvailableWater\":false}}},{\"kind\":\"stamp\",\"phase\":\"solvent\",\"inkMode\":7,\"stamp\":{\"center\":[523.6363525390625,499.2853698730469],\"radius\":22.71308708190918,\"aspect\":1,\"angle\":0,\"pressure\":0.800000011920929,\"opacity\":0.25,\"nibShape\":\"ellipse\",\"cornerRadius\":0,\"inkEdge\":1,\"inkWater\":1,\"paperWet\":0,\"inkStrength\":0,\"puddle\":0,\"pigmentPool\":0,\"acrossLocal\":[0,1],\"inkClip\":1,\"inkBlend\":\"max\",\"uniforms\":{\"aaPx\":3,\"washWater\":1,\"waterRetain\":1,\"bristleCombs\":50,\"bristleInk\":0,\"tau\":[0,0,0],\"worldOrigin\":[0,0],\"mottleSeed\":[397.83505154639175,965.9887640449438],\"cloudDeposit\":0,\"granDeposit\":0,\"poolBlot\":0,\"useAvailableWater\":false}}},{\"kind\":\"stamp\",\"phase\":\"pigment\",\"inkMode\":7,\"stamp\":{\"center\":[523.6363525390625,499.2853698730469],\"radius\":22.71308708190918,\"aspect\":1,\"angle\":0,\"pressure\":0.800000011920929,\"opacity\":0.3593669231992319,\"nibShape\":\"ellipse\",\"cornerRadius\":0,\"inkEdge\":0,\"inkWater\":1,\"paperWet\":1,\"inkStrength\":1,\"puddle\":0,\"pigmentPool\":0,\"acrossLocal\":[0,1],\"inkClip\":2,\"inkBlend\":\"max\",\"uniforms\":{\"aaPx\":3,\"washWater\":1,\"waterRetain\":1,\"bristleCombs\":50,\"bristleInk\":0,\"tau\":[0,0,0],\"worldOrigin\":[0,0],\"mottleSeed\":[397.83505154639175,965.9887640449438],\"cloudDeposit\":0.19,\"granDeposit\":0.1375,\"poolBlot\":1,\"useAvailableWater\":true}}},{\"kind\":\"stamp\",\"phase\":\"color\",\"inkMode\":7,\"stamp\":{\"center\":[523.6363525390625,499.2853698730469],\"radius\":22.71308708190918,\"aspect\":1,\"angle\":0,\"pressure\":0.800000011920929,\"opacity\":0.3593669231992319,\"nibShape\":\"ellipse\",\"cornerRadius\":0,\"inkEdge\":0,\"inkWater\":1,\"paperWet\":1,\"inkStrength\":1,\"puddle\":0,\"pigmentPool\":0,\"acrossLocal\":[0,1],\"inkClip\":2,\"inkBlend\":\"max\",\"uniforms\":{\"aaPx\":3,\"washWater\":1,\"waterRetain\":1,\"bristleCombs\":50,\"bristleInk\":0,\"tau\":[1.2039728043259361,1.8971199848858813,0.5978370007556204],\"worldOrigin\":[0,0],\"mottleSeed\":[397.83505154639175,965.9887640449438],\"cloudDeposit\":0.19,\"granDeposit\":0.1375,\"poolBlot\":1,\"useAvailableWater\":true}}}],\"rect\":[402,404,243,242],\"film\":true,\"waterOnly\":false,\"composite\":{\"bounds\":{\"minX\":402.9232654571533,\"minY\":378.5722827911377,\"maxX\":644.3494396209717,\"maxY\":619.998456954956},\"preset\":{\"opacity\":0.99,\"hardness\":0.88,\"sizeMultiplier\":1},\"profile\":{\"stampsOnly\":false,\"coverageInkMode\":6,\"stampFlow\":null,\"nibShape\":\"ellipse\",\"cornerFraction\":0,\"aaPx\":3,\"ink\":true,\"inkEdgeFalloff\":0,\"compositeInkMode\":9,\"curvatureTolerancePx\":0.15,\"minHalfWidthPx\":0.75,\"paperRim\":0,\"wetEdgeRadiusPx\":0,\"spreadPx\":3,\"saturateInk\":0.2,\"normalizeDeposit\":true,\"thinNibInkRefPx\":0,\"waterDepletion\":true,\"waterLevel\":1,\"pigmentLevel\":1,\"pigmentStrength\":1,\"bristleCombs\":4,\"bristleInk\":0,\"spreadOfRadius\":2.52,\"cloud\":0.19,\"edgeSoft\":0.4,\"edgeWander\":0.42,\"tideLo\":0.24,\"tideHi\":0.6,\"strokeDir\":[1,0],\"dryContact\":0,\"granulation\":0.1375,\"pigmentOpacity\":0.1,\"depositPerRadius\":0.21525,\"stampInkShare\":0.82,\"wetEdge\":0,\"migrate\":0,\"migrateOfRadius\":0.55,\"migrateLo\":0.34,\"migrateHi\":0.85,\"diagnosticReadFluid\":true},\"color\":[0.3,0.15,0.55],\"opacity\":0.9900000095367432,\"fieldSeed\":[418.9090881347656,486.57073974609375],\"spreadPx\":3,\"fringeWater\":1,\"migratePx\":0,\"dabSpacing\":88,\"strokeDir\":[1,0],\"bristleRadiusPx\":200.0000050113672,\"previewSourceFluid\":{\"waterLevel\":1,\"landedWet\":1,\"wetPeak\":1,\"standingPeak\":0},\"previewSourceGeometry\":{\"firstGap\":0,\"tipDiameter\":45.42617416381836}}}]",
+  "raw": {
+    "sourceP": {
+      "path": "sourceP.bin",
+      "bytes": 65536,
+      "sha": "ecbac89bd14c7c74f8c15589bcd85c6af8ff5c7f56c14b4a750b4a77c35a9332"
+    },
+    "sourceC": {
+      "path": "sourceC.bin",
+      "bytes": 65536,
+      "sha": "19f0ef94612e7b8114d27552641854ca1b99fde923ee0d8e37ac425d9c2803f0"
+    },
+    "fluid": {
+      "path": "fluid.bin",
+      "bytes": 65536,
+      "sha": "d9be80a99fb2a1724cee81b0f53fce0a10dc7c10a5a3a50aac9432a2bbae5aaa"
+    },
+    "pressure": {
+      "path": "pressure.bin",
+      "bytes": 65536,
+      "sha": "e9ce3b924594be4e88e052fed770e1c0c479cd9d543e5a10795a2e85044d36a6"
+    },
+    "path": {
+      "path": "path.bin",
+      "bytes": 65536,
+      "sha": "53a26254bd96fb9324e0748cdbd5ba9b48bfe4e20cf50c156f6a3016da86b0c0"
+    },
+    "oldP": {
+      "path": "oldP.bin",
+      "bytes": 262144,
+      "sha": "cdd80e9d97e336dae3301b5ef850ff8e12154c13efca3af1df73115ad73d3708"
+    }
+  },
+  "driverOptions": {
+    "band": 0.7708333333333334,
+    "rate": 0.5,
+    "travel": 0.35,
+    "pow": 3,
+    "costMax": 24,
+    "effectiveWet": 1,
+    "wetLo": 0.45,
+    "wetHi": 0.7,
+    "pathMode": 1
+  },
+  "limitations": [
+    "Raw binary SHA must be added by controller before cleanup",
+    "Fluid driver values captured only inside ROI; outside zero, not whole-world actual solver equivalence",
+    "readback synchronous and diagnostic; not60fps/onsetbenchmark",
+    "No newGPUresources and source never written",
+    "Next-step global callback deleted caused a caught diagnostic TypeError; canonical continued. Run is not an overall PASS. Fixed closure afterwards, not device-tested.",
+    "Source/raw CPU candidate is a visual-only experiment, not Grafetto material or performance/animation acceptance"
+  ],
+  "actualPaper": {
+    "engine": "fine",
+    "loaded": true,
+    "file": "fine.e59ea6fa.paper",
+    "sha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+    "httpSha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968"
+  },
+  "memory": [
+    {
+      "stage": "preflight",
+      "freeMiB": 2119
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 2039
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 2011
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1974
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1866
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1847
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1593
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1790
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1805
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1825
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 1058
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 972
+    },
+    {
+      "stage": "monitor",
+      "freeMiB": 933
+    }
+  ],
+  "functionalReportValid": true
+}

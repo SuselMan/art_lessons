@@ -1,0 +1,77 @@
+{
+  "scope": "Offline CPU replay of actual captured inputs; no Grafetto material/animation/performance claim",
+  "passport": {
+    "ownerSequence": 2,
+    "epoch": 0,
+    "passStep": 0,
+    "passStride": 1,
+    "origin": [
+      448,
+      448
+    ],
+    "side": 128,
+    "packedSha": "df397dd040b4807c901bf17e6258b14087c3603407e49334933678aee835f52a",
+    "paperSha": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+    "bytes": 589824,
+    "rawSha256": {
+      "sourceP": "ecbac89bd14c7c74f8c15589bcd85c6af8ff5c7f56c14b4a750b4a77c35a9332",
+      "sourceC": "19f0ef94612e7b8114d27552641854ca1b99fde923ee0d8e37ac425d9c2803f0",
+      "fluid": "d9be80a99fb2a1724cee81b0f53fce0a10dc7c10a5a3a50aac9432a2bbae5aaa",
+      "pressure": "e9ce3b924594be4e88e052fed770e1c0c479cd9d543e5a10795a2e85044d36a6",
+      "path": "53a26254bd96fb9324e0748cdbd5ba9b48bfe4e20cf50c156f6a3016da86b0c0",
+      "oldP": "cdd80e9d97e336dae3301b5ef850ff8e12154c13efca3af1df73115ad73d3708"
+    },
+    "sourceHead": "f36bdb2b23d8a6deb708367e80fedbd6c500a66f",
+    "stage": "before-carry"
+  },
+  "nonemptySourcePixels": 1564,
+  "changedValues": 19211,
+  "massBefore": [
+    359.2627450980426,
+    359.2627450980426,
+    359.2627450980426,
+    359.2627450980426,
+    108.16078431372715,
+    170.3921568627455,
+    53.537254901961965,
+    359.2627450980426
+  ],
+  "massAfter": [
+    359.26274509803915,
+    359.26274509803915,
+    359.26274509803915,
+    359.26274509803915,
+    108.16078431372551,
+    170.39215686274522,
+    53.53725490196075,
+    359.26274509803915
+  ],
+  "maxMassError": 3.467448550509289e-12,
+  "sourceDensityRatioRanges": [
+    [
+      0,
+      0.5
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      0.3333333333333333
+    ]
+  ],
+  "hueOutsideSourceConvexRange": 0,
+  "dryDepositPixels": 0,
+  "boundaryDemand": 0,
+  "blockedDryEdges": 0,
+  "hop": 8,
+  "limitations": [
+    "Raw binary SHA must be added by controller before cleanup",
+    "Fluid driver values captured only inside ROI; outside zero, not whole-world actual solver equivalence",
+    "readback synchronous and diagnostic; not60fps/onsetbenchmark",
+    "No newGPUresources and source never written",
+    "Next-step global callback deleted caused a caught diagnostic TypeError; canonical continued. Run is not an overall PASS. Fixed closure afterwards, not device-tested.",
+    "Source/raw CPU candidate is a visual-only experiment, not Grafetto material or performance/animation acceptance"
+  ]
+}
