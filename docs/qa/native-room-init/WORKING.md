@@ -24,3 +24,5 @@ Partial encoded-write ledger: DEV diagnosticContentVersions OFF, WeakMap тол�
 - [x] Не подключённая private publication host factory: два actual raw bridge canvas, active lease до import finally, no extra ACK/fence. CPU tests + app TS; logical max 8 MiB при1024², physical swapchain unknown. Runtime/defaults неизменны, stale new-owner seed не разрешён, early admission HOLD.
 
 - [x] Standalone private-copy QA probe подготовлен (не запускался): actual host queue-order CPU test + asymmetric RGBA/orientation corpus. Default actual GL targets; noRoom/noFIFO/noGPU allocation при import. Hardware compile/output/hiddenRGB/memory остаются непроверенными до отдельной allocation.
+
+- [x] ONE Surface standalone64² private-copy PASS, source cfe31021: two independent actual raw bridge canvas endpoints exact fullRGBA/orientation, hidden-alpha0 RGB mismatches0. Source6files browser/disk passport совпал, loss/errors отсутствуют. Device/context/front/forward RELEASE. Не1024memory, неRoom/COW/earlyadmission, неUXgain. Результат native-private-copy-cfe-result.json, raw durable4696B. Guarded resource finish protected — root audit requested.

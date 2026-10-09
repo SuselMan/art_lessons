@@ -1,0 +1,94 @@
+{
+  "verdict": "PASS",
+  "scope": "ONE standalone64x64 output-copy only; no Room/FIFO/watercolor/UX gain",
+  "sourceHEAD": "cfe31021ca23ba6a7bb32a11cfb103d3e97d1a62",
+  "device": "Surface Chrome154",
+  "input": "asymmetric two RGBA versions; hidden RGB at alpha=0; top-row canonical to bottom-row GL contract",
+  "result": {
+    "schema": "native-private-publication-copy-v1",
+    "width": 64,
+    "height": 64,
+    "logicalCanvasMaxBytes": 32768,
+    "physicalSwapchainBytes": null,
+    "commandOrder": [
+      "uploadA",
+      "firstRawCanvasRender",
+      "uploadB",
+      "secondRawCanvasRender"
+    ],
+    "existingAckCount": 2,
+    "first": {
+      "mismatchedBytes": 0,
+      "hiddenRgbMismatches": 0,
+      "exact": true,
+      "sha256": "81e93eade9feb6dbd34bb7c9e09312a8bde9ab047918c0be4bf054cb15187a57"
+    },
+    "second": {
+      "mismatchedBytes": 0,
+      "hiddenRgbMismatches": 0,
+      "exact": true,
+      "sha256": "96606cfefaef4c6681ceefbae9dcd0ee21b2b36e6b1e40b14484565b0d14eaac"
+    },
+    "independentEndpoints": true,
+    "exact": true,
+    "scope": "Standalone output snapshots only; no watercolor parity, Room admission, physical memory or UX proof",
+    "shaderSHA": "e840ee4b6f07715b545e2813cfc09808c875f84e7466a9226983482988847494",
+    "shaderBytes": 329,
+    "errors": [],
+    "lost": null,
+    "glLost": false,
+    "deviceFeatures": [
+      "core-features-and-limits"
+    ],
+    "ownPageOnly": true
+  },
+  "sourcePassport": {
+    "/src/engine/src/webgpuCanonical/privatePublicationProbe.ts": {
+      "sha256": "944b39077e8c9732cb6902c1259036e71f626f76e32d47e77e876e621d5c0363",
+      "bytes": 4773
+    },
+    "/src/engine/src/webgpuCanonical/privatePublicationFactory.ts": {
+      "sha256": "daa3f10604af0396bab817c8bb25031b31fd2a265cfca521b83b66d4bf3687fd",
+      "bytes": 2436
+    },
+    "/src/engine/src/webgpuCanonical/roomTileBridge.ts": {
+      "sha256": "600f8ae54fb7a0e4097ab84eb453f2477ebbdc3c766baf0c2f857cb71075268e",
+      "bytes": 5597
+    },
+    "/src/engine/src/webgpuCanonical/exactPipelinePreparation.ts": {
+      "sha256": "323681e3acfff346a94f6c4e15cbabb5ef6f34f1c48868891079b1788681e789",
+      "bytes": 4572
+    },
+    "/src/engine/src/webgpuCanonical/publicationCost.ts": {
+      "sha256": "66d7ca16a0c4dc6e632de20021c0d3ac50e9f2235bc26b0fe17f5d330d1830a6",
+      "bytes": 758
+    },
+    "/src/engine/src/buffers/AccumulationBuffer.ts": {
+      "sha256": "867048ff57d9db50bba3d0d3f48a7fd28bffb1a3465f74c30a97d614f7129d6a",
+      "bytes": 26194
+    }
+  },
+  "servedBrowserMatches": true,
+  "durableEvidence": {
+    "report": "temp/device-runs/native-private-copy-one-20261009.json",
+    "bytes": 4696,
+    "sha256": "8624a0de8bdd25ae30b9759cd843e23760b8889ce1e634d8d58f9e96c4099665",
+    "controllerSHA": "1fcf0c3062dbfb805e3a34d90bcba96925f6d99e6e0d294e9beda4769c00b816",
+    "sourceHEAD": "cfe31021ca23ba6a7bb32a11cfb103d3e97d1a62",
+    "promoted": true
+  },
+  "cleanup": {
+    "ownContextClosed": true,
+    "ownDeviceDestroyCalled": true,
+    "ownFrontendForwardControllerStopped": true,
+    "afterReleaseFreeMiB": 1981.54296875,
+    "resourceId": "native-private-copy-5a",
+    "finish": "marked finished; protected process-reference guard, root audit needed"
+  },
+  "limitations": [
+    "Physical swapchain memory unknown; 64x64 does not verify 1024x1024 budget",
+    "No owner-local admission, immutable material or publication-version authority implemented",
+    "Existing2ACK complete before readbacks; no timestamp/throughput/latency benchmark",
+    "Node transport lingered after successful own context cleanup; only own controller was terminated after durable report"
+  ]
+}
