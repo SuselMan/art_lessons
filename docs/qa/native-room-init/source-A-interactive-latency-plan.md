@@ -52,3 +52,44 @@ methods/listeners are restored before endpoint capture and again on cleanup.
 Partial listener installation and device loss before first source restore all
 installed listeners/prototypes. CPU tests cover repeated cpu-gesture IDs in
 different scratches and delayed previous source, with no backend calls.
+
+## ONE allocated command passport
+
+Before starting, register one disposable and supply `QA_OUT` inside it. Prepare
+source and paper manifests from the current clean worktree; `QA_SOURCE` is the
+actual full HEAD at preparation time. The origin manifest must match that HEAD
+and all actual browser13/raw source files plus exact15 recipe and existing3
+shader passports. QA observer installation is outside runtime source; it calls
+original Runtime.consume/emitPrepared/restoreCanvasPixels unchanged. Existing
+cached SDK/dependencies, one frontend5380, shared backend4558 and owned Surface
+forward are reused. Do not create a runtime snapshot, dependencies copy or DB.
+
+The existing entry receives these fixed mode values:
+
+```sh
+QA_INTERACTIVE_MARKERS=1 QA_SCENARIO=water-pigment400-long \
+QA_SOURCE_PRECOMPILE=1 QA_ACTUAL_ASYNC_PRESSURE=1 \
+QA_ACTUAL_OBSERVED_FIELDS=1 QA_CARRY_HARDWARE_PRESSURE=1 \
+QA_FIRST_LIVE_WARMUP=0 QA_RAW_CANVAS_WARMUP=0 \
+QA_CPU_PROFILE=0 QA_TIMELINE_TRACE=0 QA_PLANNER_ATTRIBUTION=0 \
+QA_SELECTED_FRONT_FENCE=0 QA_NATIVE_INFLIGHT_LIMIT=0 \
+QA_ASYNC_PRESSURE_PIPELINE=0 QA_CAPTURE_FIELDS=0 QA_ENDPOINT_EXPORT=1 \
+  node docs/qa/harness/728-room-native400/controller.mjs
+```
+
+The caller additionally supplies existing trusted QA_APP/CDP_BASE/QA_RUNTIME,
+QA_SOURCE, QA_MANIFEST, QA_PAPER_MANIFEST, QA_ORIGIN_MANIFEST and QA_ENTRY_FILE.
+This passport is not an allocation or a new service start. The original child
+checks fresh RAM>=1700 MiB before creating its owned context, watches abort500,
+and retains its 120-second deadline; a bounded outer150-second process deadline
+must also be supplied by the existing caller. On unsupported source ownership,
+missing own markers, overflow, device loss or exception: fail closed, retain
+partial compact evidence and stop the one run. No retry follows automatically.
+
+Promote scalar interactive fields, source15 preparation/consumption passports,
+owned final GL0/nonempty endpoint, packed input and bounded export before finish.
+Use the verified artifact/cleanup guard, stop only owned context/frontend/forward,
+leave shared backend running, and report Surface RELEASE. Timing exports/capture
+remain after probe restoration, outside the input interval. No new Promise
+handlers are attached to material methods; the original bridge/engine awaits are
+unchanged and must not be described as observer-free GPU execution.
