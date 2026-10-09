@@ -61,3 +61,5 @@ Follow-up: bounded per-field NumberMap проверен и отклонён: ful
 
 - [x] DEV internal actual Engine admission seam: dry pencil packed/pressure/ID/context equality after tool/layer change; actual FIFO→source→Undo/Dry, failure finally, stale/OFF/destroy guards. No query/runtime activation.
 - [ ] Watercolor admitted-context parity remains HOLD: nonserializable PaperWetness needs full fork and per-batch receipt times, not only DOWN. Existing stencil/film owners are not frozen by this seam.
+
+- [x] DEV PaperWetness opaque bounded CPU snapshot/fork: committed/pending/pool/drained/peak/bounds exact copies без clocks/merge; Engine wet admission всё ещё HOLD.

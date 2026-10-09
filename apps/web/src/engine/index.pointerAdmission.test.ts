@@ -32,3 +32,16 @@ it('actual Engine retained replay runs after owner and before actual Undo/Dry us
  queue.enqueue({execute:function*(){expect(e.undo()).not.toBeNull();order.push('Undo')},cancel:()=>{}});queue.enqueue({execute:function*(){e.watercolorDryAll();order.push('Dry')},cancel:()=>{}})
  expect(e.getOperations().some(op=>op.type==='stroke')).toBe(false);let limit=20;while(frames.size&&limit--){const [id,cb]=frames.entries().next().value!;frames.delete(id);cb()}expect(limit).toBeGreaterThan(0);expect(order).toEqual(['owner','source','Undo','Dry']);expect(a.result.status).toBe('dispatched');expect(e['_activeId']).toBe('L2');expect(e['_opts'].tool).toBe('eraser')
 })
+it('actual source chunk advances only its own captured journal revision; foreign callback revision remains stale',async()=>{
+ for(const foreign of [false,true]){
+  const e=await setup(true),packet=e.diagnosticCapturePointerAdmission('fixed-id-0')
+  const flush=vi.spyOn(e as unknown as {_flushStrokeChunk():void},'_flushStrokeChunk')
+  // Exercise the same source chunk branch without a huge CPU/GPU fixture.
+  vi.spyOn(e as unknown as {_chunkSpanExceeded():boolean},'_chunkSpanExceeded').mockReturnValue(true)
+  if(foreign){let injected=false;e['_onLocalOperation']=()=>{if(!injected){injected=true;e.appendOperation(makeLayerAdd('peer','foreign'))}}}
+  e.diagnosticDispatchPointerAdmission(packet,'start',sample(8,100),1000)
+  expect(flush).toHaveBeenCalled();expect(e.getOperations().some(op=>op.type==='stroke')).toBe(true)
+  if(foreign)expect(()=>e.diagnosticDispatchPointerAdmission(packet,'move',sample(16,112),1012)).toThrow('stale')
+  else {e.diagnosticDispatchPointerAdmission(packet,'move',sample(16,112),1012);e.diagnosticDispatchPointerAdmission(packet,'end',sample(24,124),1024);expect(e['_strokeLayerId']).toBeNull()}
+ }
+})

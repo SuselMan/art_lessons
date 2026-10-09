@@ -1525,6 +1525,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _diagnosticPointerAdmission = false
   private _admittedPointerStrokeId: string | null = null
   private _admittedPointerTimestamp: number | null = null
+  private _admittedPointerPacket: object | null = null
   private _admissionPackets = new WeakMap<object, { opts: EngineOpts; layerId: string; target: unknown; ruler: RulerLine | null; nibAngle: number; nibAnchor: NibAnchor; tilt: TiltResponse; strokeId: string; revision: number }>()
   private _opts: EngineOpts
   private _grainMode: number | undefined
@@ -6188,10 +6189,10 @@ export class PencilEngine implements PencilEngineAPI {
       || kind === 'start' && !!this._strokeLayerId || kind !== 'start' && this._strokeId !== owned.strokeId)
       throw Error('Pointer admission stale/unsupported owner')
     const previous = { opts: this._opts, active: this._activeId, ruler: this._ruler,
-      nibAngle: this._nibAngleRadians, nibAnchor: this._nibAnchor, tilt: this._tiltResponse, id: this._admittedPointerStrokeId, timestamp: this._admittedPointerTimestamp }
+      nibAngle: this._nibAngleRadians, nibAnchor: this._nibAnchor, tilt: this._tiltResponse, id: this._admittedPointerStrokeId, timestamp: this._admittedPointerTimestamp, packet: this._admittedPointerPacket }
     this._opts = structuredClone(owned.opts); this._activeId = owned.layerId; this._ruler = owned.ruler
     this._nibAngleRadians = owned.nibAngle; this._nibAnchor = owned.nibAnchor; this._tiltResponse = owned.tilt
-    this._admittedPointerStrokeId = owned.strokeId; this._admittedPointerTimestamp = receiptWallTime
+    this._admittedPointerStrokeId = owned.strokeId; this._admittedPointerTimestamp = receiptWallTime; this._admittedPointerPacket = packet
     try {
       if (kind === 'start') this._onStart(e)
       else if (kind === 'move') this._onMove(e)
@@ -6202,7 +6203,7 @@ export class PencilEngine implements PencilEngineAPI {
     } finally {
       this._opts = previous.opts; this._activeId = previous.active; this._ruler = previous.ruler
       this._nibAngleRadians = previous.nibAngle; this._nibAnchor = previous.nibAnchor; this._tiltResponse = previous.tilt
-      this._admittedPointerStrokeId = previous.id; this._admittedPointerTimestamp = previous.timestamp
+      this._admittedPointerStrokeId = previous.id; this._admittedPointerTimestamp = previous.timestamp; this._admittedPointerPacket = previous.packet
       if (kind === 'end') this._admissionPackets.delete(packet)
     }
   }
@@ -7248,7 +7249,16 @@ export class PencilEngine implements PencilEngineAPI {
         ...(this._washId ? { washId: this._washId } : {}),
         ...(this._strokeWet && !isDryProfile(this._strokeWet) ? { wet: this._strokeWet } : {}),
       }
+      const admittedRevision = this._admittedPointerPacket ? this._log.revision : null
       this._log.append(op, { pending: true })
+      if (this._admittedPointerPacket && admittedRevision !== null) {
+        const owned = this._admissionPackets.get(this._admittedPointerPacket)
+        // Only this exact successful source append advances the owner. Never
+        // adopt arbitrary journal changes from observers/foreign operations.
+        if (owned && owned.revision === admittedRevision && this._log.revision === admittedRevision + 1
+          && op.userId === this._userId && op.strokeId === owned.strokeId
+          && op.layerId === owned.layerId && op.tool === 'pencil') owned.revision = this._log.revision
+      }
       if (this._wcAsyncLocalStroke) this._queueAsyncLocalToolOp(op, this._wcAsyncLocalStroke)
       if (this._foreignUnrecordedInk(targetId, op)) this._unsettledLayers.add(targetId)
       this._maybeCheckpoint(targetId)

@@ -64,3 +64,5 @@ bounds и исходные cell timestamps. Кроме DOWN нужны врем�
 batch/sampleUnderNib/deposit/UP commit. Это отдельный wet HOLD, не dry parity.
 Код не претендует на GPU immutable material или отсутствие частичных material
 изменений при исключении handler: packet инвалидируется, recovery не реализован.
+
+Own chunk revision progression теперь обновляется только непосредственно после exact own source append, до observer callback; foreign callback mutation не принимается. Проверка использует actual chunk branch с forced span witness, не claim 800-sample hardware trial.

@@ -92,7 +92,40 @@ function key(cx: number, cy: number): number {
   return (cx + 33554432) * 67108864 + (cy + 33554432)
 }
 
+/** Opaque schema-version token; not a live content revision or merge authority. */
+export interface DiagnosticWetSnapshot { readonly version: 1; readonly cellCount: number; readonly recordCount: number }
+
 export class PaperWetness {
+  private static readonly _diagnosticSnapshots = new WeakMap<object, PaperWetness>()
+  /** DEV CPU proof only. No clock read, decay, prune, live restore or merge. */
+  captureDiagnosticSnapshot(maxRecords = 8192): DiagnosticWetSnapshot {
+    if (!import.meta.env.DEV) throw Error('Wet snapshot is DEV-only')
+    if (!Number.isSafeInteger(maxRecords) || maxRecords < 0 || maxRecords > 65536) throw Error('Invalid wet snapshot bound')
+    let cellCount = 0
+    for (const maps of [this._layers, this._pending]) for (const cells of maps.values()) cellCount += cells.size
+    const recordCount = cellCount + this._layers.size + this._pending.size + this._drained.size
+    if (recordCount > maxRecords) throw Error('Wet snapshot capacity exceeded')
+    const token: DiagnosticWetSnapshot = Object.freeze({version: 1, cellCount, recordCount})
+    PaperWetness._diagnosticSnapshots.set(token, this._copyDiagnosticState())
+    return token
+  }
+  /** Each fork is independent; caller must supply recorded times to normal APIs. */
+  static forkDiagnosticSnapshot(token: DiagnosticWetSnapshot): PaperWetness {
+    if (!import.meta.env.DEV) throw Error('Wet snapshot is DEV-only')
+    const state = PaperWetness._diagnosticSnapshots.get(token)
+    if (!state || token.version !== 1) throw Error('Unknown wet snapshot')
+    return state._copyDiagnosticState()
+  }
+  private _copyDiagnosticState(): PaperWetness {
+    const copy = new PaperWetness()
+    for (const [src, dst] of [[this._layers, copy._layers], [this._pending, copy._pending]] as const)
+      for (const [layerId, cells] of src) dst.set(layerId, new Map([...cells].map(([k, cell]) => [k, {...cell}])))
+    for (const item of this._drained) copy._drained.add(item)
+    copy._peak = this._peak; copy._peakAt = this._peakAt
+    copy._box = this._box ? {...this._box} : null
+    return copy
+  }
+
   private readonly _layers = new Map<string, Map<number, WetCell>>()
   /** (#536) Water the gesture in progress has laid but not yet committed.
    *
