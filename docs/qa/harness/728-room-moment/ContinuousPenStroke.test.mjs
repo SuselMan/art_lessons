@@ -1,0 +1,7 @@
+import test from'node:test';import assert from'node:assert/strict';import{continuousPenStroke}from'./ContinuousPenStroke.mjs';
+test('actual transform inverse, coalescing and capture restoration',async()=>{
+ const oldRaf=globalThis.requestAnimationFrame,oldPerformance=globalThis.performance;let clock=0;globalThis.performance={now:()=>clock};globalThis.requestAnimationFrame=callback=>{clock+=300;queueMicrotask(()=>callback(clock))};
+ const calls=[],cap=()=>{},release=()=>{},canvas={setPointerCapture:cap,releasePointerCapture:release};
+ const e={_locked:false,_paper:{loaded:true},gl:{isContextLost:()=>false},_wcCanonical:{pending:false},_rebuildJobs:new Map(),_settle:null,_pointer:{_transform:(x,y)=>({x:x*2+20,y:y*2+40}),_handleDown(ev){e._strokeId='stroke';calls.push(['down',ev.clientX,ev.clientY])},_handleMove(ev){calls.push(['move',ev.getCoalescedEvents().map(x=>[x.clientX,x.clientY,x.timeStamp])])},_handleUp(){e._strokeId=null;calls.push(['up'])}}};
+ try{const r=await continuousPenStroke(e,canvas,{deadline:5000});assert.equal(r.frames.length,6);assert.deepEqual(calls[0],['down',140,130]);assert.equal(calls.filter(x=>x[0]==='move').every(x=>x[1].length===2),true);assert.deepEqual(calls.at(-2)[1].at(-1),[290,230,1800]);assert.equal(calls.filter(x=>x[0]==='up').length,1);assert.equal(canvas.setPointerCapture,cap);assert.equal(canvas.releasePointerCapture,release)}finally{globalThis.requestAnimationFrame=oldRaf;globalThis.performance=oldPerformance}
+});
