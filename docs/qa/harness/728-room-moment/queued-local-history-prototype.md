@@ -1,6 +1,6 @@
 # DEV queued local history — review candidate
 
-Private `_queuedLocalHistoryDev=false`, runtime DEV gate. Нет constructor/query/UI opt-in, нет аппаратной проверки или рекомендации включать. OFF сохраняет обычный synchronous Undo/Redo.
+Текущий candidate: private `_queuedLocalHistoryDev=false`, explicit DEV constructor/query `wcQueuedHistory=1`; PROD игнорирует flag. OFF сохраняет ordinary synchronous Undo/Redo. Один малый actual Surface UI/material gate прошёл (ниже); это не доказательство ускорения или восстановления после реальной GPU ошибки. Старые этапы review ниже отражают последовательность разработки.
 
 Intent выбирает exact target/control ID один раз и входит в существующую FIFO. До natural material boundary нет log mutation, PaperWet forgetting, local callback/outbox emission. Repeated Undo/Redo возвращают null busy, source DOWN refused. `getOperations` не рекламирует unemitted intent как done. Export/review/preview/snapshot/fullreplay/checkpoints failclosed. Когда существующий rAF drain допускает применение, используется обычный _appendOperationNow; acceptance callback и serverseq semantics остаются после material.
 
@@ -14,7 +14,7 @@ Failure: exact request outcome failed сохраняется, pending не ис�
 
 Ограничения: пока API null busy и internal request outcome; UI pending indicator не подключён. Prototype не решает стоимость history repair после natural boundary; цель — не forceddrain в click. Требуется root review error rollback/meta journal/confirmation race и real rAF protocol прежде UI/device rollout.
 
-Outcome `accepted` не означает published: `materialIdle` отдельный conservative witness jobs/settle/canonical/queue/context lifecycle. Snapshot serverwatermark readiness остаётся отдельным существующим контрактом. Backfilled mixedstate fixture использует prependHistorical API; underlying SnapshotIO inconsistency не исправлялась.
+Outcome `accepted` не означает published: `materialIdle` отдельный conservative witness jobs/settle/canonical/queue/context lifecycle. Snapshot serverwatermark readiness остаётся отдельным существующим контрактом. Backfilled mixedstate fixture использует prependHistorical API; underlying SnapshotIO inconsistency исправлена отдельно интеграцией atomic backfill в `3c774a5d`.
 
 ## Async repair error boundary
 
@@ -41,3 +41,22 @@ Accepted и materialIdle записаны отдельно; никакого for
 No-input loopback URL infra error сохранён отдельно, исправлен до рисования.
 Summary `queued-history-small-ui-surface-summary.json`; контекст/forward закрыты,
 после cleanup SurfaceRAM1468MiB, ниже допуска следующего аппаратного запуска.
+
+### Manual candidate готовность
+
+Runtime source `3c774a5d` проверен на existing5381 по served SHA для Engine,
+OperationLog, SnapshotIO, Room и strict flag parser. URL suffix:
+`?qaJoinedTouch=1&wcMixedLease=1&wcQueuedHistory=1` (baseline: без двух wc flags).
+Собственный VPS standalone64 canvas через реальные импортированные parser/constructor
+подтвердил joinedTouch+mixedLease+queuedHistory ON, async/deferred OFF, active input OFF,
+GL0/context alive. Контекст закрыт. Software Room restore probe истёк по hard45 без
+рисования; это сохранённый infra/software limitation, не Room correctness PASS.
+Пользовательскую manualroom и её вкладку не открывал/не перезагружал. Новых сервисов,
+backend или аппаратных запусков не было.
+
+Что смотреть вручную: следующий мокрый штрих, Undo во время досыхания и Redo.
+Queued Undo ждёт natural material boundary; новый штрих/повторный history control во
+время pending отклоняется busy. UI indicator пока не добавлен. Нет доказательства
+physical latency, крупной кисти400, нескольких peers или hardware failure recovery
+для объединённой конфигурации. Малый Surface UI PASS проверял queuedHistory с mixedLease OFF;
+mixedLease имеет отдельное прежнее material/performance evidence.

@@ -1,0 +1,31 @@
+{
+  "sourceHead": "3c774a5ddfd14eade1e0afbc16beb8ada75cb89b",
+  "passport": {
+    "apps/web/src/engine/index.ts": "535925b09ef5b9ef003a06f870c6aaab5d12e29c3e46190e6446c89f07703cbc",
+    "apps/web/src/engine/src/oplog/OperationLog.ts": "1d40728a50740d8979db8ed6fcb61fd2414376ae06968cfd9ee192b60cf2c09f",
+    "apps/web/src/engine/src/oplog/SnapshotIO.ts": "5b5e9541681eb6d60d506090ae977708c82cc28d19a7cb64ec72f23011019669",
+    "apps/web/src/pages/Room/index.tsx": "1c261ae553637d904c76fc09c83c8ba8faa449633ddb081396cd2adf736b0ffa",
+    "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "b6e60936994a23d00426ef42b80a2a9bd37497b2c790c4c0f6a8375a766acb1c"
+  },
+  "roomProbe": {
+    "valid": false,
+    "error": "Error: page.evaluate: Target page, context or browser has been closed",
+    "scope": "VPS software browser constructor/no-input only; no GPU hardware proof",
+    "closed": true
+  },
+  "standalone": {
+    "scope": "VPS software standalone64 constructor/parser only; no Room/device/performance claim",
+    "flags": {
+      "queued": true,
+      "joined": true,
+      "lease": true,
+      "async": false,
+      "deferred": false,
+      "active": false,
+      "glError": 0,
+      "lost": false
+    },
+    "valid": true,
+    "closed": true
+  }
+}
