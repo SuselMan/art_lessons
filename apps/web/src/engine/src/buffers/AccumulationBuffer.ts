@@ -355,7 +355,7 @@ export class AccumulationBuffer {
    * dedicated WebGPU canvas. No paper/composite or model fallback is applied.
    * Browser canvas conversion is not presumed byte exact; a hardware gate is
    * required before this path is admitted by Room. */
-  restoreCanvasPixels(canvas: HTMLCanvasElement): void {
+  restoreCanvasPixels(canvas: HTMLCanvasElement, diagnosticStateRead?: (wallMs: number) => void): void {
     if (canvas.width !== this.width || canvas.height !== this.height
       || this._storageWidth !== this.width || this._storageHeight !== this.height) {
       throw new Error('Room GPU canvas bridge requires equal allocated tile dimensions')
@@ -363,10 +363,13 @@ export class AccumulationBuffer {
     const gl = this.gl
     if (gl.isContextLost()) throw new Error('Room GPU canvas bridge WebGL context lost')
     this._invalidateMips()
+    let stateStart: number | null = null
+    if (diagnosticStateRead) { try { stateStart = performance.now() } catch { /* Clock must not affect GL operations. */ } }
     const binding = gl.getParameter(gl.TEXTURE_BINDING_2D) as WebGLTexture | null
     const flip = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL) as boolean
     const premultiply = gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL) as boolean
     const conversion = gl.getParameter(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL) as number
+    if (diagnosticStateRead) { try { diagnosticStateRead(stateStart === null ? NaN : performance.now() - stateStart) } catch { /* Observer cannot change GL state. */ } }
     try {
       gl.bindTexture(gl.TEXTURE_2D, this._texture)
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)

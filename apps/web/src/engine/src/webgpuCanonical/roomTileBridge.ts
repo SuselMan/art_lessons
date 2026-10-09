@@ -1,3 +1,4 @@
+import {publicationCostMarker,type PublicationCost} from './publicationCost'
 import {preparedExactPipeline,type ExactPipelineRecipe} from './exactPipelinePreparation'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { CanonicalGpuField } from './types'
@@ -26,6 +27,7 @@ const shader=`
  * actual GPU comparison. No paper/wet shader is included. */
 export function canonicalRawCanvasRecipe():ExactPipelineRecipe{return{key:'canonicalRawCanvasRecipe',kind:'render',code:shader,moduleLabel:'DEV raw Q8 Room tile bridge',descriptor(module){return {layout:'auto',vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'fs',targets:[{format:'rgba8unorm'}]},primitive:{topology:'triangle-list'}}}}}
 export class CanonicalRoomTileBridge {
+ diagnosticCost:((cost:PublicationCost)=>void)|null=null
  readonly canvas:HTMLCanvasElement
  private readonly context:GPUCanvasContext
  private readonly pipeline:GPURenderPipeline
@@ -46,8 +48,10 @@ export class CanonicalRoomTileBridge {
  }
  async copyByCanvas(field:CanonicalGpuField,target:AccumulationBuffer,current:()=>boolean=()=>true):Promise<void> {
   this.guard(field,target)
-  await this.submitCanvas(field)
-  this.guard(field,target);if(!current())throw new Error('Room tile bridge publication retired');target.restoreCanvasPixels(this.canvas)
+  const report=this.diagnosticCost
+  await this.submitCanvas(field,report)
+  this.guard(field,target);if(!current())throw new Error('Room tile bridge publication retired');const done=report?publicationCostMarker(report)('glCanvasImport'):null;let ok=false
+  try{target.restoreCanvasPixels(this.canvas,report?wallMs=>{try{report({phase:'glStateRead',wallMs,ok:true})}catch{}}:undefined);ok=true}finally{done?.(ok)}
  }
  /** Detached QA warmup: same render pipeline, no GL publication or Room target. */
  async warmDetachedCanvas(field:CanonicalGpuField):Promise<void> {
@@ -55,11 +59,16 @@ export class CanonicalRoomTileBridge {
   await this.submitCanvas(field)
   if(this.disposed)throw new Error('Detached bridge retired during warmup')
  }
- private async submitCanvas(field:CanonicalGpuField):Promise<void> {
+ private async submitCanvas(field:CanonicalGpuField,report=this.diagnosticCost):Promise<void> {
+  const submitted=report?publicationCostMarker(report)('canvasSubmit'):null;let submitOk=false
+  try{
   const encoder=this.device.createCommandEncoder({label:'DEV raw tile to Room bridge'})
   const pass=encoder.beginRenderPass({colorAttachments:[{view:this.context.getCurrentTexture().createView(),clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'store'}]})
   pass.setPipeline(this.pipeline);pass.setBindGroup(0,this.device.createBindGroup({layout:this.pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:field.view}]}));pass.draw(3);pass.end()
-  this.device.queue.submit([encoder.finish()]);await this.device.queue.onSubmittedWorkDone()
+  this.device.queue.submit([encoder.finish()]);submitOk=true
+  }finally{submitted?.(submitOk)}
+  const acknowledged=report?publicationCostMarker(report)('queuePrefixAck'):null;let ackOk=false
+  try{await this.device.queue.onSubmittedWorkDone();ackOk=true}finally{acknowledged?.(ackOk)}
  }
  private guard(field:CanonicalGpuField,target:AccumulationBuffer) {
   if(this.disposed)throw new Error('Room tile bridge disposed')

@@ -25,6 +25,7 @@ export interface RoomNativeMaterialJob {
  dispose():void
 }
 export interface RoomNativeCentralOwner {
+ readonly diagnosticCurrentPassport?:Readonly<import('./boundedSchedulingObserver').SchedulingPassport>|null
  readonly isIdle:boolean
  /** Existing engine owns FIFO, blocked input, authoritative replay and cancellation. */
  admit(job:RoomNativeMaterialJob):Promise<void>
@@ -62,6 +63,7 @@ export class CanonicalRoomWatercolorExecutor {
  private readonly layerId:string
  private readonly generation:number
  private readonly bridge:CanonicalRoomTileBridge
+ private readonly diagnosticPublication:boolean
  private readonly bridgeMode:'readback'|'canvas'
  private readonly pool:CanonicalScratchPool
  private readonly fields:CanonicalPlanFieldOwner
@@ -79,7 +81,7 @@ export class CanonicalRoomWatercolorExecutor {
  private retired=false
  private retirement:Promise<void>|null=null
  private readonly ready:Promise<void>
- constructor(backend:CanonicalWatercolorWebGpu,options:{tile:AccumulationBuffer;originX:number;originY:number;layerId:string;generation:number;delivery:Pick<CanonicalStrokeChunkState,'brushTravel'|'wetContacts'>;central:RoomNativeCentralOwner;bridgeMode:'readback'|'canvas';bridgeCanvas:HTMLCanvasElement;diagnosticNativeBrushPair?:boolean;diagnosticMomentGpuAudit?:boolean;diagnosticMomentVector?:boolean;diagnosticCarryHardwarePressure?:boolean}) {
+ constructor(backend:CanonicalWatercolorWebGpu,options:{tile:AccumulationBuffer;originX:number;originY:number;layerId:string;generation:number;delivery:Pick<CanonicalStrokeChunkState,'brushTravel'|'wetContacts'>;central:RoomNativeCentralOwner;bridgeMode:'readback'|'canvas';bridgeCanvas:HTMLCanvasElement;diagnosticSchedulingObserver?:boolean;diagnosticNativeBrushPair?:boolean;diagnosticMomentGpuAudit?:boolean;diagnosticMomentVector?:boolean;diagnosticCarryHardwarePressure?:boolean}) {
   if(options.tile.width!==1024||options.tile.height!==1024||options.originX!==0||options.originY!==0)throw new Error('DEV Room native executor requires one origin-zero1024 tile; no silent GL fallback')
   if(options.diagnosticMomentVector&&!options.diagnosticMomentGpuAudit)throw Error('DEV vector moment requires GPU audit')
   if(!options.central.isIdle)throw new Error('Seed native Room tile only at a central idle boundary')
@@ -91,6 +93,7 @@ export class CanonicalRoomWatercolorExecutor {
   this.scratch=new CanonicalStrokeScratchMetadata(new CanonicalTileScratch(this.pool),{brushTravel:[],wetContacts:[]},[this.target])
   this.source=new CanonicalSourcePhaseExecutor(backend,this.scratch.tiles,[this.target],{fieldOp:(out,a,b,mode,k,scissor)=>this.adapter.fieldOp(out,a,b,mode,k,{scissor:scissor?[...scissor]:undefined})},()=>this.scratch.trackRunningSource)
   this.finish=new CanonicalSingleTileFinish(backend,this.scratch.tiles,[this.target]);this.bridge=new CanonicalRoomTileBridge(backend.device,options.bridgeCanvas,1024,1024)
+  this.diagnosticPublication=import.meta.env.DEV&&options.diagnosticSchedulingObserver===true
   this.planner=new CanonicalWatercolorSettlePlan({fieldFor:(w,h,c)=>this.fields.fieldFor(w,h,c),paperWorldSize:()=>({w:backend.paper.texSize[0],h:backend.paper.texSize[1]}),pool:()=>this.pool,supportsFilm:()=>true,ab:()=>({noDiffuse:false,noCarry:false,opDry:false}),shouldPreview:()=>false,passes:()=>this.adapter,uploads:this.adapter.uploads})
   this.diagnosticMomentVector=options.diagnosticMomentVector===true
   this.diagnosticMomentGpuAudit=options.diagnosticMomentGpuAudit===true
@@ -206,6 +209,7 @@ export class CanonicalRoomWatercolorExecutor {
  }
  private async publishWithoutDrain():Promise<void> {
   this.assertLive()
+  if(this.diagnosticPublication){const passport=this.central.diagnosticCurrentPassport;this.bridge.diagnosticCost=passport?cost=>console.info('[native-room-publication]',JSON.stringify({...cost,...passport,ownerEpoch:this.generation,layerId:this.layerId})):null}
   if(this.bridgeMode==='canvas')await this.bridge.copyByCanvas(this.target.buffer.field,this.glTile,()=>!this.retired)
   else await this.bridge.copyByReadback(this.target.buffer.field,this.glTile,field=>this.backend.readField(field),()=>!this.retired)
  }

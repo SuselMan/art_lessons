@@ -14,6 +14,7 @@ export class RoomNativeCentralAdapter implements RoomNativeCentralOwner {
  diagnosticScheduling:BoundedSchedulingObserver|null=null
  private schedulingRequests:Map<number,SchedulingRequest>|null=null
  private currentScheduling:SchedulingRequest|null=null
+ get diagnosticCurrentPassport(){return this.currentScheduling?.passport??null}
  bindDiagnosticScope(quantumId:number,ownerEpoch:number){return this.currentScheduling?.bindRelease(quantumId,ownerEpoch)}
  private materialQuantumCap=8
  private materialScopeCap=0
