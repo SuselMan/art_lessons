@@ -13,10 +13,11 @@ export function installOwnedMorphFilmstrip(engine,canvas,{anchorSequence=null,an
   // No screenshot/readback in DOWN/MOVE, including the new gesture during a reveal.
   if(start!==null&&!engine._strokeId&&(!final||(!reveals.length&&!engine._wcCanonical.pending&&!engine._settle&&!(engine._rebuildJobs?.size)))&&frames.length<maxFrames&&now-start>=offsets[frames.length]){
    // Redraw before capture: WebGL drawing buffer may be discarded between frames.
-   engine._display();
+   engine._display();let frameAt=now;
+   if(final){frameAt=clock.now();const postReveals=[...engine._washReveals.values()].map(r=>({startedAt:r.startedAt,durationMs:r.durationMs??null,progressive:!!r.progressive,hold:engine._revealHold(r,frameAt)}));lastGate={at:frameAt,anchorAt:start,postDisplay:true,canonicalPending:!!engine._wcCanonical.pending,settle:!!engine._settle,rebuilds:engine._rebuildJobs?.size??0,activeStroke:!!engine._strokeId,revealDetails:postReveals};if(lastGate.canonicalPending||lastGate.settle||lastGate.rebuilds||lastGate.activeStroke||postReveals.some(r=>!Number.isFinite(r.hold)||r.hold>0)){id=raf(tick);return;}}
    const out=makeCanvas(),scale=Math.min(1,640/canvas.width,640/canvas.height);out.width=Math.max(1,Math.round(canvas.width*scale));out.height=Math.max(1,Math.round(canvas.height*scale));out.getContext('2d').drawImage(canvas,0,0,out.width,out.height);
    const png=out.toDataURL('image/png');bytes+=png.length;if(bytes>maxBytes){stopped=true;resolveDone();return;}
-   frames.push({finalAfterReveal:final?true:null,...(final?{revealDetails}:{}),publicationConfirmed:publication?!!getTrace().find(event=>event.kind==='land'&&event.sequence===anchorSequence)&&!engine._wcCanonical.pending:null,requestedOffset:offsets[frames.length],at:now,elapsed:now-start,canonicalPending:!!engine._wcCanonical.pending,reveals:reveals.length,width:out.width,height:out.height,png});
+   frames.push({finalAfterReveal:final?true:null,...(final?{revealDetails:lastGate.revealDetails,postDisplayGuards:true}:{}),publicationConfirmed:publication?!!getTrace().find(event=>event.kind==='land'&&event.sequence===anchorSequence)&&!engine._wcCanonical.pending:null,requestedOffset:offsets[frames.length],at:frameAt,elapsed:frameAt-start,canonicalPending:!!engine._wcCanonical.pending,reveals:reveals.length,width:out.width,height:out.height,png});
   }
   if(frames.length<maxFrames)id=raf(tick);else resolveDone();
  };
