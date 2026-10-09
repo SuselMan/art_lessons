@@ -9,3 +9,9 @@ Float paired flux is positive at strides1/2/1: P nonzero cells24→40,40→63,24
 WARM_COST_PATH ran before READY (2 draws, gl.finish, CPU wall2.6ms). Probe copies perturb timing: carry max37.9ms includes stage9 snapshots. Neither figure establishes GPU compile cost or clean latency. Internal Dry/Undo/Redo exact digest aa995d78220fb24d7691e49d1726a8bd38c070fd05063579c0010c52c8730aad; original SAMEtape endpoint remains untested.
 
 Next distinct diagnostic: COMPLETE_FRONT_CYCLES, default OFF. Repeat complete dyadic cycles until requested pressure iterations finish; actual28 requires30 carry ticks, cap32/40carry. Every tick starts with at most one front then immediate paired carry; ≤8 draws/tick, no initial pressure-only wait. This is not yet wired or GPU-proven. Saved actual dumps cannot predict future pressure without replaying its shader; zero-path observation supports testing, not a promised visual improvement.
+
+## Executable diagnostic packet
+
+Set COMPLETE_FRONT_CYCLES=1 together with MULTISCALE_CARRY=1, INHERITED_CARRY=1, CARRY_PREVIEW=1, FINITE_PREVIEW=1, FLOAT_PREVIEW=1, DIRECT_PREVIEW=1, EARLY_PREVIEW=1 and current source spacing/material rebase flags. Entry reads diagCompleteFrontCycles; installer and runtime reject without multiscale; controller checks the effective exposed flag before input. Computed passport includes completeFrontCycles.mjs. Default remains OFF, allocation unchanged, no extra draw per tick; session extends total ticks only. Finite diffusion clock stays paused until carry completes. Probe may be OFF for the clean movie.
+
+Root-specific qaReuse changes are absent in this isolated worktree: cherry-pick narrow additions preserving root lifecycle callbacks. No whole-file replacement. Runtime9/session3/pure-schedule3 tests passed. Hardware allocation still required.
