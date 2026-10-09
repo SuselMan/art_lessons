@@ -21,15 +21,19 @@ export function assertParallelPreloadPair(reference,off,on){
  return{source:reference.source,endpoint:reference.export,rows:[off,on].map(r=>({preload:r.scheduler.actualPreload,startupWallMs:r.startup.wallMs,replayWallMs:r.replayWallMs,materialSHA:r.export.sha,ownedContextDisposed:r.ownedContextDisposed})),scope:'Single ordered same-packed OFF/ON native endpoint pair; decoded exported RGBA only, not all GPU fields, physical input latency, or statistically robust performance',limitations:['Reference plus two fresh owned contexts, same source/paper/input; timing excludes export readbacks','Startup includes browser/network/controller readiness, not shader or GPU duration','Cold/warm driver cache and fixed arm order confound performance; no causal speedup claim']}
 }
 
-export function assertSourcePrecompilePair(reference,off,on){
+export function assertSourcePrecompilePair(reference,off,on){return assertSourceArmsInternal(reference,off,on,true)}
+/** Independent evidence: reference is immutable input/export passport, never a third healthy runtime. */
+export function assertSourcePrecompileActualArms(reference,off,on){return assertSourceArmsInternal(reference,off,on,false)}
+function assertSourceArmsInternal(reference,off,on,requireHealthyReference){
  const all=[reference,off,on],tape=reference.packedTape
  const required=['stamp:false:false:coverage','ribbon:coverage','canonicalCompositeRecipe','canonicalRawCanvasRecipe','pairedBrush','singleBrush']
  if(reference.scenario!=='water-pigment400-long'||tape?.length!==2||!reference.sourcePreparation?.ready||!/^[a-f0-9]{40}$/.test(reference.source??''))throw Error('Exact source A long reference required')
+ if(tape.some(o=>o.type!=='stroke'||!o.dabsPacked)||! /^[a-f0-9]{64}$/.test(reference.browserPaper?.sha256??'')||! /^[a-f0-9]{64}$/.test(reference.export?.sha??'')||!(reference.export?.width>0)||!(reference.export?.height>0))throw Error('Immutable input/paper/endpoint passport missing')
  if(tape[0].tool!=='watercolor'||tape[1].tool!=='watercolor'||tape[0].preset!=='normal:100:0:PB29:round'||tape[1].preset!=='normal:100:100:PB29:round'||JSON.stringify(tape[0].color)!==JSON.stringify([.2,0,.6])||JSON.stringify(tape[1].color)!==JSON.stringify([.2,0,.6]))throw Error('Fixed water/pigment source roles differ')
  const passport=reference.sourcePipelinePassport
  if(passport?.length!==15||new Set(passport.map(x=>x.key)).size!==15||passport.some(x=>! /^[a-f0-9]{64}$/.test(x.shaderSHA)||! /^[a-f0-9]{64}$/.test(x.descriptorSHA))||JSON.stringify(reference.sourceRequiredKeys)!==JSON.stringify(required))throw Error('Exact A recipe passport/subset required')
  for(const r of all){
-  if(!r.complete||r.error||r.memoryError||r.memoryGuardFailure||r.errors?.length||!r.ownedContextDisposed||r.final?.gl!==0||r.final?.lost!==false||r.final?.error||!r.export?.alpha)throw Error('Incomplete A endpoint')
+  if((r!==reference||requireHealthyReference)&&(!r.complete||r.error||r.failed||r.memoryError||r.memoryGuardFailure||r.errors?.length||!r.ownedContextDisposed||r.final?.gl!==0||r.final?.lost!==false||r.final?.error||!r.export?.alpha))throw Error('Incomplete A endpoint')
   if(r.source!==reference.source||r.browserPaper?.sha256!==reference.browserPaper?.sha256)throw Error('A source/paper differs');assertSourceABrowserPassport(r.browserFactorySource,reference.browserFactorySource);if(!(r.export.purple>0)||r.export.purple!==reference.export.purple)throw Error('Meaningful purple A endpoint absent/different')
   if(r.browserSource?.length!==4||new Set(r.browserSource.map(f=>f.path)).size!==4||critical.some(p=>! /^[a-f0-9]{64}$/.test(r.browserSource.find(f=>f.path===p)?.sha256??'')||r.browserSource.find(f=>f.path===p)?.sha256!==reference.browserSource.find(f=>f.path===p)?.sha256))throw Error('A browser source differs')
   if(r.export.sha!==reference.export.sha||r.export.width!==reference.export.width||r.export.height!==reference.export.height||r.export.alpha!==reference.export.alpha)throw Error('A decoded material differs')
@@ -46,5 +50,5 @@ export function assertSourcePrecompilePair(reference,off,on){
  if(ready.dispatches!==0||ready.fieldBytes!==0||JSON.stringify(ready.resourceBefore)!==JSON.stringify(ready.resourceAfter)||!Array.isArray(ready.resourceBefore)||ready.proofs?.length!==15||passport.some(e=>ready.proofs.filter(x=>x.key===e.key&&x.kind===e.kind&&x.shaderSHA===e.shaderSHA&&x.descriptorSHA===e.descriptorSHA&&x.completed).length!==1))throw Error('A exact prepared proof differs')
  const consumed=on.sourcePreparation.consumed
  if(consumed?.length!==required.length||required.some(k=>consumed.filter(x=>x.key===k&&x.completed&&x.hits>=1).length!==1))throw Error('A selected HIT absent')
- return{source:reference.source,endpoint:reference.export,rows:[off,on].map(r=>({sourcePrecompile:r.scheduler.sourcePrecompile,startupWallMs:r.startup.wallMs,replayWallMs:r.replayWallMs,seedBridgeCosts:r.seedBridgeCosts??[]})),scope:'Same-packed source A decoded endpoint equality; fixed cache order, no causal speedup claim'}
+ return{source:reference.source,endpoint:reference.export,rows:[off,on].map(r=>({sourcePrecompile:r.scheduler.sourcePrecompile,startupWallMs:r.startup.wallMs,replayWallMs:r.replayWallMs,seedBridgeCosts:r.seedBridgeCosts??[]})),healthyActualArms:2,referenceScope:requireHealthyReference?'Third healthy endpoint required':'Immutable packed input/export/passport only; reference health not proved',scope:'Two actual same-packed source A decoded endpoints; fixed arm order and driver cache confound timing, no causal speedup claim; UI input not replay benchmark'}
 }

@@ -1,0 +1,99 @@
+{
+  "source": "0f3271f79565a7dd2c35ad22ab5aa34f4191752d",
+  "endpoint": {
+    "width": 1754,
+    "height": 2480,
+    "alpha": 120438,
+    "purple": 120437,
+    "sha": "fc0bed7519107daa85e1709dcfc1188cef4b9a2af4552414fafa6d5d1508f186",
+    "pngSha256": "a9b2336f94e3d51d6e09e3ba1449d9c2a19f4c8c206d7a3692618297d564efd4",
+    "pngBytes": 385407,
+    "comparisonReady": true
+  },
+  "rows": [
+    {
+      "sourcePrecompile": false,
+      "startupWallMs": 19465,
+      "replayWallMs": 6663.5,
+      "seedBridgeCosts": [
+        {
+          "phase": "readPixels",
+          "wallMs": 9.699999988079071,
+          "ok": true,
+          "bytes": 0,
+          "generation": 1,
+          "layerId": "layer-1"
+        },
+        {
+          "phase": "rowFlip",
+          "wallMs": 3.300000011920929,
+          "ok": true,
+          "bytes": 4194304,
+          "generation": 1,
+          "layerId": "layer-1"
+        },
+        {
+          "phase": "uploadEnqueue",
+          "wallMs": 0.5,
+          "ok": true,
+          "bytes": 4194304,
+          "generation": 1,
+          "layerId": "layer-1"
+        },
+        {
+          "phase": "queueAck",
+          "wallMs": 1079,
+          "ok": true,
+          "bytes": 0,
+          "generation": 1,
+          "layerId": "layer-1"
+        }
+      ]
+    },
+    {
+      "sourcePrecompile": true,
+      "startupWallMs": 21524,
+      "replayWallMs": 3611.600000023842,
+      "seedBridgeCosts": [
+        {
+          "phase": "readPixels",
+          "wallMs": 8.199999988079071,
+          "ok": true,
+          "bytes": 0,
+          "generation": 1,
+          "layerId": "layer-1"
+        },
+        {
+          "phase": "rowFlip",
+          "wallMs": 3.699999988079071,
+          "ok": true,
+          "bytes": 4194304,
+          "generation": 1,
+          "layerId": "layer-1"
+        },
+        {
+          "phase": "uploadEnqueue",
+          "wallMs": 0.699999988079071,
+          "ok": true,
+          "bytes": 4194304,
+          "generation": 1,
+          "layerId": "layer-1"
+        },
+        {
+          "phase": "queueAck",
+          "wallMs": 11.199999988079071,
+          "ok": true,
+          "bytes": 0,
+          "generation": 1,
+          "layerId": "layer-1"
+        }
+      ]
+    }
+  ],
+  "healthyActualArms": 2,
+  "referenceScope": "Immutable packed input/export/passport only; reference health not proved",
+  "scope": "Two actual same-packed source A decoded endpoints; fixed arm order and driver cache confound timing, no causal speedup claim; UI input not replay benchmark",
+  "actualGitHead": "932fb43d3f408e9b1747e5500f87f3e4d407c64c",
+  "historicalThreeEndpointVerdict": "INVALID: older promoted reference lacks final census; unchanged",
+  "referencePackedSHA": "ceb5f0eb5554a94765ba2a15a503ee084f351fa95374ac5c6e3ee4a9384522ee"
+}

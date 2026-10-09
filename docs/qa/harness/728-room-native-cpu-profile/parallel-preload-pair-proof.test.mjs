@@ -17,7 +17,7 @@ test('changed inputs/source/material, missing cleanup and compile identities fai
  for(const mutate of [r=>{r[2].source='other'},r=>{r[2].browserSource[0].path='wrong'},r=>{r[1].replay.mapped[0].dabsPacked='changed'},r=>{r[2].export.sha='other'},r=>{r[1].ownedContextDisposed=false},r=>{r[1].memoryError='ssh unavailable'},r=>{r[2].actualPreparation.pressure.shaderSHA='other'},r=>{r[2].actualPreparation.consumed.observed[0].hits=0}]){const rows=fixture();mutate(rows);assert.throws(()=>assertParallelPreloadPair(...rows))}
 })
 
-import {assertSourcePrecompilePair} from './parallel-preload-pair-proof.mjs'
+import {assertSourcePrecompilePair,assertSourcePrecompileActualArms} from './parallel-preload-pair-proof.mjs'
 function sourceFixture(){
  const [ref,off,on]=fixture(),hash='a'.repeat(64)
  const required=['stamp:false:false:coverage','ribbon:coverage','canonicalCompositeRecipe','canonicalRawCanvasRecipe','pairedBrush','singleBrush']
@@ -34,3 +34,6 @@ test('source A exact long two-op pair leaves existing3 ON',()=>assert.equal(asse
 test('source A rejects wrong mode/warm/ops/seed/HIT/passports',()=>{
  for(const mutate of [r=>r[1].scheduler.actualPreload=false,r=>r[2].scheduler.fullWarm=true,r=>r[2].scheduler.rawWarm=true,r=>r[1].replay.mapped[0].dabsPacked='other',r=>r[2].sourcePreparation.ready.fieldBytes=4,r=>r[2].sourcePreparation.ready.resourceAfter=[],r=>r[2].sourcePreparation.consumed[1].hits=0,r=>r[1].actualPreparation.consumed.pressure.hits=0,r=>r[2].sourcePipelinePassport[0].descriptorSHA='f'.repeat(64),r=>r[0].scenario='four400',r=>r[0].packedTape[0].preset='normal:100:100:PB29:round',r=>r[1].export.sha='wrong',r=>r[2].sourceRequiredKeys.pop(),r=>r[1].export.purple=0,r=>r[2].browserFactorySource[0].sha256='e'.repeat(64)]){const rows=sourceFixture();mutate(rows);assert.throws(()=>assertSourcePrecompilePair(...rows))}
 })
+
+test('independent two actual arms permits input-only reference, keeps historical gate strict',()=>{const rows=sourceFixture();delete rows[0].final;assert.throws(()=>assertSourcePrecompilePair(...rows));const proof=assertSourcePrecompileActualArms(...rows);assert.equal(proof.healthyActualArms,2);assert.match(proof.referenceScope,/health not proved/)})
+test('independent actual arm gate rejects missing/wrong mapped/final/loss/input/hash',()=>{for(const mutate of [r=>delete r[1].final,r=>r[2].final.lost=true,r=>r[1].replay.mapped[0].dabsPacked='changed',r=>r[0].packedTape[0].dabsPacked='changed',r=>r[2].browserFactorySource.pop(),r=>r[1].browserSource[0].sha256='f'.repeat(64),r=>r[1].source='other',r=>r[2].final.gl=1282,r=>r[2].sourcePreparation.consumed[0].hits=0]){const rows=sourceFixture();delete rows[0].final;mutate(rows);assert.throws(()=>assertSourcePrecompileActualArms(...rows))}})
