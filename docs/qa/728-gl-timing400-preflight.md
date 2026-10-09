@@ -70,3 +70,25 @@ ring/stats и ожидаемые два stroke IDs, user/layer, actual pending-b
 и отсутствие противоречия lease+drain. 4 negative/positive Node tests PASS.
 Тесты runtime parser→actual Engine constructor и zero-pigment water PASS.
 Это допускающий контракт, не исполненный hardware controller.
+
+
+## Подготовленная команда (не запускать до allocation)
+
+Существующий `mixed-natural400-controller.mjs` теперь имеет отдельный режим:
+`QA_GL_TIMING=1 QA_NATURAL_ARMS=ON QA_FIXED400=1
+QA_NATURAL_SCENARIO=pigment-pigment QA_MIXED_NATURAL400_ALLOCATED=1`.
+Передать QA_ROOM_BASE / QA_SOURCE_DIR / GATE_OUT / CDP_BASE и trusted Node CA
+только после старта собственного кратковременного frontend. QA_UI_GATE запрещён
+в этом режиме; ровно одна context/room, без Undo/Dry или второй arm.
+
+Controller до input навигирует own Room с
+`?qaJoinedTouch=1&wcMixedLease=1&wcGlTiming=1`, наблюдает фактический Engine
+observer/lease/native/async/deferred и пустой ring. Затем существующий фиксированный
+производственный pointer helper с ID/seed restore finally и real RAF cadence.
+После timed input final export отдельно; strict timing gate сохраняется до assert.
+В durable результате заменяет raw tape/authored/markers/queue/frames на compact
+packed/wet/recipe hashes, actual source seeds, trace counts, metrics и bounded ring.
+
+Contextless проверки command syntax + gate/tape/pointer: 9 PASS. Production
+PointerInput→DabSystem geometry/IDs/seeds проверяется отдельным Fixed400Production
+CPU helper; это не GL/wet parity. App TS и 56 target lifecycle/parser/timing PASS.

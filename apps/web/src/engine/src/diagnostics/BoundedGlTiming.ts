@@ -22,6 +22,7 @@ export class BoundedGlTiming {
     this.userId = userId; this.layerId = layerId; this.strokeId = null
   }
   endInput(): void { this.active = false }
+  isActive(): boolean { return this.active }
   setStrokeId(id: string | null): void { if (this.active) this.strokeId = id }
   stats() { return { capacity: this.records.length, recorded: this.size, dropped: this.dropped, observerErrors: this.observerErrors, active: this.active, scope: 'engine-local synchronous DOWN only' } }
 

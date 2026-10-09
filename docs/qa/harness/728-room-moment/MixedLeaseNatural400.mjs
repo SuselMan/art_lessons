@@ -2,7 +2,7 @@ import{natural400Metrics}from'./Natural400Metrics.mjs';
 import{fixed400Tape}from'./Fixed400Tape.mjs';
 import{continuousPenStroke}from'./ContinuousPenStroke.mjs';
 /** Ordinary Room, real clocks. CPU submissions and synthetic cadence, never physical pen latency. */
-export async function runMixedLeaseNatural400({enabled,deadlineMs=90000,scenario='water-pigment',fixedInput=false}={}){
+export async function runMixedLeaseNatural400({enabled,deadlineMs=90000,scenario='water-pigment',fixedInput=false,timingCapture=false}={}){
  if(!['water-pigment','pigment-pigment'].includes(scenario))throw Error('Explicit known natural scenario required');
  const e=window.__engine,s=window.__roomStore?.getState();if(typeof enabled!=='boolean'||!e||!s||e._locked||!e._paper.loaded)throw Error('Drawable Room and explicit arm required');
  if(e._settle||e._wcCanonical.pending||e._wcNative||e._wcAsyncFinish||e._wcMaterialPresentation||e._wcJoinedTouchMixed||e._wcJoinedFinishDeferred)throw Error('Fresh product model required');
@@ -14,6 +14,7 @@ export async function runMixedLeaseNatural400({enabled,deadlineMs=90000,scenario
  const wrap=(name,fn)=>{const original=e[name];if(typeof original!=='function')throw Error('Missing actual method '+name);originals.set(name,original);e[name]=fn(original)};
  const foreignRestores=[];const wrapQueue=name=>{const owner=e._settleQueue,original=owner[name];if(typeof original!=='function')throw Error('Missing queue method '+name);owner[name]=function(...args){const at=performance.now(),next=this.current?.next??null;try{return original.apply(this,args)}finally{add('settleQueue:'+name,at,performance.now(),{phase,next})}};foreignRestores.push(()=>{owner[name]=original})};
  const saved={joined:e._wcJoinedTouch,lease:e._wcJoinedTouchSnapshotLease};
+ if(timingCapture&&(!e.getDiagnosticGlTimingStats?.()||e.getDiagnosticGlTimingStats().recorded!==0||e._wcJoinedTouch!==true||e._wcJoinedTouchSnapshotLease!==enabled))throw Error('Actual timing constructor flags/ring mismatch');
  const partial=()=>window.__mixedNatural400Partial={enabled,pending,lease,downDrains,markers,longTasks,queue,rows};
  try{
   e._wcJoinedTouch=true;e._wcJoinedTouchSnapshotLease=enabled;
@@ -41,8 +42,8 @@ export async function runMixedLeaseNatural400({enabled,deadlineMs=90000,scenario
   const timedEnd=performance.now();while(e._settle||e._wcCanonical.pending||e._rebuildJobs.size){if(performance.now()>deadline||e.gl.isContextLost())throw Error('Bounded canonical drain');await new Promise(requestAnimationFrame)}
   const exportBegin=performance.now(),blob=await e.exportPNG(true);if(!blob||blob.size===0)throw Error('Final export missing');
   const tape=e.getOperations().filter(o=>o.type==='stroke');if(tape.length!==2||tape.some(o=>!o.dabsPacked))throw Error('Two genuine packed strokes required');
-  const glError=e.gl.getError(),lost=e.gl.isContextLost();if(!pending||(enabled?(!lease||downDrains!==0):(lease||downDrains<1))||glError||lost)throw Error('Actual pending/admission/GL guard');
+  const glError=e.gl.getError(),lost=e.gl.isContextLost();if(!pending||(!timingCapture&&(enabled?(!lease||downDrains!==0):(lease||downDrains<1)))||glError||lost)throw Error('Actual pending/admission/GL guard');
   const metrics=natural400Metrics({markers,rows});
-  return{enabled,scenario,fixedInput,authored,sourceSeeds:[...sourceSeeds.values()],metrics,longTasks,pending,lease,downDrains,rows,markers,queue,tape,glError,lost,timedEnd,export:{begin:exportBegin,end:performance.now(),bytes:blob.size},scope:'Natural clock synthetic actual Room PointerInput; CPU source/display submissions and rAF availability, not physical pen latency or exact authored OFF/ON parity'};
+  return{timing:timingCapture?{stats:e.getDiagnosticGlTimingStats(),records:e.getDiagnosticGlTiming()}:null,enabled,scenario,fixedInput,authored,sourceSeeds:[...sourceSeeds.values()],metrics,longTasks,pending,lease,downDrains,rows,markers,queue,tape,glError,lost,timedEnd,export:{begin:exportBegin,end:performance.now(),bytes:blob.size},scope:'Natural clock synthetic actual Room PointerInput; CPU source/display submissions and rAF availability, not physical pen latency or exact authored OFF/ON parity'};
  }finally{for(const entry of observer?.takeRecords()??[])if(longTasks.length<128)longTasks.push({at:entry.startTime,end:entry.startTime+entry.duration,ms:entry.duration});observer?.disconnect();partial();for(const restore of foreignRestores)restore();for(const[name,original]of originals)e[name]=original;e._wcJoinedTouch=saved.joined;e._wcJoinedTouchSnapshotLease=saved.lease}
 }

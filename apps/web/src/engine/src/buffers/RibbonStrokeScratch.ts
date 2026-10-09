@@ -564,7 +564,7 @@ export class RibbonStrokeScratch {
    *  the current gesture: the base is the deposit as it stands now, the film
    *  starts empty. */
   filmBuffers(tile: AccumulationBuffer): { strokeInk: AccumulationBuffer; inkBase: AccumulationBuffer; strokeColor: AccumulationBuffer | null; colorBase: AccumulationBuffer | null } | null {
-    if (!this.diagnosticTiming) return this.filmBuffersUntimed(tile)
+    if (!this.diagnosticTiming?.isActive()) return this.filmBuffersUntimed(tile)
     return this.diagnosticTiming.measure('scratch-film-base-copy', () => this.filmBuffersUntimed(tile))
   }
 
@@ -591,7 +591,7 @@ export class RibbonStrokeScratch {
   tileEntries(): IterableIterator<[AccumulationBuffer, RibbonTileScratch]> { return this._tiles.entries() }
 
   getOrCreate(tile: AccumulationBuffer): RibbonTileScratch {
-    if (!this.diagnosticTiming) return this.getOrCreateUntimed(tile)
+    if (!this.diagnosticTiming?.isActive()) return this.getOrCreateUntimed(tile)
     return this.diagnosticTiming.measure('scratch-first-touch', () => this.getOrCreateUntimed(tile))
   }
 

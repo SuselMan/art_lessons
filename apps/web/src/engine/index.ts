@@ -8165,7 +8165,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private _completeSettle(): void {
     const timing = this._glTiming
-    if (!timing) return this._completeSettleUntimed()
+    if (!timing?.isActive()) return this._completeSettleUntimed()
     return timing.measure('admission-complete-settle', () => this._completeSettleUntimed())
   }
 
@@ -9658,7 +9658,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _display(): void {
     const timing = this._glTiming
-    if (!timing) return this._displayUntimed()
+    if (!timing?.isActive()) return this._displayUntimed()
     return timing.measure('display-submit', () => this._displayUntimed())
   }
 
@@ -9674,7 +9674,7 @@ export class PencilEngine implements PencilEngineAPI {
     // frame that ends one draws the tile plain.
     const perfT0 = performance.now()
     // (#536, §17.22) The live watercolor gesture's composite, once per frame.
-    if (this._glTiming) this._glTiming.measure('live-composite', () => this._flushLiveComposite())
+    if (this._glTiming?.isActive()) this._glTiming.measure('live-composite', () => this._flushLiveComposite())
     else this._flushLiveComposite()
     if (this._washReveals.size) this._sweepReveals(perfT0)
     // (§17.46) One decision per frame: the live stroke's rect alone, or all.
