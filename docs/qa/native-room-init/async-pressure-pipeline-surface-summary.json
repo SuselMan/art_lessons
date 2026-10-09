@@ -1,0 +1,42 @@
+{
+  "issue": 728,
+  "source": "92e0626a3dbe60388c556fa38067d6a018f6a90c",
+  "scope": "Actual ordinary native Room, OFF QA async compilation of pressure-only hardware LINEAR pipeline. No field/dispatch/history changes; new live tape, not SAME packed parity.",
+  "rawPrivate": "temp/device-runs/room-firstwater-asyncpressure92",
+  "complete": true,
+  "errors": [],
+  "cleanup": {
+    "ownedTarget": true,
+    "ownedContext": true
+  },
+  "ramMiB": {
+    "pre": 2132.75,
+    "post": 1953.3984375
+  },
+  "compile": {
+    "startBrowserMs": 5749.9,
+    "endBrowserMs": 6934.9,
+    "wallMs": 1185,
+    "sourceSha256": "1bf2e3705b763c5ebcd068f15dc5e16ac1f88deab01660bf3fd36ea0efaadc18",
+    "shaderSha256": "664ac12d3a663e6463bc6e9dc9a198b2c43ea041fde25bcce3cb1192442cafba",
+    "readyBrowserMs": 10869.900000035763,
+    "downBrowserMs": 11396.600000023842,
+    "actualFactoryHits": 1
+  },
+  "firstWater": {
+    "firstPublicationWallMs": 59.6,
+    "traceIdleUpperBoundBrowserMs": 14726.100000023842,
+    "downToTraceIdleUpperBoundMs": 3329.5,
+    "traceExtractionMs": 5882.399999976158,
+    "primaryRafMaxGapMs": 316.8,
+    "sharedGpuDecoderMaxWallMs": 260.399,
+    "rAFOtherLargeGapsMs": [
+      283.3,
+      166.6,
+      150
+    ]
+  },
+  "interpretation": "Targeted positive isolation: 1185ms exact pipeline compile moved before READY; previously observed ~1s drain decoder/rAF stall absent in this run. Does not establish net loading gain or smoothness; 150–317ms pauses remain. Historical runs were not same-tape paired controls and browser/driver caches persist. Shared GPU decoder wall is not physical GPU duration.",
+  "visual": "Actual screenshot shows blue/red watercolor with requested UI watercolor400/pigment70, similar shape to previous fair-color endpoint. No same-tape image exactness claim.",
+  "next": "Strict native replay baseline/async control SAME captured packed tape and paper; then isolate remaining ~260ms decoder flush/316ms rAF with existing quantum labels. No epsilon or model tuning."
+}
