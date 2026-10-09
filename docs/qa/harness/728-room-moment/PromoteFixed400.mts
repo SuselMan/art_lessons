@@ -1,0 +1,9 @@
+import fs from 'node:fs'
+import { createHash } from 'node:crypto'
+import { strokeDabs } from '@grafetto/shared'
+const [input,output]=process.argv.slice(2)
+if(!input||!output||fs.existsSync(output))throw Error('Fresh compact destination required before disposable finish')
+const raw=JSON.parse(fs.readFileSync(input,'utf8')),sha=(x:unknown)=>createHash('sha256').update(JSON.stringify(x)).digest('hex')
+const rows=(raw.rows??[]).map((r:any)=>({enabled:r.enabled,fixedInput:r.fixedInput,pending:r.pending,lease:r.lease,downDrains:r.downDrains,metrics:r.metrics,glError:r.glError,lost:r.lost,longTasks:r.longTasks,export:r.export,loadedExit:r.loadedExit,sourceSeeds:r.sourceSeeds,geometry:r.tape.map((o:any)=>{const d=strokeDabs(o);let length=0;for(let i=1;i<d.length;i++)length+=Math.hypot(d[i].x-d[i-1].x,d[i].y-d[i-1].y);return{strokeId:o.strokeId,preset:o.preset,color:o.color,count:d.length,arcLength:length,packedSHA:sha(o.dabsPacked),wetSHA:sha(o.wet??null),operationSHA:sha(o)}}),cadence:r.rows.map((x:any)=>({ordinal:x.ordinal,frames:x.frames.length,handlers:x.handlers.length,duration:x.up-x.start})),phaseCosts:Object.fromEntries([...new Set(r.markers.map((m:any)=>m.kind))].map(kind=>{const a=r.markers.filter((m:any)=>m.kind===kind).map((m:any)=>m.end-m.at);return[kind,{count:a.length,total:a.reduce((x:number,y:number)=>x+y,0),max:Math.max(...a)}]}))}))
+const compact={scope:'Fixed authored input under real scheduler; raw wet/packed equality separate, rAF not physical visible latency',result:raw.result,passport:raw.passport,paperPassport:raw.paperPassport,rows,memory:raw.memory,errors:raw.errors,networkErrors:raw.networkErrors}
+fs.writeFileSync(output,JSON.stringify(compact,null,2)+'\n');JSON.parse(fs.readFileSync(output,'utf8'));console.log(JSON.stringify({promoted:true,rows:rows.length,bytes:fs.statSync(output).size}))
