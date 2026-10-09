@@ -1,0 +1,3 @@
+import {test} from'node:test';import assert from'node:assert/strict';import{spawnSync}from'node:child_process';import{fileURLToPath}from'node:url';
+const script=fileURLToPath(new URL('./create-room-static-boot-audit.mjs',import.meta.url));
+test('compiled CreateRoom graph excludes runtime renderer; actual Engine entry is rejected',()=>{const good=spawnSync(process.execPath,[script],{encoding:'utf8',timeout:15000});assert.equal(good.status,0,good.stderr);const bad=spawnSync(process.execPath,[script],{encoding:'utf8',timeout:15000,env:{...process.env,QA_BOOT_AUDIT_ENTRY:'engine/index.ts'}});assert.notEqual(bad.status,0);assert.match(bad.stderr,/statically requires runtime renderer/)});

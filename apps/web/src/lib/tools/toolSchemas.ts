@@ -8,7 +8,7 @@ import {
   DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH, type BrushCategory,
   CHARCOAL_NIBS, DEFAULT_CHARCOAL_NIB, type CharcoalNib,
   NIB_ANCHORS, type NibAnchor,
-} from '../../engine'
+} from '../../engine/toolOptions'
 import {
   SHAPE_KINDS, SHAPE_STROKE_ALIGNS, SHAPE_STROKE_JOINS, SHAPE_STROKE_CAPS, MIN_POLYSTAR_POINTS,
   type ShapeKind, type ShapeStrokeAlign, type ShapeStrokeJoin, type ShapeStrokeCap,

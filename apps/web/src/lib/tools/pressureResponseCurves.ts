@@ -1,4 +1,4 @@
-import { PRESSURE_RESPONSES, brushPenWidth, type PressureResponse } from '../../engine'
+import { PRESSURE_RESPONSES, brushPenWidth, type PressureResponse } from '../../engine/toolOptions'
 
 // #454: the little graph each pressure-response option shows in its picker row,
 // the pressure counterpart of tiltResponseCurves.ts — same contract (the picker

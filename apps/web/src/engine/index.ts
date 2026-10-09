@@ -80,7 +80,7 @@ import {
 } from './src/oplog/OperationLog'
 import { PointerInput, type DiagLog, type PointerData, type PressureMap } from './src/input/PointerInput'
 import {
-  PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT,
+  PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, DEFAULT_GRAPHITE_COLOR,
   type PencilGradeName, type PencilPreset,
 } from './src/presets/pencilPresets'
 import {
@@ -154,7 +154,7 @@ export type { Matrix3 }
 export type { AreaImage, AreaFillRequest, AreaFillRaster } from './src/raster/AreaOps'
 export type { RulerLine }
 
-export { PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, type PencilGradeName, type PencilPreset }
+export { PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, DEFAULT_GRAPHITE_COLOR, type PencilGradeName, type PencilPreset }
 export { LINER_SIZES_MM, type LinerSizeMm }
 export {
   CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE, CHARCOAL_GRAIN_STREAKY, isCharcoalType,
@@ -1334,7 +1334,7 @@ interface RebuildJob {
 // world-space size the baked tile repeats over, used identically by bounded
 // and infinite rooms alike — see PaperState.worldSize().
 
-export const DEFAULT_GRAPHITE_COLOR: [number, number, number] = [0.14, 0.14, 0.17]
+
 
 // Undo depth is bounded by the log, not by memory: checkpoints only shorten the
 // replay tail. Interval/budget are starting points to be tuned by measurement (#76).

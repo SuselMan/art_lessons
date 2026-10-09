@@ -1,3 +1,6 @@
+/** The shared default tuple used by Engine and UI, defined once. */
+export const DEFAULT_GRAPHITE_COLOR: [number, number, number] = [0.14, 0.14, 0.17]
+
 // Standard graphite hardness range, from hardest to softest. Includes 'F'
 // ("fine point") between H and HB, per real drafting-pencil sets — see #86.
 export const PENCIL_GRADES = [

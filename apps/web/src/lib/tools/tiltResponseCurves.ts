@@ -1,6 +1,6 @@
 import {
   CHARCOAL_FEEL, PENCIL_TILT, TILT_RESPONSES, tiltResponseT, type TiltResponse,
-} from '../../engine'
+} from '../../engine/toolOptions'
 
 // #409: the little graph each tilt-response option shows in its picker row.
 //

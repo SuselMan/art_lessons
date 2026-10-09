@@ -1,0 +1,8 @@
+{
+  "scope": "Actual TS compiler-erased runtime static imports; no browser/GPU or loaded-engine claim",
+  "entry": "apps/web/src/pages/CreateRoom/index.tsx",
+  "blockingStaticPath": [],
+  "staticModules": 96,
+  "forbiddenRuntimeModules": [],
+  "interpretation": "Compiled static CreateRoom graph no longer requires Engine runtime. Dynamic Room preload remains unchanged; browser readiness benefit requires separate verification."
+}
