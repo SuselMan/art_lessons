@@ -51,7 +51,7 @@ QA_PAIR_MODE=source-A QA_PAIR_ALLOCATION=surface \
 ```
 
 Before running, the caller supplies the existing registered disposable
-`QA_PAIR_OUT`, exact current `QA_SOURCE`, source/paper/origin manifests,
+`QA_PAIR_OUT`, durable unique `QA_PAIR_EVIDENCE` outside its registered disposable, exact current `QA_SOURCE`, source/paper/origin manifests,
 `QA_RUNTIME`, `QA_ENTRY_FILE`, `QA_APP` and allocated `CDP_BASE`. The origin
 manifest contains exact `sourcePipelinePassport`, fixed `sourceRequiredKeys`,
 observed two shader SHAs and decoded paper SHA. This command alone is not hardware
@@ -73,3 +73,8 @@ Both actual reference and replay exports now count meaningful purple pixels;
 source-A requires nonzero and exactly equal counts as well as decoded RGBA SHA.
 Nine additional factory/cache/seed browser raw source hashes are compared with
 the full current manifest in all three contexts.
+
+The pair runner extracts bounded reference report/PNG and packed-input SHA into
+`QA_PAIR_EVIDENCE` in finally, including incomplete pairs. Before cleanup finish,
+verify `pair-progress.json` has `evidenceExtracted=true` and the durable files
+exist. Extraction failure means retain the disposable; do not remove evidence.

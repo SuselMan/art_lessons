@@ -1,3 +1,4 @@
+import {preservePairEvidence} from './pair-evidence.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import {execFile} from 'node:child_process'
@@ -5,6 +6,7 @@ import os from 'node:os'
 import {fileURLToPath} from 'node:url'
 import {assertParallelPreloadPair,assertSourcePrecompilePair} from './parallel-preload-pair-proof.mjs'
 const sourceAMode=process.env.QA_PAIR_MODE==='source-A';if(![undefined,'parallel3','source-A'].includes(process.env.QA_PAIR_MODE))throw Error('Explicit pair mode');
+const durableEvidence=process.env.QA_PAIR_EVIDENCE;if(!durableEvidence)throw Error('Explicit durable QA_PAIR_EVIDENCE required before running pair');
 const out=process.env.QA_PAIR_OUT
 if(process.env.QA_PAIR_ALLOCATION!=='surface'||!out)throw Error('Explicit allocated Surface and registered disposable QA_PAIR_OUT required')
 const disposable=path.dirname(path.resolve(out)),markerPath=path.join(disposable,'.codex-qa-disposable.json')
@@ -33,3 +35,4 @@ progress.complete=true;progress.stage='complete';saveProgress();
 console.log(JSON.stringify({complete:true,source:result.source,endpointSHA:result.endpoint.sha,scope:result.scope}))
 
 }catch(error){progress.error=String(error);progress.complete=false;saveProgress();throw error}
+finally{try{progress.durableEvidence=preservePairEvidence(out,durableEvidence,disposable);progress.evidenceExtracted=true;saveProgress()}catch(error){progress.evidenceExtracted=false;progress.evidenceError=String(error);saveProgress();process.exitCode=1;console.error('DO NOT FINISH DISPOSABLE: bounded evidence extraction failed')}}
