@@ -9,7 +9,7 @@ const paths=['residualSourceGpu.mjs','PreviewManualMaterial.mjs','PreviewResidua
 const deadline=setTimeout(()=>{memoryAbort='hard120';closeOwn().catch(()=>{})},120000);
 try{const free=freeMiB();memory.push({stage:'preflight',freeMiB:free});if(free<1700)throw Error('preflight below1700');
 const url=origin+'/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/residual-source-entry.html';
-for(const p of paths){const r=await fetch(origin+'/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/'+p);if(!r.ok)throw Error('HTTPpassport '+p+' '+r.status)}
+for(const p of paths){const url=origin+'/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/'+p;execFileSync('curl',['--insecure','--fail','--silent','--show-error','--max-time','10','--output','/dev/null',url],{timeout:12000});}
 await ownedPage('about:blank');await send('Page.bringToFront');await send('Page.navigate',{url});console.log(JSON.stringify({ownTarget:target.id,url,freeMiB:free}));
 interval=setInterval(()=>{if(busy)return;busy=true;try{const free=freeMiB();memory.push({stage:'monitor',freeMiB:free});if(free<500){memoryAbort='below500';closeOwn().catch(()=>{})}}finally{busy=false}},5000);
 await wait(()=>evaluate('window.residualSourceReady===true'),30000);const report=await evaluate('window.runResidualSourceGpu()');result={computedPassport,report,memory,memoryAbort,valid:report.pass&&!memoryAbort};
