@@ -1,0 +1,18 @@
+{
+  "issue": "#728",
+  "status": "offline plan, not executed",
+  "priority": "Profile first-water drain after successful full ready warm before expanding binary shader controls",
+  "observed": {
+    "fullWarmQueueWallMs": 3964,
+    "firstLivePublishQueueWallMs": 46.8,
+    "drawingRafGapMs": 1183.3,
+    "gapBrowserMs": [13498,14681.3],
+    "readyBrowserMs": 11028.6
+  },
+  "binaryArms": [
+    {"scope":"prepared source only","existingApi":"warmDetachedPreparedSource","liveComposite":false,"rawCanvas":false,"brushPipelineDescriptors":false,"plannerDispatch":false},
+    {"scope":"constructor plus live composite only","status":"needs separate callable API","sourceDelivery":false,"sourceDispatch":false,"inputs":"detached cleared Q8 original/P/C/coverage fields, same corpus live metadata and actual paper","rawCanvas":false,"brushPipelineDescriptors":true,"plannerDispatch":false}
+  ],
+  "invariants": ["Same device/paper/formats/dimensions and literal shaders", "No authoritative CPU delivery, operation history, GL publication or Room owner", "No hidden expansion of existing source-only/full scope", "Completion before ready/DOWN; total readiness and post-DOWN wall both recorded", "Tracked field/buffer cap excludes opaque driver/compiler/canvas allocations"],
+  "limits": ["Constructor descriptors do not prove GPU brush execution", "Zero source live composite only tests first-use compile/workload boundary", "Different arms require new explicit device allocation and immutable committed freeze", "No net loading gain claim from shifted queue wait"]
+}
