@@ -159,3 +159,22 @@ This is NOT physical first-pixel/frame-budget proof. ActualRoom movie/history/
 NEW-tape original endpoint still require the next separately allocated hardware
 cohort. Controller passport includes pressure/session/contract/source-options/
 port and production constants; report CPUsubmit timing is not GPU timing.
+
+### Distinct OFF inherited-horizon candidate
+
+`INHERITED_CARRY=1` / `diagInheritedCarry=1` requires `CARRY_PREVIEW=1` and all
+its prerequisites. Only radius changes: max(current captured SOURCE nib radius,
+frozen same-layer/same-wash predecessor SOURCE radius). Current fluid/wet/standing,
+production budget function/cap/dry-cost share, unit stride and rate are unchanged.
+This is NOT a claim of canonical merged radius equivalence or wet-domain extent.
+Immutable predecessor geometry is captured before physical owner allocation;
+layer mismatch is rejected before session commands. First owner has no predecessor
+and keeps current radius. Bounds are provenance, never an unguarded transport mask.
+
+Production budget cap160 / previewS8 =20cells. Fully dry front cell with film0
+costs at least floor.85*dryCost24=20.4, exceeding carry band cost≤18.5 even after
+worst Q8 rounding. Unit-axis carry cannot skip that dry cell. This CPU/literal
+proof covers exact-zero dry support; partial ramps or gaps lost by initial four-
+tap reduction are NOT certified. Synthetic disconnected GPU control proved the
+prior unchanged-unit-stride operator; actual inherited Room topology/movie and
+same-NEW-tape endpoint still need hardware. No coefficient tuning or source writes.
