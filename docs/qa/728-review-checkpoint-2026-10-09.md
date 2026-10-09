@@ -35,6 +35,13 @@ admission/drain counts. Model clock действует только в синх�
 whole export ещё не подтверждена. Тест качества малой кистью не является
 измерением отзывчивости кистью 400.
 
+Следующая аппаратная проверка завершилась **FAIL**: predecessor pending в обеих
+ветках, OFF drain на DOWN = 1, ON drain = 0 и lease = 1. Вход, semantic history,
+packed dabs и непустые wet профили одинаковы. Однако расходятся 12 ролей полей,
+включая материал, и whole export. GL error 0, context не потерян.
+Кандидат остаётся OFF; natural400 performance тест откладывается до локализации
+и исправления first divergence. Отсутствие drain не доказывает безопасную оптимизацию.
+
 ## Ресурсы
 
 Один общий QA backend 4558. Тестовые frontend и собственные contexts закрываются
