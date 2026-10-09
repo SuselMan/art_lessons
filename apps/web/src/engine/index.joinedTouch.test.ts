@@ -282,6 +282,7 @@ it('same input overlapping mixed harness admits ON only and preserves packed his
       e['_completeSettle']()
       const ops = e.getOperations().filter(op => op.type === 'stroke')
       expect(ops).toHaveLength(2)
+      expect(ops[1].wet).toBeTruthy()
       expect(ops.map(op => op.preset)).toEqual(['normal:100:0:PB29:round', 'normal:100:100:PB29:round'])
       histories.push(normalizedMixedHistory(ops))
   }

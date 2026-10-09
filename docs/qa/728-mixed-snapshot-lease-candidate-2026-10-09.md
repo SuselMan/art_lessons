@@ -39,3 +39,5 @@
 ### Model-clock scope исправлен до hardware запуска
 
 `ControlledInputClock.mjs` ограничивает model performance.now/Date.now **одним синхронным pointer callback**. Вложенные `_completeSettle` и `_runSlice` видят реальные часы; callbacks rAF и финальный drain полностью используют реальные часы. Начало model времени равно реальному performance.now после paperReady, а pointer timestamp получает тот же origin плюс фиксированный offset. Global clocks и методы восстанавливаются через finally даже при throw. Browser gate требует реальное увеличение rAF clock и ненулевой счётчик real-clock drain/slice calls. 14/14 реального engine тестов после изменения origin PASS; 3 node теста PASS, включая исключение внутри pointer → budget clock/Date/restoration. Этот cohort устанавливает correctness при одинаковом model input и не измеряет естественную pen latency.
+
+Дополнительный meaningful gate: второй operation.wet обязан быть непустым и ненулевым; 14/14 CPU с этим условием PASS. Source passport дополнительно проверяет shader, settle plan, scratch, DabSystem, preset и wetness bytes, а не только entry index.
