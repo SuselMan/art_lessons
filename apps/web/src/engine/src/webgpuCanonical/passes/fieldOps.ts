@@ -1,3 +1,4 @@
+import {canonicalMode5TileRecipe,mode5TileGeometry} from './mode5Tile'
 import {preparedExactPipeline,type ExactPipelineRecipe} from '../exactPipelinePreparation'
 import { canonicalDispatchRect } from '../dispatchRect'
 /// <reference types="@webgpu/types" />
@@ -179,11 +180,15 @@ export interface CanonicalFieldOptions {
  diagnosticHardwareLinearInputs?: boolean
  /** DEV OFF-only exact mode1 Q8 copy; owner verifies every original input. */
  diagnosticIdentityCopyOwner?: { ownsLiveField(field:CanonicalGpuField):boolean }
+ diagnosticMode5TileOwner?: { ownsLiveField(field:CanonicalGpuField):boolean }
  linearInputMask?: number
 }
 export function canonicalBaselineFieldRecipe():ExactPipelineRecipe{return{key:'sourceFieldOps',kind:'compute',code:CANONICAL_FIELD_OPS_WGSL,descriptor(module){return{label:'Canonical field ops',layout:'auto',compute:{module,entryPoint:'main'}}}}}
 export class CanonicalFieldOps {
  diagnosticIdentityCopyCalls=0
+ diagnosticMode5TileCalls=0
+ private mode5TilePipeline:GPUComputePipeline|null=null
+ get mode5TileDiagnostics(){return this.mode5TilePipeline?{code:canonicalMode5TileRecipe(CANONICAL_FIELD_OPS_WGSL).code,encoded:this.diagnosticMode5TileCalls}:null}
  private pipeline: GPUComputePipeline | null=null
  private hardwareLinearPipeline:GPUComputePipeline|null=null
  private hardwareLinearSampler:GPUSampler|null=null
@@ -234,11 +239,15 @@ export class CanonicalFieldOps {
    }
   }
   if(o.diagnosticHardwareLinearInputs&&!this.hardwareLinearPipeline)this.hardwareLinearPipeline=preparedCanonicalHardwareLinearPipeline(this.device,CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL)??this.device.createComputePipeline(canonicalHardwareLinearDescriptor(this.device,CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL))
-  const pipeline=o.diagnosticHardwareLinearInputs?this.hardwareLinearPipeline!:this.pipelineFor(mode)
-  const uniform=this.device.createBuffer({size:128,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(uniform,0,values)
-  const entries:GPUBindGroupEntry[]=fields.map((f,binding)=>({binding,resource:f.view}))
+  const tiled=import.meta.env.DEV&&!!o.diagnosticMode5TileOwner&&mode===5&&!o.diagnosticHardwareLinearInputs&&!this.specializeModes&&!this.omitDeadCapillary&&mode5TileGeometry(r.out,r.a,o.dir,linearMask)&&[r.out,...fields].every(f=>o.diagnosticMode5TileOwner!.ownsLiveField(f))&&(r.a.texture.usage&GPUTextureUsage.TEXTURE_BINDING)!==0&&(r.out.texture.usage&GPUTextureUsage.STORAGE_BINDING)!==0
+  if(tiled&&!this.mode5TilePipeline){const recipe=canonicalMode5TileRecipe(CANONICAL_FIELD_OPS_WGSL);this.mode5TilePipeline=(preparedExactPipeline(this.device,recipe) as GPUComputePipeline|undefined)??this.device.createComputePipeline(recipe.descriptor(this.device.createShaderModule({code:recipe.code})) as GPUComputePipelineDescriptor)}
+  const pipeline=tiled?this.mode5TilePipeline!:o.diagnosticHardwareLinearInputs?this.hardwareLinearPipeline!:this.pipelineFor(mode)
+  const uniform=this.device.createBuffer({size:128,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST})
+  try{this.device.queue.writeBuffer(uniform,0,values)
+  const entries:GPUBindGroupEntry[]=tiled?[{binding:0,resource:r.a.view}]:fields.map((f,binding)=>({binding,resource:f.view}))
   entries.push({binding:7,resource:r.out.view},{binding:8,resource:{buffer:uniform}})
   if(o.diagnosticHardwareLinearInputs){this.hardwareLinearSampler??=this.device.createSampler({minFilter:'linear',magFilter:'linear',addressModeU:'clamp-to-edge',addressModeV:'clamp-to-edge'});entries.push({binding:9,resource:this.hardwareLinearSampler})}
-  const bind=this.device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries});const pass=ctx.encoder.beginComputePass({label:'Canonical fieldOp '+mode});pass.setPipeline(pipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(rect[2]/8),Math.ceil(rect[3]/8));pass.end();return uniform
+  const bind=this.device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries});const pass=ctx.encoder.beginComputePass({label:tiled?'Canonical mode5 shared tile':'Canonical fieldOp '+mode});pass.setPipeline(pipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(rect[2]/8),Math.ceil(rect[3]/8));pass.end();if(tiled)this.diagnosticMode5TileCalls++;return uniform
+  }catch(error){try{uniform.destroy()}catch{}throw error}
  }
 }

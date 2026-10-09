@@ -24,6 +24,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  diagnosticFrontSourceFilter?:import('./passes/frontSampling').CanonicalFrontSourceSampling
  diagnosticHardwareLinearInputs=false
  diagnosticIdentityFieldCopy=false
+ diagnosticMode5SharedTile=false
  /** OFF-default paired carry, no planner cadence/presentation changes. */
  diagnosticStaticDiffuseHeight=false
  diagnosticStaticFrontCache=false
@@ -32,6 +33,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  diagnosticLazyFrontClimb=false
  diagnosticPairedCarry=false
  retireStaticFrontCache(){this.commands.retireStaticCache(cleanup=>this.owner.retireAfterOwnerScopes(cleanup))}
+ get mode5TileDiagnostics(){return this.commands.mode5TileDiagnostics}
  get identityCopyCalls(){return this.commands.identityCopyCalls}
  get filmVariantDiagnostics(){return this.commands.filmVariantDiagnostics}
  get factorVariantDiagnostics(){return this.commands.factorVariantDiagnostics}
@@ -122,7 +124,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  }
  fieldOp(out: CanonicalFieldBuffer, a: CanonicalFieldBuffer, b: CanonicalFieldBuffer, mode: Parameters<SettlePlanPasses<CanonicalFieldBuffer, CanonicalUploadSlot>['fieldOp']>[3], k: number, options: SettlePlanFieldOptions<CanonicalFieldBuffer> = {}) {
   const { c, d, e, path, ...scalars } = options
-  const uniform=this.commands.encode(this.ctx(), { kind: 'fieldOp', resources: this.resources(out, a, b), mode, k, options: { ...scalars, diagnosticIdentityCopyOwner:import.meta.env.DEV&&this.diagnosticIdentityFieldCopy?this.owner:undefined, diagnosticHardwareLinearInputs:this.diagnosticHardwareLinearInputs, c: c?.field, d: d?.field, e: e?.field, path: path?.field, noise: this.owner.noise } })
+  const uniform=this.commands.encode(this.ctx(), { kind: 'fieldOp', resources: this.resources(out, a, b), mode, k, options: { ...scalars, diagnosticMode5TileOwner:import.meta.env.DEV&&this.diagnosticMode5SharedTile?this.owner:undefined, diagnosticIdentityCopyOwner:import.meta.env.DEV&&this.diagnosticIdentityFieldCopy?this.owner:undefined, diagnosticHardwareLinearInputs:this.diagnosticHardwareLinearInputs, c: c?.field, d: d?.field, e: e?.field, path: path?.field, noise: this.owner.noise } })
   if(uniform)this.transient.push(uniform)
  }
  carryPair(outPigment:CanonicalFieldBuffer,pigment:CanonicalFieldBuffer,outColor:CanonicalFieldBuffer,color:CanonicalFieldBuffer,fixed:CanonicalFieldBuffer,k:number,options:SettlePlanFieldOptions<CanonicalFieldBuffer>):boolean {

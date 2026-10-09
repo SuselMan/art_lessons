@@ -11,3 +11,9 @@ Compiler factory/key/actual successful-encode counters должны быть о�
 Actual measured passport: factor4dd3 ON first material имеет18 mode5 passes, sum68.288512 ms при allpasses1139.474432 ms (около6%). Reconstructed final tail имеет12 mode5 passes; stride1/2 — только2 из6 каждогоgather. Индивидуальный timing eligible subset пока не измерен. Это ограниченный target, не обещание устранить публикацию123.6 ms/следующий DOWN361.3 ms.
 
 Дальнейшие gates: exact prototype CPU source/oracle → lifecycle/dispatch tests → actual same packed input10Q8roles+endpoint OFF/ON + timestamps. Аппаратного allocation сейчас нет; runtime-код tile не менялся.
+
+## CPU-интеграция
+
+Добавлен отдельный DEV default-OFF `CanonicalPlanAdapter.diagnosticMode5SharedTile`. `mode5Tile.ts` использует ровно enumerated16DIM whitelist из06cbd452 и реальный baseline uniform struct128B. Pipeline key отдельный; общий tile144vec4 сохраняет исходную j/i сумму и /16. Binding0/7/8, dispatch/scissor/quantum/все шесть Q8 границ прежние. Guard проверяет live owned original inputs/output, usages, source nearest и extents, finite/filter/alias ошибки до выбора варианта. Иные diagnostic sampler/specialization режимы остаются baseline.
+
+2 CPU oracle tests +10 initial targeted tests PASS; после добавления exception lifecycle5 targeted mode5 tests PASS. appTS PASS после исправления test tuple typing. Pipeline creation/mock encoding проверены; реальная WGSL-компиляция/GPU material parity не проверены. Success count обновляется после pass.end. Unreturned uniforms при bind/end исключениях уничтожаются с сохранением исходной ошибки. Холодный compile может изменить startup/input wall; выигрыш не заявлен. Hardware HOLD.
