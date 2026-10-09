@@ -1,0 +1,192 @@
+{
+  "source": "98f0d385bc5eaccd905dc0f7ab79e34488b8bf6a",
+  "verdict": "PASS_ACTUAL_OUTER_FRONT_SCALAR_CAPTURE",
+  "operands": {
+    "operands": {
+      "width": 1536,
+      "height": 1536,
+      "sourceWidth": 1536,
+      "sourceHeight": 1536,
+      "outWidth": 1536,
+      "outHeight": 1536,
+      "x0": 0,
+      "y0": 0,
+      "scale": 1,
+      "paperOrigin": [
+        0,
+        -1536
+      ],
+      "paperTexSize": [
+        1754,
+        2480
+      ],
+      "paperScale": 1,
+      "paperTextureWidth": 2048,
+      "paperTextureHeight": 2048,
+      "noiseWidth": 251,
+      "noiseHeight": 251,
+      "dryCost": 80,
+      "costMax": 164,
+      "climb": 30,
+      "floor": 0.85,
+      "stride": 1,
+      "foreignWet": 0,
+      "deviceIdentity": 1,
+      "paperIdentity": 2,
+      "noiseIdentity": 3,
+      "paperSHA": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+      "noiseSHA": "4b528332104d75b6a309d4b4c8a0459268b8b202b17fe09d032cf4d881ed5da8",
+      "sourceSHA": "15550cfbc2c001f6057b731eb12e5f64188a4640b90540098aefdbd53d2fec96"
+    },
+    "calls": 216,
+    "scope": "Actual first selected outer front, CPU scalar metadata only"
+  },
+  "window": {
+    "request": 16,
+    "start": 30245.69999998808,
+    "end": 31795.100000023842,
+    "armedAt": 22269.900000035763,
+    "emptyCandidates": 0,
+    "nonempty": true,
+    "interleaved": false
+  },
+  "timestampSummary": {
+    "passCount": 753,
+    "compute": 741,
+    "render": 12,
+    "scope": "GPU pass duration in nanoseconds; no copy/upload outside passes, CPU wall, queue wait or causal gain"
+  },
+  "ranking": [
+    {
+      "label": "Canonical waterFront",
+      "count": 240,
+      "totalNanoseconds": "998703104",
+      "meanNanosecondsFloor": "4161262"
+    },
+    {
+      "label": "Canonical brush single",
+      "count": 420,
+      "totalNanoseconds": "464125952",
+      "meanNanosecondsFloor": "1105061"
+    },
+    {
+      "label": "Canonical fieldOp 5",
+      "count": 18,
+      "totalNanoseconds": "58851328",
+      "meanNanosecondsFloor": "3269518"
+    },
+    {
+      "label": "Canonical fieldOp 15",
+      "count": 16,
+      "totalNanoseconds": "38862848",
+      "meanNanosecondsFloor": "2428928"
+    },
+    {
+      "label": "Canonical fieldOp 1",
+      "count": 18,
+      "totalNanoseconds": "27721728",
+      "meanNanosecondsFloor": "1540096"
+    },
+    {
+      "label": "Canonical diffuse",
+      "count": 13,
+      "totalNanoseconds": "16646144",
+      "meanNanosecondsFloor": "1280472"
+    },
+    {
+      "label": "Canonical fieldOp 6",
+      "count": 2,
+      "totalNanoseconds": "9502720",
+      "meanNanosecondsFloor": "4751360"
+    },
+    {
+      "label": "Canonical fieldOp 18",
+      "count": 1,
+      "totalNanoseconds": "7340032",
+      "meanNanosecondsFloor": "7340032"
+    },
+    {
+      "label": "Canonical fieldOp 0",
+      "count": 1,
+      "totalNanoseconds": "1966080",
+      "meanNanosecondsFloor": "1966080"
+    },
+    {
+      "label": "Canonical fieldOp 4",
+      "count": 1,
+      "totalNanoseconds": "1769472",
+      "meanNanosecondsFloor": "1769472"
+    },
+    {
+      "label": "Canonical fieldOp 2",
+      "count": 2,
+      "totalNanoseconds": "1703936",
+      "meanNanosecondsFloor": "851968"
+    },
+    {
+      "label": "Canonical composite",
+      "count": 1,
+      "totalNanoseconds": "1638400",
+      "meanNanosecondsFloor": "1638400"
+    },
+    {
+      "label": "Canonical fieldOp 10",
+      "count": 1,
+      "totalNanoseconds": "1572864",
+      "meanNanosecondsFloor": "1572864"
+    },
+    {
+      "label": "Canonical fieldOp 14",
+      "count": 1,
+      "totalNanoseconds": "1376256",
+      "meanNanosecondsFloor": "1376256"
+    },
+    {
+      "label": "Canonical fieldOp 12",
+      "count": 1,
+      "totalNanoseconds": "1245184",
+      "meanNanosecondsFloor": "1245184"
+    },
+    {
+      "label": "Canonical fieldOp 19",
+      "count": 2,
+      "totalNanoseconds": "1245184",
+      "meanNanosecondsFloor": "622592"
+    },
+    {
+      "label": "Canonical fieldOp 11",
+      "count": 1,
+      "totalNanoseconds": "1179648",
+      "meanNanosecondsFloor": "1179648"
+    },
+    {
+      "label": "Canonical fieldOp 3",
+      "count": 1,
+      "totalNanoseconds": "983040",
+      "meanNanosecondsFloor": "983040"
+    },
+    {
+      "label": "Canonical fieldOp 7",
+      "count": 1,
+      "totalNanoseconds": "917504",
+      "meanNanosecondsFloor": "917504"
+    },
+    {
+      "label": "Canonical fieldOp 20",
+      "count": 1,
+      "totalNanoseconds": "720896",
+      "meanNanosecondsFloor": "720896"
+    },
+    {
+      "label": "Canonical clear full",
+      "count": 11,
+      "totalNanoseconds": "0",
+      "meanNanosecondsFloor": "0"
+    }
+  ],
+  "readyAt": 21541.400000035763,
+  "firstDownAt": 22212.5,
+  "ownedContextDisposed": true,
+  "postCleanupRamMiB": 2090.0546875,
+  "scope": "Native unchanged model, scalar sampling metadata; not cached GPU parity or speedup"
+}
