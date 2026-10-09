@@ -1,0 +1,5 @@
+import{CARRY_FIELD_PROBE_BYTES}from'./PreviewCarryFieldProbe.mjs';
+export function serializeCarryFieldProbe(probe){
+ const rows=probe.readAfterKnownIdle();if(rows.length!==4||rows.map(r=>r.step).join(',')!=='0,1,4,9')throw Error('Incomplete carry phase probe');let bytes=0;const encoded=rows.map(row=>({...row,fields:Object.fromEntries(Object.entries(row.fields).map(([role,field])=>{const data=field.data,raw=new Uint8Array(data.buffer,data.byteOffset,data.byteLength);bytes+=raw.byteLength;if(bytes>CARRY_FIELD_PROBE_BYTES)throw Error('Field probe read cap');let binary='';for(let i=0;i<raw.length;i+=8192)binary+=String.fromCharCode(...raw.subarray(i,i+8192));return[role,{format:field.format,width:128,height:128,byteLength:raw.byteLength,base64:btoa(binary)}]}))}));
+ return{rows:encoded,readBytes:bytes,budgetBytes:CARRY_FIELD_PROBE_BYTES,scope:'Diagnostic GPU copies during selected carry ticks; binary readback after scenario, not onset/performance',byteOrder:new Uint8Array(new Uint32Array([1]).buffer)[0]===1?'little':'big'};
+}
