@@ -2,7 +2,7 @@ const critical=['apps/web/src/engine/index.ts','apps/web/src/engine/src/webgpuCa
 export function assertParallelPreloadPair(reference,off,on){
  const all=[reference,off,on]
  for(const r of all){
-  if(!r.complete||r.error||r.errors?.length||!r.ownedContextDisposed||r.final?.gl||r.final?.lost||r.final?.error||!r.export?.alpha)throw Error('Incomplete or dirty owned endpoint')
+  if(!r.complete||r.error||r.memoryError||r.memoryGuardFailure||r.errors?.length||!r.ownedContextDisposed||r.final?.gl||r.final?.lost||r.final?.error||!r.export?.alpha)throw Error('Incomplete or dirty owned endpoint')
   if(r.source!==reference.source||r.browserPaper?.sha256!==reference.browserPaper?.sha256)throw Error('Source or decoded paper differs')
   if(r.browserSource?.length!==4||new Set(r.browserSource.map(f=>f.path)).size!==4||critical.some(p=>!/^([a-f0-9]{64})$/.test(r.browserSource.find(f=>f.path===p)?.sha256??'')||r.browserSource.find(f=>f.path===p)?.sha256!==reference.browserSource.find(f=>f.path===p)?.sha256))throw Error('Critical browser source differs')
   if(r.export.sha!==reference.export.sha||r.export.width!==reference.export.width||r.export.height!==reference.export.height||r.export.alpha!==reference.export.alpha)throw Error('Decoded material differs')

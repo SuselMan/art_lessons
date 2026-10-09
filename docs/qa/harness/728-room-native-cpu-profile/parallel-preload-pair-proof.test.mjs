@@ -13,5 +13,5 @@ test('same source/paper/packed material endpoint pair separates startup and repl
  const value=assertParallelPreloadPair(...fixture());assert.equal(value.rows.length,2);assert.equal(value.rows[0].startupWallMs,100);assert.equal(value.rows[0].replayWallMs,50)
 })
 test('changed inputs/source/material, missing cleanup and compile identities fail closed',()=>{
- for(const mutate of [r=>{r[2].source='other'},r=>{r[2].browserSource[0].path='wrong'},r=>{r[1].replay.mapped[0].dabsPacked='changed'},r=>{r[2].export.sha='other'},r=>{r[1].ownedContextDisposed=false},r=>{r[2].actualPreparation.pressure.shaderSHA='other'},r=>{r[2].actualPreparation.consumed.observed[0].hits=0}]){const rows=fixture();mutate(rows);assert.throws(()=>assertParallelPreloadPair(...rows))}
+ for(const mutate of [r=>{r[2].source='other'},r=>{r[2].browserSource[0].path='wrong'},r=>{r[1].replay.mapped[0].dabsPacked='changed'},r=>{r[2].export.sha='other'},r=>{r[1].ownedContextDisposed=false},r=>{r[1].memoryError='ssh unavailable'},r=>{r[2].actualPreparation.pressure.shaderSHA='other'},r=>{r[2].actualPreparation.consumed.observed[0].hits=0}]){const rows=fixture();mutate(rows);assert.throws(()=>assertParallelPreloadPair(...rows))}
 })
