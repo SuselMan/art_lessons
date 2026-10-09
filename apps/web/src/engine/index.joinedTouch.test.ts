@@ -380,3 +380,41 @@ it('constructor snapshot lease is DEV opt-in only and defaults OFF', () => {
     }
   } finally { vi.unstubAllEnvs() }
 })
+
+it('Dry during mixed owned input clears the lease and leaves the next gesture usable', async () => {
+  const e = await setup(true, false, 'normal:100:0:PB29:round', true)
+  e.setPencil('normal:100:100:PB29:round')
+  simulateStrokeStart(e, 24, 32)
+  const oldJob = e['_settle']!
+  expect(e['_wcJoinedTouchLease']).toBe(oldJob)
+  const oldWash = e['_washId']
+  expect(e['_paperWet'].countWet('L', performance.now(), .001)).toBeGreaterThan(0)
+  e.watercolorDryAll()
+  expect(e['_paperWet'].countWet('L', performance.now(), .001)).toBe(0)
+  expect(e['_dryAtPenUp']).toBe(true)
+  simulateStrokeEnd(e, 40, 32)
+  e['_completeSettle']()
+  expect(e['_wcJoinedTouchLease']).toBeNull()
+  const before = e.getOperations().filter(op => op.type === 'stroke').length
+  simulateStroke(e, [{ x: 8, y: 48 }, { x: 24, y: 48 }, { x: 40, y: 48 }])
+  e['_completeSettle']()
+  expect(e.getOperations().filter(op => op.type === 'stroke')).toHaveLength(before + 1)
+  expect(e['_washId']).not.toBe(oldWash)
+  expect(e['_wcJoinedTouchLease']).toBeNull()
+})
+
+it('mixed owned loss discards captured commands and cannot replay a stale job on destruction', async () => {
+  const e = await setup(true, false, 'normal:100:0:PB29:round', true)
+  e.setPencil('normal:100:100:PB29:round')
+  simulateStrokeStart(e, 24, 32)
+  const oldJob = e['_settle']!
+  const commands = e['_ribbonStrokeScratch']!.runningSourceCommands.map(c => vi.fn(c))
+  expect(commands.length).toBeGreaterThan(0)
+  e['_ribbonStrokeScratch']!.runningSourceCommands = commands
+  e['_handleContextLost']({ preventDefault() {} } as Event)
+  expect(e['_wcJoinedTouchLease']).toBeNull()
+  expect(e['_settleQueue'].current).not.toBe(oldJob)
+  expect(e['_contextLost']).toBe(true)
+  e.destroy()
+  for (const command of commands) expect(command).not.toHaveBeenCalled()
+})
