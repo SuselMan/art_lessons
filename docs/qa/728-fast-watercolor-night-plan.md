@@ -1,5 +1,7 @@
 # Супербыстрая акварель — план ночи 07→08 октября
 
+Исторический план. Актуальная локальная GL-checklist на09.10: [GL progress](728-gl-progress-current-2026-10-09.md); она не закрывает непроверенные native/live-spread задачи автоматически.
+
 Илья согласовал запуск23:34Europe/Vilnius. Publication/main/deploy не разрешены.
 Baseline6aa14a43; safe pack ffd3fdc8 (runtime), rootf7dc9c3d (docs).
 Принцип: сохранить каноническую модель и отделить математическое вычисление,
