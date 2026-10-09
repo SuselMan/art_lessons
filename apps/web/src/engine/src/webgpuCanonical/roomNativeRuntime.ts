@@ -72,7 +72,7 @@ export class RoomNativeRuntime {
  private queued=false
  private finishScalars:PreparedRibbonCpuDelivery['input']['scalars']|null=null
  private retirements:Promise<void>[]=[]
- private constructor(backend:CanonicalWatercolorWebGpu,ctx:RoomNativeRuntimeContext){this.backend=backend;this.ctx=ctx;this.tipContactQa=installNativeTipA(backend,ctx.diagnosticTipContactA===true);this.central=new RoomNativeCentralAdapter(ctx.fifo,ctx.changed);if(import.meta.env.DEV&&ctx.diagnosticSchedulingObserver===true){this.schedulingObserver=createBoundedSchedulingObserver();this.central.diagnosticScheduling=this.schedulingObserver;backend.diagnosticSchedulingBindRelease=(id,ownerEpoch)=>this.central.bindDiagnosticScope(id,ownerEpoch)}}
+ private constructor(backend:CanonicalWatercolorWebGpu,ctx:RoomNativeRuntimeContext){this.backend=backend;this.ctx=ctx;this.tipContactQa=installNativeTipA(backend,ctx.diagnosticTipContactA===true);this.central=new RoomNativeCentralAdapter(ctx.fifo,ctx.changed);if(import.meta.env.DEV&&ctx.diagnosticSchedulingObserver===true){this.schedulingObserver=createBoundedSchedulingObserver(8192);this.central.diagnosticScheduling=this.schedulingObserver;backend.diagnosticSchedulingBindRelease=(id,ownerEpoch)=>this.central.bindDiagnosticScope(id,ownerEpoch)}}
  get sourcePipelinePreparation(){return exactPipelinePreparationDiagnostics(this.backend.device)}
  static async create(ctx:RoomNativeRuntimeContext){
   if(import.meta.env.DEV&&ctx.diagnosticNativeBrushPair&&(ctx.diagnosticMomentTransport||ctx.diagnosticMomentGpuAudit||ctx.diagnosticMomentVector))throw Error('Separate original native paired brush arm required')
