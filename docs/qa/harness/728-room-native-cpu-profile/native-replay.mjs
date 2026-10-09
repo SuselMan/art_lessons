@@ -1,8 +1,9 @@
 /** Diagnostic SAME packed tape through ordinary Room appendOperation, never native-owned input. */
-export async function replayNativePackedControl({tape,targetLayerId,expectedBoard,expectedPaperSha,actualPaperSha,timeoutMs=60000}){
+export async function replayNativePackedControl({tape,targetLayerId,expectedBoard,expectedPaperSha,actualPaperSha,expectedOperationCount=4,timeoutMs=60000}){
  const e=window.__engine
  if(!e?._wcNativeEnabled||!e._wcNative)throw Error('Ready ordinary Room native executor required')
- if(!Array.isArray(tape)||tape.length!==4||tape.some(o=>o.type!=='stroke')||new Set(tape.map(o=>o.layerId)).size!==1)throw Error('Original single-layer four-stroke tape required')
+ if(![2,4].includes(expectedOperationCount))throw Error('Explicit two/four operation corpus required')
+ if(!Array.isArray(tape)||tape.length!==expectedOperationCount||tape.some(o=>o.type!=='stroke')||new Set(tape.map(o=>o.layerId)).size!==1)throw Error('Original single-layer exact-count stroke tape required')
  if(!e._layers.has(targetLayerId)||e._log.entries.some(x=>x.op.type==='stroke'))throw Error('Fresh actual target layer required')
  if(!expectedPaperSha||expectedPaperSha!==actualPaperSha)throw Error('Identical decoded paper passport required')
  const board=e._pageSize();if(board.w!==expectedBoard.width||board.h!==expectedBoard.height)throw Error('Actual original board dimensions required')
