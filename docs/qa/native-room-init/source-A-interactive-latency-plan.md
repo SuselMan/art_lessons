@@ -28,3 +28,21 @@ judge first touch and next wet stroke on the same native Room stand after the
 bounded device probe. The current replay endpoints do not substitute for that
 check. Any later counterbalanced OFF/ON performance cohort needs a separate
 allocation and order/cache disclosure; do not schedule it automatically.
+
+## Runnable existing controller mode
+
+Set `QA_INTERACTIVE_MARKERS=1` on the existing Room400 controller with
+`QA_SCENARIO=water-pigment400-long`, source15/existing3 ON, full/raw warm OFF.
+The first water gesture does not insert the ordinary idle drain before the next
+pigment gesture; UI options still use the real store/engine update. The probe
+records pending/settling state at actual pen DOWN, so a false pending state is
+reported honestly rather than manufactured.
+
+After READY, the helper wraps original emitPrepared and restoreCanvasPixels,
+and listens to real pen pointerdown/up. It records bounded512 scalar entries,
+keeps original arguments, synchronous return/throw and Promise identity, and adds
+no queue calls or Promise handlers. Source entries are matched to the UP stroke
+ID; queued previous source is attributed to its original label. The next canvas
+publication after own source can include prior work and is not first visible
+pigment. Missing ownership/order/READY/markers or overflow fails closed. Original
+methods/listeners are restored before endpoint capture and again on cleanup.
