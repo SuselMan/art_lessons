@@ -102,7 +102,7 @@ import { appendWatercolorLift } from './src/presets/watercolorLift'
 
 
 
-import { PaperWetness, type DiagnosticWetSnapshot, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paper/paperWetness'
+import { PaperWetness, type DiagnosticWetSnapshot, type DiagnosticWetAuthority, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paper/paperWetness'
 import { wetOverlayPixels, wetOverlayWorkspace, type WetOverlayWorkspace } from './src/paper/wetOverlayPixels'
 
 export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
@@ -1270,6 +1270,7 @@ interface DiagnosticWetReplayScope {
   scratch?: RibbonStrokeScratch
   gesture?: number
   started: boolean
+  authority?: DiagnosticWetAuthority
 }
 
 interface EngineOpts {
@@ -1545,6 +1546,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _diagnosticWetReplay = false
   private _wetReplayScope: DiagnosticWetReplayScope | null = null
   private _wetReplayFailed = false
+  private _completedWetReplays = new WeakMap<object, {scope: DiagnosticWetReplayScope; operation: Operation; revision: number; layerId: string; target: unknown}>()
   private _admittedPointerWashId: string | null = null
   private _diagnosticPointerAdmission = false
   private _admittedPointerStrokeId: string | null = null
@@ -6235,6 +6237,26 @@ export class PencilEngine implements PencilEngineAPI {
     return packet
   }
 
+  diagnosticCaptureWetReplayAuthority(strokeId: string, washId: string, operationId: string,
+    authority: DiagnosticWetAuthority, events: readonly WetTranscriptEvent[], completeness: {dropped:number;errors:number}): object {
+    const packet = this.diagnosticCaptureWetReplay(strokeId, washId, operationId, authority.snapshot, events, completeness)
+    this._admissionPackets.get(packet)!.replay!.authority = authority
+    return packet
+  }
+
+  /** Explicit CPU diagnostic acceptance only; not GPU/material publication. */
+  diagnosticPromoteCompletedWetReplay(packet: object): void {
+    const completed = this._completedWetReplays.get(packet)
+    this._completedWetReplays.delete(packet)
+    if (!this._diagnosticWetReplay || !completed?.scope.authority || this._destroyed || this._contextLost
+      || this._wetReplayScope || this._strokeLayerId || this._settle || !this._wetReplayIsolated()
+      || this._layers.get(completed.layerId) !== completed.target || this._log.revision !== completed.revision
+      || this._wash && this._wash.id !== completed.scope.washId
+      || !this._log.doneOperations().includes(completed.operation)) throw Error('Incomplete or stale wet replay acceptance')
+    completed.scope.clock.assertDone()
+    this._paperWet.promoteDiagnosticFork(completed.scope.authority, completed.scope.paper)
+  }
+
   diagnosticDispatchPointerAdmission(packet: object, kind: 'start' | 'move' | 'end', e: PointerData, receiptWallTime: number): void {
     if (this._wetReplayScope) { this._wetReplayFailed=true;this._locked=true;throw Error('Reentrant wet replay admission') }
     if (!Number.isFinite(receiptWallTime)) throw Error('Pointer admission invalid receipt time')
@@ -6261,7 +6283,16 @@ export class PencilEngine implements PencilEngineAPI {
       if(owned.replay){
         if(this._wetReplayFailed||this._wetTranscriptErrors!==previous.observerErrors)throw Error('Failed wet replay observer/owner')
         if(kind==='start'){if(this._strokeId!==owned.strokeId||this._wash?.id!==owned.replay.washId||!this._ribbonStrokeScratch)throw Error('Wet replay start refused');owned.replay.started=true;owned.replay.scratch=this._ribbonStrokeScratch;owned.replay.gesture=this._ribbonStrokeScratch.gesture}
-        if(kind==='end')owned.replay.clock.assertDone()
+        if(kind==='end'){
+          owned.replay.clock.assertDone()
+          if(owned.replay.authority){
+            const operation=this._log.doneOperations().find(op=>op.id===owned.replay!.operationId)
+            if(!operation || operation.type!=='stroke' || operation.userId!==this._userId
+              || operation.layerId!==owned.layerId || operation.strokeId!==owned.strokeId || operation.washId!==owned.replay.washId)
+              throw Error('Wet replay operation not accepted')
+            this._completedWetReplays.set(packet,{scope:owned.replay,operation,revision:this._log.revision,layerId:owned.layerId,target:owned.target})
+          }
+        }
       }
     } catch (error) {
       if(owned.replay){this._wetReplayFailed=true;this._locked=true}

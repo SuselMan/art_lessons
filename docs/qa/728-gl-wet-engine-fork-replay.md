@@ -9,3 +9,9 @@ Actual PointerInput с coalesced samples → исходные watercolor handler
 Негативные проверки: неверный clock stage без fallback, чужой/уничтоженный владелец, throw handler, reentrant observer, callback установлен после capture перед DOWN/MOVE/UP. Последний rejected до handler/callback и изменения live модели. Ошибка инвалидирует packet и блокирует fresh Engine; finally восстанавливает контекст, **не откатывает scratch/log/GL**. Такой Engine следует уничтожить.
 
 12 тестов wet replay/transcript/pointer admission PASS; app + service-worker TypeScript PASS. Runtime activation, foreign wash, GPU readset retention, fork→live merge и задержанный реальный input остаются HOLD.
+
+## Explicit accepted CPU model promotion
+
+Constructor-only diagnosticCaptureWetReplayAuthority uses exact authority.snapshot provenance. After actual _onEnd, complete cursor and actual done OperationLog stroke identity (actor/layer/stroke/wash/id) establish a one-use completed capability. Explicit diagnosticPromoteCompletedWetReplay additionally checks unchanged journal/layer owner, no active input/context loss/destroy/failure/callback/peer/FIFO/settle/rebuild/canonical pending and compatible wash owner. Actual natural settle must finish; no forced drain added. PaperWetness authority then rejects intervening live writes and installs prepared fork state.
+
+MockGL oracle compares whole Operation and raw full wet state against original handlers; original changed-live replay without promotion remains valid. Failed/unfinished/destroyed/reused/stale-live promotion rejected without live changes. This proves local journal acceptance and CPU model state only, not server ACK/GPU publication/readset ownership. No Room/query/runtime activation.
