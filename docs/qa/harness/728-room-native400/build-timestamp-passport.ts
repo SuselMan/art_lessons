@@ -17,7 +17,7 @@ const marker=JSON.parse(fs.readFileSync(path.join(out,'.codex-qa-disposable.json
 if(marker.path!==out||registry[marker.id]?.path!==out||registry[marker.id]?.nonce!==marker.nonce||fs.realpathSync(out)!==out)throw Error('Registered disposable ownership differs')
 if(execFileSync('git',['status','--porcelain','--untracked-files=no'],{cwd:runtime,encoding:'utf8'}).trim())throw Error('Current runtime must be committed before passport')
 const head=execFileSync('git',['rev-parse','HEAD'],{cwd:runtime,encoding:'utf8'}).trim(),sha=(bytes:Uint8Array|string)=>createHash('sha256').update(bytes).digest('hex')
-const files=execFileSync('git',['ls-files','apps/web/src/engine','packages/shared/src'],{cwd:runtime,encoding:'utf8'}).trim().split('\n').map(p=>({path:p,sha256:sha(fs.readFileSync(path.join(runtime,p)))}))
+const files=execFileSync('git',['ls-files','apps/web/src/engine','packages/shared/src','apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts'],{cwd:runtime,encoding:'utf8'}).trim().split('\n').map(p=>({path:p,sha256:sha(fs.readFileSync(path.join(runtime,p)))}))
 const paper=path.resolve(rawPaper),paperFiles=fs.readdirSync(paper).filter(p=>fs.statSync(path.join(paper,p)).isFile()).map(p=>({path:p,sha256:sha(fs.readFileSync(path.join(paper,p)))}))
 const baked=JSON.parse(fs.readFileSync(path.join(paper,'manifest.json'),'utf8')),fine=baked.assets.fine
 if(typeof fine.texture!=='string'||path.basename(fine.texture)!==fine.texture)throw Error('Fine paper filename invalid')

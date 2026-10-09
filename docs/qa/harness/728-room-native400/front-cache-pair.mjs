@@ -6,7 +6,7 @@ import crypto from 'node:crypto'
 import {execFile} from 'node:child_process'
 import {awaitPairRam} from '../728-room-native-cpu-profile/pair-ram-admission.mjs'
 import {preservePairEvidence} from '../728-room-native-cpu-profile/pair-evidence.mjs'
-import {assertFrontCachePair} from './front-cache-pair-proof.mjs'
+import {assertFrontCachePair,assertNativePairSourceManifest} from './front-cache-pair-proof.mjs'
 const mode=process.env.QA_PAIR_KIND??'front-cache';if(!['front-cache','brush-pair'].includes(mode))throw Error('Explicit native pair mode');
 const out=process.env.QA_PAIR_OUT,durable=process.env.QA_PAIR_EVIDENCE
 if(!out||!durable||process.env.QA_PAIR_ALLOCATION!=='surface')throw Error('Explicit allocated pair output/evidence required')
@@ -14,6 +14,7 @@ const root=path.dirname(path.resolve(out)),marker=JSON.parse(fs.readFileSync(pat
 if(marker.path!==root||registry[marker.id]?.path!==root||registry[marker.id]?.nonce!==marker.nonce||registry[marker.id]?.finished)throw Error('Registered current disposable required')
 if(fs.existsSync(out))throw Error('Refuse existing pair output');fs.mkdirSync(out,{mode:0o700})
 const manifest=JSON.parse(fs.readFileSync(process.env.QA_MANIFEST));if(manifest.head!==process.env.QA_SOURCE)throw Error('Current auto source passport required')
+assertNativePairSourceManifest(manifest,mode)
 const progress={source:manifest.head,stage:'preflight',completedArms:[],ramAdmissions:[],scope:'Two source-identical native packed arms; historical reference used only as input corpus; no causal speedup claim'}
 const save=()=>fs.writeFileSync(path.join(out,'pair-progress.json'),JSON.stringify(progress))
 const run=(env)=>new Promise((resolve,reject)=>execFile(process.execPath,['docs/qa/harness/728-room-native-cpu-profile/native-replay-controller.mjs'],{cwd:process.env.QA_RUNTIME,env:{...process.env,...env},timeout:150000,maxBuffer:65536},(error)=>error?reject(error):resolve()))
