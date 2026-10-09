@@ -1,0 +1,1963 @@
+{
+  "scope": "Actual Surface no-input /create navigation only; no room submit, strokes or GPU material",
+  "navigation": {
+    "exactGotoURL": "[QA origin]/create",
+    "waitUntil": "domcontentloaded",
+    "timeoutMs": 30000,
+    "ignoreHTTPSErrors": true
+  },
+  "passport": {
+    "apps/web/src/main.tsx": "954967a4d4e7f01ec1115003929bab975ad52ea873fc77be4c146c7d1b1b7b75",
+    "apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts": "edf56db76df946a79940f012a8bb9344a7799c0b5204accc4be7774d6bf9aa83",
+    "apps/web/src/engine/index.ts": "99384eba314575655ff6aa0ba2bc708cab84a5a5b0b29fc7d426849998163125",
+    "apps/web/src/engine/src/raster/CanonicalWatercolorSettlePlan.ts": "bd10157ac1e32f3d3bcf61fe0d3936770c35c05df881019b978efe28bfb012ef",
+    "apps/web/src/engine/src/watercolor/brushDragHoisted.ts": "bc3187f4f73d8aa37d39b9591a389527b1e1b409d2e73bd6300964c822a24ed9",
+    "docs/qa/harness/728-gl-timing/NavigationTrace.mjs": "b55cfe91f45d8c8dbd55ba426303d17d30dc63502dc25094e7ee3d2e21b8aef5"
+  },
+  "stages": [
+    {
+      "name": "context-open",
+      "at": 2176.783426
+    },
+    {
+      "name": "goto",
+      "at": 3593.460204
+    },
+    {
+      "name": "closed",
+      "at": 35232.805738
+    }
+  ],
+  "network": {
+    "rows": [
+      {
+        "phase": "request",
+        "requestId": "95F4418526E339CFBE83B6C4228FE2EF",
+        "originClass": "QA",
+        "pathname": "/create",
+        "type": "Document",
+        "at": 541685.084108
+      },
+      {
+        "phase": "response",
+        "requestId": "95F4418526E339CFBE83B6C4228FE2EF",
+        "originClass": "QA",
+        "pathname": "/create",
+        "status": 200,
+        "type": "Document",
+        "at": 541685.234506,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.2",
+        "originClass": "QA",
+        "pathname": "/@vite/client",
+        "type": "Script",
+        "at": 541685.245111
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.3",
+        "originClass": "QA",
+        "pathname": "/src/main.tsx",
+        "type": "Script",
+        "at": 541685.245715
+      },
+      {
+        "phase": "finished",
+        "requestId": "95F4418526E339CFBE83B6C4228FE2EF",
+        "at": 541685.232598
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.6",
+        "originClass": "QA",
+        "pathname": "/@react-refresh",
+        "type": "Script",
+        "at": 541685.253751
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.3",
+        "originClass": "QA",
+        "pathname": "/src/main.tsx",
+        "status": 200,
+        "type": "Script",
+        "at": 541685.369306,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.3",
+        "at": 541685.367684
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.7",
+        "originClass": "QA",
+        "pathname": "/src/lib/observability/initSentry.ts",
+        "type": "Script",
+        "at": 541685.370314
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.8",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/react.js",
+        "type": "Script",
+        "at": 541685.37048
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.9",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/react-dom_client.js",
+        "type": "Script",
+        "at": 541685.370626
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.10",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/@sentry_react.js",
+        "type": "Script",
+        "at": 541685.370814
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.11",
+        "originClass": "QA",
+        "pathname": "/src/styles/global.css",
+        "type": "Script",
+        "at": 541685.370987
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.12",
+        "originClass": "QA",
+        "pathname": "/src/lib/api/api.ts",
+        "type": "Script",
+        "at": 541685.371151
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.13",
+        "originClass": "QA",
+        "pathname": "/src/lib/api/environment.ts",
+        "type": "Script",
+        "at": 541685.371276
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.14",
+        "originClass": "QA",
+        "pathname": "/src/lib/api/authState.ts",
+        "type": "Script",
+        "at": 541685.371386
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.15",
+        "originClass": "QA",
+        "pathname": "/src/lib/api/queryClient.ts",
+        "type": "Script",
+        "at": 541685.371502
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.16",
+        "originClass": "QA",
+        "pathname": "/src/lib/observability/sentry.ts",
+        "type": "Script",
+        "at": 541685.371602
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.17",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/backNavigationGuard.ts",
+        "type": "Script",
+        "at": 541685.37171
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.18",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/appVersion.ts",
+        "type": "Script",
+        "at": 541685.371821
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.19",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/registerServiceWorker.ts",
+        "type": "Script",
+        "at": 541685.371955
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.20",
+        "originClass": "QA",
+        "pathname": "/src/i18n/core/translate.ts",
+        "type": "Script",
+        "at": 541685.372075
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.21",
+        "originClass": "QA",
+        "pathname": "/src/lib/observability/debugTools.ts",
+        "type": "Script",
+        "at": 541685.372183
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.22",
+        "originClass": "QA",
+        "pathname": "/src/stores/noticeStore.ts",
+        "type": "Script",
+        "at": 541685.37231
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.23",
+        "originClass": "QA",
+        "pathname": "/src/stores/settingsStore.ts",
+        "type": "Script",
+        "at": 541685.372456
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.24",
+        "originClass": "QA",
+        "pathname": "/src/App.tsx",
+        "type": "Script",
+        "at": 541685.372629
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.25",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/react_jsx-dev-runtime.js",
+        "type": "Script",
+        "at": 541685.372782
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.7",
+        "originClass": "QA",
+        "pathname": "/src/lib/observability/initSentry.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541685.442339,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.7",
+        "at": 541685.441408
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.8",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/react.js",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.157812,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.8",
+        "at": 541697.155996
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.26",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/rolldown-runtime-B-1-B7_t.js",
+        "type": "Script",
+        "at": 541697.158909
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.6",
+        "originClass": "QA",
+        "pathname": "/@react-refresh",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.207339,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.6",
+        "at": 541697.203172
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.11",
+        "originClass": "QA",
+        "pathname": "/src/styles/global.css",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.208422,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.11",
+        "at": 541697.204107
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.14",
+        "originClass": "QA",
+        "pathname": "/src/lib/api/authState.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.20919,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.14",
+        "at": 541697.204581
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.2",
+        "originClass": "QA",
+        "pathname": "/@vite/client",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.209867,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.2",
+        "at": 541697.202925
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.13",
+        "originClass": "QA",
+        "pathname": "/src/lib/api/environment.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.211186,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.13",
+        "at": 541697.204435
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.15",
+        "originClass": "QA",
+        "pathname": "/src/lib/api/queryClient.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.212003,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.15",
+        "at": 541697.204744
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.12",
+        "originClass": "QA",
+        "pathname": "/src/lib/api/api.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.212656,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.12",
+        "at": 541697.204269
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.16",
+        "originClass": "QA",
+        "pathname": "/src/lib/observability/sentry.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.213417,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.16",
+        "at": 541697.204903
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.27",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/@tanstack_react-query.js",
+        "type": "Script",
+        "at": 541697.214078
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.28",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/node_modules/vite/dist/client/env.mjs",
+        "type": "Script",
+        "at": 541697.214476
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.29",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/deviceType.ts",
+        "type": "Script",
+        "at": 541697.214842
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.30",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/index.js",
+        "type": "Script",
+        "at": 541697.215174
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.31",
+        "originClass": "QA",
+        "pathname": "/src/lib/api/banned.ts",
+        "type": "Script",
+        "at": 541697.215394
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.9",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/react-dom_client.js",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.224206,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.9",
+        "at": 541697.203356
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.32",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/react-dom.js",
+        "type": "Script",
+        "at": 541697.235865
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.10",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/@sentry_react.js",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.236509,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.10",
+        "at": 541697.203663
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.18",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/appVersion.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.795678,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.18",
+        "at": 541697.792529
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.20",
+        "originClass": "QA",
+        "pathname": "/src/i18n/core/translate.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.796469,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.20",
+        "at": 541697.792916
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.19",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/registerServiceWorker.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.797035,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.19",
+        "at": 541697.792764
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.21",
+        "originClass": "QA",
+        "pathname": "/src/lib/observability/debugTools.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.797481,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.21",
+        "at": 541697.793059
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.17",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/backNavigationGuard.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.797943,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.17",
+        "at": 541697.792156
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.22",
+        "originClass": "QA",
+        "pathname": "/src/stores/noticeStore.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.798529,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.22",
+        "at": 541697.793214
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.23",
+        "originClass": "QA",
+        "pathname": "/src/stores/settingsStore.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.799244,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.23",
+        "at": 541697.793353
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.24",
+        "originClass": "QA",
+        "pathname": "/src/App.tsx",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.80024,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.24",
+        "at": 541697.793509
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.25",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/react_jsx-dev-runtime.js",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.8011,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.25",
+        "at": 541697.79374
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.26",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/rolldown-runtime-B-1-B7_t.js",
+        "status": 200,
+        "type": "Script",
+        "at": 541697.801761,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.26",
+        "at": 541697.794321
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.33",
+        "originClass": "QA",
+        "pathname": "/src/i18n/core/en.ts",
+        "type": "Script",
+        "at": 541697.802172
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.34",
+        "originClass": "QA",
+        "pathname": "/src/i18n/core/ru.ts",
+        "type": "Script",
+        "at": 541697.802388
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.35",
+        "originClass": "QA",
+        "pathname": "/src/pwa/updatePolicy.ts",
+        "type": "Script",
+        "at": 541697.802804
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.36",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/reloadSafety.ts",
+        "type": "Script",
+        "at": 541697.80301
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.37",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/zustand.js",
+        "type": "Script",
+        "at": 541697.803401
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.38",
+        "originClass": "QA",
+        "pathname": "/src/lib/input/pressureCalibration.ts",
+        "type": "Script",
+        "at": 541697.803704
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.39",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/colorPickerMode.ts",
+        "type": "Script",
+        "at": 541697.80388
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.40",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/panelLayout.ts",
+        "type": "Script",
+        "at": 541697.804035
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.41",
+        "originClass": "QA",
+        "pathname": "/src/lib/input/hotkeys.ts",
+        "type": "Script",
+        "at": 541697.8042
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.42",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/uiPreferences.ts",
+        "type": "Script",
+        "at": 541697.804326
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.43",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/theme.ts",
+        "type": "Script",
+        "at": 541697.804461
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.44",
+        "originClass": "QA",
+        "pathname": "/src/i18n/core/locale.ts",
+        "type": "Script",
+        "at": 541697.804638
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.45",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/react-router-dom.js",
+        "type": "Script",
+        "at": 541697.805175
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.46",
+        "originClass": "QA",
+        "pathname": "/src/components/AppErrorBoundary.tsx",
+        "type": "Script",
+        "at": 541697.805312
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.47",
+        "originClass": "QA",
+        "pathname": "/src/components/ConfirmDialog/index.tsx",
+        "type": "Script",
+        "at": 541697.805509
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.48",
+        "originClass": "QA",
+        "pathname": "/src/components/Notice/index.ts",
+        "type": "Script",
+        "at": 541697.805673
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.49",
+        "originClass": "QA",
+        "pathname": "/src/components/StatusCard.tsx",
+        "type": "Script",
+        "at": 541697.805807
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.50",
+        "originClass": "QA",
+        "pathname": "/src/engine/paper.ts",
+        "type": "Script",
+        "at": 541697.805941
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.51",
+        "originClass": "QA",
+        "pathname": "/src/pages/Room/roomChunk.ts",
+        "type": "Script",
+        "at": 541697.806108
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.52",
+        "originClass": "QA",
+        "pathname": "/src/i18n/index.ts",
+        "type": "Script",
+        "at": 541697.806256
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.28",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/node_modules/vite/dist/client/env.mjs",
+        "status": 200,
+        "type": "Script",
+        "at": 541699.046321,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.28",
+        "at": 541699.04426
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.30",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/index.js",
+        "status": 200,
+        "type": "Script",
+        "at": 541699.046954,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.30",
+        "at": 541699.044605
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.29",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/deviceType.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541699.048079,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.29",
+        "at": 541699.04443
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.31",
+        "originClass": "QA",
+        "pathname": "/src/lib/api/banned.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541699.048727,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.31",
+        "at": 541699.044818
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.27",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/@tanstack_react-query.js",
+        "status": 200,
+        "type": "Script",
+        "at": 541699.058933,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.27",
+        "at": 541699.043924
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.54",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/layers.js",
+        "type": "Script",
+        "at": 541699.06075
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.55",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/paper.js",
+        "type": "Script",
+        "at": 541699.061005
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.56",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/room.js",
+        "type": "Script",
+        "at": 541699.061185
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.57",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/toolset.js",
+        "type": "Script",
+        "at": 541699.061346
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.58",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/stroke.js",
+        "type": "Script",
+        "at": 541699.061522
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.59",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/layerOperations.js",
+        "type": "Script",
+        "at": 541699.061718
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.60",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/areaOperations.js",
+        "type": "Script",
+        "at": 541699.061906
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.61",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/shapes.js",
+        "type": "Script",
+        "at": 541699.062112
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.62",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/layerFilters.js",
+        "type": "Script",
+        "at": 541699.062281
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.63",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/operations.js",
+        "type": "Script",
+        "at": 541699.062465
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.64",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/annotations.js",
+        "type": "Script",
+        "at": 541699.06265
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.65",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/protocol.js",
+        "type": "Script",
+        "at": 541699.062806
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.66",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/hotkeys.js",
+        "type": "Script",
+        "at": 541699.062951
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.67",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/rest.js",
+        "type": "Script",
+        "at": 541699.063104
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.68",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/roomOpen.js",
+        "type": "Script",
+        "at": 541699.063406
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.69",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/dabCodec.js",
+        "type": "Script",
+        "at": 541699.063559
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.70",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/admin.js",
+        "type": "Script",
+        "at": 541699.063751
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.71",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/react_jsx-runtime.js",
+        "type": "Script",
+        "at": 541699.065292
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.32",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/react-dom.js",
+        "status": 200,
+        "type": "Script",
+        "at": 541699.203274,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.32",
+        "at": 541699.201727
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.33",
+        "originClass": "QA",
+        "pathname": "/src/i18n/core/en.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541699.809492,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.33",
+        "at": 541699.807203
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.35",
+        "originClass": "QA",
+        "pathname": "/src/pwa/updatePolicy.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541701.005755,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.35",
+        "at": 541701.004561
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.36",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/reloadSafety.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541701.006356,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.36",
+        "at": 541701.004705
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.37",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/zustand.js",
+        "status": 200,
+        "type": "Script",
+        "at": 541701.006833,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.37",
+        "at": 541701.004851
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.38",
+        "originClass": "QA",
+        "pathname": "/src/lib/input/pressureCalibration.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541701.007126,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.38",
+        "at": 541701.005021
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.34",
+        "originClass": "QA",
+        "pathname": "/src/i18n/core/ru.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541701.007428,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.34",
+        "at": 541701.004259
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.72",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/lodash-es.js",
+        "type": "Script",
+        "at": 541701.007795
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.39",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/colorPickerMode.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541701.477691,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.39",
+        "at": 541701.476048
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.40",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/panelLayout.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541701.478372,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.40",
+        "at": 541701.476277
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.41",
+        "originClass": "QA",
+        "pathname": "/src/lib/input/hotkeys.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541701.479021,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.41",
+        "at": 541701.476457
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.73",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/roomStorage.ts",
+        "type": "Script",
+        "at": 541701.479923
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.42",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/uiPreferences.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541706.438449,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.42",
+        "at": 541706.434493
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.44",
+        "originClass": "QA",
+        "pathname": "/src/i18n/core/locale.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541706.439208,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.44",
+        "at": 541706.435407
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.43",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/theme.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541706.439716,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.43",
+        "at": 541706.435229
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.48",
+        "originClass": "QA",
+        "pathname": "/src/components/Notice/index.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541706.440696,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.48",
+        "at": 541706.436205
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.46",
+        "originClass": "QA",
+        "pathname": "/src/components/AppErrorBoundary.tsx",
+        "status": 200,
+        "type": "Script",
+        "at": 541706.441326,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.46",
+        "at": 541706.435839
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.47",
+        "originClass": "QA",
+        "pathname": "/src/components/ConfirmDialog/index.tsx",
+        "status": 200,
+        "type": "Script",
+        "at": 541706.441926,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.47",
+        "at": 541706.436032
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.49",
+        "originClass": "QA",
+        "pathname": "/src/components/StatusCard.tsx",
+        "status": 200,
+        "type": "Script",
+        "at": 541706.443256,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.49",
+        "at": 541706.436387
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.50",
+        "originClass": "QA",
+        "pathname": "/src/engine/paper.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541706.444025,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.50",
+        "at": 541706.436585
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.51",
+        "originClass": "QA",
+        "pathname": "/src/pages/Room/roomChunk.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541706.444651,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.51",
+        "at": 541706.436758
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.52",
+        "originClass": "QA",
+        "pathname": "/src/i18n/index.ts",
+        "status": 200,
+        "type": "Script",
+        "at": 541706.445182,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.52",
+        "at": 541706.436927
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.74",
+        "originClass": "QA",
+        "pathname": "/src/components/Notice/Notice.tsx",
+        "type": "Script",
+        "at": 541706.445792
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.75",
+        "originClass": "QA",
+        "pathname": "/src/components/Notice/NoticeStack.tsx",
+        "type": "Script",
+        "at": 541706.446058
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.76",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/clsx.js",
+        "type": "Script",
+        "at": 541706.446489
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.77",
+        "originClass": "QA",
+        "pathname": "/src/components/Modal/index.tsx",
+        "type": "Script",
+        "at": 541706.446706
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.78",
+        "originClass": "QA",
+        "pathname": "/src/components/ConfirmDialog/useConfirmDialog.ts",
+        "type": "Script",
+        "at": 541706.446883
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.79",
+        "originClass": "QA",
+        "pathname": "/src/components/ConfirmDialog/ConfirmDialog.module.css",
+        "type": "Script",
+        "at": 541706.44705
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.80",
+        "originClass": "QA",
+        "pathname": "/src/components/Logo.tsx",
+        "type": "Script",
+        "at": 541706.447566
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.81",
+        "originClass": "QA",
+        "pathname": "/src/components/StatusCard.module.css",
+        "type": "Script",
+        "at": 541706.447745
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.82",
+        "originClass": "QA",
+        "pathname": "/src/engine/src/paper/paperLoader.ts",
+        "type": "Script",
+        "at": 541706.448065
+      },
+      {
+        "phase": "request",
+        "requestId": "1868.83",
+        "originClass": "QA",
+        "pathname": "/src/engine/src/paper/paperTone.ts",
+        "type": "Script",
+        "at": 541706.448234
+      },
+      {
+        "phase": "response",
+        "requestId": "1868.45",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/react-router-dom.js",
+        "status": 200,
+        "type": "Script",
+        "at": 541706.448803,
+        "tls": {
+          "protocol": "TLS 1.3",
+          "issuer": "mkcert suselman@5p3u.l.time4vps.cloud",
+          "validFrom": 1791474895,
+          "validTo": 1862585695
+        }
+      },
+      {
+        "phase": "finished",
+        "requestId": "1868.45",
+        "at": 541706.435559
+      }
+    ],
+    "pending": [
+      {
+        "requestId": "1868.54",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/layers.js",
+        "type": "Script",
+        "at": 541699.06075
+      },
+      {
+        "requestId": "1868.55",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/paper.js",
+        "type": "Script",
+        "at": 541699.061005
+      },
+      {
+        "requestId": "1868.56",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/room.js",
+        "type": "Script",
+        "at": 541699.061185
+      },
+      {
+        "requestId": "1868.57",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/toolset.js",
+        "type": "Script",
+        "at": 541699.061346
+      },
+      {
+        "requestId": "1868.58",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/stroke.js",
+        "type": "Script",
+        "at": 541699.061522
+      },
+      {
+        "requestId": "1868.59",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/layerOperations.js",
+        "type": "Script",
+        "at": 541699.061718
+      },
+      {
+        "requestId": "1868.60",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/areaOperations.js",
+        "type": "Script",
+        "at": 541699.061906
+      },
+      {
+        "requestId": "1868.61",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/shapes.js",
+        "type": "Script",
+        "at": 541699.062112
+      },
+      {
+        "requestId": "1868.62",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/layerFilters.js",
+        "type": "Script",
+        "at": 541699.062281
+      },
+      {
+        "requestId": "1868.63",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/operations.js",
+        "type": "Script",
+        "at": 541699.062465
+      },
+      {
+        "requestId": "1868.64",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/annotations.js",
+        "type": "Script",
+        "at": 541699.06265
+      },
+      {
+        "requestId": "1868.65",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/protocol.js",
+        "type": "Script",
+        "at": 541699.062806
+      },
+      {
+        "requestId": "1868.66",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/hotkeys.js",
+        "type": "Script",
+        "at": 541699.062951
+      },
+      {
+        "requestId": "1868.67",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/rest.js",
+        "type": "Script",
+        "at": 541699.063104
+      },
+      {
+        "requestId": "1868.68",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/roomOpen.js",
+        "type": "Script",
+        "at": 541699.063406
+      },
+      {
+        "requestId": "1868.69",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/dabCodec.js",
+        "type": "Script",
+        "at": 541699.063559
+      },
+      {
+        "requestId": "1868.70",
+        "originClass": "QA",
+        "pathname": "/@fs/home/suselman/projects/pencil-agents/680-water-wet-tone/packages/shared/dist/admin.js",
+        "type": "Script",
+        "at": 541699.063751
+      },
+      {
+        "requestId": "1868.71",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/react_jsx-runtime.js",
+        "type": "Script",
+        "at": 541699.065292
+      },
+      {
+        "requestId": "1868.72",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/lodash-es.js",
+        "type": "Script",
+        "at": 541701.007795
+      },
+      {
+        "requestId": "1868.73",
+        "originClass": "QA",
+        "pathname": "/src/lib/browser/roomStorage.ts",
+        "type": "Script",
+        "at": 541701.479923
+      },
+      {
+        "requestId": "1868.74",
+        "originClass": "QA",
+        "pathname": "/src/components/Notice/Notice.tsx",
+        "type": "Script",
+        "at": 541706.445792
+      },
+      {
+        "requestId": "1868.75",
+        "originClass": "QA",
+        "pathname": "/src/components/Notice/NoticeStack.tsx",
+        "type": "Script",
+        "at": 541706.446058
+      },
+      {
+        "requestId": "1868.76",
+        "originClass": "QA",
+        "pathname": "/node_modules/.vite/deps/clsx.js",
+        "type": "Script",
+        "at": 541706.446489
+      },
+      {
+        "requestId": "1868.77",
+        "originClass": "QA",
+        "pathname": "/src/components/Modal/index.tsx",
+        "type": "Script",
+        "at": 541706.446706
+      },
+      {
+        "requestId": "1868.78",
+        "originClass": "QA",
+        "pathname": "/src/components/ConfirmDialog/useConfirmDialog.ts",
+        "type": "Script",
+        "at": 541706.446883
+      },
+      {
+        "requestId": "1868.79",
+        "originClass": "QA",
+        "pathname": "/src/components/ConfirmDialog/ConfirmDialog.module.css",
+        "type": "Script",
+        "at": 541706.44705
+      },
+      {
+        "requestId": "1868.80",
+        "originClass": "QA",
+        "pathname": "/src/components/Logo.tsx",
+        "type": "Script",
+        "at": 541706.447566
+      },
+      {
+        "requestId": "1868.81",
+        "originClass": "QA",
+        "pathname": "/src/components/StatusCard.module.css",
+        "type": "Script",
+        "at": 541706.447745
+      },
+      {
+        "requestId": "1868.82",
+        "originClass": "QA",
+        "pathname": "/src/engine/src/paper/paperLoader.ts",
+        "type": "Script",
+        "at": 541706.448065
+      },
+      {
+        "requestId": "1868.83",
+        "originClass": "QA",
+        "pathname": "/src/engine/src/paper/paperTone.ts",
+        "type": "Script",
+        "at": 541706.448234
+      }
+    ],
+    "dropped": 0,
+    "scope": "Passive network stage only; no response bodies/auth/headers/query/fullURL"
+  },
+  "errors": [],
+  "memory": [
+    {
+      "phase": "admission",
+      "free": 2015,
+      "attempt": 0,
+      "elapsedMs": 1407
+    },
+    {
+      "phase": "active",
+      "free": 1754
+    },
+    {
+      "phase": "active",
+      "free": 1759
+    },
+    {
+      "phase": "active",
+      "free": 1779
+    },
+    {
+      "phase": "active",
+      "free": 1783
+    },
+    {
+      "phase": "active",
+      "free": 1778
+    },
+    {
+      "phase": "active",
+      "free": 1865
+    },
+    {
+      "phase": "closed",
+      "free": 1888
+    }
+  ],
+  "result": {
+    "transport": {
+      "roundtripMs": 164.56145100000003,
+      "execution": {
+        "result": 2,
+        "now": 787.7999999523163
+      }
+    },
+    "browser": "154.0.8037.98",
+    "valid": false,
+    "error": "TimeoutError: page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"[QA origin]/create\", waiting until \"domcontentloaded\"\u001b[22m\n",
+    "document": {
+      "readyState": "interactive",
+      "formTextCount": 0,
+      "hasEngine": false
+    }
+  },
+  "serverPendingProbe": [
+    {
+      "pathname": "/@fs/.../packages/shared/dist/layers.js",
+      "status": 200,
+      "bytes": 7154,
+      "localMs": 60.6
+    },
+    {
+      "pathname": "/node_modules/.vite/deps/react_jsx-runtime.js",
+      "status": 200,
+      "bytes": 35959,
+      "localMs": 20.5
+    },
+    {
+      "pathname": "/src/lib/browser/roomStorage.ts",
+      "status": 200,
+      "bytes": 5163,
+      "localMs": 5.3
+    }
+  ]
+}
