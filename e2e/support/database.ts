@@ -92,7 +92,8 @@ export async function ensureDatabase(log: (msg: string) => void = () => {}): Pro
     '-e', `POSTGRES_PASSWORD=${DB_PASSWORD}`,
     '-e', `POSTGRES_DB=${DB_NAME}`,
     '-p', `${DB_PORT}:5432`,
-    'postgres:16-alpine',
+    // GitHub runners share Docker Hub anonymous pull quotas. Use its public mirror in CI.
+    process.env.E2E_POSTGRES_IMAGE ?? (process.env.CI ? 'public.ecr.aws/docker/library/postgres:16-alpine' : 'postgres:16-alpine'),
   ])
 
   const deadline = Date.now() + 60_000
