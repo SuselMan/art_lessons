@@ -3,14 +3,14 @@ import { createTestEngine } from './testing/engineTestUtils'
 import type { PaperWetness } from './src/paper/paperWetness'
 
 it('retains wet overlay storage only for matching dimensions and overwrites the same bytes', () => {
-  const { engine } = createTestEngine({}, { width: 256, height: 256 })
+  const { engine, canvas } = createTestEngine({ watercolorReview: true }, { width: 256, height: 256 })
   const e = engine as unknown as {
     _updateWetTexture(now: number): void
     _wetTexAt: number
     _wetTexSize: [number, number]
     _paperWet: PaperWetness
   }
-  const gl = engine.gl
+  const gl = canvas.getContext('webgl')!
   const image = vi.spyOn(gl, 'texImage2D')
   const sub = vi.spyOn(gl, 'texSubImage2D')
   const captured: Uint8Array[] = []

@@ -377,8 +377,10 @@ groupings:
 # подсказывает, когда его можно ужать.
 budgets:
   - file: apps/web/src/pages/Room/index.tsx
-    maxLines: 1827
+    maxLines: 1828
     why: >-
+      +1 (#728): DEV переключатель единого WebGL1 review-кандидата в constructor;
+      физика, baseline и production не меняются.
       +2 (#728): import и constructor opt-in для проверки отложенного завершения
       joined штриха; физическая модель и production default не меняются.
       За месяц декомпозиции (#493) из Room вынесли около тысячи строк, а доски,

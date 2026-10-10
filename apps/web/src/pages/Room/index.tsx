@@ -967,7 +967,8 @@ function RoomEditor() {
     snapshotGateRef.current = createSnapshotGate(reportInvariant)
     const engine = new PencilEngine(canvasRef.current, {
       asyncFinish: false,
-      joinedTouch: !import.meta.env.DEV || joinedTouchQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_TOUCH, location.search),
+      watercolorReview: import.meta.env.DEV && import.meta.env.VITE_QA_WATERCOLOR_REVIEW === '1',
+      joinedTouch: !import.meta.env.DEV || import.meta.env.VITE_QA_WATERCOLOR_REVIEW !== undefined || joinedTouchQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_TOUCH, location.search),
       bandBatch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaBandBatch') === '1',
       joinedFinishDeferred: joinedFinishDeferredQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_FINISH_DEFERRED, window.location.search),
       materialPresentation: false,

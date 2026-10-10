@@ -1,3 +1,4 @@
+import { brushDragFieldHoisted } from '../watercolor/brushDragHoisted'
 import { contactPulseOp, frontStepOp, inheritSettleOpTags, presentationStepOp } from '../watercolor/WatercolorSettleQueue'
 import type { WatercolorPasses } from './WatercolorPasses'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -38,6 +39,7 @@ export class WatercolorSettlePlan {
   diagnosticCostDomainPaths = false
   /** Eager CPU raster scratch reuse only; does not share suspended generators. */
   diagnosticReuseFlowRaster = false
+  diagnosticHoistedContactRaster = false
   readonly flowRasterStats = { allocations: 0, reuses: 0, bytesAllocated: 0, bytesRequested: 0 }
   /** Pack D1..D64 in seven byte bits; only eligible when cost-domain paths are enabled. */
   diagnosticPackedCostPaths = false
@@ -304,7 +306,9 @@ export class WatercolorSettlePlan {
     const contactRect = { x: x0, y: y0, w: field.w * S, h: field.h * S }
     const groups = lazyContacts && !skipZeroPigmentContacts ? brushDragContactGroups(metadata.brushTravel, contactRect) : []
     const workspace = this.diagnosticReuseFlowRaster && !lazyContacts && !skipZeroPigmentContacts ? new BrushDragRasterWorkspace() : undefined
-    const contacts = skipZeroPigmentContacts || lazyContacts ? [] : brushDragContacts(metadata.brushTravel, contactRect, workspace)
+    const contacts = skipZeroPigmentContacts || lazyContacts ? [] : this.diagnosticHoistedContactRaster
+      ? brushDragContactGroups(metadata.brushTravel, contactRect).map(group => ({ rect: group.rect, radius: group.radius, field: brushDragFieldHoisted(group.travel, group.rect, 4, workspace)! }))
+      : brushDragContacts(metadata.brushTravel, contactRect, workspace)
     if (workspace) {
       this.flowRasterStats.allocations += workspace.allocations
       this.flowRasterStats.reuses += workspace.reuses

@@ -248,6 +248,8 @@ export function previewDabShape(
 const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 
 export interface PencilEngineOptions {
+  /** DEV-only combined WebGL1 candidate for manual A/B review. */
+  watercolorReview?: boolean
   /** (#728) Accept provisional pointer input while canonical wet material
    * finishes in FIFO order. Export/snapshot readiness waits for that queue.
    * Omitted, standalone callers retain synchronous completion. */
@@ -1621,6 +1623,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  rect means nothing is wet and the whole overlay is off. */
   private _wetTex: WebGLTexture | null = null
   private _wetTexSize: [number, number] = [0, 0]
+  private _watercolorReview = false
   private _wetRect: [number, number, number, number] = [0, 0, -1, -1]
   private _wetTexAt = 0
   private _wetOverlayWorkspace: WetOverlayWorkspace | null = null
@@ -2235,6 +2238,10 @@ export class PencilEngine implements PencilEngineAPI {
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
     this.canvas = canvas
     this._wcJoinedTouch = options.joinedTouch ?? false
+    this._watercolorReview = import.meta.env.DEV && options.watercolorReview === true
+    this._settleQueue.diagnosticSolverBatchEnabled = this._watercolorReview
+    this._settlePlan.diagnosticHoistedContactRaster = this._watercolorReview
+    this._settlePlan.diagnosticReuseFlowRaster = this._watercolorReview
     this._ribbonPainter.diagnosticBandBatch = options.bandBatch ?? false
     this._wcJoinedFinishDeferred = options.joinedFinishDeferred ?? false
     this._wcAsyncFinish = options.asyncFinish ?? false
@@ -9039,7 +9046,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
     // Same bytes and filtering, but retain storage while dimensions agree.
     // The dimensions are forgotten along with the GL name on context restore.
-    if (this._wetTexSize[0] === w && this._wetTexSize[1] === h) {
+    if (this._watercolorReview && this._wetTexSize[0] === w && this._wetTexSize[1] === h) {
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data)
     } else {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
