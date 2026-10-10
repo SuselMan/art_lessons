@@ -1,0 +1,50 @@
+{
+  "sourceSHA": "2025687fd40b82eae1ac43839e09a5b174fee9cf",
+  "rooms": [
+    {
+      "name": "Акварель — исходная",
+      "review": false,
+      "gl": 0,
+      "lost": false,
+      "ops": 0,
+      "tool": {
+        "nib": "round",
+        "mix": "damp",
+        "size": 400,
+        "pressureResponse": "normal",
+        "angle": 45,
+        "anchor": "screen",
+        "water": 1,
+        "pigment": 1,
+        "color": [
+          0.22,
+          0.35,
+          0.62
+        ]
+      }
+    },
+    {
+      "name": "Акварель — кандидат",
+      "review": true,
+      "gl": 0,
+      "lost": false,
+      "ops": 0,
+      "tool": {
+        "nib": "round",
+        "mix": "damp",
+        "size": 400,
+        "pressureResponse": "normal",
+        "angle": 45,
+        "anchor": "screen",
+        "water": 1,
+        "pigment": 1,
+        "color": [
+          0.22,
+          0.35,
+          0.62
+        ]
+      }
+    }
+  ],
+  "humanApproval": "pending"
+}
