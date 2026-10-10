@@ -1,0 +1,24 @@
+const fs=require('fs');const {chromium}=require('/home/suselman/projects/pencil-agents/680-water-wet-tone/node_modules/playwright');
+(async()=>{const b=await chromium.connectOverCDP('http://127.0.0.1:9224');const rows=[];let page;
+try{for(const enabled of [false,true,true,false]){
+ page=await b.contexts()[0].newPage();await page.bringToFront();await page.goto('http://localhost:5383/create');
+ const r=await page.evaluate(async enabled=>{
+  const {PencilEngine}=await import('/src/engine/index.ts');const {watercolorPresetString}=await import('/src/engine/src/presets/watercolorPresets.ts');
+  const canvas=document.createElement('canvas');canvas.width=512;canvas.height=512;document.body.append(canvas);
+  const e=new PencilEngine(canvas,{paper:'fine',pageWidth:1024,pageHeight:1024,userId:'review',joinedTouch:true,gradientFibres:true,watercolorReview:enabled});
+  window.__reviewEngine=e;window.__reviewPhase='constructed';const hash=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes.slice().buffer)),x=>x.toString(16).padStart(2,'0')).join('');
+  const idle=async()=>{const until=performance.now()+60000;let stable=0;while(stable<3){if(performance.now()>until)throw Error('idle timeout');if(e.gl.isContextLost())throw Error('context lost');await new Promise(r=>requestAnimationFrame(r));stable=e._settle||e._rebuildJobs.size||e._pendingRebuilds.size||e._unsettledLayers.size?0:stable+1;}};
+  const layer=async()=>{const rows=[];for(const t of e._layers.get('L').allResident())rows.push({x:t.originX,y:t.originY,hash:await hash(t.buffer.readPixels())});return rows};
+  const stroke=(id,pigment,color,wet,dy)=>({id,type:'stroke',userId:'review',timestamp:1791400000000+Number(id.slice(-1))*1000,layerId:'L',tool:'watercolor',preset:watercolorPresetString('normal',{water:1,pigment}),color,strokeId:id,washId:'wash-'+id,wet:wet.repeat(5),dabs:[360,420,480,540,600].map((x,i)=>({x,y:450+dy+i*12,pressure:.8,tiltX:0,tiltY:0,size:400,aspectRatio:1,angle:0,opacity:1,t:i*16}))});
+  const ops=[{id:'layer',type:'layer_add',userId:'review',timestamp:1791400000000,layerId:'L',name:'Review'},stroke('stroke-1',0,[.2,.1,.5],'0',0),stroke('stroke-2',1,[.2,.1,.5],'f',10),stroke('stroke-3',1,[.05,.5,.2],'f',20)];
+  try{await e.paperReady();window.__reviewPhase='paper-ready';e.setLocked(false);e.setActiveLayer('L');e.setCompositeOrder([{id:'L',opacity:1}]);let ticks=0;const tick=e._settleQueue.tick;e._settleQueue.tick=function(...a){ticks++;return tick.apply(this,a)};
+   const start=performance.now();for(const op of ops){window.__reviewPhase=op.id;e.appendOperation(op,'remote');await idle()};const paintMs=performance.now()-start;
+   const fields=[];for(const [key,c] of e._replayRibbonChunks)for(const [tile,entry] of c.scratch.tileEntries())for(const role of ['coverage','inkLoad','inkColor','inkDry','colorDry','solventLoad','foreignSolventLoad'])if(entry[role])fields.push({key,tile,role,hash:await hash(entry[role].readPixels())});
+   window.__reviewPhase='capture';const material=await layer();const exported=await e.exportPNG(true);const bmp=await createImageBitmap(exported);const out=document.createElement('canvas');out.width=bmp.width;out.height=bmp.height;const ctx=out.getContext('2d');ctx.drawImage(bmp,0,0);bmp.close();const rgba=await hash(ctx.getImageData(0,0,out.width,out.height).data);
+   window.__reviewPhase='undo';const undo=e.undo();await idle();const undone=await layer();window.__reviewPhase='redo';const redo=e.redo();await idle();const redone=await layer();
+   const dry={id:'dry',type:'paper_dry',userId:'review',timestamp:1791400004000};e.appendOperation(dry,'remote');await idle();const dried=await layer();
+   return{enabled,paintMs,ticks,fields,material,rgba,dried,undo:undo?.id,redo:redo?.id,meaningful:JSON.stringify(undone)!==JSON.stringify(material),exactRedo:JSON.stringify(redone)===JSON.stringify(material),gl:e.gl.getError(),lost:e.gl.isContextLost(),api:e.gl.getParameter(e.gl.VERSION),flags:{solver:e._settleQueue.diagnosticSolverBatchEnabled,hoist:e._settlePlan.diagnosticHoistedContactRaster,reuse:e._settlePlan.diagnosticReuseFlowRaster},workspace:e._settlePlan.flowRasterStats,tape:await hash(new TextEncoder().encode(JSON.stringify(ops)))};
+  }finally{e.destroy();canvas.remove()}
+ },enabled);rows.push(r);fs.writeFileSync('temp/qa-disposable/gl1-review-20261010/hardware-results.json',JSON.stringify(rows,null,2));console.log({enabled,paintMs:r.paintMs,ticks:r.ticks,fields:r.fields.length,meaningful:r.meaningful,exactRedo:r.exactRedo,gl:r.gl});await page.close();page=null;}
+ const relevant=r=>JSON.stringify([r.fields,r.material,r.rgba,r.dried,r.tape]);if(rows.some(r=>relevant(r)!==relevant(rows[0])||!r.meaningful||!r.exactRedo||r.gl||r.lost))throw Error('Parity/history gate failed');console.log('ALL FOUR EXACT, meaningful undo/exact redo');
+}finally{if(page)await page.close();await b.close()}})().catch(e=>{console.error(e);process.exitCode=1})

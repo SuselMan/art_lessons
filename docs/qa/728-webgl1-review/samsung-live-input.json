@@ -1,0 +1,28 @@
+{
+  "api": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+  "flags": {
+    "candidate": true,
+    "solver": true,
+    "joined": true
+  },
+  "ops": [
+    {
+      "id": "OGEu3jfEzx",
+      "type": "stroke",
+      "tool": "watercolor",
+      "preset": "normal:100:100:PB29:round",
+      "packed": 1978
+    },
+    {
+      "id": "l9SFR94TbC",
+      "type": "stroke",
+      "tool": "watercolor",
+      "preset": "normal:100:100:PB29:round",
+      "packed": 1978
+    }
+  ],
+  "png": "998825db6dcaf627027ee37f8289b4352690225f5e4fdebd33818169651946f5",
+  "pngBytes": 559773,
+  "gl": 0,
+  "lost": false
+}

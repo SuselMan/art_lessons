@@ -1,0 +1,666 @@
+{
+  "sourceSHA": "125da9c311045ba40b47fc477a26521eb9fe7450",
+  "baselineSHA": "f52635e346d9f188ec5562968a74ce884613b6f2",
+  "device": "Samsung SM-T970",
+  "browser": "Chrome155",
+  "order": "OFF/ON/ON/OFF",
+  "paper": "fine",
+  "sheet": [
+    1024,
+    1024
+  ],
+  "brush": 400,
+  "cohort": "fixed replay: water then two intersecting pigment strokes",
+  "meanOffMs": 7536.5,
+  "meanOnMs": 3579.2499999701977,
+  "reductionPercent": 52.50779539613617,
+  "arms": [
+    {
+      "enabled": false,
+      "paintMs": 7537.800000011921,
+      "ticks": 449,
+      "fields": [
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "coverage",
+          "hash": "75b402aa806b88fc6bdfad4257f01b89be51a5a58d4e885a7422c1e187daf3cc"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "inkLoad",
+          "hash": "ba478728bb2710bcf9fa7dcbc1740233108a6459a5047ed662a10ede2462126b"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "inkColor",
+          "hash": "b9bb1d01aecebc4addff1c3013fd29fb245bc4c3fefe202c3254bb3c4b9ec732"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "inkDry",
+          "hash": "455cf603bc9e3608cda523ad9fad5d66c80bee3b3864917873677ec444f55152"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "colorDry",
+          "hash": "9b0129eab9abd691b5aeca8738b20dc024cde9071e329b2c56ffa855975dc081"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "solventLoad",
+          "hash": "ae1901f88b50a533758cd2ede4731e7134b28bda9b6d61109b70480d8a9e6ee2"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "foreignSolventLoad",
+          "hash": "e21c0a2cc4d907def82ae177b21496e4c1068864cb38c4a49c1a0fbc421a1892"
+        }
+      ],
+      "material": [
+        {
+          "x": 0,
+          "y": 0,
+          "hash": "eacc6653b1bfa2742a9746bd33d40ec05fc9603acefcda95484b4e590c22afb4"
+        }
+      ],
+      "rgba": "125272798f045e8283e55c7857cd1785ac15f9f9e6b0d576a9dedd2e37766f39",
+      "dried": [
+        {
+          "x": 0,
+          "y": 0,
+          "hash": "eacc6653b1bfa2742a9746bd33d40ec05fc9603acefcda95484b4e590c22afb4"
+        }
+      ],
+      "undo": "stroke-3",
+      "redo": "stroke-3",
+      "meaningful": true,
+      "exactRedo": true,
+      "gl": 0,
+      "lost": false,
+      "api": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+      "flags": {
+        "solver": false,
+        "hoist": false,
+        "reuse": false
+      },
+      "workspace": {
+        "allocations": 0,
+        "reuses": 0,
+        "bytesAllocated": 0,
+        "bytesRequested": 0
+      },
+      "tape": "3dbd3adcc65773681449a33006f000f46cc47308e8f8755170c4881fdd928647"
+    },
+    {
+      "enabled": true,
+      "paintMs": 3567.199999988079,
+      "ticks": 191,
+      "fields": [
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "coverage",
+          "hash": "75b402aa806b88fc6bdfad4257f01b89be51a5a58d4e885a7422c1e187daf3cc"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "inkLoad",
+          "hash": "ba478728bb2710bcf9fa7dcbc1740233108a6459a5047ed662a10ede2462126b"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "inkColor",
+          "hash": "b9bb1d01aecebc4addff1c3013fd29fb245bc4c3fefe202c3254bb3c4b9ec732"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "inkDry",
+          "hash": "455cf603bc9e3608cda523ad9fad5d66c80bee3b3864917873677ec444f55152"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "colorDry",
+          "hash": "9b0129eab9abd691b5aeca8738b20dc024cde9071e329b2c56ffa855975dc081"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "solventLoad",
+          "hash": "ae1901f88b50a533758cd2ede4731e7134b28bda9b6d61109b70480d8a9e6ee2"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "foreignSolventLoad",
+          "hash": "e21c0a2cc4d907def82ae177b21496e4c1068864cb38c4a49c1a0fbc421a1892"
+        }
+      ],
+      "material": [
+        {
+          "x": 0,
+          "y": 0,
+          "hash": "eacc6653b1bfa2742a9746bd33d40ec05fc9603acefcda95484b4e590c22afb4"
+        }
+      ],
+      "rgba": "125272798f045e8283e55c7857cd1785ac15f9f9e6b0d576a9dedd2e37766f39",
+      "dried": [
+        {
+          "x": 0,
+          "y": 0,
+          "hash": "eacc6653b1bfa2742a9746bd33d40ec05fc9603acefcda95484b4e590c22afb4"
+        }
+      ],
+      "undo": "stroke-3",
+      "redo": "stroke-3",
+      "meaningful": true,
+      "exactRedo": true,
+      "gl": 0,
+      "lost": false,
+      "api": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+      "flags": {
+        "solver": true,
+        "hoist": true,
+        "reuse": true
+      },
+      "workspace": {
+        "allocations": 21,
+        "reuses": 7,
+        "bytesAllocated": 1031940,
+        "bytesRequested": 2063880
+      },
+      "tape": "3dbd3adcc65773681449a33006f000f46cc47308e8f8755170c4881fdd928647"
+    },
+    {
+      "enabled": true,
+      "paintMs": 3591.2999999523163,
+      "ticks": 191,
+      "fields": [
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "coverage",
+          "hash": "75b402aa806b88fc6bdfad4257f01b89be51a5a58d4e885a7422c1e187daf3cc"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "inkLoad",
+          "hash": "ba478728bb2710bcf9fa7dcbc1740233108a6459a5047ed662a10ede2462126b"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "inkColor",
+          "hash": "b9bb1d01aecebc4addff1c3013fd29fb245bc4c3fefe202c3254bb3c4b9ec732"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "inkDry",
+          "hash": "455cf603bc9e3608cda523ad9fad5d66c80bee3b3864917873677ec444f55152"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "colorDry",
+          "hash": "9b0129eab9abd691b5aeca8738b20dc024cde9071e329b2c56ffa855975dc081"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "solventLoad",
+          "hash": "ae1901f88b50a533758cd2ede4731e7134b28bda9b6d61109b70480d8a9e6ee2"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "foreignSolventLoad",
+          "hash": "e21c0a2cc4d907def82ae177b21496e4c1068864cb38c4a49c1a0fbc421a1892"
+        }
+      ],
+      "material": [
+        {
+          "x": 0,
+          "y": 0,
+          "hash": "eacc6653b1bfa2742a9746bd33d40ec05fc9603acefcda95484b4e590c22afb4"
+        }
+      ],
+      "rgba": "125272798f045e8283e55c7857cd1785ac15f9f9e6b0d576a9dedd2e37766f39",
+      "dried": [
+        {
+          "x": 0,
+          "y": 0,
+          "hash": "eacc6653b1bfa2742a9746bd33d40ec05fc9603acefcda95484b4e590c22afb4"
+        }
+      ],
+      "undo": "stroke-3",
+      "redo": "stroke-3",
+      "meaningful": true,
+      "exactRedo": true,
+      "gl": 0,
+      "lost": false,
+      "api": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+      "flags": {
+        "solver": true,
+        "hoist": true,
+        "reuse": true
+      },
+      "workspace": {
+        "allocations": 21,
+        "reuses": 7,
+        "bytesAllocated": 1031940,
+        "bytesRequested": 2063880
+      },
+      "tape": "3dbd3adcc65773681449a33006f000f46cc47308e8f8755170c4881fdd928647"
+    },
+    {
+      "enabled": false,
+      "paintMs": 7535.199999988079,
+      "ticks": 449,
+      "fields": [
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "coverage",
+          "hash": "75b402aa806b88fc6bdfad4257f01b89be51a5a58d4e885a7422c1e187daf3cc"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "inkLoad",
+          "hash": "ba478728bb2710bcf9fa7dcbc1740233108a6459a5047ed662a10ede2462126b"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "inkColor",
+          "hash": "b9bb1d01aecebc4addff1c3013fd29fb245bc4c3fefe202c3254bb3c4b9ec732"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "inkDry",
+          "hash": "455cf603bc9e3608cda523ad9fad5d66c80bee3b3864917873677ec444f55152"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "colorDry",
+          "hash": "9b0129eab9abd691b5aeca8738b20dc024cde9071e329b2c56ffa855975dc081"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "solventLoad",
+          "hash": "ae1901f88b50a533758cd2ede4731e7134b28bda9b6d61109b70480d8a9e6ee2"
+        },
+        {
+          "key": "wash-stroke-3",
+          "tile": {
+            "gl": {},
+            "width": 1024,
+            "height": 1024,
+            "_texture": {},
+            "_fbo": {},
+            "_mipCapable": true,
+            "_mipsValid": false,
+            "_mipSampling": false,
+            "_baseFilter": "linear",
+            "_pointSampling": false
+          },
+          "role": "foreignSolventLoad",
+          "hash": "e21c0a2cc4d907def82ae177b21496e4c1068864cb38c4a49c1a0fbc421a1892"
+        }
+      ],
+      "material": [
+        {
+          "x": 0,
+          "y": 0,
+          "hash": "eacc6653b1bfa2742a9746bd33d40ec05fc9603acefcda95484b4e590c22afb4"
+        }
+      ],
+      "rgba": "125272798f045e8283e55c7857cd1785ac15f9f9e6b0d576a9dedd2e37766f39",
+      "dried": [
+        {
+          "x": 0,
+          "y": 0,
+          "hash": "eacc6653b1bfa2742a9746bd33d40ec05fc9603acefcda95484b4e590c22afb4"
+        }
+      ],
+      "undo": "stroke-3",
+      "redo": "stroke-3",
+      "meaningful": true,
+      "exactRedo": true,
+      "gl": 0,
+      "lost": false,
+      "api": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+      "flags": {
+        "solver": false,
+        "hoist": false,
+        "reuse": false
+      },
+      "workspace": {
+        "allocations": 0,
+        "reuses": 0,
+        "bytesAllocated": 0,
+        "bytesRequested": 0
+      },
+      "tape": "3dbd3adcc65773681449a33006f000f46cc47308e8f8755170c4881fdd928647"
+    }
+  ],
+  "exactCompared": "7 retained material records, raw whole layer, decoded export RGBA, Dry material, input tape; each meaningful Undo and exact Redo",
+  "limitations": [
+    "Not physical input-to-photon",
+    "Not whole intermediate26field gate",
+    "2 samples per arm; no confidence interval",
+    "Human artistic/live pacing approval pending"
+  ]
+}
