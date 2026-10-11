@@ -82,6 +82,8 @@ export class WatercolorSettleQueue {
   /** OFF diagnostic: contiguous contact/front units, max4 and 8ms measured
    * after syncGpu EACH unit. No capture/upload/presentation barrier crossing. */
   diagnosticSolverBatchEnabled = false
+  /** DEV standalone: preserve the solver but defer its work while pen is down. */
+  diagnosticInputPriority = false
   /** Interactive material preview gives presentation priority over throughput. */
   diagnosticSolverBatchMax: 1 | 4 = 4
   diagnosticDryBatchEnabled = false
@@ -184,6 +186,7 @@ export class WatercolorSettleQueue {
     if (!s) return
     // The wash was torn down under it (undo, a new wash): nothing to land.
     if (!this.isAlive(s)) { this.cancel(); return }
+    if (this.diagnosticInputPriority && this.ctx.isDrawing()) { this.scheduleTick(); return }
     // (§17.44) One entry a frame while the pen is still down (a chunk's
     // settle under a running gesture): the frame also has the brush's own
     // batches to draw, and two entries made the tablet's P95 frame 110-150 ms.

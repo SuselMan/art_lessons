@@ -250,6 +250,8 @@ const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 export interface PencilEngineOptions {
   /** DEV-only combined WebGL1 candidate for manual A/B review. */
   watercolorReview?: boolean
+  /** DEV review: reserve GPU continuations for pen-up intervals. */
+  reviewInputPriority?: boolean
   /** DEV-only artistic experiment, not compatible with legacy material replay. */
   watercolorCoarseTransport?: boolean
   /** DEV standalone review sheet; rooms retain touch navigation. */
@@ -1628,6 +1630,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetTex: WebGLTexture | null = null
   private _wetTexSize: [number, number] = [0, 0]
   private _watercolorReview = false
+  private _reviewInputPriority = false
   private _wetRect: [number, number, number, number] = [0, 0, -1, -1]
   private _wetTexAt = 0
   private _wetOverlayWorkspace: WetOverlayWorkspace | null = null
@@ -1876,7 +1879,8 @@ export class PencilEngine implements PencilEngineAPI {
     owner: MaterialPresentationOwner<{ buffer: AccumulationBuffer; pool: RibbonScratchPool; raster: WatercolorPresentationRaster; scratches: Set<RibbonStrokeScratch> }>
   }>()
   private readonly _wcCanonical = new WatercolorCanonicalFIFO({
-    blocked: () => !!this._settle || this._contextLost || this.gl.isContextLost(),
+    blocked: () => !!this._settle || this._contextLost || this.gl.isContextLost()
+      || this._reviewInputPriority && !!this._strokeLayerId,
     advance: (work, current) => this._advanceAsyncCanonical(work, current),
     schedule: callback => requestAnimationFrame(callback),
     unschedule: handle => cancelAnimationFrame(handle),
@@ -2243,6 +2247,8 @@ export class PencilEngine implements PencilEngineAPI {
     this.canvas = canvas
     this._wcJoinedTouch = options.joinedTouch ?? false
     this._watercolorReview = import.meta.env.DEV && options.watercolorReview === true
+    this._reviewInputPriority = this._watercolorReview && options.reviewInputPriority === true
+    this._settleQueue.diagnosticInputPriority = this._reviewInputPriority
     this._settleQueue.diagnosticSolverBatchEnabled = this._watercolorReview
     const interactiveReview = this._watercolorReview && options.asyncFinish === true && options.materialPresentation === true
     this._settleQueue.diagnosticSolverBatchMax = interactiveReview ? 1 : 4

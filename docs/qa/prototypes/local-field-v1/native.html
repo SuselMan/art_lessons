@@ -11,10 +11,12 @@ const c=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)]));
 try {
 const small=new URLSearchParams(location.search).get('smoke')==='1';
 const size=small?256:1024;c.paper.width=c.paper.height=size;
-const engine=new PencilEngine(c.paper,{userId:'native-local',pageWidth:size,pageHeight:size,paper:'fine',watercolorReview:true,watercolorCoarseTransport:true,joinedTouch:true,asyncFinish:true,materialPresentation:true,gradientFibres:true,reviewTouchDrawing:true});
+const priority=new URLSearchParams(location.search).get('priority')==='1';
+const engine=new PencilEngine(c.paper,{userId:'native-local',pageWidth:size,pageHeight:size,paper:'fine',watercolorReview:true,watercolorCoarseTransport:!priority,reviewInputPriority:priority,joinedTouch:true,asyncFinish:true,materialPresentation:true,gradientFibres:!priority,reviewTouchDrawing:true});
 window.__wcNative=engine;
-engine._watercolorPasses.warmGradientFibres();
-window.__wcReviewVersion="native-queue-fibres-v8";
+if(!priority)engine._watercolorPasses.warmGradientFibres();
+window.__wcReviewVersion=priority?"native-input-priority-v9":"native-queue-fibres-v8";
+if(priority){document.title="Акварель — приоритет пера v9";document.querySelector("h1").textContent=document.title;}
 engine.appendOperation({id:'local-layer',type:'layer_add',userId:'native-local',timestamp:1,layerId:'local',name:'Акварель'});
 engine.setCompositeOrder([{id:'local',opacity:1}]);engine.setActiveLayer('local');engine.setTool('watercolor');
 for(const paint of WATERCOLOR_PIGMENTS){const option=document.createElement('option');option.value=paint.code;option.textContent=paint.code+' — '+paint.name;c.paint.append(option)}

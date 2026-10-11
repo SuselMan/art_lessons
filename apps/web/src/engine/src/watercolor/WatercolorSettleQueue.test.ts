@@ -311,3 +311,21 @@ it('catches up only captured Dry work with four bounded idle steps and returns t
 })
 
 })
+
+ describe('DEV input priority', () => {
+  it('defers pending work while drawing and completes the same sequence on pen up', () => {
+    const f = fixture(), events: string[] = []; let drawing = false
+    Object.assign(f.scratch, { live: true })
+    Object.assign(f.queue, { ctx: { beforeStart() {}, perf: () => ({ settleStart: 0, settleOps: 0, settleMs: 0 }),
+      isDrawing: () => drawing, backlogSize: () => 0, backlogMax: () => 4, noteActivity() {}, scheduleFieldRelease() {} } })
+    f.queue.diagnosticInputPriority = true
+    f.queue.start(f.scratch, [() => events.push('initial'), () => events.push('transport'), () => events.push('deposit')], () => events.push('finish'))
+    const before = [...events]; drawing = true
+    for (let i = 0; i < 8; i++) f.frame()
+    expect(events).toEqual(before); expect(f.queue.current).not.toBeNull()
+    drawing = false
+    while (f.frames.size) f.frame()
+    expect(events).toEqual(['initial', 'transport', 'deposit', 'finish'])
+    expect(f.queue.current).toBeNull()
+  })
+})

@@ -1,0 +1,12 @@
+{
+  "held": {
+    "before": 18,
+    "after": 18,
+    "priority": true,
+    "coarse": false
+  },
+  "errors": [],
+  "gl": 0,
+  "version": "native-input-priority-v9",
+  "scope": "SwiftShader 256: pen-held FIFO does not advance; queued work and Dry complete after UP. No device latency or full-size performance claim."
+}
