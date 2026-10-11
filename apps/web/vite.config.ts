@@ -173,7 +173,7 @@ export default defineConfig(({ mode }) => {
               response.end(readFileSync(new URL(`../../docs/qa/prototypes/native-front-v1/${nativeFrontFile}`, import.meta.url)))
               return
             }
-            const file = path === '/watercolor-group-v1' ? 'group.html' : path === '/watercolor-multiscale-v1' ? 'multiscale.html' : path === '/watercolor-native-v1' || path === '/watercolor-native-v8' ? 'native.html' : path === '/watercolor-local-v1' || path === '/watercolor-local-v1/' ? 'index.html'
+            const file = path === '/watercolor-group-v1' ? 'group.html' : path === '/watercolor-multiscale-v1' ? 'multiscale.html' : path === '/watercolor-native-v1' || path === '/watercolor-native-v8' || path === '/watercolor-native-front8' ? 'native.html' : path === '/watercolor-local-v1' || path === '/watercolor-local-v1/' ? 'index.html'
               : path === '/watercolor-local-v1/model.js' ? 'model.js' : path === '/watercolor-local-v1/multiscale-model.js' ? 'multiscale-model.js' : path === '/watercolor-local-v1/group-model.js' ? 'group-model.js' : null
             if (!file) return next()
             response.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8')

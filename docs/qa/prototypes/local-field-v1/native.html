@@ -11,12 +11,16 @@ const c=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)]));
 try {
 const small=new URLSearchParams(location.search).get('smoke')==='1';
 const size=small?256:1024;c.paper.width=c.paper.height=size;
-const priority=new URLSearchParams(location.search).get('priority')==='1';
+const prefix8=location.pathname==='/watercolor-native-front8';
+const priority=!prefix8&&new URLSearchParams(location.search).get('priority')==='1';
 const progressive=priority&&new URLSearchParams(location.search).get('progress')==='1';
 const engine=new PencilEngine(c.paper,{userId:'native-local',pageWidth:size,pageHeight:size,paper:'fine',watercolorReview:true,watercolorCoarseTransport:!priority,reviewInputPriority:priority,reviewProgressivePresentation:progressive,joinedTouch:true,asyncFinish:true,materialPresentation:true,gradientFibres:!priority,reviewTouchDrawing:true});
 window.__wcNative=engine;
+let fastFront=null;
+if(prefix8){const {installFastFront,fastFrontSchedule}=await import('/watercolor-native-front-v1/fast-front.js');fastFront=installFastFront(engine,'prefix8');engine._settlePlan.diagnosticFrontSchedule=n=>fastFrontSchedule(n,'prefix8');window.__wcFastFront=fastFront;}
 if(!priority)engine._watercolorPasses.warmGradientFibres();
-window.__wcReviewVersion=progressive?"native-input-priority-v10":priority?"native-input-priority-v9":"native-queue-fibres-v8";
+window.__wcReviewVersion=prefix8?"native-prefix8-v1":progressive?"native-input-priority-v10":priority?"native-input-priority-v9":"native-queue-fibres-v8";
+if(prefix8){document.title='Акварель — фронт воды 8 клеток';document.querySelector('h1').textContent=document.title;}
 if(priority){document.title=progressive?"Акварель — промежуточное растекание v10":"Акварель — приоритет пера v9";document.querySelector("h1").textContent=document.title;}
 engine.appendOperation({id:'local-layer',type:'layer_add',userId:'native-local',timestamp:1,layerId:'local',name:'Акварель'});
 engine.setCompositeOrder([{id:'local',opacity:1}]);engine.setActiveLayer('local');engine.setTool('watercolor');
@@ -38,6 +42,6 @@ const check=()=>{if(engine._destroyed)return;if(!reached){requestAnimationFrame(
 };
 c.clear.onclick=()=>location.reload();c.undo.onclick=()=>engine.undo();c.redo.onclick=()=>engine.redo();
 c.save.onclick=async()=>{const blob=await engine.exportPNG();if(!blob)return;const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='watercolor-native-coarse.png';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};
-window.addEventListener('pagehide',()=>engine.destroy(),{once:true});
+window.addEventListener('pagehide',()=>{try{engine.destroy()}finally{fastFront?.dispose()}},{once:true});
 }catch(e){c.error.textContent=e.message;console.error(e)}
 </script></html>

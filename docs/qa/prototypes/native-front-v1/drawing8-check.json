@@ -1,0 +1,17 @@
+{
+  "version": "native-prefix8-v1",
+  "stats": {
+    "mode": "prefix8",
+    "buildDraws": 32,
+    "jumpDraws": 14,
+    "nativeDraws": 32,
+    "cacheBuilds": 2,
+    "extraBytes": 11796480
+  },
+  "gl": 0,
+  "error": "",
+  "newSheet": true,
+  "v8Unpatched": true,
+  "errors": [],
+  "scope": "Chromium SwiftShader, source256 smoke UI with standard material fields; two intersecting pointer strokes, Dry, New sheet, separate unpatched V8. Not tablet latency."
+}
