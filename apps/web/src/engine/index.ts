@@ -2244,6 +2244,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._wcJoinedTouch = options.joinedTouch ?? false
     this._watercolorReview = import.meta.env.DEV && options.watercolorReview === true
     this._settleQueue.diagnosticSolverBatchEnabled = this._watercolorReview
+    const interactiveReview = this._watercolorReview && options.asyncFinish === true && options.materialPresentation === true
+    this._settleQueue.diagnosticSolverBatchMax = interactiveReview ? 1 : 4
+    this._settlePlan.splitQuanta = interactiveReview
     this._settlePlan.diagnosticHoistedContactRaster = this._watercolorReview
     this._settlePlan.diagnosticReuseFlowRaster = this._watercolorReview
     this._settlePlan.diagnosticCoarseTransport = import.meta.env.DEV && options.watercolorCoarseTransport === true
@@ -9401,6 +9404,10 @@ export class PencilEngine implements PencilEngineAPI {
     // second and a half after every stroke was most of "всё это дело
     // притормаживает" on the tablet, and the eye cannot tell 30 from 60 on a
     // fade.
+    if (this._washReveals.size && this._watercolorReview && this._wcMaterialPresentation) {
+      this._scheduleDisplay()
+      return
+    }
     if (this._washReveals.size && !this._revealTimer) {
       this._revealTimer = setTimeout(() => {
         this._revealTimer = 0

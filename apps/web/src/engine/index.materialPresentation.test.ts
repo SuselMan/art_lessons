@@ -2,11 +2,13 @@ import { expect, it, vi } from 'vitest'
 import { createTestEngine, simulateStroke } from './testing/engineTestUtils'
 
 for (const review of [false, true]) it(`review=${review}: uses real ribbon primitives for queued pigment and reuses a single material owner across gestures`, async () => {
-  const { engine } = createTestEngine({ asyncFinish: true, materialPresentation: true, watercolorCoarseTransport: review, gradientFibres: review }, { width: 64, height: 64 })
+  const { engine } = createTestEngine({ asyncFinish: true, materialPresentation: true, watercolorReview: review, watercolorCoarseTransport: review, gradientFibres: review }, { width: 64, height: 64 })
   await engine.paperReady()
   engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor')
   engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
   expect(engine['_wcMaterialPresentation']).toBe(true)
+  expect(engine['_settleQueue'].diagnosticSolverBatchMax).toBe(review ? 1 : 4)
+  expect(engine['_settlePlan'].splitQuanta).toBe(review)
   engine['_wcCanonical']['ctx'].schedule = () => 1
   engine['_wcCanonical']['ctx'].unschedule = () => {}
   const stamps = vi.spyOn(engine['_stamps'], 'paint')

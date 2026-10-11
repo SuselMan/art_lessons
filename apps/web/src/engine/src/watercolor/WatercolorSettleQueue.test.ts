@@ -282,4 +282,18 @@ describe('bounded diagnostic solver batching', () => {
  it('stops after ownership loss, throwing operator or cancellation',()=>{
   const f=solverFixture();f.queue.diagnosticSolverBatchEnabled=true;const abort=vi.fn(),finish=vi.fn();f.queue.start(f.scratch,[()=>{},contactPulseOp(()=>{f.events.push('first');f.queue.cancel()}),contactPulseOp(()=>f.events.push('forbidden'))],finish,{isAlive:()=>true,abort});f.frame();expect(f.events).not.toContain('forbidden');expect(abort).toHaveBeenCalledTimes(1);expect(finish).not.toHaveBeenCalled()
  })
+it('allows one fenced solver quantum per interactive frame without changing the command order', () => {
+  const f = solverFixture()
+  f.queue.diagnosticSolverBatchEnabled = true
+  f.queue.diagnosticSolverBatchMax = 1
+  const finish = vi.fn()
+  f.queue.start(f.scratch, [() => {}, frontStepOp(() => f.events.push('one')), frontStepOp(() => f.events.push('two'))], finish)
+  f.frame()
+  expect(f.events).toEqual(['one', 'sync'])
+  expect(finish).not.toHaveBeenCalled()
+  while (f.queue.current) f.frame()
+  expect(f.events).toEqual(['one', 'sync', 'two', 'sync'])
+  expect(finish).toHaveBeenCalledTimes(1)
+})
+
 })

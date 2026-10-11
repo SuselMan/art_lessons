@@ -1,0 +1,29 @@
+{
+  "mix": [
+    11,
+    26,
+    0,
+    160
+  ],
+  "palette": {
+    "color": "#f1e433",
+    "preset": "normal:100:69:PY35:round"
+  },
+  "mapped": {
+    "x": 64,
+    "y": 128
+  },
+  "version": "native-queue-fibres-v3",
+  "coarse": true,
+  "gradient": true,
+  "async": true,
+  "material": true,
+  "square": true,
+  "touch": true,
+  "accepted": 2,
+  "pending": true,
+  "drains": 0,
+  "gl": 0,
+  "errors": [],
+  "scope": "SwiftShader; canonical scheduler deliberately paused to test input during backlog. Does not measure settle or pen-to-photon."
+}

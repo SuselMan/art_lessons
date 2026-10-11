@@ -81,6 +81,8 @@ export class WatercolorSettleQueue {
   /** OFF diagnostic: contiguous contact/front units, max4 and 8ms measured
    * after syncGpu EACH unit. No capture/upload/presentation barrier crossing. */
   diagnosticSolverBatchEnabled = false
+  /** Interactive material preview gives presentation priority over throughput. */
+  diagnosticSolverBatchMax: 1 | 4 = 4
 
   /** Diagnostic cap variants share the same wall budget and lifecycle guards. */
   contactBatchMax: 4 | 8 | 16 = 4
@@ -228,7 +230,7 @@ export class WatercolorSettleQueue {
       if ((batchable || presentationToken) && !late && !this.ctx.isDrawing() && this.ctx.syncGpu) {
         const batchAt = performance.now()
         const cap = !this.diagnosticSolverBatchEnabled && batchable === contactPulses && (this.contactBatchMax === 8 || this.contactBatchMax === 16)
-          ? this.contactBatchMax : 4
+          ? this.contactBatchMax : this.diagnosticSolverBatchEnabled ? this.diagnosticSolverBatchMax : 4
         for (let n = 0; n < cap && this._settle === s && sameBatch(s.ops[s.next]); n++) {
           this.advance()
           // Submission time alone does not bound queued GPU work. Synchronize
