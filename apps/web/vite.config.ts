@@ -164,6 +164,15 @@ export default defineConfig(({ mode }) => {
               response.end(readFileSync(new URL(`../../docs/qa/prototypes/fast-watercolor-v1/${fastFile}`, import.meta.url)))
               return
             }
+            const nativeFrontFile = path === '/watercolor-native-front-v1' || path === '/watercolor-native-front-v1/' ? 'index.html'
+              : path === '/watercolor-native-front-v1/fast-front.js' ? 'fast-front.js'
+              : /^\/watercolor-native-front-v1\/(cross|dot)-(native|prefix4|prefix8)\.png$/.test(path ?? '') ? path?.split('/').pop() : null
+            if (nativeFrontFile) {
+              response.setHeader('Content-Type', nativeFrontFile.endsWith('.png') ? 'image/png' : nativeFrontFile.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8')
+              response.setHeader('Cache-Control', 'no-store')
+              response.end(readFileSync(new URL(`../../docs/qa/prototypes/native-front-v1/${nativeFrontFile}`, import.meta.url)))
+              return
+            }
             const file = path === '/watercolor-group-v1' ? 'group.html' : path === '/watercolor-multiscale-v1' ? 'multiscale.html' : path === '/watercolor-native-v1' || path === '/watercolor-native-v8' ? 'native.html' : path === '/watercolor-local-v1' || path === '/watercolor-local-v1/' ? 'index.html'
               : path === '/watercolor-local-v1/model.js' ? 'model.js' : path === '/watercolor-local-v1/multiscale-model.js' ? 'multiscale-model.js' : path === '/watercolor-local-v1/group-model.js' ? 'group-model.js' : null
             if (!file) return next()

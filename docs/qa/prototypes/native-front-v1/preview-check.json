@@ -1,0 +1,32 @@
+{
+  "errors": [],
+  "scope": "Static saved native comparison/mobile browser; not device drawing test",
+  "scenes": {
+    "cross": [
+      {
+        "meanMaxChannelDelta": 0.4771766662597656,
+        "maxChannelDelta": 101,
+        "fractionPixelsDeltaOver8": 0.01213836669921875
+      },
+      {
+        "meanMaxChannelDelta": 0.6119270324707031,
+        "maxChannelDelta": 101,
+        "fractionPixelsDeltaOver8": 0.01686859130859375
+      }
+    ],
+    "dot": [
+      {
+        "meanMaxChannelDelta": 0.2718658447265625,
+        "maxChannelDelta": 41,
+        "fractionPixelsDeltaOver8": 0.004398345947265625
+      },
+      {
+        "meanMaxChannelDelta": 0.363037109375,
+        "maxChannelDelta": 46,
+        "fractionPixelsDeltaOver8": 0.00722503662109375
+      }
+    ]
+  },
+  "noOverflow": true,
+  "download": "native-front-dot-native.png"
+}

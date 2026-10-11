@@ -56,6 +56,8 @@ export class WatercolorSettlePlan {
   /** Scheduling diagnostic only; latched by prepare, default OFF. */
   /** DEV experiment: coarse transport for ordinary brushes; native deposition is unchanged. */
   diagnosticCoarseTransport = false
+  /** DEV-only visual experiment; injected solver must price every crossed edge. */
+  diagnosticFrontSchedule: ((steps: number) => readonly number[]) | null = null
   splitQuanta = false
   /** CPU scheduling diagnostic; requires the same canonical owner capability. */
   lazyContacts = false
@@ -504,7 +506,8 @@ export class WatercolorSettlePlan {
       // puddles ran wider and every drop dried paler (124 -> 133 of 255 on
       // Ilya's circles). The big sweeps get their speed from the
       // half-resolution field instead, exactly.
-      run(frontSteps, costMax, field.pressure, WC_FRONT_CLIMB, WC_FRONT_FLOOR)
+      run(frontSteps, costMax, field.pressure, WC_FRONT_CLIMB, WC_FRONT_FLOOR,
+        import.meta.env.DEV ? this.diagnosticFrontSchedule?.(frontSteps) : undefined)
       if (skipPigmentRim) {
         // Mode 11 reads outward pressure/coverage only. Inward mask, band and
         // gathered rim feed pigment operators; none remains under full zero proof.

@@ -1,0 +1,80 @@
+{
+  "scope": "Native V8 512 canvas, existing field sizes; Chromium SwiftShader VPS, not tablet",
+  "scenes": {
+    "cross": [
+      {
+        "mode": "native",
+        "scene": "cross",
+        "wallMs": 49780.69999998808,
+        "nativeFrontCalls": 154,
+        "fastStats": null
+      },
+      {
+        "mode": "prefix4",
+        "scene": "cross",
+        "wallMs": 31950.09999999404,
+        "nativeFrontCalls": 40,
+        "fastStats": {
+          "mode": "prefix4",
+          "buildDraws": 24,
+          "jumpDraws": 34,
+          "nativeDraws": 40,
+          "cacheBuilds": 2,
+          "extraBytes": 11796480
+        }
+      },
+      {
+        "mode": "prefix8",
+        "scene": "cross",
+        "wallMs": 30428.80000001192,
+        "nativeFrontCalls": 40,
+        "fastStats": {
+          "mode": "prefix8",
+          "buildDraws": 32,
+          "jumpDraws": 18,
+          "nativeDraws": 40,
+          "cacheBuilds": 2,
+          "extraBytes": 11796480
+        }
+      }
+    ],
+    "dot": [
+      {
+        "mode": "native",
+        "scene": "dot",
+        "wallMs": 9079.200000017881,
+        "nativeFrontCalls": 191,
+        "fastStats": null
+      },
+      {
+        "mode": "prefix4",
+        "scene": "dot",
+        "wallMs": 2010.199999988079,
+        "nativeFrontCalls": 41,
+        "fastStats": {
+          "mode": "prefix4",
+          "buildDraws": 24,
+          "jumpDraws": 42,
+          "nativeDraws": 41,
+          "cacheBuilds": 2,
+          "extraBytes": 11796480
+        }
+      },
+      {
+        "mode": "prefix8",
+        "scene": "dot",
+        "wallMs": 1914.0999999940395,
+        "nativeFrontCalls": 41,
+        "fastStats": {
+          "mode": "prefix8",
+          "buildDraws": 32,
+          "jumpDraws": 21,
+          "nativeDraws": 41,
+          "cacheBuilds": 2,
+          "extraBytes": 11796480
+        }
+      }
+    ]
+  },
+  "errors": []
+}
