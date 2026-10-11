@@ -1,0 +1,19 @@
+{
+  "version": "local-field-v1",
+  "stats": {
+    "frames": 189,
+    "steps": 189,
+    "dabs": 146,
+    "maxSubmissionMs": 3.300000011920929,
+    "historyCopies": 3
+  },
+  "sums": [
+    576534,
+    1158036,
+    196257,
+    0
+  ],
+  "gl": 0,
+  "errors": [],
+  "exportBytes": 1431775
+}

@@ -1,0 +1,44 @@
+{
+  "before": [
+    7000,
+    10500,
+    4000,
+    22000
+  ],
+  "after": [
+    7000,
+    10500,
+    4000,
+    22000
+  ],
+  "dry": [
+    7000,
+    10500,
+    4000,
+    0
+  ],
+  "moved": true,
+  "paintSums": [
+    245,
+    516,
+    84,
+    1163
+  ],
+  "undone": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "exactRedo": true,
+  "upMs": 0,
+  "gl": 0,
+  "api": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+  "stats": {
+    "frames": 0,
+    "steps": 184,
+    "dabs": 7,
+    "maxSubmissionMs": 0,
+    "historyCopies": 3
+  }
+}
