@@ -1,0 +1,119 @@
+{
+  "handoffFrames": [
+    {
+      "dt": 0,
+      "rgba": [
+        0,
+        84,
+        9,
+        180
+      ]
+    },
+    {
+      "dt": 16,
+      "rgba": [
+        0,
+        84,
+        9,
+        180
+      ]
+    },
+    {
+      "dt": 32,
+      "rgba": [
+        0,
+        84,
+        9,
+        180
+      ]
+    },
+    {
+      "dt": 48,
+      "rgba": [
+        0,
+        84,
+        9,
+        180
+      ]
+    },
+    {
+      "dt": 64,
+      "rgba": [
+        0,
+        84,
+        9,
+        180
+      ]
+    },
+    {
+      "dt": 500,
+      "rgba": [
+        0,
+        83,
+        7,
+        178
+      ]
+    },
+    {
+      "dt": 1000,
+      "rgba": [
+        1,
+        82,
+        6,
+        176
+      ]
+    },
+    {
+      "dt": 2000,
+      "rgba": [
+        1,
+        81,
+        4,
+        174
+      ]
+    },
+    {
+      "dt": 4000,
+      "rgba": [
+        2,
+        80,
+        1,
+        170
+      ]
+    }
+  ],
+  "ticks": 241,
+  "settledMix": [
+    2,
+    79,
+    0,
+    169
+  ],
+  "mix": [
+    0,
+    80,
+    11,
+    154
+  ],
+  "palette": {
+    "color": "#f1e433",
+    "preset": "normal:100:69:PY35:round"
+  },
+  "mapped": {
+    "x": 64,
+    "y": 128
+  },
+  "version": "native-queue-fibres-v5",
+  "coarse": true,
+  "gradient": true,
+  "async": true,
+  "material": true,
+  "square": true,
+  "touch": true,
+  "accepted": 2,
+  "pending": false,
+  "drains": 0,
+  "gl": 0,
+  "errors": [],
+  "scope": "SwiftShader; diagnostic field256 replaces minimum768. Queue manually drained; isolates color, not production parity or latency."
+}

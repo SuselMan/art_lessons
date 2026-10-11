@@ -73,3 +73,38 @@ it('hands the layer back while canonical reveal is still animating, after all in
     } finally { reveals.delete(identity) }
   } finally { engine.destroy() }
 })
+
+
+it('starts the review reveal at the visible material handoff, rather than its hidden elapsed age', async () => {
+  const { engine } = createTestEngine({ watercolorReview: true, asyncFinish: true, materialPresentation: true }, { width: 64, height: 64 })
+  await engine.paperReady()
+  engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor')
+  engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 40, y: 20 }])
+    const owner = engine['_wcMaterialOwners'].layers.get('L')!
+    const layer = engine['_layers'].get('L')!
+    const tile = layer.resolveForPaint({ minX: 0, minY: 0, maxX: 64, maxY: 64 })[0]
+    engine['_revealWash'](tile, layer)
+    const reveal = engine['_washReveals'].get(tile.buffer)!
+    reveal.progressive = true; reveal.startedAt = 1; reveal.frameAt = 1
+    engine['_sweepReveals'](100000)
+    expect(engine['_washReveals'].has(tile.buffer)).toBe(true)
+    expect(reveal.frameAt).toBe(1)
+    for (const key of [...owner.pending]) engine['_wcMaterialOwners'].retire(owner, key)
+    owner.material.scratches.clear()
+    const draw = vi.spyOn(engine as unknown as { _drawTileComposite(...args: unknown[]): void }, '_drawTileComposite')
+    expect(engine['_materialPresentationLayers']().has('L')).toBe(false)
+    expect(draw).toHaveBeenCalled()
+    expect(reveal.startedAt).toBeGreaterThan(1)
+    expect(reveal.frameAt).toBe(reveal.startedAt)
+    const anchor = reveal.pending
+    expect(anchor).toBeDefined()
+    engine['_advanceWashReveal'](tile.buffer, reveal, reveal.startedAt! + 1000)
+    expect(reveal.pending).toBe(anchor)
+    expect(reveal.before).not.toBe(anchor)
+    draw.mockRestore()
+  } finally { engine.destroy() }
+})

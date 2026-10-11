@@ -7489,7 +7489,12 @@ export class PencilEngine implements PencilEngineAPI {
     if (!target) return
     if (reveal.startedAt === null && reveal.dryRequested && reveal.dryPreviewStartedAt === undefined) reveal.dryPreviewStartedAt = now
     const remaining = washRevealRemaining(reveal.startedAt, reveal.dryPreviewStartedAt, now, reveal.durationMs ?? 8000)
-    const step = washRevealStep(dt, remaining)
+    // A handoff anchor avoids repeatedly rounding tiny per-frame changes
+    // back to the same RGBA8 pixel and then snapping at the deadline.
+    const anchor = this._watercolorReview && this._wcMaterialPresentation && reveal.startedAt !== null
+      ? reveal.pending : undefined
+    const step = anchor ? 1 - Math.pow(Math.max(0, Math.min(1,
+      (remaining ?? 0) / (reveal.durationMs ?? 8000))), 3) : washRevealStep(dt, remaining)
     if (!(step > 0)) return
     const out = this._revealPoolAcquire(buffer.width, buffer.height)
     out.beginReplaceDraw()
@@ -7500,7 +7505,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(this._revealPosLoc, 2, gl.FLOAT, false, 0, 0)
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, target.texture)
     gl.uniform1i(u.u_after, 0)
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, reveal.before.texture)
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, (anchor ?? reveal.before).texture)
     gl.uniform1i(u.u_before, 1)
     gl.uniform1f(u.u_hold, 1 - step); gl.uniform1f(u.u_opacity, 1)
     this._setRevealMotion(undefined, now)
@@ -7542,6 +7547,10 @@ export class PencilEngine implements PencilEngineAPI {
   /** Drops every reveal that has run out, or whose layer is gone. */
   private _sweepReveals(now: number, goneLayerId: string | null = null): void {
     for (const [buffer, reveal] of this._washReveals) {
+      // Accepted-input material is still visible. Its later handoff seeds
+      // this animation; do not spend or expire the hidden animation now.
+      if (reveal.layerId !== goneLayerId && this._watercolorReview
+        && this._wcMaterialOwners.layers.has(reveal.layerId)) continue
       if (reveal.layerId !== goneLayerId) this._advanceWashReveal(buffer, reveal, now)
       if (reveal.layerId !== goneLayerId && this._revealHold(reveal, now) > 0) continue
       this._revealPoolRelease(reveal.before)
@@ -7692,7 +7701,10 @@ export class PencilEngine implements PencilEngineAPI {
         reveal.dryRequested = true
         reveal.dryPreviewStartedAt = reveal.startedAt === null && reveal.pending ? now : undefined
       }
-      if (reveal.startedAt !== null) reveal.startedAt = now
+      if (reveal.startedAt !== null) {
+        if (this._watercolorReview && this._wcMaterialPresentation && reveal.pending) reveal.before.copyTo(reveal.pending)
+        reveal.startedAt = now
+      }
       reveal.frameAt = now
     }
     this._paperWet.clear()
@@ -8243,6 +8255,35 @@ export class PencilEngine implements PencilEngineAPI {
       const ready = [...owner.material.scratches].every(scratch => !this._wcAsyncOwners.has(scratch)
         && this._settle?.scratch !== scratch)
         && this._strokeLayerId !== owner.layerId
+      if (ready && owner.pending.size === 0 && this._watercolorReview) {
+        const now = performance.now(), e = owner.extent
+        for (const tile of this._layers.get(owner.layerId)?.resolveVisible({ minX: e.originX, minY: e.originY,
+          maxX: e.originX + e.worldWidth, maxY: e.originY + e.worldHeight }) ?? []) {
+          const reveal = this._washReveals.get(tile.buffer)
+          if (!reveal?.progressive) continue
+          // The hidden reveal has advanced while the accepted-input layer
+          // was visible. Start the handoff from that actual visible picture.
+          const w = tile.buffer.width, h = tile.buffer.height
+          const frame: CameraFrame = { wx: tile.originX + w / 2, wy: tile.originY + h / 2,
+            centerX: w / 2, centerY: h / 2, scale: 1, angle: 0,
+            view: { minX: tile.originX, minY: tile.originY, maxX: tile.originX + w, maxY: tile.originY + h } }
+          const x = Math.max(0, Math.floor(e.originX - tile.originX))
+          const y = Math.max(0, Math.floor(e.originY - tile.originY))
+          const right = Math.min(w, Math.ceil(e.originX + e.worldWidth - tile.originX))
+          const bottom = Math.min(h, Math.ceil(e.originY + e.worldHeight - tile.originY))
+          const gl = this.gl
+          reveal.before.beginReplaceDraw()
+          gl.enable(gl.SCISSOR_TEST); gl.scissor(x, h - bottom, right - x, bottom - y)
+          gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT)
+          gl.disable(gl.SCISSOR_TEST)
+          this._drawTileComposite(frame, owner.material.buffer.texture, e.originX, e.originY,
+            e.worldWidth, e.worldHeight, 1, reveal.before.fbo, w, h)
+          if (reveal.pending) this._revealPoolRelease(reveal.pending)
+          reveal.pending = this._revealPoolAcquire(w, h)
+          reveal.before.copyTo(reveal.pending)
+          reveal.startedAt = reveal.frameAt = reveal.motionAt = now
+        }
+      }
       if (this._wcMaterialOwners.releaseReady(owner, ready)) { this._wetTexAt = 0; continue }
       result.set(owner.layerId, { buffer: owner.material.buffer, ...owner.extent })
     }
