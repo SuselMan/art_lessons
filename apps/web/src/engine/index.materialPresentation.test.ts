@@ -1,8 +1,8 @@
 import { expect, it, vi } from 'vitest'
 import { createTestEngine, simulateStroke } from './testing/engineTestUtils'
 
-it('uses real ribbon primitives for queued pigment and reuses a single material owner across gestures', async () => {
-  const { engine } = createTestEngine({ asyncFinish: true, materialPresentation: true }, { width: 64, height: 64 })
+for (const review of [false, true]) it(`review=${review}: uses real ribbon primitives for queued pigment and reuses a single material owner across gestures`, async () => {
+  const { engine } = createTestEngine({ asyncFinish: true, materialPresentation: true, watercolorCoarseTransport: review, gradientFibres: review }, { width: 64, height: 64 })
   await engine.paperReady()
   engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor')
   engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
@@ -21,6 +21,7 @@ it('uses real ribbon primitives for queued pigment and reuses a single material 
     expect(ribbon).toHaveBeenCalled()
     expect(stamps).not.toHaveBeenCalled()
     expect(complete).not.toHaveBeenCalled()
+    engine.setColor([1, 1, 0])
     simulateStroke(engine, [{ x: 12, y: 40 }, { x: 24, y: 40 }, { x: 40, y: 40 }])
     expect(engine['_wcMaterialOwners'].layers.get('L')).toBe(owner)
     const first = [...engine['_wcMaterialKeys'].values()][0]
