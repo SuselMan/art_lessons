@@ -1,0 +1,58 @@
+diff --git a/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.test.ts b/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.test.ts
+index aee52f07..803fac3d 100644
+--- a/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.test.ts
++++ b/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.test.ts
+@@ -169,6 +169,22 @@ describe('budgeted continuation task ownership', () => {
+     f.queue.complete(); expect(f.calls).toEqual([...Array.from({ length: 30 }, (_, i) => i), 99])
+     vi.runAllTimers(); expect(f.calls).toHaveLength(31)
+   })
++  it('allows only captured Dry to catch up after late frames, and yields to input', () => {
++    const f = taskFixture()
++    f.queue.continuationTasksEnabled = false
++    f.queue.diagnosticDryContinuationEnabled = true
++    f.queue.current!.lifecycle!.isDryRequested = () => true
++    let now = 100
++    vi.spyOn(performance, 'now').mockImplementation(() => now)
++    f.frame(); vi.runAllTimers()
++    now += 40
++    const before = f.calls.length
++    f.frame()
++    expect(f.calls.length - before).toBe(4)
++    f.draw(); vi.runAllTimers()
++    expect(f.calls.length - before).toBe(4)
++    f.queue.cancel()
++  })
+   it('cancels the pending task before an ownership abort without late writes', () => {
+     const f = taskFixture(); f.frame(); f.queue.cancel(); vi.runAllTimers()
+     expect(f.calls).toEqual([0, 1, 2, 3, 4]); expect(f.frames.size).toBe(0)
+diff --git a/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts b/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts
+index 6343c25b..12b72fee 100644
+--- a/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts
++++ b/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts
+@@ -97,6 +97,7 @@ export class WatercolorSettleQueue {
+ 
+   /** Experimental post-lift tasks; preserves mandatory animation-frame yields. */
+   continuationTasksEnabled = false
++  diagnosticDryContinuationEnabled = false
+   private continuationCount = 0
+   private continuationCancel: (() => void) | null = null
+ 
+@@ -107,7 +108,7 @@ export class WatercolorSettleQueue {
+   }
+ 
+   private scheduleContinuation(s: WatercolorSettleJob): boolean {
+-    if (!this.continuationTasksEnabled || this.ctx.isDrawing()
++    if (!(this.continuationTasksEnabled || this.diagnosticDryContinuationEnabled && s.lifecycle?.isDryRequested?.()) || this.ctx.isDrawing()
+       || !(s.lifecycle?.isExpedited?.() || (this.ctx.canonicalBacklogSize?.() ?? 0) > 0)
+       || this.continuationCount >= 2 || this.continuationCancel) return false
+     this.continuationCount++
+@@ -207,7 +208,8 @@ export class WatercolorSettleQueue {
+     // seconds late.
+     // Only after an on-time frame, the same gate as the pen's: a late one means
+     // the device is already behind.
+-    if (this.continuationTasksEnabled && !late && !this.ctx.isDrawing()
++    const dryContinuation = this.diagnosticDryContinuationEnabled && !!s.lifecycle?.isDryRequested?.()
++    if ((this.continuationTasksEnabled && !late || dryContinuation) && !this.ctx.isDrawing()
+       && (s.lifecycle?.isExpedited?.() || (this.ctx.canonicalBacklogSize?.() ?? 0) > 0) && this.ctx.syncGpu) {
+       try {
+         const syncGpu = this.ctx.continuationSyncGpu ?? this.ctx.syncGpu

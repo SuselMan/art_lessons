@@ -7697,7 +7697,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._sweepReveals(now)
     for (const reveal of this._washReveals.values()) if (reveal.progressive) {
       reveal.motionBaseGain = this._revealMotionTail(reveal, now)
-      reveal.durationMs = 2000
+      reveal.durationMs = this._watercolorReview && this._wcMaterialPresentation ? 300 : 2000
       if (this._wcExpeditedDry) {
         reveal.dryRequested = true
         reveal.dryPreviewStartedAt = reveal.startedAt === null && reveal.pending ? now : undefined
@@ -8578,7 +8578,7 @@ export class PencilEngine implements PencilEngineAPI {
         entry.coverage.copyTo(held.wetMask)
         held.progressive = true
         if ((owned || this._wcExpeditedDry) && settledGesture <= (this._wcAsyncDryTo.get(scratch) ?? -1)) {
-          held.durationMs = 2000
+          held.durationMs = this._watercolorReview && this._wcMaterialPresentation ? 300 : 2000
           if (this._wcExpeditedDry) held.dryRequested = true
         }
         held.frameAt = held.motionAt = performance.now()
@@ -9452,7 +9452,9 @@ export class PencilEngine implements PencilEngineAPI {
     // притормаживает" on the tablet, and the eye cannot tell 30 from 60 on a
     // fade.
     if (this._washReveals.size && this._watercolorReview && this._wcMaterialPresentation) {
-      this._scheduleDisplay()
+      // A hidden reveal neither advances nor changes the visible material.
+      // Input and solver publication already request their own display.
+      if ([...this._washReveals.values()].some(reveal => !this._wcMaterialOwners.layers.has(reveal.layerId))) this._scheduleDisplay()
       return
     }
     if (this._washReveals.size && !this._revealTimer) {

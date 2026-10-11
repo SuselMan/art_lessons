@@ -1,0 +1,12 @@
+{
+  "wallMs": 16223.100000023842,
+  "completed": true,
+  "ticks": 94,
+  "tasks": 62,
+  "drains": 0,
+  "gl": 0,
+  "pending": false,
+  "enabled": true,
+  "errors": [],
+  "scope": "SwiftShader diagnostic field256; real rAF/task scheduler; two 220px equivalent overlapping strokes. Software GPU comparison, not Samsung speed."
+}

@@ -111,6 +111,27 @@ it('starts the review reveal at the visible material handoff, rather than its hi
     engine['_advanceWashReveal'](tile.buffer, reveal, reveal.startedAt! + 1000)
     expect(reveal.pending).toBe(anchor)
     expect(reveal.before).not.toBe(anchor)
+    engine.watercolorDryAll()
+    expect(reveal.durationMs).toBe(300)
     draw.mockRestore()
   } finally { engine.destroy() }
+})
+
+it('does not run an animation display loop for a reveal hidden by accepted input material', async () => {
+  const { engine } = createTestEngine({ watercolorReview: true, asyncFinish: true, materialPresentation: true }, { width: 64, height: 64 })
+  await engine.paperReady()
+  engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor')
+  engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  const reveals = engine['_washReveals'] as unknown as Map<object, { layerId: string }>
+  const identity = {}
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 40, y: 20 }])
+    reveals.set(identity, { layerId: 'L' })
+    const schedule = vi.spyOn(engine as unknown as { _scheduleDisplay(): void }, '_scheduleDisplay').mockImplementation(() => {})
+    engine['_display']()
+    expect(schedule).not.toHaveBeenCalled()
+    schedule.mockRestore()
+  } finally { reveals.delete(identity); engine.destroy() }
 })

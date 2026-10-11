@@ -1,6 +1,6 @@
-<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><title>Акварель — наша кисть, очередь v7</title>
+<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><title>Акварель — наша кисть, очередь v8</title>
 <style>body{height:100dvh;display:flex;flex-direction:column}header,footer{flex:none}main{flex:1;align-items:center!important;height:auto!important;min-height:0!important}canvas{flex:none}*{box-sizing:border-box}body{margin:0;background:#171719;color:#eee;font:15px system-ui}header{padding:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}h1{font-size:17px;margin:0}button,input{accent-color:#8980e8}button{background:#313137;color:inherit;border:1px solid #555;border-radius:7px;padding:9px;cursor:pointer}label{display:flex;align-items:center;gap:6px}input[type=range]{width:95px}main{height:calc(100dvh - 150px);min-height:250px;display:flex;justify-content:center;padding:8px}canvas{background:#faf9f7;aspect-ratio:1;width:min(100%,calc(100dvh - 170px));height:auto;max-height:100%;touch-action:none;box-shadow:0 2px 20px #0008}footer{padding:8px 16px;color:#aaa;font-size:12px}#error{color:#ffa5a5}</style>
-<header><h1>Акварель — наша кисть, очередь v7</h1><button id="clear">Новый лист</button><button id="undo">Отменить</button><button id="redo">Вернуть</button><button id="dry">Высушить</button><button id="save">Скачать рисунок</button><label>Краска <select id="paint"></select></label><label>Цвет <input id="color" type="color" value="#7030bd"></label><label>Кисть <input id="size" type="range" min="8" max="220" value="90"><output id="sizeValue">90</output></label><label>Вода <input id="water" type="range" min="0" max="100" value="100"></label><label>Пигмент <input id="pigment" type="range" min="0" max="100" value="69"></label></header>
+<header><h1>Акварель — наша кисть, очередь v8</h1><button id="clear">Новый лист</button><button id="undo">Отменить</button><button id="redo">Вернуть</button><button id="dry">Высушить</button><button id="save">Скачать рисунок</button><label>Краска <select id="paint"></select></label><label>Цвет <input id="color" type="color" value="#7030bd"></label><label>Кисть <input id="size" type="range" min="8" max="220" value="90"><output id="sizeValue">90</output></label><label>Вода <input id="water" type="range" min="0" max="100" value="100"></label><label>Пигмент <input id="pigment" type="range" min="0" max="100" value="69"></label></header>
 <main><canvas id="paper" width="1024" height="1024"></canvas></main><footer>Экспериментальный лист. Рисунки здесь не сохраняются в комнате. Наша кисть; следующего мазка можно не ждать. Проверяем переход от мокрого штриха к рассчитанной краске. <span id="error"></span></footer>
 <script type="module">
 import { PencilEngine } from '/src/engine/index.ts';
@@ -14,7 +14,7 @@ const size=small?256:1024;c.paper.width=c.paper.height=size;
 const engine=new PencilEngine(c.paper,{userId:'native-local',pageWidth:size,pageHeight:size,paper:'fine',watercolorReview:true,watercolorCoarseTransport:true,joinedTouch:true,asyncFinish:true,materialPresentation:true,gradientFibres:true,reviewTouchDrawing:true});
 window.__wcNative=engine;
 engine._watercolorPasses.warmGradientFibres();
-window.__wcReviewVersion="native-queue-fibres-v7";
+window.__wcReviewVersion="native-queue-fibres-v8";
 engine.appendOperation({id:'local-layer',type:'layer_add',userId:'native-local',timestamp:1,layerId:'local',name:'Акварель'});
 engine.setCompositeOrder([{id:'local',opacity:1}]);engine.setActiveLayer('local');engine.setTool('watercolor');
 for(const paint of WATERCOLOR_PIGMENTS){const option=document.createElement('option');option.value=paint.code;option.textContent=paint.code+' — '+paint.name;c.paint.append(option)}
@@ -31,7 +31,7 @@ engine.watercolorDryAll();c.dry.disabled=true;c.dry.textContent='Высушив�
 // drawing must not extend its completion indefinitely.
 let reached=false;
 engine._wcCanonical.enqueue({execute:function*(){reached=true},cancel:()=>{reached=true}});
-const check=()=>{if(engine._destroyed)return;if(!reached){requestAnimationFrame(check);return}setTimeout(()=>{if(engine._destroyed)return;c.dry.disabled=false;c.dry.textContent='Высушить'},2000)};requestAnimationFrame(check);
+const check=()=>{if(engine._destroyed)return;if(!reached){requestAnimationFrame(check);return}setTimeout(()=>{if(engine._destroyed)return;c.dry.disabled=false;c.dry.textContent='Высушить'},300)};requestAnimationFrame(check);
 };
 c.clear.onclick=()=>location.reload();c.undo.onclick=()=>engine.undo();c.redo.onclick=()=>engine.redo();
 c.save.onclick=async()=>{const blob=await engine.exportPNG();if(!blob)return;const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='watercolor-native-coarse.png';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};

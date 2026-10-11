@@ -1,0 +1,37 @@
+diff --git a/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.test.ts b/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.test.ts
+index aee52f07..2aecfd50 100644
+--- a/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.test.ts
++++ b/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.test.ts
+@@ -310,4 +310,18 @@ it('catches up only captured Dry work with four bounded idle steps and returns t
+   expect(f.sync).toHaveBeenCalledTimes(4)
+ })
+ 
++it('keeps the measured Dry budget on a late idle frame instead of forcing an artificial one-step delay', () => {
++  const f = solverFixture()
++  f.queue.diagnosticSolverBatchEnabled = true
++  f.queue.diagnosticSolverBatchMax = 1
++  f.queue.diagnosticDryBatchEnabled = true
++  f.sync.mockImplementation(() => { f.events.push('sync'); f.addTime(3) })
++  f.queue.start(f.scratch, [() => {}, ...Array.from({ length: 9 }, (_, i) => frontStepOp(() => f.events.push(String(i))))], () => {},
++    { isAlive: () => true, abort: () => {}, isDryRequested: () => true })
++  f.frame()
++  expect(f.sync).toHaveBeenCalledTimes(3)
++  f.addTime(40); f.frame()
++  expect(f.sync).toHaveBeenCalledTimes(6)
++})
++
+ })
+diff --git a/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts b/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts
+index 6343c25b..7c824344 100644
+--- a/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts
++++ b/apps/web/src/engine/src/watercolor/WatercolorSettleQueue.ts
+@@ -229,7 +229,8 @@ export class WatercolorSettleQueue {
+       const presentationToken = this.presentationBatchEnabled ? presentationTokens.get(s.ops[s.next]) : undefined
+       const sameBatch = (op: () => void): boolean => batchable ? batchable.has(op)
+         : !!presentationToken && presentationTokens.get(op) === presentationToken
+-      if ((batchable || presentationToken) && !late && !this.ctx.isDrawing() && this.ctx.syncGpu) {
++      const dryCatchUp = this.diagnosticDryBatchEnabled && !!s.lifecycle?.isDryRequested?.()
++      if ((batchable || presentationToken) && (!late || dryCatchUp) && !this.ctx.isDrawing() && this.ctx.syncGpu) {
+         const batchAt = performance.now()
+         const cap = !this.diagnosticSolverBatchEnabled && batchable === contactPulses && (this.contactBatchMax === 8 || this.contactBatchMax === 16)
+           ? this.contactBatchMax : this.diagnosticSolverBatchEnabled
