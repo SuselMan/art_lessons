@@ -20,7 +20,7 @@ export type WatercolorSettlePreview = (tile: PaintTarget, pigment: AccumulationB
 
 export interface WatercolorSettlePlanContext {
   gl(): WebGLRenderingContext
-  fieldFor(w: number, h: number): SettleField
+  fieldFor(w: number, h: number, scale?: number): SettleField
   paperWorldSize(): { w: number; h: number }
   pool(): RibbonScratchPool
   minmaxExt(): { MAX_EXT: number } | null
@@ -54,6 +54,8 @@ export class WatercolorSettlePlan {
   diagnosticSkipZeroPigmentRim = false
   private readonly ctx: WatercolorSettlePlanContext
   /** Scheduling diagnostic only; latched by prepare, default OFF. */
+  /** DEV experiment: coarse transport for ordinary brushes; native deposition is unchanged. */
+  diagnosticCoarseTransport = false
   splitQuanta = false
   /** CPU scheduling diagnostic; requires the same canonical owner capability. */
   lazyContacts = false
@@ -182,7 +184,8 @@ export class WatercolorSettlePlan {
     const pad = Math.max(WET_DIFFUSE_REACH, frontReachPx) + 1 + dryMargin
     let x0 = Math.max(minX, Math.floor(bounds.minX) - pad), y0 = Math.max(minY, Math.floor(bounds.minY) - pad)
     let x1 = Math.min(maxX, Math.ceil(bounds.maxX) + pad), y1 = Math.min(maxY, Math.ceil(bounds.maxY) + pad)
-    if (radiusPx >= WC_HALF_RES_RADIUS_PX && Math.max(x1 - x0, y1 - y0) > WC_HALF_RES_SPAN_PX) S = 2
+    if ((radiusPx >= WC_HALF_RES_RADIUS_PX && Math.max(x1 - x0, y1 - y0) > WC_HALF_RES_SPAN_PX)
+      || (this.diagnosticCoarseTransport && radiusPx >= 8 && Math.max(x1 - x0, y1 - y0) > 128)) S = 2
     const CAP = 1536 * S
     if (x1 - x0 > CAP) { const c = (x0 + x1) * 0.5; x0 = Math.floor(c - CAP / 2); x1 = x0 + CAP }
     if (y1 - y0 > CAP) { const c = (y0 + y1) * 0.5; y0 = Math.floor(c - CAP / 2); y1 = y0 + CAP }
@@ -201,7 +204,7 @@ export class WatercolorSettlePlan {
     const w = x1 - x0, h = y1 - y0
     if (w <= 0 || h <= 0) return null
     scratch.noteStorageBounds({ minX: x0, minY: y0, maxX: x1, maxY: y1 })
-    const field = this.ctx.fieldFor(w / S, h / S)
+    const field = this.ctx.fieldFor(w / S, h / S, S)
     const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
     // (§17.44) At half resolution what goes home is the SETTLED wash at full
     // resolution plus the field's result less its own settled part: the

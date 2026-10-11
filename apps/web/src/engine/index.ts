@@ -250,6 +250,8 @@ const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 export interface PencilEngineOptions {
   /** DEV-only combined WebGL1 candidate for manual A/B review. */
   watercolorReview?: boolean
+  /** DEV-only artistic experiment, not compatible with legacy material replay. */
+  watercolorCoarseTransport?: boolean
   /** (#728) Accept provisional pointer input while canonical wet material
    * finishes in FIFO order. Export/snapshot readiness waits for that queue.
    * Omitted, standalone callers retain synchronous completion. */
@@ -1825,7 +1827,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private readonly _settlePlan = new WatercolorSettlePlan({
     gl: () => this.gl,
-    fieldFor: (w, h) => this._diffuseFieldFor(w, h),
+    fieldFor: (w, h, scale) => this._diffuseFieldFor(w, h, scale),
     paperWorldSize: () => this._paperWorldSize(),
     pool: () => this._ribbonScratchPool,
     minmaxExt: () => this._minmaxExt,
@@ -2242,6 +2244,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._settleQueue.diagnosticSolverBatchEnabled = this._watercolorReview
     this._settlePlan.diagnosticHoistedContactRaster = this._watercolorReview
     this._settlePlan.diagnosticReuseFlowRaster = this._watercolorReview
+    this._settlePlan.diagnosticCoarseTransport = import.meta.env.DEV && options.watercolorCoarseTransport === true
     this._ribbonPainter.diagnosticBandBatch = options.bandBatch ?? false
     // Keep out of the review bundle: human testing found whole-stroke fading.
     this._wcJoinedFinishDeferred = options.joinedFinishDeferred ?? false
@@ -8075,11 +8078,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  before; what changed is only that it now always has empty paper to its
    *  right and below, where it used to meet the texture's clamped edge
    *  whenever its span was a multiple of 256. */
-  private _diffuseFieldFor(w: number, h: number): SettleField {
+  private _diffuseFieldFor(w: number, h: number, scale = 1): SettleField {
     // A settle still spread over frames works in the field it was handed:
     // it lands first, before the field is cleared or replaced under it.
     if (this._settle) this._completeSettle()
-    const need = (n: number): number => Math.max(WC_FIELD_PX, Math.ceil(n / 256) * 256)
+    const minimum = this._settlePlan.diagnosticCoarseTransport && scale === 2 ? WC_FIELD_PX / 2 : WC_FIELD_PX
+    const need = (n: number): number => Math.max(minimum, Math.ceil(n / 256) * 256)
     const W = need(w), H = need(h)
     // (#536, ADR 011 §17.49) EXACTLY this settle's size, never a larger field
     // left by an earlier one. The passes step by the texture's own texel and
