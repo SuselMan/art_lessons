@@ -46,3 +46,28 @@ for (const review of [false, true]) it(`review=${review}: uses real ribbon primi
     draw.mockRestore(); remove.mockRestore()
   } finally { stamps.mockRestore(); ribbon.mockRestore(); complete.mockRestore(); engine.destroy() }
 })
+
+it('hands the layer back while canonical reveal is still animating, after all input was materialized', async () => {
+  const { engine } = createTestEngine({ asyncFinish: true, materialPresentation: true }, { width: 64, height: 64 })
+  await engine.paperReady()
+  engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor')
+  engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 24, y: 20 }, { x: 40, y: 20 }])
+    const owner = engine['_wcMaterialOwners'].layers.get('L')!
+    // Pending accepted input must keep the provisional layer.
+    expect(engine['_materialPresentationLayers']().has('L')).toBe(true)
+    for (const key of [...owner.pending]) engine['_wcMaterialOwners'].retire(owner, key)
+    owner.material.scratches.clear()
+    // Only the layer id is consulted here: create a reveal identity without
+    // a fake material texture or depending on solver progress in this test.
+    const reveals = engine['_washReveals'] as unknown as Map<object, { layerId: string }>
+    const identity = {}; reveals.set(identity, { layerId: 'L' })
+    try {
+      expect(engine['_materialPresentationLayers']().has('L')).toBe(false)
+      expect(reveals.has(identity)).toBe(true)
+    } finally { reveals.delete(identity) }
+  } finally { engine.destroy() }
+})

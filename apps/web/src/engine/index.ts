@@ -8239,7 +8239,6 @@ export class PencilEngine implements PencilEngineAPI {
     for (const owner of this._wcMaterialOwners.layers.values()) {
       const ready = [...owner.material.scratches].every(scratch => !this._wcAsyncOwners.has(scratch)
         && this._settle?.scratch !== scratch)
-        && ![...this._washReveals.values()].some(reveal => reveal.layerId === owner.layerId)
         && this._strokeLayerId !== owner.layerId
       if (this._wcMaterialOwners.releaseReady(owner, ready)) { this._wetTexAt = 0; continue }
       result.set(owner.layerId, { buffer: owner.material.buffer, ...owner.extent })
@@ -8253,7 +8252,7 @@ export class PencilEngine implements PencilEngineAPI {
     const view = this._camera.liveFrame().view
     const existed = this._wcMaterialOwners.layers.has(layerId)
     const owner = this._wcMaterialOwners.acquire(layerId, { originX: view.minX, originY: view.minY,
-      worldWidth: view.maxX - view.minX, worldHeight: view.maxY - view.minY }, 512)
+      worldWidth: view.maxX - view.minX, worldHeight: view.maxY - view.minY }, 768)
     if (!existed) {
       const e = owner.extent
       const frame: CameraFrame = { wx: e.originX + e.worldWidth / 2, wy: e.originY + e.worldHeight / 2,
