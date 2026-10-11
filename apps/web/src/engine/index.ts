@@ -252,6 +252,8 @@ export interface PencilEngineOptions {
   watercolorReview?: boolean
   /** DEV-only artistic experiment, not compatible with legacy material replay. */
   watercolorCoarseTransport?: boolean
+  /** DEV standalone review sheet; rooms retain touch navigation. */
+  reviewTouchDrawing?: boolean
   /** (#728) Accept provisional pointer input while canonical wet material
    * finishes in FIFO order. Export/snapshot readiness waits for that queue.
    * Omitted, standalone callers retain synchronous completion. */
@@ -2481,7 +2483,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._initGL()
     // Placeholder now, the real bake once it has loaded — see PaperState.init.
     this._paper.init()
-    this._pointer = new PointerInput(canvas, this._diagLog)
+    this._pointer = new PointerInput(canvas, this._diagLog, import.meta.env.DEV && options.reviewTouchDrawing === true)
     this._dabs    = new DabSystem()
 
     this._layers          = new Map()

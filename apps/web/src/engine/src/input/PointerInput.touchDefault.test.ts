@@ -58,3 +58,18 @@ describe('#517 — the canvas claims touchstart', () => {
     expect(prevented, 'the listener exists but forgoes the default action it was added for').toBe(true)
   })
 })
+
+for (const allowTouch of [false, true]) it(`touch drawing requires explicit opt-in (${allowTouch})`, () => {
+  const { canvas, registered } = fakeCanvas()
+  const input = new PointerInput(canvas, undefined, allowTouch)
+  const starts: Array<{ pointerType: string; pressure: number }> = []
+  input.on('start', data => starts.push(data))
+  try {
+    registered.find(r => r.type === 'pointerdown')!.fn({
+      button: 0, buttons: 1, pointerId: 1, pointerType: 'touch', pressure: 0,
+      clientX: 25, clientY: 50, timeStamp: 10, preventDefault() {},
+    } as unknown as Event)
+    expect(starts).toHaveLength(allowTouch ? 1 : 0)
+    if (allowTouch) expect(starts[0]).toMatchObject({ pointerType: 'touch', pressure: .5 })
+  } finally { input.destroy() }
+})
