@@ -1,0 +1,22 @@
+{
+  "stats": {
+    "paintBatches": 3,
+    "starts": 2,
+    "cancels": 1,
+    "completed": 1,
+    "solverOps": 192,
+    "publications": 5,
+    "stalePublications": 0,
+    "sourceSize": 128,
+    "fieldSize": 256
+  },
+  "stale": 0,
+  "differences": 0,
+  "gl": 0,
+  "size": 128,
+  "replayDifferences": 0,
+  "rawUnchanged": true,
+  "dryMs": 108,
+  "errors": [],
+  "scope": "SwiftShader128: two intersecting strokes, third supersedes active solve. Natural/Dry/replay readback comparison. Fixed QA field256, unlike normal1536. Not device timing."
+}

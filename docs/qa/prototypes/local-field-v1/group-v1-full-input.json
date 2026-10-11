@@ -1,0 +1,20 @@
+{
+  "version": "group-recompute-v1",
+  "stats": {
+    "paintBatches": 3,
+    "starts": 0,
+    "cancels": 0,
+    "completed": 0,
+    "solverOps": 0,
+    "publications": 0,
+    "stalePublications": 0,
+    "sourceSize": 768,
+    "fieldSize": 1536
+  },
+  "rawNonzero": true,
+  "gestures": 3,
+  "gl": 0,
+  "cleared": true,
+  "errors": [],
+  "scope": "SwiftShader768, normal field parameter1536; real mouse UI and palette, three gestures and Clear. Deposition only with hold=1; full-size solver timing NOT measured."
+}
