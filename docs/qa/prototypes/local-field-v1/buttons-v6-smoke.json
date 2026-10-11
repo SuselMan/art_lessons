@@ -1,0 +1,128 @@
+{
+  "handoffFrames": [
+    {
+      "dt": 0,
+      "rgba": [
+        0,
+        84,
+        9,
+        180
+      ]
+    },
+    {
+      "dt": 16,
+      "rgba": [
+        0,
+        84,
+        9,
+        180
+      ]
+    },
+    {
+      "dt": 32,
+      "rgba": [
+        0,
+        84,
+        9,
+        180
+      ]
+    },
+    {
+      "dt": 48,
+      "rgba": [
+        0,
+        84,
+        10,
+        180
+      ]
+    },
+    {
+      "dt": 64,
+      "rgba": [
+        0,
+        84,
+        10,
+        180
+      ]
+    },
+    {
+      "dt": 500,
+      "rgba": [
+        0,
+        83,
+        14,
+        179
+      ]
+    },
+    {
+      "dt": 1000,
+      "rgba": [
+        0,
+        83,
+        17,
+        179
+      ]
+    },
+    {
+      "dt": 2000,
+      "rgba": [
+        0,
+        83,
+        18,
+        179
+      ]
+    },
+    {
+      "dt": 4000,
+      "rgba": [
+        0,
+        83,
+        18,
+        179
+      ]
+    }
+  ],
+  "ticks": 239,
+  "settledMix": [
+    0,
+    83,
+    18,
+    179
+  ],
+  "mix": [
+    0,
+    80,
+    11,
+    154
+  ],
+  "palette": {
+    "color": "#f1e433",
+    "preset": "normal:100:69:PY35:round"
+  },
+  "mapped": {
+    "x": 64,
+    "y": 128
+  },
+  "version": "native-queue-fibres-v6",
+  "coarse": true,
+  "gradient": true,
+  "async": true,
+  "material": true,
+  "square": true,
+  "touch": true,
+  "accepted": 2,
+  "pending": false,
+  "drains": 0,
+  "gl": 0,
+  "dryPending": "Высушиваю…",
+  "dryCompleted": "Высушить",
+  "clear": {
+    "strokes": 0,
+    "pending": false,
+    "owners": 0,
+    "reveals": 0,
+    "tiles": 0
+  },
+  "errors": [],
+  "scope": "SwiftShader; diagnostic field256 replaces minimum768. Queue manually drained; isolates color, not production parity or latency."
+}

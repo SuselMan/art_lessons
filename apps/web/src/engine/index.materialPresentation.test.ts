@@ -38,6 +38,12 @@ for (const review of [false, true]) it(`review=${review}: uses real ribbon primi
     expect(allocated.live + allocated.free + owner.material.buffer.width * owner.material.buffer.height * 4)
       .toBeLessThanOrEqual(engine['_wcMaterialOwners'].bytes)
     expect(owner.material.raster.paperWet.peak(performance.now())).toBeGreaterThan(0)
+    if (review) {
+      engine.watercolorDryAll()
+      expect(owner.material.raster.paperWet.peak(performance.now())).toBe(0)
+      expect(engine['_wcAsyncDryTo'].size).toBeGreaterThan(0)
+      expect(complete).not.toHaveBeenCalled()
+    }
     expect(engine['_materialPresentationLayers']().get('L')?.buffer).toBe(owner.material.buffer)
     expect(engine['_log'].entries.filter(e => e.op.type === 'stroke')).toHaveLength(2)
     const draw = vi.spyOn(engine['gl'], 'drawArrays'), remove = vi.spyOn(engine['gl'], 'deleteTexture')

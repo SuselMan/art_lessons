@@ -7680,7 +7680,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   watercolorDryAll(): void {
     if (this._wcAsyncFinish && this._wcCanonical.pending) for (const scratch of this._wcAsyncOwners.keys()) this._wcAsyncDryTo.set(scratch, scratch.gesture)
-    if (this._wcExpeditedDry && this._wcAsyncFinish && this._settle) {
+    if ((this._wcExpeditedDry || this._watercolorReview && this._wcMaterialPresentation) && this._wcAsyncFinish && this._settle) {
       const scratch = this._settle.scratch
       this._wcAsyncDryTo.set(scratch, scratch.gesture)
     }
@@ -7708,6 +7708,9 @@ export class PencilEngine implements PencilEngineAPI {
       reveal.frameAt = now
     }
     this._paperWet.clear()
+    if (this._watercolorReview && this._wcMaterialPresentation) {
+      for (const owner of this._wcMaterialOwners.layers.values()) owner.material.raster.paperWet.clear()
+    }
     // The sheen goes with it: the wet map is rebuilt on the next frame, not
     // after the overlay's own throttle, and the whole paper recomposes.
     this._wetTexAt = 0
