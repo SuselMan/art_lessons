@@ -1,0 +1,12 @@
+{
+  "ticks": 1989,
+  "boundary": true,
+  "pendingLater": true,
+  "drains": 0,
+  "gl": 0,
+  "strokes": 11,
+  "dryPending": "Высушиваю…",
+  "dryCompleted": "Высушить",
+  "errors": [],
+  "scope": "SwiftShader diagnostic field256, manual queue; ten wide overlapping strokes, Dry boundary, then one later stroke left pending. Not physical-device throughput."
+}

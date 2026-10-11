@@ -27,6 +27,7 @@ export interface WatercolorSettleLifecycle {
   abort(error?: unknown): void
   /** Captured owner/gesture request; never reads the next gesture identity. */
   isExpedited?(): boolean
+  isDryRequested?(): boolean
 }
 
 export interface WatercolorSettleJob {
@@ -83,6 +84,7 @@ export class WatercolorSettleQueue {
   diagnosticSolverBatchEnabled = false
   /** Interactive material preview gives presentation priority over throughput. */
   diagnosticSolverBatchMax: 1 | 4 = 4
+  diagnosticDryBatchEnabled = false
 
   /** Diagnostic cap variants share the same wall budget and lifecycle guards. */
   contactBatchMax: 4 | 8 | 16 = 4
@@ -230,7 +232,8 @@ export class WatercolorSettleQueue {
       if ((batchable || presentationToken) && !late && !this.ctx.isDrawing() && this.ctx.syncGpu) {
         const batchAt = performance.now()
         const cap = !this.diagnosticSolverBatchEnabled && batchable === contactPulses && (this.contactBatchMax === 8 || this.contactBatchMax === 16)
-          ? this.contactBatchMax : this.diagnosticSolverBatchEnabled ? this.diagnosticSolverBatchMax : 4
+          ? this.contactBatchMax : this.diagnosticSolverBatchEnabled
+            ? this.diagnosticDryBatchEnabled && s.lifecycle?.isDryRequested?.() ? 4 : this.diagnosticSolverBatchMax : 4
         for (let n = 0; n < cap && this._settle === s && sameBatch(s.ops[s.next]); n++) {
           this.advance()
           // Submission time alone does not bound queued GPU work. Synchronize

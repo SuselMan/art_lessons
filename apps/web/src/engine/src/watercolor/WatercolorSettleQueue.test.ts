@@ -296,4 +296,18 @@ it('allows one fenced solver quantum per interactive frame without changing the 
   expect(finish).toHaveBeenCalledTimes(1)
 })
 
+it('catches up only captured Dry work with four bounded idle steps and returns to one while drawing', () => {
+  const f = solverFixture()
+  f.queue.diagnosticSolverBatchEnabled = true
+  f.queue.diagnosticSolverBatchMax = 1
+  f.queue.diagnosticDryBatchEnabled = true
+  f.queue.start(f.scratch, [() => {}, ...Array.from({ length: 6 }, (_, i) => frontStepOp(() => f.events.push(String(i))))], () => {},
+    { isAlive: () => true, abort: () => {}, isDryRequested: () => true })
+  f.frame()
+  expect(f.sync).toHaveBeenCalledTimes(4)
+  f.setDrawing(true); f.frame()
+  expect(f.events.at(-1)).toBe('4')
+  expect(f.sync).toHaveBeenCalledTimes(4)
+})
+
 })

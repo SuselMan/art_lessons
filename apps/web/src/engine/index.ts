@@ -2246,6 +2246,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._settleQueue.diagnosticSolverBatchEnabled = this._watercolorReview
     const interactiveReview = this._watercolorReview && options.asyncFinish === true && options.materialPresentation === true
     this._settleQueue.diagnosticSolverBatchMax = interactiveReview ? 1 : 4
+    this._settleQueue.diagnosticDryBatchEnabled = interactiveReview
     this._settlePlan.splitQuanta = interactiveReview
     this._settlePlan.diagnosticHoistedContactRaster = this._watercolorReview
     this._settlePlan.diagnosticReuseFlowRaster = this._watercolorReview
@@ -7852,6 +7853,7 @@ export class PencilEngine implements PencilEngineAPI {
       ...lifecycle,
       isAlive: () => lifecycle?.isAlive() ?? scratch.live,
       isExpedited: () => this._wcExpeditedDry && gesture <= (this._wcAsyncDryTo.get(scratch) ?? -1),
+      isDryRequested: () => gesture <= (this._wcAsyncDryTo.get(scratch) ?? -1),
       abort: (error?: unknown) => {
         try { lifecycle?.abort(error) } finally {
           try {
@@ -7865,6 +7867,7 @@ export class PencilEngine implements PencilEngineAPI {
     } : lifecycle ? {
       ...lifecycle,
       isExpedited: () => this._wcExpeditedDry && gesture <= (this._wcAsyncDryTo.get(scratch) ?? -1),
+      isDryRequested: () => gesture <= (this._wcAsyncDryTo.get(scratch) ?? -1),
       abort: (error?: unknown) => { try { lifecycle.abort(error) } finally { releaseDryTicket() } },
     } : lifecycle)
     const job = completedJob = this._settle
