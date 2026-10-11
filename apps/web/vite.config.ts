@@ -151,6 +151,19 @@ export default defineConfig(({ mode }) => {
           if (process.env.VITE_QA_WATERCOLOR_REVIEW !== '1') return
           server.middlewares.use((request, response, next) => {
             const path = request.url?.split('?')[0]
+            if (path === '/watercolor-group-v1') {
+              response.writeHead(302, { Location: '/watercolor-native-v8', 'Cache-Control': 'no-store' })
+              response.end()
+              return
+            }
+            const fastFile = path === '/watercolor-fast-v1' || path === '/watercolor-fast-v1/' ? 'index.html'
+              : path === '/watercolor-fast-v1/models.js' ? 'models.js' : null
+            if (fastFile) {
+              response.setHeader('Content-Type', fastFile.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8')
+              response.setHeader('Cache-Control', 'no-store')
+              response.end(readFileSync(new URL(`../../docs/qa/prototypes/fast-watercolor-v1/${fastFile}`, import.meta.url)))
+              return
+            }
             const file = path === '/watercolor-group-v1' ? 'group.html' : path === '/watercolor-multiscale-v1' ? 'multiscale.html' : path === '/watercolor-native-v1' || path === '/watercolor-native-v8' ? 'native.html' : path === '/watercolor-local-v1' || path === '/watercolor-local-v1/' ? 'index.html'
               : path === '/watercolor-local-v1/model.js' ? 'model.js' : path === '/watercolor-local-v1/multiscale-model.js' ? 'multiscale-model.js' : path === '/watercolor-local-v1/group-model.js' ? 'group-model.js' : null
             if (!file) return next()

@@ -1,0 +1,137 @@
+{
+  "scope": "VPS Node20 CPU, not browser or Samsung; no render; revision2 transport",
+  "results": [
+    {
+      "kind": "capillary",
+      "scene": "cross",
+      "grid": 112,
+      "steps": 100,
+      "initMs": 21.83242700000001,
+      "computeMs": 243.25753600000002,
+      "renderMs": 0,
+      "renderCount": 0,
+      "lastRenderMs": 0,
+      "seed": 731,
+      "initialMass": [
+        1187.8485742724029,
+        1194.0784509920534
+      ],
+      "finalMass": [
+        1187.8485742723988,
+        1194.0784509920516
+      ],
+      "checksum": 654587661,
+      "chunkIndependent": true
+    },
+    {
+      "kind": "particles",
+      "scene": "cross",
+      "grid": 112,
+      "steps": 100,
+      "initMs": 25.72417500000006,
+      "computeMs": 478.8380330000001,
+      "renderMs": 0,
+      "renderCount": 0,
+      "lastRenderMs": 0,
+      "seed": 731,
+      "initialMass": [
+        1187.8485742724029,
+        1194.0784509920534
+      ],
+      "finalMass": [
+        1187.808573357866,
+        1194.0368760522474
+      ],
+      "checksum": 468091676,
+      "chunkIndependent": true
+    },
+    {
+      "kind": "channels",
+      "scene": "cross",
+      "grid": 112,
+      "steps": 100,
+      "initMs": 286.36942899999985,
+      "computeMs": 161.99205400000005,
+      "renderMs": 0,
+      "renderCount": 0,
+      "lastRenderMs": 0,
+      "seed": 731,
+      "initialMass": [
+        1187.8485742724029,
+        1194.0784509920534
+      ],
+      "finalMass": [
+        1215.4493526143676,
+        1225.8441471729059
+      ],
+      "checksum": 521335168,
+      "chunkIndependent": true
+    },
+    {
+      "kind": "capillary",
+      "scene": "dot",
+      "grid": 112,
+      "steps": 100,
+      "initMs": 26.345724999999675,
+      "computeMs": 398.96559000000025,
+      "renderMs": 0,
+      "renderCount": 0,
+      "lastRenderMs": 0,
+      "seed": 731,
+      "initialMass": [
+        135.89780838341525,
+        102.4183342937699
+      ],
+      "finalMass": [
+        135.89780838341935,
+        102.41833429376966
+      ],
+      "checksum": 1480173989,
+      "chunkIndependent": true
+    },
+    {
+      "kind": "particles",
+      "scene": "dot",
+      "grid": 112,
+      "steps": 100,
+      "initMs": 7.684910999999829,
+      "computeMs": 382.06598699999995,
+      "renderMs": 0,
+      "renderCount": 0,
+      "lastRenderMs": 0,
+      "seed": 731,
+      "initialMass": [
+        135.89780838341525,
+        102.4183342937699
+      ],
+      "finalMass": [
+        134.38895241396014,
+        102.41833429376986
+      ],
+      "checksum": 811350664,
+      "chunkIndependent": true
+    },
+    {
+      "kind": "channels",
+      "scene": "dot",
+      "grid": 112,
+      "steps": 100,
+      "initMs": 121.65720499999998,
+      "computeMs": 56.732192999999825,
+      "renderMs": 0,
+      "renderCount": 0,
+      "lastRenderMs": 0,
+      "seed": 731,
+      "initialMass": [
+        135.89780838341525,
+        102.4183342937699
+      ],
+      "finalMass": [
+        135.89780838341525,
+        158.53801138129202
+      ],
+      "checksum": 1418789775,
+      "chunkIndependent": true
+    }
+  ]
+}

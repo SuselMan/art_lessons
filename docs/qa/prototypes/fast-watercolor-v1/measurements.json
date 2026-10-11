@@ -1,0 +1,276 @@
+{
+  "scope": "VPS headless Chromium CPU; not tablet performance or native fidelity proof",
+  "scenes": {
+    "cross": {
+      "0": [
+        {
+          "kind": "capillary",
+          "scene": "cross",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 6.5,
+          "computeMs": 0,
+          "renderMs": 75.10000002384186,
+          "renderCount": 2,
+          "lastRenderMs": 42.60000002384186,
+          "seed": 731,
+          "tick": 0,
+          "checksum": 1140667699
+        },
+        {
+          "kind": "particles",
+          "scene": "cross",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 6.0999999940395355,
+          "computeMs": 0,
+          "renderMs": 77.69999998807907,
+          "renderCount": 2,
+          "lastRenderMs": 43.79999998211861,
+          "seed": 731,
+          "tick": 0,
+          "checksum": 1145167640
+        },
+        {
+          "kind": "channels",
+          "scene": "cross",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 149.09999999403954,
+          "computeMs": 0,
+          "renderMs": 89.80000001192093,
+          "renderCount": 2,
+          "lastRenderMs": 55.599999994039536,
+          "seed": 731,
+          "tick": 0,
+          "checksum": 1140667699
+        }
+      ],
+      "30": [
+        {
+          "kind": "capillary",
+          "scene": "cross",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 6.5,
+          "computeMs": 132.09999999403954,
+          "renderMs": 108.30000001192093,
+          "renderCount": 3,
+          "lastRenderMs": 33.19999998807907,
+          "seed": 731,
+          "tick": 30,
+          "checksum": 1868876092
+        },
+        {
+          "kind": "particles",
+          "scene": "cross",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 6.0999999940395355,
+          "computeMs": 180,
+          "renderMs": 111.59999996423721,
+          "renderCount": 3,
+          "lastRenderMs": 33.89999997615814,
+          "seed": 731,
+          "tick": 30,
+          "checksum": 2116266222
+        },
+        {
+          "kind": "channels",
+          "scene": "cross",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 149.09999999403954,
+          "computeMs": 68.5,
+          "renderMs": 127.5,
+          "renderCount": 3,
+          "lastRenderMs": 37.69999998807907,
+          "seed": 731,
+          "tick": 30,
+          "checksum": 300886768
+        }
+      ],
+      "100": [
+        {
+          "kind": "capillary",
+          "scene": "cross",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 6.5,
+          "computeMs": 262.5,
+          "renderMs": 143.59999999403954,
+          "renderCount": 4,
+          "lastRenderMs": 35.29999998211861,
+          "seed": 731,
+          "tick": 100,
+          "checksum": 654587661
+        },
+        {
+          "kind": "particles",
+          "scene": "cross",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 6.0999999940395355,
+          "computeMs": 348.40000000596046,
+          "renderMs": 145.49999994039536,
+          "renderCount": 4,
+          "lastRenderMs": 33.89999997615814,
+          "seed": 731,
+          "tick": 100,
+          "checksum": 468091676
+        },
+        {
+          "kind": "channels",
+          "scene": "cross",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 149.09999999403954,
+          "computeMs": 186.59999999403954,
+          "renderMs": 162.7999999821186,
+          "renderCount": 4,
+          "lastRenderMs": 35.29999998211861,
+          "seed": 731,
+          "tick": 100,
+          "checksum": 521335168
+        }
+      ],
+      "repeatable": true
+    },
+    "dot": {
+      "0": [
+        {
+          "kind": "capillary",
+          "scene": "dot",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 2,
+          "computeMs": 0,
+          "renderMs": 67.60000002384186,
+          "renderCount": 2,
+          "lastRenderMs": 36,
+          "seed": 731,
+          "tick": 0,
+          "checksum": 570999985
+        },
+        {
+          "kind": "particles",
+          "scene": "dot",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 7.5,
+          "computeMs": 0,
+          "renderMs": 68.09999999403954,
+          "renderCount": 2,
+          "lastRenderMs": 36.900000005960464,
+          "seed": 731,
+          "tick": 0,
+          "checksum": 14998049
+        },
+        {
+          "kind": "channels",
+          "scene": "dot",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 100.59999999403954,
+          "computeMs": 0,
+          "renderMs": 78,
+          "renderCount": 2,
+          "lastRenderMs": 46.099999994039536,
+          "seed": 731,
+          "tick": 0,
+          "checksum": 570999985
+        }
+      ],
+      "30": [
+        {
+          "kind": "capillary",
+          "scene": "dot",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 2,
+          "computeMs": 163.59999999403954,
+          "renderMs": 108.2000000178814,
+          "renderCount": 3,
+          "lastRenderMs": 40.599999994039536,
+          "seed": 731,
+          "tick": 30,
+          "checksum": 539738116
+        },
+        {
+          "kind": "particles",
+          "scene": "dot",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 7.5,
+          "computeMs": 106.09999999403954,
+          "renderMs": 112.69999998807907,
+          "renderCount": 3,
+          "lastRenderMs": 44.599999994039536,
+          "seed": 731,
+          "tick": 30,
+          "checksum": 1173669631
+        },
+        {
+          "kind": "channels",
+          "scene": "dot",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 100.59999999403954,
+          "computeMs": 34.900000005960464,
+          "renderMs": 114.09999999403954,
+          "renderCount": 3,
+          "lastRenderMs": 36.099999994039536,
+          "seed": 731,
+          "tick": 30,
+          "checksum": 909457669
+        }
+      ],
+      "100": [
+        {
+          "kind": "capillary",
+          "scene": "dot",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 2,
+          "computeMs": 376.09999999403954,
+          "renderMs": 141.2000000178814,
+          "renderCount": 4,
+          "lastRenderMs": 33,
+          "seed": 731,
+          "tick": 100,
+          "checksum": 1480173989
+        },
+        {
+          "kind": "particles",
+          "scene": "dot",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 7.5,
+          "computeMs": 244.69999998807907,
+          "renderMs": 179.5999999642372,
+          "renderCount": 4,
+          "lastRenderMs": 66.89999997615814,
+          "seed": 731,
+          "tick": 100,
+          "checksum": 811350664
+        },
+        {
+          "kind": "channels",
+          "scene": "dot",
+          "grid": 112,
+          "steps": 100,
+          "initMs": 100.59999999403954,
+          "computeMs": 114.60000002384186,
+          "renderMs": 153.2000000178814,
+          "renderCount": 4,
+          "lastRenderMs": 39.10000002384186,
+          "seed": 731,
+          "tick": 100,
+          "checksum": 1418789775
+        }
+      ],
+      "repeatable": true
+    }
+  },
+  "errors": []
+}
