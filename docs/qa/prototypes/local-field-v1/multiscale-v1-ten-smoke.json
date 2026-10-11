@@ -1,0 +1,19 @@
+{
+  "stats": {
+    "steps": 130,
+    "frames": 55,
+    "paintBatches": 60,
+    "fineSize": 768,
+    "grid": 192,
+    "gpuBytes": 57212928
+  },
+  "water": 0,
+  "pending": false,
+  "wet": false,
+  "gestures": 10,
+  "gl": 0,
+  "wallMs": 7025,
+  "submittedMs": 7019,
+  "errors": [],
+  "scope": "SwiftShader world1024/detail768/grid192. Ten wide intersecting gestures: first PY35, then nine PB15; Dry immediately after last UP. Not Samsung latency."
+}

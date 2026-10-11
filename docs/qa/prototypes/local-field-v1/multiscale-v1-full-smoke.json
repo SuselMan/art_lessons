@@ -1,0 +1,39 @@
+{
+  "totals": [
+    339341,
+    67447,
+    281125,
+    0
+  ],
+  "stats": {
+    "steps": 128,
+    "frames": 20,
+    "paintBatches": 12,
+    "fineSize": 768,
+    "grid": 192,
+    "gpuBytes": 57212928
+  },
+  "differences": 0,
+  "naturalDifferences": 0,
+  "gl": 0,
+  "otherGL": 0,
+  "pending": false,
+  "wet": false,
+  "before": {
+    "totals": [
+      339341,
+      67447,
+      281125,
+      1418072
+    ],
+    "steps": 0,
+    "tape": 12
+  },
+  "wallMs": 294,
+  "submittedMs": 292,
+  "errors": [],
+  "scope": "SwiftShader world1024, detail768/grid192. Real rAF fast drying; byte replay and identical slow logical steps, not Samsung benchmark.",
+  "undoPaints": 1,
+  "redoPaints": 2,
+  "cleared": true
+}
