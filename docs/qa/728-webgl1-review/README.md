@@ -44,3 +44,10 @@ Samsung Chrome155, Fine1024×1024, watercolor normal:100:100:PB29:round, size400
 Дополнительный тест Engine подтверждает defaultOFF и запрет включения review в production даже при requested:true.
 
 Frontend-only changes; API/DB код не менялся. Зависимости переиспользованы через symlink overlay: lockfile отличается от донора только дополнительным @webgpu/types/app metadata, все необходимые версии одинаковы, @grafetto/shared указывает на эту рабочую копию. Актуальный Prisma client сгенерирован локально для полного typecheck, не в работающем backend.
+
+## Проверка рукой 11.10 и следующий эксперимент
+
+Илья: заметной разницы нет, сильный тормоз в конце штриха. Поэтому replay52.51%
+не считаем решённой задачей отзывчивости. В DEV кандидат добавлен guarded deferred
+finish для второго совместимого мазка. Условия, свежие проверки и ограничения:
+[pen-up/README.md](pen-up/README.md). Новый режим ещё не прошёл аппаратный exact oracle.

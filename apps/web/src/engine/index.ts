@@ -2243,7 +2243,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._settlePlan.diagnosticHoistedContactRaster = this._watercolorReview
     this._settlePlan.diagnosticReuseFlowRaster = this._watercolorReview
     this._ribbonPainter.diagnosticBandBatch = options.bandBatch ?? false
-    this._wcJoinedFinishDeferred = options.joinedFinishDeferred ?? false
+    // DEV review: keep an overlapping successor's UP out of the old solver drain.
+    // Canonical finish remains owned and resumes only after its predecessor.
+    this._wcJoinedFinishDeferred = this._watercolorReview || (options.joinedFinishDeferred ?? false)
     this._wcAsyncFinish = options.asyncFinish ?? false
     this._wcMaterialPresentation = options.materialPresentation ?? false
     this._diagLog = options.diagLog ?? (() => {})

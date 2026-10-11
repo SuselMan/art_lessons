@@ -8,8 +8,9 @@ it('keeps the combined candidate off unless explicitly requested in DEV, includi
     vi.stubEnv('DEV', dev)
     const { engine } = createTestEngine({ watercolorReview: requested })
     try {
-      const probe = engine as unknown as { _watercolorReview: boolean; _settleQueue: WatercolorSettleQueue; _settlePlan: WatercolorSettlePlan }
+      const probe = engine as unknown as { _watercolorReview: boolean; _wcJoinedFinishDeferred: boolean; _settleQueue: WatercolorSettleQueue; _settlePlan: WatercolorSettlePlan }
       expect(probe._watercolorReview).toBe(enabled)
+      expect(probe._wcJoinedFinishDeferred).toBe(enabled)
       expect(probe._settleQueue.diagnosticSolverBatchEnabled).toBe(enabled)
       expect(probe._settlePlan.diagnosticHoistedContactRaster).toBe(enabled)
       expect(probe._settlePlan.diagnosticReuseFlowRaster).toBe(enabled)

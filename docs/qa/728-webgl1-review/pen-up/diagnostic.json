@@ -1,0 +1,121 @@
+{
+  "kind": "partial headless SwiftShader diagnostic, not device performance or final pixel oracle",
+  "baseSHA": "e0ebb10269e074a31f38be9b663d7abdaf0dd83b",
+  "engineSHA256": "a3fdc94099b5c97c7caeee37a3366481642d06e38c898e2f541ec854ad3da552",
+  "input": {
+    "page": 64,
+    "brush": 8,
+    "preset": "normal:100:100:PB29:round",
+    "color": [
+      0.2,
+      0.1,
+      0.5
+    ],
+    "points": "two strokes: x=8,11,14,17,20,23; y=32 then34; pressure=.8; no yield between strokes"
+  },
+  "baselineObserved": {
+    "secondUPms": 39.80000001192093,
+    "secondUPcompleteSettleMs": 21.80000001192093,
+    "status": "UP trace observed; final material/history run stopped, not passed"
+  },
+  "candidateObserved": {
+    "deferred": true,
+    "held": true,
+    "ops": [
+      {
+        "type": "layer_add"
+      },
+      {
+        "type": "stroke",
+        "tool": "watercolor"
+      },
+      {
+        "type": "stroke",
+        "tool": "watercolor"
+      }
+    ],
+    "trace": [
+      {
+        "phase": "setup",
+        "method": "_flushLiveComposite",
+        "ms": 0.09999999403953552
+      },
+      {
+        "phase": "setup",
+        "method": "_flushLiveComposite",
+        "ms": 0
+      },
+      {
+        "phase": "stroke1-down",
+        "method": "_flushLiveComposite",
+        "ms": 0.5999999940395355
+      },
+      {
+        "phase": "stroke1-down",
+        "method": "_onStart",
+        "ms": 43.10000002384186
+      },
+      {
+        "phase": "stroke1-up",
+        "method": "_flushLiveComposite",
+        "ms": 0.5
+      },
+      {
+        "phase": "stroke1-up",
+        "method": "prepare",
+        "ms": 16.099999994039536
+      },
+      {
+        "phase": "stroke1-up",
+        "method": "_finishRibbonStroke",
+        "ms": 24.099999994039536
+      },
+      {
+        "phase": "stroke1-up",
+        "method": "_flushLiveComposite",
+        "ms": 0
+      },
+      {
+        "phase": "stroke1-up",
+        "method": "_onEnd",
+        "ms": 50.69999998807907
+      },
+      {
+        "phase": "stroke2-down",
+        "method": "_flushLiveComposite",
+        "ms": 3.699999988079071
+      },
+      {
+        "phase": "stroke2-down",
+        "method": "_onStart",
+        "ms": 9.400000005960464
+      },
+      {
+        "phase": "stroke2-up",
+        "method": "_flushLiveComposite",
+        "ms": 0.800000011920929
+      },
+      {
+        "phase": "stroke2-up",
+        "method": "_finishRibbonStroke",
+        "ms": 1.0999999940395355
+      },
+      {
+        "phase": "stroke2-up",
+        "method": "_flushLiveComposite",
+        "ms": 0
+      },
+      {
+        "phase": "stroke2-up",
+        "method": "_onEnd",
+        "ms": 15.199999988079071
+      }
+    ]
+  },
+  "validationLimits": [
+    "Direct private engine pointer pipeline, not physical pen or CDP events.",
+    "Candidate case ends immediately after UP; no final GPU material/hash gate.",
+    "History/material readbacks were too expensive in software rendering; runs stopped and own browser trees removed.",
+    "Independent unit tests cover ordered completion, cancellation/context loss, publication guards and pending Undo/Redo."
+  ]
+}
