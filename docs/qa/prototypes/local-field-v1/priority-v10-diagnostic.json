@@ -1,0 +1,52 @@
+{
+  "held": {
+    "before": 18,
+    "after": 18,
+    "priority": true,
+    "coarse": false
+  },
+  "progressive": {
+    "pending": true,
+    "masked": false,
+    "solver": true
+  },
+  "resumed": true,
+  "samples": [
+    {
+      "queued": 26,
+      "stroke": null,
+      "next": 53,
+      "ops": 220,
+      "error": null,
+      "lost": false
+    },
+    {
+      "queued": 26,
+      "stroke": null,
+      "next": 89,
+      "ops": 220,
+      "error": null,
+      "lost": false
+    },
+    {
+      "queued": 26,
+      "stroke": null,
+      "next": 115,
+      "ops": 224,
+      "error": null,
+      "lost": false
+    },
+    {
+      "queued": 26,
+      "stroke": null,
+      "next": 130,
+      "ops": 230,
+      "error": null,
+      "lost": false
+    }
+  ],
+  "errors": [],
+  "gl": 0,
+  "version": "native-input-priority-v10",
+  "scope": "SwiftShader 256: pen-held FIFO does not advance; progressive physical reveal visible before solver completion; new stroke reacquires preview; Four progress samples after second UP; completion not tested. No device latency or full-size performance claim."
+}

@@ -252,6 +252,8 @@ export interface PencilEngineOptions {
   watercolorReview?: boolean
   /** DEV review: reserve GPU continuations for pen-up intervals. */
   reviewInputPriority?: boolean
+  /** DEV diagnostic: expose intermediate physical reveal before canonical completion. */
+  reviewProgressivePresentation?: boolean
   /** DEV-only artistic experiment, not compatible with legacy material replay. */
   watercolorCoarseTransport?: boolean
   /** DEV standalone review sheet; rooms retain touch navigation. */
@@ -1631,6 +1633,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetTexSize: [number, number] = [0, 0]
   private _watercolorReview = false
   private _reviewInputPriority = false
+  private _reviewProgressivePresentation = false
   private _wetRect: [number, number, number, number] = [0, 0, -1, -1]
   private _wetTexAt = 0
   private _wetOverlayWorkspace: WetOverlayWorkspace | null = null
@@ -1874,6 +1877,7 @@ export class PencilEngine implements PencilEngineAPI {
     material.raster.release(lost)
     if (lost) material.pool.forget(); else { material.pool.destroy(); material.buffer.destroy() }
   })
+  private readonly _wcProgressiveMaterialOwners = new WeakSet<object>()
   private readonly _wcMaterialKeys = new Map<object, {
     scratch: RibbonStrokeScratch; gesture: number
     owner: MaterialPresentationOwner<{ buffer: AccumulationBuffer; pool: RibbonScratchPool; raster: WatercolorPresentationRaster; scratches: Set<RibbonStrokeScratch> }>
@@ -2248,6 +2252,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._wcJoinedTouch = options.joinedTouch ?? false
     this._watercolorReview = import.meta.env.DEV && options.watercolorReview === true
     this._reviewInputPriority = this._watercolorReview && options.reviewInputPriority === true
+    this._reviewProgressivePresentation = this._reviewInputPriority && options.reviewProgressivePresentation === true
     this._settleQueue.diagnosticInputPriority = this._reviewInputPriority
     this._settleQueue.diagnosticSolverBatchEnabled = this._watercolorReview
     const interactiveReview = this._watercolorReview && options.asyncFinish === true && options.materialPresentation === true
@@ -7557,7 +7562,7 @@ export class PencilEngine implements PencilEngineAPI {
       // Accepted-input material is still visible. Its later handoff seeds
       // this animation; do not spend or expire the hidden animation now.
       if (reveal.layerId !== goneLayerId && this._watercolorReview
-        && this._wcMaterialOwners.layers.has(reveal.layerId)) continue
+        && this._materialPresentationHides(reveal.layerId)) continue
       if (reveal.layerId !== goneLayerId) this._advanceWashReveal(buffer, reveal, now)
       if (reveal.layerId !== goneLayerId && this._revealHold(reveal, now) > 0) continue
       this._revealPoolRelease(reveal.before)
@@ -8259,6 +8264,10 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Provisional stamps are presentation only. The actual source commands
    * are queued separately and never sample this buffer. */
+  private _materialPresentationHides(layerId: string): boolean {
+    const owner = this._wcMaterialOwners.layers.get(layerId)
+    return !!owner && !this._wcProgressiveMaterialOwners.has(owner)
+  }
   private _materialPresentationLayers(): ReadonlyMap<string, {
     buffer: AccumulationBuffer; originX: number; originY: number; worldWidth: number; worldHeight: number
   }> {
@@ -8267,7 +8276,12 @@ export class PencilEngine implements PencilEngineAPI {
       const ready = [...owner.material.scratches].every(scratch => !this._wcAsyncOwners.has(scratch)
         && this._settle?.scratch !== scratch)
         && this._strokeLayerId !== owner.layerId
-      if (ready && owner.pending.size === 0 && this._watercolorReview) {
+      const progressive = this._reviewProgressivePresentation && !ready && owner.pending.size === 0
+        && this._strokeLayerId !== owner.layerId && !!this._settle
+        && owner.material.scratches.has(this._settle.scratch)
+      let anchored = false
+      if ((ready || progressive) && owner.pending.size === 0 && this._watercolorReview
+        && !this._wcProgressiveMaterialOwners.has(owner)) {
         const now = performance.now(), e = owner.extent
         for (const tile of this._layers.get(owner.layerId)?.resolveVisible({ minX: e.originX, minY: e.originY,
           maxX: e.originX + e.worldWidth, maxY: e.originY + e.worldHeight }) ?? []) {
@@ -8290,13 +8304,21 @@ export class PencilEngine implements PencilEngineAPI {
           gl.disable(gl.SCISSOR_TEST)
           this._drawTileComposite(frame, owner.material.buffer.texture, e.originX, e.originY,
             e.worldWidth, e.worldHeight, 1, reveal.before.fbo, w, h)
-          if (reveal.pending) this._revealPoolRelease(reveal.pending)
-          reveal.pending = this._revealPoolAcquire(w, h)
-          reveal.before.copyTo(reveal.pending)
-          reveal.startedAt = reveal.frameAt = reveal.motionAt = now
+          anchored = true
+          if (!progressive) {
+            if (reveal.pending) this._revealPoolRelease(reveal.pending)
+            reveal.pending = this._revealPoolAcquire(w, h)
+            reveal.before.copyTo(reveal.pending)
+            reveal.startedAt = now
+          }
+          reveal.frameAt = reveal.motionAt = now
         }
       }
+      if (progressive && anchored) this._wcProgressiveMaterialOwners.add(owner)
       if (this._wcMaterialOwners.releaseReady(owner, ready)) { this._wetTexAt = 0; continue }
+      // The physical reveal now owns the visible picture; keep resource
+      // ownership until canonical completion but stop hiding its intermediate states.
+      if (this._wcProgressiveMaterialOwners.has(owner)) continue
       result.set(owner.layerId, { buffer: owner.material.buffer, ...owner.extent })
     }
     return result
@@ -8309,12 +8331,15 @@ export class PencilEngine implements PencilEngineAPI {
     const existed = this._wcMaterialOwners.layers.has(layerId)
     const owner = this._wcMaterialOwners.acquire(layerId, { originX: view.minX, originY: view.minY,
       worldWidth: view.maxX - view.minX, worldHeight: view.maxY - view.minY }, 768)
-    if (!existed) {
+    const resumedVisible = this._wcProgressiveMaterialOwners.delete(owner)
+    if (!existed || resumedVisible) {
+      if (resumedVisible) owner.material.buffer.clear()
       const e = owner.extent
       const frame: CameraFrame = { wx: e.originX + e.worldWidth / 2, wy: e.originY + e.worldHeight / 2,
         centerX: e.width / 2, centerY: e.height / 2, scale: e.width / e.worldWidth, angle: 0, view }
       for (const tile of this._layers.get(layerId)?.resolveVisible(view) ?? []) {
-        this._drawTileComposite(frame, tile.buffer.texture, tile.originX, tile.originY,
+        const visible = resumedVisible ? this._washReveals.get(tile.buffer)?.before : undefined
+        this._drawTileComposite(frame, (visible ?? tile.buffer).texture, tile.originX, tile.originY,
           tile.buffer.width, tile.buffer.height, 1, owner.material.buffer.fbo, e.width, e.height)
       }
     }
@@ -9460,7 +9485,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._washReveals.size && this._watercolorReview && this._wcMaterialPresentation) {
       // A hidden reveal neither advances nor changes the visible material.
       // Input and solver publication already request their own display.
-      if ([...this._washReveals.values()].some(reveal => !this._wcMaterialOwners.layers.has(reveal.layerId))) this._scheduleDisplay()
+      if ([...this._washReveals.values()].some(reveal => !this._materialPresentationHides(reveal.layerId))) this._scheduleDisplay()
       return
     }
     if (this._washReveals.size && !this._revealTimer) {
