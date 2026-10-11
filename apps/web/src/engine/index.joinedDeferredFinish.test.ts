@@ -137,3 +137,19 @@ it('Undo and Redo while a joined finish is held recover the accepted journal wit
   recover()
   expect(e['_log'].doneOperations().filter(op => op.type === 'stroke').map(op => op.id)).toEqual(strokes)
 })
+
+it('a predecessor preview cannot replace the visible completed successor while its finish is held', async () => {
+  const { e, job } = await setup()
+  simulateStrokeEnd(e, 48, 32)
+  expect(e['_strokeLayerId']).toBeNull()
+  expect(e['_wcJoinedDeferred']?.job).toBe(job)
+  let steps = 0
+  while (e['_settle'] === job && steps++ < 2000) {
+    e['_advanceSettle']()
+    if (e['_wcJoinedDeferred']?.job === job) {
+      for (const reveal of e['_washReveals'].values()) expect(reveal.pending === undefined).toBe(true)
+    }
+  }
+  expect(steps).toBeGreaterThan(1)
+  expect(steps).toBeLessThan(2000)
+})
