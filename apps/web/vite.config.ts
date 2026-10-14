@@ -166,6 +166,7 @@ export default defineConfig(({ mode }) => {
             }
             const nativeFrontFile = path === '/watercolor-native-front-v1' || path === '/watercolor-native-front-v1/' ? 'index.html'
               : path === '/watercolor-native-front-v1/fast-front.js' ? 'fast-front.js'
+              : path === '/watercolor-native-front-v1/dry-pump.js' ? 'dry-pump.js'
               : /^\/watercolor-native-front-v1\/(cross|dot)-(native|prefix4|prefix8)\.png$/.test(path ?? '') ? path?.split('/').pop() : null
             if (nativeFrontFile) {
               response.setHeader('Content-Type', nativeFrontFile.endsWith('.png') ? 'image/png' : nativeFrontFile.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8')

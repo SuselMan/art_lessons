@@ -1,0 +1,6 @@
+{
+  "newPenDefersSolver": true,
+  "cancelledTaskDoesNotExecute": true,
+  "stopReturnsFrameScheduling": true,
+  "disposeRestoresScheduler": true
+}

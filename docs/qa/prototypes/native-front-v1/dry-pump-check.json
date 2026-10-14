@@ -1,0 +1,55 @@
+{
+  "scope": "SwiftShader QA material256, fixed recorded inputs; extra fences affect timing; not tablet",
+  "results": [
+    {
+      "on": false,
+      "complete": true,
+      "wallMs": 9111.099999964237,
+      "fencedMs": 96.90000075101852,
+      "ops": 241,
+      "ticks": 160,
+      "taskTicks": 0,
+      "pump": {
+        "tasks": 0,
+        "frames": 208,
+        "solverTasks": 0
+      },
+      "front": {
+        "mode": "prefix8",
+        "buildDraws": 32,
+        "jumpDraws": 16,
+        "nativeDraws": 36,
+        "cacheBuilds": 2,
+        "extraBytes": 1310720
+      },
+      "gl": 0,
+      "errors": []
+    },
+    {
+      "on": true,
+      "complete": true,
+      "wallMs": 4236.199999988079,
+      "fencedMs": 282.30000030994415,
+      "ops": 211,
+      "ticks": 118,
+      "taskTicks": 118,
+      "pump": {
+        "tasks": 48,
+        "frames": 7,
+        "solverTasks": 118
+      },
+      "front": {
+        "mode": "prefix8",
+        "buildDraws": 32,
+        "jumpDraws": 16,
+        "nativeDraws": 36,
+        "cacheBuilds": 2,
+        "extraBytes": 1310720
+      },
+      "gl": 0,
+      "errors": [],
+      "pixelDifferences": 0,
+      "maxDelta": 0
+    }
+  ]
+}

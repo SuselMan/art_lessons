@@ -1,0 +1,22 @@
+{
+  "version": "native-prefix8-drytasks-v2",
+  "stats": {
+    "mode": "prefix8",
+    "buildDraws": 32,
+    "jumpDraws": 14,
+    "nativeDraws": 32,
+    "cacheBuilds": 2,
+    "extraBytes": 1310720
+  },
+  "dryPump": {
+    "tasks": 49,
+    "frames": 5,
+    "solverTasks": 142
+  },
+  "gl": 0,
+  "error": "",
+  "newSheet": true,
+  "v8Unpatched": true,
+  "errors": [],
+  "scope": "Chromium SwiftShader, source256 smoke UI, fixed QA field256, deliberately pending live input; two intersecting pointer strokes, Dry, New sheet, separate unpatched V8. Not tablet latency."
+}

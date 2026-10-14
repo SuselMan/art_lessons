@@ -17,10 +17,12 @@ const progressive=priority&&new URLSearchParams(location.search).get('progress')
 const engine=new PencilEngine(c.paper,{userId:'native-local',pageWidth:size,pageHeight:size,paper:'fine',watercolorReview:true,watercolorCoarseTransport:!priority,reviewInputPriority:priority,reviewProgressivePresentation:progressive,joinedTouch:true,asyncFinish:true,materialPresentation:true,gradientFibres:!priority,reviewTouchDrawing:true});
 window.__wcNative=engine;
 let fastFront=null;
+let dryPump=null;
 if(prefix8){const {installFastFront,fastFrontSchedule}=await import('/watercolor-native-front-v1/fast-front.js');fastFront=installFastFront(engine,'prefix8');engine._settlePlan.diagnosticFrontSchedule=n=>fastFrontSchedule(n,'prefix8');window.__wcFastFront=fastFront;}
+if(prefix8&&new URLSearchParams(location.search).get('dryTasks')!=='0'){const {installDryPump}=await import('/watercolor-native-front-v1/dry-pump.js');dryPump=installDryPump(engine);window.__wcDryPump=dryPump;}
 if(!priority)engine._watercolorPasses.warmGradientFibres();
-window.__wcReviewVersion=prefix8?"native-prefix8-v1":progressive?"native-input-priority-v10":priority?"native-input-priority-v9":"native-queue-fibres-v8";
-if(prefix8){document.title='Акварель — фронт воды 8 клеток';document.querySelector('h1').textContent=document.title;}
+window.__wcReviewVersion=dryPump?"native-prefix8-drytasks-v2":prefix8?"native-prefix8-v1":progressive?"native-input-priority-v10":priority?"native-input-priority-v9":"native-queue-fibres-v8";
+if(prefix8){document.title=dryPump?'Акварель — 8 клеток, сушка v2':'Акварель — фронт воды 8 клеток';document.querySelector('h1').textContent=document.title;}
 if(priority){document.title=progressive?"Акварель — промежуточное растекание v10":"Акварель — приоритет пера v9";document.querySelector("h1").textContent=document.title;}
 engine.appendOperation({id:'local-layer',type:'layer_add',userId:'native-local',timestamp:1,layerId:'local',name:'Акварель'});
 engine.setCompositeOrder([{id:'local',opacity:1}]);engine.setActiveLayer('local');engine.setTool('watercolor');
@@ -33,15 +35,16 @@ new ResizeObserver(viewport).observe(c.paper.parentElement);window.addEventListe
 for(const id of ['color','size','water','pigment'])c[id].oninput=()=>{c.sizeValue.value=c.size.value;settings()};
 c.paint.onchange=()=>{choosePaint();settings()};
 c.dry.onclick=()=>{
+dryPump?.start();
 engine.watercolorDryAll();c.dry.disabled=true;c.dry.textContent='Высушиваю…';
 // A barrier belongs to the input already accepted at this click. Later
 // drawing must not extend its completion indefinitely.
 let reached=false;
 engine._wcCanonical.enqueue({execute:function*(){reached=true},cancel:()=>{reached=true}});
-const check=()=>{if(engine._destroyed)return;if(!reached){requestAnimationFrame(check);return}setTimeout(()=>{if(engine._destroyed)return;c.dry.disabled=false;c.dry.textContent='Высушить'},300)};requestAnimationFrame(check);
+const check=()=>{if(engine._destroyed)return;if(!reached){requestAnimationFrame(check);return}dryPump?.stop();setTimeout(()=>{if(engine._destroyed)return;c.dry.disabled=false;c.dry.textContent='Высушить'},300)};requestAnimationFrame(check);
 };
 c.clear.onclick=()=>location.reload();c.undo.onclick=()=>engine.undo();c.redo.onclick=()=>engine.redo();
 c.save.onclick=async()=>{const blob=await engine.exportPNG();if(!blob)return;const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='watercolor-native-coarse.png';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};
-window.addEventListener('pagehide',()=>{try{engine.destroy()}finally{fastFront?.dispose()}},{once:true});
+window.addEventListener('pagehide',()=>{try{engine.destroy()}finally{dryPump?.dispose();fastFront?.dispose()}},{once:true});
 }catch(e){c.error.textContent=e.message;console.error(e)}
 </script></html>
