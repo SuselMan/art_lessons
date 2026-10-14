@@ -136,7 +136,8 @@ export class WatercolorSettlePlan {
     const { gl } = this
     const metadata = finishMetadata ?? scratch
     const materialModel = (finishMetadata?.finish ?? scratch.finishContext)?.profile.materialModel
-    const detailMaterial = materialModel === 'front8-detail-v1'
+    const detailFlow = materialModel === 'front8-detail-flow-v1'
+    const detailMaterial = detailFlow || materialModel === 'front8-detail-v1'
     const preserveBrush = detailMaterial && metadata.brushTravel.some(d => Math.hypot(d.dx, d.dy) >= 0.01)
     const fineLarge = detailMaterial || materialModel === 'front8-fine-large-v1'
     const fineFront = fineLarge || materialModel === 'front8-fine-v1'
@@ -282,13 +283,14 @@ export class WatercolorSettlePlan {
       const fx = (wx0 - x0) / S, fy = field.h - (wy1 - y0) / S
       if (S === 1 || !fOld) { fNew.copyRegionInto(target, fx, fy, tx, ty, wx1 - wx0, wy1 - wy0); return }
       const tmp = this.ctx.pool().acquire(tile.buffer.width, tile.buffer.height)
-      if (detailMaterial && pigmentRecord) {
-        const snap = snapshots.get(tile.buffer)
-        const brush = preserveBrush && fOld === a0 && !!snap?.currentInk && !!inputInk
-        this.ctx.passes().materialReconstruction().pigment({ dst: tmp, region: [tx, ty, wx1 - wx0, wy1 - wy0], source: fNew, sourceOrigin: [fx, fy], ratio: 1 / S, old: fOld, base, clamp: fieldRect, fadeEdges, initialLow: brush ? inputInk! : fOld, initialHigh: brush ? snap!.currentInk! : base, preserveBrush: brush })
-      } else this.ctx.passes().wcResample(tmp, tx, ty, wx1 - wx0, wy1 - wy0, fNew, fx, fy, 1 / S, 1, fOld, base, fieldRect)
-      tmp.copyRegionInto(target, tx, ty, tx, ty, wx1 - wx0, wy1 - wy0)
-      this.ctx.pool().release(tmp)
+      try {
+        if (detailMaterial && pigmentRecord) {
+          const snap = snapshots.get(tile.buffer)
+          const brush = preserveBrush && fOld === a0 && !!snap?.currentInk && !!inputInk
+          this.ctx.passes().materialReconstruction().pigment({ dst: tmp, region: [tx, ty, wx1 - wx0, wy1 - wy0], source: fNew, sourceOrigin: [fx, fy], ratio: 1 / S, old: fOld, base, clamp: fieldRect, fadeEdges, initialLow: brush ? inputInk! : fOld, initialHigh: brush ? snap!.currentInk! : base, preserveBrush: brush })
+        } else this.ctx.passes().wcResample(tmp, tx, ty, wx1 - wx0, wy1 - wy0, fNew, fx, fy, 1 / S, 1, fOld, base, fieldRect)
+        tmp.copyRegionInto(target, tx, ty, tx, ty, wx1 - wx0, wy1 - wy0)
+      } finally { this.ctx.pool().release(tmp) }
     }
 
     // Every tile's overlap with the rect, and the settled records the tiles
@@ -1022,13 +1024,35 @@ export class WatercolorSettlePlan {
 
     // Sweep contacts in recorded order. Optical depth and pigment use the
     // same pre-contact pigment, before either result is copied back.
+    // The flow variant shares one secondary field across the ordered contacts.
+    // Water, the rim and the final working field retain S2; only contact
+    // advection uses S4. Every low buffer remains owned until finish/abort.
+    const contactS = detailFlow && S === 2 && radiusPx >= 48 ? S * 2 : S
+    let lowContact: { field: { w: number; h: number; coverage: AccumulationBuffer }; p: AccumulationBuffer; c: AccumulationBuffer; nextP: AccumulationBuffer; nextC: AccumulationBuffer; initialP: AccumulationBuffer; initialC: AccumulationBuffer; buffers: AccumulationBuffer[] } | null = null
+    let lastContactPreview = -Infinity
+    const prepareContact = (): void => {
+      if (contactS === S || lowContact) return
+      const w = field.w / 2, h = field.h / 2
+      const p = acquireInput(w, h), c = acquireInput(w, h), nextP = acquireInput(w, h), nextC = acquireInput(w, h)
+      const initialP = acquireInput(w, h), initialC = acquireInput(w, h), coverage = acquireInput(w, h)
+      lowContact = { field: { w, h, coverage }, p, c, nextP, nextC, initialP, initialC, buffers: [p, c, nextP, nextC, initialP, initialC, coverage] }
+      this.ctx.passes().wcResample(p, 0, 0, w, h, dep.out, 0, 0, 2, 0)
+      this.ctx.passes().wcResample(c, 0, 0, w, h, col.out, 0, 0, 2, 0)
+      this.ctx.passes().wcResample(coverage, 0, 0, w, h, field.coverage, 0, 0, 2, 0)
+      p.copyTo(initialP); c.copyTo(initialC)
+    }
+    const reconstructContact = (): void => {
+      if (!lowContact) return
+      this.ctx.passes().wcResample(field.pressure, 0, 0, field.w, field.h, lowContact.p, 0, 0, 0.5, 1, lowContact.initialP, dep.out)
+      this.ctx.passes().wcResample(field.band, 0, 0, field.w, field.h, lowContact.c, 0, 0, 0.5, 1, lowContact.initialC, col.out)
+    }
     const contactOps = ({ rect: cr, radius, field: { width, height, pixels } }: ReturnType<typeof brushDragContacts>[number], oneShot = false): Array<() => void> => {
       const commands: Array<() => void> = []
       // Split the accumulated contact exposure into one-cell exchanges.
       // Each pulse stays within the shared pigment/colour capacity bound.
       const maxExposure = brushDragMaxExposure(pixels)
-      const substeps = Math.max(1, Math.ceil(0.2 * radius / S * maxExposure * Math.SQRT2 / 0.84))
-      const contactGain = 0.2 * radius / (substeps * S)
+      const substeps = Math.max(1, Math.ceil(0.2 * radius / contactS * maxExposure * Math.SQRT2 / 0.84))
+      const contactGain = 0.2 * radius / (substeps * contactS)
       const payload = { pixels: pixels as Uint8Array | null }
       if (oneShot) { contactPixels.add(payload); this._ownedContactPixels.add(payload) }
       let rect: [number, number, number, number], scissor: [number, number, number, number]
@@ -1044,24 +1068,33 @@ export class WatercolorSettlePlan {
         finally {
           if (oneShot) { payload.pixels = null; contactPixels.delete(payload); this._ownedContactPixels.delete(payload) }
         }
+        prepareContact()
+        const contactField = lowContact?.field ?? field
         rect = [(cr.x - x0) / (field.w * S), 1 - (cr.y + cr.h - y0) / (field.h * S), cr.w / (field.w * S), cr.h / (field.h * S)]
         // The face stencil reaches one canonical texel beyond the flow rect.
         // Draw and copy both records over that same halo to retain every pair.
-        left = Math.max(0, Math.floor((cr.x - x0) / S) - 1)
-        right = Math.min(field.w, Math.ceil((cr.x + cr.w - x0) / S) + 1)
-        bottom = Math.max(0, Math.floor(field.h - (cr.y + cr.h - y0) / S) - 1)
-        top = Math.min(field.h, Math.ceil(field.h - (cr.y - y0) / S) + 1)
+        left = Math.max(0, Math.floor((cr.x - x0) / contactS) - 1)
+        right = Math.min(contactField.w, Math.ceil((cr.x + cr.w - x0) / contactS) + 1)
+        bottom = Math.max(0, Math.floor(contactField.h - (cr.y + cr.h - y0) / contactS) - 1)
+        top = Math.min(contactField.h, Math.ceil(contactField.h - (cr.y - y0) / contactS) + 1)
         scissor = [left, bottom, right - left, top - bottom]
       })
       const exchange = (): void => {
         if (!flowTexture) return
         // Both draws read the same pre-pulse P/C. Copy back only after both
         // outputs exist; the existing settle scheduler yields between pulses.
-        this.ctx.passes().brushPass(field, flowTexture, 4 * S, S, col.out, field.band, dep.out, rect, scissor, col.out, contactGain)
-        this.ctx.passes().brushPass(field, flowTexture, 4 * S, S, dep.out, field.pressure, dep.out, rect, scissor, col.out, contactGain)
-        field.pressure.copyRegionInto(dep.out, left, bottom, left, bottom, right - left, top - bottom)
-        field.band.copyRegionInto(col.out, left, bottom, left, bottom, right - left, top - bottom)
-        present(dep.out, null, col.out)
+        const f = lowContact?.field ?? field, p = lowContact?.p ?? dep.out, c = lowContact?.c ?? col.out
+        const nextP = lowContact?.nextP ?? field.pressure, nextC = lowContact?.nextC ?? field.band
+        this.ctx.passes().brushPass(f, flowTexture, 4 * contactS, contactS, c, nextC, p, rect, scissor, c, contactGain)
+        this.ctx.passes().brushPass(f, flowTexture, 4 * contactS, contactS, p, nextP, p, rect, scissor, c, contactGain)
+        nextP.copyRegionInto(p, left, bottom, left, bottom, right - left, top - bottom)
+        nextC.copyRegionInto(c, left, bottom, left, bottom, right - left, top - bottom)
+        if (!lowContact) present(dep.out, null, col.out)
+        else if (performance.now() - lastContactPreview > 180) {
+          lastContactPreview = performance.now()
+          reconstructContact()
+          present(field.pressure, null, field.band)
+        }
       }
       // Pulses share immutable contact geometry; reuse one closure while
       // retaining every scheduler operation and its chronological order.
@@ -1103,6 +1136,17 @@ export class WatercolorSettlePlan {
     // along the whole wash's contour, into the deposit and colour buffers
     // the settle left free. The wash's own standing level and radius are
     // the widest and wettest of its operations (dryCtx), not this one's.
+    if (contactS !== S) ops.push(() => {
+      if (!lowContact) return
+      reconstructContact()
+      field.pressure.copyTo(dep.out); field.band.copyTo(col.out)
+      // Later material passes can sample units three and four implicitly.
+      gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, col.out.texture)
+      gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, dep.out.texture)
+      gl.activeTexture(gl.TEXTURE0)
+      for (const buffer of lowContact.buffers) releaseInput(buffer)
+      lowContact = null
+    })
     let dry: { dep: AccumulationBuffer; col: AccumulationBuffer } | null = null
     if (groupDry) {
       const dryDep = dep.out === field.a ? field.c : field.a

@@ -1630,17 +1630,18 @@ export function watercolorPresetString(
 }
 
 /** The sixth field versions the material solver in both the log and live packets. */
-export function watercolorModelFromPreset(presetName: string | undefined): 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' {
+export function watercolorModelFromPreset(presetName: string | undefined): 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1' {
   const model = presetName?.split(':')[5]
   if (model === 'wc@front8-v1') return 'front8-v1'
   if (model === 'wc@front8-fine-v1') return 'front8-fine-v1'
   if (model === 'wc@front8-fine-large-v1') return 'front8-fine-large-v1'
   if (model === 'wc@front8-detail-v1') return 'front8-detail-v1'
+  if (model === 'wc@front8-detail-flow-v1') return 'front8-detail-flow-v1'
   if (model?.startsWith('wc@')) throw new Error(`Unsupported watercolor model: ${model}`)
   return 'legacy'
 }
 
-export function withWatercolorModel(presetName: string, model: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1'): string {
+export function withWatercolorModel(presetName: string, model: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1'): string {
   if (model === 'legacy') return presetName
   return watercolorPresetString(watercolorResponseFromPreset(presetName), watercolorMixFromPreset(presetName),
     watercolorPigmentFromPreset(presetName), watercolorNibFromPreset(presetName)) + ':wc@' + model
