@@ -10,7 +10,7 @@ const ids=['paper','color','size','sizeValue','water','pigment','clear','undo','
 const c=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)]));
 try {
 const deviceSmoke=new URLSearchParams(location.search).get('deviceSmoke')==='1';
-if(deviceSmoke){await import('/@vite/client');await import('/src/dev/devBridge.ts');}
+if(deviceSmoke){await import('/@vite/client');(await import('/src/dev/devBridge.ts')).startDevBridge();}
 const small=new URLSearchParams(location.search).get('smoke')==='1';
 const size=small?256:1024;c.paper.width=c.paper.height=size;
 const prefix8=location.pathname==='/watercolor-native-front8';
