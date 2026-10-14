@@ -1,0 +1,94 @@
+[
+  {
+    "file": "samsung-selected-confirm-1-baseline-12.json",
+    "dryMs": 22128.900000095367,
+    "wholeWorkMs": 25745.100000023842,
+    "completionFenceMs": 2038.3000000715256,
+    "stats": {
+      "n": 36,
+      "p95": 1387.2999999999993,
+      "max": 1421,
+      "over100": 28
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "00c511beacd6297456d87b864ffa5bc360027f1173df7d8958fe248b8d89d572"
+      }
+    ]
+  },
+  {
+    "file": "samsung-selected-confirm-2-detail-12.json",
+    "dryMs": 8437.899999976158,
+    "wholeWorkMs": 11674.399999976158,
+    "completionFenceMs": 755.1999999284744,
+    "stats": {
+      "n": 29,
+      "p95": 651.8000000000011,
+      "max": 668.6999999999998,
+      "over100": 20
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "5ced64224e7f2325fd63afc70f3fd9de8a43b835968fb086677659a3fc21313a"
+      }
+    ]
+  },
+  {
+    "file": "samsung-selected-confirm-3-detail-12.json",
+    "dryMs": 8310.399999976158,
+    "wholeWorkMs": 11566.100000023842,
+    "completionFenceMs": 1358.3999999761581,
+    "stats": {
+      "n": 30,
+      "p95": 568.3000000000011,
+      "max": 618.5,
+      "over100": 21
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "5ced64224e7f2325fd63afc70f3fd9de8a43b835968fb086677659a3fc21313a"
+      }
+    ]
+  },
+  {
+    "file": "samsung-selected-confirm-4-baseline-12.json",
+    "dryMs": 22095.400000095367,
+    "wholeWorkMs": 25955.600000023842,
+    "completionFenceMs": 2062.9000000953674,
+    "stats": {
+      "n": 36,
+      "p95": 1337.2000000000007,
+      "max": 1354.199999999999,
+      "over100": 27
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "00c511beacd6297456d87b864ffa5bc360027f1173df7d8958fe248b8d89d572"
+      }
+    ]
+  }
+]

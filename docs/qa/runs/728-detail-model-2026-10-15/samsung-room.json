@@ -1,0 +1,54 @@
+{
+  "identity": {
+    "model": "front8-detail-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "room": "/room/NTV194Wl"
+  },
+  "baseline": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "563bc76834df1d36cda9a96ab1f2fdbb8bc227361be21722a2510340322fa7c7"
+    }
+  ],
+  "errors": [],
+  "ops": [
+    {
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-v1",
+      "id": "kMZ355AWaQ"
+    },
+    {
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-v1",
+      "id": "wW3ST35eZi"
+    }
+  ],
+  "undo": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "843c262728648bd46706b334758934b0199d69fc224750579d03a4483e2b25d2"
+    }
+  ],
+  "redo": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "563bc76834df1d36cda9a96ab1f2fdbb8bc227361be21722a2510340322fa7c7"
+    }
+  ],
+  "reenter": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "563bc76834df1d36cda9a96ab1f2fdbb8bc227361be21722a2510340322fa7c7"
+    }
+  ],
+  "export": {
+    "bytes": 1978268,
+    "type": "image/png"
+  },
+  "gl": 0,
+  "lost": false,
+  "redoExact": true,
+  "reenterExact": true
+}

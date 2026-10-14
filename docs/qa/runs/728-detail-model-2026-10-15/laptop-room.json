@@ -1,0 +1,88 @@
+{
+  "room": "cD1kmmOE",
+  "scope": "Full Grafetto QA room; headed Chrome AMD hardware; 1024 Fine, two 380px crosses; version front8-detail-v1",
+  "identity": {
+    "model": "front8-detail-v1",
+    "async": true,
+    "scheduler": true,
+    "operations": 0
+  },
+  "ops": [
+    {
+      "id": "G-lM4_EHKt",
+      "layerId": "layer-1",
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-v1"
+    },
+    {
+      "id": "3S6wq1Xt49",
+      "layerId": "layer-1",
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-v1"
+    }
+  ],
+  "peerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "front": {
+    "buildDraws": 32,
+    "jumpDraws": 28,
+    "nativeDraws": 0,
+    "cacheBuilds": 2,
+    "extraBytes": 11796480
+  },
+  "scheduler": {
+    "tasks": 228,
+    "frames": 20
+  },
+  "errors": [],
+  "undoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoPeerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "reenterDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "export": {
+    "pngBytes": 2039842,
+    "pngType": "image/png",
+    "snapshotBytes": 4194324
+  },
+  "contextRestoreDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "gl": 0
+}
