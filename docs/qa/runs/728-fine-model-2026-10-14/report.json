@@ -1,0 +1,91 @@
+{
+  "room": "6hQllKob",
+  "scope": "Full Grafetto QA; two headed Chrome contexts on Linux laptop. Original copied harness scope text was stale; launch changed from SwiftShader to headless:false/channel:chrome.",
+  "identity": {
+    "model": "front8-fine-v1",
+    "async": true,
+    "scheduler": true,
+    "operations": 0
+  },
+  "ops": [
+    {
+      "id": "rk5MVZmJlm",
+      "layerId": "layer-1",
+      "preset": "normal:100:69:PB29:round:wc@front8-fine-v1"
+    },
+    {
+      "id": "gMp1jIDuI-",
+      "layerId": "layer-1",
+      "preset": "normal:100:69:PB29:round:wc@front8-fine-v1"
+    }
+  ],
+  "peerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "front": {
+    "buildDraws": 32,
+    "jumpDraws": 32,
+    "nativeDraws": 0,
+    "cacheBuilds": 2,
+    "extraBytes": 47185920
+  },
+  "scheduler": {
+    "tasks": 292,
+    "frames": 11
+  },
+  "errors": [],
+  "undoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoPeerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "reenterDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "export": {
+    "pngBytes": 386229,
+    "pngType": "image/png",
+    "snapshotBytes": 1048596
+  },
+  "contextRestoreDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "gl": 0,
+  "harnessScopeLiteral": "Full Grafetto QA room; two headed Chrome contexts, AMD Radeon laptop, standard fields. Not hardware",
+  "source": "495cfc7c8",
+  "validationLimit": "No physical pen-to-pixel or broad-brush performance proof; software run timed out, laptop hardware run passed."
+}

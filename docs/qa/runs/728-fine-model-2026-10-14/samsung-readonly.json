@@ -1,0 +1,11 @@
+{
+  "device": "SM-T970/R52RB0JXVSY",
+  "model": "front8-fine-v1",
+  "visible": true,
+  "recordedStrokeChunks": 8,
+  "allPresetsMarkedFine": true,
+  "pending": true,
+  "error": null,
+  "gl": 0,
+  "scope": "Read-only observation of user drawing after wake; not synthetic smoke or measured latency"
+}
