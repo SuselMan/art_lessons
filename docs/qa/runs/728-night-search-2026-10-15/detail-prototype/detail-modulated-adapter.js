@@ -1,0 +1,17 @@
+import{DISPLAY_VERT,WC_RESAMPLE_FRAG}from'/src/engine/src/raster/shaders.ts';import{createProgram,getUniforms}from'/src/engine/src/raster/utils.ts';import{install as colorInstall}from './detail-color-adapter.js';
+export function install(engine){const color=colorInstall(engine),gl=engine.gl,passes=engine._watercolorPasses,original=passes.reconstructPigmentDetail;let draws=0;
+let shader=WC_RESAMPLE_FRAG.replace('precision highp float;','precision highp float;uniform sampler2D u_currentLo,u_currentHi;uniform vec4 u_fadeEdges;uniform float u_detail;');
+shader=shader.replace('float edge = min(min(q.x - u_clamp.x, u_clamp.z - q.x), min(q.y - u_clamp.y, u_clamp.w - q.y));','float edge = min(min(mix(10000.0,q.x-u_clamp.x,u_fadeEdges.x),mix(10000.0,u_clamp.z-q.x,u_fadeEdges.z)),min(mix(10000.0,q.y-u_clamp.y,u_fadeEdges.y),mix(10000.0,u_clamp.w-q.y,u_fadeEdges.w)));');
+const old='gl_FragColor = clamp(base + keep * (wcBilerp(u_src, q) - wcBilerp(u_old, q)), 0.0, 1.0);';
+const next=`vec4 n=wcBilerp(u_src,q),o=wcBilerp(u_old,q);vec4 result=base+keep*(n-o);
+ if(u_detail>0.5){vec4 initial=wcBilerp(u_currentLo,q);float core=1.0;
+ for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 at=q+vec2(float(x),float(y));core=min(core,max(wcTexel(u_currentLo,at).b-wcTexel(u_old,at).b,0.0));}
+ float strength=max(1.0-keep,smoothstep(1.0/255.0,8.0/255.0,core));
+ vec4 film=initial-o;vec4 fineFilm=texture2D(u_currentHi,gl_FragCoord.xy/u_baseSize)-base;
+ vec4 coarse=initial+keep*(n-initial);vec4 gain=clamp(coarse/max(initial,vec4(1.0/255.0)),0.0,4.0);gain=mix(vec4(1.0),gain,step(vec4(1.0/255.0),initial));vec4 original=texture2D(u_currentHi,gl_FragCoord.xy/u_baseSize);result=mix(base+film+keep*(n-initial),original*gain,strength);
+ }gl_FragColor=clamp(result,0.0,1.0);`;
+if(!shader.includes(old))throw Error('Detail resample source missing');shader=shader.replace(old,next);
+const prog=createProgram(gl,DISPLAY_VERT,shader),u=getUniforms(gl,prog,['u_src','u_old','u_base','u_srcSize','u_baseSize','u_dstOrigin','u_srcOrigin','u_ratio','u_mode','u_clamp','u_currentLo','u_currentHi','u_fadeEdges','u_detail']),pos=gl.getAttribLocation(prog,'a_position');
+passes.reconstructPigmentDetail=function(dst,dx,dy,dw,dh,src,sx,sy,ratio,old,base,clampRect,currentLo,currentHi,fadeEdges,detail){if(dw<=0||dh<=0)return;dst.beginReplaceDraw();gl.enable(gl.SCISSOR_TEST);gl.scissor(dx,dy,dw,dh);gl.useProgram(prog);gl.bindBuffer(gl.ARRAY_BUFFER,passes.ctx.screenBuf());gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);for(const[i,name,b]of[[0,'u_src',src],[1,'u_old',old],[2,'u_base',base],[3,'u_currentLo',currentLo],[4,'u_currentHi',currentHi]]){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,b.texture);gl.uniform1i(u[name],i)}gl.activeTexture(gl.TEXTURE0);gl.uniform2f(u.u_srcSize,src.width,src.height);gl.uniform2f(u.u_baseSize,base.width,base.height);gl.uniform2f(u.u_dstOrigin,dx,dy);gl.uniform2f(u.u_srcOrigin,sx,sy);gl.uniform1f(u.u_ratio,ratio);gl.uniform1f(u.u_mode,1);gl.uniform4fv(u.u_clamp,clampRect);gl.uniform4fv(u.u_fadeEdges,fadeEdges);gl.uniform1f(u.u_detail,detail?1:0);gl.drawArrays(gl.TRIANGLES,0,6);draws++;gl.disable(gl.SCISSOR_TEST);dst.endDraw()};
+return{stats:()=>({draws,color:color.stats()}),dispose(){if(original)passes.reconstructPigmentDetail=original;else delete passes.reconstructPigmentDetail;gl.useProgram(null);gl.deleteProgram(prog);color.dispose()}};
+}
