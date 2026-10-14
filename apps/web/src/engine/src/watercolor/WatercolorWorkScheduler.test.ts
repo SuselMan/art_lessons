@@ -47,4 +47,25 @@ describe('post-lift watercolor scheduling', () => {
     scheduler.stop(second); scheduler.schedule(callback)
     expect(frames.size).toBe(1); scheduler.destroy()
   })
+
+  it('yields consecutive Dry tasks to a frame after their shared time budget', () => {
+    const { scheduler, tasks, frames } = setup()
+    let now = 0
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const modes: boolean[] = []
+    try {
+      scheduler.start()
+      const work = (task: boolean) => { modes.push(task); now += 5 }
+      scheduler.schedule(work); tasks.shift()!()
+      scheduler.schedule(work); tasks.shift()!()
+      scheduler.schedule(work); tasks.shift()!()
+      expect(modes).toEqual([true, true])
+      expect(frames.size).toBe(1)
+      frames.values().next().value!(now)
+      expect(modes).toEqual([true, true, false])
+      scheduler.schedule(work); tasks.shift()!()
+      expect(modes).toEqual([true, true, false, true])
+    } finally { scheduler.destroy(); clock.mockRestore() }
+  })
+
 })

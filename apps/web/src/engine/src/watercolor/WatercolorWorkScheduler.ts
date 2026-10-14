@@ -2,6 +2,7 @@
 export class WatercolorWorkScheduler {
     private enabled = false;
     private epoch = 0;
+    private taskTimeSinceFrame = 0;
     private disposed = false;
     private nextId = 1;
     private readonly pending = new Map<number, {
@@ -33,6 +34,7 @@ export class WatercolorWorkScheduler {
             entry.frame = requestAnimationFrame(() => {
                 if (!this.pending.delete(id))
                     return;
+                this.taskTimeSinceFrame = 0;
                 this.stats.frames++;
                 callback(false);
             });
@@ -45,18 +47,20 @@ export class WatercolorWorkScheduler {
             if (!this.pending.has(id) || entry.controller.signal.aborted || this.disposed)
                 return;
             // Input may have arrived after a task was posted; retain this cancellable handle.
-            if (!this.enabled || !this.ctx.canRunTasks()) {
+            if (!this.enabled || !this.ctx.canRunTasks() || this.taskTimeSinceFrame >= 8) {
                 frame();
                 return;
             }
             this.pending.delete(id);
             this.stats.tasks++;
+            const started = performance.now();
             try {
                 callback(true);
             }
             catch (error) {
                 this.ctx.failed(error);
             }
+            finally { this.taskTimeSinceFrame += performance.now() - started; }
         };
         const scheduler = (globalThis as typeof globalThis & {
             scheduler?: {
