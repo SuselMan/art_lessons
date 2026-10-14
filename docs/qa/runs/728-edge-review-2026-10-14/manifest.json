@@ -1,0 +1,22 @@
+{
+  "source": "4faa03a8",
+  "inputSha256": "0ca70a7716b7680718a12ff4a5b618cbae94b19c00f197c14f1010d133078a36",
+  "variants": {
+    "current": {
+      "gl": 0,
+      "lost": false,
+      "ms": 713.5
+    },
+    "fine": {
+      "gl": 0,
+      "lost": false,
+      "ms": 667.5999999996275
+    },
+    "unit": {
+      "gl": 0,
+      "lost": false,
+      "ms": 2542.7000000011176
+    }
+  },
+  "candidate": "Disable forced S2 coarse transport; native large-brush half-resolution remains. Test only, not canonical model version change."
+}
