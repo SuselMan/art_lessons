@@ -55,6 +55,7 @@ export class WatercolorWorkScheduler {
             if (this.taskTimeSinceFrame >= 48) {
                 // Render the frame first; do not move GPU work into its rAF callback.
                 entry.frame = requestAnimationFrame(() => {
+                    if (!this.pending.has(id) || this.disposed) return;
                     entry.frame = undefined;
                     this.taskTimeSinceFrame = 0;
                     this.stats.frames++;

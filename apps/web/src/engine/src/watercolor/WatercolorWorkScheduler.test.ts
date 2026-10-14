@@ -71,4 +71,20 @@ describe('post-lift watercolor scheduling', () => {
     } finally { scheduler.destroy(); clock.mockRestore() }
   })
 
+  it('cancels work while it is waiting in the timer after a yielded frame', () => {
+    vi.useFakeTimers()
+    const { scheduler, tasks, frames } = setup()
+    let now = 0
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const callback = vi.fn(() => { now += 50 })
+    try {
+      scheduler.start(); scheduler.schedule(callback); tasks.shift()!()
+      const queued = scheduler.schedule(callback); tasks.shift()!()
+      frames.values().next().value!(now)
+      scheduler.cancel(queued)
+      vi.runOnlyPendingTimers()
+      expect(callback).toHaveBeenCalledOnce()
+    } finally { scheduler.destroy(); clock.mockRestore() }
+  })
+
 })

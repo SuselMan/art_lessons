@@ -518,5 +518,41 @@
     "nightly multi-device checks",
     "physical pen-to-pixel latency",
     "rare long GPU/frame stalls during heavy Dry"
-  ]
+  ],
+  "visibleFinalRun": {
+    "scope": "Same world-space input, real Samsung; direct engine samples; no readbacks during interval",
+    "version": "front8-v1",
+    "page": {
+      "w": 1754,
+      "h": 2480
+    },
+    "canvas": [
+      1694,
+      2362
+    ],
+    "pendingAtDry": true,
+    "dryMs": 1233.3999999761581,
+    "elapsed": 3442,
+    "active": {
+      "n": 93,
+      "p95": 66.80000000004657,
+      "max": 83.59999999997672,
+      "over100": 0
+    },
+    "dryFrames": {
+      "n": 13,
+      "p95": 317.69999999995343,
+      "max": 334.30000000004657,
+      "over100": 5
+    },
+    "recorded": 6,
+    "errors": [],
+    "gl": 0,
+    "lost": false,
+    "scheduler": {
+      "tasks": 1225,
+      "frames": 4719
+    }
+  },
+  "limitations": "Functional smoke passed; artistic review and cross-device validation pending. Visible full-room run: Dry 1233.4ms, active rAF p95 66.8ms/max83.6ms, Dry p95 317.7ms/max334.3ms. Rare long Dry frames remain. Standalone and room canvas/paper differ; complete latency parity is not proven."
 }
