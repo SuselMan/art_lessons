@@ -1,0 +1,822 @@
+[
+  {
+    "file": "contactlow-contactlow-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 193.69999999925494,
+    "inputMs": 5035.699999999255,
+    "wholeWorkMs": 5229.39999999851,
+    "stats": {
+      "n": 7,
+      "p95": 66.60000000000036,
+      "max": 66.60000000000036,
+      "over100": 0
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "a12e5d7aba77978a7e7a708e27ed29726c10bfd83f467e16c23b9a6ac80e95b6"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 51,
+      "front": 118,
+      "field": 500,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "edge-ratio-2.json",
+    "model": "front8-fine-large-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 151.89999999850988,
+    "inputMs": 4432,
+    "wholeWorkMs": 4583.89999999851,
+    "stats": {
+      "n": 5,
+      "p95": 55.599999999998545,
+      "max": 55.599999999998545,
+      "over100": 0
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "4badd42bb58dc260a8fa5067c3aeea6047cc3e8694f390625f33cb6fe06c7bff"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 365,
+      "front": 72,
+      "field": 496,
+      "groupTides": 2,
+      "brush": 666,
+      "diffuse": 39,
+      "fieldModes": {
+        "0": 3,
+        "1": 377,
+        "2": 3,
+        "3": 4,
+        "4": 2,
+        "5": 42,
+        "6": 4,
+        "7": 3,
+        "10": 2,
+        "11": 2,
+        "12": 2,
+        "14": 3,
+        "15": 28,
+        "16": 14,
+        "18": 3,
+        "19": 4
+      }
+    },
+    "fieldDimensions": [
+      [
+        768,
+        768,
+        2
+      ]
+    ]
+  },
+  {
+    "file": "samsung-cached-baseline-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 20008,
+    "inputMs": 3775.2000000476837,
+    "wholeWorkMs": 23783.200000047684,
+    "stats": {
+      "n": 37,
+      "p95": 1337.2000000000007,
+      "max": 1454.2999999999993,
+      "over100": 27
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "00c511beacd6297456d87b864ffa5bc360027f1173df7d8958fe248b8d89d572"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3462,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-cached-baseline-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 1024.8999999761581,
+    "inputMs": 1410.5,
+    "wholeWorkMs": 2435.399999976158,
+    "stats": {
+      "n": 11,
+      "p95": 468.10000000000036,
+      "max": 468.10000000000036,
+      "over100": 3
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "9ed2827739765872a02dce99f497de73400d0de7194678ad3af41c34a2997e7e"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 501,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-cached-cached-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 22787.299999952316,
+    "inputMs": 4430.5,
+    "wholeWorkMs": 27217.799999952316,
+    "stats": {
+      "n": 35,
+      "p95": 1588.1000000000022,
+      "max": 1604.6000000000022,
+      "over100": 28
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "2bd44d223a9362e0799543882d6ef924340761a4dcf09ccc30a65d9ce78309bc"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3462,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-cached-cached-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 626.1999999284744,
+    "inputMs": 1197,
+    "wholeWorkMs": 1823.1999999284744,
+    "stats": {
+      "n": 10,
+      "p95": 217.30000000000018,
+      "max": 217.30000000000018,
+      "over100": 4
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "ebf61de7ee62a5d0d141338d33012d3912c51d7bd95c3a2c1b0421b8b77796eb"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 501,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-cellzero-baseline-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 19986.099999904633,
+    "inputMs": 3812.5,
+    "wholeWorkMs": 23798.599999904633,
+    "stats": {
+      "n": 36,
+      "p95": 1337.5,
+      "max": 1354,
+      "over100": 28
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "00c511beacd6297456d87b864ffa5bc360027f1173df7d8958fe248b8d89d572"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3464,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-cellzero-baseline-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 1646.8999999761581,
+    "inputMs": 1375.7999999523163,
+    "wholeWorkMs": 3022.6999999284744,
+    "stats": {
+      "n": 12,
+      "p95": 601.8000000000002,
+      "max": 601.8000000000002,
+      "over100": 4
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "9ed2827739765872a02dce99f497de73400d0de7194678ad3af41c34a2997e7e"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 501,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-cellzero-cellzero-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 19938.199999928474,
+    "inputMs": 3794.5,
+    "wholeWorkMs": 23732.699999928474,
+    "stats": {
+      "n": 33,
+      "p95": 1370.7999999999993,
+      "max": 1471,
+      "over100": 26
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "00c511beacd6297456d87b864ffa5bc360027f1173df7d8958fe248b8d89d572"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3465,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-cellzero-cellzero-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 1605.3999999761581,
+    "inputMs": 2086,
+    "wholeWorkMs": 3691.399999976158,
+    "stats": {
+      "n": 11,
+      "p95": 702.1999999999998,
+      "max": 702.1999999999998,
+      "over100": 5
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "9ed2827739765872a02dce99f497de73400d0de7194678ad3af41c34a2997e7e"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 501,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-dt-baseline-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 945.3999999761581,
+    "inputMs": 1490.7000000476837,
+    "wholeWorkMs": 2436.100000023842,
+    "stats": {
+      "n": 11,
+      "p95": 351.09999999999945,
+      "max": 351.09999999999945,
+      "over100": 4
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "9ed2827739765872a02dce99f497de73400d0de7194678ad3af41c34a2997e7e"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 501,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-mrt-baseline-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 1612.4000000953674,
+    "inputMs": 1612.0999999046326,
+    "wholeWorkMs": 3224.5,
+    "stats": {
+      "n": 12,
+      "p95": 685.3999999999996,
+      "max": 685.3999999999996,
+      "over100": 4
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "9ed2827739765872a02dce99f497de73400d0de7194678ad3af41c34a2997e7e"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 501,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-state-baseline-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 20074.699999928474,
+    "inputMs": 3348.5,
+    "wholeWorkMs": 23423.199999928474,
+    "stats": {
+      "n": 33,
+      "p95": 1337.3999999999978,
+      "max": 1454.4000000000005,
+      "over100": 26
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "00c511beacd6297456d87b864ffa5bc360027f1173df7d8958fe248b8d89d572"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3463,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-state-baseline-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 1624,
+    "inputMs": 1296.8999999761581,
+    "wholeWorkMs": 2920.899999976158,
+    "stats": {
+      "n": 13,
+      "p95": 952.7999999999993,
+      "max": 952.7999999999993,
+      "over100": 3
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "9ed2827739765872a02dce99f497de73400d0de7194678ad3af41c34a2997e7e"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 501,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-state-state-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 25906.199999928474,
+    "inputMs": 3192.600000023842,
+    "wholeWorkMs": 29098.799999952316,
+    "stats": {
+      "n": 41,
+      "p95": 1671.6000000000022,
+      "max": 1788.7999999999993,
+      "over100": 35
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "00c511beacd6297456d87b864ffa5bc360027f1173df7d8958fe248b8d89d572"
+      }
+    ],
+    "mrt": {
+      "calls": 671371,
+      "skipped": 404910,
+      "byMethod": {
+        "bindTexture": 56537,
+        "disable": 26210,
+        "activeTexture": 24340,
+        "bindFramebuffer": 94,
+        "viewport": 17649,
+        "bindBuffer": 11838,
+        "clearColor": 360,
+        "uniform1i": 81950,
+        "uniform4fv": 7916,
+        "uniform1f": 95991,
+        "uniform3fv": 9823,
+        "uniform2f": 52281,
+        "useProgram": 10663,
+        "scissor": 8970,
+        "uniform2fv": 288
+      }
+    },
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3464,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-state-state-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 1600.3999999761581,
+    "inputMs": 1746.8000000715256,
+    "wholeWorkMs": 3347.2000000476837,
+    "stats": {
+      "n": 12,
+      "p95": 685.3999999999996,
+      "max": 685.3999999999996,
+      "over100": 5
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "9ed2827739765872a02dce99f497de73400d0de7194678ad3af41c34a2997e7e"
+      }
+    ],
+    "mrt": {
+      "calls": 110749,
+      "skipped": 66384,
+      "byMethod": {
+        "bindTexture": 9404,
+        "disable": 4256,
+        "activeTexture": 4001,
+        "bindFramebuffer": 28,
+        "viewport": 2865,
+        "bindBuffer": 1915,
+        "clearColor": 74,
+        "uniform1i": 13330,
+        "uniform4fv": 1330,
+        "uniform1f": 15989,
+        "uniform3fv": 1499,
+        "uniform2f": 8422,
+        "useProgram": 1728,
+        "scissor": 1495,
+        "uniform2fv": 48
+      }
+    },
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 501,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-subcopy-baseline-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 20054.5,
+    "inputMs": 3975.5,
+    "wholeWorkMs": 24030,
+    "stats": {
+      "n": 35,
+      "p95": 1336.800000000001,
+      "max": 1354,
+      "over100": 27
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "00c511beacd6297456d87b864ffa5bc360027f1173df7d8958fe248b8d89d572"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3462,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-subcopy-baseline-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 1666.6000000238419,
+    "inputMs": 1402.1000000238419,
+    "wholeWorkMs": 3068.7000000476837,
+    "stats": {
+      "n": 10,
+      "p95": 852.5,
+      "max": 852.5,
+      "over100": 4
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "9ed2827739765872a02dce99f497de73400d0de7194678ad3af41c34a2997e7e"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 501,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-subcopy-subcopy-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 20029,
+    "inputMs": 3440.2000000476837,
+    "wholeWorkMs": 23469.200000047684,
+    "stats": {
+      "n": 36,
+      "p95": 1337.2000000000007,
+      "max": 1354,
+      "over100": 27
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "00c511beacd6297456d87b864ffa5bc360027f1173df7d8958fe248b8d89d572"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3462,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "samsung-subcopy-subcopy-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "dryMs": 1657.8999999761581,
+    "inputMs": 1297.7000000476837,
+    "wholeWorkMs": 2955.600000023842,
+    "stats": {
+      "n": 12,
+      "p95": 635.1999999999998,
+      "max": 635.1999999999998,
+      "over100": 4
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "9ed2827739765872a02dce99f497de73400d0de7194678ad3af41c34a2997e7e"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 501,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  }
+]

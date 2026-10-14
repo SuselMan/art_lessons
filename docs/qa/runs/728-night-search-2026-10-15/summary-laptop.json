@@ -1,0 +1,1200 @@
+[
+  {
+    "file": "cached-baseline-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 6288.29999999702,
+    "inputMs": 6217.10000000149,
+    "wholeWorkMs": 12505.39999999851,
+    "stats": {
+      "n": 24,
+      "p95": 494.40000000000146,
+      "max": 611.0999999999985,
+      "over100": 19
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "599910c687c888f6d77f5aff0d6a675dbd438fe4789f528e58a12fe44e756e5f"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3460,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "cached-baseline-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 437.6000000014901,
+    "inputMs": 4512.29999999702,
+    "wholeWorkMs": 4949.89999999851,
+    "stats": {
+      "n": 7,
+      "p95": 200.10000000000036,
+      "max": 200.10000000000036,
+      "over100": 2
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "687b9ea9d42ddf546526d4b8791f44b9b10087bcc2657fa95ccf36788e66e882"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 500,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "cached-cached-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 5061.5,
+    "inputMs": 5648.10000000149,
+    "wholeWorkMs": 10709.60000000149,
+    "stats": {
+      "n": 27,
+      "p95": 405.59999999999854,
+      "max": 483.40000000000146,
+      "over100": 18
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "599910c687c888f6d77f5aff0d6a675dbd438fe4789f528e58a12fe44e756e5f"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3461,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "cached-cached-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 344,
+    "inputMs": 4828.199999999255,
+    "wholeWorkMs": 5172.199999999255,
+    "stats": {
+      "n": 8,
+      "p95": 216.59999999999854,
+      "max": 216.59999999999854,
+      "over100": 1
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "687b9ea9d42ddf546526d4b8791f44b9b10087bcc2657fa95ccf36788e66e882"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 500,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "contactlow-baseline-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 5725.5,
+    "inputMs": 6594.300000000745,
+    "wholeWorkMs": 12319.800000000745,
+    "stats": {
+      "n": 27,
+      "p95": 549.9000000000015,
+      "max": 589,
+      "over100": 15
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "599910c687c888f6d77f5aff0d6a675dbd438fe4789f528e58a12fe44e756e5f"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3464,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "contactlow-baseline-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 373.5,
+    "inputMs": 4726.199999999255,
+    "wholeWorkMs": 5099.699999999255,
+    "stats": {
+      "n": 7,
+      "p95": 272.2000000000007,
+      "max": 272.2000000000007,
+      "over100": 1
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "687b9ea9d42ddf546526d4b8791f44b9b10087bcc2657fa95ccf36788e66e882"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 500,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "contactlow-contactlow-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 3694.2000000029802,
+    "inputMs": 6716.89999999851,
+    "wholeWorkMs": 10411.10000000149,
+    "stats": {
+      "n": 23,
+      "p95": 355.5,
+      "max": 361.1000000000022,
+      "over100": 13
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "bbb25fbd29673476a7a892f1fbf95a017def79a15fe8e986d1fa41cdc97f990b"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 307,
+      "front": 708,
+      "field": 3463,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "contactlow-contactlow-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 193.69999999925494,
+    "inputMs": 5035.699999999255,
+    "wholeWorkMs": 5229.39999999851,
+    "stats": {
+      "n": 7,
+      "p95": 66.60000000000036,
+      "max": 66.60000000000036,
+      "over100": 0
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "a12e5d7aba77978a7e7a708e27ed29726c10bfd83f467e16c23b9a6ac80e95b6"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 51,
+      "front": 118,
+      "field": 500,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "edge-baseline-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 6282.699999999255,
+    "inputMs": 7717.800000000745,
+    "wholeWorkMs": 14000.5,
+    "stats": {
+      "n": 25,
+      "p95": 588.9000000000015,
+      "max": 605.5,
+      "over100": 19
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "599910c687c888f6d77f5aff0d6a675dbd438fe4789f528e58a12fe44e756e5f"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3462,
+      "groupTides": 12,
+      "brush": 7860,
+      "diffuse": 299,
+      "fieldModes": {
+        "0": 23,
+        "1": 2417,
+        "2": 1,
+        "3": 34,
+        "4": 12,
+        "5": 402,
+        "6": 24,
+        "7": 23,
+        "8": 20,
+        "9": 20,
+        "10": 12,
+        "11": 12,
+        "12": 12,
+        "14": 23,
+        "15": 192,
+        "16": 176,
+        "18": 23,
+        "19": 24,
+        "20": 12
+      }
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "edge-baseline-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 436.3999999985099,
+    "inputMs": 5237.60000000149,
+    "wholeWorkMs": 5674,
+    "stats": {
+      "n": 7,
+      "p95": 333.2999999999993,
+      "max": 333.2999999999993,
+      "over100": 1
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "687b9ea9d42ddf546526d4b8791f44b9b10087bcc2657fa95ccf36788e66e882"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 500,
+      "groupTides": 2,
+      "brush": 1310,
+      "diffuse": 39,
+      "fieldModes": {
+        "0": 3,
+        "1": 375,
+        "2": 1,
+        "3": 4,
+        "4": 2,
+        "5": 42,
+        "6": 4,
+        "7": 3,
+        "10": 2,
+        "11": 2,
+        "12": 2,
+        "14": 3,
+        "15": 32,
+        "16": 16,
+        "18": 3,
+        "19": 4,
+        "20": 2
+      }
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "edge-hybrid-12.json",
+    "model": "front8-fine-large-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 1670.4000000022352,
+    "inputMs": 6387.29999999702,
+    "wholeWorkMs": 8057.699999999255,
+    "stats": {
+      "n": 23,
+      "p95": 155.39999999999782,
+      "max": 172.1999999999971,
+      "over100": 8
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "30a97f35e85aa26c7afd2d8f903b6e04246115765fd10b99f3c4889136ae895c"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 2190,
+      "front": 432,
+      "field": 3419,
+      "groupTides": 12,
+      "brush": 3996,
+      "diffuse": 299,
+      "fieldModes": {
+        "0": 23,
+        "1": 2428,
+        "2": 3,
+        "3": 36,
+        "4": 12,
+        "5": 402,
+        "6": 24,
+        "7": 23,
+        "8": 20,
+        "9": 20,
+        "10": 12,
+        "11": 12,
+        "12": 12,
+        "14": 23,
+        "15": 168,
+        "16": 154,
+        "18": 23,
+        "19": 24
+      }
+    },
+    "fieldDimensions": [
+      [
+        768,
+        768,
+        2
+      ]
+    ]
+  },
+  {
+    "file": "edge-hybrid-2.json",
+    "model": "front8-fine-large-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 139.09999999776483,
+    "inputMs": 5581,
+    "wholeWorkMs": 5720.099999997765,
+    "stats": {
+      "n": 5,
+      "p95": 55.5,
+      "max": 55.5,
+      "over100": 0
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "f342f39452662af198e24c4f604191427567134e9dc40adda0f8175daedb7f97"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 365,
+      "front": 72,
+      "field": 496,
+      "groupTides": 2,
+      "brush": 666,
+      "diffuse": 39,
+      "fieldModes": {
+        "0": 3,
+        "1": 377,
+        "2": 3,
+        "3": 4,
+        "4": 2,
+        "5": 42,
+        "6": 4,
+        "7": 3,
+        "10": 2,
+        "11": 2,
+        "12": 2,
+        "14": 3,
+        "15": 28,
+        "16": 14,
+        "18": 3,
+        "19": 4
+      }
+    },
+    "fieldDimensions": [
+      [
+        768,
+        768,
+        2
+      ]
+    ]
+  },
+  {
+    "file": "edge-ratio-12.json",
+    "model": "front8-fine-large-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 1839.9000000022352,
+    "inputMs": 6159.599999997765,
+    "wholeWorkMs": 7999.5,
+    "stats": {
+      "n": 22,
+      "p95": 166.60000000000218,
+      "max": 205.5,
+      "over100": 7
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "454a4df8bc2406758708d12b0254f4c959a9169a522245fd18e2a0c4d9aebe28"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 2190,
+      "front": 432,
+      "field": 3416,
+      "groupTides": 12,
+      "brush": 3996,
+      "diffuse": 299,
+      "fieldModes": {
+        "0": 23,
+        "1": 2427,
+        "2": 3,
+        "3": 34,
+        "4": 12,
+        "5": 402,
+        "6": 24,
+        "7": 23,
+        "8": 20,
+        "9": 20,
+        "10": 12,
+        "11": 12,
+        "12": 12,
+        "14": 23,
+        "15": 168,
+        "16": 154,
+        "18": 23,
+        "19": 24
+      }
+    },
+    "fieldDimensions": [
+      [
+        768,
+        768,
+        2
+      ]
+    ]
+  },
+  {
+    "file": "edge-ratio-2.json",
+    "model": "front8-fine-large-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 151.89999999850988,
+    "inputMs": 4432,
+    "wholeWorkMs": 4583.89999999851,
+    "stats": {
+      "n": 5,
+      "p95": 55.599999999998545,
+      "max": 55.599999999998545,
+      "over100": 0
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "4badd42bb58dc260a8fa5067c3aeea6047cc3e8694f390625f33cb6fe06c7bff"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 365,
+      "front": 72,
+      "field": 496,
+      "groupTides": 2,
+      "brush": 666,
+      "diffuse": 39,
+      "fieldModes": {
+        "0": 3,
+        "1": 377,
+        "2": 3,
+        "3": 4,
+        "4": 2,
+        "5": 42,
+        "6": 4,
+        "7": 3,
+        "10": 2,
+        "11": 2,
+        "12": 2,
+        "14": 3,
+        "15": 28,
+        "16": 14,
+        "18": 3,
+        "19": 4
+      }
+    },
+    "fieldDimensions": [
+      [
+        768,
+        768,
+        2
+      ]
+    ]
+  },
+  {
+    "file": "mrt-baseline-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 6195.699999999255,
+    "inputMs": 6872.199999999255,
+    "wholeWorkMs": 13067.89999999851,
+    "stats": {
+      "n": 22,
+      "p95": 588.9000000000015,
+      "max": 600,
+      "over100": 18
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "599910c687c888f6d77f5aff0d6a675dbd438fe4789f528e58a12fe44e756e5f"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3462,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "mrt-baseline-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 489,
+    "inputMs": 4824.29999999702,
+    "wholeWorkMs": 5313.29999999702,
+    "stats": {
+      "n": 8,
+      "p95": 250.10000000000036,
+      "max": 250.10000000000036,
+      "over100": 1
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "687b9ea9d42ddf546526d4b8791f44b9b10087bcc2657fa95ccf36788e66e882"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 503,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "mrt-mrt-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 4873.5,
+    "inputMs": 6644.5,
+    "wholeWorkMs": 11518,
+    "stats": {
+      "n": 28,
+      "p95": 372.2999999999993,
+      "max": 450,
+      "over100": 18
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "599910c687c888f6d77f5aff0d6a675dbd438fe4789f528e58a12fe44e756e5f"
+      }
+    ],
+    "mrt": {
+      "draws": 3930,
+      "pending": false
+    },
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3461,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "mrt-mrt-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 354.6000000014901,
+    "inputMs": 6366.5,
+    "wholeWorkMs": 6721.10000000149,
+    "stats": {
+      "n": 9,
+      "p95": 116.59999999999854,
+      "max": 116.59999999999854,
+      "over100": 1
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "687b9ea9d42ddf546526d4b8791f44b9b10087bcc2657fa95ccf36788e66e882"
+      }
+    ],
+    "mrt": {
+      "draws": 655,
+      "pending": false
+    },
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 500,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "pingpong-baseline-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 474.8999999985099,
+    "inputMs": 4949.800000000745,
+    "wholeWorkMs": 5424.699999999255,
+    "stats": {
+      "n": 7,
+      "p95": 327.7999999999993,
+      "max": 327.7999999999993,
+      "over100": 1
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "687b9ea9d42ddf546526d4b8791f44b9b10087bcc2657fa95ccf36788e66e882"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 500,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "pingpong-pingpong-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 420.69999999925494,
+    "inputMs": 5199.699999999255,
+    "wholeWorkMs": 5620.39999999851,
+    "stats": {
+      "n": 6,
+      "p95": 311.10000000000036,
+      "max": 311.10000000000036,
+      "over100": 1
+    },
+    "gl": 1282,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "7fa07a1cca20c5063d9a93369d4e7b198b95419684c2df3c9eec74fee4fe5cb2"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 500,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "pingpong2-baseline-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 479,
+    "inputMs": 4717.60000000149,
+    "wholeWorkMs": 5196.60000000149,
+    "stats": {
+      "n": 8,
+      "p95": 172.20000000000073,
+      "max": 172.20000000000073,
+      "over100": 2
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "687b9ea9d42ddf546526d4b8791f44b9b10087bcc2657fa95ccf36788e66e882"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 501,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "pingpong2-pingpong-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 270.5,
+    "inputMs": 4922,
+    "wholeWorkMs": 5192.5,
+    "stats": {
+      "n": 8,
+      "p95": 133.40000000000146,
+      "max": 133.40000000000146,
+      "over100": 1
+    },
+    "gl": 1282,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "7fa07a1cca20c5063d9a93369d4e7b198b95419684c2df3c9eec74fee4fe5cb2"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 500,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "pingpong3-baseline-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 512.8999999985099,
+    "inputMs": 5099.800000000745,
+    "wholeWorkMs": 5612.699999999255,
+    "stats": {
+      "n": 8,
+      "p95": 333.3000000000029,
+      "max": 333.3000000000029,
+      "over100": 1
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "687b9ea9d42ddf546526d4b8791f44b9b10087bcc2657fa95ccf36788e66e882"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 501,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "pingpong3-pingpong-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 474.3999999985099,
+    "inputMs": 5287.800000000745,
+    "wholeWorkMs": 5762.199999999255,
+    "stats": {
+      "n": 8,
+      "p95": 205.60000000000036,
+      "max": 205.60000000000036,
+      "over100": 2
+    },
+    "gl": 1282,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "7fa07a1cca20c5063d9a93369d4e7b198b95419684c2df3c9eec74fee4fe5cb2"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 501,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "pingpong4-baseline-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 6246.39999999851,
+    "inputMs": 6514.300000000745,
+    "wholeWorkMs": 12760.699999999255,
+    "stats": {
+      "n": 24,
+      "p95": 555.5,
+      "max": 611.1999999999971,
+      "over100": 18
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "599910c687c888f6d77f5aff0d6a675dbd438fe4789f528e58a12fe44e756e5f"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3463,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "pingpong4-baseline-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 474.30000000074506,
+    "inputMs": 5118.39999999851,
+    "wholeWorkMs": 5592.699999999255,
+    "stats": {
+      "n": 8,
+      "p95": 272.2000000000007,
+      "max": 272.2000000000007,
+      "over100": 1
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "687b9ea9d42ddf546526d4b8791f44b9b10087bcc2657fa95ccf36788e66e882"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 501,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "pingpong4-pingpong-12.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 5894.10000000149,
+    "inputMs": 6696.199999999255,
+    "wholeWorkMs": 12590.300000000745,
+    "stats": {
+      "n": 23,
+      "p95": 577.8000000000029,
+      "max": 599.9000000000015,
+      "over100": 15
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "599910c687c888f6d77f5aff0d6a675dbd438fe4789f528e58a12fe44e756e5f"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 4122,
+      "front": 708,
+      "field": 3461,
+      "groupTides": 12
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  },
+  {
+    "file": "pingpong4-pingpong-2.json",
+    "model": "front8-fine-v1",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dryMs": 355.9000000022352,
+    "inputMs": 4655.29999999702,
+    "wholeWorkMs": 5011.199999999255,
+    "stats": {
+      "n": 7,
+      "p95": 233.29999999999927,
+      "max": 233.29999999999927,
+      "over100": 1
+    },
+    "gl": 0,
+    "lost": false,
+    "errors": [],
+    "tileHashes": [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "687b9ea9d42ddf546526d4b8791f44b9b10087bcc2657fa95ccf36788e66e882"
+      }
+    ],
+    "mrt": null,
+    "counts": {
+      "previews": 687,
+      "front": 118,
+      "field": 500,
+      "groupTides": 2
+    },
+    "fieldDimensions": [
+      [
+        1536,
+        1536,
+        1
+      ]
+    ]
+  }
+]
