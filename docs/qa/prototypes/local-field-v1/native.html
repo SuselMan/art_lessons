@@ -9,6 +9,8 @@ import { watercolorPresetString } from '/src/engine/src/presets/watercolorPreset
 const ids=['paper','color','size','sizeValue','water','pigment','clear','undo','redo','save','dry','paint','error'];
 const c=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)]));
 try {
+const deviceSmoke=new URLSearchParams(location.search).get('deviceSmoke')==='1';
+if(deviceSmoke){await import('/@vite/client');await import('/src/dev/devBridge.ts');}
 const small=new URLSearchParams(location.search).get('smoke')==='1';
 const size=small?256:1024;c.paper.width=c.paper.height=size;
 const prefix8=location.pathname==='/watercolor-native-front8';
@@ -16,12 +18,8 @@ const priority=!prefix8&&new URLSearchParams(location.search).get('priority')===
 const progressive=priority&&new URLSearchParams(location.search).get('progress')==='1';
 const engine=new PencilEngine(c.paper,{userId:'native-local',pageWidth:size,pageHeight:size,paper:'fine',watercolorReview:true,watercolorCoarseTransport:!priority,reviewInputPriority:priority,reviewProgressivePresentation:progressive,joinedTouch:true,asyncFinish:true,materialPresentation:true,gradientFibres:!priority,reviewTouchDrawing:true});
 window.__wcNative=engine;
-// Explicit device QA only: expose the existing engine through the shared bridge.
-if(new URLSearchParams(location.search).get('deviceSmoke')==='1'){
-  window.__engine=engine;
-  await import('/@vite/client');
-  await import('/src/dev/devBridge.ts');
-}
+// Connect diagnostics before GL initialization so a device failure remains observable.
+if(deviceSmoke)window.__engine=engine;
 let fastFront=null;
 let dryPump=null;
 if(prefix8){const {installFastFront,fastFrontSchedule}=await import('/watercolor-native-front-v1/fast-front.js');fastFront=installFastFront(engine,'prefix8');engine._settlePlan.diagnosticFrontSchedule=n=>fastFrontSchedule(n,'prefix8');window.__wcFastFront=fastFront;}
