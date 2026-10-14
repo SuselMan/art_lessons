@@ -114,6 +114,7 @@ function apiProxy() {
 export default defineConfig(({ mode }) => {
   const useHttps = mode !== 'http'
   return {
+    cacheDir: process.env.VITE_QA_CACHE_DIR ?? 'node_modules/.vite',
     build: {
       ...(sentryAuthToken ? { sourcemap: 'hidden' as const } : {}),
       // (#246) The landing is its own page, not a route of the app: it must

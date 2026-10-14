@@ -1,3 +1,5 @@
+import type { WatercolorWorkScheduler } from './WatercolorWorkScheduler'
+
 /** Prototype canonical execution: input owns immutable requests; this queue
  * executes their GPU continuations only after the previous solver has landed.
  * It never drains a blocked solver on the input stack. */
@@ -14,6 +16,7 @@ export interface CanonicalWatercolorFIFOContext {
   failed(error: unknown): void
 }
 export class WatercolorCanonicalFIFO {
+  workScheduler: WatercolorWorkScheduler | null = null
   private requests: CanonicalWatercolorRequest[] = []
   private work: Generator<number, void, void> | null = null
   private frame = 0
@@ -36,11 +39,12 @@ export class WatercolorCanonicalFIFO {
   private schedule(): void {
     if (this.frame) return
     const epoch = this.epoch
-    this.frame = this.ctx.schedule(() => {
+    const run = () => {
       if (epoch !== this.epoch) return
       this.frame = 0
       this.advance()
-    })
+    }
+    this.frame = this.workScheduler ? this.workScheduler.schedule(run, !this.ctx.blocked()) : this.ctx.schedule(run)
   }
   /** One continuation unit, never a synchronous complete-to-idle loop. */
   private advance(): void {
@@ -68,7 +72,10 @@ export class WatercolorCanonicalFIFO {
   }
   cancel(contextLost: boolean): void {
     this.epoch++
-    if (this.frame) this.ctx.unschedule(this.frame)
+    if (this.frame) {
+      if (this.workScheduler) this.workScheduler.cancel(this.frame)
+      else this.ctx.unschedule(this.frame)
+    }
     this.frame = 0
     const requests = this.requests.splice(0)
     this.work = null

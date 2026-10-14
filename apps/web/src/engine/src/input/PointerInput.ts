@@ -189,7 +189,10 @@ export class PointerInput {
   private _move: (e: PointerEvent) => void
   private _up: (e: PointerEvent) => void
 
-  constructor(canvas: HTMLCanvasElement, log: DiagLog = () => {}) {
+  private readonly allowTouchDrawing: boolean
+
+  constructor(canvas: HTMLCanvasElement, log: DiagLog = () => {}, allowTouchDrawing = false) {
+    this.allowTouchDrawing = allowTouchDrawing
     this.canvas = canvas
     this._log = log
     this._handlers = {}
@@ -283,7 +286,7 @@ export class PointerInput {
 
   private _toPointerData(e: PointerEvent, x: number, y: number, speed: number): PointerData {
     let pressure = e.pressure ?? 0.5
-    if (e.pointerType === 'mouse' && pressure === 0) pressure = 0.5
+    if ((e.pointerType === 'mouse' || this.allowTouchDrawing && e.pointerType === 'touch') && pressure === 0) pressure = 0.5
     // (#475) Pen only. A mouse has no pressure to correct (it sits at the
     // substituted 0.5 above), and touch never reaches here at all — it is
     // routed to pan/zoom/rotate before a stroke starts. Calibrating either
@@ -387,7 +390,7 @@ export class PointerInput {
     // the touch-down dab, so any stroke that reached _onStart leaves at least
     // one mark. A completely absent stroke therefore died here or never
     // arrived, and only a log can say which.
-    if (e.button !== 0 || e.pointerType === 'touch') {
+    if (e.button !== 0 || e.pointerType === 'touch' && !this.allowTouchDrawing) {
       this._log('[PointerInput] down IGNORED', {
         reason: e.button !== 0 ? 'button' : 'pointerType',
         pointerId: e.pointerId, pointerType: e.pointerType,

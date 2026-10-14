@@ -8,7 +8,7 @@ import { MARKER_INK_REF_CHORD_PX } from './markerInkGain'
 import { markerNibFromPreset } from '../presets/markerPresets'
 import {
   watercolorMixFromPreset, watercolorWaterEffects, watercolorPigmentEffects,
-  watercolorPigmentFromPreset,
+  watercolorPigmentFromPreset, watercolorModelFromPreset,
 } from '../presets/watercolorPresets'
 import { watercolorPigmentByCode } from '../presets/watercolorPigments'
 import type { NibShape } from './markerRibbon'
@@ -146,6 +146,7 @@ export interface RibbonProfile {
    *  On the profile rather than parsed from the preset string at every call
    *  site: the profile is already built from that string once per batch, and a
    *  second parser somewhere else is a second place for the format to drift. */
+  materialModel?: 'legacy' | 'front8-v1'
   waterLevel: number
   /** #468 v4 — the stroke's own pigment level, 0..1. Same story. */
   pigmentLevel: number
@@ -881,6 +882,7 @@ function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonP
     thinNibInkRefPx: 0,
     waterDepletion: true,
     // ── from water: geometry and behaviour ──
+    materialModel: watercolorModelFromPreset(presetName),
     waterLevel: mix.water,
     pigmentLevel: mix.pigment,
     pigmentStrength: p.strength,

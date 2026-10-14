@@ -58,3 +58,8 @@ WebGL2.
 прежний порядок GL-вызовов.
 
 `GpuBudgetFence` — принадлежащий движку отдельный FBO 1×1 для экспериментального GPU budget clock; физические проходы его не читают. По умолчанию выключен, scope ограничен canonical continuations.
+
+`WatercolorFrontPaths` — версия внешнего фронта `front8-v1`: кэш сумм реальных
+стоимостей восьми рёбер и последующие native уточнения. `WatercolorPasses` владеет
+его GL-ресурсами. Выбор версии берётся из записанного preset, расписание остаётся
+в `WatercolorSettlePlan`. Проверка интеграции: docs/qa/728-front8-room-integration.md.

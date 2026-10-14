@@ -108,3 +108,48 @@ it('typed constructor option defaults OFF and cannot enable joined admission, as
  for(const enabled of [undefined,true]){const {engine:e}=createTestEngine({joinedFinishDeferred:enabled},{width:64,height:64});engines.push(e)
  expect(e['_wcJoinedFinishDeferred']).toBe(enabled??false);expect(e['_wcJoinedTouch']).toBe(false);expect(e['_wcAsyncFinish']).toBe(false);expect(e['_wcMaterialPresentation']).toBe(false)}
 })
+
+it('Undo and Redo while a joined finish is held recover the accepted journal without retaining its owner', async () => {
+  const { e, job } = await setup()
+  simulateStrokeEnd(e, 48, 32)
+  const strokes = e['_log'].doneOperations().filter(op => op.type === 'stroke').map(op => op.id)
+  expect(strokes).toHaveLength(2)
+  expect(e['_wcJoinedDeferred']).not.toBeNull()
+  const recover = (): void => {
+    e['_flushPendingRebuilds']()
+    let steps = 0
+    while ((e['_rebuildJobs'].size || e['_settle']) && steps++ < 2000) {
+      e['_completeSettle']()
+      for (const rebuild of e['_rebuildJobs'].values()) {
+        clearTimeout(rebuild.timer)
+        e['_stepRebuildJob'](rebuild)
+      }
+    }
+    expect(steps).toBeLessThan(2000)
+    expect(e['_wcJoinedDeferred']).toBeNull()
+    expect(e['_wcAsyncOwners'].has(job.scratch)).toBe(false)
+    expect(e['_wcJoinedRecoveryLayers'].size).toBe(0)
+  }
+  expect(e.undo()?.id).toBe(strokes[1])
+  recover()
+  expect(e['_log'].doneOperations().filter(op => op.type === 'stroke').map(op => op.id)).toEqual(strokes.slice(0, 1))
+  expect(e.redo()?.id).toBe(strokes[1])
+  recover()
+  expect(e['_log'].doneOperations().filter(op => op.type === 'stroke').map(op => op.id)).toEqual(strokes)
+})
+
+it('a predecessor preview cannot replace the visible completed successor while its finish is held', async () => {
+  const { e, job } = await setup()
+  simulateStrokeEnd(e, 48, 32)
+  expect(e['_strokeLayerId']).toBeNull()
+  expect(e['_wcJoinedDeferred']?.job).toBe(job)
+  let steps = 0
+  while (e['_settle'] === job && steps++ < 2000) {
+    e['_advanceSettle']()
+    if (e['_wcJoinedDeferred']?.job === job) {
+      for (const reveal of e['_washReveals'].values()) expect(reveal.pending === undefined).toBe(true)
+    }
+  }
+  expect(steps).toBeGreaterThan(1)
+  expect(steps).toBeLessThan(2000)
+})

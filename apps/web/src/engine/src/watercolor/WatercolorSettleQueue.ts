@@ -1,4 +1,5 @@
 import type { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
+import type { WatercolorWorkScheduler } from './WatercolorWorkScheduler'
 
 const contactPulses = new WeakSet<() => void>()
 const frontSteps = new WeakSet<() => void>()
@@ -27,6 +28,7 @@ export interface WatercolorSettleLifecycle {
   abort(error?: unknown): void
   /** Captured owner/gesture request; never reads the next gesture identity. */
   isExpedited?(): boolean
+  isDryRequested?(): boolean
 }
 
 export interface WatercolorSettleJob {
@@ -56,6 +58,7 @@ export interface WatercolorSettleQueueContext {
 /** One settle at a time: synchronous drain or adaptive animation-frame steps.
  * The first entry captures the deposit immediately; the rest may yield. */
 export class WatercolorSettleQueue {
+  workScheduler: WatercolorWorkScheduler | null = null
   private readonly ctx: WatercolorSettleQueueContext
   constructor(ctx: WatercolorSettleQueueContext) { this.ctx = ctx }
   get current(): WatercolorSettleJob | null { return this._settle }
@@ -77,6 +80,15 @@ export class WatercolorSettleQueue {
 
   /** Candidate remains opt-in until physical-device budget and parity gates pass. */
   contactBatchEnabled = false
+
+  /** OFF diagnostic: contiguous contact/front units, max4 and 8ms measured
+   * after syncGpu EACH unit. No capture/upload/presentation barrier crossing. */
+  diagnosticSolverBatchEnabled = false
+  /** DEV standalone: preserve the solver but defer its work while pen is down. */
+  diagnosticInputPriority = false
+  /** Interactive material preview gives presentation priority over throughput. */
+  diagnosticSolverBatchMax: 1 | 4 = 4
+  diagnosticDryBatchEnabled = false
 
   /** Diagnostic cap variants share the same wall budget and lifecycle guards. */
   contactBatchMax: 4 | 8 | 16 = 4
@@ -161,14 +173,23 @@ export class WatercolorSettleQueue {
     this.scheduleTick()
   }
 
+  private cancelTick(s: WatercolorSettleJob): void {
+    if (!s.raf) return
+    if (this.workScheduler) this.workScheduler.cancel(s.raf)
+    else if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
+    s.raf = 0
+  }
+
   private scheduleTick(): void {
     const s = this._settle
     if (!s || s.raf) return
-    s.raf = requestAnimationFrame(() => {
+    const run = (task = false): void => {
       this.continuationCount = 0
       s.raf = 0
-      this.tick()
-    })
+      this.tick(task)
+      if (task) (this.ctx.continuationSyncGpu ?? this.ctx.syncGpu)?.call(this.ctx)
+    }
+    s.raf = this.workScheduler ? this.workScheduler.schedule(run) : requestAnimationFrame(() => run())
   }
 
   private tick(continuation = false): void {
@@ -176,6 +197,7 @@ export class WatercolorSettleQueue {
     if (!s) return
     // The wash was torn down under it (undo, a new wash): nothing to land.
     if (!this.isAlive(s)) { this.cancel(); return }
+    if (this.diagnosticInputPriority && this.ctx.isDrawing()) { this.scheduleTick(); return }
     // (§17.44) One entry a frame while the pen is still down (a chunk's
     // settle under a running gesture): the frame also has the brush's own
     // batches to draw, and two entries made the tablet's P95 frame 110-150 ms.
@@ -216,21 +238,22 @@ export class WatercolorSettleQueue {
     const perTick = this.ctx.isDrawing() || late ? 1
       : Math.min(this.ctx.backlogMax(), WatercolorSettleQueue.WET_SETTLE_OPS_PER_TICK + this.ctx.backlogSize())
     for (let k = 0; k < perTick && this._settle === s; k++) {
-      const batchable = this.contactBatchEnabled && contactPulses.has(s.ops[s.next]) ? contactPulses
-        : this.frontBatchEnabled && frontSteps.has(s.ops[s.next]) ? frontSteps : null
+      const batchable = (this.contactBatchEnabled || this.diagnosticSolverBatchEnabled) && contactPulses.has(s.ops[s.next]) ? contactPulses
+        : (this.frontBatchEnabled || this.diagnosticSolverBatchEnabled) && frontSteps.has(s.ops[s.next]) ? frontSteps : null
       const presentationToken = this.presentationBatchEnabled ? presentationTokens.get(s.ops[s.next]) : undefined
       const sameBatch = (op: () => void): boolean => batchable ? batchable.has(op)
         : !!presentationToken && presentationTokens.get(op) === presentationToken
       if ((batchable || presentationToken) && !late && !this.ctx.isDrawing() && this.ctx.syncGpu) {
         const batchAt = performance.now()
-        const cap = batchable === contactPulses && (this.contactBatchMax === 8 || this.contactBatchMax === 16)
-          ? this.contactBatchMax : 4
+        const cap = !this.diagnosticSolverBatchEnabled && batchable === contactPulses && (this.contactBatchMax === 8 || this.contactBatchMax === 16)
+          ? this.contactBatchMax : this.diagnosticSolverBatchEnabled
+            ? this.diagnosticDryBatchEnabled && s.lifecycle?.isDryRequested?.() ? 4 : this.diagnosticSolverBatchMax : 4
         for (let n = 0; n < cap && this._settle === s && sameBatch(s.ops[s.next]); n++) {
           this.advance()
           // Submission time alone does not bound queued GPU work. Synchronize
           // every pulse, so a slow device overruns by only one existing step.
           this.ctx.syncGpu()
-          if (performance.now() - batchAt >= 4 || this.ctx.isDrawing()) break
+          if (performance.now() - batchAt >= (this.diagnosticSolverBatchEnabled ? 8 : 4) || this.ctx.isDrawing()) break
         }
         break // Per-tick backlog acceleration must not multiply this budget.
       }
@@ -250,13 +273,13 @@ export class WatercolorSettleQueue {
       if (s.next < s.ops.length) return
       this._settle = null
       this.cancelContinuation()
-      if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
+      this.cancelTick(s)
       s.complete()
       this.ctx.perf().settleMs = performance.now() - this.ctx.perf().settleStart
       this.ctx.scheduleFieldRelease()
     } catch (error) {
       if (this._settle === s) { this._settle = null; this.cancelContinuation() }
-      if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
+      this.cancelTick(s)
       this.abortFailedJob(s, error)
       throw error
     }
@@ -273,7 +296,7 @@ export class WatercolorSettleQueue {
     try {
       this._settle = null
       this.cancelContinuation()
-      if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
+      this.cancelTick(s)
       if (!this.isAlive(s)) { this.abortJob(s); return }
       for (; s.next < s.ops.length; s.next++) s.ops[s.next]()
       s.complete()
@@ -311,7 +334,7 @@ export class WatercolorSettleQueue {
     if (!s) return
     this._settle = null
     this.cancelContinuation()
-    if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
+    this.cancelTick(s)
     this.abortJob(s)
   }
 }

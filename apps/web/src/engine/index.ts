@@ -7,6 +7,7 @@ export type { CompositeItem } from './src/raster/LayerCompositor'
 import { pureWaterLayerProof } from './src/watercolor/pureWaterLayerProof'
 import { WatercolorSettlePlan, type WatercolorSettlePreview } from './src/raster/WatercolorSettlePlan'
 import { WatercolorCanonicalFIFO } from './src/watercolor/WatercolorCanonicalFIFO'
+import { WatercolorWorkScheduler } from './src/watercolor/WatercolorWorkScheduler'
 import { WatercolorSettleQueue, type WatercolorSettleLifecycle } from './src/watercolor/WatercolorSettleQueue'
 import { destroyField, type SettleField } from './src/buffers/SettleField'
 import { WC_HALF_RES_RADIUS_PX } from './src/watercolor/settleResolution'
@@ -108,7 +109,7 @@ import {
   PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth,
   type PressureResponse,
 } from './src/presets/brushPenPresets'
-import { applyWatercolorEndTaper, watercolorWashSignature, mottleSeedFromStrokeId, applyWatercolorPooling, watercolorBloomStrength, watercolorBloomPush, watercolorPuddleMerge, WC_RIM_BAND_PX, watercolorPaperDrained, watercolorMixFromPreset } from './src/presets/watercolorPresets'
+import { applyWatercolorEndTaper, watercolorWashSignature, mottleSeedFromStrokeId, applyWatercolorPooling, watercolorBloomStrength, watercolorBloomPush, watercolorPuddleMerge, WC_RIM_BAND_PX, watercolorPaperDrained, watercolorMixFromPreset, withWatercolorModel } from './src/presets/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/presets/HapticGrain'
 import {
   applyMatrix, invertMatrix, toMat3, translationMatrix,
@@ -248,6 +249,18 @@ export function previewDabShape(
 const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 
 export interface PencilEngineOptions {
+  /** DEV-only combined WebGL1 candidate for manual A/B review. */
+  watercolorReview?: boolean
+  /** Model stamped into new watercolor presets; replay follows the recorded marker. */
+  watercolorModel?: 'legacy' | 'front8-v1'
+  /** DEV review: reserve GPU continuations for pen-up intervals. */
+  reviewInputPriority?: boolean
+  /** DEV diagnostic: expose intermediate physical reveal before canonical completion. */
+  reviewProgressivePresentation?: boolean
+  /** DEV-only artistic experiment, not compatible with legacy material replay. */
+  watercolorCoarseTransport?: boolean
+  /** DEV standalone review sheet; rooms retain touch navigation. */
+  reviewTouchDrawing?: boolean
   /** (#728) Accept provisional pointer input while canonical wet material
    * finishes in FIFO order. Export/snapshot readiness waits for that queue.
    * Omitted, standalone callers retain synchronous completion. */
@@ -1620,6 +1633,13 @@ export class PencilEngine implements PencilEngineAPI {
    *  pass, plus the world rect it covers and when it was last rebuilt. Null
    *  rect means nothing is wet and the whole overlay is off. */
   private _wetTex: WebGLTexture | null = null
+  private _wetTexSize: [number, number] = [0, 0]
+  private _watercolorReview = false
+  private _watercolorModel: 'legacy' | 'front8-v1' = 'legacy'
+  private _wcDryWorkScheduler: WatercolorWorkScheduler | null = null
+  private readonly _wcDryTickets = new Map<string, number>()
+  private _reviewInputPriority = false
+  private _reviewProgressivePresentation = false
   private _wetRect: [number, number, number, number] = [0, 0, -1, -1]
   private _wetTexAt = 0
   private _wetOverlayWorkspace: WetOverlayWorkspace | null = null
@@ -1821,7 +1841,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private readonly _settlePlan = new WatercolorSettlePlan({
     gl: () => this.gl,
-    fieldFor: (w, h) => this._diffuseFieldFor(w, h),
+    fieldFor: (w, h, scale, compact) => this._diffuseFieldFor(w, h, scale, compact),
     paperWorldSize: () => this._paperWorldSize(),
     pool: () => this._ribbonScratchPool,
     minmaxExt: () => this._minmaxExt,
@@ -1863,12 +1883,14 @@ export class PencilEngine implements PencilEngineAPI {
     material.raster.release(lost)
     if (lost) material.pool.forget(); else { material.pool.destroy(); material.buffer.destroy() }
   })
+  private readonly _wcProgressiveMaterialOwners = new WeakSet<object>()
   private readonly _wcMaterialKeys = new Map<object, {
     scratch: RibbonStrokeScratch; gesture: number
     owner: MaterialPresentationOwner<{ buffer: AccumulationBuffer; pool: RibbonScratchPool; raster: WatercolorPresentationRaster; scratches: Set<RibbonStrokeScratch> }>
   }>()
   private readonly _wcCanonical = new WatercolorCanonicalFIFO({
-    blocked: () => !!this._settle || this._contextLost || this.gl.isContextLost(),
+    blocked: () => !!this._settle || this._contextLost || this.gl.isContextLost()
+      || this._reviewInputPriority && !!this._strokeLayerId,
     advance: (work, current) => this._advanceAsyncCanonical(work, current),
     schedule: callback => requestAnimationFrame(callback),
     unschedule: handle => cancelAnimationFrame(handle),
@@ -2233,14 +2255,36 @@ export class PencilEngine implements PencilEngineAPI {
 
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
     this.canvas = canvas
+    this._watercolorModel = options.watercolorModel ?? 'legacy'
     this._wcJoinedTouch = options.joinedTouch ?? false
+    this._watercolorReview = import.meta.env.DEV && options.watercolorReview === true
+    this._reviewInputPriority = this._watercolorReview && options.reviewInputPriority === true
+    this._reviewProgressivePresentation = this._reviewInputPriority && options.reviewProgressivePresentation === true
+    this._settleQueue.diagnosticInputPriority = this._reviewInputPriority
+    this._settleQueue.diagnosticSolverBatchEnabled = this._watercolorReview
+    const interactiveReview = this._watercolorReview && options.asyncFinish === true && options.materialPresentation === true
+    this._settleQueue.diagnosticSolverBatchMax = interactiveReview ? 1 : 4
+    this._settleQueue.diagnosticDryBatchEnabled = interactiveReview
+    this._settlePlan.splitQuanta = interactiveReview
+    this._settlePlan.diagnosticHoistedContactRaster = this._watercolorReview
+    this._settlePlan.diagnosticReuseFlowRaster = this._watercolorReview
+    this._settlePlan.diagnosticCoarseTransport = import.meta.env.DEV && options.watercolorCoarseTransport === true
     this._ribbonPainter.diagnosticBandBatch = options.bandBatch ?? false
+    // Keep out of the review bundle: human testing found whole-stroke fading.
     this._wcJoinedFinishDeferred = options.joinedFinishDeferred ?? false
     this._wcAsyncFinish = options.asyncFinish ?? false
     this._wcMaterialPresentation = options.materialPresentation ?? false
     this._diagLog = options.diagLog ?? (() => {})
     this._infinite = options.infinite ?? false
     this._wcGradientFibres = options.gradientFibres ?? false
+    if (this._watercolorModel === 'front8-v1' && this._wcAsyncFinish) {
+      this._wcDryWorkScheduler = new WatercolorWorkScheduler({
+        canRunTasks: () => !this._strokeLayerId && !this._contextLost && !this.gl.isContextLost(),
+        failed: error => { this._wcAsyncError = error; this._wcCanonical.cancel(false); this._cancelSettle() },
+      })
+      this._wcCanonical.workScheduler = this._wcDryWorkScheduler
+      this._settleQueue.workScheduler = this._wcDryWorkScheduler
+    }
     // (#494) The first frame's pose (centred on the sheet for a bounded room)
     // is decided inside — see Camera's constructor. The rect read is the
     // engine's own DOM call, handed in so Camera.ts stays DOM-free.
@@ -2469,7 +2513,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._initGL()
     // Placeholder now, the real bake once it has loaded — see PaperState.init.
     this._paper.init()
-    this._pointer = new PointerInput(canvas, this._diagLog)
+    this._pointer = new PointerInput(canvas, this._diagLog, import.meta.env.DEV && options.reviewTouchDrawing === true)
     this._dabs    = new DabSystem()
 
     this._layers          = new Map()
@@ -2707,6 +2751,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  applying a `room_state` snapshot or a `peer_operation` must pass
    *  'remote' so the op is not echoed back to the server. */
   appendOperation(op: Operation, source: OperationSource = 'local'): void {
+    // Start consuming earlier work when Dry is accepted, not when its queued log entry finally runs.
+    if (op.type === 'paper_dry' && this._wcDryWorkScheduler && !this._log.entries.some(e => e.op.id === op.id)
+      && !this._opQueue.some(e => e.op.id === op.id)) this._wcDryTickets.set(op.id, this._wcDryWorkScheduler.start())
     // (#536, §17.58) A peer's watercolour operation arriving while a settle is
     // still spreading over frames waits its turn instead of forcing that
     // settle to land now: on the iPad the forced landing was 85-325 ms of every
@@ -2833,9 +2880,12 @@ export class PencilEngine implements PencilEngineAPI {
       // (#536, §17.48) Everyone's paper dries at once - live, from a peer, and
       // on replay alike, at this point in the log order: the water of every
       // stroke before it goes, the strokes after it wet the paper again.
-      case 'paper_dry':
-        this.watercolorDryAll()
+      case 'paper_dry': {
+        const ticket = this._wcDryTickets.get(op.id)
+        this._wcDryTickets.delete(op.id)
+        this.watercolorDryAll(canonicalExecution || !this._wcCanonical.pending, ticket)
         break
+      }
       case 'layer_delete':
         for (const id of op.layerIds) this._destroyBuffer(id)
         // #122: removes entries from what the below/above cache was built
@@ -4125,6 +4175,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._stamps.destroy()
     this._brush.destroy()
     this._ribbonPasses.destroy()
+    this._wcDryWorkScheduler?.destroy()
     this._watercolorPasses.destroy()
     // (#385) These two hand their buffers back to the pool rather than to the
     // driver, so the pool has to be drained *after* them — draining first
@@ -4142,7 +4193,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonScratchPool.destroy()
     if (this._dryingTimer) { clearTimeout(this._dryingTimer); this._dryingTimer = 0 }
     if (this._budgetTimer) { clearTimeout(this._budgetTimer); this._budgetTimer = 0 }
-    if (this._wetTex) { this.gl.deleteTexture(this._wetTex); this._wetTex = null }
+    if (this._wetTex) { this.gl.deleteTexture(this._wetTex); this._wetTex = null; this._wetTexSize = [0, 0] }
     this._wetOverlayWorkspace = null
     this._paperWet.clear()
     for (const { buf, timer } of this._peerPreviews.values()) {
@@ -5017,6 +5068,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._continuationGpuFence?.forget()
     e.preventDefault()
     this._contextLost = true
+    this._wcDryWorkScheduler?.stop()
+    this._wcDryTickets.clear()
     // Packed checkpoint pixels survive loss; carried wash snapshots are GL
     // buffers and cannot seed a restored context. Drop the whole mid-wash
     // checkpoint: retaining its prefix without open wash state loses the tail.
@@ -5054,6 +5107,7 @@ export class PencilEngine implements PencilEngineAPI {
     // before _initGL / PaperState can request the first restored display;
     // deleting the old name would operate on a dead-context resource.
     this._wetTex = null
+    this._wetTexSize = [0, 0]
     this._wetTexAt = 0
     this._wetRect = [0, 0, -1, -1]
     this._wetShown = -1
@@ -5914,7 +5968,7 @@ export class PencilEngine implements PencilEngineAPI {
     const openTouch = this._wash
     const touchInputs = oldJob ? this._wcJoinedTouchInputs.get(oldJob) : undefined
     const touchNow = performance.now()
-    const touchSignature = watercolorWashSignature(this._opts.pencilType, this._opts.graphiteColor)
+    const touchSignature = watercolorWashSignature(withWatercolorModel(this._opts.pencilType, this._watercolorModel), this._opts.graphiteColor)
     const joinedTouch = this._wcJoinedTouch && !this._wcAsyncFinish && !this._wcMaterialPresentation
       && this._wcSourceFilmRebase && !this._settlePlan.splitQuanta
       && this._opts.tool === 'watercolor' && oldJob !== null && openTouch !== null
@@ -5959,7 +6013,7 @@ export class PencilEngine implements PencilEngineAPI {
     // tool that string carries the mix — so moving either slider ended the
     // wash. See watercolorWashSignature.
     const washSignature = this._strokeTool === 'watercolor'
-      ? watercolorWashSignature(this._opts.pencilType, this._opts.graphiteColor)
+      ? watercolorWashSignature(withWatercolorModel(this._opts.pencilType, this._watercolorModel), this._opts.graphiteColor)
       : `${this._opts.pencilType}|${this._opts.graphiteColor.join(',')}`
     // (#536) The gesture's own record of what it painted into. Cleared here
     // rather than at pen-up so a stroke refused above cannot leave a stale
@@ -6117,7 +6171,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dabs.nibScallop = this._nibScallops(this._strokeTool, this._opts.pencilType)
       ? { sizeScale: this._dabSizeScale(this._strokeTool, this._opts.pencilType) }
       : null
-    this._strokePreset  = this._opts.pencilType
+    this._strokePreset  = this._strokeTool === 'watercolor' ? withWatercolorModel(this._opts.pencilType, this._watercolorModel) : this._opts.pencilType
     this._strokeColor   = this._opts.graphiteColor
     // Smudge's carried imprint resets at every gesture, but not from here:
     // SmudgePainter.paint does it off this stroke's own id, so the local and the
@@ -7471,7 +7525,12 @@ export class PencilEngine implements PencilEngineAPI {
     if (!target) return
     if (reveal.startedAt === null && reveal.dryRequested && reveal.dryPreviewStartedAt === undefined) reveal.dryPreviewStartedAt = now
     const remaining = washRevealRemaining(reveal.startedAt, reveal.dryPreviewStartedAt, now, reveal.durationMs ?? 8000)
-    const step = washRevealStep(dt, remaining)
+    // A handoff anchor avoids repeatedly rounding tiny per-frame changes
+    // back to the same RGBA8 pixel and then snapping at the deadline.
+    const anchor = this._watercolorReview && this._wcMaterialPresentation && reveal.startedAt !== null
+      ? reveal.pending : undefined
+    const step = anchor ? 1 - Math.pow(Math.max(0, Math.min(1,
+      (remaining ?? 0) / (reveal.durationMs ?? 8000))), 3) : washRevealStep(dt, remaining)
     if (!(step > 0)) return
     const out = this._revealPoolAcquire(buffer.width, buffer.height)
     out.beginReplaceDraw()
@@ -7482,7 +7541,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(this._revealPosLoc, 2, gl.FLOAT, false, 0, 0)
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, target.texture)
     gl.uniform1i(u.u_after, 0)
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, reveal.before.texture)
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, (anchor ?? reveal.before).texture)
     gl.uniform1i(u.u_before, 1)
     gl.uniform1f(u.u_hold, 1 - step); gl.uniform1f(u.u_opacity, 1)
     this._setRevealMotion(undefined, now)
@@ -7524,6 +7583,10 @@ export class PencilEngine implements PencilEngineAPI {
   /** Drops every reveal that has run out, or whose layer is gone. */
   private _sweepReveals(now: number, goneLayerId: string | null = null): void {
     for (const [buffer, reveal] of this._washReveals) {
+      // Accepted-input material is still visible. Its later handoff seeds
+      // this animation; do not spend or expire the hidden animation now.
+      if (reveal.layerId !== goneLayerId && this._watercolorReview
+        && this._materialPresentationHides(reveal.layerId)) continue
       if (reveal.layerId !== goneLayerId) this._advanceWashReveal(buffer, reveal, now)
       if (reveal.layerId !== goneLayerId && this._revealHold(reveal, now) > 0) continue
       this._revealPoolRelease(reveal.before)
@@ -7651,9 +7714,10 @@ export class PencilEngine implements PencilEngineAPI {
     if (!ids) this._skippedInBatch.clear()
   }
 
-  watercolorDryAll(): void {
+  watercolorDryAll(ordered = false, acceptedTicket?: number): void {
+    const ticket = acceptedTicket ?? (ordered ? undefined : this._wcDryWorkScheduler?.start())
     if (this._wcAsyncFinish && this._wcCanonical.pending) for (const scratch of this._wcAsyncOwners.keys()) this._wcAsyncDryTo.set(scratch, scratch.gesture)
-    if (this._wcExpeditedDry && this._wcAsyncFinish && this._settle) {
+    if ((this._wcExpeditedDry || this._watercolorReview && this._wcMaterialPresentation) && this._wcAsyncFinish && this._settle) {
       const scratch = this._settle.scratch
       this._wcAsyncDryTo.set(scratch, scratch.gesture)
     }
@@ -7669,15 +7733,26 @@ export class PencilEngine implements PencilEngineAPI {
     this._sweepReveals(now)
     for (const reveal of this._washReveals.values()) if (reveal.progressive) {
       reveal.motionBaseGain = this._revealMotionTail(reveal, now)
-      reveal.durationMs = 2000
+      reveal.durationMs = this._watercolorReview && this._wcMaterialPresentation ? 300 : 2000
       if (this._wcExpeditedDry) {
         reveal.dryRequested = true
         reveal.dryPreviewStartedAt = reveal.startedAt === null && reveal.pending ? now : undefined
       }
-      if (reveal.startedAt !== null) reveal.startedAt = now
+      if (reveal.startedAt !== null) {
+        if (this._watercolorReview && this._wcMaterialPresentation && reveal.pending) reveal.before.copyTo(reveal.pending)
+        reveal.startedAt = now
+      }
       reveal.frameAt = now
     }
     this._paperWet.clear()
+    if (this._watercolorReview && this._wcMaterialPresentation) {
+      for (const owner of this._wcMaterialOwners.layers.values()) owner.material.raster.paperWet.clear()
+    }
+    if (ordered && ticket !== undefined) this._wcDryWorkScheduler?.stop(ticket)
+    else if (!ordered && this._wcDryWorkScheduler && ticket !== undefined) {
+      const scheduler = this._wcDryWorkScheduler
+      this._wcCanonical.enqueue({ execute: function* () { scheduler.stop(ticket) }, cancel: () => scheduler.stop(ticket) })
+    }
     // The sheen goes with it: the wet map is rebuilt on the next frame, not
     // after the overlay's own throttle, and the whole paper recomposes.
     this._wetTexAt = 0
@@ -7819,6 +7894,7 @@ export class PencilEngine implements PencilEngineAPI {
       ...lifecycle,
       isAlive: () => lifecycle?.isAlive() ?? scratch.live,
       isExpedited: () => this._wcExpeditedDry && gesture <= (this._wcAsyncDryTo.get(scratch) ?? -1),
+      isDryRequested: () => gesture <= (this._wcAsyncDryTo.get(scratch) ?? -1),
       abort: (error?: unknown) => {
         try { lifecycle?.abort(error) } finally {
           try {
@@ -7832,6 +7908,7 @@ export class PencilEngine implements PencilEngineAPI {
     } : lifecycle ? {
       ...lifecycle,
       isExpedited: () => this._wcExpeditedDry && gesture <= (this._wcAsyncDryTo.get(scratch) ?? -1),
+      isDryRequested: () => gesture <= (this._wcAsyncDryTo.get(scratch) ?? -1),
       abort: (error?: unknown) => { try { lifecycle.abort(error) } finally { releaseDryTicket() } },
     } : lifecycle)
     const job = completedJob = this._settle
@@ -8065,11 +8142,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  before; what changed is only that it now always has empty paper to its
    *  right and below, where it used to meet the texture's clamped edge
    *  whenever its span was a multiple of 256. */
-  private _diffuseFieldFor(w: number, h: number): SettleField {
+  private _diffuseFieldFor(w: number, h: number, scale = 1, compact = false): SettleField {
     // A settle still spread over frames works in the field it was handed:
     // it lands first, before the field is cleared or replaced under it.
     if (this._settle) this._completeSettle()
-    const need = (n: number): number => Math.max(WC_FIELD_PX, Math.ceil(n / 256) * 256)
+    const minimum = (compact || this._settlePlan.diagnosticCoarseTransport) && scale === 2 ? WC_FIELD_PX / 2 : WC_FIELD_PX
+    const need = (n: number): number => Math.max(minimum, Math.ceil(n / 256) * 256)
     const W = need(w), H = need(h)
     // (#536, ADR 011 §17.49) EXACTLY this settle's size, never a larger field
     // left by an earlier one. The passes step by the texture's own texel and
@@ -8216,6 +8294,10 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Provisional stamps are presentation only. The actual source commands
    * are queued separately and never sample this buffer. */
+  private _materialPresentationHides(layerId: string): boolean {
+    const owner = this._wcMaterialOwners.layers.get(layerId)
+    return !!owner && !this._wcProgressiveMaterialOwners.has(owner)
+  }
   private _materialPresentationLayers(): ReadonlyMap<string, {
     buffer: AccumulationBuffer; originX: number; originY: number; worldWidth: number; worldHeight: number
   }> {
@@ -8223,9 +8305,50 @@ export class PencilEngine implements PencilEngineAPI {
     for (const owner of this._wcMaterialOwners.layers.values()) {
       const ready = [...owner.material.scratches].every(scratch => !this._wcAsyncOwners.has(scratch)
         && this._settle?.scratch !== scratch)
-        && ![...this._washReveals.values()].some(reveal => reveal.layerId === owner.layerId)
         && this._strokeLayerId !== owner.layerId
+      const progressive = this._reviewProgressivePresentation && !ready && owner.pending.size === 0
+        && this._strokeLayerId !== owner.layerId && !!this._settle
+        && owner.material.scratches.has(this._settle.scratch)
+      let anchored = false
+      if ((ready || progressive) && owner.pending.size === 0 && this._watercolorReview
+        && !this._wcProgressiveMaterialOwners.has(owner)) {
+        const now = performance.now(), e = owner.extent
+        for (const tile of this._layers.get(owner.layerId)?.resolveVisible({ minX: e.originX, minY: e.originY,
+          maxX: e.originX + e.worldWidth, maxY: e.originY + e.worldHeight }) ?? []) {
+          const reveal = this._washReveals.get(tile.buffer)
+          if (!reveal?.progressive) continue
+          // The hidden reveal has advanced while the accepted-input layer
+          // was visible. Start the handoff from that actual visible picture.
+          const w = tile.buffer.width, h = tile.buffer.height
+          const frame: CameraFrame = { wx: tile.originX + w / 2, wy: tile.originY + h / 2,
+            centerX: w / 2, centerY: h / 2, scale: 1, angle: 0,
+            view: { minX: tile.originX, minY: tile.originY, maxX: tile.originX + w, maxY: tile.originY + h } }
+          const x = Math.max(0, Math.floor(e.originX - tile.originX))
+          const y = Math.max(0, Math.floor(e.originY - tile.originY))
+          const right = Math.min(w, Math.ceil(e.originX + e.worldWidth - tile.originX))
+          const bottom = Math.min(h, Math.ceil(e.originY + e.worldHeight - tile.originY))
+          const gl = this.gl
+          reveal.before.beginReplaceDraw()
+          gl.enable(gl.SCISSOR_TEST); gl.scissor(x, h - bottom, right - x, bottom - y)
+          gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT)
+          gl.disable(gl.SCISSOR_TEST)
+          this._drawTileComposite(frame, owner.material.buffer.texture, e.originX, e.originY,
+            e.worldWidth, e.worldHeight, 1, reveal.before.fbo, w, h)
+          anchored = true
+          if (!progressive) {
+            if (reveal.pending) this._revealPoolRelease(reveal.pending)
+            reveal.pending = this._revealPoolAcquire(w, h)
+            reveal.before.copyTo(reveal.pending)
+            reveal.startedAt = now
+          }
+          reveal.frameAt = reveal.motionAt = now
+        }
+      }
+      if (progressive && anchored) this._wcProgressiveMaterialOwners.add(owner)
       if (this._wcMaterialOwners.releaseReady(owner, ready)) { this._wetTexAt = 0; continue }
+      // The physical reveal now owns the visible picture; keep resource
+      // ownership until canonical completion but stop hiding its intermediate states.
+      if (this._wcProgressiveMaterialOwners.has(owner)) continue
       result.set(owner.layerId, { buffer: owner.material.buffer, ...owner.extent })
     }
     return result
@@ -8237,13 +8360,16 @@ export class PencilEngine implements PencilEngineAPI {
     const view = this._camera.liveFrame().view
     const existed = this._wcMaterialOwners.layers.has(layerId)
     const owner = this._wcMaterialOwners.acquire(layerId, { originX: view.minX, originY: view.minY,
-      worldWidth: view.maxX - view.minX, worldHeight: view.maxY - view.minY }, 512)
-    if (!existed) {
+      worldWidth: view.maxX - view.minX, worldHeight: view.maxY - view.minY }, 768)
+    const resumedVisible = this._wcProgressiveMaterialOwners.delete(owner)
+    if (!existed || resumedVisible) {
+      if (resumedVisible) owner.material.buffer.clear()
       const e = owner.extent
       const frame: CameraFrame = { wx: e.originX + e.worldWidth / 2, wy: e.originY + e.worldHeight / 2,
         centerX: e.width / 2, centerY: e.height / 2, scale: e.width / e.worldWidth, angle: 0, view }
       for (const tile of this._layers.get(layerId)?.resolveVisible(view) ?? []) {
-        this._drawTileComposite(frame, tile.buffer.texture, tile.originX, tile.originY,
+        const visible = resumedVisible ? this._washReveals.get(tile.buffer)?.before : undefined
+        this._drawTileComposite(frame, (visible ?? tile.buffer).texture, tile.originX, tile.originY,
           tile.buffer.width, tile.buffer.height, 1, owner.material.buffer.fbo, e.width, e.height)
       }
     }
@@ -8513,7 +8639,7 @@ export class PencilEngine implements PencilEngineAPI {
         entry.coverage.copyTo(held.wetMask)
         held.progressive = true
         if ((owned || this._wcExpeditedDry) && settledGesture <= (this._wcAsyncDryTo.get(scratch) ?? -1)) {
-          held.durationMs = 2000
+          held.durationMs = this._watercolorReview && this._wcMaterialPresentation ? 300 : 2000
           if (this._wcExpeditedDry) held.dryRequested = true
         }
         held.frameAt = held.motionAt = performance.now()
@@ -8610,6 +8736,11 @@ export class PencilEngine implements PencilEngineAPI {
         reveal && fade ? (tile, pigment, chroma, coverage) => {
           const owned = revealCopies.find(copy => copy.buffer === tile.buffer)
           if (!owned || this._washReveals.get(tile.buffer) !== owned.held || this._strokeLayerId) return
+          // UP can leave a newer completed gesture waiting behind this job.
+          // This preview contains only the predecessor's solver fields and
+          // must not replace the picture that already shows the newer paint.
+          const successor = this._wcJoinedDeferred
+          if (successor?.scratch === scratch && successor.finish.gesture > settledGesture) return
           const entry = scratch.peek(tile.buffer)
           if (!entry) return
           if (owned.held.wetMask) coverage.copyTo(owned.held.wetMask)
@@ -9035,7 +9166,14 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, this._wetTex)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
+    // Same bytes and filtering, but retain storage while dimensions agree.
+    // The dimensions are forgotten along with the GL name on context restore.
+    if (this._watercolorReview && this._wetTexSize[0] === w && this._wetTexSize[1] === h) {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data)
+    } else {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
+      this._wetTexSize = [w, h]
+    }
     // Bilinear and clamped: the map is deliberately coarse, and the one thing
     // it must not do is show its own texels as squares of wet paper.
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
@@ -9374,6 +9512,12 @@ export class PencilEngine implements PencilEngineAPI {
     // second and a half after every stroke was most of "всё это дело
     // притормаживает" on the tablet, and the eye cannot tell 30 from 60 on a
     // fade.
+    if (this._washReveals.size && this._watercolorReview && this._wcMaterialPresentation) {
+      // A hidden reveal neither advances nor changes the visible material.
+      // Input and solver publication already request their own display.
+      if ([...this._washReveals.values()].some(reveal => !this._materialPresentationHides(reveal.layerId))) this._scheduleDisplay()
+      return
+    }
     if (this._washReveals.size && !this._revealTimer) {
       this._revealTimer = setTimeout(() => {
         this._revealTimer = 0

@@ -1,3 +1,5 @@
+import { brushDragFieldHoisted } from '../watercolor/brushDragHoisted'
+import { fastFrontSchedule } from './WatercolorFrontPaths'
 import { contactPulseOp, frontStepOp, inheritSettleOpTags, presentationStepOp } from '../watercolor/WatercolorSettleQueue'
 import type { WatercolorPasses } from './WatercolorPasses'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -6,7 +8,7 @@ import type { RibbonStrokeScratch, RibbonFinishMetadata } from '../buffers/Ribbo
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from '../dabs/ribbonProfile'
 
 import { WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from '../watercolor/wetDiffusion'
-import { brushDragContacts, brushDragContactGroups, brushDragField, brushDragMaxExposure } from '../watercolor/brushDrag'
+import { brushDragContacts, brushDragContactGroups, brushDragField, brushDragMaxExposure, BrushDragRasterWorkspace } from '../watercolor/brushDrag'
 import { brushDragFieldWork } from '../watercolor/brushDragFieldWork'
 import { foreignWaterStencil } from '../watercolor/foreignWater'
 import { pigmentAbsorption } from '../watercolor/pigmentOptics'
@@ -19,7 +21,7 @@ export type WatercolorSettlePreview = (tile: PaintTarget, pigment: AccumulationB
 
 export interface WatercolorSettlePlanContext {
   gl(): WebGLRenderingContext
-  fieldFor(w: number, h: number): SettleField
+  fieldFor(w: number, h: number, scale?: number, compact?: boolean): SettleField
   paperWorldSize(): { w: number; h: number }
   pool(): RibbonScratchPool
   minmaxExt(): { MAX_EXT: number } | null
@@ -36,6 +38,10 @@ export interface WatercolorSettlePlanContext {
 export class WatercolorSettlePlan {
   /** Immutable cost-domain reachability diagnostic; default OFF on every route. */
   diagnosticCostDomainPaths = false
+  /** Eager CPU raster scratch reuse only; does not share suspended generators. */
+  diagnosticReuseFlowRaster = false
+  diagnosticHoistedContactRaster = false
+  readonly flowRasterStats = { allocations: 0, reuses: 0, bytesAllocated: 0, bytesRequested: 0 }
   /** Pack D1..D64 in seven byte bits; only eligible when cost-domain paths are enabled. */
   diagnosticPackedCostPaths = false
   /** Local diagnostic only, default OFF. V-phase is an experimental closure,
@@ -49,6 +55,10 @@ export class WatercolorSettlePlan {
   diagnosticSkipZeroPigmentRim = false
   private readonly ctx: WatercolorSettlePlanContext
   /** Scheduling diagnostic only; latched by prepare, default OFF. */
+  /** DEV experiment: coarse transport for ordinary brushes; native deposition is unchanged. */
+  diagnosticCoarseTransport = false
+  /** DEV-only visual experiment; injected solver must price every crossed edge. */
+  diagnosticFrontSchedule: ((steps: number) => readonly number[]) | null = null
   splitQuanta = false
   /** CPU scheduling diagnostic; requires the same canonical owner capability. */
   lazyContacts = false
@@ -125,6 +135,8 @@ export class WatercolorSettlePlan {
   ): { ops: Array<() => void>; finish: () => void; dispose: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
     const { gl } = this
     const metadata = finishMetadata ?? scratch
+    const front8 = (finishMetadata?.finish ?? scratch.finishContext)?.profile.materialModel === 'front8-v1'
+    const coarseTransport = front8 || this.diagnosticCoarseTransport
     const splitQuanta = this.splitQuanta && presentationOwnerLocked
     const lazyContacts = this.lazyContacts && presentationOwnerLocked
     // Never infer zero from water/preset alone: water can remobilize old paint.
@@ -177,7 +189,8 @@ export class WatercolorSettlePlan {
     const pad = Math.max(WET_DIFFUSE_REACH, frontReachPx) + 1 + dryMargin
     let x0 = Math.max(minX, Math.floor(bounds.minX) - pad), y0 = Math.max(minY, Math.floor(bounds.minY) - pad)
     let x1 = Math.min(maxX, Math.ceil(bounds.maxX) + pad), y1 = Math.min(maxY, Math.ceil(bounds.maxY) + pad)
-    if (radiusPx >= WC_HALF_RES_RADIUS_PX && Math.max(x1 - x0, y1 - y0) > WC_HALF_RES_SPAN_PX) S = 2
+    if ((radiusPx >= WC_HALF_RES_RADIUS_PX && Math.max(x1 - x0, y1 - y0) > WC_HALF_RES_SPAN_PX)
+      || (coarseTransport && radiusPx >= 8 && Math.max(x1 - x0, y1 - y0) > 128)) S = 2
     const CAP = 1536 * S
     if (x1 - x0 > CAP) { const c = (x0 + x1) * 0.5; x0 = Math.floor(c - CAP / 2); x1 = x0 + CAP }
     if (y1 - y0 > CAP) { const c = (y0 + y1) * 0.5; y0 = Math.floor(c - CAP / 2); y1 = y0 + CAP }
@@ -196,7 +209,7 @@ export class WatercolorSettlePlan {
     const w = x1 - x0, h = y1 - y0
     if (w <= 0 || h <= 0) return null
     scratch.noteStorageBounds({ minX: x0, minY: y0, maxX: x1, maxY: y1 })
-    const field = this.ctx.fieldFor(w / S, h / S)
+    const field = this.ctx.fieldFor(w / S, h / S, S, front8)
     const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
     // (§17.44) At half resolution what goes home is the SETTLED wash at full
     // resolution plus the field's result less its own settled part: the
@@ -300,7 +313,16 @@ export class WatercolorSettlePlan {
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
     const contactRect = { x: x0, y: y0, w: field.w * S, h: field.h * S }
     const groups = lazyContacts && !skipZeroPigmentContacts ? brushDragContactGroups(metadata.brushTravel, contactRect) : []
-    const contacts = skipZeroPigmentContacts || lazyContacts ? [] : brushDragContacts(metadata.brushTravel, contactRect)
+    const workspace = this.diagnosticReuseFlowRaster && !lazyContacts && !skipZeroPigmentContacts ? new BrushDragRasterWorkspace() : undefined
+    const contacts = skipZeroPigmentContacts || lazyContacts ? [] : this.diagnosticHoistedContactRaster
+      ? brushDragContactGroups(metadata.brushTravel, contactRect).map(group => ({ rect: group.rect, radius: group.radius, field: brushDragFieldHoisted(group.travel, group.rect, 4, workspace)! }))
+      : brushDragContacts(metadata.brushTravel, contactRect, workspace)
+    if (workspace) {
+      this.flowRasterStats.allocations += workspace.allocations
+      this.flowRasterStats.reuses += workspace.reuses
+      this.flowRasterStats.bytesAllocated += workspace.bytesAllocated
+      this.flowRasterStats.bytesRequested += workspace.bytesRequested
+    }
     const flow = contacts[0]?.field
     let flowTexture: WebGLTexture | null = null
     let foreignTexture: WebGLTexture | null = null
@@ -487,7 +509,8 @@ export class WatercolorSettlePlan {
       // puddles ran wider and every drop dried paler (124 -> 133 of 255 on
       // Ilya's circles). The big sweeps get their speed from the
       // half-resolution field instead, exactly.
-      run(frontSteps, costMax, field.pressure, WC_FRONT_CLIMB, WC_FRONT_FLOOR)
+      run(frontSteps, costMax, field.pressure, WC_FRONT_CLIMB, WC_FRONT_FLOOR,
+        front8 ? fastFrontSchedule(frontSteps) : import.meta.env.DEV ? this.diagnosticFrontSchedule?.(frontSteps) : undefined)
       if (skipPigmentRim) {
         // Mode 11 reads outward pressure/coverage only. Inward mask, band and
         // gathered rim feed pigment operators; none remains under full zero proof.

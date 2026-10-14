@@ -1629,6 +1629,20 @@ export function watercolorPresetString(
   return `${response}:${pct(mixLevels.water)}:${pct(mixLevels.pigment)}:${pigmentCode}:${nib}`
 }
 
+/** The sixth field versions the material solver in both the log and live packets. */
+export function watercolorModelFromPreset(presetName: string | undefined): 'legacy' | 'front8-v1' {
+  const model = presetName?.split(':')[5]
+  if (model === 'wc@front8-v1') return 'front8-v1'
+  if (model?.startsWith('wc@')) throw new Error(`Unsupported watercolor model: ${model}`)
+  return 'legacy'
+}
+
+export function withWatercolorModel(presetName: string, model: 'legacy' | 'front8-v1'): string {
+  if (model === 'legacy') return presetName
+  return watercolorPresetString(watercolorResponseFromPreset(presetName), watercolorMixFromPreset(presetName),
+    watercolorPigmentFromPreset(presetName), watercolorNibFromPreset(presetName)) + ':wc@front8-v1'
+}
+
 /** (#468 v5) Which paint the stroke was made with — the Colour Index code, the
  *  same one printed on a real tube. Fourth field of the preset string, and
  *  absent from every stroke recorded before v5, which fall back to the default.
@@ -1667,7 +1681,7 @@ export function watercolorWashSignature(_presetName: string | undefined, _color:
   // properties - granulation, staining - are still the wash's scalars from
   // its first paint; a mixture takes them from whichever paint opened the
   // wash. Recorded debt (§17.9): the honest form is mass-weighted moments.
-  return 'wc'
+  return watercolorModelFromPreset(_presetName) === 'front8-v1' ? 'wc:front8-v1' : 'wc'
 }
 
 export function watercolorMixFromPreset(presetName: string | undefined): WatercolorMix {

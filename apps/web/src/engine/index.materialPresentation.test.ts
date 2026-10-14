@@ -1,12 +1,14 @@
 import { expect, it, vi } from 'vitest'
 import { createTestEngine, simulateStroke } from './testing/engineTestUtils'
 
-it('uses real ribbon primitives for queued pigment and reuses a single material owner across gestures', async () => {
-  const { engine } = createTestEngine({ asyncFinish: true, materialPresentation: true }, { width: 64, height: 64 })
+for (const review of [false, true]) it(`review=${review}: uses real ribbon primitives for queued pigment and reuses a single material owner across gestures`, async () => {
+  const { engine } = createTestEngine({ asyncFinish: true, materialPresentation: true, watercolorReview: review, watercolorCoarseTransport: review, gradientFibres: review }, { width: 64, height: 64 })
   await engine.paperReady()
   engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor')
   engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
   expect(engine['_wcMaterialPresentation']).toBe(true)
+  expect(engine['_settleQueue'].diagnosticSolverBatchMax).toBe(review ? 1 : 4)
+  expect(engine['_settlePlan'].splitQuanta).toBe(review)
   engine['_wcCanonical']['ctx'].schedule = () => 1
   engine['_wcCanonical']['ctx'].unschedule = () => {}
   const stamps = vi.spyOn(engine['_stamps'], 'paint')
@@ -21,6 +23,7 @@ it('uses real ribbon primitives for queued pigment and reuses a single material 
     expect(ribbon).toHaveBeenCalled()
     expect(stamps).not.toHaveBeenCalled()
     expect(complete).not.toHaveBeenCalled()
+    engine.setColor([1, 1, 0])
     simulateStroke(engine, [{ x: 12, y: 40 }, { x: 24, y: 40 }, { x: 40, y: 40 }])
     expect(engine['_wcMaterialOwners'].layers.get('L')).toBe(owner)
     const first = [...engine['_wcMaterialKeys'].values()][0]
@@ -35,6 +38,12 @@ it('uses real ribbon primitives for queued pigment and reuses a single material 
     expect(allocated.live + allocated.free + owner.material.buffer.width * owner.material.buffer.height * 4)
       .toBeLessThanOrEqual(engine['_wcMaterialOwners'].bytes)
     expect(owner.material.raster.paperWet.peak(performance.now())).toBeGreaterThan(0)
+    if (review) {
+      engine.watercolorDryAll()
+      expect(owner.material.raster.paperWet.peak(performance.now())).toBe(0)
+      expect(engine['_wcAsyncDryTo'].size).toBeGreaterThan(0)
+      expect(complete).not.toHaveBeenCalled()
+    }
     expect(engine['_materialPresentationLayers']().get('L')?.buffer).toBe(owner.material.buffer)
     expect(engine['_log'].entries.filter(e => e.op.type === 'stroke')).toHaveLength(2)
     const draw = vi.spyOn(engine['gl'], 'drawArrays'), remove = vi.spyOn(engine['gl'], 'deleteTexture')
@@ -44,4 +53,85 @@ it('uses real ribbon primitives for queued pigment and reuses a single material 
     expect(draw).not.toHaveBeenCalled(); expect(remove).not.toHaveBeenCalled()
     draw.mockRestore(); remove.mockRestore()
   } finally { stamps.mockRestore(); ribbon.mockRestore(); complete.mockRestore(); engine.destroy() }
+})
+
+it('hands the layer back while canonical reveal is still animating, after all input was materialized', async () => {
+  const { engine } = createTestEngine({ asyncFinish: true, materialPresentation: true }, { width: 64, height: 64 })
+  await engine.paperReady()
+  engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor')
+  engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 24, y: 20 }, { x: 40, y: 20 }])
+    const owner = engine['_wcMaterialOwners'].layers.get('L')!
+    // Pending accepted input must keep the provisional layer.
+    expect(engine['_materialPresentationLayers']().has('L')).toBe(true)
+    for (const key of [...owner.pending]) engine['_wcMaterialOwners'].retire(owner, key)
+    owner.material.scratches.clear()
+    // Only the layer id is consulted here: create a reveal identity without
+    // a fake material texture or depending on solver progress in this test.
+    const reveals = engine['_washReveals'] as unknown as Map<object, { layerId: string }>
+    const identity = {}; reveals.set(identity, { layerId: 'L' })
+    try {
+      expect(engine['_materialPresentationLayers']().has('L')).toBe(false)
+      expect(reveals.has(identity)).toBe(true)
+    } finally { reveals.delete(identity) }
+  } finally { engine.destroy() }
+})
+
+
+it('starts the review reveal at the visible material handoff, rather than its hidden elapsed age', async () => {
+  const { engine } = createTestEngine({ watercolorReview: true, asyncFinish: true, materialPresentation: true }, { width: 64, height: 64 })
+  await engine.paperReady()
+  engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor')
+  engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 40, y: 20 }])
+    const owner = engine['_wcMaterialOwners'].layers.get('L')!
+    const layer = engine['_layers'].get('L')!
+    const tile = layer.resolveForPaint({ minX: 0, minY: 0, maxX: 64, maxY: 64 })[0]
+    engine['_revealWash'](tile, layer)
+    const reveal = engine['_washReveals'].get(tile.buffer)!
+    reveal.progressive = true; reveal.startedAt = 1; reveal.frameAt = 1
+    engine['_sweepReveals'](100000)
+    expect(engine['_washReveals'].has(tile.buffer)).toBe(true)
+    expect(reveal.frameAt).toBe(1)
+    for (const key of [...owner.pending]) engine['_wcMaterialOwners'].retire(owner, key)
+    owner.material.scratches.clear()
+    const draw = vi.spyOn(engine as unknown as { _drawTileComposite(...args: unknown[]): void }, '_drawTileComposite')
+    expect(engine['_materialPresentationLayers']().has('L')).toBe(false)
+    expect(draw).toHaveBeenCalled()
+    expect(reveal.startedAt).toBeGreaterThan(1)
+    expect(reveal.frameAt).toBe(reveal.startedAt)
+    const anchor = reveal.pending
+    expect(anchor).toBeDefined()
+    engine['_advanceWashReveal'](tile.buffer, reveal, reveal.startedAt! + 1000)
+    expect(reveal.pending).toBe(anchor)
+    expect(reveal.before).not.toBe(anchor)
+    engine.watercolorDryAll()
+    expect(reveal.durationMs).toBe(300)
+    draw.mockRestore()
+  } finally { engine.destroy() }
+})
+
+it('does not run an animation display loop for a reveal hidden by accepted input material', async () => {
+  const { engine } = createTestEngine({ watercolorReview: true, asyncFinish: true, materialPresentation: true }, { width: 64, height: 64 })
+  await engine.paperReady()
+  engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor')
+  engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  const reveals = engine['_washReveals'] as unknown as Map<object, { layerId: string }>
+  const identity = {}
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 40, y: 20 }])
+    reveals.set(identity, { layerId: 'L' })
+    const schedule = vi.spyOn(engine as unknown as { _scheduleDisplay(): void }, '_scheduleDisplay').mockImplementation(() => {})
+    engine['_display']()
+    expect(schedule).not.toHaveBeenCalled()
+    schedule.mockRestore()
+  } finally { reveals.delete(identity); engine.destroy() }
 })

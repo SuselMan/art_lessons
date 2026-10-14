@@ -20,6 +20,7 @@ it('Dry marks a captured remote boundary without synchronously advancing materia
     expect(draw).not.toHaveBeenCalled()
     expect(drain).not.toHaveBeenCalled()
     expect(old.isExpedited()).toBe(true)
+    expect((engine['_settle']!.lifecycle as { isDryRequested(): boolean }).isDryRequested()).toBe(true)
     scratch.gesture = 9
     expect(old.isExpedited()).toBe(true)
     engine['_completeSettle']()

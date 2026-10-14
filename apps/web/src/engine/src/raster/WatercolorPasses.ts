@@ -1,23 +1,17 @@
 import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
+import { createWatercolorFrontPaths } from './WatercolorFrontPaths'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
-import type { StampPainter } from '../dabs/StampPainter'
 import { withGradientFibres } from '../watercolor/gradientFibres'
 import { WET_DIFFUSE_D, WET_DIFFUSE_B } from '../watercolor/wetDiffusion'
 
-export interface WatercolorPassField { w: number; h: number; coverage: AccumulationBuffer }
-export interface WatercolorPassesContext {
-  gl(): WebGLRenderingContext
-  screenBuf(): WebGLBuffer
-  paperTex(): WebGLTexture
-  paperScale(): number
-  paperWorldSize(): { w: number; h: number }
-  stamps(): StampPainter
-}
+import type { WatercolorPassField, WatercolorPassesContext } from './WatercolorPassTypes'
+export type { WatercolorPassField, WatercolorPassesContext } from './WatercolorPassTypes'
 
 /** Watercolor field GPU primitives. Scheduling and working textures stay with
  * the engine. Separate init stages preserve the existing GL call order. */
 export class WatercolorPasses {
+  private _frontPaths: ReturnType<typeof createWatercolorFrontPaths> | null = null
   private readonly ctx: WatercolorPassesContext
   constructor(ctx: WatercolorPassesContext) { this.ctx = ctx }
   private get gl(): WebGLRenderingContext { return this.ctx.gl() }
@@ -176,6 +170,20 @@ export class WatercolorPasses {
     src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb: number, floor: number, stride = 1,
     /** (§17.44) World px per field cell. */
     scale = 1, foreignWater: WebGLTexture | null = null,
+  ): void {
+    if (stride === 4 || stride === 8) {
+      this._frontPaths ??= createWatercolorFrontPaths(this.ctx, (...args) => this.nativeWaterFrontStep(...args))
+      this._frontPaths.step(field, x0, y0, dryCost, src, dst, max, climb, floor, stride, scale, foreignWater)
+      return
+    }
+    this._frontPaths?.invalidate()
+    this.nativeWaterFrontStep(field, x0, y0, dryCost, src, dst, max, climb, floor, stride, scale, foreignWater)
+  }
+
+  private nativeWaterFrontStep(
+    field: WatercolorPassField, x0: number, y0: number, dryCost: number,
+    src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb: number, floor: number,
+    stride = 1, scale = 1, foreignWater: WebGLTexture | null = null,
   ): void {
     const { gl } = this
     const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
@@ -428,6 +436,8 @@ export class WatercolorPasses {
   }
 
   initSettlePrograms(): void {
+    this._frontPaths?.forget()
+    this._frontPaths = null
     const { gl } = this
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
     this._brushDragProg = createProgram(gl, DISPLAY_VERT, WC_BRUSH_DRAG_FRAG)
@@ -469,6 +479,8 @@ export class WatercolorPasses {
   }
 
   destroy(): void {
+    this._frontPaths?.dispose()
+    this._frontPaths = null
     // Deleting the currently bound program is deferred until it is unbound.
     // A final field pass may still be active when a connected canvas is retired.
     const current = this.gl.getParameter(this.gl.CURRENT_PROGRAM)
