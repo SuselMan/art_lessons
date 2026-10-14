@@ -10,4 +10,3 @@ export interface WatercolorPassesContext {
   paperWorldSize(): { w: number; h: number }
   stamps(): StampPainter
 }
-

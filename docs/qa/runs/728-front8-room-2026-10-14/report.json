@@ -1,0 +1,99 @@
+{
+  "room": "qQw04Di2",
+  "scope": "Full Grafetto QA room; two Chromium SwiftShader contexts, standard fields. Not hardware",
+  "identity": {
+    "model": "front8-v1",
+    "async": true,
+    "scheduler": true,
+    "operations": 0
+  },
+  "ops": [
+    {
+      "id": "IOe3K2LLMp",
+      "layerId": "layer-1",
+      "preset": "normal:100:69:PB29:round:wc@front8-v1"
+    },
+    {
+      "id": "FOVXKeqR_G",
+      "layerId": "layer-1",
+      "preset": "normal:100:69:PB29:round:wc@front8-v1"
+    }
+  ],
+  "peerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "front": {
+    "buildDraws": 32,
+    "jumpDraws": 16,
+    "nativeDraws": 0,
+    "cacheBuilds": 2,
+    "extraBytes": 11796480
+  },
+  "scheduler": {
+    "tasks": 256,
+    "frames": 10
+  },
+  "errors": [],
+  "undoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoPeerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "reenterDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "export": {
+    "pngBytes": 378808,
+    "pngType": "image/png",
+    "snapshotBytes": 1048596
+  },
+  "contextRestoreDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "gl": 0,
+  "sourceCommit": "80db8f35",
+  "approvedSourceCommit": "a0c5ed4a",
+  "checks": {
+    "unitTestsPassed": 242,
+    "typecheck": "all workspaces, e2e, scripts passed",
+    "build": "passed",
+    "lint": "passed with existing warnings",
+    "mapCheck": "passed",
+    "dependencyRules": "zero errors; five existing orphan warnings"
+  },
+  "hardwareValidation": "pending devices from Ilya in evening"
+}
