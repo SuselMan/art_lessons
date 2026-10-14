@@ -16,6 +16,12 @@ const priority=!prefix8&&new URLSearchParams(location.search).get('priority')===
 const progressive=priority&&new URLSearchParams(location.search).get('progress')==='1';
 const engine=new PencilEngine(c.paper,{userId:'native-local',pageWidth:size,pageHeight:size,paper:'fine',watercolorReview:true,watercolorCoarseTransport:!priority,reviewInputPriority:priority,reviewProgressivePresentation:progressive,joinedTouch:true,asyncFinish:true,materialPresentation:true,gradientFibres:!priority,reviewTouchDrawing:true});
 window.__wcNative=engine;
+// Explicit device QA only: expose the existing engine through the shared bridge.
+if(new URLSearchParams(location.search).get('deviceSmoke')==='1'){
+  window.__engine=engine;
+  await import('/@vite/client');
+  await import('/src/dev/devBridge.ts');
+}
 let fastFront=null;
 let dryPump=null;
 if(prefix8){const {installFastFront,fastFrontSchedule}=await import('/watercolor-native-front-v1/fast-front.js');fastFront=installFastFront(engine,'prefix8');engine._settlePlan.diagnosticFrontSchedule=n=>fastFrontSchedule(n,'prefix8');window.__wcFastFront=fastFront;}
