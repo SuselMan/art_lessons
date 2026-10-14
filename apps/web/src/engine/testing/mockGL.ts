@@ -261,8 +261,9 @@ export class MockGL {
   }
 
   uniform1f(loc: MockLocation, v: number): void { loc.program.uniforms.set(loc.name, v) }
-  uniform1i(loc: MockLocation, v: number): void { loc.program.uniforms.set(loc.name, v) }
+  uniform1i(loc: MockLocation | null, v: number): void { if (loc) loc.program.uniforms.set(loc.name, v) }
   uniform2f(loc: MockLocation, a: number, b: number): void { loc.program.uniforms.set(loc.name, [a, b]) }
+  uniform2fv(loc: MockLocation, v: number[] | Float32Array): void { loc.program.uniforms.set(loc.name, Array.from(v)) }
   uniform3f(loc: MockLocation, a: number, b: number, c: number): void { loc.program.uniforms.set(loc.name, [a, b, c]) }
   uniform3fv(loc: MockLocation, v: number[] | Float32Array): void { loc.program.uniforms.set(loc.name, Array.from(v)) }
   uniform4f(loc: MockLocation, a: number, b: number, c: number, d: number): void { loc.program.uniforms.set(loc.name, [a, b, c, d]) }
