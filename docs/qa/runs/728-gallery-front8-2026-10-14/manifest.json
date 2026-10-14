@@ -1,0 +1,1025 @@
+{
+  "source": "eb563586",
+  "version": "eb563586-front8-dryv2-20261014",
+  "count": 85,
+  "replayPolicy": "400ms between recorded operations, then ordered Dry and canonical idle; no image imports",
+  "reports": [
+    {
+      "elapsed": 32577.5,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 51,
+      "model": "front8-v1",
+      "inputSha": "9afbe5703a947cf9a776657cbd17c75bb31e09ef4c7ad0e9397ebc58254fce8b",
+      "errors": []
+    },
+    {
+      "elapsed": 28764.700000000186,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 36,
+      "model": "front8-v1",
+      "inputSha": "2fd74d2a2e480555edc8d2fb6e76d58b8e89199fba49f4069684f32a7ad5f220",
+      "errors": []
+    },
+    {
+      "elapsed": 17084,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 41,
+      "model": "front8-v1",
+      "inputSha": "ecbb146ddd9ecf3b6c3c46cc289245d92cbf246cf8225490eea70a9dee3ce1d9",
+      "errors": []
+    },
+    {
+      "elapsed": 51055.299999999814,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 23,
+      "model": "front8-v1",
+      "inputSha": "bd0bfc4572486e567c6dac7b5e3ec6311a6b73704aad46e167c89e89e3dfc7cd",
+      "errors": []
+    },
+    {
+      "elapsed": 22622.599999999627,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 24,
+      "model": "front8-v1",
+      "inputSha": "a13e838422e6ab5dfe3eda405e5e3e2fe458fc87f4a01fbde6570021dcd49ecc",
+      "errors": []
+    },
+    {
+      "elapsed": 16358.699999999255,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 39,
+      "model": "front8-v1",
+      "inputSha": "ed89398a12d55c5707e77b01400efe10a8868639f6b7813dec99b939489e193e",
+      "errors": []
+    },
+    {
+      "elapsed": 11450.799999999814,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 27,
+      "model": "front8-v1",
+      "inputSha": "cc5942f9573a74c6828eafe235fceb546a80059c61e747236a2e32cae4a32d41",
+      "errors": []
+    },
+    {
+      "elapsed": 12736.799999999814,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 15,
+      "model": "front8-v1",
+      "inputSha": "5785a07739c812c230c8c7909f85da792ca56453c43adfb741f8e919f2c3e944",
+      "errors": []
+    },
+    {
+      "elapsed": 26700.200000000186,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 29,
+      "model": "front8-v1",
+      "inputSha": "4731d40634f15925ac8d6acf533663d656fef981e0133c60c66f216166d2f452",
+      "errors": []
+    },
+    {
+      "elapsed": 34120.799999999814,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 25,
+      "model": "front8-v1",
+      "inputSha": "f8ef3e54b9bf4f95ea7fff7c3c5114653d04cd0b9ace0bd40d40ab673c5be1e7",
+      "errors": []
+    },
+    {
+      "elapsed": 15288.900000000373,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 17,
+      "model": "front8-v1",
+      "inputSha": "216978823b2d519a0510be70c21fc2a58b9cabfe64f772f72576fadd057be785",
+      "errors": []
+    }
+  ],
+  "sheets": [
+    {
+      "id": "1",
+      "strokes": [
+        {
+          "n": 1,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/001.jpg",
+              "w": 1451,
+              "h": 334
+            }
+          }
+        },
+        {
+          "n": 2,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/002.jpg",
+              "w": 1217,
+              "h": 382
+            }
+          }
+        },
+        {
+          "n": 3,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/003.jpg",
+              "w": 1334,
+              "h": 373
+            }
+          }
+        },
+        {
+          "n": 4,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/004.jpg",
+              "w": 1170,
+              "h": 343
+            }
+          }
+        },
+        {
+          "n": 5,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/005.jpg",
+              "w": 1287,
+              "h": 326
+            }
+          }
+        },
+        {
+          "n": 6,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/006.jpg",
+              "w": 1256,
+              "h": 354
+            }
+          }
+        },
+        {
+          "n": 7,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/007.jpg",
+              "w": 1187,
+              "h": 407
+            }
+          }
+        },
+        {
+          "n": 8,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/008.jpg",
+              "w": 1142,
+              "h": 376
+            }
+          }
+        },
+        {
+          "n": 9,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/009.jpg",
+              "w": 908,
+              "h": 407
+            }
+          }
+        },
+        {
+          "n": 10,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/010.jpg",
+              "w": 939,
+              "h": 398
+            }
+          }
+        },
+        {
+          "n": 11,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/011.jpg",
+              "w": 942,
+              "h": 382
+            }
+          }
+        },
+        {
+          "n": 12,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/012.jpg",
+              "w": 836,
+              "h": 329
+            }
+          }
+        },
+        {
+          "n": 13,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/013.jpg",
+              "w": 827,
+              "h": 340
+            }
+          }
+        },
+        {
+          "n": 14,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/014.jpg",
+              "w": 794,
+              "h": 345
+            }
+          }
+        },
+        {
+          "n": 15,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/015.jpg",
+              "w": 864,
+              "h": 384
+            }
+          }
+        },
+        {
+          "n": 17,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/1/017.jpg",
+              "w": 816,
+              "h": 343
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "strokes": [
+        {
+          "n": 1,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/2/001.jpg",
+              "w": 718,
+              "h": 794
+            }
+          }
+        },
+        {
+          "n": 2,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/2/002.jpg",
+              "w": 718,
+              "h": 770
+            }
+          }
+        },
+        {
+          "n": 3,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/2/003.jpg",
+              "w": 789,
+              "h": 794
+            }
+          }
+        },
+        {
+          "n": 4,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/2/004.jpg",
+              "w": 808,
+              "h": 914
+            }
+          }
+        },
+        {
+          "n": 5,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/2/005.jpg",
+              "w": 819,
+              "h": 868
+            }
+          }
+        },
+        {
+          "n": 6,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/2/006.jpg",
+              "w": 718,
+              "h": 963
+            }
+          }
+        },
+        {
+          "n": 7,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/2/007.jpg",
+              "w": 1414,
+              "h": 707
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "strokes": [
+        {
+          "n": 1,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/3/001.jpg",
+              "w": 719,
+              "h": 540
+            }
+          }
+        },
+        {
+          "n": 2,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/3/002.jpg",
+              "w": 719,
+              "h": 540
+            }
+          }
+        },
+        {
+          "n": 3,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/3/003.jpg",
+              "w": 719,
+              "h": 540
+            }
+          }
+        },
+        {
+          "n": 4,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/3/004.jpg",
+              "w": 719,
+              "h": 540
+            }
+          }
+        },
+        {
+          "n": 5,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/3/005.jpg",
+              "w": 719,
+              "h": 540
+            }
+          }
+        },
+        {
+          "n": 6,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/3/006.jpg",
+              "w": 719,
+              "h": 540
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "strokes": [
+        {
+          "n": 1,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/4/001.jpg",
+              "w": 1008,
+              "h": 599
+            }
+          }
+        },
+        {
+          "n": 2,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/4/002.jpg",
+              "w": 1095,
+              "h": 599
+            }
+          }
+        },
+        {
+          "n": 3,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/4/003.jpg",
+              "w": 1051,
+              "h": 599
+            }
+          }
+        },
+        {
+          "n": 4,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/4/004.jpg",
+              "w": 1018,
+              "h": 599
+            }
+          }
+        },
+        {
+          "n": 5,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/4/005.jpg",
+              "w": 870,
+              "h": 599
+            }
+          }
+        },
+        {
+          "n": 6,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/4/006.jpg",
+              "w": 1055,
+              "h": 599
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "strokes": [
+        {
+          "n": 1,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/5/001.jpg",
+              "w": 1317,
+              "h": 329
+            }
+          }
+        },
+        {
+          "n": 2,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/5/002.jpg",
+              "w": 1213,
+              "h": 360
+            }
+          }
+        },
+        {
+          "n": 3,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/5/003.jpg",
+              "w": 1256,
+              "h": 278
+            }
+          }
+        },
+        {
+          "n": 4,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/5/004.jpg",
+              "w": 969,
+              "h": 289
+            }
+          }
+        },
+        {
+          "n": 5,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/5/005.jpg",
+              "w": 1000,
+              "h": 289
+            }
+          }
+        },
+        {
+          "n": 6,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/5/006.jpg",
+              "w": 1183,
+              "h": 299
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "strokes": [
+        {
+          "n": 1,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/6/001.jpg",
+              "w": 1345,
+              "h": 438
+            }
+          }
+        },
+        {
+          "n": 2,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/6/002.jpg",
+              "w": 1209,
+              "h": 546
+            }
+          }
+        },
+        {
+          "n": 3,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/6/003.jpg",
+              "w": 1217,
+              "h": 476
+            }
+          }
+        },
+        {
+          "n": 4,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/6/004.jpg",
+              "w": 1189,
+              "h": 487
+            }
+          }
+        },
+        {
+          "n": 5,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/6/005.jpg",
+              "w": 1122,
+              "h": 525
+            }
+          }
+        },
+        {
+          "n": 6,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/6/006.jpg",
+              "w": 1032,
+              "h": 515
+            }
+          }
+        },
+        {
+          "n": 7,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/6/007.jpg",
+              "w": 1071,
+              "h": 466
+            }
+          }
+        },
+        {
+          "n": 8,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/6/008.jpg",
+              "w": 1168,
+              "h": 497
+            }
+          }
+        },
+        {
+          "n": 9,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/6/009.jpg",
+              "w": 1237,
+              "h": 546
+            }
+          }
+        },
+        {
+          "n": 10,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/6/010.jpg",
+              "w": 1296,
+              "h": 564
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "strokes": [
+        {
+          "n": 1,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/7/001.jpg",
+              "w": 727,
+              "h": 386
+            }
+          }
+        },
+        {
+          "n": 2,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/7/002.jpg",
+              "w": 697,
+              "h": 325
+            }
+          }
+        },
+        {
+          "n": 3,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/7/003.jpg",
+              "w": 748,
+              "h": 406
+            }
+          }
+        },
+        {
+          "n": 4,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/7/004.jpg",
+              "w": 758,
+              "h": 378
+            }
+          }
+        },
+        {
+          "n": 5,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/7/005.jpg",
+              "w": 666,
+              "h": 368
+            }
+          }
+        },
+        {
+          "n": 6,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/7/006.jpg",
+              "w": 656,
+              "h": 386
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "strokes": [
+        {
+          "n": 1,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/8/001.jpg",
+              "w": 807,
+              "h": 297
+            }
+          }
+        },
+        {
+          "n": 2,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/8/002.jpg",
+              "w": 1008,
+              "h": 297
+            }
+          }
+        },
+        {
+          "n": 3,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/8/003.jpg",
+              "w": 998,
+              "h": 335
+            }
+          }
+        },
+        {
+          "n": 4,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/8/004.jpg",
+              "w": 1048,
+              "h": 287
+            }
+          }
+        },
+        {
+          "n": 5,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/8/005.jpg",
+              "w": 1168,
+              "h": 325
+            }
+          }
+        },
+        {
+          "n": 6,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/8/006.jpg",
+              "w": 977,
+              "h": 297
+            }
+          }
+        },
+        {
+          "n": 7,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/8/007.jpg",
+              "w": 957,
+              "h": 307
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "strokes": [
+        {
+          "n": 1,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/9/001.jpg",
+              "w": 693,
+              "h": 565
+            }
+          }
+        },
+        {
+          "n": 2,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/9/002.jpg",
+              "w": 650,
+              "h": 597
+            }
+          }
+        },
+        {
+          "n": 3,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/9/003.jpg",
+              "w": 713,
+              "h": 585
+            }
+          }
+        },
+        {
+          "n": 4,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/9/004.jpg",
+              "w": 725,
+              "h": 618
+            }
+          }
+        },
+        {
+          "n": 5,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/9/005.jpg",
+              "w": 660,
+              "h": 683
+            }
+          }
+        },
+        {
+          "n": 6,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/9/006.jpg",
+              "w": 736,
+              "h": 703
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "strokes": [
+        {
+          "n": 1,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/10/001.jpg",
+              "w": 711,
+              "h": 577
+            }
+          }
+        },
+        {
+          "n": 2,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/10/002.jpg",
+              "w": 679,
+              "h": 577
+            }
+          }
+        },
+        {
+          "n": 3,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/10/003.jpg",
+              "w": 768,
+              "h": 634
+            }
+          }
+        },
+        {
+          "n": 4,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/10/004.jpg",
+              "w": 701,
+              "h": 599
+            }
+          }
+        },
+        {
+          "n": 5,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/10/005.jpg",
+              "w": 711,
+              "h": 589
+            }
+          }
+        },
+        {
+          "n": 6,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/10/006.jpg",
+              "w": 845,
+              "h": 522
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "12",
+      "strokes": [
+        {
+          "n": 1,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/12/001.jpg",
+              "w": 1280,
+              "h": 209
+            }
+          }
+        },
+        {
+          "n": 2,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/12/002.jpg",
+              "w": 1376,
+              "h": 246
+            }
+          }
+        },
+        {
+          "n": 3,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/12/003.jpg",
+              "w": 1422,
+              "h": 242
+            }
+          }
+        },
+        {
+          "n": 4,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/12/004.jpg",
+              "w": 1449,
+              "h": 282
+            }
+          }
+        },
+        {
+          "n": 5,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/12/005.jpg",
+              "w": 1325,
+              "h": 276
+            }
+          }
+        },
+        {
+          "n": 6,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/12/006.jpg",
+              "w": 1051,
+              "h": 276
+            }
+          }
+        },
+        {
+          "n": 7,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/12/007.jpg",
+              "w": 1242,
+              "h": 364
+            }
+          }
+        },
+        {
+          "n": 8,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/12/008.jpg",
+              "w": 1164,
+              "h": 307
+            }
+          }
+        },
+        {
+          "n": 9,
+          "app": {
+            "eb563586-front8-dryv2-20261014": {
+              "src": "preview/gallery-eb563586-front8-dryv2-20261014/img/12/009.jpg",
+              "w": 1148,
+              "h": 307
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
