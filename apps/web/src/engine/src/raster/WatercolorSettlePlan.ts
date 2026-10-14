@@ -135,7 +135,9 @@ export class WatercolorSettlePlan {
   ): { ops: Array<() => void>; finish: () => void; dispose: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
     const { gl } = this
     const metadata = finishMetadata ?? scratch
-    const front8 = (finishMetadata?.finish ?? scratch.finishContext)?.profile.materialModel === 'front8-v1'
+    const materialModel = (finishMetadata?.finish ?? scratch.finishContext)?.profile.materialModel
+    const fineFront = materialModel === 'front8-fine-v1'
+    const front8 = fineFront || materialModel === 'front8-v1'
     const coarseTransport = front8 || this.diagnosticCoarseTransport
     const splitQuanta = this.splitQuanta && presentationOwnerLocked
     const lazyContacts = this.lazyContacts && presentationOwnerLocked
@@ -190,7 +192,7 @@ export class WatercolorSettlePlan {
     let x0 = Math.max(minX, Math.floor(bounds.minX) - pad), y0 = Math.max(minY, Math.floor(bounds.minY) - pad)
     let x1 = Math.min(maxX, Math.ceil(bounds.maxX) + pad), y1 = Math.min(maxY, Math.ceil(bounds.maxY) + pad)
     if ((radiusPx >= WC_HALF_RES_RADIUS_PX && Math.max(x1 - x0, y1 - y0) > WC_HALF_RES_SPAN_PX)
-      || (coarseTransport && radiusPx >= 8 && Math.max(x1 - x0, y1 - y0) > 128)) S = 2
+      || (coarseTransport && !fineFront && radiusPx >= 8 && Math.max(x1 - x0, y1 - y0) > 128)) S = 2
     const CAP = 1536 * S
     if (x1 - x0 > CAP) { const c = (x0 + x1) * 0.5; x0 = Math.floor(c - CAP / 2); x1 = x0 + CAP }
     if (y1 - y0 > CAP) { const c = (y0 + y1) * 0.5; y0 = Math.floor(c - CAP / 2); y1 = y0 + CAP }

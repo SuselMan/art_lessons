@@ -10,17 +10,21 @@ describe('recorded watercolor material version', () => {
       expect(watercolorWashSignature(preset, [1, 0, 0])).toBe('wc')
     }
   })
-  it('persists the material without changing recorded brush and pigment settings', () => {
+  for (const model of ['front8-v1', 'front8-fine-v1'] as const) it(`persists ${model} without changing recorded brush and pigment settings`, () => {
     const legacy = watercolorPresetString('soft', { water: .7, pigment: .4 }, 'PY35', 'round')
-    const next = withWatercolorModel(legacy, 'front8-v1')
-    expect(next).toBe(legacy + ':wc@front8-v1')
-    expect(withWatercolorModel(next, 'front8-v1')).toBe(next)
-    expect(watercolorModelFromPreset(next)).toBe('front8-v1')
+    const next = withWatercolorModel(legacy, model)
+    expect(next).toBe(legacy + ':wc@' + model)
+    expect(withWatercolorModel(next, model)).toBe(next)
+    expect(watercolorModelFromPreset(next)).toBe(model)
     expect(watercolorMixFromPreset(next)).toEqual(watercolorMixFromPreset(legacy))
-    expect(ribbonProfileFor('watercolor', next).materialModel).toBe('front8-v1')
+    expect(ribbonProfileFor('watercolor', next).materialModel).toBe(model)
     expect(watercolorWashSignature(next, [0, 1, 0])).not.toBe(watercolorWashSignature(legacy, [0, 1, 0]))
   })
   it('rejects an unsupported recorded model instead of silently repainting it', () => {
     expect(() => watercolorModelFromPreset('normal:100:69:PB15:round:wc@front8-v2')).toThrow('Unsupported watercolor model')
   })
+})
+
+it('keeps coarse and fine front washes separate', () => {
+  expect(watercolorWashSignature('normal:100:69:PB29:round:wc@front8-fine-v1', [1,0,0])).not.toBe(watercolorWashSignature('normal:100:69:PB29:round:wc@front8-v1', [1,0,0]))
 })

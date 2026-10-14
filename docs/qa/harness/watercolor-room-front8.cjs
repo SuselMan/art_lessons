@@ -1,4 +1,5 @@
 const fs = require('fs');
+const expectedModel = process.env.QA_WATERCOLOR_MODEL || 'front8-v1';
 const { chromium } = require('@playwright/test');
 const out = process.env.QA_OUTPUT;
 const base = process.env.QA_BASE_URL;
@@ -34,7 +35,7 @@ fs.mkdirSync(out, { recursive: true });
         }
         console.log('both ready');
         const identity = await host.evaluate(() => ({ model: __engine._watercolorModel, async: __engine._wcAsyncFinish, scheduler: !!__engine._wcDryWorkScheduler, operations: __engine.getOperations().filter(o => o.type === 'stroke').length }));
-        if (identity.model !== 'front8-v1' || !identity.scheduler || identity.operations)
+        if (identity.model !== expectedModel || !identity.scheduler || identity.operations)
             throw Error('Wrong model or nonempty fixture room ' + JSON.stringify(identity));
         await host.evaluate(() => {
             const s = __roomStore.getState();
@@ -74,7 +75,7 @@ fs.mkdirSync(out, { recursive: true });
             await idle(p);
         }
         const ops = await host.evaluate(() => __engine.getOperations().filter(o => o.type === 'stroke').map(o => ({ id: o.id, layerId: o.layerId, preset: o.preset })));
-        if (ops.some(o => !o.preset.endsWith(':wc@front8-v1')))
+        if (ops.some(o => !o.preset.endsWith(':wc@' + expectedModel)))
             throw Error('Model not persisted');
         const read = async (p) => p.evaluate(layer => { const e = __engine, tiles = e._layers.get(layer).allResident().sort((a, b) => a.originY - b.originY || a.originX - b.originX); return tiles.map(t => ({ x: t.originX, y: t.originY, pixels: (() => { const bytes=t.buffer.readPixels(); let value=''; for(let i=0;i<bytes.length;i+=8192) value+=String.fromCharCode(...bytes.subarray(i,i+8192)); return btoa(value); })() })); }, ops[0].layerId);
         const diff = (a, c) => { const maps = [a, c].map(tiles => new Map(tiles.map(t => [t.x + ',' + t.y, Buffer.from(t.pixels, 'base64')]))); let max = 0, n = 0; for (const key of new Set([...maps[0].keys(), ...maps[1].keys()])) {
