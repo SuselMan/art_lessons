@@ -1,0 +1,254 @@
+{
+  "singleTrial": true,
+  "smallTileHashesEqual": true,
+  "rows": [
+    {
+      "device": "AMD laptop",
+      "n": 2,
+      "mode": "front8-fine-v1",
+      "inputMs": 4906.199999999255,
+      "dryMs": 439,
+      "wholeWorkMs": 5345.199999999255,
+      "frames": {
+        "n": 7,
+        "p95": 316.7000000000007,
+        "max": 316.7000000000007,
+        "over100": 1
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "gl": 0,
+      "lost": false,
+      "errors": [],
+      "fields": [
+        [
+          1536,
+          1536,
+          1
+        ]
+      ],
+      "counts": {
+        "previews": 687,
+        "front": 118,
+        "field": 501,
+        "groupTides": 2
+      }
+    },
+    {
+      "device": "AMD laptop",
+      "n": 2,
+      "mode": "front8-fine-large-v1",
+      "inputMs": 4962.89999999851,
+      "dryMs": 133.40000000223517,
+      "wholeWorkMs": 5096.300000000745,
+      "frames": {
+        "n": 5,
+        "p95": 55.599999999998545,
+        "max": 55.599999999998545,
+        "over100": 0
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "gl": 0,
+      "lost": false,
+      "errors": [],
+      "fields": [
+        [
+          768,
+          768,
+          2
+        ]
+      ],
+      "counts": {
+        "previews": 365,
+        "front": 72,
+        "field": 496,
+        "groupTides": 2
+      }
+    },
+    {
+      "device": "AMD laptop",
+      "n": 12,
+      "mode": "front8-fine-v1",
+      "inputMs": 5899.70000000298,
+      "dryMs": 5733.5,
+      "wholeWorkMs": 11633.20000000298,
+      "frames": {
+        "n": 21,
+        "p95": 599.8999999999978,
+        "max": 611.0999999999985,
+        "over100": 15
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "gl": 0,
+      "lost": false,
+      "errors": [],
+      "fields": [
+        [
+          1536,
+          1536,
+          1
+        ]
+      ],
+      "counts": {
+        "previews": 4122,
+        "front": 708,
+        "field": 3462,
+        "groupTides": 12
+      }
+    },
+    {
+      "device": "AMD laptop",
+      "n": 12,
+      "mode": "front8-fine-large-v1",
+      "inputMs": 6446.10000000149,
+      "dryMs": 1783.199999999255,
+      "wholeWorkMs": 8229.300000000745,
+      "frames": {
+        "n": 23,
+        "p95": 183.29999999999927,
+        "max": 227.70000000000073,
+        "over100": 7
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "gl": 0,
+      "lost": false,
+      "errors": [],
+      "fields": [
+        [
+          768,
+          768,
+          2
+        ]
+      ],
+      "counts": {
+        "previews": 2190,
+        "front": 432,
+        "field": 3420,
+        "groupTides": 12
+      }
+    },
+    {
+      "device": "Samsung Adreno650",
+      "n": 2,
+      "mode": "front8-fine-v1",
+      "inputMs": 1286.2999999523163,
+      "dryMs": 2252.399999976158,
+      "wholeWorkMs": 3538.6999999284744,
+      "frames": {
+        "n": 11,
+        "p95": 1053.1999999999998,
+        "max": 1053.1999999999998,
+        "over100": 5
+      },
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "gl": 0,
+      "lost": false,
+      "errors": [],
+      "fields": [
+        [
+          1536,
+          1536,
+          1
+        ]
+      ],
+      "counts": {
+        "previews": 687,
+        "front": 118,
+        "field": 501,
+        "groupTides": 2
+      }
+    },
+    {
+      "device": "Samsung Adreno650",
+      "n": 2,
+      "mode": "front8-fine-large-v1",
+      "inputMs": 1260.8999999761581,
+      "dryMs": 938.8999999761581,
+      "wholeWorkMs": 2199.7999999523163,
+      "frames": {
+        "n": 11,
+        "p95": 267.5,
+        "max": 267.5,
+        "over100": 5
+      },
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "gl": 0,
+      "lost": false,
+      "errors": [],
+      "fields": [
+        [
+          768,
+          768,
+          2
+        ]
+      ],
+      "counts": {
+        "previews": 365,
+        "front": 72,
+        "field": 497,
+        "groupTides": 2
+      }
+    },
+    {
+      "device": "Samsung Adreno650",
+      "n": 12,
+      "mode": "front8-fine-v1",
+      "inputMs": 3759.899999976158,
+      "dryMs": 26314.799999952316,
+      "wholeWorkMs": 30074.699999928474,
+      "frames": {
+        "n": 36,
+        "p95": 1771.6000000000022,
+        "max": 1772.1000000000022,
+        "over100": 30
+      },
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "gl": 0,
+      "lost": false,
+      "errors": [],
+      "fields": [
+        [
+          1536,
+          1536,
+          1
+        ]
+      ],
+      "counts": {
+        "previews": 4122,
+        "front": 708,
+        "field": 3466,
+        "groupTides": 12
+      }
+    },
+    {
+      "device": "Samsung Adreno650",
+      "n": 12,
+      "mode": "front8-fine-large-v1",
+      "inputMs": 3657.5,
+      "dryMs": 9483,
+      "wholeWorkMs": 13140.5,
+      "frames": {
+        "n": 30,
+        "p95": 769,
+        "max": 785.6999999999989,
+        "over100": 22
+      },
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "gl": 0,
+      "lost": false,
+      "errors": [],
+      "fields": [
+        [
+          768,
+          768,
+          2
+        ]
+      ],
+      "counts": {
+        "previews": 2190,
+        "front": 432,
+        "field": 3417,
+        "groupTides": 12
+      }
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "room": "quwwIr4-",
+  "scope": "Full Grafetto QA room; two Chromium SwiftShader contexts, standard fields. Not hardware",
+  "identity": {
+    "model": "front8-fine-large-v1",
+    "async": true,
+    "scheduler": true,
+    "operations": 0
+  },
+  "ops": [
+    {
+      "id": "btktieRRyQ",
+      "layerId": "layer-1",
+      "preset": "normal:100:69:PB29:round:wc@front8-fine-large-v1"
+    },
+    {
+      "id": "iUHiv4Yzyf",
+      "layerId": "layer-1",
+      "preset": "normal:100:69:PB29:round:wc@front8-fine-large-v1"
+    }
+  ],
+  "peerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "front": {
+    "buildDraws": 32,
+    "jumpDraws": 28,
+    "nativeDraws": 0,
+    "cacheBuilds": 2,
+    "extraBytes": 11796480
+  },
+  "scheduler": {
+    "tasks": 171,
+    "frames": 17
+  },
+  "errors": [],
+  "undoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoPeerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "reenterDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "export": {
+    "pngBytes": 1587058,
+    "pngType": "image/png",
+    "snapshotBytes": 4194324
+  },
+  "contextRestoreDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "gl": 0,
+  "executionRenderer": "Headed Chrome, AMD Radeon Graphics (radeonsi renoir ACO); benchmark on same device",
+  "scopeNote": "Historical harness labels mentioning SwiftShader are not execution metadata. Hardware launch override used."
+}

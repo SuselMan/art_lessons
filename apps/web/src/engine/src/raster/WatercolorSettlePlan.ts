@@ -15,7 +15,7 @@ import { pigmentAbsorption } from '../watercolor/pigmentOptics'
 import { watercolorDampOver, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME, watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_POOL_STREAK, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE } from '../presets/watercolorPresets'
 import type { PaintTarget } from '../buffers/ILayerBuffer'
 import type { SettleField } from '../buffers/SettleField'
-import { WC_HALF_RES_RADIUS_PX, WC_HALF_RES_SPAN_PX } from '../watercolor/settleResolution'
+import { watercolorSettleScale } from '../watercolor/settleResolution'
 
 export type WatercolorSettlePreview = (tile: PaintTarget, pigment: AccumulationBuffer, color: AccumulationBuffer | null, coverage: AccumulationBuffer) => void
 
@@ -136,7 +136,8 @@ export class WatercolorSettlePlan {
     const { gl } = this
     const metadata = finishMetadata ?? scratch
     const materialModel = (finishMetadata?.finish ?? scratch.finishContext)?.profile.materialModel
-    const fineFront = materialModel === 'front8-fine-v1'
+    const fineLarge = materialModel === 'front8-fine-large-v1'
+    const fineFront = fineLarge || materialModel === 'front8-fine-v1'
     const front8 = fineFront || materialModel === 'front8-v1'
     const coarseTransport = front8 || this.diagnosticCoarseTransport
     const splitQuanta = this.splitQuanta && presentationOwnerLocked
@@ -191,8 +192,8 @@ export class WatercolorSettlePlan {
     const pad = Math.max(WET_DIFFUSE_REACH, frontReachPx) + 1 + dryMargin
     let x0 = Math.max(minX, Math.floor(bounds.minX) - pad), y0 = Math.max(minY, Math.floor(bounds.minY) - pad)
     let x1 = Math.min(maxX, Math.ceil(bounds.maxX) + pad), y1 = Math.min(maxY, Math.ceil(bounds.maxY) + pad)
-    if ((radiusPx >= WC_HALF_RES_RADIUS_PX && Math.max(x1 - x0, y1 - y0) > WC_HALF_RES_SPAN_PX)
-      || (coarseTransport && !fineFront && radiusPx >= 8 && Math.max(x1 - x0, y1 - y0) > 128)) S = 2
+    S = watercolorSettleScale(radiusPx, Math.max(x1 - x0, y1 - y0),
+      fineLarge ? 'fine-large' : !fineFront && coarseTransport ? 'coarse' : 'native')
     const CAP = 1536 * S
     if (x1 - x0 > CAP) { const c = (x0 + x1) * 0.5; x0 = Math.floor(c - CAP / 2); x1 = x0 + CAP }
     if (y1 - y0 > CAP) { const c = (y0 + y1) * 0.5; y0 = Math.floor(c - CAP / 2); y1 = y0 + CAP }

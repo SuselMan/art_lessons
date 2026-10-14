@@ -1,9 +1,10 @@
 import type { PencilEngineOptions } from '../../../engine'
 
 /** Authoring opt-in for the approved standalone model; recorded presets drive replay. */
-export function watercolorModelQaOptions(joinedTouch: boolean): Pick<PencilEngineOptions, 'asyncFinish' | 'watercolorReview' | 'watercolorModel' | 'materialPresentation' | 'joinedTouch'> {
+export function watercolorModelQaOptions(joinedTouch: boolean, search = ''): Pick<PencilEngineOptions, 'asyncFinish' | 'watercolorReview' | 'watercolorModel' | 'materialPresentation' | 'joinedTouch'> {
   const requested = import.meta.env.VITE_QA_WATERCOLOR_MODEL
-  const model = import.meta.env.DEV && (requested === 'front8-v1' || requested === 'front8-fine-v1') ? requested : 'legacy'
+  const requestedModel = requested === 'front8-fine-v1' && new URLSearchParams(search).get('qaFastDry') === '1' ? 'front8-fine-large-v1' : requested
+  const model = import.meta.env.DEV && (requestedModel === 'front8-v1' || requestedModel === 'front8-fine-v1' || requestedModel === 'front8-fine-large-v1') ? requestedModel : 'legacy'
   const front8 = model !== 'legacy'
   return { joinedTouch: front8 || joinedTouch, asyncFinish: front8, watercolorReview: front8, watercolorModel: model, materialPresentation: front8 }
 }
