@@ -16,7 +16,7 @@ const size=small?256:1024;c.paper.width=c.paper.height=size;
 const prefix8=location.pathname==='/watercolor-native-front8';
 const priority=!prefix8&&new URLSearchParams(location.search).get('priority')==='1';
 const progressive=priority&&new URLSearchParams(location.search).get('progress')==='1';
-const engine=new PencilEngine(c.paper,{userId:'native-local',pageWidth:size,pageHeight:size,paper:'fine',watercolorReview:true,watercolorCoarseTransport:!priority,reviewInputPriority:priority,reviewProgressivePresentation:progressive,joinedTouch:true,asyncFinish:true,materialPresentation:true,gradientFibres:!priority,reviewTouchDrawing:true});
+const engine=new PencilEngine(c.paper,{userId:'native-local',pageWidth:size,pageHeight:size,paper:'fine',watercolorReview:true,watercolorCoarseTransport:!priority&&!prefix8,reviewInputPriority:priority,reviewProgressivePresentation:progressive,joinedTouch:true,asyncFinish:true,materialPresentation:true,gradientFibres:!priority,reviewTouchDrawing:true});
 window.__wcNative=engine;
 // Connect diagnostics before GL initialization so a device failure remains observable.
 if(deviceSmoke)window.__engine=engine;
@@ -25,8 +25,8 @@ let dryPump=null;
 if(prefix8){const {installFastFront,fastFrontSchedule}=await import('/watercolor-native-front-v1/fast-front.js');fastFront=installFastFront(engine,'prefix8');engine._settlePlan.diagnosticFrontSchedule=n=>fastFrontSchedule(n,'prefix8');window.__wcFastFront=fastFront;}
 if(prefix8&&new URLSearchParams(location.search).get('dryTasks')!=='0'){const {installDryPump}=await import('/watercolor-native-front-v1/dry-pump.js');dryPump=installDryPump(engine);window.__wcDryPump=dryPump;}
 if(!priority)engine._watercolorPasses.warmGradientFibres();
-window.__wcReviewVersion=dryPump?"native-prefix8-drytasks-v2":prefix8?"native-prefix8-v1":progressive?"native-input-priority-v10":priority?"native-input-priority-v9":"native-queue-fibres-v8";
-if(prefix8){document.title=dryPump?'Акварель — 8 клеток, сушка v2':'Акварель — фронт воды 8 клеток';document.querySelector('h1').textContent=document.title;}
+window.__wcReviewVersion=dryPump?"native-prefix8-fine-drytasks-v2":prefix8?"native-prefix8-fine-v1":progressive?"native-input-priority-v10":priority?"native-input-priority-v9":"native-queue-fibres-v8";
+if(prefix8){document.title=dryPump?'Акварель — 8 клеток, точный край, сушка v2':'Акварель — 8 клеток, точный край';document.querySelector('h1').textContent=document.title;}
 if(priority){document.title=progressive?"Акварель — промежуточное растекание v10":"Акварель — приоритет пера v9";document.querySelector("h1").textContent=document.title;}
 engine.appendOperation({id:'local-layer',type:'layer_add',userId:'native-local',timestamp:1,layerId:'local',name:'Акварель'});
 engine.setCompositeOrder([{id:'local',opacity:1}]);engine.setActiveLayer('local');engine.setTool('watercolor');
