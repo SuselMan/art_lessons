@@ -1,0 +1,16 @@
+START 1 baseline 2
+DONE baseline 2 1020.3999999985099 { n: 7, p95: 783.3000000000011, max: 783.3000000000011, over100: 1 } { queue: 35, settle: false } 687
+START 2 detail 2
+DONE detail 2 298.1000000014901 { n: 6, p95: 55.60000000000218, max: 55.60000000000218, over100: 0 } { queue: 35, settle: false } 365
+START 3 detail 2
+DONE detail 2 303.69999999925494 { n: 8, p95: 133.29999999999927, max: 133.29999999999927, over100: 1 } { queue: 37, settle: false } 365
+START 4 baseline 2
+DONE baseline 2 1027.8999999985099 { n: 9, p95: 799.8999999999996, max: 799.8999999999996, over100: 1 } { queue: 36, settle: false } 687
+START 5 baseline 12
+DONE baseline 12 6880.89999999851 { n: 24, p95: 588.8999999999978, max: 594.5, over100: 19 } { queue: 287, settle: true } 4122
+START 6 detail 12
+DONE detail 12 2035.0999999977648 { n: 19, p95: 200, max: 200, over100: 10 } { queue: 287, settle: true } 2190
+START 7 detail 12
+DONE detail 12 2041.5 { n: 26, p95: 161.20000000000073, max: 277.7999999999993, over100: 9 } { queue: 287, settle: true } 2190
+START 8 baseline 12
+DONE baseline 12 6889 { n: 26, p95: 577.9000000000015, max: 611, over100: 17 } { queue: 287, settle: true } 4122
