@@ -1,3 +1,4 @@
+import { WatercolorMaterialReconstruction } from './WatercolorMaterialReconstruction'
 import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
 import { createWatercolorFrontPaths } from './WatercolorFrontPaths'
@@ -13,6 +14,10 @@ export type { WatercolorPassField, WatercolorPassesContext } from './WatercolorP
 export class WatercolorPasses {
   private _frontPaths: ReturnType<typeof createWatercolorFrontPaths> | null = null
   private readonly ctx: WatercolorPassesContext
+  private _materialReconstruction: WatercolorMaterialReconstruction | null = null
+  materialReconstruction(): WatercolorMaterialReconstruction {
+    return this._materialReconstruction ??= new WatercolorMaterialReconstruction(this.ctx)
+  }
   constructor(ctx: WatercolorPassesContext) { this.ctx = ctx }
   private get gl(): WebGLRenderingContext { return this.ctx.gl() }
 
@@ -423,6 +428,8 @@ export class WatercolorPasses {
   }
 
   initFieldPrograms(): void {
+    this._materialReconstruction?.dispose()
+    this._materialReconstruction = null
     const { gl } = this
     // Context restoration invalidates the optional cached program too.
     this.releaseGradientField()
@@ -479,6 +486,8 @@ export class WatercolorPasses {
   }
 
   destroy(): void {
+    this._materialReconstruction?.dispose()
+    this._materialReconstruction = null
     this._frontPaths?.dispose()
     this._frontPaths = null
     // Deleting the currently bound program is deferred until it is unbound.

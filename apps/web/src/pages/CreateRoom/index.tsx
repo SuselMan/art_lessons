@@ -259,7 +259,7 @@ export function CreateRoom() {
     // one-line revert.
     if (sizePreset === 'infinite') {
       setEntering(true)
-      navigate(`/room/${id}${import.meta.env.DEV && new URLSearchParams(location.search).get('qaFastDry') === '1' ? '?qaFastDry=1' : ''}`, {
+      navigate(`/room/${id}${import.meta.env.DEV && ['1', 'detail'].includes(new URLSearchParams(location.search).get('qaFastDry') ?? '') ? `?qaFastDry=${new URLSearchParams(location.search).get('qaFastDry')}` : ''}`, {
         state: {
           room: { id, name, paper, paperColor: resolvedPaperColorHex, infinite: true, enabledTools, classVisibility },
           password: pw, folderId, ...accessPayload,
@@ -286,7 +286,7 @@ export function CreateRoom() {
     // After the size validation above, never before it — a rejected custom
     // size leaves the form usable rather than stuck behind a disabled button.
     setEntering(true)
-    navigate(`/room/${id}${import.meta.env.DEV && new URLSearchParams(location.search).get('qaFastDry') === '1' ? '?qaFastDry=1' : ''}`, {
+    navigate(`/room/${id}${import.meta.env.DEV && ['1', 'detail'].includes(new URLSearchParams(location.search).get('qaFastDry') ?? '') ? `?qaFastDry=${new URLSearchParams(location.search).get('qaFastDry')}` : ''}`, {
       state: {
         room: {
           id, name, paper, paperColor: resolvedPaperColorHex, infinite: false,

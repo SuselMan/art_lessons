@@ -136,7 +136,9 @@ export class WatercolorSettlePlan {
     const { gl } = this
     const metadata = finishMetadata ?? scratch
     const materialModel = (finishMetadata?.finish ?? scratch.finishContext)?.profile.materialModel
-    const fineLarge = materialModel === 'front8-fine-large-v1'
+    const detailMaterial = materialModel === 'front8-detail-v1'
+    const preserveBrush = detailMaterial && metadata.brushTravel.some(d => Math.hypot(d.dx, d.dy) >= 0.01)
+    const fineLarge = detailMaterial || materialModel === 'front8-fine-large-v1'
     const fineFront = fineLarge || materialModel === 'front8-fine-v1'
     const front8 = fineFront || materialModel === 'front8-v1'
     const coarseTransport = front8 || this.diagnosticCoarseTransport
@@ -260,7 +262,10 @@ export class WatercolorSettlePlan {
     }
     const a0 = S > 1 ? acquireInput(field.w, field.h) : null
     const ca0 = S > 1 ? acquireInput(field.w, field.h) : null
-    const snapshots = new Map<AccumulationBuffer, { ink: AccumulationBuffer; color: AccumulationBuffer | null }>()
+    const inputInk = preserveBrush && S > 1 ? acquireInput(field.w, field.h) : null
+    const inputColor = detailMaterial && S > 1 ? acquireInput(field.w, field.h) : null
+    const fadeEdges: [number, number, number, number] = [+(x0 > minX), +(y1 < maxY), +(x1 < maxX), +(y0 > minY)]
+    const snapshots = new Map<AccumulationBuffer, { ink: AccumulationBuffer; color: AccumulationBuffer | null; currentInk?: AccumulationBuffer; currentColor?: AccumulationBuffer }>()
     // The settle's rect in the field's GL cells, for the interpolation's clamp.
     const fieldRect: [number, number, number, number] = [0, field.h - h / S, w / S, field.h]
     // A world rect of a tile into the field (S = 1: a copy; else the 2x2 mean).
@@ -272,18 +277,34 @@ export class WatercolorSettlePlan {
     }
     // ...and back: S = 1, the field's value; else base + up(new - old). The
     // target may be the base: the draw goes through a pooled temporary.
-    const fromField = (fNew: AccumulationBuffer, fOld: AccumulationBuffer | null, tile: PaintTarget, wx0: number, wy0: number, wx1: number, wy1: number, target: AccumulationBuffer, base: AccumulationBuffer): void => {
+    const fromField = (fNew: AccumulationBuffer, fOld: AccumulationBuffer | null, tile: PaintTarget, wx0: number, wy0: number, wx1: number, wy1: number, target: AccumulationBuffer, base: AccumulationBuffer, pigmentRecord = false): void => {
       const tx = wx0 - tile.originX, ty = tile.buffer.height - (wy1 - tile.originY)
       const fx = (wx0 - x0) / S, fy = field.h - (wy1 - y0) / S
       if (S === 1 || !fOld) { fNew.copyRegionInto(target, fx, fy, tx, ty, wx1 - wx0, wy1 - wy0); return }
       const tmp = this.ctx.pool().acquire(tile.buffer.width, tile.buffer.height)
-      this.ctx.passes().wcResample(tmp, tx, ty, wx1 - wx0, wy1 - wy0, fNew, fx, fy, 1 / S, 1, fOld, base, fieldRect)
+      if (detailMaterial && pigmentRecord) {
+        const snap = snapshots.get(tile.buffer)
+        const brush = preserveBrush && fOld === a0 && !!snap?.currentInk && !!inputInk
+        this.ctx.passes().materialReconstruction().pigment({ dst: tmp, region: [tx, ty, wx1 - wx0, wy1 - wy0], source: fNew, sourceOrigin: [fx, fy], ratio: 1 / S, old: fOld, base, clamp: fieldRect, fadeEdges, initialLow: brush ? inputInk! : fOld, initialHigh: brush ? snap!.currentInk! : base, preserveBrush: brush })
+      } else this.ctx.passes().wcResample(tmp, tx, ty, wx1 - wx0, wy1 - wy0, fNew, fx, fy, 1 / S, 1, fOld, base, fieldRect)
       tmp.copyRegionInto(target, tx, ty, tx, ty, wx1 - wx0, wy1 - wy0)
       this.ctx.pool().release(tmp)
     }
 
     // Every tile's overlap with the rect, and the settled records the tiles
     // still lack — acquired now so the steps below can assume them.
+    const fromColorField = (fNew: AccumulationBuffer, fOld: AccumulationBuffer | null, tile: PaintTarget, wx0: number, wy0: number, wx1: number, wy1: number, target: AccumulationBuffer, base: AccumulationBuffer, mass: AccumulationBuffer): void => {
+      if (!detailMaterial || S === 1 || !fOld) { fromField(fNew, fOld, tile, wx0, wy0, wx1, wy1, target, base); return }
+      const snap = snapshots.get(tile.buffer)
+      if (fOld === ca0 && inputColor && snap?.currentColor) { fOld = inputColor; base = snap.currentColor }
+      const tx = wx0 - tile.originX, ty = tile.buffer.height - (wy1 - tile.originY)
+      const fx = (wx0 - x0) / S, fy = field.h - (wy1 - y0) / S
+      const tmp = this.ctx.pool().acquire(tile.buffer.width, tile.buffer.height)
+      try {
+        this.ctx.passes().materialReconstruction().color({ dst: tmp, region: [tx, ty, wx1 - wx0, wy1 - wy0], source: fNew, sourceOrigin: [fx, fy], ratio: 1 / S, old: fOld, base, clamp: fieldRect, fadeEdges, mass })
+        tmp.copyRegionInto(target, tx, ty, tx, ty, wx1 - wx0, wy1 - wy0)
+      } finally { this.ctx.pool().release(tmp) }
+    }
     const overlaps: Array<{ tile: PaintTarget; ox0: number; oy0: number; ox1: number; oy1: number }> = []
     for (const tile of tiles) {
       const entry = scratch.peek(tile.buffer)
@@ -390,7 +411,18 @@ export class WatercolorSettlePlan {
             color = acquireInput(tile.buffer.width, tile.buffer.height)
             sc.copyRegionInto(color, tx, ty, tx, ty, ox1 - ox0, oy1 - oy0)
           }
-          snapshots.set(tile.buffer, { ink, color })
+          let currentInk: AccumulationBuffer | undefined, currentColor: AccumulationBuffer | undefined
+          if (detailMaterial) {
+            if (preserveBrush) {
+              currentInk = acquireInput(tile.buffer.width, tile.buffer.height)
+              entry.inkLoad.copyRegionInto(currentInk, tx, ty, tx, ty, ox1 - ox0, oy1 - oy0)
+            }
+            if (entry.inkColor) {
+              currentColor = acquireInput(tile.buffer.width, tile.buffer.height)
+              entry.inkColor.copyRegionInto(currentColor, tx, ty, tx, ty, ox1 - ox0, oy1 - oy0)
+            }
+          }
+          snapshots.set(tile.buffer, { ink, color, currentInk, currentColor })
         }
         toField(entry.coverage, tile, ox0, oy0, ox1, oy1, field.coverage)
         if (solvent && (entry.solventLoad || entry.foreignSolventLoad)) {
@@ -408,6 +440,8 @@ export class WatercolorSettlePlan {
           toField(settledColor, tile, ox0, oy0, ox1, oy1, field.cb)
         }
       }
+      if (inputInk) field.a.copyTo(inputInk)
+      if (inputColor) field.ca.copyTo(inputColor)
       if (a0) field.b.copyTo(a0)
       if (ca0) field.cb.copyTo(ca0)
     })
@@ -483,7 +517,7 @@ export class WatercolorSettlePlan {
     // onto dry paper, and at a flat 24 a cell its front ran four cells past
     // the brush there - Ilya's "рваный край вне лужи". At half the budget
     // a cell, the run on dry paper is two cells whatever the budget.
-    const dryCost = Math.max(WC_FRONT_DRY_COST, budgetPx * WC_FRONT_DRY_SHARE)
+    const dryCost = Math.max(WC_FRONT_DRY_COST, budgetPx * (detailMaterial ? S : 1) * WC_FRONT_DRY_SHARE)
     const frontStep = (src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb = WC_FRONT_CLIMB, floor = WC_FRONT_FLOOR, stride = 1): void =>
       this.ctx.passes().waterFrontStep(field, x0, y0, dryCost, src, dst, max, climb, floor, stride, S, foreignTexture)
     // The front as entries of `ops`, a few relaxation steps per entry so no
@@ -633,10 +667,10 @@ export class WatercolorSettlePlan {
               if (entry.inkColor) entry.inkColor.copyTo(chroma)
               entry.coverage.copyTo(coverage)
               const snap = snapshots.get(tile.buffer)
-              fromField(pigment, a0, tile, ox0, oy0, ox1, oy1, load, snap?.ink ?? entry.inkLoad)
+              fromField(pigment, a0, tile, ox0, oy0, ox1, oy1, load, snap?.ink ?? entry.inkLoad, true)
               if (entry.inkColor) {
                 if (S > 1 && !colour) this.ctx.passes().pigmentColor(chroma, load, singleTau)
-                else fromField(color!, ca0, tile, ox0, oy0, ox1, oy1, chroma, snap?.color ?? entry.inkColor)
+                else fromColorField(color!, ca0, tile, ox0, oy0, ox1, oy1, chroma, snap?.color ?? entry.inkColor, load)
               }
               const tx = ox0 - tile.originX, ty = tile.buffer.height - (oy1 - tile.originY)
               if (S === 1) field.coverage.copyRegionInto(coverage, ox0 - x0, field.h - (oy1 - y0), tx, ty, ox1 - ox0, oy1 - oy0)
@@ -1118,7 +1152,7 @@ export class WatercolorSettlePlan {
         const runningFilm = entry.filmGesture !== gesture && entry.filmGesture === scratch.materialGesture && !!entry.strokeInk && !!entry.inkBase
         const settledInk = runningFilm ? entry.inkBase! : entry.inkLoad
         const snap = snapshots.get(tile.buffer)
-        fromField(dep.out, a0, tile, ox0, oy0, ox1, oy1, settledInk, snap?.ink ?? settledInk)
+        fromField(dep.out, a0, tile, ox0, oy0, ox1, oy1, settledInk, snap?.ink ?? settledInk, true)
         if (entry.inkSettled) settledInk.copyRegionInto(entry.inkSettled, tx, ty, tx, ty, tw, th)
         // (§17.24) …and the coverage the water front extended - MERGED by
         // max (§17.44): the gesture may have gone on stamping the next
@@ -1144,7 +1178,7 @@ export class WatercolorSettlePlan {
           this.ctx.passes().fieldOp(to, from, from, 2, 1, { c: from, d: from, tau: singleTau, scissor: [tx, ty, tw, th] })
         if (settledColor) {
           if (S > 1 && !colour) rebuildColour(settledColor, settledInk)
-          else fromField(col.out, ca0, tile, ox0, oy0, ox1, oy1, settledColor, snap?.color ?? settledColor)
+          else fromColorField(col.out, ca0, tile, ox0, oy0, ox1, oy1, settledColor, snap?.color ?? settledColor, settledInk)
           if (entry.colorSettled) settledColor.copyRegionInto(entry.colorSettled, tx, ty, tx, ty, tw, th)
         }
         if (runningFilm) {
@@ -1168,10 +1202,10 @@ export class WatercolorSettlePlan {
           const ix0 = ox0 === x0 && x0 > minX ? ox0 + dryMargin : ox0, iy0 = oy0 === y0 && y0 > minY ? oy0 + dryMargin : oy0
           const ix1 = ox1 === x1 && x1 < maxX ? ox1 - dryMargin : ox1, iy1 = oy1 === y1 && y1 < maxY ? oy1 - dryMargin : oy1
           if (ix1 <= ix0 || iy1 <= iy0) continue
-          fromField(dry.dep, dep.out, tile, ix0, iy0, ix1, iy1, entry.inkDry, entry.inkDry)
+          fromField(dry.dep, dep.out, tile, ix0, iy0, ix1, iy1, entry.inkDry, entry.inkDry, true)
           if (entry.colorDry) {
             if (S > 1 && !colour) rebuildColour(entry.colorDry, entry.inkDry)
-            else fromField(dry.col, col.out, tile, ix0, iy0, ix1, iy1, entry.colorDry, entry.colorDry)
+            else fromColorField(dry.col, col.out, tile, ix0, iy0, ix1, iy1, entry.colorDry, entry.colorDry, entry.inkDry)
           }
         }
       }
