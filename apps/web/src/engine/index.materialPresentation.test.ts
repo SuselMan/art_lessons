@@ -135,3 +135,21 @@ it('does not run an animation display loop for a reveal hidden by accepted input
     schedule.mockRestore()
   } finally { reveals.delete(identity); engine.destroy() }
 })
+
+it('keeps bounded wet presentation in paper coordinates across camera changes', async () => {
+  const { engine } = createTestEngine({ asyncFinish: true, materialPresentation: true, watercolorReview: true, pageWidth: 512, pageHeight: 768 }, { width: 64, height: 64 })
+  await engine.paperReady()
+  engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor')
+  engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 40, y: 20 }])
+    const owner = engine['_wcMaterialOwners'].layers.get('L')!
+    expect(owner.extent).toMatchObject({originX: 0, originY: 0, worldWidth: 512, worldHeight: 768})
+    engine.setInfiniteCamera(400, 500, 2.5, .3)
+    expect(() => simulateStroke(engine, [{ x: 120, y: 140 }, { x: 140, y: 160 }])).not.toThrow()
+    expect(engine['_wcMaterialOwners'].layers.get('L')).toBe(owner)
+    expect(owner.pending.size).toBeGreaterThan(0)
+  } finally { engine.destroy() }
+})

@@ -1,0 +1,570 @@
+{
+  "date": "2026-10-14",
+  "device": "Samsung SM-T970 / Adreno 650 / Chrome155, active dev bridge, ADB unavailable",
+  "baseSource": "55f37bf8",
+  "rootCause": "Presentation extent followed the changing camera; acquire rejected next dab after pan/zoom/rotation. Confirmed by repeated actual device exceptions.",
+  "fix": "Bounded presentation extent pinned to complete paper; maximum side1024 within unchanged64MiB /24planes budget.",
+  "roomPage": [
+    1754,
+    2480
+  ],
+  "cases": [
+    {
+      "kind": "ordinary",
+      "zoom": 0.25,
+      "first": {
+        "drawnOperations": 1,
+        "n": 101,
+        "over33": 6,
+        "over100": 0,
+        "max": 50,
+        "activeMs": 315,
+        "activeN": 16,
+        "activeMax": 50,
+        "activeOver33": 1,
+        "activeOver100": 0,
+        "tailMax": 34
+      },
+      "second": {
+        "drawnOperations": 1,
+        "n": 107,
+        "over33": 1,
+        "over100": 0,
+        "max": 50,
+        "activeMs": 313,
+        "activeN": 19,
+        "activeMax": 17,
+        "activeOver33": 0,
+        "activeOver100": 0,
+        "tailMax": 50
+      },
+      "recordedStrokes": 2,
+      "errors": [],
+      "lost": false,
+      "gl": 0,
+      "extent": [
+        {
+          "originX": 0,
+          "originY": 0,
+          "worldWidth": 1754,
+          "worldHeight": 2480,
+          "width": 703,
+          "height": 994
+        }
+      ]
+    },
+    {
+      "kind": "ordinary",
+      "zoom": 0.5,
+      "first": {
+        "drawnOperations": 1,
+        "n": 106,
+        "over33": 3,
+        "over100": 0,
+        "max": 67,
+        "activeMs": 312,
+        "activeN": 18,
+        "activeMax": 34,
+        "activeOver33": 1,
+        "activeOver100": 0,
+        "tailMax": 67
+      },
+      "second": {
+        "drawnOperations": 1,
+        "n": 108,
+        "over33": 1,
+        "over100": 0,
+        "max": 33,
+        "activeMs": 309,
+        "activeN": 19,
+        "activeMax": 17,
+        "activeOver33": 0,
+        "activeOver100": 0,
+        "tailMax": 33
+      },
+      "recordedStrokes": 4,
+      "errors": [],
+      "lost": false,
+      "gl": 0,
+      "extent": [
+        {
+          "originX": 0,
+          "originY": 0,
+          "worldWidth": 1754,
+          "worldHeight": 2480,
+          "width": 703,
+          "height": 994
+        }
+      ]
+    },
+    {
+      "kind": "ordinary",
+      "zoom": 1,
+      "first": {
+        "drawnOperations": 1,
+        "n": 107,
+        "over33": 1,
+        "over100": 0,
+        "max": 50,
+        "activeMs": 301,
+        "activeN": 19,
+        "activeMax": 17,
+        "activeOver33": 0,
+        "activeOver100": 0,
+        "tailMax": 50
+      },
+      "second": {
+        "drawnOperations": 1,
+        "n": 107,
+        "over33": 1,
+        "over100": 0,
+        "max": 50,
+        "activeMs": 310,
+        "activeN": 19,
+        "activeMax": 17,
+        "activeOver33": 0,
+        "activeOver100": 0,
+        "tailMax": 50
+      },
+      "recordedStrokes": 6,
+      "errors": [],
+      "lost": false,
+      "gl": 0,
+      "extent": [
+        {
+          "originX": 0,
+          "originY": 0,
+          "worldWidth": 1754,
+          "worldHeight": 2480,
+          "width": 703,
+          "height": 994
+        }
+      ]
+    },
+    {
+      "kind": "ordinary",
+      "zoom": 2,
+      "first": {
+        "drawnOperations": 1,
+        "n": 108,
+        "over33": 1,
+        "over100": 0,
+        "max": 50,
+        "activeMs": 315,
+        "activeN": 20,
+        "activeMax": 17,
+        "activeOver33": 0,
+        "activeOver100": 0,
+        "tailMax": 50
+      },
+      "second": {
+        "drawnOperations": 1,
+        "n": 107,
+        "over33": 2,
+        "over100": 0,
+        "max": 50,
+        "activeMs": 315,
+        "activeN": 20,
+        "activeMax": 17,
+        "activeOver33": 0,
+        "activeOver100": 0,
+        "tailMax": 50
+      },
+      "recordedStrokes": 8,
+      "errors": [],
+      "lost": false,
+      "gl": 0,
+      "extent": [
+        {
+          "originX": 0,
+          "originY": 0,
+          "worldWidth": 1754,
+          "worldHeight": 2480,
+          "width": 703,
+          "height": 994
+        }
+      ]
+    },
+    {
+      "kind": "rapid-tail0",
+      "zoom": 0.25,
+      "first": {
+        "drawnOperations": 1,
+        "n": 10,
+        "over33": 5,
+        "over100": 1,
+        "max": 133,
+        "activeMs": 305,
+        "activeN": 9,
+        "activeMax": 133,
+        "activeOver33": 4,
+        "activeOver100": 1,
+        "tailMax": 50
+      },
+      "second": {
+        "drawnOperations": 1,
+        "n": 16,
+        "over33": 5,
+        "over100": 1,
+        "max": 134,
+        "activeMs": 331,
+        "activeN": 15,
+        "activeMax": 67,
+        "activeOver33": 4,
+        "activeOver100": 0,
+        "tailMax": 134
+      },
+      "recordedStrokes": 10,
+      "errors": [],
+      "lost": false,
+      "gl": 0,
+      "extent": [
+        {
+          "originX": 0,
+          "originY": 0,
+          "worldWidth": 1754,
+          "worldHeight": 2480,
+          "width": 703,
+          "height": 994
+        }
+      ]
+    },
+    {
+      "kind": "rapid-tail0",
+      "zoom": 0.5,
+      "first": {
+        "drawnOperations": 1,
+        "n": 20,
+        "over33": 1,
+        "over100": 0,
+        "max": 33,
+        "activeMs": 314,
+        "activeN": 19,
+        "activeMax": 17,
+        "activeOver33": 0,
+        "activeOver100": 0,
+        "tailMax": 33
+      },
+      "second": {
+        "drawnOperations": 1,
+        "n": 20,
+        "over33": 1,
+        "over100": 0,
+        "max": 34,
+        "activeMs": 305,
+        "activeN": 19,
+        "activeMax": 17,
+        "activeOver33": 0,
+        "activeOver100": 0,
+        "tailMax": 34
+      },
+      "recordedStrokes": 12,
+      "errors": [],
+      "lost": false,
+      "gl": 0,
+      "extent": [
+        {
+          "originX": 0,
+          "originY": 0,
+          "worldWidth": 1754,
+          "worldHeight": 2480,
+          "width": 703,
+          "height": 994
+        }
+      ]
+    },
+    {
+      "kind": "rapid-tail0",
+      "zoom": 1,
+      "first": {
+        "drawnOperations": 1,
+        "n": 20,
+        "over33": 1,
+        "over100": 0,
+        "max": 34,
+        "activeMs": 306,
+        "activeN": 19,
+        "activeMax": 17,
+        "activeOver33": 0,
+        "activeOver100": 0,
+        "tailMax": 34
+      },
+      "second": {
+        "drawnOperations": 1,
+        "n": 20,
+        "over33": 1,
+        "over100": 0,
+        "max": 33,
+        "activeMs": 310,
+        "activeN": 19,
+        "activeMax": 17,
+        "activeOver33": 0,
+        "activeOver100": 0,
+        "tailMax": 33
+      },
+      "recordedStrokes": 14,
+      "errors": [],
+      "lost": false,
+      "gl": 0,
+      "extent": [
+        {
+          "originX": 0,
+          "originY": 0,
+          "worldWidth": 1754,
+          "worldHeight": 2480,
+          "width": 703,
+          "height": 994
+        }
+      ]
+    },
+    {
+      "kind": "rapid-tail0",
+      "zoom": 2,
+      "first": {
+        "drawnOperations": 1,
+        "n": 20,
+        "over33": 1,
+        "over100": 0,
+        "max": 33,
+        "activeMs": 308,
+        "activeN": 19,
+        "activeMax": 17,
+        "activeOver33": 0,
+        "activeOver100": 0,
+        "tailMax": 33
+      },
+      "second": {
+        "drawnOperations": 1,
+        "n": 20,
+        "over33": 1,
+        "over100": 0,
+        "max": 33,
+        "activeMs": 310,
+        "activeN": 19,
+        "activeMax": 17,
+        "activeOver33": 0,
+        "activeOver100": 0,
+        "tailMax": 33
+      },
+      "recordedStrokes": 16,
+      "errors": [],
+      "lost": false,
+      "gl": 0,
+      "extent": [
+        {
+          "originX": 0,
+          "originY": 0,
+          "worldWidth": 1754,
+          "worldHeight": 2480,
+          "width": 703,
+          "height": 994
+        }
+      ]
+    }
+  ],
+  "wide": [
+    {
+      "kind": "cold",
+      "strokes": [
+        {
+          "drawnOperations": 1,
+          "n": 11,
+          "over33": 3,
+          "over100": 1,
+          "max": 100,
+          "activeMs": 255,
+          "activeN": 10,
+          "activeMax": 100,
+          "activeOver33": 2,
+          "activeOver100": 1,
+          "tailMax": 50
+        },
+        {
+          "drawnOperations": 1,
+          "n": 16,
+          "over33": 2,
+          "over100": 0,
+          "max": 50,
+          "activeMs": 270,
+          "activeN": 15,
+          "activeMax": 34,
+          "activeOver33": 1,
+          "activeOver100": 0,
+          "tailMax": 50
+        },
+        {
+          "drawnOperations": 1,
+          "n": 16,
+          "over33": 1,
+          "over100": 0,
+          "max": 50,
+          "activeMs": 250,
+          "activeN": 15,
+          "activeMax": 17,
+          "activeOver33": 0,
+          "activeOver100": 0,
+          "tailMax": 50
+        },
+        {
+          "drawnOperations": 1,
+          "n": 17,
+          "over33": 1,
+          "over100": 0,
+          "max": 50,
+          "activeMs": 260,
+          "activeN": 16,
+          "activeMax": 17,
+          "activeOver33": 0,
+          "activeOver100": 0,
+          "tailMax": 50
+        },
+        {
+          "drawnOperations": 1,
+          "n": 15,
+          "over33": 2,
+          "over100": 0,
+          "max": 50,
+          "activeMs": 255,
+          "activeN": 14,
+          "activeMax": 34,
+          "activeOver33": 1,
+          "activeOver100": 0,
+          "tailMax": 50
+        },
+        {
+          "drawnOperations": 1,
+          "n": 17,
+          "over33": 1,
+          "over100": 0,
+          "max": 50,
+          "activeMs": 265,
+          "activeN": 16,
+          "activeMax": 17,
+          "activeOver33": 0,
+          "activeOver100": 0,
+          "tailMax": 50
+        }
+      ],
+      "pendingAtDry": true,
+      "settleAtDry": true,
+      "ownersAtDry": 1,
+      "dryMs": 2878.899999976158,
+      "elapsed": 4983.399999976158,
+      "maxFrame": 434.69999999995343,
+      "over100": 11,
+      "errors": [],
+      "lost": false,
+      "gl": 0,
+      "scheduler": {
+        "tasks": 1112,
+        "frames": 6918
+      }
+    },
+    {
+      "kind": "warm",
+      "strokes": [
+        {
+          "drawnOperations": 1,
+          "n": 11,
+          "over33": 4,
+          "over100": 1,
+          "max": 100,
+          "activeMs": 267,
+          "activeN": 10,
+          "activeMax": 100,
+          "activeOver33": 3,
+          "activeOver100": 1,
+          "tailMax": 67
+        },
+        {
+          "drawnOperations": 1,
+          "n": 17,
+          "over33": 1,
+          "over100": 0,
+          "max": 50,
+          "activeMs": 258,
+          "activeN": 16,
+          "activeMax": 17,
+          "activeOver33": 0,
+          "activeOver100": 0,
+          "tailMax": 50
+        },
+        {
+          "drawnOperations": 1,
+          "n": 16,
+          "over33": 2,
+          "over100": 0,
+          "max": 50,
+          "activeMs": 258,
+          "activeN": 15,
+          "activeMax": 34,
+          "activeOver33": 1,
+          "activeOver100": 0,
+          "tailMax": 50
+        },
+        {
+          "drawnOperations": 1,
+          "n": 17,
+          "over33": 1,
+          "over100": 0,
+          "max": 50,
+          "activeMs": 252,
+          "activeN": 16,
+          "activeMax": 17,
+          "activeOver33": 0,
+          "activeOver100": 0,
+          "tailMax": 50
+        },
+        {
+          "drawnOperations": 1,
+          "n": 17,
+          "over33": 1,
+          "over100": 0,
+          "max": 33,
+          "activeMs": 257,
+          "activeN": 16,
+          "activeMax": 17,
+          "activeOver33": 0,
+          "activeOver100": 0,
+          "tailMax": 33
+        },
+        {
+          "drawnOperations": 1,
+          "n": 16,
+          "over33": 2,
+          "over100": 0,
+          "max": 50,
+          "activeMs": 252,
+          "activeN": 15,
+          "activeMax": 33,
+          "activeOver33": 1,
+          "activeOver100": 0,
+          "tailMax": 50
+        }
+      ],
+      "pendingAtDry": true,
+      "settleAtDry": true,
+      "ownersAtDry": 1,
+      "dryMs": 2858,
+      "elapsed": 5027.100000023842,
+      "maxFrame": 484.80000000004657,
+      "over100": 12,
+      "errors": [],
+      "lost": false,
+      "gl": 0,
+      "scheduler": {
+        "tasks": 2222,
+        "frames": 7094
+      },
+      "stalls": []
+    }
+  ],
+  "validation": {
+    "regressionTestsPassed": 50,
+    "typecheck": "passed",
+    "lint": "passed, existing warnings",
+    "mapCheck": "passed"
+  },
+  "verdict": "PARTIAL. Basic zoom and rapid pairs passed; wide-stroke frame latency not acceptable yet. No invitation for human validation. Approved-standalone comparison pending device access.",
+  "caveat": "Camera smoke measured rAF gaps, not physical pen-to-pixel latency. Wide measurement includes PNG readback before Dry; cannot attribute maximum frame wholly to drawing. Re-run without readback and compare standalone."
+}

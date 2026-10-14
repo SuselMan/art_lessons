@@ -8357,10 +8357,14 @@ export class PencilEngine implements PencilEngineAPI {
     dabs: readonly Dab[], preset: string, color: [number, number, number]): object {
     const layerId = this._strokeLayerId
     if (!layerId) throw new Error('Material preview requires a layer owner')
-    const view = this._camera.liveFrame().view
+    // Bounded paper is a world-space material, never a viewport allocation.
+    // Pin its extent across zoom/pan/rotation and spend pixels on paper only.
+    const page = this._pageSize()
+    const view = this._infinite ? this._camera.liveFrame().view
+      : { minX: 0, minY: 0, maxX: page.w, maxY: page.h }
     const existed = this._wcMaterialOwners.layers.has(layerId)
     const owner = this._wcMaterialOwners.acquire(layerId, { originX: view.minX, originY: view.minY,
-      worldWidth: view.maxX - view.minX, worldHeight: view.maxY - view.minY }, 768)
+      worldWidth: view.maxX - view.minX, worldHeight: view.maxY - view.minY }, 1024)
     const resumedVisible = this._wcProgressiveMaterialOwners.delete(owner)
     if (!existed || resumedVisible) {
       if (resumedVisible) owner.material.buffer.clear()
