@@ -40,6 +40,7 @@ export interface WashReveal {
 /** A projected material raster replaces the complete visible layer, including
  * its canonical base. It is never alpha-added on top of canonical pigment. */
 export interface LayerMaterialPresentation {
+  completeLayer?: boolean
   buffer: AccumulationBuffer
   originX: number; originY: number; worldWidth: number; worldHeight: number
 }
@@ -143,9 +144,9 @@ export class LayerCompositor {
 
     const material = includeWashReveal ? this.ctx.materialPresentations?.().get(id) : undefined
     if (material && !this.ctx.previews().tiles.has(id)
-      && material.originX <= viewRect.minX && material.originY <= viewRect.minY
+      && (material.completeLayer || (material.originX <= viewRect.minX && material.originY <= viewRect.minY
       && material.originX + material.worldWidth >= viewRect.maxX
-      && material.originY + material.worldHeight >= viewRect.maxY) {
+      && material.originY + material.worldHeight >= viewRect.maxY))) {
       // The caller owns a canonical-base copy in this raster. Replacing the
       // layer here preserves its stack position and opacity and cannot double
       // dose a retired chunk underneath. Export without reveals reads only the

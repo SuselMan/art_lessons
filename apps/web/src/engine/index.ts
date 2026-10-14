@@ -8299,9 +8299,9 @@ export class PencilEngine implements PencilEngineAPI {
     return !!owner && !this._wcProgressiveMaterialOwners.has(owner)
   }
   private _materialPresentationLayers(): ReadonlyMap<string, {
-    buffer: AccumulationBuffer; originX: number; originY: number; worldWidth: number; worldHeight: number
+    buffer: AccumulationBuffer; originX: number; originY: number; worldWidth: number; worldHeight: number; completeLayer?: boolean
   }> {
-    const result = new Map<string, { buffer: AccumulationBuffer; originX: number; originY: number; worldWidth: number; worldHeight: number }>()
+    const result = new Map<string, { buffer: AccumulationBuffer; originX: number; originY: number; worldWidth: number; worldHeight: number; completeLayer?: boolean }>()
     for (const owner of this._wcMaterialOwners.layers.values()) {
       const ready = [...owner.material.scratches].every(scratch => !this._wcAsyncOwners.has(scratch)
         && this._settle?.scratch !== scratch)
@@ -8349,7 +8349,7 @@ export class PencilEngine implements PencilEngineAPI {
       // The physical reveal now owns the visible picture; keep resource
       // ownership until canonical completion but stop hiding its intermediate states.
       if (this._wcProgressiveMaterialOwners.has(owner)) continue
-      result.set(owner.layerId, { buffer: owner.material.buffer, ...owner.extent })
+      result.set(owner.layerId, { buffer: owner.material.buffer, ...owner.extent, completeLayer: !this._infinite })
     }
     return result
   }

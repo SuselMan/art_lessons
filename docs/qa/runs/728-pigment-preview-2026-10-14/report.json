@@ -1,0 +1,126 @@
+{
+  "stroke": {
+    "drawnOperations": 1,
+    "n": 127,
+    "over33": 1,
+    "over100": 0,
+    "max": 34,
+    "activeMs": 616,
+    "activeN": 38,
+    "activeMax": 17,
+    "activeOver33": 0,
+    "activeOver100": 0,
+    "tailMax": 34
+  },
+  "probe": {
+    "started": 68097.20000004768,
+    "draws": [
+      {
+        "ms": 70.89999997615814,
+        "active": true,
+        "pending": true,
+        "extent": {
+          "originX": 0,
+          "originY": 0,
+          "worldWidth": 1754,
+          "worldHeight": 2480,
+          "width": 703,
+          "height": 994
+        },
+        "view": {
+          "minX": -1480.9017814809654,
+          "minY": -1117.9017814809654,
+          "maxX": 3234.9017814809654,
+          "maxY": 3597.9017814809654
+        }
+      },
+      {
+        "ms": 72.89999997615814,
+        "active": true,
+        "pending": true,
+        "extent": "[cycle]",
+        "view": {
+          "minX": -1480.9017814809654,
+          "minY": -1117.9017814809654,
+          "maxX": 3234.9017814809654,
+          "maxY": 3597.9017814809654
+        }
+      },
+      {
+        "ms": 79.89999997615814,
+        "active": true,
+        "pending": false,
+        "extent": "[cycle]",
+        "view": {
+          "minX": -1480.9017814809654,
+          "minY": -1117.9017814809654,
+          "maxX": 3234.9017814809654,
+          "maxY": 3597.9017814809654
+        }
+      },
+      {
+        "ms": 125.89999997615814,
+        "active": true,
+        "pending": true,
+        "extent": "[cycle]",
+        "view": {
+          "minX": -1480.9017814809654,
+          "minY": -1117.9017814809654,
+          "maxX": 3234.9017814809654,
+          "maxY": 3597.9017814809654
+        }
+      },
+      {
+        "ms": 141,
+        "active": true,
+        "pending": false,
+        "extent": "[cycle]",
+        "view": {
+          "minX": -1480.9017814809654,
+          "minY": -1117.9017814809654,
+          "maxX": 3234.9017814809654,
+          "maxY": 3597.9017814809654
+        }
+      },
+      {
+        "ms": 159.5,
+        "active": true,
+        "pending": true,
+        "extent": "[cycle]",
+        "view": {
+          "minX": -1480.9017814809654,
+          "minY": -1117.9017814809654,
+          "maxX": 3234.9017814809654,
+          "maxY": 3597.9017814809654
+        }
+      },
+      {
+        "ms": 174.19999992847443,
+        "active": true,
+        "pending": false,
+        "extent": "[cycle]",
+        "view": {
+          "minX": -1480.9017814809654,
+          "minY": -1117.9017814809654,
+          "maxX": 3234.9017814809654,
+          "maxY": 3597.9017814809654
+        }
+      },
+      {
+        "ms": 194,
+        "active": true,
+        "pending": true,
+        "extent": "[cycle]",
+        "view": {
+          "minX": -1480.9017814809654,
+          "minY": -1117.9017814809654,
+          "maxX": 3234.9017814809654,
+          "maxY": 3597.9017814809654
+        }
+      }
+    ]
+  },
+  "gl": 0,
+  "lost": false,
+  "model": "front8-v1"
+}

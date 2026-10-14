@@ -52,3 +52,19 @@ it('selection previews take precedence and projected mip sampling uses texel rat
   compositor.drawCompositeItem(frame, 'paint', 1, {} as WebGLFramebuffer, 50, 50)
   expect(draw).not.toHaveBeenCalled()
 })
+
+it('shows a complete paper preview when the camera includes margins outside the paper', () => {
+  const resolve = vi.fn(() => [])
+  const ctx = {
+    previews: () => ({ tiles: new Map(), areaLayers: new Set() }),
+    materialPresentations: () => new Map([['paint', { completeLayer: true, originX: 0, originY: 0, worldWidth: 100, worldHeight: 100,
+      buffer: { width: 50, height: 50, texture: 'material', setMipSampling: vi.fn() } }]]),
+    layers: () => new Map([['paint', { resolveVisible: resolve }]]),
+  } as unknown as LayerCompositorContext
+  const compositor = new LayerCompositor(ctx), draw = vi.fn()
+  compositor.drawTileComposite = draw
+  const frame = exactFrame({ x: -100, y: -100, width: 300, height: 300 })
+  compositor.drawCompositeItem(frame, 'paint', 1, {} as WebGLFramebuffer, 300, 300)
+  expect(draw).toHaveBeenCalledExactlyOnceWith(frame, 'material', 0, 0, 100, 100, 1, {}, 300, 300)
+  expect(resolve).not.toHaveBeenCalled()
+})
