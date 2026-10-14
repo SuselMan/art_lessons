@@ -49,22 +49,25 @@ describe('post-lift watercolor scheduling', () => {
   })
 
   it('yields consecutive Dry tasks to a frame after their shared time budget', () => {
+    vi.useFakeTimers()
     const { scheduler, tasks, frames } = setup()
     let now = 0
     const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
     const modes: boolean[] = []
     try {
       scheduler.start()
-      const work = (task: boolean) => { modes.push(task); now += 5 }
+      const work = (task: boolean) => { modes.push(task); now += 25 }
       scheduler.schedule(work); tasks.shift()!()
       scheduler.schedule(work); tasks.shift()!()
       scheduler.schedule(work); tasks.shift()!()
       expect(modes).toEqual([true, true])
       expect(frames.size).toBe(1)
       frames.values().next().value!(now)
-      expect(modes).toEqual([true, true, false])
+      expect(modes).toEqual([true, true])
+      vi.runOnlyPendingTimers()
+      expect(modes).toEqual([true, true, true])
       scheduler.schedule(work); tasks.shift()!()
-      expect(modes).toEqual([true, true, false, true])
+      expect(modes).toEqual([true, true, true, true])
     } finally { scheduler.destroy(); clock.mockRestore() }
   })
 

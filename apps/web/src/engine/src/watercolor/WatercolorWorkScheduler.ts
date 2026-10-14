@@ -2,6 +2,7 @@
 export class WatercolorWorkScheduler {
     private enabled = false;
     private epoch = 0;
+    // Samsung comparison: 8ms doubled Dry time; 48ms retains standalone throughput.
     private taskTimeSinceFrame = 0;
     private disposed = false;
     private nextId = 1;
@@ -47,8 +48,18 @@ export class WatercolorWorkScheduler {
             if (!this.pending.has(id) || entry.controller.signal.aborted || this.disposed)
                 return;
             // Input may have arrived after a task was posted; retain this cancellable handle.
-            if (!this.enabled || !this.ctx.canRunTasks() || this.taskTimeSinceFrame >= 8) {
+            if (!this.enabled || !this.ctx.canRunTasks()) {
                 frame();
+                return;
+            }
+            if (this.taskTimeSinceFrame >= 48) {
+                // Render the frame first; do not move GPU work into its rAF callback.
+                entry.frame = requestAnimationFrame(() => {
+                    entry.frame = undefined;
+                    this.taskTimeSinceFrame = 0;
+                    this.stats.frames++;
+                    entry.timer = setTimeout(run, 0);
+                });
                 return;
             }
             this.pending.delete(id);
