@@ -56,6 +56,7 @@ export class WatercolorSettlePlan {
   /** Scheduling diagnostic only; latched by prepare, default OFF. */
   /** DEV experiment: coarse transport for ordinary brushes; native deposition is unchanged. */
   diagnosticCoarseTransport = false
+  diagnosticFineTransport = false
   /** DEV-only visual experiment; injected solver must price every crossed edge. */
   diagnosticFrontSchedule: ((steps: number) => readonly number[]) | null = null
   splitQuanta = false
@@ -187,7 +188,7 @@ export class WatercolorSettlePlan {
     let x0 = Math.max(minX, Math.floor(bounds.minX) - pad), y0 = Math.max(minY, Math.floor(bounds.minY) - pad)
     let x1 = Math.min(maxX, Math.ceil(bounds.maxX) + pad), y1 = Math.min(maxY, Math.ceil(bounds.maxY) + pad)
     if ((radiusPx >= WC_HALF_RES_RADIUS_PX && Math.max(x1 - x0, y1 - y0) > WC_HALF_RES_SPAN_PX)
-      || (this.diagnosticCoarseTransport && radiusPx >= 8 && Math.max(x1 - x0, y1 - y0) > 128)) S = 2
+      || (this.diagnosticCoarseTransport && !this.diagnosticFineTransport && radiusPx >= 8 && Math.max(x1 - x0, y1 - y0) > 128)) S = 2
     const CAP = 1536 * S
     if (x1 - x0 > CAP) { const c = (x0 + x1) * 0.5; x0 = Math.floor(c - CAP / 2); x1 = x0 + CAP }
     if (y1 - y0 > CAP) { const c = (y0 + y1) * 0.5; y0 = Math.floor(c - CAP / 2); y1 = y0 + CAP }

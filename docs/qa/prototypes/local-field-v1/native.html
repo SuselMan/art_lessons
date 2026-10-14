@@ -16,7 +16,8 @@ const size=small?256:1024;c.paper.width=c.paper.height=size;
 const prefix8=location.pathname==='/watercolor-native-front8';
 const priority=!prefix8&&new URLSearchParams(location.search).get('priority')==='1';
 const progressive=priority&&new URLSearchParams(location.search).get('progress')==='1';
-const engine=new PencilEngine(c.paper,{userId:'native-local',pageWidth:size,pageHeight:size,paper:'fine',watercolorReview:true,watercolorCoarseTransport:!priority&&!prefix8,reviewInputPriority:priority,reviewProgressivePresentation:progressive,joinedTouch:true,asyncFinish:true,materialPresentation:true,gradientFibres:!priority,reviewTouchDrawing:true});
+const engine=new PencilEngine(c.paper,{userId:'native-local',pageWidth:size,pageHeight:size,paper:'fine',watercolorReview:true,watercolorCoarseTransport:!priority,reviewInputPriority:priority,reviewProgressivePresentation:progressive,joinedTouch:true,asyncFinish:true,materialPresentation:true,gradientFibres:!priority,reviewTouchDrawing:true});
+if(prefix8)engine._settlePlan.diagnosticFineTransport=true;
 window.__wcNative=engine;
 // Connect diagnostics before GL initialization so a device failure remains observable.
 if(deviceSmoke)window.__engine=engine;
