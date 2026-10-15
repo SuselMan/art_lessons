@@ -1,0 +1,54 @@
+{
+  "dryMs": 660.1000000238419,
+  "inputMs": 1050.7999999523163,
+  "completionFenceMs": 149.60000002384186,
+  "wholeWorkMs": 1710.8999999761581,
+  "elapsed": 2051.2999999523163,
+  "before": {
+    "queue": 3,
+    "settle": true
+  },
+  "counts": {
+    "fields": [
+      {
+        "phase": "input",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      },
+      {
+        "phase": "dry",
+        "w": 1536,
+        "h": 1536,
+        "scale": 1
+      }
+    ],
+    "previews": 32,
+    "front": 89,
+    "field": 155,
+    "groupTides": 2
+  },
+  "stats": {
+    "n": 17,
+    "p95": 117,
+    "max": 117,
+    "over100": 2
+  },
+  "visible": "visible",
+  "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+  "gl": 0,
+  "lost": false,
+  "model": "front8-detail-flow-v2",
+  "scheduler": {
+    "tasks": 140,
+    "frames": 28
+  },
+  "errors": [],
+  "tileHashes": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "b5adfa0815fdecbb65461c1d3a4a684aec45aef1386c130b28fa22942673d964"
+    }
+  ]
+}
