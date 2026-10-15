@@ -7,10 +7,11 @@ import { createMaterialBlend } from './material-blend'
 /** Standalone experiment. The native live input path is deliberately untouched. */
 export function installMiniPuddle(engine: any, size: number, mode: 'morph'|'material', onStatus=(_message:string)=>{}) {
   const gl:WebGLRenderingContext=engine.gl
+  const respectSettled=mode==='morph'&&new URLSearchParams(location.search).get('settled')==='1'
   const originalPrepare=engine._settlePlan.prepare
   const previewAllowed=Object.getOwnPropertyDescriptor(engine._settleQueue,'allowProgressPreview')
   Object.defineProperty(engine._settleQueue,'allowProgressPreview',{configurable:true,get:()=>true})
-  const target=createNativePuddleTarget(engine,size,{prepare:originalPrepare})
+  const target=createNativePuddleTarget(engine,size,{prepare:originalPrepare,respectSettled})
   const presentation=mode==='morph'?createPuddlePresentation(gl,size):null
   const blend=createMaterialBlend(gl,size)
   const make=()=>new AccumulationBuffer(gl,size,size)
@@ -25,7 +26,7 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph'|'mate
   const scratch=()=>engine._ribbonStrokeScratch??engine._wash?.scratch
   function locate(){const s=scratch(),ctx=s?.finishContext;if(!ctx)return null;const tile=engine._resolveWithinSheet(ctx.target,bounds)[0];const entry=tile?s.peek(tile.buffer):null;return entry?{scratch:s,tile,entry,ctx}:null}
   function capture(){const s=scratch(),lc=engine._liveComposite;if(lc?.scratch===s)context={...lc};else if(s?.finishContext){const c=s.finishContext;context={...c,...s.compositeScalars(()=>({spreadPx:0,inkSmoothPx:0,water:0,migratePx:0,fieldSeed:c.fieldSeed,bristleRadiusPx:0})),strokeDir:s.noteDirection(0,0)}}}
-  function render(m=target.buffers()){const found=locate();if(!found||!context)return;const c=context;rgba.clear();engine._drawRibbonCompositeRect({...found.tile,buffer:rgba},bounds,c.preset,c.profile,blank,m.coverage,m.p,m.c,c.color,c.opacity,c.fieldSeed,c.spreadPx??0,c.fringeWater??c.water??0,c.migratePx??0,0,c.strokeDir??[1,0],c.bristleRadiusPx??0)}
+  function render(m=target.buffers()){const found=locate();if(!found||!context)return;const c=context;rgba.clear();engine._drawRibbonCompositeRect({...found.tile,buffer:rgba},bounds,c.preset,c.profile,found.entry.original,m.coverage,m.p,m.c,c.color,c.opacity,c.fieldSeed,c.spreadPx??0,c.fringeWater??c.water??0,c.migratePx??0,0,c.strokeDir??[1,0],c.bristleRadiusPx??0)}
   function commit(){const found=locate();if(!active||!found)return;const m=presentation||finished?target.buffers():shown,e=found.entry;const p=Math.min(1,clock/duration)
     // Morph has no exact material inverse. Use its elapsed material fraction
     // at the boundary, never the fully computed future target.
@@ -62,12 +63,12 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph'|'mate
     if(active&&!down){const found=locate();if(found){(presentation?presentation.tick(0,{dry:drying}):rgba).copyTo(found.tile.buffer);found.ctx.target.markContentPainted(bounds);engine._paperPartialOK=false;engine._paperCacheKey='';engine._invalidateSplitCache()}}
     return original.get('_display')!.apply(engine,args)
   }
-  engine._onStart=function(...args:unknown[]){if(active&&!finished)cancellations++;commit();target.cancel();if(raf){cancelAnimationFrame(raf);raf=0}active=false;down=true;drying=false;finished=false;goalReady=false;epoch++;if(engine._wash)engine._wash.endedAt=Infinity;const r=original.get('_onStart')!.apply(engine,args);down=!!engine._strokeLayerId;return r}
+  engine._onStart=function(...args:unknown[]){if(active&&!finished)cancellations++;commit();target.cancel();if(finished){engine._clearWash(false);context=null;}if(raf){cancelAnimationFrame(raf);raf=0}active=false;down=true;drying=false;finished=false;goalReady=false;epoch++;if(engine._wash)engine._wash.endedAt=Infinity;const r=original.get('_onStart')!.apply(engine,args);down=!!engine._strokeLayerId;return r}
   engine._onMove=function(...args:unknown[]){if(down)inputs++;return original.get('_onMove')!.apply(engine,args)}
   engine._onEnd=function(...args:unknown[]){const r=original.get('_onEnd')!.apply(engine,args);down=false;capture();const found=locate();if(found){const e=found.entry;e.inkLoad.copyTo(base.p);e.inkColor.copyTo(base.c);e.coverage.copyTo(base.coverage);base.p.copyTo(shown.p);base.c.copyTo(shown.c);base.coverage.copyTo(shown.coverage);found.tile.buffer.copyTo(rgba);presentation?.reset(rgba,epoch);duration=wetDryMsFor(Math.max(found.ctx.wetPeak,found.ctx.profile.waterLevel));target.resetFromScratch(found.scratch,found.tile,epoch);active=true;clock=0;lastAt=0;published=target.state.revision;segmentReady=false;segmentStart=0;segmentEnd=0;lastShown=0;request()}return r}
   presentation?.reset(blank,epoch)
   return {
-    get state(){return {mode,epoch,iterations:target.state.iterations,total:target.state.total,done:!down&&(!active||finished),drawing:down,dry:drying,active,cancellations,inputs,progress:clock/duration,durationMs:duration,target:{...target.state},presentation:presentation?.state??null}},
+    get state(){return {mode,respectSettled,epoch,iterations:target.state.iterations,total:target.state.total,done:!down&&(!active||finished),drawing:down,dry:drying,active,cancellations,inputs,progress:clock/duration,durationMs:duration,target:{...target.state},presentation:presentation?.state??null}},
     dry(){drying=true;lastAt=performance.now();request()},
     destroy(){if(destroyed)return;destroyed=true;if(raf)cancelAnimationFrame(raf);for(const k of hooks)engine[k]=original.get(k);engine._settlePlan.prepare=originalPrepare;if(previewAllowed)Object.defineProperty(engine._settleQueue,'allowProgressPreview',previewAllowed);else delete engine._settleQueue.allowProgressPreview;target.destroy();presentation?.destroy();blend.destroy();for(const b of owned)b.destroy()},
   }

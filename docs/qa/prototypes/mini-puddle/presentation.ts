@@ -102,6 +102,8 @@ const MORPH = HEADER + `
     vec4 own=texture2D(u_current,v_uv), goal=texture2D(u_target,v_uv);
     vec4 water=texture2D(u_extra,v_uv);
     float wet=max(water.a,water.b);
+    // Paint outside this wet wash is an immutable dry backing, not a flow source.
+    if(wet<0.5/255.0){gl_FragColor=own;return;}
     vec2 move=(texture2D(u_flow,v_uv).rg-0.5)*64.0;
     // Encoded zero is 128/255, not exactly 0.5. Suppress subpixel bias.
     move*=step(vec2(0.3),abs(move));

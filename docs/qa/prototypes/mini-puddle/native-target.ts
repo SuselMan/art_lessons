@@ -11,6 +11,7 @@ type NativeJob = NonNullable<ReturnType<WatercolorSettlePlan['prepare']>>
 export type NativePuddleTargetOptions = {
   /** Capture BEFORE controller replaces prepare. Unbound or bound are accepted. */
   prepare?: WatercolorSettlePlan['prepare']
+  respectSettled?: boolean
 }
 
 /** One isolated invocation of the existing v4 solver over the whole raw wash.
@@ -72,6 +73,7 @@ export function createNativePuddleTarget(engine: any, size: number, options: Nat
       // Explicit zero settled records are essential: null means inkLoad fallback.
       entry.inkSettled = pool.acquire(size, size); entry.inkSettled!.clear()
       entry.colorSettled = pool.acquire(size, size); entry.colorSettled!.clear()
+      if(options.respectSettled){(sourceEntry.inkBase??sourceEntry.inkSettled)?.copyTo(entry.inkSettled!);(sourceEntry.colorBase??sourceEntry.colorSettled)?.copyTo(entry.colorSettled!)}
       for (const name of ['solventLoad', 'foreignSolventLoad'] as const) {
         const src = sourceEntry[name]
         if (src) { const copy: AccumulationBuffer = pool.acquire(size, size); src.copyTo(copy); entry[name] = copy }
