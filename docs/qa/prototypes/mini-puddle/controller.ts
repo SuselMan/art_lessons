@@ -11,7 +11,7 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph'|'mate
   const originalPrepare=engine._settlePlan.prepare
   const previewAllowed=Object.getOwnPropertyDescriptor(engine._settleQueue,'allowProgressPreview')
   Object.defineProperty(engine._settleQueue,'allowProgressPreview',{configurable:true,get:()=>true})
-  const fullResolution=new URLSearchParams(location.search).get('fullResolution')==='1'
+  const fullResolution=false
   const target=createNativePuddleTarget(engine,size,{prepare:originalPrepare,fullResolution})
   const presentation=mode==='morph'?createPuddlePresentation(gl,size):null
   const blend=createMaterialBlend(gl,size)
@@ -23,7 +23,7 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph'|'mate
   const original=new Map(hooks.map(k=>[k,engine[k]]))
   let epoch=0,active=false,down=false,drying=false,destroyed=false,raf=0,lastAt=0,clock=0,duration=120000,goalReady=false,finished=false
   let segmentReady=false,segmentStart=0,segmentEnd=0
-  let published=-1,lastShown=0,lastStatus=0,cancellations=0,inputs=0,context:any=null
+  let published=-1,lastGoalAt=0,lastShown=0,lastStatus=0,cancellations=0,inputs=0,context:any=null
   const scratch=()=>engine._ribbonStrokeScratch??engine._wash?.scratch
   function locate(){const s=scratch(),ctx=s?.finishContext;if(!ctx)return null;const tile=engine._resolveWithinSheet(ctx.target,bounds)[0];const entry=tile?s.peek(tile.buffer):null;return entry?{scratch:s,tile,entry,ctx}:null}
   function capture(){const s=scratch(),lc=engine._liveComposite;if(lc?.scratch===s)context={...lc};else if(s?.finishContext){const c=s.finishContext;context={...c,...s.compositeScalars(()=>({spreadPx:0,inkSmoothPx:0,water:0,migratePx:0,fieldSeed:c.fieldSeed,bristleRadiusPx:0})),strokeDir:s.noteDirection(0,0)}}}
@@ -31,15 +31,16 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph'|'mate
   function commit(){const found=locate();if(!active||!found)return;const m=presentation||finished?target.buffers():shown,e=found.entry;const p=presentation?morphProgress(clock,duration):Math.min(1,clock/duration)
     // Morph has no exact material inverse. Use its elapsed material fraction
     // at the boundary, never the fully computed future target.
-    for(const dest of [e.inkLoad,e.inkSettled,e.inkBase,e.inkDry])if(dest){if(presentation&&!finished)blend.mix(base.p,m.p,p,dest);else m.p.copyTo(dest)}
-    for(const dest of [e.inkColor,e.colorSettled,e.colorBase,e.colorDry])if(dest){if(presentation&&!finished)blend.mix(base.c,m.c,p,dest);else m.c.copyTo(dest)}
+    // filmBuffers refreshes inkBase/colorBase from live material on the next gesture.
+    for(const dest of [e.inkLoad,e.inkSettled,e.inkDry])if(dest){if(presentation&&!finished)blend.mix(base.p,m.p,p,dest);else m.p.copyTo(dest)}
+    for(const dest of [e.inkColor,e.colorSettled,e.colorDry])if(dest){if(presentation&&!finished)blend.mix(base.c,m.c,p,dest);else m.c.copyTo(dest)}
     if(presentation&&!finished)blend.mix(base.coverage,m.coverage,p,e.coverage);else m.coverage.copyTo(e.coverage)
   }
   function request(){if(!raf&&!destroyed)raf=requestAnimationFrame(frame)}
   function frame(at:number){raf=0;if(destroyed||down||!active)return;const dt=lastAt?Math.max(0,at-lastAt):0;lastAt=at;clock=Math.min(duration,clock+dt*(drying?100:1));const progress=presentation?morphProgress(clock,duration):clock/duration
     if(presentation||!segmentReady)target.step(drying?12:3)
     const revision=target.state.revision??target.state.iterations
-    if(presentation){if(revision!==published){render();presentation.setTarget(rgba,target.buffers().coverage,epoch,{preserveAnchor:goalReady});goalReady=true;published=revision}}
+    if(presentation){if(revision!==published&&(!goalReady||target.state.done||at-lastGoalAt>=100)){lastGoalAt=at;render();presentation.setTarget(rgba,target.buffers().coverage,epoch,{preserveAnchor:goalReady});goalReady=true;published=revision}}
     else {
       if(revision!==published){
         published=revision
@@ -64,7 +65,7 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph'|'mate
     if(active&&!down){const found=locate();if(found){(presentation?presentation.tick(0,{dry:drying}):rgba).copyTo(found.tile.buffer);found.ctx.target.markContentPainted(bounds);engine._paperPartialOK=false;engine._paperCacheKey='';engine._invalidateSplitCache()}}
     return original.get('_display')!.apply(engine,args)
   }
-  engine._onStart=function(...args:unknown[]){if(active&&!finished)cancellations++;commit();target.cancel();if(finished){engine._clearWash(false);context=null;}if(raf){cancelAnimationFrame(raf);raf=0}active=false;down=true;drying=false;finished=false;goalReady=false;epoch++;if(engine._wash)engine._wash.endedAt=Infinity;const r=original.get('_onStart')!.apply(engine,args);down=!!engine._strokeLayerId;return r}
+  engine._onStart=function(...args:unknown[]){if(active&&!finished)cancellations++;if(!finished)commit();target.cancel();if(finished){engine._clearWash(false);context=null;}if(raf){cancelAnimationFrame(raf);raf=0}active=false;down=true;drying=false;finished=false;goalReady=false;epoch++;if(engine._wash)engine._wash.endedAt=Infinity;const r=original.get('_onStart')!.apply(engine,args);down=!!engine._strokeLayerId;return r}
   engine._onMove=function(...args:unknown[]){if(down)inputs++;return original.get('_onMove')!.apply(engine,args)}
   engine._onEnd=function(...args:unknown[]){const r=original.get('_onEnd')!.apply(engine,args);down=false;capture();const found=locate();if(found){const e=found.entry;e.inkLoad.copyTo(base.p);e.inkColor.copyTo(base.c);e.coverage.copyTo(base.coverage);base.p.copyTo(shown.p);base.c.copyTo(shown.c);base.coverage.copyTo(shown.coverage);found.tile.buffer.copyTo(rgba);presentation?.reset(rgba,epoch);duration=wetDryMsFor(Math.max(found.ctx.wetPeak,found.ctx.profile.waterLevel));target.resetFromScratch(found.scratch,found.tile,epoch);active=true;clock=0;lastAt=0;published=target.state.revision;segmentReady=false;segmentStart=0;segmentEnd=0;lastShown=0;request()}return r}
   presentation?.reset(blank,epoch)

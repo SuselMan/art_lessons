@@ -9,8 +9,9 @@ export function createMaterialBlend(gl: WebGLRenderingContext, size: number) {
   const out=new AccumulationBuffer(gl,size,size)
   return {
     mix(from:AccumulationBuffer,to:AccumulationBuffer,progress:number,dest:AccumulationBuffer){
-      out.beginReplaceDraw();gl.disable(gl.SCISSOR_TEST);gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,quad);gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0)
-      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,from.texture);gl.uniform1i(a,0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,to.texture);gl.uniform1i(b,1);gl.uniform1f(t,progress);gl.drawArrays(gl.TRIANGLES,0,6);out.endDraw();out.copyTo(dest);gl.activeTexture(gl.TEXTURE0)
+      const output=dest===from||dest===to?out:dest
+      output.beginReplaceDraw();gl.disable(gl.SCISSOR_TEST);gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,quad);gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0)
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,from.texture);gl.uniform1i(a,0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,to.texture);gl.uniform1i(b,1);gl.uniform1f(t,progress);gl.drawArrays(gl.TRIANGLES,0,6);output.endDraw();if(output!==dest)output.copyTo(dest);gl.activeTexture(gl.TEXTURE0)
     },
     destroy(){out.destroy();gl.deleteProgram(program);gl.deleteBuffer(quad)},
   }
