@@ -1,0 +1,19 @@
+{
+  "source": "867425d8",
+  "inputSha256": {
+    "1": "9afbe5703a947cf9a776657cbd17c75bb31e09ef4c7ad0e9397ebc58254fce8b",
+    "5": "a13e838422e6ab5dfe3eda405e5e3e2fe458fc87f4a01fbde6570021dcd49ecc",
+    "6": "ed89398a12d55c5707e77b01400efe10a8868639f6b7813dec99b939489e193e"
+  },
+  "unitTests": 9,
+  "webTypecheck": "pass",
+  "webLint": "pass",
+  "publishedPage": {
+    "images": 21,
+    "broken": 0,
+    "mobileOverflow": false
+  },
+  "device": "AMD laptop",
+  "Samsung": "not tested",
+  "qaDefaultChanged": false
+}
