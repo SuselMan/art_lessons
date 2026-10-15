@@ -1,0 +1,3 @@
+export function install(e){const gl=e.gl,cache=new WeakMap(),saved=[],stats={calls:0,skipped:0,byMethod:{}};
+for(const name of ['uniform1f','uniform1i','uniform2f','uniform3f','uniform4f','uniform2fv','uniform3fv','uniform4fv']){const orig=gl[name];saved.push([name,orig]);gl[name]=function(loc,...args){stats.calls++;if(!loc)return orig.call(gl,loc,...args);const values=name.endsWith('fv')?Array.from(args[0]):args,prior=cache.get(loc);if(prior&&prior.length===values.length&&prior.every((v,i)=>Object.is(v,values[i]))){stats.skipped++;stats.byMethod[name]=(stats.byMethod[name]??0)+1;return}const result=orig.call(gl,loc,...args);cache.set(loc,[...values]);return result}}
+return{stats:()=>stats,dispose(){for(const[name,orig]of saved)gl[name]=orig}}}

@@ -1,0 +1,6 @@
+import {DISPLAY_VERT,WC_FIELD_OP_FRAG} from '/src/engine/src/raster/shaders.ts';
+import {createProgram,getUniforms} from '/src/engine/src/raster/utils.ts';
+export function install(e){const p=e._watercolorPasses,gl=e.gl,original=p.fieldOp,cache=new Map(),calls={};const names=['u_a','u_b','u_c','u_k','u_mode','u_tau','u_dir','u_d','u_origin','u_size','u_band','u_world'];
+for(const mode of [2,3,4,5,6,7,8,9]){const shader=WC_FIELD_OP_FRAG.replace('uniform float u_mode;',`const float u_mode = ${mode.toFixed(1)};`),program=createProgram(gl,DISPLAY_VERT,shader);cache.set(mode,{program,uniforms:getUniforms(gl,program,names),position:gl.getAttribLocation(program,'a_position')})}
+p.fieldOp=function(...a){const v=cache.get(a[3]);if(!v)return original.apply(this,a);const saved=[this._fieldOpProg,this._fieldOpUni,this._fieldOpPosLoc];this._fieldOpProg=v.program;this._fieldOpUni=v.uniforms;this._fieldOpPosLoc=v.position;try{calls[a[3]]=(calls[a[3]]??0)+1;return original.apply(this,a)}finally{[this._fieldOpProg,this._fieldOpUni,this._fieldOpPosLoc]=saved}};
+return{stats:()=>({calls,programs:cache.size}),dispose(){p.fieldOp=original;gl.useProgram(null);for(const v of cache.values())gl.deleteProgram(v.program)}}}

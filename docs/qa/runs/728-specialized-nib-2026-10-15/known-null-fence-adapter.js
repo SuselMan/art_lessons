@@ -1,0 +1,4 @@
+import {GpuBudgetFence} from '/src/engine/src/raster/GpuBudgetFence.ts';
+export function install(e){const gl=e.gl,original=GpuBudgetFence.prototype.sync;let reads=0,samples=0,nonDefault=0;
+GpuBudgetFence.prototype.sync=function(){if(this.gl!==gl)return original.call(this);if(gl.isContextLost()){this.forget();return}this.ensure();if(gl.isContextLost()){this.forget();return}let previous=null;if(reads%128===0){samples++;previous=gl.getParameter(gl.FRAMEBUFFER_BINDING);if(previous)nonDefault++}try{gl.bindFramebuffer(gl.FRAMEBUFFER,this.framebuffer);gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,this.pixel);reads++}finally{if(!gl.isContextLost())gl.bindFramebuffer(gl.FRAMEBUFFER,previous);else this.forget()}};
+return{stats:()=>({reads,samples,nonDefault}),dispose(){GpuBudgetFence.prototype.sync=original}}}
