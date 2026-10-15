@@ -3103,6 +3103,23 @@ export const WASH_REVEAL_FRAG = `
  *  already settled, never negative because deposits only add; mode 1 is
  *  a + u_k * b, which puts the fixed part aside (k = -1) and adds the moved
  *  part back (k = 1). Blend off; whole quad. */
+const WC_FIELD_FIT = `  #define WC_FIELD_FIT(v) ((v) / max(1.0, max(max((v).r, (v).g), max((v).b, (v).a))))`
+
+/** Mode 1 without world-space fibres; same normalization as the general pass. */
+export const WC_FIELD_ADD_FRAG = `
+  precision highp float;
+  varying vec2 v_uv;
+  uniform sampler2D u_a;
+  uniform sampler2D u_b;
+  uniform float u_k;
+${WC_FIELD_FIT}
+  void main() {
+    vec4 a = texture2D(u_a, v_uv);
+    vec4 b = texture2D(u_b, v_uv);
+    gl_FragColor = WC_FIELD_FIT(a + b * u_k);
+  }
+`
+
 export const WC_FIELD_OP_FRAG = `
   precision highp float;
   uniform sampler2D u_a;
@@ -3183,7 +3200,7 @@ export const WC_FIELD_OP_FRAG = `
     vec3 fibres = vec3(0.4) + 1.9 * smoothstep(vec3(0.58), vec3(0.85), n);
     return dot(fibres, weights) / max(dot(weights, vec3(1.0)), 1e-6);
   }
-  #define WC_FIELD_FIT(v) ((v) / max(1.0, max(max((v).r, (v).g), max((v).b, (v).a))))
+${WC_FIELD_FIT}
   // (s17.25) The rim's deposition profile: the tail's weight against the
   // sharp peak, its floor on a paper crest, and the height window that
   // counts as a valley (paper height ~0.5 +/- 0.19).

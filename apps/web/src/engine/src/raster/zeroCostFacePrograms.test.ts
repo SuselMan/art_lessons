@@ -20,7 +20,9 @@ describe('zero face program ownership', () => {
     try {
       f.passes.fieldOp(f.buffer, f.buffer, f.buffer, 15, .5)
       f.passes.fieldOp(f.buffer, f.buffer, f.buffer, 16, .5, { additiveZeroFaces: false })
-      f.passes.fieldOp(f.buffer, f.buffer, f.buffer, 1, .5, { additiveZeroFaces: true })
+      // World fibres keep mode1 on its general path, independently of
+      // the plain-add specialization.
+      f.passes.fieldOp(f.buffer, f.buffer, f.buffer, 1, .5, { additiveZeroFaces: true, world: [0, 0, 1] })
       expect(f.create).not.toHaveBeenCalled()
       for (let i = 0; i < 2; i++) for (const mode of [15, 16] as const) {
         f.passes.fieldOp(f.buffer, f.buffer, f.buffer, mode, .5, { additiveZeroFaces: true })
@@ -41,5 +43,38 @@ describe('zero face program ownership', () => {
     expect(f.create.mock.results.at(-1)!.value).not.toBe(stale)
     f.passes.destroy()
     expect(f.remove.mock.calls.some(c => c[0] === stale)).toBe(false)
+  })
+})
+
+// Ownership/dispatch only: MockGL does not execute field shader pixels.
+// Numerical parity is covered by the actual Adreno/AMD byte corpus.
+describe('plain field-add program ownership', () => {
+  it('keeps fibres/general modes on the original program and reuses plain addition', () => {
+    const f = fixture()
+    try {
+      f.passes.fieldOp(f.buffer, f.buffer, f.buffer, 0, .5)
+      f.passes.fieldOp(f.buffer, f.buffer, f.buffer, 1, .5, { world: [0, 0, 1] })
+      expect(f.create).not.toHaveBeenCalled()
+      f.passes.fieldOp(f.buffer, f.buffer, f.buffer, 1, -.5)
+      f.passes.fieldOp(f.buffer, f.buffer, f.buffer, 1, .5, { scissor: [0, 0, 1, 1] })
+      expect(f.create).toHaveBeenCalledTimes(1)
+      const program = f.create.mock.results[0].value
+      expect(f.gl.getParameter(f.gl.CURRENT_PROGRAM)).toBe(program)
+      f.passes.destroy()
+      expect(f.gl.getParameter(f.gl.CURRENT_PROGRAM)).toBe(null)
+      expect(f.remove.mock.calls.filter(([p]) => p === program)).toHaveLength(1)
+    } finally { f.create.mockRestore(); f.remove.mockRestore() }
+  })
+  it('forgets invalid context handles and recreates its lazy program', () => {
+    const f = fixture()
+    f.passes.fieldOp(f.buffer, f.buffer, f.buffer, 1, .5)
+    const stale = f.create.mock.results[0].value
+    Object.defineProperty(f.gl, 'isProgram', { configurable: true, value: (p: WebGLProgram) => p !== stale })
+    f.passes.initFieldPrograms(); f.passes.initFieldUniforms(); f.passes.initFieldAttributes()
+    expect(f.remove.mock.calls.some(([p]) => p === stale)).toBe(false)
+    f.passes.fieldOp(f.buffer, f.buffer, f.buffer, 1, .5)
+    expect(f.create.mock.results.at(-1)!.value).not.toBe(stale)
+    f.passes.destroy()
+    expect(f.remove.mock.calls.some(([p]) => p === stale)).toBe(false)
   })
 })

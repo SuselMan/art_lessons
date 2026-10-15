@@ -15,12 +15,12 @@ describe('canonical continuation completion clock', () => {
     expect(finish).toHaveBeenCalledTimes(2); expect(allocation).not.toHaveBeenCalled()
     expect(engine['_continuationGpuFence']).toBeNull(); engine.destroy()
   })
-  it('uses one owned reusable four-byte read for continuation only', () => {
+  it('reuses the owned four-byte completion fence for both queue sync callbacks when enabled', () => {
     const { engine, gl } = fixture(); engine['_wcContinuationGpuFence'] = true
     const reads = vi.spyOn(gl, 'readPixels'), finish = vi.spyOn(gl, 'finish'), textures = vi.spyOn(gl, 'createTexture')
     engine['_settleQueue']['ctx'].continuationSyncGpu!(); engine['_settleQueue']['ctx'].continuationSyncGpu!()
     engine['_settleQueue']['ctx'].syncGpu!()
-    expect(textures).toHaveBeenCalledOnce(); expect(reads).toHaveBeenCalledTimes(2); expect(finish).toHaveBeenCalledOnce()
+    expect(textures).toHaveBeenCalledOnce(); expect(reads).toHaveBeenCalledTimes(3); expect(finish).not.toHaveBeenCalled()
     expect(reads.mock.calls.every(c => c[2] === 1 && c[3] === 1 && (c[6] as Uint8Array).byteLength === 4)).toBe(true)
     engine.destroy(); expect(engine['_continuationGpuFence']).toBeNull()
   })

@@ -113,6 +113,7 @@ const ENUM = {
 
 export class MockGL {
   // expose the enum as instance properties, mirroring WebGLRenderingContext
+  readonly CURRENT_PROGRAM = 0x8B8D
   readonly VERTEX_SHADER = ENUM.VERTEX_SHADER
   readonly FRAGMENT_SHADER = ENUM.FRAGMENT_SHADER
   readonly COMPILE_STATUS = ENUM.COMPILE_STATUS
@@ -499,7 +500,8 @@ export class MockGL {
   // stamp its report — exercises the same shape here as in a browser. A mock
   // that simply lacks the method turns a diagnostic into a crash, which is the
   // one thing a diagnostic must never be.
-  getParameter(pname: number): number | null {
+  getParameter(pname: number): number | MockProgram | null {
+    if (pname === this.CURRENT_PROGRAM) return this._currentProgram
     return pname === ENUM.MAX_TEXTURE_SIZE ? 4096 : null
   }
 

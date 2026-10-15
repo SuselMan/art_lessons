@@ -1,5 +1,5 @@
 import { WatercolorMaterialReconstruction } from './WatercolorMaterialReconstruction'
-import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
+import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_ADD_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
 import { createWatercolorFrontPaths } from './WatercolorFrontPaths'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -27,6 +27,8 @@ export class WatercolorPasses {
   private _fieldOpProg!: WebGLProgram
 
   private readonly _additiveZeroFaceCarry = new Map<15 | 16, { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number }>()
+
+  private _plainAdd: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } | null = null
 
   private _gradientField: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } | null = null
 
@@ -87,6 +89,10 @@ export class WatercolorPasses {
     out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number,
     opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number]; gradientFibres?: boolean; path?: AccumulationBuffer; pathPacked?: boolean; additiveZeroFaces?: boolean } = {},
   ): void {
+    if (mode === 1 && !((opts.world?.[2] ?? 0) > 0)) {
+      this.plainAdd(out, a, b, k, opts.scissor)
+      return
+    }
     const { gl } = this
     out.beginReplaceDraw()
     if (opts.scissor) {
@@ -376,6 +382,41 @@ export class WatercolorPasses {
    * so the first watercolor mark does not compile the optional program. */
   warmGradientFibres(): void { this.gradientField() }
 
+  private plainAdd(out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, k: number, scissor?: [number, number, number, number]): void {
+    const { gl } = this
+    if (!this._plainAdd) {
+      const program = createProgram(gl, DISPLAY_VERT, WC_FIELD_ADD_FRAG)
+      this._plainAdd = { program, uniforms: getUniforms(gl, program, ['u_a', 'u_b', 'u_k']), position: gl.getAttribLocation(program, 'a_position') }
+    }
+    const { program, uniforms: u, position } = this._plainAdd
+    out.beginReplaceDraw()
+    if (scissor) { gl.enable(gl.SCISSOR_TEST); gl.scissor(...scissor) }
+    gl.useProgram(program)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
+    gl.enableVertexAttribArray(position)
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, a.texture)
+    gl.uniform1i(u.u_a, 0)
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, b.texture)
+    gl.uniform1i(u.u_b, 1)
+    gl.uniform1f(u.u_k, k)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    if (scissor) gl.disable(gl.SCISSOR_TEST)
+    out.endDraw()
+    gl.activeTexture(gl.TEXTURE0)
+  }
+
+  private releasePlainAdd(): void {
+    const cached = this._plainAdd
+    if (!cached) return
+    const { gl } = this
+    if (gl.getParameter(gl.CURRENT_PROGRAM) === cached.program) gl.useProgram(null)
+    if (gl.isProgram?.(cached.program) !== false) gl.deleteProgram(cached.program)
+    this._plainAdd = null
+  }
+
   private gradientField(): NonNullable<WatercolorPasses['_gradientField']> {
     if (!this._gradientField) {
       const { gl } = this
@@ -432,6 +473,7 @@ export class WatercolorPasses {
     this._materialReconstruction = null
     const { gl } = this
     // Context restoration invalidates the optional cached program too.
+    this.releasePlainAdd()
     this.releaseGradientField()
     this.releaseCostDomain()
     this.releaseAdditiveZeroFaceCarry()
@@ -497,6 +539,7 @@ export class WatercolorPasses {
       this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg, this._gradientField?.program, this._costDomain?.program].includes(current)) {
       this.gl.useProgram(null)
     }
+    this.releasePlainAdd()
     this.releaseGradientField()
     this.releaseCostDomain()
     this.releaseAdditiveZeroFaceCarry()
