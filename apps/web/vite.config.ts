@@ -156,7 +156,7 @@ export default defineConfig(({ mode }) => {
             response.setHeader('Cache-Control', 'no-store')
             const html = readFileSync(new URL('../../docs/qa/prototypes/mini-stand/index.html', import.meta.url), 'utf8')
             const modulePath = new URL('../../docs/qa/prototypes/mini-puddle/controller.ts', import.meta.url).pathname
-            response.end(html.replace('__MINI_PUDDLE_MODULE__', '/@fs' + modulePath))
+            response.end(html.replace('__MINI_PUDDLE_MODULE_V01__', '/@fs' + modulePath.replace('controller.ts', 'controller-v01.ts')).replace('__MINI_PUDDLE_MODULE__', '/@fs' + modulePath.replace('controller.ts', 'controller-v02.ts')))
           })
         },
       },
