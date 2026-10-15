@@ -74,6 +74,9 @@ export class RibbonStrokePainter {
   diagnosticSegmentDelivery: false | 'combined' | 'explicit' = 'combined'
   diagnosticPigmentRecord = true
   diagnosticSharedFluid = true
+  /** Isolated source-dose ablation; never changes the shared solvent field. */
+  diagnosticPriorWetPigment = false
+  diagnosticPriorWetLanding = false
   diagnosticLandingReservoir = true
   diagnosticWaterPolicy: 'legacy' | 'finite' | 'bottomless' = 'bottomless'
   diagnosticForeignSolvent = true
@@ -269,7 +272,7 @@ export class RibbonStrokePainter {
           : wetHere
         if (segmentMode) paperWetByDab.set(dab, availableHere)
         const pigmentLeft = profile.waterDepletion
-          ? watercolorPigmentLoad(pigUsed, profile.waterLevel) * watercolorPigmentRate(profile.waterLevel) * watercolorWetPull(availableHere)
+          ? watercolorPigmentLoad(pigUsed, profile.waterLevel) * watercolorPigmentRate(profile.waterLevel) * watercolorWetPull(import.meta.env.DEV && this.diagnosticPriorWetPigment ? wetHere : availableHere)
           : 1
         // The gesture's own travel clock, carried on the scratch, so this decays
         // from the *stroke's* start rather than from each batch's. The pigment
@@ -281,7 +284,7 @@ export class RibbonStrokePainter {
         // and the surplus is spent over the travel after it.
         const tau = Math.max(0, watercolorTrailDwell(scratch.trail, dab.x, dab.y, dab.t, WC_DWELL_RADIUS * minor * Math.max(dab.aspectRatio, 1)) - WC_DWELL_FLOOR_MS)
         const gateHere = 1 - Math.min(Math.max(wetHere, 0), 1)
-        const pigmentGate = 0.45 + 0.55 * (1 - Math.min(Math.max(availableHere, 0), 1))
+        const pigmentGate = 0.45 + 0.55 * (1 - Math.min(Math.max(import.meta.env.DEV && this.diagnosticPriorWetPigment ? wetHere : availableHere, 0), 1))
         // …and the slowdown relative to this stroke's own pace (watercolorSlowdown).
         const last = scratch.trail.length ? scratch.trail[scratch.trail.length - 1] : null
         let slow = 0
@@ -328,7 +331,7 @@ export class RibbonStrokePainter {
         scratch.surplusAt = pigUsed
         scratch.trail.push({ x: dab.x, y: dab.y, t: dab.t })
         if (scratch.trail.length > WC_TRAIL_LEN) scratch.trail.shift()
-        const landingWet = segmentMode && this.diagnosticLandingReservoir
+        const landingWet = import.meta.env.DEV && this.diagnosticPriorWetLanding ? landedWet : segmentMode && this.diagnosticLandingReservoir
           ? this.diagnosticLandingPolicy === 'fluid'
             ? Math.max(landedWet, watercolorStandingWater(delivery.water, delivery.retain, landedWet, 1)) : 0
           : landedWet

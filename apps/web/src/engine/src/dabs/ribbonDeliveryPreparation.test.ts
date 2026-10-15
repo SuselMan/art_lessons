@@ -217,3 +217,31 @@ it('detaches finish scalars without rewinding the later input water clock', () =
     expect(held.finish!.bounds.maxY).toBeLessThan(scratch.finishContext!.bounds.maxY)
   } finally { for (const request of requests) request.cancel(); scratch.destroy(); engine.destroy() }
 })
+
+it('changes pigment dose independently of delivered water in the prior-wet source experiment', () => {
+  const { engine } = createTestEngine()
+  const name = 'normal:100:100:PB29:round'
+  const preset = engine['_resolvePreset']('watercolor', name)
+  const profile = ribbonProfileFor('watercolor', name)
+  const source = [dab(16, 16, { size: 32, t: 0 }), dab(160, 16, { size: 32, t: 16 })]
+  const run = (pigment: boolean, landing: boolean, wet: number) => {
+    const scratch = new RibbonStrokeScratch(engine['_ribbonScratchPool'], true, true)
+    const painter = engine['_ribbonPainter']
+    painter.diagnosticPriorWetPigment = pigment
+    painter.diagnosticPriorWetLanding = landing
+    try {
+      const r = painter['prepareDelivery'](source, undefined, preset, profile, scratch, () => wet, wet, 'combined', false, true)
+      return { dose: r.deposits, water: [...r.waterByDab.values()], standing: [...scratch.standing.values()] }
+    } finally { scratch.destroy() }
+  }
+  try {
+    const base = run(false, false, 0), delivery = run(true, false, 0), landing = run(false, true, 0)
+    expect(delivery.water).toEqual(base.water)
+    expect(delivery.standing).toEqual(base.standing)
+    expect(landing.water).toEqual(base.water)
+    expect(landing.standing).toEqual(base.standing)
+    expect(delivery.dose[1]).toBeLessThan(base.dose[1])
+    expect(landing.dose[0]).toBeGreaterThan(base.dose[0])
+    expect(run(true, true, 1)).toEqual(run(false, false, 1))
+  } finally { engine.destroy() }
+})
