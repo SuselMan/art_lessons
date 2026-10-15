@@ -1,0 +1,121 @@
+{
+  "identity": [
+    {
+      "model": "front8-detail-flow-v2",
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "gpuBatch": 8,
+      "layer": "layer-1",
+      "pose": {
+        "wx": 512,
+        "wy": 512,
+        "zoom": 0.65,
+        "angle": 0
+      }
+    },
+    {
+      "model": "front8-detail-flow-v2",
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "gpuBatch": 8,
+      "layer": "layer-1",
+      "pose": {
+        "wx": 512,
+        "wy": 512,
+        "zoom": 0.65,
+        "angle": 0
+      }
+    }
+  ],
+  "strokes": [
+    {
+      "id": "Ka7MJFbK1-",
+      "userId": "da81d22b-8a8c-41b2-8740-88f23464ca56",
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v2",
+      "layerId": "layer-1"
+    },
+    {
+      "id": "IE778k_n1L",
+      "userId": "bc754b55-60b7-4bd5-9ac8-1990510f74ff",
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v2",
+      "layerId": "layer-1"
+    }
+  ],
+  "dryReadyMs": 3651,
+  "baseline": [
+    [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "97fcfc8db2f00a79597b8478924016c5f95ce9aaaed4d46e3286cb549363fe1a"
+      }
+    ],
+    [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "59ff7027a6515b6455c44fac53b8bdb77e05243465be8bf5aabfebfbd2b72198"
+      }
+    ]
+  ],
+  "undo": [
+    [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "b1df6c71bb7a34ff56e61ab46ab596ade7b4a62fc4da34b8d100b1cf430f70f1"
+      }
+    ],
+    [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "036bfd1cacf676b8fdbea907451e62a76af9576937e7acbdad9a3a620672c3b5"
+      }
+    ]
+  ],
+  "redo": [
+    [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "97fcfc8db2f00a79597b8478924016c5f95ce9aaaed4d46e3286cb549363fe1a"
+      }
+    ],
+    [
+      {
+        "x": 0,
+        "y": 0,
+        "hash": "59ff7027a6515b6455c44fac53b8bdb77e05243465be8bf5aabfebfbd2b72198"
+      }
+    ]
+  ],
+  "redoExact": [
+    true,
+    true
+  ],
+  "reenter": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "59ff7027a6515b6455c44fac53b8bdb77e05243465be8bf5aabfebfbd2b72198"
+    }
+  ],
+  "reenterExact": true,
+  "crossGpu": {
+    "channels": 4194304,
+    "changed": 415449,
+    "meanAbs": 0.15343260765075684,
+    "maxDelta": 208
+  },
+  "gl": [
+    {
+      "error": 0,
+      "lost": false
+    },
+    {
+      "error": 0,
+      "lost": false
+    }
+  ],
+  "errors": [],
+  "input": "Concurrent CDP pen events through canvas PointerInput on AMD and Adreno; two distinct authors, same shared layer"
+}
