@@ -3,7 +3,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
 const root=fileURLToPath(new URL('../../../',import.meta.url))
-const output=root+'temp/mini-stand-build'
+const output=root+'temp/qa-disposable/mini-stand-build'
 let html=await readFile(root+'docs/qa/prototypes/mini-stand/index.html','utf8')
 let source=html.match(/<script type="module">([\s\S]*?)<\/script>/)[1]
 source=source.replaceAll("'/src/", "'"+root+"apps/web/src/")

@@ -17,7 +17,7 @@ controller-v01/v02 и material-blend-v01/v02 — сохранённые исхо
 
 ## Быстрая загрузка
 
-`node docs/qa/scripts/build-mini-stand.mjs` собирает текущий Mini UI и снимки М01–М03 в temp/mini-stand-build. После изменения версии запускать заново: обычный Mini обслуживает собранный HTML, а не исходники. deviceSmoke=1 оставляет исходный dev bridge путь.
+`node docs/qa/scripts/build-mini-stand.mjs` собирает текущий Mini UI и снимки М01–М03 в temp/qa-disposable/mini-stand-build. После изменения версии запускать заново: обычный Mini обслуживает собранный HTML, а не исходники. deviceSmoke=1 оставляет исходный dev bridge путь.
 
 esbuild сохраняет import.meta.env.DEV=true: это QA-сборка с прежними reviewTouchDrawing/watercolorReview, не production-режим движка. HTML no-cache; JS имена по хэшу, gzip, Cache-Control immutable/max-age365дней. Старые hashed chunks не удалять во время проверки: открытые страницы могут лениво запрашивать старую версию. Каталог принадлежит существующему QA frontend, не отдельный сервис. Удалять вместе с окончательным закрытием этого стенда; пересобирать перед повторным запуском.
 

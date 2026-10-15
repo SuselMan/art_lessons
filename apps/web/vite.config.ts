@@ -151,7 +151,7 @@ export default defineConfig(({ mode }) => {
           if (process.env.VITE_QA_WATERCOLOR_REVIEW !== '1') return
           server.middlewares.use((request, response, next) => {
             const path = request.url?.split('?')[0]
-            const staticRoot = new URL('../../temp/mini-stand-build/', import.meta.url)
+            const staticRoot = new URL('../../temp/qa-disposable/mini-stand-build/', import.meta.url)
             if (path && /^\/paper\/[a-z]+\.[0-9a-f]{8}\.(paper|preview)$/.test(path)) {
               const file = new URL('./public'+path, import.meta.url)
               if(existsSync(file)){response.setHeader('Content-Type','application/octet-stream');response.setHeader('Cache-Control','public, max-age=31536000, immutable');response.end(readFileSync(file));return}
