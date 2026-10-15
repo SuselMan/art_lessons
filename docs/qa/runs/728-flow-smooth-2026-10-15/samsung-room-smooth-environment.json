@@ -1,0 +1,19 @@
+{
+  "canvas": {
+    "w": 1694,
+    "h": 2362
+  },
+  "dpr": 2.125,
+  "viewport": {
+    "w": 824,
+    "h": 1149
+  },
+  "pose": {
+    "wx": 512,
+    "wy": 512,
+    "zoom": 1.4548807473914949,
+    "angle": 0
+  },
+  "model": "front8-detail-flow-v1",
+  "gpuBatch": 8
+}

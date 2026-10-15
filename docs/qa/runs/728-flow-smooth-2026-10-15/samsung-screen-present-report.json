@@ -1,0 +1,108 @@
+{
+  "emptyScreen": {
+    "blue": 0,
+    "yellow": 0,
+    "saturated": 0,
+    "w": 1694,
+    "h": 2362
+  },
+  "liveProbes": [
+    {
+      "blue": 599476,
+      "yellow": 0,
+      "saturated": 599989,
+      "w": 1694,
+      "h": 2362
+    },
+    {
+      "blue": 391215,
+      "yellow": 476217,
+      "saturated": 980417,
+      "w": 1694,
+      "h": 2362
+    }
+  ],
+  "finalScreen": {
+    "blue": 340716,
+    "yellow": 418664,
+    "saturated": 1057116,
+    "w": 1694,
+    "h": 2362
+  },
+  "dryButtonReturned": true,
+  "identity": {
+    "model": "front8-detail-flow-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "gpuBatch": 8
+  },
+  "baseline": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "a2e7ebb036728883e5322cd506b0b2e45cda12d069ac6e264bb4f6be01ed89f1"
+    }
+  ],
+  "errors": [],
+  "input": "CDP pen events through actual canvas PointerInput, no direct _onStart calls",
+  "zoomInvariants": [
+    {
+      "zoom": 0.35,
+      "hashes": [
+        {
+          "x": 0,
+          "y": 0,
+          "hash": "a2e7ebb036728883e5322cd506b0b2e45cda12d069ac6e264bb4f6be01ed89f1"
+        }
+      ]
+    },
+    {
+      "zoom": 1,
+      "hashes": [
+        {
+          "x": 0,
+          "y": 0,
+          "hash": "a2e7ebb036728883e5322cd506b0b2e45cda12d069ac6e264bb4f6be01ed89f1"
+        }
+      ]
+    },
+    {
+      "zoom": 2,
+      "hashes": [
+        {
+          "x": 0,
+          "y": 0,
+          "hash": "a2e7ebb036728883e5322cd506b0b2e45cda12d069ac6e264bb4f6be01ed89f1"
+        }
+      ]
+    }
+  ],
+  "undo": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "170459bd38db5c3a51e4d976d66c6f8ad6c90d9c9f41da27b5c3eb8f0b921a75"
+    }
+  ],
+  "redo": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "a2e7ebb036728883e5322cd506b0b2e45cda12d069ac6e264bb4f6be01ed89f1"
+    }
+  ],
+  "reenter": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "a2e7ebb036728883e5322cd506b0b2e45cda12d069ac6e264bb4f6be01ed89f1"
+    }
+  ],
+  "export": {
+    "bytes": 1878083,
+    "type": "image/png"
+  },
+  "gl": 0,
+  "lost": false,
+  "redoExact": true,
+  "reenterExact": true
+}

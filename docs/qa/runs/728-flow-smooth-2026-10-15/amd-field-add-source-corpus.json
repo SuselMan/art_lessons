@@ -1,0 +1,15 @@
+{
+  "cases": 480,
+  "totalChannels": 31762560,
+  "changed": 0,
+  "maxDelta": 0,
+  "worst": null,
+  "adapter": {
+    "accepted": 480,
+    "total": 480
+  },
+  "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+  "precision": 23,
+  "gl": 0,
+  "lost": false
+}

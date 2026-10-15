@@ -1,0 +1,41 @@
+const fs=require('fs'),crypto=require('crypto'),{chromium}=require('@playwright/test');
+const out=__dirname+'/samsung-room-smooth-pen';fs.mkdirSync(out,{recursive:true});
+(async()=>{const b=await chromium.connectOverCDP('http://127.0.0.1:19223');let p;try{
+ p=await b.contexts()[0].newPage();const errors=[];p.on('pageerror',e=>errors.push(e.message));
+ await p.goto(JSON.parse(fs.readFileSync('/home/suselman/.local/share/project-services/gl1-review/integration-entry.json')).url);
+ await p.goto('https://tools.pecni.com/create?qaFastDry=smooth');await p.locator('form input[type="text"]').first().fill('Samsung detail smoke');await p.getByText('Fine',{exact:true}).click();await p.getByText('Custom',{exact:true}).click();const dims=p.locator('form input[type="number"]');await dims.nth(0).fill('1024');await dims.nth(1).fill('1024');await p.locator('form button[type="submit"]').press('Enter');
+ await p.waitForFunction(()=>window.__engine&&!__engine._locked,null,{timeout:90000});await p.evaluate(()=>__engine.paperReady());
+ const identity=await p.evaluate(()=>({model:__engine._watercolorModel,renderer:__engine.gl.getParameter(__engine.gl.getExtension('WEBGL_debug_renderer_info').UNMASKED_RENDERER_WEBGL),room:location.pathname,gpuBatch:__engine._wcDryGpuFenceBatch}));if(identity.model!=='front8-detail-flow-v1')throw Error('Wrong model '+JSON.stringify(identity));console.log('READY',identity.model);
+ await p.evaluate(()=>{const s=__roomStore.getState();s.setTool('watercolor');for(const[k,v]of Object.entries({size:380,water:1,pigment:.69,pressureResponse:'normal',nib:'round'}))s.setToolSetting('watercolor',k,v)});
+ await p.waitForFunction(()=>__engine._opts.tool==='watercolor');
+ const idle=async()=>{await p.waitForFunction(()=>{const e=__engine;if(e._wcAsyncError)throw e._wcAsyncError;return !e._locked&&!e._settle&&!e._wcCanonical.pending&&!e._opQueue.length&&!e._rebuildJobs.size&&!e._pendingRebuilds.size},null,{timeout:180000});await p.evaluate(()=>{const e=__engine;e._layers.get(e._activeId).allResident()[0]?.buffer.readPixelsRegion(0,0,1,1);e._sweepReveals(performance.now()+100000);e._display()})};
+ const read=async()=>{const a=await p.evaluate(()=>__engine._layers.get(__engine._activeId).allResident().map(t=>{const v=t.buffer.readPixels();let s='';for(let i=0;i<v.length;i+=8192)s+=String.fromCharCode(...v.subarray(i,i+8192));return{x:t.originX,y:t.originY,v:btoa(s)}}));return a.map(t=>({x:t.x,y:t.y,hash:crypto.createHash('sha256').update(Buffer.from(t.v,'base64')).digest('hex')})).sort((a,b)=>a.y-b.y||a.x-b.x)};
+ const cdp=await p.context().newCDPSession(p);
+ await p.evaluate(()=>{window.__qaPenEvents=[];for(const type of ['pointerdown','pointerup'])document.addEventListener(type,e=>{if(e.target===__engine.gl.canvas)__qaPenEvents.push({type,pointerType:e.pointerType,pressure:e.pressure,time:performance.now()})},true)});
+ const rect=await p.evaluate(()=>{const r=__engine.gl.canvas.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height}});
+ const screenPigment=()=>p.evaluate(()=>{const gl=__engine.gl,w=gl.canvas.width,h=gl.canvas.height,previous=gl.getParameter(gl.FRAMEBUFFER_BINDING),v=new Uint8Array(w*h*4);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.readPixels(0,0,w,h,gl.RGBA,gl.UNSIGNED_BYTE,v);gl.bindFramebuffer(gl.FRAMEBUFFER,previous);let blue=0,yellow=0,saturated=0;for(let i=0;i<v.length;i+=4){const[r,g,b]=[v[i],v[i+1],v[i+2]];if(Math.max(r,g,b)>80&&Math.max(r,g,b)-Math.min(r,g,b)>25)saturated++;if(b-r>25&&b-g>5)blue++;if(Math.min(r,g)-b>25)yellow++}return{blue,yellow,saturated,w,h}});
+ const liveProbes=[],emptyScreen=await screenPigment();
+ for(let j=0;j<2;j++){
+  await p.evaluate(j=>{const col=j?[.97,.82,.03]:[.05,.32,.73];__roomStore.getState().setToolSetting('watercolor','color',col);__engine.setColor(col)},j);
+  const point=i=>({x:rect.x+rect.w*(.28+.44*i/16),y:rect.y+rect.h*(j?.68-.3*i/16:.38+.3*i/16)});
+  await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',...point(0),button:'left',buttons:1,clickCount:1,pointerType:'pen',force:.85});
+  await Promise.all(Array.from({length:16},(_,k)=>cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',...point(k+1),button:'left',buttons:1,pointerType:'pen',force:.85})));
+  await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));liveProbes.push(await screenPigment());await p.screenshot({path:out+'/live-'+(j+1)+'.png'});
+  await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',...point(16),button:'left',buttons:0,clickCount:1,pointerType:'pen',force:0});
+ }
+ console.log('PEN accepted',await p.evaluate(()=>window.__qaPenEvents));
+ await p.getByRole('button',{name:/dry everything|высушить всё/i}).click();console.log('DRY');await idle();await p.getByRole('button',{name:/dry everything|высушить всё/i}).waitFor({state:'visible',timeout:10000});if(!await p.getByRole('button',{name:/dry everything|высушить всё/i}).isEnabled())throw Error('Dry button stayed busy after canonical completion');const baseline=await read();const report={emptyScreen,liveProbes,finalScreen:await screenPigment(),dryButtonReturned:true,identity,baseline,errors,input:'CDP pen events through actual canvas PointerInput, no direct _onStart calls',penEvents:await p.evaluate(()=>window.__qaPenEvents),ops:await p.evaluate(()=>__engine.getOperations().filter(o=>o.type==='stroke').map(o=>({preset:o.preset,id:o.id})))};
+ if(liveProbes[0].blue<emptyScreen.blue+1000||liveProbes[1].yellow<emptyScreen.yellow+1000)throw Error('Live pigment absent while pen is still down');
+ if(report.penEvents.filter(e=>e.type==='pointerdown'&&e.pointerType==='pen').length!==2)throw Error('Pen events not routed to canvas');
+ if(report.ops.length!==2||report.ops.some(o=>!o.preset.endsWith(':wc@front8-detail-flow-v1')))throw Error('Invalid strokes/version');
+ await p.screenshot({path:out+'/painted.png'});report.zoomInvariants=[];const pose=await p.evaluate(()=>__engine._camera.pose);for(const zoom of [.35,1,2]){await p.evaluate(({pose,zoom})=>{__engine.setInfiniteCamera(pose.wx,pose.wy,zoom,0);__engine._display()},{pose,zoom});report.zoomInvariants.push({zoom,hashes:await read()})}await p.evaluate(pose=>__engine.setInfiniteCamera(pose.wx,pose.wy,pose.zoom,pose.angle),pose);
+ await p.evaluate(()=>__engine.undo());await idle();report.undo=await read();if(JSON.stringify(report.undo)===JSON.stringify(baseline))throw Error('Undo did not change pixels');
+ await p.evaluate(()=>__engine.redo());await idle();report.redo=await read();console.log('REDO',JSON.stringify(report.redo)===JSON.stringify(baseline));
+ await p.reload();await p.waitForFunction(()=>window.__engine||document.querySelector('form input[type="text"]'),null,{timeout:90000});if(await p.locator('form input[type="text"]').count()){await p.locator('form input[type="text"]').first().fill('QA Samsung');await p.locator('form button[type="submit"]').press('Enter')}await p.waitForFunction(()=>window.__engine&&!__engine._locked,null,{timeout:90000});await p.evaluate(()=>__engine.paperReady());await idle();report.reenter=await read();
+ report.export=await p.evaluate(async()=>{const i=await __engine.exportPNG();return{bytes:i?.size,type:i?.type}});
+ report.gl=await p.evaluate(()=>__engine.gl.getError());report.lost=await p.evaluate(()=>__engine.gl.isContextLost());
+ report.redoExact=JSON.stringify(report.redo)===JSON.stringify(baseline);report.reenterExact=JSON.stringify(report.reenter)===JSON.stringify(baseline);
+ fs.writeFileSync(out+'/report.json',JSON.stringify(report,null,2));console.log('DONE',report.redoExact,report.reenterExact,report.gl,report.export);
+ if(report.zoomInvariants.some(z=>JSON.stringify(z.hashes)!==JSON.stringify(baseline)))throw Error('Zoom changed canonical material');
+ if(!report.redoExact||!report.reenterExact||report.gl||report.lost||errors.length||!report.export.bytes)throw Error('Room smoke failed; report saved');
+}finally{if(p)await p.close().catch(()=>{});await b.close()}})().catch(e=>{console.error(e);process.exitCode=1});

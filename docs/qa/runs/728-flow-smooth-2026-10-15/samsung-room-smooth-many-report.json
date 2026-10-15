@@ -1,0 +1,59 @@
+{
+  "frameStats": {
+    "input": {
+      "n": 314,
+      "p95": 50.100000000000364,
+      "max": 133.6999999999989,
+      "over100": 2
+    },
+    "dry": {
+      "n": 560,
+      "p95": 33.400000000001455,
+      "max": 217.29999999999927,
+      "over100": 11
+    }
+  },
+  "identity": {
+    "model": "front8-detail-flow-v1",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "gpuBatch": 8
+  },
+  "baseline": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "dedb32d14c4c0f2239ab7d014d6c5f662b85b87680e4bbb7ff52e188cc7f3d63"
+    }
+  ],
+  "errors": [],
+  "input": "CDP pen events through actual canvas PointerInput, no direct _onStart calls",
+  "undo": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "c4d2e294a063a34424e7860d40dcb6b0b4a9fec8939893393279ae11e3df7878"
+    }
+  ],
+  "redo": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "dedb32d14c4c0f2239ab7d014d6c5f662b85b87680e4bbb7ff52e188cc7f3d63"
+    }
+  ],
+  "reenter": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "dedb32d14c4c0f2239ab7d014d6c5f662b85b87680e4bbb7ff52e188cc7f3d63"
+    }
+  ],
+  "export": {
+    "bytes": 1993251,
+    "type": "image/png"
+  },
+  "gl": 0,
+  "lost": false,
+  "redoExact": true,
+  "reenterExact": true
+}
