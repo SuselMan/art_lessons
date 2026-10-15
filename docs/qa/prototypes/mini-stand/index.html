@@ -21,7 +21,7 @@ engine._settlePlan.diagnosticMultilevelContact=8;
 window.__wcNative=engine;
 if(deviceSmoke)window.__engine=engine;
 engine._watercolorPasses.warmGradientFibres();
-window.__wcReviewVersion=experimental?'mini-puddle-'+mode+'-v1':'mini-jump8-v1';
+window.__wcReviewVersion=experimental?'mini-native-puddle-'+mode+'-v2':'mini-jump8-v1';
 let puddle=null;
 if(experimental){await engine.paperReady();const {installMiniPuddle}=await import('__MINI_PUDDLE_MODULE__');puddle=installMiniPuddle(engine,size,mode,status=>{c.error.textContent=status});window.__miniPuddle=puddle;document.querySelector('h1').textContent='Мини-стенд — '+(mode==='morph'?'А: морфинг':'Б: материал');document.querySelector('footer').firstChild.textContent='Одна общая лужа, отменяемая цель. Эксперимент; новый режим открывает чистый лист. ';c.undo.disabled=c.redo.disabled=true;c.undo.title=c.redo.title='История в этих двух экспериментальных режимах пока не подключена';}
 engine.appendOperation({id:'local-layer',type:'layer_add',userId:'native-local',timestamp:1,layerId:'local',name:'Акварель'});

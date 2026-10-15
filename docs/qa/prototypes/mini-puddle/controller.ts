@@ -1,170 +1,74 @@
 import { AccumulationBuffer } from '../../../../apps/web/src/engine/src/buffers/AccumulationBuffer'
-import { ribbonProfileFor } from '../../../../apps/web/src/engine/src/dabs/ribbonProfile'
-import { createPuddleTarget, type PuddleMaterial } from './target'
+import { wetDryMsFor } from '../../../../apps/web/src/engine/src/paper/paperWetness'
+import { createNativePuddleTarget } from './native-target'
 import { createPuddlePresentation } from './presentation'
+import { createMaterialBlend } from './material-blend'
 
-/** Disposable mini-stand wiring only. All engine interception is restored. */
-// The prototype intentionally probes private engine seams, outside product API.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function installMiniPuddle(engine: any, size: number, mode: 'morph' | 'material', onStatus: (message: string) => void = () => {}) {
-  const gl: WebGLRenderingContext = engine.gl
-  const bounds = { minX: 0, minY: 0, maxX: size, maxY: size }
-  const target = createPuddleTarget(gl, size, { paperTexture: engine._paperTex, paperScale: engine._paperWorldSize().w / (engine._opts.paperScale || 1) })
-  const presentation = mode === 'morph' ? createPuddlePresentation(gl, size) : null
-  const make = () => new AccumulationBuffer(gl, size, size)
-  const rawBefore = make(), rawAfter = make(), targetRGBA = make(), blank = make()
-  const before: PuddleMaterial = { p: make(), c: make(), coverage: make() }
-  const owned = [rawBefore, rawAfter, targetRGBA, blank, ...Object.values(before)]
-  gl.disable(gl.SCISSOR_TEST)
-  for (const buffer of owned) buffer.clear()
-  let epoch = 0, raf = 0, lastAt = 0, active = false, down = false, drying = false, destroyed = false
-  let published = -1, cancellations = 0, inputs = 0, dryCommitted = false
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let context: any = null
-  const hooks = ['_onStart', '_onEnd', '_paintStrokeDabs', '_display', '_finishRibbonStroke', '_scheduleDryingRepaint', '_revealWash'] as const
-  const original = new Map(hooks.map(name => [name, engine[name]]))
-  const originalPrepare = engine._settlePlan.prepare
-  const scratch = () => engine._ribbonStrokeScratch ?? engine._wash?.scratch
-  const locate = () => {
-    const s = scratch(), ctx = s?.finishContext
-    const tile = ctx ? engine._resolveWithinSheet(ctx.target, bounds)[0] : s ? [...s.tileEntries()][0]?.[0] : null
-    const t = tile?.buffer ? tile : tile ? { buffer: tile, originX: 0, originY: 0, contentRect: bounds } : null
-    return s && t ? { scratch: s, tile: t, entry: s.peek(t.buffer) } : null
+/** Standalone experiment. The native live input path is deliberately untouched. */
+export function installMiniPuddle(engine: any, size: number, mode: 'morph'|'material', onStatus=(_message:string)=>{}) {
+  const gl:WebGLRenderingContext=engine.gl
+  const originalPrepare=engine._settlePlan.prepare
+  const previewAllowed=Object.getOwnPropertyDescriptor(engine._settleQueue,'allowProgressPreview')
+  Object.defineProperty(engine._settleQueue,'allowProgressPreview',{configurable:true,get:()=>true})
+  const target=createNativePuddleTarget(engine,size,{prepare:originalPrepare})
+  const presentation=mode==='morph'?createPuddlePresentation(gl,size):null
+  const blend=createMaterialBlend(gl,size)
+  const make=()=>new AccumulationBuffer(gl,size,size)
+  const base={p:make(),c:make(),coverage:make()}, shown={p:make(),c:make(),coverage:make()}, rgba=make(),blank=make()
+  const owned=[...Object.values(base),...Object.values(shown),rgba,blank];for(const b of owned)b.clear()
+  const bounds={minX:0,minY:0,maxX:size,maxY:size}
+  const hooks=['_onStart','_onEnd','_onMove','_display','_finishRibbonStroke','_scheduleDryingRepaint','_revealWash'] as const
+  const original=new Map(hooks.map(k=>[k,engine[k]]))
+  let epoch=0,active=false,down=false,drying=false,destroyed=false,raf=0,lastAt=0,clock=0,duration=120000,goalReady=false,finished=false
+  let segmentReady=false,segmentStart=0,segmentEnd=0
+  let published=-1,lastShown=0,lastStatus=0,cancellations=0,inputs=0,context:any=null
+  const scratch=()=>engine._ribbonStrokeScratch??engine._wash?.scratch
+  function locate(){const s=scratch(),ctx=s?.finishContext;if(!ctx)return null;const tile=engine._resolveWithinSheet(ctx.target,bounds)[0];const entry=tile?s.peek(tile.buffer):null;return entry?{scratch:s,tile,entry,ctx}:null}
+  function capture(){const s=scratch(),lc=engine._liveComposite;if(lc?.scratch===s)context={...lc};else if(s?.finishContext){const c=s.finishContext;context={...c,...s.compositeScalars(()=>({spreadPx:0,inkSmoothPx:0,water:0,migratePx:0,fieldSeed:c.fieldSeed,bristleRadiusPx:0})),strokeDir:s.noteDirection(0,0)}}}
+  function render(m=target.buffers()){const found=locate();if(!found||!context)return;const c=context;rgba.clear();engine._drawRibbonCompositeRect({...found.tile,buffer:rgba},bounds,c.preset,c.profile,blank,m.coverage,m.p,m.c,c.color,c.opacity,c.fieldSeed,c.spreadPx??0,c.fringeWater??c.water??0,c.migratePx??0,0,c.strokeDir??[1,0],c.bristleRadiusPx??0)}
+  function commit(){const found=locate();if(!active||!found)return;const m=presentation||finished?target.buffers():shown,e=found.entry;const p=Math.min(1,clock/duration)
+    // Morph has no exact material inverse. Use its elapsed material fraction
+    // at the boundary, never the fully computed future target.
+    for(const dest of [e.inkLoad,e.inkSettled,e.inkBase,e.inkDry])if(dest){if(presentation&&!finished)blend.mix(base.p,m.p,p,dest);else m.p.copyTo(dest)}
+    for(const dest of [e.inkColor,e.colorSettled,e.colorBase,e.colorDry])if(dest){if(presentation&&!finished)blend.mix(base.c,m.c,p,dest);else m.c.copyTo(dest)}
+    if(presentation&&!finished)blend.mix(base.coverage,m.coverage,p,e.coverage);else m.coverage.copyTo(e.coverage)
   }
-  function captureContext() {
-    const s = scratch(), lc = engine._liveComposite
-    if (lc?.scratch === s) context = { ...lc }
-    if (!context && s?.finishContext) {
-      const c = s.finishContext
-      context = { ...c, fringeWater: 0, spreadPx: 0, migratePx: 0, inkSmoothPx: 0, strokeDir: [1, 0], bristleRadiusPx: 0 }
-    }
-    if (!context && s) context = {
-      preset: engine._resolvePreset('watercolor', engine._strokePreset),
-      profile: ribbonProfileFor('watercolor', engine._strokePreset),
-      color: engine._strokeColor, opacity: engine._opts.opacity,
-      ...s.compositeScalars(() => ({ spreadPx: 0, inkSmoothPx: 0, water: 0, migratePx: 0, fieldSeed: [0, 0], bristleRadiusPx: 0 })),
-      fringeWater: 0, strokeDir: [1, 0],
-    }
-  }
-  function render(material: PuddleMaterial, out: AccumulationBuffer) {
-    if (!context) return
-    out.clear()
-    const c = context
-    engine._drawRibbonCompositeRect({ buffer: out, originX: 0, originY: 0, contentRect: bounds }, bounds,
-      c.preset, c.profile, blank, material.coverage, material.p, material.c,
-      c.color, c.opacity, c.fieldSeed ?? [0, 0], c.spreadPx ?? 0, c.fringeWater ?? c.water ?? 0,
-      c.migratePx ?? 0, 0, c.strokeDir ?? [1, 0], c.bristleRadiusPx ?? 0)
-  }
-  function physical() {
-    const found = locate()
-    return found?.entry?.inkLoad && found.entry.inkColor
-      ? { p: found.entry.inkLoad, c: found.entry.inkColor, coverage: found.entry.coverage } : null
-  }
-  function show() {
-    const found = locate()
-    if (!found || !context) return
-    const view = presentation ? presentation.tick(0, { dry: drying }) : targetRGBA
-    view.copyTo(found.tile.buffer)
-    const ctx = found.scratch.finishContext
-    ctx?.target.markContentPainted(bounds)
-    engine._paperPartialOK = false
-    engine._paperCacheKey = ''
-    engine._invalidateSplitCache()
-  }
-  function commit() {
-    const found = locate()
-    if (!active || !found?.entry) return
-    const m = target.buffers(), e = found.entry
-    for (const b of [e.inkLoad, e.inkSettled, e.inkBase]) if (b) m.p.copyTo(b)
-    for (const b of [e.inkColor, e.colorSettled, e.colorBase]) if (b) m.c.copyTo(b)
-    m.coverage.copyTo(e.coverage)
-    if (e.inkDry) m.p.copyTo(e.inkDry)
-    if (e.colorDry) m.c.copyTo(e.colorDry)
-  }
-  function request() { if (!raf && !destroyed) raf = requestAnimationFrame(frame) }
-  function frame(at: number) {
-    raf = 0
-    if (destroyed) return
-    const dt = lastAt ? Math.min(100, at - lastAt) : 16; lastAt = at
-    if (active && !down) {
-      target.step(drying ? 12 : 3)
-      if (drying && target.state.done && !dryCommitted) {
-        dryCommitted = target.dry()
-        if (dryCommitted) {
-          commit(); engine._paperWet.clear(); engine._wetTexAt = 0
-          published = -1
-        }
+  function request(){if(!raf&&!destroyed)raf=requestAnimationFrame(frame)}
+  function frame(at:number){raf=0;if(destroyed||down||!active)return;const dt=lastAt?Math.max(0,at-lastAt):0;lastAt=at;clock=Math.min(duration,clock+dt*(drying?100:1));const progress=clock/duration
+    if(presentation||!segmentReady)target.step(drying?12:3)
+    const revision=target.state.revision??target.state.iterations
+    if(presentation){if(target.state.done&&!goalReady){render();presentation.setTarget(rgba,target.buffers().coverage,epoch);goalReady=true}}
+    else {
+      if(revision!==published){
+        published=revision
+        if(target.state.iterations>0){segmentStart=segmentEnd;segmentEnd=duration*(target.state.done?1:target.state.iterations/Math.max(1,target.state.total));segmentReady=true}
       }
-      if (target.state.iterations !== published) {
-        published = target.state.iterations
-        render(target.buffers(), targetRGBA)
-        presentation?.setTarget(targetRGBA, target.buffers().coverage, epoch)
+      if(segmentReady&&at-lastShown>=33){
+        const t=Math.max(0,Math.min(1,(clock-segmentStart)/Math.max(1,segmentEnd-segmentStart))),m=target.buffers()
+        blend.mix(base.p,m.p,t,shown.p);blend.mix(base.c,m.c,t,shown.c);blend.mix(base.coverage,m.coverage,t,shown.coverage);render(shown)
+        if(t>=1){shown.p.copyTo(base.p);shown.c.copyTo(base.c);shown.coverage.copyTo(base.coverage);segmentReady=false}
       }
-      presentation?.tick(dt, { dry: drying })
-      engine._display()
-      onStatus(`${mode === 'morph' ? 'Морфинг' : 'Материал'} · цель ${target.state.iterations}/32 · эпоха ${epoch}`)
-      if (!target.state.done || presentation && presentation.state.progress < 0.9995) request()
-      else { drying = false; onStatus(`${mode === 'morph' ? 'Морфинг' : 'Материал'} · готово · эпоха ${epoch}`) }
     }
+    if(target.state.done&&progress>=1&&!segmentReady&&!finished){target.dry();finished=true;commit();engine._paperWet.clear();engine._wetTexAt=0;render();if(presentation)presentation.setTarget(rgba,target.buffers().coverage,epoch)}
+    if(at-lastShown>=33||finished){lastShown=at;presentation?.tick(dt,{dry:drying,progress});engine._display()}
+    if(at-lastStatus>250||finished){lastStatus=at;onStatus(`${mode==='morph'?'Морфинг':'Материал'} · ${Math.round(progress*100)}% · ${Math.round(duration/1000)} с · расчёт ${target.state.iterations}/${target.state.total}`)}
+    if(!finished)request();else drying=false
   }
-  engine._settlePlan.prepare = () => null
-  engine._finishRibbonStroke = (s: { diffusePending: boolean }) => {
-    captureContext()
-    if (engine._liveComposite?.scratch === s) engine._flushLiveComposite()
-    s.diffusePending = false
+  engine._settlePlan.prepare=()=>null
+  engine._finishRibbonStroke=(s:any)=>{capture();if(engine._liveComposite?.scratch===s)engine._flushLiveComposite();s.diffusePending=false}
+  engine._scheduleDryingRepaint=()=>{};engine._revealWash=()=>{}
+  if(engine._dryingTimer){clearTimeout(engine._dryingTimer);engine._dryingTimer=0}
+  engine._display=function(...args:unknown[]){
+    if(active&&!down){const found=locate();if(found){(presentation?presentation.tick(0,{dry:drying}):rgba).copyTo(found.tile.buffer);found.ctx.target.markContentPainted(bounds);engine._paperPartialOK=false;engine._paperCacheKey='';engine._invalidateSplitCache()}}
+    return original.get('_display')!.apply(engine,args)
   }
-  engine._scheduleDryingRepaint = () => {}
-  engine._revealWash = () => {}
-  if (engine._dryingTimer) { clearTimeout(engine._dryingTimer); engine._dryingTimer = 0 }
-  engine._display = function(...args: unknown[]) {
-    engine._flushLiveComposite()
-    if (active || down) show()
-    return original.get('_display')!.apply(engine, args)
-  }
-  engine._onStart = function(...args: unknown[]) {
-    if (active && !target.state.done) cancellations++
-    commit(); target.cancel(); active = false; down = true; drying = false; dryCommitted = false; epoch++
-    if (engine._wash) engine._wash.endedAt = Infinity
-    const result = original.get('_onStart')!.apply(engine, args)
-    down = !!engine._strokeLayerId
-    return result
-  }
-  engine._paintStrokeDabs = function(...args: unknown[]) {
-    const old = physical()
-    if (presentation) {
-      if (old) { old.p.copyTo(before.p); old.c.copyTo(before.c); old.coverage.copyTo(before.coverage) }
-      else for (const b of Object.values(before)) b.clear()
-    }
-    const result = original.get('_paintStrokeDabs')!.apply(engine, args)
-    captureContext()
-    const after = physical()
-    if (after) {
-      inputs++
-      if (presentation) { render(before, rawBefore); render(after, rawAfter); presentation.acceptInput(rawBefore, rawAfter, epoch) }
-      else render(after, rawAfter)
-      rawAfter.copyTo(targetRGBA)
-    }
-    return result
-  }
-  engine._onEnd = function(...args: unknown[]) {
-    const result = original.get('_onEnd')!.apply(engine, args)
-    down = false; captureContext()
-    const material = physical()
-    if (material) { target.reset(material, epoch); active = true; published = -1; lastAt = 0; request() }
-    return result
-  }
-  presentation?.reset(blank, epoch)
+  engine._onStart=function(...args:unknown[]){if(active&&!finished)cancellations++;commit();target.cancel();if(raf){cancelAnimationFrame(raf);raf=0}active=false;down=true;drying=false;finished=false;goalReady=false;epoch++;if(engine._wash)engine._wash.endedAt=Infinity;const r=original.get('_onStart')!.apply(engine,args);down=!!engine._strokeLayerId;return r}
+  engine._onMove=function(...args:unknown[]){if(down)inputs++;return original.get('_onMove')!.apply(engine,args)}
+  engine._onEnd=function(...args:unknown[]){const r=original.get('_onEnd')!.apply(engine,args);down=false;capture();const found=locate();if(found){const e=found.entry;e.inkLoad.copyTo(base.p);e.inkColor.copyTo(base.c);e.coverage.copyTo(base.coverage);base.p.copyTo(shown.p);base.c.copyTo(shown.c);base.coverage.copyTo(shown.coverage);found.tile.buffer.copyTo(rgba);presentation?.reset(rgba,epoch);duration=wetDryMsFor(Math.max(found.ctx.wetPeak,found.ctx.profile.waterLevel));target.resetFromScratch(found.scratch,found.tile,epoch);active=true;clock=0;lastAt=0;published=target.state.revision;segmentReady=false;segmentStart=0;segmentEnd=0;lastShown=0;request()}return r}
+  presentation?.reset(blank,epoch)
   return {
-    get state() { return { mode, epoch, iterations: target.state.iterations, done: !down && target.state.done && (!presentation || !active || presentation.state.progress >= 0.9995), drawing: down, dry: drying, active, cancellations, inputs, target: { ...target.state }, presentation: presentation?.state ?? null } },
-    dry() { drying = true; request() },
-    destroy() {
-      if (destroyed) return
-      destroyed = true
-      if (raf) cancelAnimationFrame(raf)
-      for (const name of hooks) engine[name] = original.get(name)
-      engine._settlePlan.prepare = originalPrepare
-      target.destroy(); presentation?.destroy()
-      for (const buffer of owned) buffer.destroy()
-    },
+    get state(){return {mode,epoch,iterations:target.state.iterations,total:target.state.total,done:!down&&(!active||finished),drawing:down,dry:drying,active,cancellations,inputs,progress:clock/duration,durationMs:duration,target:{...target.state},presentation:presentation?.state??null}},
+    dry(){drying=true;lastAt=performance.now();request()},
+    destroy(){if(destroyed)return;destroyed=true;if(raf)cancelAnimationFrame(raf);for(const k of hooks)engine[k]=original.get(k);engine._settlePlan.prepare=originalPrepare;if(previewAllowed)Object.defineProperty(engine._settleQueue,'allowProgressPreview',previewAllowed);else delete engine._settleQueue.allowProgressPreview;target.destroy();presentation?.destroy();blend.destroy();for(const b of owned)b.destroy()},
   }
 }

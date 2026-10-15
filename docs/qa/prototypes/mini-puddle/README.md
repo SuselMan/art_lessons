@@ -1,3 +1,5 @@
+> Исторический прототип v1: больше не используется активными А/Б на Мини. После замечаний Ильи15:50 цель перенесена на существующие операторы v4 в `native-target.ts`; см. отчёт728-mini-puddle-native-v2-2026-10-15.md.
+
 # Whole-puddle target (diagnostic)
 
 Base `38cae73f`; standalone WebGL1 target, never calls per-stroke settle. Default32 iterations at256² for1024². Every reset captures the current unified raw P/C/coverage into fixed storage, replacing the previous epoch. No stroke list, texture allocation per reset, CPU readback, wall clock or history replay.

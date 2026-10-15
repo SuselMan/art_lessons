@@ -3,8 +3,8 @@ import { createFullscreenQuad, createProgram, getUniforms } from '../../../../ap
 
 /** Presentation time only. Never feeds canonical pigment, replay or simulation. */
 export function presentationStep(dtMs: number, dry: boolean): { advance: number; travel: number } {
-  const seconds = Math.min(100, Math.max(0, Number.isFinite(dtMs) ? dtMs : 0)) / 1000 * (dry ? 3.5 : 1)
-  return { advance: 1 - Math.exp(-seconds / 0.7), travel: 1 - Math.exp(-seconds / 0.24) }
+  const seconds = Math.min(100, Math.max(0, Number.isFinite(dtMs) ? dtMs : 0)) / 1000 * (dry ? 100 : 1)
+  return { advance: 1 - Math.exp(-seconds / (120 / 7.6)), travel: 1 - Math.exp(-seconds / (120 / 24)) }
 }
 
 /** An input event supersedes the old target, without replacing the shown paint. */
@@ -113,7 +113,7 @@ const MORPH = HEADER + `
     // Residual appears as distinct irregular fronts, biased toward already
     // painted material. Spatial correspondence moves existing texture first.
     float arrival=smoothstep(cell*0.62,cell*0.62+0.26,u_progress+max(own.a,goal.a)*0.16);
-    float residual=clamp(u_advance*localClock*(0.25+1.8*arrival),0.0,1.0);
+    float residual=clamp(u_progress+(arrival-u_progress)*sin(3.14159265*u_progress)*0.35,0.0,1.0);
     vec4 result=mix(carried,goal,residual);
     // No global final snap: only individual pixels already within one byte
     // may land exactly. Large mismatches continue travelling/correcting.
@@ -134,11 +134,12 @@ export function createPuddlePresentation(gl: WebGLRenderingContext, size: number
   let next = new AccumulationBuffer(gl, width, height)
   const target = new AccumulationBuffer(gl, width, height)
   const wet = new AccumulationBuffer(gl, width, height)
+  const anchor = new AccumulationBuffer(gl, width, height)
   const fw = Math.min(128, width), fh = Math.min(128, height)
   const sourceFeature = new AccumulationBuffer(gl, fw, fh)
   const targetFeature = new AccumulationBuffer(gl, fw, fh)
   const flow = new AccumulationBuffer(gl, fw, fh)
-  const buffers = [current, next, target, wet, sourceFeature, targetFeature, flow]
+  const buffers = [current, next, target, wet, anchor, sourceFeature, targetFeature, flow]
   const quad = createFullscreenQuad(gl)
   const state = new PresentationEpoch()
   let destroyed = false
@@ -197,17 +198,19 @@ export function createPuddlePresentation(gl: WebGLRenderingContext, size: number
       draw(target, copy, { u_current: rgba })
       draw(wet, copy, { u_current: wetCoverage })
       draw(targetFeature, feature, { u_current: target })
+      draw(anchor, copy, { u_current: current })
+      draw(sourceFeature, feature, { u_current: anchor })
+      draw(flow, match, { u_current: sourceFeature, u_target: targetFeature })
       state.hasTarget = true
     },
-    tick(dtMs: number, options: { dry: boolean }): AccumulationBuffer {
+    tick(dtMs: number, options: { dry: boolean; progress?: number }): AccumulationBuffer {
       if (destroyed) throw new Error('Presentation destroyed')
       const weight = presentationStep(dtMs, options.dry)
       if (!state.hasTarget || weight.advance === 0) return current
-      state.step(weight.advance)
-      draw(sourceFeature, feature, { u_current: current })
-      draw(flow, match, { u_current: sourceFeature, u_target: targetFeature })
-      draw(next, morph, { u_current: current, u_target: target, u_extra: wet, u_flow: flow },
-        { u_advance: weight.advance, u_travel: weight.travel, u_progress: state.progress })
+      if (options.progress !== undefined) state.progress = Math.min(1, Math.max(0, options.progress))
+      else state.step(weight.advance)
+      draw(next, morph, { u_current: anchor, u_target: target, u_extra: wet, u_flow: flow },
+        { u_advance: state.progress, u_travel: state.progress, u_progress: state.progress })
       swap()
       return current
     },
