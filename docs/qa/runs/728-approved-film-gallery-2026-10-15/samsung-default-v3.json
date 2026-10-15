@@ -1,0 +1,581 @@
+{
+  "dryReadyMs": 4283,
+  "dryButtonReturned": true,
+  "frameStats": {
+    "input": {
+      "n": 366,
+      "p95": 33.5,
+      "max": 133.6999999999989,
+      "over100": 1
+    },
+    "dry": {
+      "n": 548,
+      "p95": 16.80000000000291,
+      "max": 233.90000000000146,
+      "over100": 2
+    }
+  },
+  "identity": {
+    "model": "front8-detail-flow-v3",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "gpuBatch": 8,
+    "extensions": [
+      "ANGLE_instanced_arrays",
+      "EXT_blend_minmax",
+      "EXT_clip_control",
+      "EXT_color_buffer_half_float",
+      "EXT_float_blend",
+      "EXT_texture_filter_anisotropic",
+      "EXT_sRGB",
+      "OES_element_index_uint",
+      "OES_fbo_render_mipmap",
+      "OES_standard_derivatives",
+      "OES_texture_float",
+      "OES_texture_float_linear",
+      "OES_texture_half_float",
+      "OES_texture_half_float_linear",
+      "OES_vertex_array_object",
+      "WEBGL_blend_func_extended",
+      "WEBGL_color_buffer_float",
+      "WEBGL_compressed_texture_astc",
+      "WEBGL_compressed_texture_etc",
+      "WEBGL_compressed_texture_etc1",
+      "WEBGL_debug_renderer_info",
+      "WEBGL_debug_shaders",
+      "WEBGL_depth_texture",
+      "WEBGL_lose_context",
+      "WEBGL_multi_draw"
+    ]
+  },
+  "baseline": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "f2476b76ec2a306e9643bdded22e503fa61f01bd25a1d5c4fe3e305f143c9c08"
+    }
+  ],
+  "errors": [],
+  "input": "CDP pen events through actual canvas PointerInput, no direct _onStart calls",
+  "penEvents": [
+    {
+      "type": "pointerdown",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 12173.5,
+      "eventLag": 4.900000095367432
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 12377.699999928474,
+      "eventLag": 6.799999952316284
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 12412.199999928474,
+      "eventLag": 1.0999999046325684
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 12438.600000023842,
+      "eventLag": 25.300000071525574
+    },
+    {
+      "type": "pointerup",
+      "pointerType": "pen",
+      "pressure": 0,
+      "time": 12569.699999928474,
+      "eventLag": 1.399999976158142
+    },
+    {
+      "type": "pointerdown",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 12917.799999952316,
+      "eventLag": 10.100000023841858
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 13025.299999952316,
+      "eventLag": 7.199999928474426
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 13082.5,
+      "eventLag": 2.100000023841858
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 13085.100000023842,
+      "eventLag": 1.600000023841858
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 13116.600000023842,
+      "eventLag": 32.90000009536743
+    },
+    {
+      "type": "pointerup",
+      "pointerType": "pen",
+      "pressure": 0,
+      "time": 13223,
+      "eventLag": 1.3000000715255737
+    },
+    {
+      "type": "pointerdown",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 13492.600000023842,
+      "eventLag": 2.4000000953674316
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 13610.699999928474,
+      "eventLag": 10.599999904632568
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 13643.100000023842,
+      "eventLag": 1.7000000476837158
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 13657.799999952316,
+      "eventLag": 12.799999952316284
+    },
+    {
+      "type": "pointerup",
+      "pointerType": "pen",
+      "pressure": 0,
+      "time": 13738.899999976158,
+      "eventLag": 0.7000000476837158
+    },
+    {
+      "type": "pointerdown",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 14009.600000023842,
+      "eventLag": 2.200000047683716
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 14113,
+      "eventLag": 1.8000000715255737
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 14154.5,
+      "eventLag": 0.8999999761581421
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 14158,
+      "eventLag": 2.899999976158142
+    },
+    {
+      "type": "pointerup",
+      "pointerType": "pen",
+      "pressure": 0,
+      "time": 14254.899999976158,
+      "eventLag": 1.399999976158142
+    },
+    {
+      "type": "pointerdown",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 14524.199999928474,
+      "eventLag": 3.0999999046325684
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 14630.699999928474,
+      "eventLag": 4.699999928474426
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 14672.100000023842,
+      "eventLag": 1.4000000953674316
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 14688.699999928474,
+      "eventLag": 14.899999976158142
+    },
+    {
+      "type": "pointerup",
+      "pointerType": "pen",
+      "pressure": 0,
+      "time": 14767.399999976158,
+      "eventLag": 1.2000000476837158
+    },
+    {
+      "type": "pointerdown",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 15038.899999976158,
+      "eventLag": 3
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 15149.699999928474,
+      "eventLag": 6.899999976158142
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 15187.100000023842,
+      "eventLag": 1.4000000953674316
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 15204,
+      "eventLag": 14.399999976158142
+    },
+    {
+      "type": "pointerup",
+      "pointerType": "pen",
+      "pressure": 0,
+      "time": 15664.899999976158,
+      "eventLag": 1.100000023841858
+    },
+    {
+      "type": "pointerdown",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 15903.5,
+      "eventLag": 3.100000023841858
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 16001.199999928474,
+      "eventLag": 1.5999999046325684
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 16007.299999952316,
+      "eventLag": 7
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 16067,
+      "eventLag": 1.8000000715255737
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 16075.100000023842,
+      "eventLag": 6.200000047683716
+    },
+    {
+      "type": "pointerup",
+      "pointerType": "pen",
+      "pressure": 0,
+      "time": 16168.299999952316,
+      "eventLag": 1.1999999284744263
+    },
+    {
+      "type": "pointerdown",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 16563.600000023842,
+      "eventLag": 7.400000095367432
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 16689.600000023842,
+      "eventLag": 5.5
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 16729.699999928474,
+      "eventLag": 2.299999952316284
+    },
+    {
+      "type": "pointerup",
+      "pointerType": "pen",
+      "pressure": 0,
+      "time": 16820.5,
+      "eventLag": 1
+    },
+    {
+      "type": "pointerdown",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 17027.199999928474,
+      "eventLag": 2.5
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 17138.699999928474,
+      "eventLag": 12.099999904632568
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 17191,
+      "eventLag": 1.399999976158142
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 17193.199999928474,
+      "eventLag": 1.2999999523162842
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 17216.5,
+      "eventLag": 22.600000023841858
+    },
+    {
+      "type": "pointerup",
+      "pointerType": "pen",
+      "pressure": 0,
+      "time": 17293.199999928474,
+      "eventLag": 1.1999999284744263
+    },
+    {
+      "type": "pointerdown",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 17537.299999952316,
+      "eventLag": 2.5
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 17657,
+      "eventLag": 14.899999976158142
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 17703.299999952316,
+      "eventLag": 1.899999976158142
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 17707.899999976158,
+      "eventLag": 3.5
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 17739.899999976158,
+      "eventLag": 34
+    },
+    {
+      "type": "pointerup",
+      "pointerType": "pen",
+      "pressure": 0,
+      "time": 17841.799999952316,
+      "eventLag": 0.8999999761581421
+    },
+    {
+      "type": "pointerdown",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 18155.199999928474,
+      "eventLag": 2.299999952316284
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 18259.100000023842,
+      "eventLag": 4.700000047683716
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 18317.600000023842,
+      "eventLag": 1.3000000715255737
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 18331.5,
+      "eventLag": 11.600000023841858
+    },
+    {
+      "type": "pointerup",
+      "pointerType": "pen",
+      "pressure": 0,
+      "time": 18458.899999976158,
+      "eventLag": 1.2999999523162842
+    },
+    {
+      "type": "pointerdown",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 18730,
+      "eventLag": 4.399999976158142
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 18844.299999952316,
+      "eventLag": 14.899999976158142
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 18871.5,
+      "eventLag": 1.3000000715255737
+    },
+    {
+      "type": "pointermove",
+      "pointerType": "pen",
+      "pressure": 0.8500000238418579,
+      "time": 18884.699999928474,
+      "eventLag": 11.099999904632568
+    },
+    {
+      "type": "pointerup",
+      "pointerType": "pen",
+      "pressure": 0,
+      "time": 18973.5,
+      "eventLag": 1.399999976158142
+    }
+  ],
+  "ops": [
+    {
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "id": "9BVYB03A-n"
+    },
+    {
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "id": "vVgE1FyK6J"
+    },
+    {
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "id": "m8EH7ZyU4b"
+    },
+    {
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "id": "Hjt-5C6p-R"
+    },
+    {
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "id": "DVnlpafvPx"
+    },
+    {
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "id": "xuxq55yqKb"
+    },
+    {
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "id": "TLoS_If6AJ"
+    },
+    {
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "id": "LcwDqhsR6f"
+    },
+    {
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "id": "N-LZINKf7x"
+    },
+    {
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "id": "eMX7XBMmfc"
+    },
+    {
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "id": "NxShlfgoZp"
+    },
+    {
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "id": "IQtUyZeU4k"
+    }
+  ],
+  "undo": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "4bd36ed6ee478d3207bb2f3916595f49801d0391f94dc2f83317530680fe91ea"
+    }
+  ],
+  "redo": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "f2476b76ec2a306e9643bdded22e503fa61f01bd25a1d5c4fe3e305f143c9c08"
+    }
+  ],
+  "reenter": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "f2476b76ec2a306e9643bdded22e503fa61f01bd25a1d5c4fe3e305f143c9c08"
+    }
+  ],
+  "export": {
+    "bytes": 1989885,
+    "type": "image/png"
+  },
+  "gl": 0,
+  "lost": false,
+  "redoExact": true,
+  "reenterExact": true
+}

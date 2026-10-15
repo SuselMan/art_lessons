@@ -47,6 +47,8 @@ def publish(work, base, source, version):
             rect = sheet['board']['slots'].get(str(stroke['n']))
             if not rect:
                 continue
+            if not (0 <= rect[0] < rect[2] <= im.width and 0 <= rect[1] < rect[3] <= im.height):
+                raise ValueError('Slot outside sheet ' + sid)
             crop = im.crop(rect)
             crop = crop.resize((round(crop.width * scale), round(crop.height * scale)), Image.Resampling.LANCZOS)
             rel = f'img/{sid}/{stroke["n"]:03d}.jpg'

@@ -1,0 +1,99 @@
+{
+  "beforePeer": {
+    "dryOps": 0,
+    "materialLayers": 0,
+    "wetAtPoint": 0.9359191666666419
+  },
+  "scope": "Full Grafetto QA room; headed Chrome AMD hardware; 1024 Fine, two 380px crosses before any paper Dry; version front8-detail-flow-v3 default on both participants",
+  "identity": {
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "gpuBatch": 8,
+    "model": "front8-detail-flow-v3",
+    "async": true,
+    "scheduler": true,
+    "operations": 0
+  },
+  "ops": [
+    {
+      "id": "rozZ0kY3jB",
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "userId": "a090a40f-e81a-4b11-bfc2-169af2bb8e09"
+    },
+    {
+      "id": "UhZKZ4EuzX",
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "userId": "a090a40f-e81a-4b11-bfc2-169af2bb8e09"
+    },
+    {
+      "id": "fomnG2dLHh",
+      "preset": "normal:100:69:PB15:round:wc@front8-detail-flow-v3",
+      "userId": "91fbe517-6b0c-4719-8808-1d04c055dc5c"
+    }
+  ],
+  "peerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "front": {
+    "buildDraws": 48,
+    "jumpDraws": 39,
+    "nativeDraws": 0,
+    "cacheBuilds": 3,
+    "extraBytes": 5242880
+  },
+  "scheduler": {
+    "tasks": 38,
+    "frames": 834
+  },
+  "errors": [],
+  "undoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoPeerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "reenterDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "export": {
+    "pngBytes": 2052786,
+    "pngType": "image/png",
+    "snapshotBytes": 4194324
+  },
+  "contextRestoreDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "gl": 0
+}

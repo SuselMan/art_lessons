@@ -1,0 +1,645 @@
+{
+  "source": "cfcb3541",
+  "version": "cfcb3541-film-v3-20261015",
+  "model": "front8-detail-flow-v3",
+  "count": 85,
+  "reports": [
+    {
+      "sheet": "1",
+      "elapsed": 56276.39999999851,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 51,
+      "model": "front8-detail-flow-v3",
+      "inputSha": "9afbe5703a947cf9a776657cbd17c75bb31e09ef4c7ad0e9397ebc58254fce8b",
+      "errors": []
+    },
+    {
+      "sheet": "2",
+      "elapsed": 37187.60000000149,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 36,
+      "model": "front8-detail-flow-v3",
+      "inputSha": "2fd74d2a2e480555edc8d2fb6e76d58b8e89199fba49f4069684f32a7ad5f220",
+      "errors": []
+    },
+    {
+      "sheet": "3",
+      "elapsed": 44105,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 41,
+      "model": "front8-detail-flow-v3",
+      "inputSha": "ecbb146ddd9ecf3b6c3c46cc289245d92cbf246cf8225490eea70a9dee3ce1d9",
+      "errors": []
+    },
+    {
+      "sheet": "4",
+      "elapsed": 113867.5,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 23,
+      "model": "front8-detail-flow-v3",
+      "inputSha": "bd0bfc4572486e567c6dac7b5e3ec6311a6b73704aad46e167c89e89e3dfc7cd",
+      "errors": []
+    },
+    {
+      "sheet": "5",
+      "elapsed": 29476,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 24,
+      "model": "front8-detail-flow-v3",
+      "inputSha": "a13e838422e6ab5dfe3eda405e5e3e2fe458fc87f4a01fbde6570021dcd49ecc",
+      "errors": []
+    },
+    {
+      "sheet": "6",
+      "elapsed": 242603.80000000447,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 39,
+      "model": "front8-detail-flow-v3",
+      "inputSha": "ed89398a12d55c5707e77b01400efe10a8868639f6b7813dec99b939489e193e",
+      "errors": []
+    },
+    {
+      "sheet": "7",
+      "elapsed": 30197.5,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 27,
+      "model": "front8-detail-flow-v3",
+      "inputSha": "cc5942f9573a74c6828eafe235fceb546a80059c61e747236a2e32cae4a32d41",
+      "errors": []
+    },
+    {
+      "sheet": "8",
+      "elapsed": 47193.79999999702,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 15,
+      "model": "front8-detail-flow-v3",
+      "inputSha": "5785a07739c812c230c8c7909f85da792ca56453c43adfb741f8e919f2c3e944",
+      "errors": []
+    },
+    {
+      "sheet": "9",
+      "elapsed": 99500.60000000149,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 29,
+      "model": "front8-detail-flow-v3",
+      "inputSha": "4731d40634f15925ac8d6acf533663d656fef981e0133c60c66f216166d2f452",
+      "errors": []
+    },
+    {
+      "sheet": "10",
+      "elapsed": 32097.39999999851,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 25,
+      "model": "front8-detail-flow-v3",
+      "inputSha": "f8ef3e54b9bf4f95ea7fff7c3c5114653d04cd0b9ace0bd40d40ab673c5be1e7",
+      "errors": []
+    },
+    {
+      "sheet": "12",
+      "elapsed": 15583.70000000298,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 17,
+      "model": "front8-detail-flow-v3",
+      "inputSha": "216978823b2d519a0510be70c21fc2a58b9cabfe64f772f72576fadd057be785",
+      "errors": []
+    }
+  ],
+  "files": [
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/001.jpg",
+      "sha256": "2e2444f84186d4a37e0fa5fca0b7a8a2aaf7aa7f1dad0f80f98e5c7c6e4d936c",
+      "w": 1451,
+      "h": 334
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/002.jpg",
+      "sha256": "70531a5e09b222b8a9a8383dbadc028d94e5d6746280b267ea147c62a070f429",
+      "w": 1217,
+      "h": 382
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/003.jpg",
+      "sha256": "faf722cb2d3a8dd817c5be7d59cfe8b17ba4188c47f8c2bcf48f13d732a11a7d",
+      "w": 1334,
+      "h": 373
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/004.jpg",
+      "sha256": "331ee9ece256ed30344de511c5e0cad85991abf85567cc72568a135f22391309",
+      "w": 1170,
+      "h": 343
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/005.jpg",
+      "sha256": "899ccbe7e65ebe0dc18855fcf4aa173e0e4711e0b5497100c4d5760a481d5226",
+      "w": 1287,
+      "h": 326
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/006.jpg",
+      "sha256": "f95a95330f82c5c62efac929bc9c3ff805d6769130ea1efb93b149cd8dd6de07",
+      "w": 1256,
+      "h": 354
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/007.jpg",
+      "sha256": "ef2cb00d80d65e5a6e55bc4b8a110863a559c4696c63f76c29f466da204ca286",
+      "w": 1187,
+      "h": 407
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/008.jpg",
+      "sha256": "070ccc7218d71dc18edeada54a53ee90acd8d7c47c1a1d680d1a77e1e0005a08",
+      "w": 1142,
+      "h": 376
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/009.jpg",
+      "sha256": "4d09f3fb224d5c601858cb553d78ca74043422947fb59255dd3f38d624457e31",
+      "w": 908,
+      "h": 407
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/010.jpg",
+      "sha256": "4175bf4eb2b4c23cf0751c9a917c387bdc15f913c6c78ceee72cc511399d7972",
+      "w": 939,
+      "h": 398
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/011.jpg",
+      "sha256": "0d03eab001ff689e00ad8b5a2a9b2b825dfc02625d57a95c7a8f5e85ac90f4b9",
+      "w": 942,
+      "h": 382
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/012.jpg",
+      "sha256": "d38314e139c3f0d9115fae3731526e22221e0a869a3487770e5465aeeed927bc",
+      "w": 836,
+      "h": 329
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/013.jpg",
+      "sha256": "4379d0284103ebf1d01bacb80e618168587d0d0b565987649c30cf632f40834d",
+      "w": 827,
+      "h": 340
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/014.jpg",
+      "sha256": "b4fc372a482867c79a577486f241a93e0ff8ee8adf799ef3b45faf03a7a863fe",
+      "w": 794,
+      "h": 345
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/015.jpg",
+      "sha256": "44822710ddaeede9a16e457b47074453624350474974255586eea78ccb9f0a2c",
+      "w": 864,
+      "h": 384
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/1/017.jpg",
+      "sha256": "2bd5df53333cd5ef01ddd3574b02500db0d09e9a377321239eb9a690df03da4e",
+      "w": 816,
+      "h": 343
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/2/001.jpg",
+      "sha256": "bae74835b7617e49498dd58e7047c8408fb7cdbef0ff12f75214c6f77f50b0c8",
+      "w": 718,
+      "h": 794
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/2/002.jpg",
+      "sha256": "737b9701324ce1527e919a2f6d2bd4b776d9a22e96bde96a1bdcff4ea06825cc",
+      "w": 718,
+      "h": 770
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/2/003.jpg",
+      "sha256": "8cfc945006aebec84351cf991bbb6f4d4f5849487e96ca6da591931854101b46",
+      "w": 789,
+      "h": 794
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/2/004.jpg",
+      "sha256": "4bdbfa3e01a642697fadeaa38b8bcf49130289234ab681fea65999a3ebd9faee",
+      "w": 808,
+      "h": 914
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/2/005.jpg",
+      "sha256": "b797a92ea7b2b26eb49ccd828607afde5d5d996ba7166f3265c8f4548bf6f116",
+      "w": 819,
+      "h": 868
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/2/006.jpg",
+      "sha256": "149f05076c0150acc31e38d3ce5fb74a95507b8978dc0a489e0aa4c864b02d53",
+      "w": 718,
+      "h": 963
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/2/007.jpg",
+      "sha256": "9d874e4b44c6e5895968bace100fad036b3f5ce147066702431ffe1b09392a6d",
+      "w": 1414,
+      "h": 707
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/3/001.jpg",
+      "sha256": "abeabe0913552c09ee0f30c7df257a940056c78a9d3740972eea9fda24273c18",
+      "w": 719,
+      "h": 540
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/3/002.jpg",
+      "sha256": "cf7bcdead90f69cfcf7f613f94c688a303507364a47a657cb470b14dca2474c3",
+      "w": 719,
+      "h": 540
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/3/003.jpg",
+      "sha256": "c42cd1448f3d5c2da2669e71408ae877b2ae175b9cf8661da90b0255b3099f5c",
+      "w": 719,
+      "h": 540
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/3/004.jpg",
+      "sha256": "cca36da0bdf47cd7a24eb334f3b2359f055c60aba334a3d940e4a0fb7a32611c",
+      "w": 719,
+      "h": 540
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/3/005.jpg",
+      "sha256": "c7c70278500db3c349164385750d9ffc1a31f79f41062cbd9270f1148d1aab1d",
+      "w": 719,
+      "h": 540
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/3/006.jpg",
+      "sha256": "8f6384a71f745b45725529677b4cc421bbea3a08f1e118feaf5b943ebe974c44",
+      "w": 719,
+      "h": 540
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/4/001.jpg",
+      "sha256": "5e95957998673003536ff4c68e739f1e103e74540a567fcf0ca3ffe113c41fc2",
+      "w": 1008,
+      "h": 599
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/4/002.jpg",
+      "sha256": "dca4fbb1b58e1185408f1b9bfda24c364db9301902459e4be9d782bbc2240895",
+      "w": 1095,
+      "h": 599
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/4/003.jpg",
+      "sha256": "4f3b7bf53e743964153598e6526690e9653fb263bfd843367580f55b5e853765",
+      "w": 1051,
+      "h": 599
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/4/004.jpg",
+      "sha256": "5c6679fd8af1022821315ce309b14a293cf22f93ad51a54db81f69c93d9a1785",
+      "w": 1018,
+      "h": 599
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/4/005.jpg",
+      "sha256": "9d06d5a8cfc99fb2997c3b3e7fe493fa3688bdd92313cc1739162e1c58f53cfa",
+      "w": 870,
+      "h": 599
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/4/006.jpg",
+      "sha256": "8e8e8a2073cf6e2410a84cde64408e7ca14cc758bd38ea9d607d0daf71dc8a64",
+      "w": 1055,
+      "h": 599
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/5/001.jpg",
+      "sha256": "1ad52da6df84917ad1efc0de9fcdd6e3f8f2d3ac2af460b343efb7ee6c5005f6",
+      "w": 1317,
+      "h": 329
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/5/002.jpg",
+      "sha256": "9b41e400c3604bdc6883f8419571310f906db988acd622b26351996477268fb2",
+      "w": 1213,
+      "h": 360
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/5/003.jpg",
+      "sha256": "ac496d91d8e75e27fc8f9e2e38ecc2c2746c439a216a57e2e631de957fb90ce3",
+      "w": 1256,
+      "h": 278
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/5/004.jpg",
+      "sha256": "62a3b3868009e25b2dae7e309035264e326b3ef39a3408244eed2aece9159ca1",
+      "w": 969,
+      "h": 289
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/5/005.jpg",
+      "sha256": "da8573e5546280c5f393d269145f8f5e575dfd70b4bd55c97bc31a84dfcd6467",
+      "w": 1000,
+      "h": 289
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/5/006.jpg",
+      "sha256": "57ef407a63807530642845e475adbbbf08c6c5dbb2ac0c6c470bf5b5557e75c7",
+      "w": 1183,
+      "h": 299
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/6/001.jpg",
+      "sha256": "9d8c5bda7d13e77e30964129115f17c572144c9777711eeee6d4c4ef77033c1e",
+      "w": 1345,
+      "h": 438
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/6/002.jpg",
+      "sha256": "369b783c5e5ea717d757aa0d167695bf089194632ce56a009ded56e78c1e0e61",
+      "w": 1209,
+      "h": 546
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/6/003.jpg",
+      "sha256": "91a43085d0b9769bebaf9c38eae495068dd481da6c76aa8fa30289cfdf211d62",
+      "w": 1217,
+      "h": 476
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/6/004.jpg",
+      "sha256": "47c3a9ed98482e40ce6f5136ddf2dfdc7ec6b33586a412f7a326cef1052b087d",
+      "w": 1189,
+      "h": 487
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/6/005.jpg",
+      "sha256": "2d4cfb0fce7da39179a48af6bf73c54ddcfbc746693a34b3901e22a81f1663c3",
+      "w": 1122,
+      "h": 525
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/6/006.jpg",
+      "sha256": "1964c7a7bd47a236c0ba04a86b509f6727766dd548f91c567de567db65ce6bde",
+      "w": 1032,
+      "h": 515
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/6/007.jpg",
+      "sha256": "b940349d9681acafe657873a67bc057034042a9577e0e456ef0de5d3b94498ea",
+      "w": 1071,
+      "h": 466
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/6/008.jpg",
+      "sha256": "a7a3874e5cc48dc283b6ea354183c10575a0c4c985dc438db0eaf52f25836c25",
+      "w": 1168,
+      "h": 497
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/6/009.jpg",
+      "sha256": "5831fea6300fe239712cdd8169e94672f0ea875e012a8616d750570d7fec5486",
+      "w": 1237,
+      "h": 546
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/6/010.jpg",
+      "sha256": "b369b5b0ab450208d4e62f4ae7224f8ef03a2c357fca68e1b6a492b11e793f39",
+      "w": 1296,
+      "h": 564
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/7/001.jpg",
+      "sha256": "9da50717af932c998c9f0a36ffc5412802b6428cb8a5f811fd97947fdd935063",
+      "w": 727,
+      "h": 386
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/7/002.jpg",
+      "sha256": "c9d387c065a225563e96949f347a856905c37c4dcfdb461aaf43d65fa7c78149",
+      "w": 697,
+      "h": 325
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/7/003.jpg",
+      "sha256": "c814ec0b9adbe427cb5ff6d8ed14c0d7fa79f12fdf29eac702aa2c39bbdf9d02",
+      "w": 748,
+      "h": 406
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/7/004.jpg",
+      "sha256": "3fb821ef1e02d55cfb86f9840cb086fe11be2ba838a01f0b3f580165512c4a19",
+      "w": 758,
+      "h": 378
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/7/005.jpg",
+      "sha256": "5a7b9eff29e26300063ab86422b6d44c06d461a2770130911f18f849fd727e02",
+      "w": 666,
+      "h": 368
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/7/006.jpg",
+      "sha256": "3777d9b8a5feb3ec5dc66861a81e6f672f65446d9879145e0eb0b444310e185c",
+      "w": 656,
+      "h": 386
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/8/001.jpg",
+      "sha256": "3ba36e4d13715cc959b58a7f5cd30b75f377a2800c548c066743750916f70474",
+      "w": 807,
+      "h": 297
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/8/002.jpg",
+      "sha256": "c8dada88eeb57175e5b10781ec5936db45a954edcde4899daf6462ec9957c25c",
+      "w": 1008,
+      "h": 297
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/8/003.jpg",
+      "sha256": "431ca0b93d746aa9f0da003d3b95907e26c73ae0483f72fe80c4805826b51cb2",
+      "w": 998,
+      "h": 335
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/8/004.jpg",
+      "sha256": "2a59d50827cad12cd8946e86f0085bc1a46eff6c1efed860171c5007862eaa8b",
+      "w": 1048,
+      "h": 287
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/8/005.jpg",
+      "sha256": "e09eda91bd120896465aa64e57c6e008a8a0180251c8c8427de7bd64e447ffd3",
+      "w": 1168,
+      "h": 325
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/8/006.jpg",
+      "sha256": "29067a38f5c312332fb901935c0e9d9dcc4170777851423b46d76622020f3eb4",
+      "w": 977,
+      "h": 297
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/8/007.jpg",
+      "sha256": "8fb87e606e4f0a33401efb0416461e6387167967b583e12a28a72118c8c1d47b",
+      "w": 957,
+      "h": 307
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/9/001.jpg",
+      "sha256": "abac80b69067e2297ad84a778d5f926f612083d1679d2ce860076602fe54f575",
+      "w": 693,
+      "h": 565
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/9/002.jpg",
+      "sha256": "eb9bcf197537bde5f816300d4992ad7410c85ea8d43260c15116f4cc2c84f8ae",
+      "w": 650,
+      "h": 597
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/9/003.jpg",
+      "sha256": "c7d1741032eabe8148325239597b2b73982f572c2e7107146538f975457f027a",
+      "w": 713,
+      "h": 585
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/9/004.jpg",
+      "sha256": "1f33a8e773b53d805c599605abc06509b457a41cc424538bb2e77d0c8809a683",
+      "w": 725,
+      "h": 618
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/9/005.jpg",
+      "sha256": "25a8634c6bafa8b903ff969c6f611747f3abdd74aaf5248d445f366c0bdffe75",
+      "w": 660,
+      "h": 683
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/9/006.jpg",
+      "sha256": "79940f9014aee8db4689b91236103963cbe984f1fff7ef14eb0521198ff74db7",
+      "w": 736,
+      "h": 703
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/10/001.jpg",
+      "sha256": "db3f6307b8e7941b4ae52125f3d75906e14267bcc1877aa2af26b12cc28f05dc",
+      "w": 711,
+      "h": 577
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/10/002.jpg",
+      "sha256": "f3299df045cc1d61840c3307367a3b6ae5dc45145693c7b260c5e17a3bea1278",
+      "w": 679,
+      "h": 577
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/10/003.jpg",
+      "sha256": "4d9b03d8dce83a166fb44d81b7080e3f7bed9950713eb52c59e41139013753e0",
+      "w": 768,
+      "h": 634
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/10/004.jpg",
+      "sha256": "84d215fe6972de2aa0ee6d2341f0d0a156a477c8a48dff8b08919644830c75ca",
+      "w": 701,
+      "h": 599
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/10/005.jpg",
+      "sha256": "7978b0ebd54a9c62703ed13fd96b887c84f7e2c7d1bfd49c3ab80b8b16abb90b",
+      "w": 711,
+      "h": 589
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/10/006.jpg",
+      "sha256": "3e861312b7986aa624d35177bf43baf8e566df16d6f7e1bb9a104838b2745730",
+      "w": 845,
+      "h": 522
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/12/001.jpg",
+      "sha256": "98badd4aa2710c1cadc70adfe96ea3eef212c3494432a604e995b5c2245389f2",
+      "w": 1280,
+      "h": 209
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/12/002.jpg",
+      "sha256": "27ad73c90427492c3196f24f4c8219d9024545de197de5d972499e5339e2b038",
+      "w": 1376,
+      "h": 246
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/12/003.jpg",
+      "sha256": "67ec862dee455406db2aa7bb1675fe898d14a16db2a662a77243f0befb70dcab",
+      "w": 1422,
+      "h": 242
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/12/004.jpg",
+      "sha256": "7a8b5277e7986d8dde99473bfb52bfde06e4027e894586166a8f17303ccab725",
+      "w": 1449,
+      "h": 282
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/12/005.jpg",
+      "sha256": "0ff05df9d1d6ab098b753ac89a222365806f0c222ae71f65a447c8779a936ba9",
+      "w": 1325,
+      "h": 276
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/12/006.jpg",
+      "sha256": "4e7f4603b1556c3336147bbfe8e4e796823cfb40c2418f8ddc1a08f3b01c2e5c",
+      "w": 1051,
+      "h": 276
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/12/007.jpg",
+      "sha256": "95be220577f572dcc26428950aba8c3c9cf9435a9b38c62a511225d2fd0a1db1",
+      "w": 1242,
+      "h": 364
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/12/008.jpg",
+      "sha256": "f1b9c06e368771e3a468b63be0cf57361bcfb5a57ccdde8fe991dd045487ed63",
+      "w": 1164,
+      "h": 307
+    },
+    {
+      "src": "preview/gallery-cfcb3541-film-v3-20261015/img/12/009.jpg",
+      "sha256": "0eb9a1e2dbda653cbfc54c54e5c5795df05ef1b5e1fb955099f04b5895fd4e67",
+      "w": 1148,
+      "h": 307
+    }
+  ],
+  "replayPolicy": "400ms per operation; versioned watercolor presets; no image imports; ordered Dry and canonical idle",
+  "commentsShaUnchanged": "413d0283b170c62edddb7a9dc7d18b8f6af2de1153a1d11efc7f0bf8dab6f0dc",
+  "all85HttpShaExact": true,
+  "sourceFull": "cfcb3541"
+}
