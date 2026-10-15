@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
+import { it } from 'vitest'
 import { PresentationEpoch, presentationStep } from './presentation'
+it('keeps monotonic presentation clocks and replaces epochs', () => {
 const state = new PresentationEpoch()
 assert.equal(state.accept(1), true)
 state.hasTarget = true
@@ -26,3 +28,5 @@ const half = presentationStep(8, false).advance, full = presentationStep(16, fal
 assert(Math.abs(1 - (1 - half) ** 2 - full) < 1e-12)
 assert.equal(state.accept(NaN), false)
 console.log('presentation epoch and time-weight contracts pass')
+
+})

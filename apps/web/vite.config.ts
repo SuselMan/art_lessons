@@ -154,7 +154,9 @@ export default defineConfig(({ mode }) => {
             if (path !== '/watercolor-mini' && path !== '/watercolor-mini/' && path !== '/watercolor-native-front8') return next()
             response.setHeader('Content-Type', 'text/html; charset=utf-8')
             response.setHeader('Cache-Control', 'no-store')
-            response.end(readFileSync(new URL('../../docs/qa/prototypes/mini-stand/index.html', import.meta.url)))
+            const html = readFileSync(new URL('../../docs/qa/prototypes/mini-stand/index.html', import.meta.url), 'utf8')
+            const modulePath = new URL('../../docs/qa/prototypes/mini-puddle/controller.ts', import.meta.url).pathname
+            response.end(html.replace('__MINI_PUDDLE_MODULE__', '/@fs' + modulePath))
           })
         },
       },

@@ -9,7 +9,7 @@ import { createPuddlePresentation } from './presentation'
 export function installMiniPuddle(engine: any, size: number, mode: 'morph' | 'material', onStatus: (message: string) => void = () => {}) {
   const gl: WebGLRenderingContext = engine.gl
   const bounds = { minX: 0, minY: 0, maxX: size, maxY: size }
-  const target = createPuddleTarget(gl, size)
+  const target = createPuddleTarget(gl, size, { paperTexture: engine._paperTex, paperScale: engine._paperWorldSize().w / (engine._opts.paperScale || 1) })
   const presentation = mode === 'morph' ? createPuddlePresentation(gl, size) : null
   const make = () => new AccumulationBuffer(gl, size, size)
   const rawBefore = make(), rawAfter = make(), targetRGBA = make(), blank = make()
@@ -18,7 +18,7 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph' | 'ma
   gl.disable(gl.SCISSOR_TEST)
   for (const buffer of owned) buffer.clear()
   let epoch = 0, raf = 0, lastAt = 0, active = false, down = false, drying = false, destroyed = false
-  let published = -1, cancellations = 0, inputs = 0
+  let published = -1, cancellations = 0, inputs = 0, dryCommitted = false
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let context: any = null
   const hooks = ['_onStart', '_onEnd', '_paintStrokeDabs', '_display', '_finishRibbonStroke', '_scheduleDryingRepaint', '_revealWash'] as const
@@ -88,6 +88,13 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph' | 'ma
     const dt = lastAt ? Math.min(100, at - lastAt) : 16; lastAt = at
     if (active && !down) {
       target.step(drying ? 12 : 3)
+      if (drying && target.state.done && !dryCommitted) {
+        dryCommitted = target.dry()
+        if (dryCommitted) {
+          commit(); engine._paperWet.clear(); engine._wetTexAt = 0
+          published = -1
+        }
+      }
       if (target.state.iterations !== published) {
         published = target.state.iterations
         render(target.buffers(), targetRGBA)
@@ -97,6 +104,7 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph' | 'ma
       engine._display()
       onStatus(`${mode === 'morph' ? 'Морфинг' : 'Материал'} · цель ${target.state.iterations}/32 · эпоха ${epoch}`)
       if (!target.state.done || presentation && presentation.state.progress < 0.9995) request()
+      else { drying = false; onStatus(`${mode === 'morph' ? 'Морфинг' : 'Материал'} · готово · эпоха ${epoch}`) }
     }
   }
   engine._settlePlan.prepare = () => null
@@ -115,7 +123,7 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph' | 'ma
   }
   engine._onStart = function(...args: unknown[]) {
     if (active && !target.state.done) cancellations++
-    commit(); target.cancel(); active = false; down = true; drying = false; epoch++
+    commit(); target.cancel(); active = false; down = true; drying = false; dryCommitted = false; epoch++
     if (engine._wash) engine._wash.endedAt = Infinity
     const result = original.get('_onStart')!.apply(engine, args)
     down = !!engine._strokeLayerId
@@ -123,15 +131,17 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph' | 'ma
   }
   engine._paintStrokeDabs = function(...args: unknown[]) {
     const old = physical()
-    if (old) { old.p.copyTo(before.p); old.c.copyTo(before.c); old.coverage.copyTo(before.coverage) }
-    else for (const b of Object.values(before)) b.clear()
+    if (presentation) {
+      if (old) { old.p.copyTo(before.p); old.c.copyTo(before.c); old.coverage.copyTo(before.coverage) }
+      else for (const b of Object.values(before)) b.clear()
+    }
     const result = original.get('_paintStrokeDabs')!.apply(engine, args)
     captureContext()
     const after = physical()
     if (after) {
       inputs++
-      render(before, rawBefore); render(after, rawAfter)
-      if (presentation) presentation.acceptInput(rawBefore, rawAfter, epoch)
+      if (presentation) { render(before, rawBefore); render(after, rawAfter); presentation.acceptInput(rawBefore, rawAfter, epoch) }
+      else render(after, rawAfter)
       rawAfter.copyTo(targetRGBA)
     }
     return result

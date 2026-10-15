@@ -13,6 +13,8 @@ target.reset({p: rawP, c: rawC, coverage: rawCoverage}, ++epoch)
 target.step(6)
 const {p,c,coverage} = target.buffers()
 // state.epoch / state.iterations / state.done
+// After an explicit Dry completes:
+target.dry() // clears standing water B only, keeps silhouette A and P/C
 // On disposal:
 target.destroy()
 ```
@@ -23,6 +25,6 @@ Coarse evolution couples concentration equalisation, flow toward shallower water
 
 Reconstruction adds only the coarse material delta to the original full-resolution Γ/v4 brush. All high-frequency input detail survives the identity case. It uses the previous material `clamp(base+delta)` convention; fine reconstruction clipping and restriction quantisation mean exact final full-resolution mass conservation is not claimed. This is an artistic alternative, not v4 parity. Water expansion is a finite capillary approximation, not a mass-conservative solvent solver. No external paper texture means deterministic procedural channels; pass the actual paper map for the common target.
 
-Storage: eight full-resolution RGBA8 buffers (raw snapshots3, published3, unpublished P/C2), eight coarse RGBA8 buffers (paired ping-pong6, initialP/C2). About34MiB at1024/256; reused across all epochs. Three shader programs, one quad. `destroy()` is idempotent. No services or browser owned by this prototype.
+Storage: nine full-resolution RGBA8 buffers (raw snapshots3, published3, unpublished P/C2, dry-coverage temporary1), eight coarse RGBA8 buffers (paired ping-pong6, initialP/C2). About38MiB at1024/256; reused across all epochs. Three shader programs, one quad. `destroy()` is idempotent. No services or browser owned by this prototype.
 
 Checks: `npx vitest run --config docs/qa/prototypes/mini-puddle/vitest.config.ts`; standalone strict TypeScript command documented in the parent report. MockGL checks lifecycle, fixed allocations, pass budgeting, epoch reset, no readback and atomic P/C publication; real shader compilation/artistic result require the shared hardware harness.
