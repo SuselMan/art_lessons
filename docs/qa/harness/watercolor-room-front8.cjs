@@ -89,15 +89,22 @@ fs.mkdirSync(out, { recursive: true });
                     n++;
             }
         } return { differentChannels: n, maxDelta: max, residentTiles: [a.length, c.length] }; };
+        const head = await host.evaluate(() => __engine.getOperations().at(-1)?.id);
+        await peer.waitForFunction(id => __engine.getOperations().some(o => o.id === id), head, { timeout: 60000 });
+        await idle(peer);
         const baseline = await read(host), peerDiff = diff(baseline, await read(peer));
         console.log('peer', peerDiff);
         const result = { room, scope: 'Full Grafetto QA room; two Chromium SwiftShader contexts, standard fields. Not hardware', identity, ops, peerDiff, front: await host.evaluate(() => __engine._watercolorPasses._frontPaths?.stats), scheduler: await host.evaluate(() => __engine._wcDryWorkScheduler.stats), errors };
         await host.screenshot({ path: out + '/room-painted.png' });
-        await host.evaluate(() => __engine.undo());
+        const undoId = await host.evaluate(() => { __engine.undo(); return __engine.getOperations().filter(o => o.type === 'operation_undo').at(-1)?.id; });
+        if (!undoId) throw Error('Undo was not accepted');
+        await peer.waitForFunction(id => __engine.getOperations().some(o => o.id === id), undoId, { timeout: 60000 });
         for (const p of [host, peer])
             await idle(p);
         result.undoDiff = diff(await read(host), await read(peer));
-        await host.evaluate(() => __engine.redo());
+        const redoId = await host.evaluate(() => { __engine.redo(); return __engine.getOperations().filter(o => o.type === 'operation_redo').at(-1)?.id; });
+        if (!redoId) throw Error('Redo was not accepted');
+        await peer.waitForFunction(id => __engine.getOperations().some(o => o.id === id), redoId, { timeout: 60000 });
         for (const p of [host, peer])
             await idle(p);
         result.redoDiff = diff(baseline, await read(host));
