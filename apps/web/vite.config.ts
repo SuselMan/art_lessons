@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'vite'
@@ -151,9 +151,28 @@ export default defineConfig(({ mode }) => {
           if (process.env.VITE_QA_WATERCOLOR_REVIEW !== '1') return
           server.middlewares.use((request, response, next) => {
             const path = request.url?.split('?')[0]
+            const staticRoot = new URL('../../temp/mini-stand-build/', import.meta.url)
+            if (path && /^\/paper\/[a-z]+\.[0-9a-f]{8}\.(paper|preview)$/.test(path)) {
+              const file = new URL('./public'+path, import.meta.url)
+              if(existsSync(file)){response.setHeader('Content-Type','application/octet-stream');response.setHeader('Cache-Control','public, max-age=31536000, immutable');response.end(readFileSync(file));return}
+            }
+            if (path?.startsWith('/mini-assets/')) {
+              const name = path.slice('/mini-assets/'.length)
+              if (!/^(mini|chunk)-[A-Z0-9]+\.js$/.test(name)) { response.statusCode=404;response.end();return }
+              const file = new URL(name, staticRoot)
+              if (!existsSync(file)) { response.statusCode=404;response.end();return }
+              const gzip = /\bgzip\b/.test(request.headers['accept-encoding'] ?? '')
+              response.setHeader('Content-Type','text/javascript; charset=utf-8')
+              response.setHeader('Cache-Control','public, max-age=31536000, immutable')
+              response.setHeader('Vary','Accept-Encoding')
+              if(gzip)response.setHeader('Content-Encoding','gzip')
+              response.end(readFileSync(gzip ? new URL(name+'.gz',staticRoot) : file));return
+            }
             if (path !== '/watercolor-mini' && path !== '/watercolor-mini/' && path !== '/watercolor-native-front8') return next()
             response.setHeader('Content-Type', 'text/html; charset=utf-8')
-            response.setHeader('Cache-Control', 'no-store')
+            response.setHeader('Cache-Control', 'no-cache')
+            const built = new URL('index.html',staticRoot)
+            if (!request.url?.includes('deviceSmoke=1') && existsSync(built)) {response.end(readFileSync(built));return}
             const html = readFileSync(new URL('../../docs/qa/prototypes/mini-stand/index.html', import.meta.url), 'utf8')
             const modulePath = new URL('../../docs/qa/prototypes/mini-puddle/controller.ts', import.meta.url).pathname
             response.end(html.replace('__MINI_PUDDLE_MODULE_V03__', '/@fs' + modulePath.replace('controller.ts', 'controller-v03.ts')).replace('__MINI_PUDDLE_MODULE_V01__', '/@fs' + modulePath.replace('controller.ts', 'controller-v01.ts')).replace('__MINI_PUDDLE_MODULE__', '/@fs' + modulePath.replace('controller.ts', 'controller-v02.ts')))
