@@ -15,7 +15,9 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def publish(work, base, source, version):
+def publish(work, base, source, version, model='front8-detail-flow-v3'):
+    if model not in ('front8-detail-flow-v3', 'front8-detail-flow-v4'):
+        raise ValueError('Unsupported gallery model')
     archive = json.loads((work / 'archive-source.json').read_text())
     preview = 'gallery-' + version
     dest = base / 'previews' / preview
@@ -32,7 +34,7 @@ def publish(work, base, source, version):
         report = json.loads(image.with_suffix('.json').read_text())
         if report['gl'] or report['lost'] or report['errors']:
             raise ValueError('GPU failure on sheet ' + sid)
-        if report['model'] != 'front8-detail-flow-v3' or 'AMD' not in report['renderer']:
+        if report['model'] != model or 'AMD' not in report['renderer']:
             raise ValueError('Wrong material or hardware on sheet ' + sid)
         if report['inputSha'] != sha(work / 'input' / ('ops_' + sid + '.json')):
             raise ValueError('Input changed on sheet ' + sid)
@@ -64,9 +66,9 @@ def publish(work, base, source, version):
         raise ValueError(f'Incomplete gallery: {len(rows)} sheets / {len(files)} crops')
     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
     entry = {'id': version, 'commit': source, 'date': now[:10], 'rendered': now,
-             'subject': 'v3 — ускоренная цветовая плёнка; текущий Grafetto QA',
-             'scope': 'Сохранённые журналы пересчитаны front8-detail-flow-v3; AMD hardware; не замер отзывчивости Samsung.'}
-    manifest = {'source': source, 'version': version, 'model': 'front8-detail-flow-v3',
+             'subject': ('v4 — вариант Г: плотное начало, прозрачнее хвост; текущий Grafetto QA' if model.endswith('v4') else 'v3 — ускоренная цветовая плёнка; текущий Grafetto QA'),
+             'scope': f'Сохранённые журналы пересчитаны {model}; AMD hardware; не замер отзывчивости Samsung.'}
+    manifest = {'source': source, 'version': version, 'model': model,
                 'count': len(files), 'reports': reports, 'files': files,
                 'replayPolicy': '400ms per operation; versioned watercolor presets; no image imports; ordered Dry and canonical idle'}
     (stage / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
@@ -104,5 +106,6 @@ if __name__ == '__main__':
     parser.add_argument('base', type=Path)
     parser.add_argument('source')
     parser.add_argument('version')
+    parser.add_argument('--model', default='front8-detail-flow-v3')
     args = parser.parse_args()
-    publish(args.work, args.base, args.source, args.version)
+    publish(args.work, args.base, args.source, args.version, args.model)

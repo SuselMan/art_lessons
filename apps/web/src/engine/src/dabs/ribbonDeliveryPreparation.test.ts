@@ -224,13 +224,13 @@ it('changes pigment dose independently of delivered water in the prior-wet sourc
   const preset = engine['_resolvePreset']('watercolor', name)
   const profile = ribbonProfileFor('watercolor', name)
   const source = [dab(16, 16, { size: 32, t: 0 }), dab(160, 16, { size: 32, t: 16 })]
-  const run = (pigment: boolean, landing: boolean, wet: number) => {
+  const run = (pigment: boolean, landing: boolean, wet: number, model: 'front8-detail-flow-v3' | 'front8-detail-flow-v4' = 'front8-detail-flow-v3') => {
     const scratch = new RibbonStrokeScratch(engine['_ribbonScratchPool'], true, true)
     const painter = engine['_ribbonPainter']
     painter.diagnosticPriorWetPigment = pigment
     painter.diagnosticPriorWetLanding = landing
     try {
-      const r = painter['prepareDelivery'](source, undefined, preset, profile, scratch, () => wet, wet, 'combined', false, true)
+      const r = painter['prepareDelivery'](source, undefined, preset, { ...profile, materialModel: model }, scratch, () => wet, wet, 'combined', false, true)
       return { dose: r.deposits, water: [...r.waterByDab.values()], standing: [...scratch.standing.values()] }
     } finally { scratch.destroy() }
   }
@@ -243,5 +243,8 @@ it('changes pigment dose independently of delivered water in the prior-wet sourc
     expect(delivery.dose[1]).toBeLessThan(base.dose[1])
     expect(landing.dose[0]).toBeGreaterThan(base.dose[0])
     expect(run(true, true, 1)).toEqual(run(false, false, 1))
+    for (const wet of [0, 0.4, 1]) {
+      expect(run(false, false, wet, 'front8-detail-flow-v4')).toEqual(run(true, true, wet))
+    }
   } finally { engine.destroy() }
 })

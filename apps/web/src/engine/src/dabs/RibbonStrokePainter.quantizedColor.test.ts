@@ -4,7 +4,7 @@ import { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 import { ribbonProfileFor } from './ribbonProfile'
 import type { RibbonStrokePainterContext } from './RibbonStrokePainter'
 
-function render(model: 'front8-detail-flow-v2' | 'front8-detail-flow-v3') {
+function render(model: 'front8-detail-flow-v2' | 'front8-detail-flow-v3' | 'front8-detail-flow-v4') {
   // An ordinary receiver must decode the recorded operation's model, regardless
   // of which version it would use to author its own next stroke.
   const { engine } = createTestEngine({ paper: 'flat', watercolorModel: 'front8-fine-v1' }, { width: 64, height: 64 })
@@ -47,4 +47,11 @@ it('v3 retains pigment geometry and completes derived colour with its P/C public
     expect(pigmentMerge[5]?.scissor).toEqual(color[5]?.scissor)
     expect(colorMerge[5]?.scissor).toEqual(color[5]?.scissor)
   }
+})
+
+it('v4 retains the derived colour film path when decoding a received operation', () => {
+  const result = render('front8-detail-flow-v4')
+  expect(result.colorNibs).toBe(0)
+  expect(result.massNibs.length).toBeGreaterThan(0)
+  expect(result.units.some(unit => unit.some(c => c[3] === 2 && c[5]?.tau))).toBe(true)
 })

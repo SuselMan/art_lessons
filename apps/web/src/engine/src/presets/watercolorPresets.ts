@@ -1630,12 +1630,13 @@ export function watercolorPresetString(
 }
 
 /** The sixth field versions the material solver in both the log and live packets. */
-export function watercolorModelFromPreset(presetName: string | undefined): 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1' | 'front8-detail-flow-v2' | 'front8-detail-flow-v3' {
+export function watercolorModelFromPreset(presetName: string | undefined): 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1' | 'front8-detail-flow-v2' | 'front8-detail-flow-v3' | 'front8-detail-flow-v4' {
   const model = presetName?.split(':')[5]
   if (model === 'wc@front8-v1') return 'front8-v1'
   if (model === 'wc@front8-fine-v1') return 'front8-fine-v1'
   if (model === 'wc@front8-fine-large-v1') return 'front8-fine-large-v1'
   if (model === 'wc@front8-detail-v1') return 'front8-detail-v1'
+  if (model === 'wc@front8-detail-flow-v4') return 'front8-detail-flow-v4'
   if (model === 'wc@front8-detail-flow-v3') return 'front8-detail-flow-v3'
   if (model === 'wc@front8-detail-flow-v2') return 'front8-detail-flow-v2'
   if (model === 'wc@front8-detail-flow-v1') return 'front8-detail-flow-v1'
@@ -1643,7 +1644,7 @@ export function watercolorModelFromPreset(presetName: string | undefined): 'lega
   return 'legacy'
 }
 
-export function withWatercolorModel(presetName: string, model: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1' | 'front8-detail-flow-v2' | 'front8-detail-flow-v3'): string {
+export function withWatercolorModel(presetName: string, model: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1' | 'front8-detail-flow-v2' | 'front8-detail-flow-v3' | 'front8-detail-flow-v4'): string {
   if (model === 'legacy') return presetName
   return watercolorPresetString(watercolorResponseFromPreset(presetName), watercolorMixFromPreset(presetName),
     watercolorPigmentFromPreset(presetName), watercolorNibFromPreset(presetName)) + ':wc@' + model

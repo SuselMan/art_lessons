@@ -46,6 +46,19 @@ class PublicationSafety(unittest.TestCase):
             self.assertEqual((base / 'previews/old.jpg').read_bytes(), b'old immutable image')
             self.assertEqual(len(list((base / 'previews/gallery-new/img').rglob('*.jpg'))), 85)
 
+    def test_v4_publication_records_the_selected_model(self):
+        with tempfile.TemporaryDirectory() as folder:
+            work, base, old = self.fixture(Path(folder))
+            for report in (work / 'output').glob('*.json'):
+                value = json.loads(report.read_text())
+                value['model'] = 'front8-detail-flow-v4'
+                report.write_text(json.dumps(value))
+            publisher.publish(work, base, 'v4-source', 'new-v4', 'front8-detail-flow-v4')
+            manifest = json.loads((base / 'previews/gallery-new-v4/manifest.json').read_text())
+            self.assertEqual(manifest['model'], 'front8-detail-flow-v4')
+            overlay = json.loads((base / 'data/rendered.json').read_text())
+            self.assertIn('вариант Г', overlay['versions'][-1]['subject'])
+
     def test_gpu_failure_cannot_publish_partial_version(self):
         with tempfile.TemporaryDirectory() as folder:
             work, base, old = self.fixture(Path(folder))

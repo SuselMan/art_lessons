@@ -24,3 +24,13 @@ it('uses bounded Dry when the QA service selects the approved film model without
   expect(watercolorModelQaOptions(false).watercolorModel).toBe('legacy')
   expect(watercolorModelQaOptions(false).dryGpuFenceBatch).toBeUndefined()
 })
+
+it('selects the approved prior-wet pigment model with bounded Dry', () => {
+  vi.stubEnv('DEV', true)
+  vi.stubEnv('VITE_QA_WATERCOLOR_MODEL', 'front8-detail-flow-v4')
+  const options = watercolorModelQaOptions(false)
+  expect(options.watercolorModel).toBe('front8-detail-flow-v4')
+  expect(options.dryGpuFenceBatch).toBe(8)
+  vi.stubEnv('DEV', false)
+  expect(watercolorModelQaOptions(false).watercolorModel).toBe('legacy')
+})
