@@ -1,0 +1,7 @@
+import {DAB_VERT,DAB_FRAG} from '/src/engine/src/raster/shaders.ts';import {createProgram,getUniforms} from '/src/engine/src/raster/utils.ts';
+export function install(e){const at=performance.now(),gl=e.gl,passes=e._ribbonPasses,stamps=e._stamps,original=passes.drawRibbonNibPass;
+ const constants={u_inkMode:7,u_depthWrite:0,u_inkStrength:0,u_bristleInk:0,u_inkEdge:1,u_cloudDeposit:0,u_granDeposit:0,u_inkWater:1,u_paperWet:0,u_puddle:0,u_poolBlot:0,u_inkClip:1};let frag=DAB_FRAG;const replaced=[];for(const[name,value]of Object.entries(constants)){const declaration=`uniform float ${name};`;if(frag.includes(declaration)){frag=frag.replace(declaration,`const float ${name}=${value}.0;`);replaced.push(name)}}
+ const program=createProgram(gl,DAB_VERT,frag),entry={program,uniforms:getUniforms(gl,program,Object.keys(stamps.uniforms)),position:gl.getAttribLocation(program,'a_position')};const compileMs=performance.now()-at;let draws=0;
+ passes.drawRibbonNibPass=function(...a){const p=a[4];if(!passes.specializedWatercolorNib||!p.normalizeDeposit||a[5]!==7||a[11]!==0||p.cloud!==0||p.granulation!==0||a[15]!==0||p.inkEdgeFalloff!==1||a[16]||a[8]!==1||a[10]!==0||a[17]!==0||a[18]!==0||!a[13]||p.diagnosticReadFluid)return original.apply(this,a);const select=passes.watercolorNibProgram;passes.watercolorNibProgram=()=>entry;try{draws++;return original.apply(this,a)}finally{passes.watercolorNibProgram=select}};
+ return{stats:()=>({draws,compileMs,replaced}),dispose(){passes.drawRibbonNibPass=original;gl.useProgram(null);gl.deleteProgram(program)}};
+}

@@ -1,0 +1,35 @@
+diff --git a/apps/web/src/engine/src/raster/RibbonPasses.ts b/apps/web/src/engine/src/raster/RibbonPasses.ts
+index 5a36eacb..c752af52 100644
+--- a/apps/web/src/engine/src/raster/RibbonPasses.ts
++++ b/apps/web/src/engine/src/raster/RibbonPasses.ts
+@@ -28,6 +28,7 @@ export interface RibbonPassesContext {
+ export class RibbonPasses {
+   /** QA-only until the watercolor device/parity review is complete. */
+   specializedWatercolorNib = false
++  skipInactiveNibSamplers = false
+   private readonly _watercolorNibPrograms = new Map<string, {
+     program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number
+   }>()
+@@ -129,10 +130,12 @@ export class RibbonPasses {
+     stamps.bindNoise(u.u_wcNoiseTex)
+     gl.uniform2f(u.u_resolution, dest.width, dest.height)
+     for (const [unit, loc] of [[0, u.u_paperHeightMap], [1, u.u_original], [2, u.u_strokeCoverage], [3, u.u_inkLoad]] as const) {
++      if (specialized && this.skipInactiveNibSamplers && loc === null) continue
+       gl.activeTexture(gl.TEXTURE0 + unit)
+-      gl.bindTexture(gl.TEXTURE_2D, this.ctx.paperTex())
++      gl.bindTexture(gl.TEXTURE_2D, specialized && this.skipInactiveNibSamplers && unit === 2 && clipTo ? clipTo.texture : this.ctx.paperTex())
+       gl.uniform1i(loc, unit)
+     }
++    if (specialized && this.skipInactiveNibSamplers) gl.activeTexture(gl.TEXTURE0)
+     const radius = dab.size * 0.5 * preset.sizeMultiplier
+     gl.uniform1f(u.u_eraseMode, 0.0)
+     gl.uniform1i(u.u_grainMode, 0)
+@@ -152,7 +155,7 @@ export class RibbonPasses {
+     gl.uniform1f(u.u_nibShape, profile.nibShape === 'roundedBox' ? 1 : 0)
+     gl.uniform1f(u.u_nibCorner, radius * profile.cornerFraction)
+     gl.uniform1f(u.u_inkEdge, profile.inkEdgeFalloff)
+-    if (clipTo) {
++    if (clipTo && !(specialized && this.skipInactiveNibSamplers)) {
+       // Unit 2 is u_strokeCoverage — bound to the paper placeholder above, as
+       // for every stamp, and replaced here with the wash's real coverage.
+       gl.activeTexture(gl.TEXTURE2)

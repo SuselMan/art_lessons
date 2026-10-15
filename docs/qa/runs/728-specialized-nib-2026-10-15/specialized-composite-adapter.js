@@ -1,0 +1,5 @@
+import {DAB_VERT,DAB_FRAG} from '/src/engine/src/raster/shaders.ts';import {createProgram,getUniforms} from '/src/engine/src/raster/utils.ts';
+export function install(e){const gl=e.gl,stamps=e._stamps,passes=e._ribbonPasses,original=passes.drawRibbonCompositeDab;let entry=null,draws=0;
+ passes.drawRibbonCompositeDab=function(...a){if(a[4].compositeInkMode!==9)return original.apply(this,a);if(!entry){const program=createProgram(gl,DAB_VERT,DAB_FRAG.replace('uniform float u_inkMode;','const float u_inkMode=9.0;'));entry={program,uniforms:getUniforms(gl,program,Object.keys(stamps.uniforms)),pos:gl.getAttribLocation(program,'a_position')}}const saved=[stamps.dabProg,stamps.dabUni,stamps.dabPosLoc];stamps.dabProg=entry.program;stamps.dabUni=entry.uniforms;stamps.dabPosLoc=entry.pos;try{draws++;return original.apply(this,a)}finally{[stamps.dabProg,stamps.dabUni,stamps.dabPosLoc]=saved}};
+ return{stats:()=>({draws,programs:entry?1:0}),dispose(){passes.drawRibbonCompositeDab=original;if(entry){gl.useProgram(null);gl.deleteProgram(entry.program)}}};
+}

@@ -1,0 +1,34 @@
+{
+  "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+  "ext": [
+    [
+      "OES_texture_float",
+      true
+    ],
+    [
+      "WEBGL_color_buffer_float",
+      true
+    ]
+  ],
+  "expected": [
+    513,
+    1027,
+    4095,
+    65535
+  ],
+  "before": [
+    513,
+    1027,
+    4095,
+    65535
+  ],
+  "after": [
+    513,
+    1027,
+    4095,
+    65535
+  ],
+  "readError": 0,
+  "copyError": 0,
+  "endError": 0
+}

@@ -1,0 +1,40 @@
+const fs=require('fs'),crypto=require('crypto'),{chromium}=require('@playwright/test');
+const out=__dirname+'/amd-room-hidden-composite-12';fs.mkdirSync(out,{recursive:true});
+(async()=>{const b=await chromium.launch({headless:false,channel:'chrome'});let p;try{
+ p=await (await b.newContext({viewport:{width:1100,height:900}})).newPage();const errors=[];p.on('pageerror',e=>errors.push(e.message));
+
+ await p.goto('http://localhost:15384/create?qaFastDry=compact');await p.locator('form input[type="text"]').first().fill('Samsung detail smoke');await p.getByText('Fine',{exact:true}).click();await p.getByText('Custom',{exact:true}).click();const dims=p.locator('form input[type="number"]');await dims.nth(0).fill('1024');await dims.nth(1).fill('1024');await p.locator('form button[type="submit"]').press('Enter');
+ await p.waitForFunction(()=>window.__engine&&!__engine._locked,null,{timeout:90000});await p.evaluate(()=>__engine.paperReady());
+ const identity=await p.evaluate(()=>({model:__engine._watercolorModel,renderer:__engine.gl.getParameter(__engine.gl.getExtension('WEBGL_debug_renderer_info').UNMASKED_RENDERER_WEBGL),room:location.pathname,gpuBatch:__engine._wcDryGpuFenceBatch,extensions:__engine.gl.getSupportedExtensions()}));if(identity.model!=='front8-detail-flow-v2')throw Error('Wrong model '+JSON.stringify(identity));console.log('READY',identity.model);
+ await p.evaluate(()=>{const s=__roomStore.getState();s.setTool('watercolor');for(const[k,v]of Object.entries({size:380,water:1,pigment:.69,pressureResponse:'normal',nib:'round'}))s.setToolSetting('watercolor',k,v)});
+ await p.waitForFunction(()=>__engine._opts.tool==='watercolor');
+ const idle=async()=>{await p.waitForFunction(()=>{const e=__engine;if(e._wcAsyncError)throw e._wcAsyncError;return !e._locked&&!e._settle&&!e._wcCanonical.pending&&!e._opQueue.length&&!e._rebuildJobs.size&&!e._pendingRebuilds.size},null,{timeout:180000});await p.evaluate(()=>{const e=__engine;e._layers.get(e._activeId).allResident()[0]?.buffer.readPixelsRegion(0,0,1,1);e._sweepReveals(performance.now()+100000);e._display()})};
+ const read=async()=>{const a=await p.evaluate(()=>__engine._layers.get(__engine._activeId).allResident().map(t=>{const v=t.buffer.readPixels();let s='';for(let i=0;i<v.length;i+=8192)s+=String.fromCharCode(...v.subarray(i,i+8192));return{x:t.originX,y:t.originY,v:btoa(s)}}));return a.map(t=>({x:t.x,y:t.y,hash:crypto.createHash('sha256').update(Buffer.from(t.v,'base64')).digest('hex')})).sort((a,b)=>a.y-b.y||a.x-b.x)};
+ const cdp=await p.context().newCDPSession(p);
+ await p.evaluate(()=>{window.__qaPenEvents=[];window.__qaFrameStage='input';window.__qaFrameActive=true;window.__qaFrames=[];const frame=t=>{__qaFrames.push({t,stage:__qaFrameStage});if(__qaFrameActive)requestAnimationFrame(frame)};requestAnimationFrame(frame);for(const type of ['pointerdown','pointermove','pointerup'])document.addEventListener(type,e=>{if(e.target===__engine.gl.canvas)__qaPenEvents.push({type,pointerType:e.pointerType,pressure:e.pressure,time:performance.now(),eventLag:performance.now()-e.timeStamp})},true)});
+ await p.bringToFront();await p.waitForFunction(()=>getComputedStyle(__engine.gl.canvas).pointerEvents!=='none',null,{timeout:90000});await p.waitForFunction(()=>{const r=__engine.gl.canvas.getBoundingClientRect();return r.width>500&&r.height>500});await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ const inputChecks=[];
+ const rect=await p.evaluate(()=>{const r=__engine.gl.canvas.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height}});console.log('RECT',rect);
+ for(let j=0;j<12;j++){
+  await p.evaluate(j=>{const col=[[.05,.32,.73],[.97,.82,.03],[.85,.06,.08]][j%3];__roomStore.getState().setToolSetting('watercolor','color',col);__engine.setColor(col)},j);
+  const point=i=>({x:rect.x+rect.w*(.28+.44*i/16),y:rect.y+rect.h*(j%2?.68-.3*i/16:.35+.3*i/16)});
+  inputChecks.push(await p.evaluate(({point,j})=>{const el=document.elementFromPoint(point.x,point.y);return{j,hit:el===__engine.gl.canvas,tag:el?.tagName,cls:el?.className,down:__qaPenEvents.filter(e=>e.type==='pointerdown').length,locked:__engine._locked,stroke:__engine._strokeLayerId}}, {point:point(0),j}));
+  await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',...point(0),button:'left',buttons:1,clickCount:1,pointerType:'pen',force:.85});
+  await Promise.all(Array.from({length:16},(_,k)=>cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',...point(k+1),button:'left',buttons:1,pointerType:'pen',force:.85})));
+  await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',...point(16),button:'left',buttons:0,clickCount:1,pointerType:'pen',force:0});
+ }
+ fs.writeFileSync(out+'/input-checks.json',JSON.stringify(inputChecks,null,2));
+ console.log('PEN accepted',await p.evaluate(()=>window.__qaPenEvents));
+ const dryAcceptedAt=Date.now();await p.evaluate(()=>__qaFrameStage='dry');await p.getByRole('button',{name:/dry everything|высушить всё/i}).click();console.log('DRY');await idle();const dryReadyMs=Date.now()-dryAcceptedAt;await p.getByRole('button',{name:/dry everything|высушить всё/i}).waitFor({state:'visible',timeout:10000});if(!await p.getByRole('button',{name:/dry everything|высушить всё/i}).isEnabled())throw Error('Dry stayed busy');const baseline=await read();await p.evaluate(()=>new Promise(requestAnimationFrame));const frameTrace=await p.evaluate(()=>{__qaFrameActive=false;return __qaFrames});const frameStats={};for(const phase of ['input','dry']){const gaps=frameTrace.slice(1).flatMap((v,i)=>v.stage===phase?[v.t-frameTrace[i].t]:[]).sort((a,b)=>a-b);frameStats[phase]={n:gaps.length,p95:gaps[Math.floor(gaps.length*.95)],max:gaps.at(-1),over100:gaps.filter(x=>x>100).length}}const report={dryReadyMs,dryButtonReturned:true,frameStats,frameTrace,identity,baseline,errors,input:'CDP pen events through actual canvas PointerInput, no direct _onStart calls',penEvents:await p.evaluate(()=>window.__qaPenEvents),ops:await p.evaluate(()=>__engine.getOperations().filter(o=>o.type==='stroke').map(o=>({preset:o.preset,id:o.id})))};
+ if(report.penEvents.filter(e=>e.type==='pointerdown'&&e.pointerType==='pen').length!==12)throw Error('Pen events not routed to canvas');
+ if(report.ops.length!==12||report.ops.some(o=>!o.preset.endsWith(':wc@front8-detail-flow-v2')))throw Error('Invalid strokes/version');
+ await p.screenshot({path:out+'/painted.png'});
+ await p.evaluate(()=>__engine.undo());await idle();report.undo=await read();if(JSON.stringify(report.undo)===JSON.stringify(baseline))throw Error('Undo did not change pixels');
+ await p.evaluate(()=>__engine.redo());await idle();report.redo=await read();console.log('REDO',JSON.stringify(report.redo)===JSON.stringify(baseline));
+ await p.reload();await p.waitForFunction(()=>window.__engine||document.querySelector('form input[type="text"]'),null,{timeout:90000});if(await p.locator('form input[type="text"]').count()){await p.locator('form input[type="text"]').first().fill('QA Samsung');await p.locator('form button[type="submit"]').press('Enter')}await p.waitForFunction(()=>window.__engine&&!__engine._locked,null,{timeout:90000});await p.evaluate(()=>__engine.paperReady());await idle();report.reenter=await read();
+ report.export=await p.evaluate(async()=>{const i=await __engine.exportPNG();return{bytes:i?.size,type:i?.type}});
+ report.gl=await p.evaluate(()=>__engine.gl.getError());report.lost=await p.evaluate(()=>__engine.gl.isContextLost());
+ report.redoExact=JSON.stringify(report.redo)===JSON.stringify(baseline);report.reenterExact=JSON.stringify(report.reenter)===JSON.stringify(baseline);
+ fs.writeFileSync(out+'/report.json',JSON.stringify(report,null,2));console.log('DONE',report.redoExact,report.reenterExact,report.gl,report.export);
+ if(!report.redoExact||!report.reenterExact||report.gl||report.lost||errors.length||!report.export.bytes)throw Error('Room smoke failed; report saved');
+}finally{if(p)await p.close().catch(()=>{});await b.close()}})().catch(e=>{console.error(e);process.exitCode=1});
