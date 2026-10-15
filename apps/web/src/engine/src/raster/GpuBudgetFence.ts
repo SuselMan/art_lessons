@@ -45,13 +45,13 @@ export class GpuBudgetFence {
     this.ensure()
     if (gl.isContextLost()) { this.forget(); return }
     const previousFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
-    const pack = gl.getParameter(gl.PACK_ALIGNMENT) as number
     try {
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
-      gl.pixelStorei(gl.PACK_ALIGNMENT, 1)
+      // One RGBA8 row is four bytes for every WebGL1 PACK_ALIGNMENT: row
+      // padding is only between rows. Leave caller packing state untouched.
       gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, this.pixel)
     } finally {
-      if (!gl.isContextLost()) { gl.pixelStorei(gl.PACK_ALIGNMENT, pack); gl.bindFramebuffer(gl.FRAMEBUFFER, previousFramebuffer) }
+      if (!gl.isContextLost()) gl.bindFramebuffer(gl.FRAMEBUFFER, previousFramebuffer)
       else this.forget()
     }
   }

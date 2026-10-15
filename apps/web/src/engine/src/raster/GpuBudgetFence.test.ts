@@ -29,15 +29,17 @@ describe('GPU scheduling completion fence (#728)', () => {
       expect(args.slice(0, 6)).toEqual([0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE])
       expect((args[6] as Uint8Array).length).toBe(4)
     }
-    expect(gl.pixelStorei).toHaveBeenCalledWith(gl.PACK_ALIGNMENT, 1)
+    expect(gl.pixelStorei).not.toHaveBeenCalled()
+    expect(gl.getParameter.mock.calls.some(([p]) => p === gl.PACK_ALIGNMENT)).toBe(false)
     fence.release(); fence.release()
     expect(gl.deleteTexture).toHaveBeenCalledOnce(); expect(gl.deleteFramebuffer).toHaveBeenCalledOnce()
   })
-  it('restores framebuffer and pack alignment if readback throws', () => {
+  it('restores framebuffer and leaves packing untouched if readback throws', () => {
     const { gl, state, fence } = context(), original = { ...state }
     gl.readPixels.mockImplementation(() => { throw Error('read failed') })
     expect(() => fence.sync()).toThrow('read failed')
     expect(state).toEqual(original)
+    expect(gl.pixelStorei).not.toHaveBeenCalled()
     fence.release()
   })
   it('cleans partial allocation and restores active texture when FBO is incomplete', () => {
