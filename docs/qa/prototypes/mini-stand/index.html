@@ -10,9 +10,12 @@ const ids=['paper','color','size','sizeValue','water','pigment','clear','undo','
 const c=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)]));
 try {
 const requestedVersion=new URLSearchParams(location.search).get('v');let version=['2','3','4','5','6','7','8','9','10','11','12','13','14','15'].includes(requestedVersion)?requestedVersion:'1';c.version.value=version;c.versionInfo.textContent=version==='1'?'672cecc4':version==='2'?'ea121870':version==='15'?'М14 + смешивание неподвижного фона':version==='14'?'Фронты М11 от контрастов всей лужи':version==='13'?'Перенос по воде и бумаге':version==='12'?'Цель из исходной лужи; локальные фронты':version==='11'?'Новая краска отделена от прежней лужи':version==='10'?'Без крупного смешивания':version==='9'?'Цель на основе предыдущей цели':version==='8'?'Разделение пигмента ¼':version==='7'?'Перенос jump8':version==='6'?'Отключено размытие контура':version==='5'?'Внешний контур фиксирован':version==='4'?'Локальная область воды':'М02 без ограничения частоты';c.version.onchange=async()=>{if(!experimental){const url=new URL(location.href);url.searchParams.set('v',c.version.value);location.href=url.href;return}await resetMini(c.version.value)};
-const mode=new URLSearchParams(location.search).get('mode') || 'morph';c.mode.value=mode;
+const requestedMode=new URLSearchParams(location.search).get('mode');const mode=['morph','material','baseline'].includes(requestedMode)?requestedMode:'morph';c.mode.value=mode;
+// Browsers can restore select values after module initialization without firing change.
+const syncModeControls=()=>{c.mode.value=mode;c.version.value=version;};window.addEventListener('pageshow',syncModeControls);window.addEventListener('focus',syncModeControls);document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncModeControls()});
 c.mode.onchange=()=>{const url=new URL(location.href);url.searchParams.set('mode',c.mode.value);if(c.mode.value!=='morph')url.searchParams.delete('fullResolution');location.href=url.href};
 const experimental=mode==='morph'||mode==='material';
+document.querySelector('h1').textContent=experimental?'Мини-стенд — загрузка '+(mode==='morph'?'морфинга':'материала'):'Мини-стенд — исходный вариант';
 const deviceSmoke=new URLSearchParams(location.search).get('deviceSmoke')==='1';
 if(deviceSmoke){await import('/@vite/client');(await import('/src/dev/devBridge.ts')).startDevBridge();}
 const small=new URLSearchParams(location.search).get('smoke')==='1';
@@ -56,6 +59,7 @@ const check=()=>{if(engine._destroyed)return;if(!reached){requestAnimationFrame(
 };
 c.clear.onclick=()=>experimental?resetMini():location.reload();c.undo.onclick=()=>engine.undo();c.redo.onclick=()=>engine.redo();
 c.save.onclick=async()=>{const blob=await engine.exportPNG();if(!blob)return;const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='watercolor-mini-v4.png';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};
-window.addEventListener('pagehide',()=>{puddle?.destroy();engine.destroy()},{once:true});
+syncModeControls();
+window.addEventListener('pagehide',event=>{if(event.persisted)return;puddle?.destroy();engine.destroy()});
 }catch(e){c.error.textContent=e.message;console.error(e)}
 </script></html>
