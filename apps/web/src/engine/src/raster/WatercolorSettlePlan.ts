@@ -1,3 +1,4 @@
+import { multilevelContactSchedule } from '../watercolor/multilevelContact'
 import { brushDragFieldHoisted } from '../watercolor/brushDragHoisted'
 import { fastFrontSchedule } from './WatercolorFrontPaths'
 import { contactPulseOp, frontStepOp, inheritSettleOpTags, presentationStepOp } from '../watercolor/WatercolorSettleQueue'
@@ -41,6 +42,8 @@ export class WatercolorSettlePlan {
   /** Eager CPU raster scratch reuse only; does not share suspended generators. */
   diagnosticReuseFlowRaster = false
   diagnosticHoistedContactRaster = false
+  /** OFF / conservative jump hierarchy. 4 = restrained, 8 = broad transport. */
+  diagnosticMultilevelContact: 0 | 4 | 8 = 0
   readonly flowRasterStats = { allocations: 0, reuses: 0, bytesAllocated: 0, bytesRequested: 0 }
   /** Pack D1..D64 in seven byte bits; only eligible when cost-domain paths are enabled. */
   diagnosticPackedCostPaths = false
@@ -1028,6 +1031,7 @@ export class WatercolorSettlePlan {
     // The flow variant shares one secondary field across the ordered contacts.
     // Water, the rim and the final working field retain S2; only contact
     // advection uses S4. Every low buffer remains owned until finish/abort.
+    const multilevel = detailFlow ? this.diagnosticMultilevelContact : 0
     const contactS = detailFlow && S === 2 && radiusPx >= 48 ? S * 2 : S
     let lowContact: { field: { w: number; h: number; coverage: AccumulationBuffer }; p: AccumulationBuffer; c: AccumulationBuffer; nextP: AccumulationBuffer; nextC: AccumulationBuffer; initialP: AccumulationBuffer; initialC: AccumulationBuffer; buffers: AccumulationBuffer[] } | null = null
     let lastContactPreview = -Infinity
@@ -1054,6 +1058,8 @@ export class WatercolorSettlePlan {
       const maxExposure = brushDragMaxExposure(pixels)
       const substeps = Math.max(1, Math.ceil(0.2 * radius / contactS * maxExposure * Math.SQRT2 / 0.84))
       const contactGain = 0.2 * radius / (substeps * contactS)
+      const schedule = multilevelContactSchedule(substeps, contactGain, multilevel)
+      const halo = multilevel || 1
       const payload = { pixels: pixels as Uint8Array | null }
       if (oneShot) { contactPixels.add(payload); this._ownedContactPixels.add(payload) }
       let rect: [number, number, number, number], scissor: [number, number, number, number]
@@ -1072,22 +1078,22 @@ export class WatercolorSettlePlan {
         prepareContact()
         const contactField = lowContact?.field ?? field
         rect = [(cr.x - x0) / (field.w * S), 1 - (cr.y + cr.h - y0) / (field.h * S), cr.w / (field.w * S), cr.h / (field.h * S)]
-        // The face stencil reaches one canonical texel beyond the flow rect.
+        // The face stencil reaches one cell, or the diagnostic jump halo.
         // Draw and copy both records over that same halo to retain every pair.
-        left = Math.max(0, Math.floor((cr.x - x0) / contactS) - 1)
-        right = Math.min(contactField.w, Math.ceil((cr.x + cr.w - x0) / contactS) + 1)
-        bottom = Math.max(0, Math.floor(contactField.h - (cr.y + cr.h - y0) / contactS) - 1)
-        top = Math.min(contactField.h, Math.ceil(contactField.h - (cr.y - y0) / contactS) + 1)
+        left = Math.max(0, Math.floor((cr.x - x0) / contactS) - halo)
+        right = Math.min(contactField.w, Math.ceil((cr.x + cr.w - x0) / contactS) + halo)
+        bottom = Math.max(0, Math.floor(contactField.h - (cr.y + cr.h - y0) / contactS) - halo)
+        top = Math.min(contactField.h, Math.ceil(contactField.h - (cr.y - y0) / contactS) + halo)
         scissor = [left, bottom, right - left, top - bottom]
       })
-      const exchange = (): void => {
+      const exchange = (jump: number, gain: number, mixScale: number): void => {
         if (!flowTexture) return
         // Both draws read the same pre-pulse P/C. Copy back only after both
         // outputs exist; the existing settle scheduler yields between pulses.
         const f = lowContact?.field ?? field, p = lowContact?.p ?? dep.out, c = lowContact?.c ?? col.out
         const nextP = lowContact?.nextP ?? field.pressure, nextC = lowContact?.nextC ?? field.band
-        this.ctx.passes().brushPass(f, flowTexture, 4 * contactS, contactS, c, nextC, p, rect, scissor, c, contactGain)
-        this.ctx.passes().brushPass(f, flowTexture, 4 * contactS, contactS, p, nextP, p, rect, scissor, c, contactGain)
+        this.ctx.passes().brushPass(f, flowTexture, 4 * contactS, contactS, c, nextC, p, rect, scissor, c, gain, jump, mixScale)
+        this.ctx.passes().brushPass(f, flowTexture, 4 * contactS, contactS, p, nextP, p, rect, scissor, c, gain, jump, mixScale)
         nextP.copyRegionInto(p, left, bottom, left, bottom, right - left, top - bottom)
         nextC.copyRegionInto(c, left, bottom, left, bottom, right - left, top - bottom)
         if (!lowContact) present(dep.out, null, col.out)
@@ -1099,7 +1105,10 @@ export class WatercolorSettlePlan {
       }
       // Pulses share immutable contact geometry; reuse one closure while
       // retaining every scheduler operation and its chronological order.
-      for (let sub = 0; sub < substeps; sub++) commands.push(contactPulseOp(exchange))
+      for (const step of schedule) {
+        const run = (): void => exchange(step.jump, step.gain, step.mixScale)
+        for (let sub = 0; sub < step.count; sub++) commands.push(contactPulseOp(run))
+      }
       return commands
     }
     for (const contact of contacts) ops.push(...contactOps(contact))
