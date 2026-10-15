@@ -1,0 +1,643 @@
+{
+  "source": "d3a008be13f9259e567165d320e06822d31608b3",
+  "version": "d3a008be-pigment-v4-20261015",
+  "model": "front8-detail-flow-v4",
+  "count": 85,
+  "reports": [
+    {
+      "sheet": "1",
+      "elapsed": 56010.5,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 51,
+      "model": "front8-detail-flow-v4",
+      "inputSha": "9afbe5703a947cf9a776657cbd17c75bb31e09ef4c7ad0e9397ebc58254fce8b",
+      "errors": []
+    },
+    {
+      "sheet": "2",
+      "elapsed": 37103.79999999702,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 36,
+      "model": "front8-detail-flow-v4",
+      "inputSha": "2fd74d2a2e480555edc8d2fb6e76d58b8e89199fba49f4069684f32a7ad5f220",
+      "errors": []
+    },
+    {
+      "sheet": "3",
+      "elapsed": 44228.10000000894,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 41,
+      "model": "front8-detail-flow-v4",
+      "inputSha": "ecbb146ddd9ecf3b6c3c46cc289245d92cbf246cf8225490eea70a9dee3ce1d9",
+      "errors": []
+    },
+    {
+      "sheet": "4",
+      "elapsed": 117290.59999999404,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 23,
+      "model": "front8-detail-flow-v4",
+      "inputSha": "bd0bfc4572486e567c6dac7b5e3ec6311a6b73704aad46e167c89e89e3dfc7cd",
+      "errors": []
+    },
+    {
+      "sheet": "5",
+      "elapsed": 29534.89999999106,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 24,
+      "model": "front8-detail-flow-v4",
+      "inputSha": "a13e838422e6ab5dfe3eda405e5e3e2fe458fc87f4a01fbde6570021dcd49ecc",
+      "errors": []
+    },
+    {
+      "sheet": "6",
+      "elapsed": 242700.59999999404,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 39,
+      "model": "front8-detail-flow-v4",
+      "inputSha": "ed89398a12d55c5707e77b01400efe10a8868639f6b7813dec99b939489e193e",
+      "errors": []
+    },
+    {
+      "sheet": "7",
+      "elapsed": 30224.10000000894,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 27,
+      "model": "front8-detail-flow-v4",
+      "inputSha": "cc5942f9573a74c6828eafe235fceb546a80059c61e747236a2e32cae4a32d41",
+      "errors": []
+    },
+    {
+      "sheet": "8",
+      "elapsed": 53364.89999999106,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 15,
+      "model": "front8-detail-flow-v4",
+      "inputSha": "5785a07739c812c230c8c7909f85da792ca56453c43adfb741f8e919f2c3e944",
+      "errors": []
+    },
+    {
+      "sheet": "9",
+      "elapsed": 99522.70000000298,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 29,
+      "model": "front8-detail-flow-v4",
+      "inputSha": "4731d40634f15925ac8d6acf533663d656fef981e0133c60c66f216166d2f452",
+      "errors": []
+    },
+    {
+      "sheet": "10",
+      "elapsed": 32274.19999998808,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 25,
+      "model": "front8-detail-flow-v4",
+      "inputSha": "f8ef3e54b9bf4f95ea7fff7c3c5114653d04cd0b9ace0bd40d40ab673c5be1e7",
+      "errors": []
+    },
+    {
+      "sheet": "12",
+      "elapsed": 15723,
+      "gl": 0,
+      "lost": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ops": 17,
+      "model": "front8-detail-flow-v4",
+      "inputSha": "216978823b2d519a0510be70c21fc2a58b9cabfe64f772f72576fadd057be785",
+      "errors": []
+    }
+  ],
+  "files": [
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/001.jpg",
+      "sha256": "7caa369aed6a098d16a0d019a73490c20e9e66a8da3af21eb426e310f01938bb",
+      "w": 1451,
+      "h": 334
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/002.jpg",
+      "sha256": "7ed579c35058be25880980d688e938603c8c2dea7db48cbb569d5fac78dff0c8",
+      "w": 1217,
+      "h": 382
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/003.jpg",
+      "sha256": "7b144bff882b96423db5ef33e63321bef3c9e143226d1c6df7ab5cb924823b00",
+      "w": 1334,
+      "h": 373
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/004.jpg",
+      "sha256": "1044bcb8c934f28d568887c8ccfbad5ef02b48e5c7df7dd3412cb027a987f844",
+      "w": 1170,
+      "h": 343
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/005.jpg",
+      "sha256": "89fada2f7084dcc017c56998eac9d421c1760c2e699d78665d70f4fdad3223ef",
+      "w": 1287,
+      "h": 326
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/006.jpg",
+      "sha256": "96022ed085c19c37fbd69458cba9101c295c066d41ef380524dd892189815808",
+      "w": 1256,
+      "h": 354
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/007.jpg",
+      "sha256": "1b5ff5d311b57a115ef0d38acefcb635f99bd11902ef36d05bdbb482cd63fb9f",
+      "w": 1187,
+      "h": 407
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/008.jpg",
+      "sha256": "014d1fde70d1ee35353eb3619a31764e2069ed29f1718b5fb0605ccc92759946",
+      "w": 1142,
+      "h": 376
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/009.jpg",
+      "sha256": "6d92ee2d843508fe59e9078df4c2a73c1ee2987e110f7d7aef57727deb73ab6e",
+      "w": 908,
+      "h": 407
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/010.jpg",
+      "sha256": "3c971870ef88bdf10b6e24c720383296fc0c5c70e6ce9c51960c92a82084b5f1",
+      "w": 939,
+      "h": 398
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/011.jpg",
+      "sha256": "c87d2ac5a50bd9a6a3a304071a13718554ca64f146b23875c9f0f9381a91d09f",
+      "w": 942,
+      "h": 382
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/012.jpg",
+      "sha256": "f299fc8e8e54b347f7683fb5beb325acb33f66f6ea4cd3ae0f6b3eb99f50d5cf",
+      "w": 836,
+      "h": 329
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/013.jpg",
+      "sha256": "57aeaedf94f1024601ab3fdfbb3632849e11796c54bf1e3b53c3786dbf6a2a20",
+      "w": 827,
+      "h": 340
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/014.jpg",
+      "sha256": "b41bddc8ecaa60620e0ca6973bdbe45e80ee026097720c436a5642722b4cd8e7",
+      "w": 794,
+      "h": 345
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/015.jpg",
+      "sha256": "6b736676421a0b205810d6b98a1c9d9343bedf5edc3b250f146f0d5117afc252",
+      "w": 864,
+      "h": 384
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/1/017.jpg",
+      "sha256": "4ac10bf959a484f7e32552ee4a12dbdc63e1a92991ac05c6930298af4bf35891",
+      "w": 816,
+      "h": 343
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/2/001.jpg",
+      "sha256": "992d891f2cbc55f274833d1e366f22891270680b3f152916847ce307aef7f455",
+      "w": 718,
+      "h": 794
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/2/002.jpg",
+      "sha256": "4eea1bc948f97068f6d0284fa663f9e9c1da282fd11661768f7982a34f9ed041",
+      "w": 718,
+      "h": 770
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/2/003.jpg",
+      "sha256": "c46d195ae69526af3b5a38bfcc29d787c44215156f879b840ab68ec2db613c83",
+      "w": 789,
+      "h": 794
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/2/004.jpg",
+      "sha256": "f681b565c073c1f224dd33c13b48d5bb047dedcd5b9186d8c3a0f35bbbbc44b0",
+      "w": 808,
+      "h": 914
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/2/005.jpg",
+      "sha256": "abe8719c325bcf3fb01c96201240ed09a5d4aeb6278578c0f30b61049d65e480",
+      "w": 819,
+      "h": 868
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/2/006.jpg",
+      "sha256": "761b65972facc467ac6fdae835aa7f3d274a1d43409602f0010adc50cb777aeb",
+      "w": 718,
+      "h": 963
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/2/007.jpg",
+      "sha256": "b04f735153cb61ba6052189a60fbaca8131b2cf1d7ead7f0137f77cb30c6deb3",
+      "w": 1414,
+      "h": 707
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/3/001.jpg",
+      "sha256": "2cb54a62062e1c363a7b14fe2dd7695bc204e9acdfb11bc3fdda9a01d23d1f99",
+      "w": 719,
+      "h": 540
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/3/002.jpg",
+      "sha256": "e1b15cacaf5ea1b720f980236a4c0ab0a534ec1bd702f00c01d9fd298c58be37",
+      "w": 719,
+      "h": 540
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/3/003.jpg",
+      "sha256": "eb9fc00627891e0fc5dd23b3ccf9f0b243a837c3a39c0769280bb2d32d34fbfe",
+      "w": 719,
+      "h": 540
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/3/004.jpg",
+      "sha256": "1f9b67556db821a0650d40c143f60c22ec0fda3729c7d81486053ea5489dd74a",
+      "w": 719,
+      "h": 540
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/3/005.jpg",
+      "sha256": "c7c70278500db3c349164385750d9ffc1a31f79f41062cbd9270f1148d1aab1d",
+      "w": 719,
+      "h": 540
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/3/006.jpg",
+      "sha256": "8f6384a71f745b45725529677b4cc421bbea3a08f1e118feaf5b943ebe974c44",
+      "w": 719,
+      "h": 540
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/4/001.jpg",
+      "sha256": "ffdec2361f40e21f11103cd57321583a0303ff49a1b7b574f68d80029bf440a1",
+      "w": 1008,
+      "h": 599
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/4/002.jpg",
+      "sha256": "47a18198e15675f6cf2f126ebf669bbbf1bc140ba733774a27d0a2a0ba4003bd",
+      "w": 1095,
+      "h": 599
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/4/003.jpg",
+      "sha256": "b6e8a9c8f01205a1d8fd1bf08d73a76d91fbb38f3a5e722f27cf47fbbc4a56e5",
+      "w": 1051,
+      "h": 599
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/4/004.jpg",
+      "sha256": "881c43bda9c2cb4f7377efced353113d62861eaa4134471ed10421cfae69efac",
+      "w": 1018,
+      "h": 599
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/4/005.jpg",
+      "sha256": "ceb220245251bf4e9f08f1f9463c4791d64c6974ffd39ea1c7078d584506faad",
+      "w": 870,
+      "h": 599
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/4/006.jpg",
+      "sha256": "348a6c449cc256cf1a511cd416731cb1540a9d5840177dabda93973d53d1a481",
+      "w": 1055,
+      "h": 599
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/5/001.jpg",
+      "sha256": "2c1327483b912a55f250872ab3d5b2865c346657e816a5565be1ce942f326d9b",
+      "w": 1317,
+      "h": 329
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/5/002.jpg",
+      "sha256": "49afb54ce903ddfe86ef2cb26ce1b1a119562c71e98eb7e094b8afadef6b81d0",
+      "w": 1213,
+      "h": 360
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/5/003.jpg",
+      "sha256": "3c7e2367bf9c2afd27beb8f9f7dc7502b5f564e370f01927ac6bc19405a78231",
+      "w": 1256,
+      "h": 278
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/5/004.jpg",
+      "sha256": "14e19f91b3f743d5594be3547737e8b0035834871efe523b4191ae8a801ac329",
+      "w": 969,
+      "h": 289
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/5/005.jpg",
+      "sha256": "4ff07f47f2000b704a0519602ea5ebc1a42a388c08ee26c4d31ed1f0f235344d",
+      "w": 1000,
+      "h": 289
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/5/006.jpg",
+      "sha256": "d4ed8c3648c08be6ce4bd953ae9d7afe15720d026deb12b2bd8d97de0efc6e75",
+      "w": 1183,
+      "h": 299
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/6/001.jpg",
+      "sha256": "c8c4c8f417830ad37f00eaa795b4d1b0d85fc1bdf532cc75e6518d9826c43554",
+      "w": 1345,
+      "h": 438
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/6/002.jpg",
+      "sha256": "63070493fc0141d04f723bd0a2ce5080184fb83cb7b2fa53a3a57da2efadd683",
+      "w": 1209,
+      "h": 546
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/6/003.jpg",
+      "sha256": "db42af88ff6be06026c0b26167def65037a1142d8c1f258af6b40a1052f06f8f",
+      "w": 1217,
+      "h": 476
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/6/004.jpg",
+      "sha256": "cb744b6b674b632d81f28bda10abfbc8053a58d0664a5d0b94f66142b3312708",
+      "w": 1189,
+      "h": 487
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/6/005.jpg",
+      "sha256": "7becfaf5da45ac43132ea2c8a89e0227087a0eacc70a9c694908842ef2bc67ea",
+      "w": 1122,
+      "h": 525
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/6/006.jpg",
+      "sha256": "6672b77f0d81a340664f9d55e8b2f8866896ef9774019f0af2dd90245e5e8576",
+      "w": 1032,
+      "h": 515
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/6/007.jpg",
+      "sha256": "74be1d7aaca0f09285ff14997b56cedd493f31c5d4803460732fc32e57caba01",
+      "w": 1071,
+      "h": 466
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/6/008.jpg",
+      "sha256": "956cc0279cacbbd5114f8f4a302bfb6abe7677f338363308d55786c539e08af7",
+      "w": 1168,
+      "h": 497
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/6/009.jpg",
+      "sha256": "16eb7487e7b8546d6b14e99fa7307b18bf6fa963399374469eef542f17b68005",
+      "w": 1237,
+      "h": 546
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/6/010.jpg",
+      "sha256": "e65dfd5861f38884f3594fdca45a658562e387a850b3ba57b38e942922d4a7ad",
+      "w": 1296,
+      "h": 564
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/7/001.jpg",
+      "sha256": "d263624b87177d9f6e1973e36cf2813b9489233c887410ed770c6719eba86bc8",
+      "w": 727,
+      "h": 386
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/7/002.jpg",
+      "sha256": "b7c7ac710ba328e9916597fa0256fd41d7bf9bc6eeffe1cd7eb7a653e7358d32",
+      "w": 697,
+      "h": 325
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/7/003.jpg",
+      "sha256": "1cdceca4d53243a59d1224ad7add9799f3403087a870b66fd5286bfcccb6e162",
+      "w": 748,
+      "h": 406
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/7/004.jpg",
+      "sha256": "ae75222f75a23f035fc6458ad967202aa3e1c4a2c5fe539c505edd80f8b24ab4",
+      "w": 758,
+      "h": 378
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/7/005.jpg",
+      "sha256": "4a2db7ad02f7bba8c200f64e976c18e393cfa67a25c42ffa1fac7438eee54c50",
+      "w": 666,
+      "h": 368
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/7/006.jpg",
+      "sha256": "2b08a7a79d2b4ec8929758941554fecc8f04ad89233e389255482e37cbed34d7",
+      "w": 656,
+      "h": 386
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/8/001.jpg",
+      "sha256": "bfdd65fd6d043e8679f71a04b61754fac0c7956f4cc528edfdbd4168fd22f984",
+      "w": 807,
+      "h": 297
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/8/002.jpg",
+      "sha256": "aec2d2a6f83bdbda940d5271209605039e3f9428c7c01e35eb8f7e7f188b81bf",
+      "w": 1008,
+      "h": 297
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/8/003.jpg",
+      "sha256": "fed583ac6d0209c4fa33d9754185cc568f980db94ade24aa1df6b643e5a48427",
+      "w": 998,
+      "h": 335
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/8/004.jpg",
+      "sha256": "a9457105ee889089be5386a2d11de18aff633e773bf290dde5fa695ec524203a",
+      "w": 1048,
+      "h": 287
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/8/005.jpg",
+      "sha256": "7a17c544cfcae6c4e1ebd358f2b930bc0b4692d460125097a3994b8c3f25c4c7",
+      "w": 1168,
+      "h": 325
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/8/006.jpg",
+      "sha256": "dcd471e1d28121e8c6dde4aaaf3a34a983e95c0008ee80c62b4ac7015a7b475c",
+      "w": 977,
+      "h": 297
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/8/007.jpg",
+      "sha256": "ee477a42da44f1e466d3f9773662d3d1b1c49aae02bc443ca9369c087e7cab34",
+      "w": 957,
+      "h": 307
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/9/001.jpg",
+      "sha256": "71ae0d643a30681328581f520bea132d8f41eb9b24c20a23e13826fba5185a7a",
+      "w": 693,
+      "h": 565
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/9/002.jpg",
+      "sha256": "a68d16b491657ead66a771f3287011a97eae56874cf227ff69ccfbcb1a3a69bf",
+      "w": 650,
+      "h": 597
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/9/003.jpg",
+      "sha256": "248ae69b527ba87d129904f91d69edbcbf5439ea46f0da4dc699bf90b66fab06",
+      "w": 713,
+      "h": 585
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/9/004.jpg",
+      "sha256": "b123c0be14da9c9d75dcb04faa49b8f8b83a38173402bd7e1c0455c77cc7a4e3",
+      "w": 725,
+      "h": 618
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/9/005.jpg",
+      "sha256": "7f6b9412f0a4758ff4bd1da590623c63f509a442344959f25435baa89007b36c",
+      "w": 660,
+      "h": 683
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/9/006.jpg",
+      "sha256": "172b165a10c67a8d488cbe53b78a287fd3342ca4211e8db2333edc30ac79fde2",
+      "w": 736,
+      "h": 703
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/10/001.jpg",
+      "sha256": "56ad022d2494964a16795a39152fc567e4a7486aa44749b96626a73188ca25c6",
+      "w": 711,
+      "h": 577
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/10/002.jpg",
+      "sha256": "f6ab02ae1bfd30db4ca233f23b5a44105a6dd2ee8b476add5b14a6b33f7d57f7",
+      "w": 679,
+      "h": 577
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/10/003.jpg",
+      "sha256": "449d857952c4e9e6f55140442d28f5446881f58e764589fab51b1171145119da",
+      "w": 768,
+      "h": 634
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/10/004.jpg",
+      "sha256": "3afc17ff9ab12a519b25884339a0d5b88b562e092b19348d364c21edef277a08",
+      "w": 701,
+      "h": 599
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/10/005.jpg",
+      "sha256": "c799e9083773c057a3505c49e59f153cefc8c2a0914c2d7f88e3a38ca49c022f",
+      "w": 711,
+      "h": 589
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/10/006.jpg",
+      "sha256": "8403172c033ae20022a5b4e4b88d4f31d032601ce77a0b6489fc8e40ef3618ae",
+      "w": 845,
+      "h": 522
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/12/001.jpg",
+      "sha256": "4049a4afa38fee7b46cc3465db5642d7b1b6463904b74f17d8599a5f9f6098fc",
+      "w": 1280,
+      "h": 209
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/12/002.jpg",
+      "sha256": "ae693e337353b7114909c8b9fe274819ed11d1b3a81a1fb0c0a80b5b1cf70d03",
+      "w": 1376,
+      "h": 246
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/12/003.jpg",
+      "sha256": "746bb8f25ecccb74d52ccda24b2cf95b53e39003cad08fabb3bcacd047c3f70f",
+      "w": 1422,
+      "h": 242
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/12/004.jpg",
+      "sha256": "2bfad1140eb0c41cbd41b28a9a5d1e095c786a42e6fdc17e700ee496c83bbc95",
+      "w": 1449,
+      "h": 282
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/12/005.jpg",
+      "sha256": "8fafc5af6efb2d311540172ecfb8c90d84f7893eda134c1b9f28dcdd11c9b326",
+      "w": 1325,
+      "h": 276
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/12/006.jpg",
+      "sha256": "4e1ce57b0eceb293c03cf4296d16af47e258a36bcbd987323c25eb3b55b26992",
+      "w": 1051,
+      "h": 276
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/12/007.jpg",
+      "sha256": "038366af876685efa2fe9f076aa66f1ca1903cc5ddabba8e567b0fd35d023de4",
+      "w": 1242,
+      "h": 364
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/12/008.jpg",
+      "sha256": "32b9e62293f910ed0c8f85ce2ca873306c7501abf93cd47848bbd4824690a98e",
+      "w": 1164,
+      "h": 307
+    },
+    {
+      "src": "preview/gallery-d3a008be-pigment-v4-20261015/img/12/009.jpg",
+      "sha256": "22984b8f76216d6e8df7300b07863c4ca05b5cbe0f6fb2ee1711e3d8db0a1476",
+      "w": 1148,
+      "h": 307
+    }
+  ],
+  "replayPolicy": "400ms per operation; versioned watercolor presets; no image imports; ordered Dry and canonical idle",
+  "commentsShaUnchanged": "413d0283b170c62edddb7a9dc7d18b8f6af2de1153a1d11efc7f0bf8dab6f0dc"
+}

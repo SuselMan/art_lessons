@@ -1,0 +1,13 @@
+{
+  "model": "front8-detail-flow-v4",
+  "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+  "presets": [
+    "normal:100:100:PB29:round:wc@front8-detail-flow-v4",
+    "normal:100:100:PB29:round:wc@front8-detail-flow-v4",
+    "normal:100:100:PB29:round:wc@front8-detail-flow-v4"
+  ],
+  "redoExact": true,
+  "gl": 0,
+  "lost": false,
+  "elapsed": 4580.5
+}

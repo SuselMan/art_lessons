@@ -1,0 +1,30 @@
+[
+  {
+    "width": 390,
+    "versions": 19,
+    "selectedHash": "d3a008be13f9259e567165d320e06822d31608b3",
+    "fullSha": "c1997fee56175bddc99961604dc52f8add829a7a",
+    "clipboard": true,
+    "fallback": true,
+    "nameCopy": true,
+    "navigation": true,
+    "invalidRoute": true,
+    "overflow": false,
+    "errors": [],
+    "posts": 0
+  },
+  {
+    "width": 1280,
+    "versions": 19,
+    "selectedHash": "d3a008be13f9259e567165d320e06822d31608b3",
+    "fullSha": "c1997fee56175bddc99961604dc52f8add829a7a",
+    "clipboard": true,
+    "fallback": true,
+    "nameCopy": true,
+    "navigation": true,
+    "invalidRoute": true,
+    "overflow": false,
+    "errors": [],
+    "posts": 0
+  }
+]

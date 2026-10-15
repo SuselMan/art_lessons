@@ -1,0 +1,11 @@
+{
+  "model": "front8-detail-flow-v4",
+  "specializedNib": true,
+  "presets": [
+    "normal:100:80:PB29:round:wc@front8-detail-flow-v4",
+    "normal:100:80:PB29:round:wc@front8-detail-flow-v4",
+    "normal:100:80:PB29:round:wc@front8-detail-flow-v4"
+  ],
+  "gl": 0,
+  "lost": false
+}

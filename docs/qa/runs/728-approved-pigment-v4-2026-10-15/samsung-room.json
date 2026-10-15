@@ -1,0 +1,18 @@
+{
+  "scope": "Samsung QA room: authored v4, replayed with older v3 authoring default",
+  "before": "front8-detail-flow-v3",
+  "presets": [
+    "normal:100:80:PB29:round:wc@front8-detail-flow-v4",
+    "normal:100:80:PB29:round:wc@front8-detail-flow-v4",
+    "normal:100:80:PB29:round:wc@front8-detail-flow-v4"
+  ],
+  "redoExact": true,
+  "reentryExact": true,
+  "tiles": 1,
+  "state": {
+    "model": "front8-detail-flow-v3",
+    "gl": 0,
+    "lost": false
+  },
+  "errors": []
+}

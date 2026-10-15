@@ -1,0 +1,13 @@
+{
+  "source": "d3a008be13f9259e567165d320e06822d31608b3",
+  "tests": {
+    "files": 4,
+    "cases": 25,
+    "status": "pass"
+  },
+  "publisherTests": 3,
+  "webTypecheck": "pass",
+  "webOxlint": "pass",
+  "mapCheck": "pass",
+  "mapRules": "pass with 5 existing warnings"
+}
