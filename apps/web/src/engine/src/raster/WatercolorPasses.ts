@@ -1,5 +1,5 @@
 import { WatercolorMaterialReconstruction } from './WatercolorMaterialReconstruction'
-import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_ADD_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
+import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_ADD_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_BRUSH_GATHER_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
 import { createWatercolorFrontPaths } from './WatercolorFrontPaths'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -65,6 +65,8 @@ export class WatercolorPasses {
   /** (#536) One step of pigment diffusion in standing water — see
    *  WC_DIFFUSE_FRAG and wetDiffusion.ts. */
   private _diffuseProg!: WebGLProgram
+
+  private _brushGather: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } | null = null
 
   private _brushDragProg!: WebGLProgram
 
@@ -316,15 +318,20 @@ export class WatercolorPasses {
     field: WatercolorPassField, flowTexture: WebGLTexture, radiusPx: number, S: number,
     source: AccumulationBuffer, out: AccumulationBuffer, pigment: AccumulationBuffer,
     flowRect: [number, number, number, number], scissor: [number, number, number, number],
-    colorReference: AccumulationBuffer, pulseGain: number,
+    colorReference: AccumulationBuffer, pulseGain: number, gather = false,
   ): void {
     const { gl } = this
     out.beginReplaceDraw()
-    gl.useProgram(this._brushDragProg)
-    const u = this._brushDragUni
+    if (gather && !this._brushGather) {
+      const program = createProgram(gl, DISPLAY_VERT, WC_BRUSH_GATHER_FRAG)
+      this._brushGather = { program, uniforms: getUniforms(gl, program, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_step', 'u_flowRect', 'u_color', 'u_contactGain', 'u_texel']), position: gl.getAttribLocation(program, 'a_position') }
+    }
+    gl.useProgram(gather ? this._brushGather!.program : this._brushDragProg)
+    const u = gather ? this._brushGather!.uniforms : this._brushDragUni
+    const position = gather ? this._brushGather!.position : this._brushDragPosLoc
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
-    gl.enableVertexAttribArray(this._brushDragPosLoc)
-    gl.vertexAttribPointer(this._brushDragPosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(position)
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
     const textures = [source.texture, flowTexture, field.coverage.texture, pigment.texture]
     const names = ['u_paint', 'u_flow', 'u_water', 'u_pigment']
     for (let j = 0; j < textures.length; j++) {
@@ -485,6 +492,7 @@ export class WatercolorPasses {
   }
 
   initSettlePrograms(): void {
+    this._brushGather = null // Context restoration invalidates its lazy program.
     this._frontPaths?.forget()
     this._frontPaths = null
     const { gl } = this
@@ -536,7 +544,7 @@ export class WatercolorPasses {
     // A final field pass may still be active when a connected canvas is retired.
     const current = this.gl.getParameter(this.gl.CURRENT_PROGRAM)
     if ([this._fieldOpProg, this._fieldOpHighProg, this._fieldOpCarryProg, this._fieldOpCarryColourProg,
-      this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg, this._gradientField?.program, this._costDomain?.program].includes(current)) {
+      this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg, this._gradientField?.program, this._costDomain?.program, this._brushGather?.program].includes(current)) {
       this.gl.useProgram(null)
     }
     this.releasePlainAdd()
@@ -549,6 +557,8 @@ export class WatercolorPasses {
     this.gl.deleteProgram(this._fieldOpCarryColourProg)
     this.gl.deleteProgram(this._resampleProg)
     this.gl.deleteProgram(this._diffuseProg)
+    if (this._brushGather) this.gl.deleteProgram(this._brushGather.program)
+    this._brushGather = null
     this.gl.deleteProgram(this._brushDragProg)
     this.gl.deleteProgram(this._waterFrontProg)
   }

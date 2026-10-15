@@ -18,10 +18,12 @@ type Probe = {
 
 // Resource/coupling contract only. Actual shader pixels and history are
 // checked separately on AMD and Adreno; MockGL cannot prove those.
+for (const gather of [0, 0.75, 1.4])
 for (const model of ['front8-detail-flow-v1', 'front8-detail-flow-v3'] as const)
-for (const completion of ['finish', 'abort', 'context-loss'] as const) it(`${model}: owns one contact field across groups and retires it on ${completion}`, () => {
+for (const completion of ['finish', 'abort', 'context-loss'] as const) it(`${model}, gather=${gather}: owns one contact field across groups and retires it on ${completion}`, () => {
   const { engine } = createTestEngine({ paper: 'flat' }, { width: 1024, height: 1024 })
   const p = engine as unknown as Probe
+  p._settlePlan.diagnosticLargeStepGather = gather
   engine.initLayer('flow-test')
   const tile = p._ribbonScratchPool.acquire(1024, 1024)
   const scratch = new RibbonStrokeScratch(p._ribbonScratchPool, true, true)
@@ -54,6 +56,10 @@ for (const completion of ['finish', 'abort', 'context-loss'] as const) it(`${mod
         expect(color[6]).toBe(pigment[4])
         expect(pigment[6]).toBe(pigment[4])
         expect(color[5]).not.toBe(color[6])
+      }
+      if (gather > 0) {
+        expect(brush.mock.calls).toHaveLength(18) // 3 recorded contacts × 3 gathers × P/C.
+        expect(brush.mock.calls.every(a => a[11] === true)).toBe(true)
       }
       plan.finish()
     } else {

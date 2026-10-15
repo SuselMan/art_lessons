@@ -38,6 +38,8 @@ export interface WatercolorSettlePlanContext {
 export class WatercolorSettlePlan {
   /** Immutable cost-domain reachability diagnostic; default OFF on every route. */
   diagnosticCostDomainPaths = false
+  /** Experimental large-step gather: 0 baseline, 0.75 gentle, 1.4 strong. */
+  diagnosticLargeStepGather = 0
   /** Eager CPU raster scratch reuse only; does not share suspended generators. */
   diagnosticReuseFlowRaster = false
   diagnosticHoistedContactRaster = false
@@ -136,6 +138,7 @@ export class WatercolorSettlePlan {
     const { gl } = this
     const metadata = finishMetadata ?? scratch
     const materialModel = (finishMetadata?.finish ?? scratch.finishContext)?.profile.materialModel
+    const largeStepGather = Math.max(0, this.diagnosticLargeStepGather)
     const tightField = materialModel === 'front8-detail-flow-v2' || materialModel === 'front8-detail-flow-v3' || materialModel === 'front8-detail-flow-v4'
     const detailFlow = tightField || materialModel === 'front8-detail-flow-v1'
     const detailMaterial = detailFlow || materialModel === 'front8-detail-v1'
@@ -1052,8 +1055,8 @@ export class WatercolorSettlePlan {
       // Split the accumulated contact exposure into one-cell exchanges.
       // Each pulse stays within the shared pigment/colour capacity bound.
       const maxExposure = brushDragMaxExposure(pixels)
-      const substeps = Math.max(1, Math.ceil(0.2 * radius / contactS * maxExposure * Math.SQRT2 / 0.84))
-      const contactGain = 0.2 * radius / (substeps * contactS)
+      const substeps = largeStepGather > 0 ? 3 : Math.max(1, Math.ceil(0.2 * radius / contactS * maxExposure * Math.SQRT2 / 0.84))
+      const contactGain = largeStepGather > 0 ? largeStepGather * Math.sqrt(0.2 * radius / (substeps * contactS)) : 0.2 * radius / (substeps * contactS)
       const payload = { pixels: pixels as Uint8Array | null }
       if (oneShot) { contactPixels.add(payload); this._ownedContactPixels.add(payload) }
       let rect: [number, number, number, number], scissor: [number, number, number, number]
@@ -1086,8 +1089,8 @@ export class WatercolorSettlePlan {
         // outputs exist; the existing settle scheduler yields between pulses.
         const f = lowContact?.field ?? field, p = lowContact?.p ?? dep.out, c = lowContact?.c ?? col.out
         const nextP = lowContact?.nextP ?? field.pressure, nextC = lowContact?.nextC ?? field.band
-        this.ctx.passes().brushPass(f, flowTexture, 4 * contactS, contactS, c, nextC, p, rect, scissor, c, contactGain)
-        this.ctx.passes().brushPass(f, flowTexture, 4 * contactS, contactS, p, nextP, p, rect, scissor, c, contactGain)
+        this.ctx.passes().brushPass(f, flowTexture, 4 * contactS, contactS, c, nextC, p, rect, scissor, c, contactGain, largeStepGather > 0)
+        this.ctx.passes().brushPass(f, flowTexture, 4 * contactS, contactS, p, nextP, p, rect, scissor, c, contactGain, largeStepGather > 0)
         nextP.copyRegionInto(p, left, bottom, left, bottom, right - left, top - bottom)
         nextC.copyRegionInto(c, left, bottom, left, bottom, right - left, top - bottom)
         if (!lowContact) present(dep.out, null, col.out)

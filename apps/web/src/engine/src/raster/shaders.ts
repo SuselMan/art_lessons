@@ -5834,6 +5834,55 @@ export const WC_BRUSH_DRAG_BASELINE_FRAG = `
 /** Same conservative operator; skips only proven zero faces before pigment reads. */
 export const WC_BRUSH_DRAG_FRAG = brushDragEarlyZero(WC_BRUSH_DRAG_BASELINE_FRAG)
 
+/** Experimental large-step symmetric semi-Lagrangian contact gather.
+ * P and optical depth use identical water/flow weights. Convex weights prevent
+ * negative pigment and overflow; spatially varying backtraces are not mass exact. */
+export const WC_BRUSH_GATHER_FRAG = `
+  precision highp float;
+  varying vec2 v_uv;
+  uniform sampler2D u_paint, u_flow, u_water;
+  uniform vec4 u_flowRect;
+  uniform vec2 u_texel;
+  uniform float u_contactGain;
+  vec3 flowAt(vec2 uv) {
+    vec2 q=(uv-u_flowRect.xy)/u_flowRect.zw;
+    if(min(min(q.x,q.y),min(1.0-q.x,1.0-q.y))<0.0)return vec3(0.5,0.5,0.0);
+    return texture2D(u_flow,q).rgb;
+  }
+  vec4 paintAt(vec2 uv) {
+    vec2 p=uv/u_texel-0.5, f=fract(p), base=(floor(p)+0.5)*u_texel;
+    return mix(mix(texture2D(u_paint,base),texture2D(u_paint,base+vec2(u_texel.x,0.0)),f.x),
+      mix(texture2D(u_paint,base+vec2(0.0,u_texel.y)),texture2D(u_paint,base+u_texel),f.x),f.y);
+  }
+  float gate(vec2 a,vec2 b) {
+    float wet=min(texture2D(u_water,a).a,texture2D(u_water,b).a);
+    for(int i=1;i<4;i++)wet=min(wet,texture2D(u_water,mix(a,b,float(i)*0.25)).a);
+    float inside=step(0.0,min(min(b.x,b.y),min(1.0-b.x,1.0-b.y)));
+    return smoothstep(0.015,0.15,wet)*inside;
+  }
+  void main() {
+    vec2 uv=(floor(v_uv/u_texel)+0.5)*u_texel;
+    vec3 flow=flowAt(uv);
+    vec2 velocity=flow.rg*2.0-1.0;
+    float exposure=-log(max(1.0-flow.b,1.0/255.0));
+    // A square-root clock matches the spreading distance of many local
+    // exchanges. No normalisation: cancelled brush directions remain quiet.
+    vec2 delta=velocity*sqrt(exposure)*u_contactGain*u_texel;
+    vec4 own=texture2D(u_paint,uv), result=own;
+    for(int i=0;i<4;i++) {
+      float t=float(i)-1.5;
+      vec2 endpoint=uv+delta*t;
+      // Midpoint backtrace follows curved flow, symmetrically in both signs.
+      vec2 middle=uv+delta*t*0.5;
+      vec2 midVelocity=flowAt(middle).rg*2.0-1.0;
+      endpoint=uv+midVelocity*sqrt(exposure)*u_contactGain*u_texel*t;
+      float weight=0.19*gate(uv,endpoint)*step(0.001,flow.b);
+      result+=weight*(paintAt(endpoint)-own);
+    }
+    gl_FragColor=result;
+  }
+`;
+
 /** Diagnostic immutable transport-domain reachability, RGBA = +x,-x,+y,-y. */
 export const WC_COST_DOMAIN_FRAG = `
   precision highp float;
