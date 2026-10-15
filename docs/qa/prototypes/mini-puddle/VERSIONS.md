@@ -64,3 +64,6 @@ Ownpages и ADBports закрыты. Статическая сборка5.8MiB �
 - М15 (`?mode=morph&v=15`): М14 + независимый порог различия optical composition + мягкое смешивание неподвижного фона. Пять ползунков, сохранение локально, копирование JSON, сброс. Применяются к следующему мазку. Samsung оба порядка синий/жёлтый, 8 быстрых мазков, отмена цели0diff и dryisolation0diff; художественная оценка Ильёй. Report728-mini-background-color-m15-2026-10-15.md. Без изменения старых версий/production.
 
 - М16 (`?mode=morph&v=16`): М15, направление carry по mobile+fixed / доступная вода вместо mobile/capillary. Контролируемый Samsung2cellтест подтверждает исправление uphill total transfer; eightstroke/cancel/dryisolationGL0. Художественная проверка нужна. Report728-mini-total-concentration-m16-2026-10-16.md. М15 сохранена.
+
+- М17/М18: отрицательные диагностические варианты (прямыеv17/v18, не селектор): согласованный opticalsplit / bloom0 не убрали пятна. Не улучшения.
+- М19 (`?mode=morph&v=19`): М16 + direction totalconcentration в diffusion. GPUcounterexample исправлен, cancel/dryisolation0diff. Пятнистость слабее, но ровные границы заметнее и общее осветление не устранено: человеческая оценка обязательна, не считатьfix. Report728-mini-pale-patches-m19-2026-10-16.md.
