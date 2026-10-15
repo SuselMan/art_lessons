@@ -7878,9 +7878,19 @@ export class PencilEngine implements PencilEngineAPI {
    *  last frame — the union per tile, each with the reveal's keep-fresh
    *  around it, exactly as a batch used to. Runs at the top of _display, and
    *  before anything that needs the tile up to date (pen-up's settle). */
-  private _flushLiveComposite(): void {
+  private _flushLiveComposite(forDisplay = false): void {
     const lc = this._liveComposite
     if (!lc) return
+    // A whole-layer material presentation owns these pixels during queued Dry.
+    // Keep the dirty union until the gesture boundary, where the unconditional
+    // flush below the finish path supplies the canonical RGB base to the solver.
+    // Progressive owners and ordinary drawing still need every visible flush.
+    if (forDisplay && this._wcDryWorkScheduler?.active) {
+      const target = lc.scratch.finishContext?.target
+      if (target) for (const layerId of this._wcMaterialOwners.layers.keys()) {
+        if (this._layers.get(layerId) === target && this._materialPresentationHides(layerId)) return
+      }
+    }
     const { scratch } = lc
     if (scratch.pendingComposite.size === 0 || !scratch.live) { scratch.pendingComposite.clear(); this._liveComposite = null; return }
     for (const { tile, bounds } of scratch.pendingComposite.values()) {
@@ -9534,8 +9544,8 @@ export class PencilEngine implements PencilEngineAPI {
     // (#536, §17.12) Reveals that ran out go before the frame, not after: the
     // frame that ends one draws the tile plain.
     const perfT0 = performance.now()
-    // (#536, §17.22) The live watercolor gesture's composite, once per frame.
-    this._flushLiveComposite()
+    // (#536, §17.22) The live watercolor gesture's composite, once per visible frame.
+    this._flushLiveComposite(true)
     if (this._washReveals.size) this._sweepReveals(perfT0)
     // (§17.46) One decision per frame: the live stroke's rect alone, or all.
     const partialWorld = this._takePaperPartial()
