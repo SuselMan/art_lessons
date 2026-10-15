@@ -21,7 +21,7 @@ export type WatercolorSettlePreview = (tile: PaintTarget, pigment: AccumulationB
 
 export interface WatercolorSettlePlanContext {
   gl(): WebGLRenderingContext
-  fieldFor(w: number, h: number, scale?: number, compact?: boolean): SettleField
+  fieldFor(w: number, h: number, scale?: number, compact?: boolean | 'tight'): SettleField
   paperWorldSize(): { w: number; h: number }
   pool(): RibbonScratchPool
   minmaxExt(): { MAX_EXT: number } | null
@@ -136,7 +136,8 @@ export class WatercolorSettlePlan {
     const { gl } = this
     const metadata = finishMetadata ?? scratch
     const materialModel = (finishMetadata?.finish ?? scratch.finishContext)?.profile.materialModel
-    const detailFlow = materialModel === 'front8-detail-flow-v1'
+    const tightField = materialModel === 'front8-detail-flow-v2'
+    const detailFlow = tightField || materialModel === 'front8-detail-flow-v1'
     const detailMaterial = detailFlow || materialModel === 'front8-detail-v1'
     const preserveBrush = detailMaterial && metadata.brushTravel.some(d => Math.hypot(d.dx, d.dy) >= 0.01)
     const fineLarge = detailMaterial || materialModel === 'front8-fine-large-v1'
@@ -215,7 +216,7 @@ export class WatercolorSettlePlan {
     const w = x1 - x0, h = y1 - y0
     if (w <= 0 || h <= 0) return null
     scratch.noteStorageBounds({ minX: x0, minY: y0, maxX: x1, maxY: y1 })
-    const field = this.ctx.fieldFor(w / S, h / S, S, front8)
+    const field = this.ctx.fieldFor(w / S, h / S, S, tightField ? 'tight' : front8)
     const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
     // (§17.44) At half resolution what goes home is the SETTLED wash at full
     // resolution plus the field's result less its own settled part: the

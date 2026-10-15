@@ -254,7 +254,7 @@ export interface PencilEngineOptions {
   /** Optional GPU-completion pacing during an accepted Dry, not a material version. */
   dryGpuFenceBatch?: 4 | 8
   /** Model stamped into new watercolor presets; replay follows the recorded marker. */
-  watercolorModel?: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1'
+  watercolorModel?: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1' | 'front8-detail-flow-v2'
   /** DEV review: reserve GPU continuations for pen-up intervals. */
   reviewInputPriority?: boolean
   /** DEV diagnostic: expose intermediate physical reveal before canonical completion. */
@@ -1637,7 +1637,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetTex: WebGLTexture | null = null
   private _wetTexSize: [number, number] = [0, 0]
   private _watercolorReview = false
-  private _watercolorModel: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1' = 'legacy'
+  private _watercolorModel: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1' | 'front8-detail-flow-v2' = 'legacy'
   private _wcDryWorkScheduler: WatercolorWorkScheduler | null = null
   private readonly _wcDryTickets = new Map<string, number>()
   private _reviewInputPriority = false
@@ -8177,11 +8177,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  before; what changed is only that it now always has empty paper to its
    *  right and below, where it used to meet the texture's clamped edge
    *  whenever its span was a multiple of 256. */
-  private _diffuseFieldFor(w: number, h: number, scale = 1, compact = false): SettleField {
+  private _diffuseFieldFor(w: number, h: number, scale = 1, compact: boolean | 'tight' = false): SettleField {
     // A settle still spread over frames works in the field it was handed:
     // it lands first, before the field is cleared or replaced under it.
     if (this._settle) this._completeSettle()
-    const minimum = (compact || this._settlePlan.diagnosticCoarseTransport) && scale === 2 ? WC_FIELD_PX / 2 : WC_FIELD_PX
+    // v2 changes the recorded field extent, not the cell scale or old models.
+    const minimum = compact === 'tight' && scale === 2 ? WC_FIELD_PX / 3 : (compact || this._settlePlan.diagnosticCoarseTransport) && scale === 2 ? WC_FIELD_PX / 2 : WC_FIELD_PX
     const need = (n: number): number => Math.max(minimum, Math.ceil(n / 256) * 256)
     const W = need(w), H = need(h)
     // (#536, ADR 011 §17.49) EXACTLY this settle's size, never a larger field
