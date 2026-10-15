@@ -35,9 +35,9 @@ bool outside(vec2 q){return min(min(q.x,q.y),min(1.0-q.x,1.0-q.y))<0.0;}
 float limitChannel(float mass,float capacity,float raw){return mass<0.5||raw<=0.0?1.0:min(1.0,capacity/(mass*raw));}
 float fraction(vec2 from,vec2 to){
  if(outside(from)||outside(to))return 0.0;
- float a=texture2D(u_water,from).a,b=texture2D(u_water,to).a;
+ float a=texture2D(u_water,from).b,b=texture2D(u_water,to).b;
  float gate=smoothstep(.025,.20,min(a,b));
- if(u_stride>1.0)gate*=smoothstep(.025,.20,texture2D(u_water,cell((from+to)*.5)).a);
+ if(u_stride>1.0)gate*=smoothstep(.025,.20,texture2D(u_water,cell((from+to)*.5)).b);
  if(gate<=0.0)return 0.0;
  float p=texture2D(u_p,from).a,q=texture2D(u_p,to).a;
  // Concentration equalisation and capillary outflow into shallower water.
@@ -58,15 +58,15 @@ float fraction(vec2 from,vec2 to){
 }
 void main(){vec2 center=cell(v_uv);vec4 own=texture2D(u_source,center);
  if(u_waterMode>.5){
-  float wet=own.a*.995;
+  float wet=own.b*.995;
   for(int k=0;k<4;k++){vec2 q=center+axis(k)*u_texel;
    if(!outside(q)){
     float climb=max(heightAt(center)-heightAt(q),0.0);
-    float incoming=texture2D(u_water,q).a*max(.70,.97-.30*climb);
+    float incoming=texture2D(u_water,q).b*max(.70,.97-.30*climb);
     wet=max(wet,incoming*u_expand);
    }
   }
-  gl_FragColor=vec4(own.rgb,wet);return;
+  gl_FragColor=vec4(own.rg,wet,max(own.a,wet));return;
  }
  vec4 integerOwn=floor(own*255.0+.5),result=integerOwn;
  for(int k=0;k<4;k++){
@@ -82,8 +82,10 @@ uniform float u_coverage;
 vec4 point(sampler2D t,vec2 i){return texture2D(t,(clamp(i,vec2(0.0),u_coarse-1.0)+.5)/u_coarse);}
 vec4 linearAt(sampler2D t){vec2 g=v_uv*u_coarse-.5,i=floor(g),f=fract(g);
 return mix(mix(point(t,i),point(t,i+vec2(1.,0.)),f.x),mix(point(t,i+vec2(0.,1.)),point(t,i+vec2(1.,1.)),f.x),f.y);}
-void main(){vec4 base=texture2D(u_base,v_uv),current=linearAt(u_low),initial=linearAt(u_initial);
- if(u_coverage>.5){gl_FragColor=vec4(base.rgb,max(base.a,current.a));return;}
+void main(){vec4 base=texture2D(u_base,v_uv);
+ if(u_coverage>1.5){gl_FragColor=vec4(base.rg,0.0,base.a);return;}
+ vec4 current=linearAt(u_low),initial=linearAt(u_initial);
+ if(u_coverage>.5){gl_FragColor=vec4(base.rg,current.b,max(base.a,current.a));return;}
  // Keep the original high-frequency brush and apply only material movement.
  gl_FragColor=clamp(base+current-initial,0.0,1.0);
 }`
@@ -95,11 +97,11 @@ export function createPuddleTarget(gl: WebGLRenderingContext, size: number, opti
   const make = (n: number) => new AccumulationBuffer(gl, n, n, 'nearest')
   const base: PuddleMaterial = { p: make(size), c: make(size), coverage: make(size) }
   const output: PuddleMaterial = { p: make(size), c: make(size), coverage: make(size) }
-  let pendingP = make(size), pendingC = make(size)
+  let pendingP = make(size), pendingC = make(size), dryCoverage = make(size)
   let p = make(coarse), c = make(coarse), water = make(coarse)
   let nextP = make(coarse), nextC = make(coarse), nextWater = make(coarse)
   const initialP = make(coarse), initialC = make(coarse)
-  const all = [...Object.values(base), ...Object.values(output), pendingP, pendingC, p, c, water, nextP, nextC, nextWater, initialP, initialC]
+  const all = [...Object.values(base), ...Object.values(output), pendingP, pendingC, dryCoverage, p, c, water, nextP, nextC, nextWater, initialP, initialC]
   const programs = [RESTRICT, SOLVE, RECONSTRUCT].map(source => createProgram(gl, VERT, source))
   const quad = gl.createBuffer()!
   gl.bindBuffer(gl.ARRAY_BUFFER, quad)
@@ -178,6 +180,14 @@ export function createPuddleTarget(gl: WebGLRenderingContext, size: number, opti
       return state
     },
     buffers: () => output,
+    /** Explicit Dry changes solvent only after the final target is published.
+     * Geometry, pigment and optical absorption records remain untouched. */
+    dry() {
+      if (destroyed || active || state.iterations < total || !state.done) return false
+      draw(2, dryCoverage, { u_base: output.coverage.texture, u_low: water.texture, u_initial: water.texture }, { u_coarse: [coarse, coarse], u_coverage: 2 })
+      ;[output.coverage, dryCoverage] = [dryCoverage, output.coverage]
+      return true
+    },
     cancel() { active = false; phase = 0; state.done = true },
     destroy() {
       if (destroyed) return

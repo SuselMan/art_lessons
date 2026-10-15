@@ -13,7 +13,9 @@ it('publishes paired full-resolution generations with fixed storage and bounded 
   const draws = vi.spyOn(gl,'drawArrays')
   const read = vi.spyOn(gl,'readPixels')
   try {
+    expect(target.dry()).toBe(false)
     target.reset(source,10)
+    expect(target.dry()).toBe(false)
     const first = { ...target.buffers() }
     expect(first.p.width).toBe(32)
     draws.mockClear()
@@ -38,6 +40,16 @@ it('publishes paired full-resolution generations with fixed storage and bounded 
     expect(target.state).toEqual({epoch:11,iterations:3,done:true})
     expect(allocation.mock.calls.length).toBe(textures)
     expect(read).not.toHaveBeenCalled()
+    const finished = { ...target.buffers() }
+    draws.mockClear()
+    expect(target.dry()).toBe(true)
+    expect(draws).toHaveBeenCalledTimes(1)
+    expect(target.buffers().p).toBe(finished.p)
+    expect(target.buffers().c).toBe(finished.c)
+    expect(target.buffers().coverage).not.toBe(finished.coverage)
+    expect(allocation.mock.calls.length).toBe(textures)
+    target.reset(source,12)
+    expect(target.dry()).toBe(false)
     expect(target.buffers().p).not.toBe(source.p)
     expect(target.buffers().c).not.toBe(source.c)
   } finally {
