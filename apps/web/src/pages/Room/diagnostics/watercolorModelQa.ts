@@ -6,12 +6,13 @@ export function watercolorModelQaOptions(joinedTouch: boolean, search = ''): Pic
   const fastDry = new URLSearchParams(search).get('qaFastDry')
   let requestedModel = requested
   if (requested === 'front8-fine-v1') {
-    if (fastDry === 'compact') requestedModel = 'front8-detail-flow-v2'
+    if (fastDry === 'film') requestedModel = 'front8-detail-flow-v3'
+    else if (fastDry === 'compact') requestedModel = 'front8-detail-flow-v2'
     else if (fastDry === 'flow' || fastDry === 'smooth') requestedModel = 'front8-detail-flow-v1'
     else if (fastDry === 'detail') requestedModel = 'front8-detail-v1'
     else if (fastDry === '1') requestedModel = 'front8-fine-large-v1'
   }
-  const model = import.meta.env.DEV && (requestedModel === 'front8-v1' || requestedModel === 'front8-fine-v1' || requestedModel === 'front8-fine-large-v1' || requestedModel === 'front8-detail-v1' || requestedModel === 'front8-detail-flow-v1' || requestedModel === 'front8-detail-flow-v2') ? requestedModel : 'legacy'
+  const model = import.meta.env.DEV && (requestedModel === 'front8-v1' || requestedModel === 'front8-fine-v1' || requestedModel === 'front8-fine-large-v1' || requestedModel === 'front8-detail-v1' || requestedModel === 'front8-detail-flow-v1' || requestedModel === 'front8-detail-flow-v2' || requestedModel === 'front8-detail-flow-v3') ? requestedModel : 'legacy'
   const front8 = model !== 'legacy'
-  return { joinedTouch: front8 || joinedTouch, asyncFinish: front8, watercolorReview: front8, watercolorModel: model, materialPresentation: front8, dryGpuFenceBatch: front8 && (fastDry === 'smooth' || fastDry === 'compact') ? 8 : undefined }
+  return { joinedTouch: front8 || joinedTouch, asyncFinish: front8, watercolorReview: front8, watercolorModel: model, materialPresentation: front8, dryGpuFenceBatch: front8 && (fastDry === 'smooth' || fastDry === 'compact' || fastDry === 'film') ? 8 : undefined }
 }

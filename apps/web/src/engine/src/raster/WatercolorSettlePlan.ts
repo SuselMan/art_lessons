@@ -136,7 +136,7 @@ export class WatercolorSettlePlan {
     const { gl } = this
     const metadata = finishMetadata ?? scratch
     const materialModel = (finishMetadata?.finish ?? scratch.finishContext)?.profile.materialModel
-    const tightField = materialModel === 'front8-detail-flow-v2'
+    const tightField = materialModel === 'front8-detail-flow-v2' || materialModel === 'front8-detail-flow-v3'
     const detailFlow = tightField || materialModel === 'front8-detail-flow-v1'
     const detailMaterial = detailFlow || materialModel === 'front8-detail-v1'
     const preserveBrush = detailMaterial && metadata.brushTravel.some(d => Math.hypot(d.dx, d.dy) >= 0.01)

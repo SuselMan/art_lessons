@@ -18,7 +18,8 @@ type Probe = {
 
 // Resource/coupling contract only. Actual shader pixels and history are
 // checked separately on AMD and Adreno; MockGL cannot prove those.
-for (const completion of ['finish', 'abort', 'context-loss'] as const) it(`owns one contact field across groups and retires it on ${completion}`, () => {
+for (const model of ['front8-detail-flow-v1', 'front8-detail-flow-v3'] as const)
+for (const completion of ['finish', 'abort', 'context-loss'] as const) it(`${model}: owns one contact field across groups and retires it on ${completion}`, () => {
   const { engine } = createTestEngine({ paper: 'flat' }, { width: 1024, height: 1024 })
   const p = engine as unknown as Probe
   engine.initLayer('flow-test')
@@ -27,7 +28,8 @@ for (const completion of ['finish', 'abort', 'context-loss'] as const) it(`owns 
   scratch.filmBuffers(tile)
   scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
   scratch.brushTravel = [20, 128, 128].map((radius, i) => ({ x: 300 + i * 120, y: 512, radius, aspect: 1, angle: 0, dx: 120, dy: 0, water: 1 }))
-  const preset = 'normal:100:69:PB15:round:wc@front8-detail-flow-v1'
+  const preset = `normal:100:69:PB15:round:wc@${model}`
+  const contactSize = model === 'front8-detail-flow-v1' ? 384 : 256
   const bounds = { minX: 100, minY: 200, maxX: 900, maxY: 800 }
   scratch.noteFinish({ target: p._layers.get('flow-test')!, preset: p._resolvePreset('watercolor', preset), profile: ribbonProfileFor('watercolor', preset)!, color: [1, 0, 0], opacity: 1, bounds, fieldSeed: [0, 0], landedWet: 1, wetPeak: 1, radiusPx: 128, dwellMs: 0 })
   const brush = vi.spyOn(p._watercolorPasses, 'brushPass')
@@ -40,10 +42,10 @@ for (const completion of ['finish', 'abort', 'context-loss'] as const) it(`owns 
     while (i < plan.ops.length && !brush.mock.calls.length) plan.ops[i++]()
     expect(brush).toHaveBeenCalled()
     const live = [...owned()]
-    expect(live.filter(b => b.width === 384 && b.height === 384)).toHaveLength(7)
+    expect(live.filter(b => b.width === contactSize && b.height === contactSize)).toHaveLength(7)
     if (completion === 'finish') {
       for (; i < plan.ops.length; i++) plan.ops[i]()
-      expect(acquire.mock.calls.filter(([w, h]) => w === 384 && h === 384)).toHaveLength(7)
+      expect(acquire.mock.calls.filter(([w, h]) => w === contactSize && h === contactSize)).toHaveLength(7)
       const fields = new Set(brush.mock.calls.map(a => a[0]))
       expect(fields.size).toBe(1)
       for (let k = 0; k < brush.mock.calls.length; k += 2) {

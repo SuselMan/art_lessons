@@ -4,11 +4,11 @@ import { createTestEngine } from './testing/engineTestUtils'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
 import { ribbonProfileFor } from './src/dabs/ribbonProfile'
 
-it('keeps specialization in compact QA and leaves shared/other-tool programs untouched', async () => {
+it.each(['front8-detail-flow-v2', 'front8-detail-flow-v3'] as const)('%s: keeps specialization in compact QA and leaves shared/other-tool programs untouched', async model => {
   const normal = createTestEngine().engine
   expect(normal['_ribbonPasses'].specializedWatercolorNib).toBe(false)
   normal.destroy()
-  const engine = createTestEngine({ watercolorModel: 'front8-detail-flow-v2', watercolorReview: true }).engine
+  const engine = createTestEngine({ watercolorModel: model, watercolorReview: true }).engine
   await engine.paperReady()
   const passes = engine['_ribbonPasses'], gl = engine['gl'], stamps = engine['_stamps']
   const shared = { program: stamps.program, uniforms: stamps.uniforms, position: stamps.positionLoc }

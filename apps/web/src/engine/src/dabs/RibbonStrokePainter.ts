@@ -1091,6 +1091,7 @@ export class RibbonStrokePainter {
         const fb = film && inkLoad ? scratch.filmBuffers(tile.buffer) : null
         const inkDest = fb ? fb.strokeInk : inkLoad
         const colorDest = fb ? fb.strokeColor : inkColor
+        const deriveColorFilm = profile.materialModel === 'front8-detail-flow-v3' && !!fb && !!inkDest && !!colorDest
         const beginInk = (buf: AccumulationBuffer): void => { if (fb) buf.beginMaxDraw(this.ctx.minmaxExt()!); else buf.beginAdditiveDraw() }
         const bandMode = fb ? 'ink-max' as const : 'ink' as const
         // (#680, s17.79) The watercolor's surplus lies in blots — see wcPoolBlot.
@@ -1125,7 +1126,7 @@ export class RibbonStrokePainter {
           // (#536, §17.19) …and the same figure once more, into the colour
           // record: the paint's optical depth per texel. Same dose, same hairs,
           // same mottling, so depth and deposit agree to the texel.
-          if (colorDest) {
+          if (colorDest && !deriveColorFilm) {
             for (let i = 0; i < drawable.length; i++) {
               if (!this.ctx.nibTouchesTile(tile, drawable[i], preset)) continue // (§17.70)
               beginInk(colorDest)
@@ -1201,11 +1202,14 @@ export class RibbonStrokePainter {
         if (fb && inkLoad) {
           const rect = this.ctx.revealRect(tile, compositeBounds)
           if (rect) {
+            // v3 derives optical depth from the quantized, complete source film
+            // (including its halo). Versioned approximation, not native colour parity.
+            if (deriveColorFilm) sourceField(colorDest!, inkDest!, inkDest!, 2, 1, { tau, scissor: rect })
             sourceField(inkLoad, fb.inkBase, fb.strokeInk, 1, 1, { scissor: rect })
             const hasColor = !!(inkColor && fb.strokeColor && fb.colorBase)
             if (hasColor) sourceField(inkColor!, fb.colorBase!, fb.strokeColor!, 1, 1, { scissor: rect })
             // P/C are one indivisible material pair. Never yield between them.
-            sourceCopyCost = rect[2] * rect[3] * (hasColor ? 2 : 1)
+            sourceCopyCost = rect[2] * rect[3] * (hasColor ? (deriveColorFilm ? 3 : 2) : 1)
           }
         }
 
