@@ -20,6 +20,7 @@ export class WatercolorWorkScheduler {
         canRunTasks(): boolean;
         failed(error: unknown): void;
     }) { this.ctx = ctx; }
+    get active(): boolean { return this.enabled; }
     start(): number { this.enabled = true; return ++this.epoch; }
     stop(epoch?: number): void { if (epoch === undefined || epoch === this.epoch) this.enabled = false; }
     schedule(callback: (task: boolean) => void, allowTask = true): number {

@@ -251,6 +251,8 @@ const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 export interface PencilEngineOptions {
   /** DEV-only combined WebGL1 candidate for manual A/B review. */
   watercolorReview?: boolean
+  /** Optional GPU-completion pacing during an accepted Dry, not a material version. */
+  dryGpuFenceBatch?: 4 | 8
   /** Model stamped into new watercolor presets; replay follows the recorded marker. */
   watercolorModel?: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1'
   /** DEV review: reserve GPU continuations for pen-up intervals. */
@@ -1907,7 +1909,7 @@ export class PencilEngine implements PencilEngineAPI {
     backlogSize: () => this._opQueue.length,
     canonicalBacklogSize: () => this._wcCanonical.queuedRequestCount,
     backlogMax: () => this.settleBacklogMax,
-    syncGpu: () => this.gl.finish(),
+    syncGpu: () => this._syncContinuationGpu(),
     continuationSyncGpu: () => this._syncContinuationGpu(),
     continuationFailed: error => { this._wcAsyncError = error; this._cancelSettle() },
     noteActivity: now => { this._washActiveAt = now },
@@ -2273,6 +2275,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Keep out of the review bundle: human testing found whole-stroke fading.
     this._wcJoinedFinishDeferred = options.joinedFinishDeferred ?? false
     this._wcAsyncFinish = options.asyncFinish ?? false
+    this._wcDryGpuFenceBatch = options.dryGpuFenceBatch ?? 0
     this._wcMaterialPresentation = options.materialPresentation ?? false
     this._diagLog = options.diagLog ?? (() => {})
     this._infinite = options.infinite ?? false
@@ -2753,7 +2756,7 @@ export class PencilEngine implements PencilEngineAPI {
   appendOperation(op: Operation, source: OperationSource = 'local'): void {
     // Start consuming earlier work when Dry is accepted, not when its queued log entry finally runs.
     if (op.type === 'paper_dry' && this._wcDryWorkScheduler && !this._log.entries.some(e => e.op.id === op.id)
-      && !this._opQueue.some(e => e.op.id === op.id)) this._wcDryTickets.set(op.id, this._wcDryWorkScheduler.start())
+      && !this._opQueue.some(e => e.op.id === op.id)) this._wcDryTickets.set(op.id, this._startDryWorkClock())
     // (#536, §17.58) A peer's watercolour operation arriving while a settle is
     // still spreading over frames waits its turn instead of forcing that
     // settle to land now: on the iPad the forced landing was 85-325 ms of every
@@ -4589,7 +4592,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  out on the GPU; stops early at the drawing's end (a yield of -1). */
   private _runSlice(work: Generator<number, ReadonlyMap<Dab, number> | undefined, void>): IteratorResult<number, ReadonlyMap<Dab, number> | undefined> {
     const g = this._sliceLimits
-    const canonicalClock = this._wcContinuationGpuFence && this._wcCanonical.pending
+    const canonicalClock = (this._wcContinuationGpuFence || this._boundedDryClockActive()) && this._wcCanonical.pending
     const t0 = performance.now()
     let groupAt = t0
     let draws = 0, px = 0, groupDraws = 0, groupPx = 0
@@ -4658,14 +4661,45 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
 
-  /** Default OFF: actual completion clock only for experimental canonical continuations. */
+  /** Default OFF; old experimental callers keep a completion fence on each call. */
   private _wcContinuationGpuFence = false
+  private _wcDryGpuFenceBatch: 0 | 4 | 8 = 0
+  private _wcDryGpuFencePending = 0
   private _continuationGpuFence: GpuBudgetFence | null = null
-  private _syncContinuationGpu(): void {
-    if (!this._wcContinuationGpuFence) { this.gl.finish(); return }
+
+  private _boundedDryClockActive(): boolean {
+    return this._wcDryGpuFenceBatch > 0 && this._wcDryWorkScheduler?.active === true
+  }
+
+  private _startDryWorkClock(): number {
+    if (!this._wcDryWorkScheduler) return 0
+    if (!this._wcDryWorkScheduler.active) this._wcDryGpuFencePending = 0
+    return this._wcDryWorkScheduler.start()
+  }
+
+  private _waitForDryGpu(): void {
+    this._wcDryGpuFencePending = 0
     if (this._contextLost || this.gl.isContextLost()) { this._continuationGpuFence?.forget(); return }
     this._continuationGpuFence ??= new GpuBudgetFence(this.gl)
     this._continuationGpuFence.sync()
+  }
+
+  private _finishDryWorkClock(ticket: number): void {
+    const scheduler = this._wcDryWorkScheduler
+    const wasActive = scheduler?.active === true
+    scheduler?.stop(ticket)
+    // An older ticket must not drain/disable a newer Dry. Aborts use stop()
+    // directly: they need no synchronous wait for an abandoned picture.
+    if (wasActive && !scheduler?.active && this._wcDryGpuFenceBatch) this._waitForDryGpu()
+  }
+
+  private _syncContinuationGpu(): void {
+    const bounded = this._boundedDryClockActive()
+    if (!this._wcContinuationGpuFence && !bounded) { this._wcDryGpuFencePending = 0; this.gl.finish(); return }
+    if (bounded && !this._wcContinuationGpuFence && !this._strokeLayerId && !this._contextLost) {
+      if (++this._wcDryGpuFencePending < this._wcDryGpuFenceBatch) return
+    }
+    this._waitForDryGpu()
   }
 
   /** (§17.70) How much a rebuild's watercolour slice may draw on this
@@ -7715,7 +7749,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   watercolorDryAll(ordered = false, acceptedTicket?: number): void {
-    const ticket = acceptedTicket ?? (ordered ? undefined : this._wcDryWorkScheduler?.start())
+    const ticket = acceptedTicket ?? (ordered || !this._wcDryWorkScheduler ? undefined : this._startDryWorkClock())
     if (this._wcAsyncFinish && this._wcCanonical.pending) for (const scratch of this._wcAsyncOwners.keys()) this._wcAsyncDryTo.set(scratch, scratch.gesture)
     if ((this._wcExpeditedDry || this._watercolorReview && this._wcMaterialPresentation) && this._wcAsyncFinish && this._settle) {
       const scratch = this._settle.scratch
@@ -7748,10 +7782,11 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._watercolorReview && this._wcMaterialPresentation) {
       for (const owner of this._wcMaterialOwners.layers.values()) owner.material.raster.paperWet.clear()
     }
-    if (ordered && ticket !== undefined) this._wcDryWorkScheduler?.stop(ticket)
+    if (ordered && ticket !== undefined) this._finishDryWorkClock(ticket)
     else if (!ordered && this._wcDryWorkScheduler && ticket !== undefined) {
       const scheduler = this._wcDryWorkScheduler
-      this._wcCanonical.enqueue({ execute: function* () { scheduler.stop(ticket) }, cancel: () => scheduler.stop(ticket) })
+      const finish = () => this._finishDryWorkClock(ticket)
+      this._wcCanonical.enqueue({ execute: function* () { finish() }, cancel: () => scheduler.stop(ticket) })
     }
     // The sheen goes with it: the wet map is rebuilt on the next frame, not
     // after the overlay's own throttle, and the whole paper recomposes.
