@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Все версии мазка — архив акварели</title>
+<style>
+:root{--bg:#f5f3ee;--fg:#1d1d1f;--muted:#6b6b70;--card:#fff;--line:#e2dfd8;--accent:#2a5bd7;--paper:#fbfaf7}
+@media(prefers-color-scheme:dark){:root{--bg:#18181a;--fg:#ececee;--muted:#9a9aa0;--card:#232326;--line:#35353a;--accent:#7aa2ff}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+header{border-bottom:1px solid var(--line);padding:16px}
+.heading,main{max-width:1500px;margin:auto}
+h1{font-size:22px;margin:12px 0 4px}h2{font-size:17px;margin:0}
+p{margin:4px 0 12px}.muted,.status{color:var(--muted);font-size:13px}
+nav,.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:inherit;text-decoration:none;cursor:pointer}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.btn:disabled{opacity:.5;cursor:default}
+main{padding:16px}
+.versions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:16px}
+.version{min-width:0;padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+@supports(grid-template-rows:subgrid){.version{display:grid;grid-template-rows:subgrid;grid-row:span 7;row-gap:0}}
+.version h2,.version code,.status{overflow-wrap:anywhere}
+.version code{display:block;font-size:12px;margin:6px 0}
+.version-stage{display:flex;align-items:center;justify-content:center;background:var(--paper);border-radius:8px;margin:12px 0;overflow:hidden}
+.version-stage img{display:block;max-width:100%;max-height:100%;height:auto}
+.status{min-height:1.45em;margin:6px 0 0}
+</style>
+</head>
+<body>
+<header><div class="heading">
+  <nav><a class="btn" href="./">Галерея</a><a class="btn" id="previous" hidden>← Предыдущий мазок</a><a class="btn" id="next" hidden>Следующий мазок →</a></nav>
+  <h1 id="title">Все версии мазка</h1><p id="description" class="muted"></p>
+</div></header>
+<main><div class="versions" id="versions"></div></main>
+<script src="archive.js"></script>
+<script src="gallery-controls.js"></script>
+<script>
+const archive = window.STROKE_ARCHIVE || { sheets: [], versions: [] }
+const query = new URLSearchParams(location.search)
+const sheet = archive.sheets.find(s => String(s.id) === query.get('sheet'))
+const stroke = sheet?.strokes.find(s => String(s.n) === query.get('stroke'))
+const container = document.getElementById('versions')
+if (!stroke) {
+  document.getElementById('description').textContent = 'Мазок не найден. Открой его в галерее и нажми «Все версии рядом».'
+} else {
+  document.title = `Лист ${sheet.id}, мазок ${stroke.n} — все версии`
+  document.getElementById('title').textContent = `Лист ${sheet.id} · мазок ${stroke.n}`
+  const metadata = new Map(archive.versions.map(v => [v.id, v]))
+  const versions = archive.versions.filter(v => stroke.app?.[v.id]).slice().reverse()
+  for (const id of Object.keys(stroke.app || {})) if (!metadata.has(id)) versions.push({ id })
+  document.getElementById('description').textContent = [stroke.label, `Версий: ${versions.length}`, 'От новых к старым'].filter(Boolean).join(' · ')
+  const items = archive.sheets.flatMap(s => s.strokes.map(st => ({ s, st })))
+  const position = items.findIndex(x => x.s === sheet && x.st === stroke)
+  for (const [id, index] of [['previous', position - 1], ['next', position + 1]]) {
+    const item = items[index], link = document.getElementById(id)
+    if (item) { link.hidden = false; link.href = 'versions.html?' + new URLSearchParams({ sheet: item.s.id, stroke: String(item.st.n) }) }
+  }
+  if (!versions.length) container.textContent = 'У этого мазка пока нет версий Grafetto.'
+  const maxW = Math.max(1, ...versions.map(v => stroke.app[v.id].w))
+  const maxH = Math.max(1, ...versions.map(v => stroke.app[v.id].h))
+  for (const version of versions) {
+    const pic = stroke.app[version.id], hash = GalleryControls.versionHash(version)
+    const card = document.createElement('article'); card.className = 'version'; card.dataset.version = version.id
+    const title = document.createElement('h2'); title.textContent = version.subject || version.id
+    const info = document.createElement('p'); info.className = 'muted'; info.textContent = version.date || ''
+    const name = document.createElement('code'); name.textContent = version.id
+    const hashLabel = document.createElement('code'); hashLabel.textContent = hash ? `Хэш: ${hash}` : 'Хэш не указан'
+    const stage = document.createElement('a'); stage.className = 'version-stage'; stage.href = pic.src; stage.target = '_blank'; stage.rel = 'noopener'; stage.style.aspectRatio = `${maxW}/${maxH}`; stage.title = 'Открыть изображение целиком'
+    const image = document.createElement('img'); image.src = pic.src; image.alt = `Мазок ${stroke.n}: ${version.subject || version.id}`; image.loading = 'lazy'; image.width = pic.w; image.height = pic.h; image.style.width = (100 * pic.w / maxW) + '%'; stage.appendChild(image)
+    const actions = document.createElement('div'); actions.className = 'actions'
+    const status = document.createElement('p'); status.className = 'status'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite')
+    const copyHash = document.createElement('button'); copyHash.className = 'btn copy-hash'; copyHash.textContent = 'Скопировать хэш'; copyHash.disabled = !hash; copyHash.onclick = () => GalleryControls.copy(hash, copyHash, status)
+    const copyName = document.createElement('button'); copyName.className = 'btn copy-name'; copyName.textContent = 'Скопировать название'; copyName.onclick = () => GalleryControls.copy(version.id + (version.subject ? ' — ' + version.subject : ''), copyName, status)
+    actions.append(copyHash, copyName); card.append(title, info, name, hashLabel, stage, actions, status); container.appendChild(card)
+  }
+}
+</script>
+</body>
+</html>

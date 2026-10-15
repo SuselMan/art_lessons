@@ -42,7 +42,12 @@ dialog::backdrop{background:#000a}
 .btn{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit}
 .dbody{display:grid;grid-template-columns:1fr;gap:14px;padding:16px;overflow:auto;max-height:calc(94vh - 60px)}
 .appbar{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
-.appbar select{font:inherit;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+.appbar{min-width:0;max-width:100%}
+.appbar select{font:inherit;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--fg);min-width:0;max-width:100%;min-height:44px;flex:1 1 220px}
+.appbar .btn{min-height:44px;font-weight:400}
+.appbar a.btn{display:inline-flex;align-items:center;text-decoration:none;font-weight:400}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.copy-status{overflow-wrap:anywhere;min-height:1.45em;font-weight:400}
 .comments{grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px}
 .comments h4{margin:0 0 8px;font-size:14px;color:var(--muted)}
 .cm{padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px}
@@ -90,7 +95,8 @@ dialog::backdrop{background:#000a}
       <div class="stage" id="dryStage"></div>
     </div>
     <div class="pane">
-      <h4>Графетто — повтор <span class="appbar" style="margin:0"><label for="appVer" class="hint">версия</label><select id="appVer"></select></span></h4>
+      <h4>Графетто — повтор <span class="appbar" style="margin:0"><label for="appVer" class="hint">версия</label><select id="appVer"></select><button class="btn" id="appCopyHash">Скопировать хэш</button><a class="btn" id="appAllVersions" target="_blank" rel="noopener">Все версии рядом</a></span></h4>
+      <div class="hint copy-status" id="appCopyStatus" role="status" aria-live="polite"></div>
       <div class="stage" id="appStage"></div>
     </div>
     <div class="comments">
@@ -103,6 +109,7 @@ dialog::backdrop{background:#000a}
 </dialog>
 
 <script src="archive.js"></script>
+<script src="gallery-controls.js"></script>
 <script>
 const A = window.STROKE_ARCHIVE || { pxPerMm: 12, sheets: [] }
 const $ = id => document.getElementById(id)
@@ -310,8 +317,18 @@ function open(s, st) {
     o.textContent = `${v.id} · ${v.date} · ${v.subject.slice(0, 60)}`; sel.appendChild(o)
   }
   if (vers.some(v => v.id === preferredVersion)) sel.value = preferredVersion
+  const copyButton = $('appCopyHash'), copyStatus = $('appCopyStatus')
+  const syncCopy = () => {
+    const hash = GalleryControls.versionHash(vers.find(v => v.id === sel.value))
+    copyButton.disabled = !hash
+    copyButton.title = hash ? `Скопировать ${hash}` : 'Хэш не указан'
+    copyStatus.textContent = ''
+  }
+  copyButton.onclick = () => GalleryControls.copy(GalleryControls.versionHash(vers.find(v => v.id === sel.value)), copyButton, copyStatus)
+  $('appAllVersions').href = 'versions.html?' + new URLSearchParams({ sheet: s.id, stroke: String(st.n) })
+  syncCopy()
   const showApp = () => stage($('appStage'), vers.length ? st.app[sel.value] : null)
-  sel.onchange = () => { preferredVersion = sel.value; showApp(); renderComments() }
+  sel.onchange = () => { preferredVersion = sel.value; showApp(); syncCopy(); renderComments() }
   showApp()
   const renderComments = () => {
     const mine = comments.filter(c => c.sheet === s.id && c.n === st.n)
