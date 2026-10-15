@@ -28,6 +28,10 @@ export interface RibbonPassesContext {
 export class RibbonPasses {
   /** QA-only until the watercolor device/parity review is complete. */
   specializedWatercolorNib = false
+  /** QA: origin-zero bands already contain the exact local Float32 coordinates. */
+  diagnosticZeroOriginBands = false
+  /** QA: scale pigment pool mottling without changing water or tip contact. */
+  diagnosticPigmentBlot = 1
   private readonly _watercolorNibPrograms = new Map<string, {
     program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number
   }>()
@@ -187,7 +191,7 @@ export class RibbonPasses {
     gl.uniform2f(u.u_acrossLocal, acrossLocal[0], acrossLocal[1])
     gl.uniform1f(u.u_paperWet, paperWet)
     gl.uniform1f(u.u_puddle, puddle)
-    gl.uniform1f(u.u_poolBlot, poolBlot)
+    gl.uniform1f(u.u_poolBlot, poolBlot * (inkMode === 7 ? this.diagnosticPigmentBlot : 1))
     // (#536, s17.11/13) What this stroke delivers and what dry paper keeps of
     // it — the mix's water, not this dab's depleted load — into the record of
     // standing water the diffusion pass gates on. See u_washWater.
@@ -226,8 +230,9 @@ export class RibbonPasses {
     poolBlot = 0, availableWater: AccumulationBuffer | null = null,
   ): void {
     const { gl } = this
-    const local = bands.slice()
-    for (let i = 0; i < bands.length; i += RIBBON_FLOATS_PER_VERTEX) {
+    const direct = this.diagnosticZeroOriginBands && tile.originX === 0 && tile.originY === 0
+    const local = direct ? bands : bands.slice()
+    for (let i = 0; !direct && i < bands.length; i += RIBBON_FLOATS_PER_VERTEX) {
       local[i]     = bands[i]     - tile.originX
       local[i + 1] = bands[i + 1] - tile.originY
 
@@ -247,7 +252,7 @@ export class RibbonPasses {
     gl.uniform2f(this._ribbonUni.u_worldOrigin, tile.originX, -tile.originY || 0)
     gl.uniform1f(this._ribbonUni.u_cloudDeposit, cloud)
     gl.uniform1f(this._ribbonUni.u_granDeposit, gran)
-    gl.uniform1f(this._ribbonUni.u_poolBlot, poolBlot)
+    gl.uniform1f(this._ribbonUni.u_poolBlot, poolBlot * (mode === 'coverage' ? 1 : this.diagnosticPigmentBlot))
     gl.uniform2f(this._ribbonUni.u_mottleSeed, mottleSeed[0], mottleSeed[1])
     gl.uniform1f(this._ribbonUni.u_washWater, washWater)
     gl.uniform1f(this._ribbonUni.u_waterRetain, waterRetain)

@@ -79,14 +79,16 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph'|'mate
     diagnosticBackgroundReadback(){return target.backgroundReadback()},
     diagnosticGoalRgbaReadback(){return rgba.readPixels()},
     diagnosticGoalReadback(){const b=target.buffers();return {p:b.p.readPixels(),c:b.c.readPixels(),coverage:b.coverage.readPixels()}},
-    diagnosticSnapshot(kind:'goal'|'shown'){
+    diagnosticSnapshot(kind:'goal'|'shown'|'raw'){
       const found=locate();if(!found)throw Error('No wet material')
       const current=presentation?.tick(0,{dry:drying})??rgba
-      ;(kind==='goal'?rgba:current).copyTo(found.tile.buffer)
+      if(kind==='raw')render({p:found.entry.inkLoad,c:found.entry.inkColor,coverage:found.entry.coverage})
+      ;(kind==='shown'?current:rgba).copyTo(found.tile.buffer)
       engine._paperPartialOK=false;engine._paperCacheKey='';engine._invalidateSplitCache()
       original.get('_display')!.call(engine)
       const png=(gl.canvas as HTMLCanvasElement).toDataURL('image/png')
       current.copyTo(found.tile.buffer);engine._paperCacheKey='';engine._invalidateSplitCache();original.get('_display')!.call(engine)
+      if(kind==='raw')render()
       return png
     },
     dry(){goalAfter=0;drying=true;lastAt=performance.now();request()},

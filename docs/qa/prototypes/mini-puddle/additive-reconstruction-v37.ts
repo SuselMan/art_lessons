@@ -1,0 +1,2 @@
+/** Isolate high-resolution detail reconstruction from the unchanged low solver. */
+export function createAdditiveReconstruction(passes:any){const reconstruction=passes.materialReconstruction();return{run<T>(fn:()=>T):T{const original=reconstruction.pigment;reconstruction.pigment=function(request:any){return original.call(this,{...request,preserveBrush:false})};try{return fn()}finally{reconstruction.pigment=original}},destroy(){}}}

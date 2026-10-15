@@ -1,0 +1,12 @@
+import {DISPLAY_VERT,WC_DIFFUSE_FRAG,WC_FIELD_ADD_FRAG} from '../../../../apps/web/src/engine/src/raster/shaders'
+import {createProgram,getUniforms} from '../../../../apps/web/src/engine/src/raster/utils'
+/** Deterministic spatial stochastic rounding; phase is immutable native operation index. */
+export function createQuantizedMix(gl:WebGLRenderingContext,passes:any){
+ const wrap=(source:string)=>{const main=/void\s+main\s*\(\s*\)\s*\{/;if(!main.test(source))throw Error('M35 shader main changed');return source.replaceAll('gl_FragColor','qOutput').replace('precision highp float;',`precision highp float;uniform float u_quantPhase;vec4 qOutput;
+ float qThreshold(){vec2 p=floor(gl_FragCoord.xy);float h=mod(p.x+37.*p.y,251.);for(int i=0;i<3;i++){float salt=mod(73.*u_quantPhase+29.*float(i)+19.,251.);h=mod(mod(h*h,251.)*h+salt,251.);}return(h+.5)/251.;}
+ vec4 qRound(vec4 value){return floor(clamp(value,0.,1.)*255.+qThreshold())/255.;}
+ `).replace(main,'void qMain(){')+'\nvoid main(){qMain();gl_FragColor=qRound(qOutput);}' }
+ const diffuse=createProgram(gl,DISPLAY_VERT,wrap(WC_DIFFUSE_FRAG)),add=createProgram(gl,DISPLAY_VERT,wrap(WC_FIELD_ADD_FRAG))
+ const diffuseUni=getUniforms(gl,diffuse,[...Object.keys(passes._diffuseUni),'u_quantPhase']),addUni=getUniforms(gl,add,['u_a','u_b','u_k','u_quantPhase']),diffusePos=gl.getAttribLocation(diffuse,'a_position'),addPos=gl.getAttribLocation(add,'a_position')
+ return{run<T>(phase:number,fn:()=>T):T{const old=[passes._diffuseProg,passes._diffuseUni,passes._diffusePosLoc],oldAdd=passes._plainAdd,oldStep=passes.diffuseStep,oldPlain=passes.plainAdd;[passes._diffuseProg,passes._diffuseUni,passes._diffusePosLoc]=[diffuse,diffuseUni,diffusePos];passes._plainAdd={program:add,uniforms:addUni,position:addPos};const call=(program:WebGLProgram,uniforms:Record<string,WebGLUniformLocation|null>,original:any,args:any[],self:any)=>{gl.useProgram(program);gl.uniform1f(uniforms.u_quantPhase,phase);const dither=gl.isEnabled(gl.DITHER);if(dither)gl.disable(gl.DITHER);try{return original.apply(self,args)}finally{if(dither)gl.enable(gl.DITHER)}};passes.diffuseStep=function(...args:any[]){return call(diffuse,diffuseUni,oldStep,args,this)};passes.plainAdd=function(...args:any[]){return call(add,addUni,oldPlain,args,this)};try{return fn()}finally{passes.diffuseStep=oldStep;passes.plainAdd=oldPlain;passes._plainAdd=oldAdd;[passes._diffuseProg,passes._diffuseUni,passes._diffusePosLoc]=old}},destroy(){gl.useProgram(null);gl.deleteProgram(diffuse);gl.deleteProgram(add)}}
+}
