@@ -2260,6 +2260,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._watercolorModel = options.watercolorModel ?? 'legacy'
     this._wcJoinedTouch = options.joinedTouch ?? false
     this._watercolorReview = import.meta.env.DEV && options.watercolorReview === true
+    this._ribbonPasses.specializedWatercolorNib = this._watercolorReview && this._watercolorModel === 'front8-detail-flow-v2'
     this._reviewInputPriority = this._watercolorReview && options.reviewInputPriority === true
     this._reviewProgressivePresentation = this._reviewInputPriority && options.reviewProgressivePresentation === true
     this._settleQueue.diagnosticInputPriority = this._reviewInputPriority

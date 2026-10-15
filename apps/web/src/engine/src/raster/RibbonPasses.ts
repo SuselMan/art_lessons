@@ -1,6 +1,6 @@
 import { ribbonBristleCombs, ribbonWaterDelivery } from '../dabs/ribbonStrokeMath'
 import type { Dab } from '@grafetto/shared'
-import { RIBBON_VERT, RIBBON_FRAG } from '../raster/shaders'
+import { DAB_VERT, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import { StampPainter } from '../dabs/StampPainter'
@@ -26,6 +26,11 @@ export interface RibbonPassesContext {
 /** Ribbon GPU draw primitives and their band program/vertex buffer.
  * The four init stages preserve the engine's existing GL allocation order. */
 export class RibbonPasses {
+  /** QA-only until the watercolor device/parity review is complete. */
+  specializedWatercolorNib = false
+  private readonly _watercolorNibPrograms = new Map<string, {
+    program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number
+  }>()
   private readonly ctx: RibbonPassesContext
   constructor(ctx: RibbonPassesContext) { this.ctx = ctx }
   private get gl(): WebGLRenderingContext { return this.ctx.gl() }
@@ -116,9 +121,12 @@ export class RibbonPasses {
     const { gl } = this
     if (ownTarget) dest.beginDraw()
 
-    gl.useProgram(this.ctx.stamps().program)
-    this.ctx.stamps().bindNoise(this.ctx.stamps().uniforms.u_wcNoiseTex)
-    const u = this.ctx.stamps().uniforms
+    const stamps = this.ctx.stamps()
+    const specialized = this.specializedWatercolorNib && profile.normalizeDeposit && (inkMode === 6 || inkMode === 7)
+      ? this.watercolorNibProgram(inkMode, !!depthTau) : null
+    gl.useProgram(specialized?.program ?? stamps.program)
+    const u = specialized?.uniforms ?? stamps.uniforms
+    stamps.bindNoise(u.u_wcNoiseTex)
     gl.uniform2f(u.u_resolution, dest.width, dest.height)
     for (const [unit, loc] of [[0, u.u_paperHeightMap], [1, u.u_original], [2, u.u_strokeCoverage], [3, u.u_inkLoad]] as const) {
       gl.activeTexture(gl.TEXTURE0 + unit)
@@ -164,8 +172,9 @@ export class RibbonPasses {
     gl.uniform2f(u.u_mottleSeed, mottleSeed[0], mottleSeed[1])
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.quadBuf())
-    gl.enableVertexAttribArray(this.ctx.stamps().positionLoc)
-    gl.vertexAttribPointer(this.ctx.stamps().positionLoc, 2, gl.FLOAT, false, 0, 0)
+    const position = specialized?.position ?? stamps.positionLoc
+    gl.enableVertexAttribArray(position)
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
 
     gl.uniform2f(u.u_dabCenter, dab.x - tile.originX, dab.y - tile.originY)
     gl.uniform1f(u.u_dabRadius, radius)
@@ -501,7 +510,45 @@ export class RibbonPasses {
 
   initProgram(): void {
     const { gl } = this
+    this.releaseWatercolorNibPrograms()
     this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
+    if (this.specializedWatercolorNib) {
+      // Compile before the room admits input, rather than on its first dab.
+      this.watercolorNibProgram(6, false)
+      this.watercolorNibProgram(7, false)
+      this.watercolorNibProgram(7, true)
+    }
+  }
+
+  /** Keep the native fragment expressions, but make their dispatch constants.
+   * The shared graphite/composite program and its uniforms remain untouched. */
+  private watercolorNibProgram(mode: 6 | 7, depthWrite: boolean): {
+    program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number
+  } {
+    const key = `${mode}:${depthWrite ? 1 : 0}`
+    const cached = this._watercolorNibPrograms.get(key)
+    if (cached) return cached
+    const { gl } = this
+    const fragment = DAB_FRAG
+      .replace('uniform float u_inkMode;', `const float u_inkMode = ${mode}.0;`)
+      .replace('uniform float u_depthWrite;', `const float u_depthWrite = ${depthWrite ? 1 : 0}.0;`)
+    const program = createProgram(gl, DAB_VERT, fragment)
+    const entry = { program, uniforms: getUniforms(gl, program, Object.keys(this.ctx.stamps().uniforms)),
+      position: gl.getAttribLocation(program, 'a_position') }
+    this._watercolorNibPrograms.set(key, entry)
+    return entry
+  }
+
+  private releaseWatercolorNibPrograms(): void {
+    const { gl } = this
+    for (const { program } of this._watercolorNibPrograms.values()) {
+      // Context restoration forgets invalid names; ordinary teardown deletes
+      // every live optional program, including a currently bound one.
+      if (gl.isProgram?.(program) === false) continue
+      if (gl.getParameter(gl.CURRENT_PROGRAM) === program) gl.useProgram(null)
+      gl.deleteProgram(program)
+    }
+    this._watercolorNibPrograms.clear()
   }
 
   initUniforms(): void {
@@ -530,6 +577,7 @@ export class RibbonPasses {
   }
 
   destroy(): void {
+    this.releaseWatercolorNibPrograms()
     this.gl.deleteProgram(this._ribbonProg)
     this.gl.deleteBuffer(this._ribbonBuf)
   }
