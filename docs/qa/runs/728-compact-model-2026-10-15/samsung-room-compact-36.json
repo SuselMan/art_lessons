@@ -1,0 +1,88 @@
+{
+  "dryReadyMs": 14753,
+  "dryButtonReturned": true,
+  "frameStats": {
+    "input": {
+      "n": 722,
+      "p95": 66.79999999999927,
+      "max": 100.39999999999964,
+      "over100": 1
+    },
+    "dry": {
+      "n": 1036,
+      "p95": 16.80000000000291,
+      "max": 200.60000000000582,
+      "over100": 3
+    }
+  },
+  "identity": {
+    "model": "front8-detail-flow-v2",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "gpuBatch": 8,
+    "extensions": [
+      "ANGLE_instanced_arrays",
+      "EXT_blend_minmax",
+      "EXT_clip_control",
+      "EXT_color_buffer_half_float",
+      "EXT_float_blend",
+      "EXT_texture_filter_anisotropic",
+      "EXT_sRGB",
+      "OES_element_index_uint",
+      "OES_fbo_render_mipmap",
+      "OES_standard_derivatives",
+      "OES_texture_float",
+      "OES_texture_float_linear",
+      "OES_texture_half_float",
+      "OES_texture_half_float_linear",
+      "OES_vertex_array_object",
+      "WEBGL_blend_func_extended",
+      "WEBGL_color_buffer_float",
+      "WEBGL_compressed_texture_astc",
+      "WEBGL_compressed_texture_etc",
+      "WEBGL_compressed_texture_etc1",
+      "WEBGL_debug_renderer_info",
+      "WEBGL_debug_shaders",
+      "WEBGL_depth_texture",
+      "WEBGL_lose_context",
+      "WEBGL_multi_draw"
+    ]
+  },
+  "baseline": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "1bf38d4de43cb548bb28b3d976a7f28c79895748c8926e34cac92ce7d5c46891"
+    }
+  ],
+  "errors": [],
+  "input": "CDP pen events through actual canvas PointerInput, no direct _onStart calls",
+  "undo": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "2b900278c2149e23f47c28dfa86969462750c9516df48a77ca20e43cf8151fd9"
+    }
+  ],
+  "redo": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "1bf38d4de43cb548bb28b3d976a7f28c79895748c8926e34cac92ce7d5c46891"
+    }
+  ],
+  "reenter": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "1bf38d4de43cb548bb28b3d976a7f28c79895748c8926e34cac92ce7d5c46891"
+    }
+  ],
+  "export": {
+    "bytes": 2099503,
+    "type": "image/png"
+  },
+  "gl": 0,
+  "lost": false,
+  "redoExact": true,
+  "reenterExact": true
+}

@@ -1,0 +1,85 @@
+{
+  "gaps": [
+    11,
+    11.100000000000364,
+    11.100000000000364,
+    16.600000000000364,
+    16.600000000000364,
+    16.69999999999891,
+    16.69999999999891,
+    16.700000000000728,
+    16.700000000000728,
+    16.700000000000728,
+    16.700000000000728,
+    16.799999999999272,
+    22.099999999998545,
+    22.19999999999891,
+    22.19999999999891,
+    22.200000000000728,
+    22.200000000000728,
+    22.299999999999272,
+    22.30000000000109
+  ],
+  "clock": {
+    "batch": 8,
+    "pending": 0,
+    "active": false
+  },
+  "adapter": {
+    "mode": "warm",
+    "reads": 0,
+    "warmupMs": 0.5
+  },
+  "dryMs": 318.5,
+  "inputMs": 4510.0999999940395,
+  "completionFenceMs": 1.3999999985098839,
+  "wholeWorkMs": 4828.5999999940395,
+  "elapsed": 5122.89999999851,
+  "before": {
+    "queue": 37,
+    "settle": false
+  },
+  "counts": {
+    "fields": [
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      },
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      }
+    ],
+    "previews": 34,
+    "front": 72,
+    "field": 499,
+    "groupTides": 2
+  },
+  "stats": {
+    "n": 19,
+    "p95": 22.30000000000109,
+    "max": 22.30000000000109,
+    "over100": 0
+  },
+  "visible": "visible",
+  "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+  "gl": 0,
+  "lost": false,
+  "model": "front8-detail-flow-v2",
+  "scheduler": {
+    "tasks": 194,
+    "frames": 29
+  },
+  "errors": [],
+  "tileHashes": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "5db79ab8dcc2323cc4095f3d65a15ab1653a746406d5769b2e0e579efed60062"
+    }
+  ]
+}

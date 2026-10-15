@@ -1,0 +1,113 @@
+{
+  "dryMs": 20029,
+  "inputMs": 3440.2000000476837,
+  "wholeWorkMs": 23469.200000047684,
+  "elapsed": 25919.899999976158,
+  "before": {
+    "queue": 290,
+    "settle": false
+  },
+  "counts": {
+    "fields": [
+      {
+        "phase": "dry",
+        "w": 1536,
+        "h": 1536,
+        "scale": 1
+      },
+      {
+        "phase": "dry",
+        "w": 1536,
+        "h": 1536,
+        "scale": 1
+      },
+      {
+        "phase": "dry",
+        "w": 1536,
+        "h": 1536,
+        "scale": 1
+      },
+      {
+        "phase": "dry",
+        "w": 1536,
+        "h": 1536,
+        "scale": 1
+      },
+      {
+        "phase": "dry",
+        "w": 1536,
+        "h": 1536,
+        "scale": 1
+      },
+      {
+        "phase": "dry",
+        "w": 1536,
+        "h": 1536,
+        "scale": 1
+      },
+      {
+        "phase": "dry",
+        "w": 1536,
+        "h": 1536,
+        "scale": 1
+      },
+      {
+        "phase": "dry",
+        "w": 1536,
+        "h": 1536,
+        "scale": 1
+      },
+      {
+        "phase": "dry",
+        "w": 1536,
+        "h": 1536,
+        "scale": 1
+      },
+      {
+        "phase": "dry",
+        "w": 1536,
+        "h": 1536,
+        "scale": 1
+      },
+      {
+        "phase": "dry",
+        "w": 1536,
+        "h": 1536,
+        "scale": 1
+      },
+      {
+        "phase": "dry",
+        "w": 1536,
+        "h": 1536,
+        "scale": 1
+      }
+    ],
+    "previews": 4122,
+    "front": 708,
+    "field": 3462,
+    "groupTides": 12
+  },
+  "stats": {
+    "n": 36,
+    "p95": 1337.2000000000007,
+    "max": 1354,
+    "over100": 27
+  },
+  "visible": "visible",
+  "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+  "gl": 0,
+  "lost": false,
+  "model": "front8-fine-v1",
+  "scheduler": {
+    "tasks": 2030,
+    "frames": 77
+  },
+  "errors": [],
+  "tileHashes": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "00c511beacd6297456d87b864ffa5bc360027f1173df7d8958fe248b8d89d572"
+    }
+  ]
+}

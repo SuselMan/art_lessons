@@ -1,0 +1,78 @@
+{
+  "gaps": [
+    16.69999999999709,
+    16.700000000000728,
+    16.700000000000728,
+    22.099999999998545,
+    22.19999999999709,
+    22.200000000000728,
+    22.200000000000728,
+    22.200000000000728,
+    22.200000000000728,
+    22.200000000000728,
+    22.200000000000728,
+    22.200000000000728,
+    22.200000000000728,
+    22.200000000000728,
+    22.299999999999272,
+    22.299999999999272,
+    22.299999999999272
+  ],
+  "clock": {
+    "batch": 8,
+    "pending": 0,
+    "active": false
+  },
+  "dryMs": 344,
+  "inputMs": 5469.30000000447,
+  "completionFenceMs": 1.1000000014901161,
+  "wholeWorkMs": 5813.30000000447,
+  "elapsed": 6071.5,
+  "before": {
+    "queue": 37,
+    "settle": false
+  },
+  "counts": {
+    "fields": [
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      },
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      }
+    ],
+    "previews": 34,
+    "front": 72,
+    "field": 499,
+    "groupTides": 2
+  },
+  "stats": {
+    "n": 17,
+    "p95": 22.299999999999272,
+    "max": 22.299999999999272,
+    "over100": 0
+  },
+  "visible": "visible",
+  "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+  "gl": 0,
+  "lost": false,
+  "model": "front8-detail-flow-v2",
+  "scheduler": {
+    "tasks": 194,
+    "frames": 28
+  },
+  "errors": [],
+  "tileHashes": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "5db79ab8dcc2323cc4095f3d65a15ab1653a746406d5769b2e0e579efed60062"
+    }
+  ]
+}

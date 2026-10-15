@@ -1,0 +1,91 @@
+{
+  "room": "sUvQf2Bv",
+  "scope": "Full Grafetto QA room; AMD hardware; front8-detail-flow-v2; source f97fb624; two participants, two 380px crosses",
+  "identity": {
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "gpuBatch": 8,
+    "model": "front8-detail-flow-v2",
+    "async": true,
+    "scheduler": true,
+    "operations": 0
+  },
+  "ops": [
+    {
+      "id": "FPIfEuJJqr",
+      "layerId": "layer-1",
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v2"
+    },
+    {
+      "id": "JCRzR59WBF",
+      "layerId": "layer-1",
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v2"
+    }
+  ],
+  "peerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "front": {
+    "buildDraws": 32,
+    "jumpDraws": 28,
+    "nativeDraws": 0,
+    "cacheBuilds": 2,
+    "extraBytes": 5242880
+  },
+  "scheduler": {
+    "tasks": 192,
+    "frames": 28
+  },
+  "errors": [],
+  "undoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoPeerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "reenterDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "export": {
+    "pngBytes": 2046682,
+    "pngType": "image/png",
+    "snapshotBytes": 4194324
+  },
+  "contextRestoreDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "gl": 0,
+  "scopeOriginal": "Full Grafetto QA room; headed Chrome AMD hardware; 1024 Fine, two 380px crosses; version front8-detail-flow-v1"
+}

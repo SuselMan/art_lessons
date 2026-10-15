@@ -1,0 +1,114 @@
+{
+  "dryMs": 2300.39999999851,
+  "inputMs": 6383.89999999851,
+  "completionFenceMs": 1,
+  "wholeWorkMs": 8684.29999999702,
+  "elapsed": 8963.70000000298,
+  "before": {
+    "queue": 287,
+    "settle": true
+  },
+  "counts": {
+    "fields": [
+      {
+        "phase": "input",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      },
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      },
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      },
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      },
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      },
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      },
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      },
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      },
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      },
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      },
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      },
+      {
+        "phase": "dry",
+        "w": 512,
+        "h": 512,
+        "scale": 2
+      }
+    ],
+    "previews": 204,
+    "front": 432,
+    "field": 3475,
+    "groupTides": 12
+  },
+  "stats": {
+    "n": 123,
+    "p95": 22.299999999999272,
+    "max": 22.30000000000291,
+    "over100": 0
+  },
+  "visible": "visible",
+  "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+  "gl": 0,
+  "lost": false,
+  "model": "front8-detail-flow-v2",
+  "scheduler": {
+    "tasks": 2269,
+    "frames": 221
+  },
+  "errors": [],
+  "tileHashes": [
+    {
+      "x": 0,
+      "y": 0,
+      "hash": "c38ecee2d9c970b4cc56c464503acf5d396ccb750771c4cd53e03d4b4c9f2638"
+    }
+  ]
+}
