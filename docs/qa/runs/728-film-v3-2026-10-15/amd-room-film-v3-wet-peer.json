@@ -1,0 +1,98 @@
+{
+  "beforePeer": {
+    "dryOps": 0,
+    "materialLayers": 0
+  },
+  "scope": "Full Grafetto QA room; headed Chrome AMD hardware; 1024 Fine, two 380px crosses before any paper Dry; version front8-detail-flow-v3 + B peer point",
+  "identity": {
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "gpuBatch": 8,
+    "model": "front8-detail-flow-v3",
+    "async": true,
+    "scheduler": true,
+    "operations": 0
+  },
+  "ops": [
+    {
+      "id": "QGI-g-_JBr",
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "userId": "4ad7a5ad-8ea5-459a-ac50-f9e456c2c1b5"
+    },
+    {
+      "id": "HglCvCyElN",
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "userId": "4ad7a5ad-8ea5-459a-ac50-f9e456c2c1b5"
+    },
+    {
+      "id": "rmIt3SF0Hd",
+      "preset": "normal:100:69:PB15:round:wc@front8-fine-v1",
+      "userId": "6af2ff3a-9056-48a4-996c-bad3880cd896"
+    }
+  ],
+  "peerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "front": {
+    "buildDraws": 48,
+    "jumpDraws": 49,
+    "nativeDraws": 0,
+    "cacheBuilds": 3,
+    "extraBytes": 47185920
+  },
+  "scheduler": {
+    "tasks": 44,
+    "frames": 840
+  },
+  "errors": [],
+  "undoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoPeerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "reenterDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "export": {
+    "pngBytes": 2052871,
+    "pngType": "image/png",
+    "snapshotBytes": 4194324
+  },
+  "contextRestoreDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "gl": 0
+}

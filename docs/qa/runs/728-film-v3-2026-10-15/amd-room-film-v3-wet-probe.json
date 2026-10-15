@@ -1,0 +1,99 @@
+{
+  "beforePeer": {
+    "dryOps": 0,
+    "materialLayers": 0,
+    "wetAtPoint": 0.9359533333333209
+  },
+  "scope": "Full Grafetto QA room; headed Chrome AMD hardware; 1024 Fine, two 380px crosses before any paper Dry; version front8-detail-flow-v3 + B peer point",
+  "identity": {
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "gpuBatch": 8,
+    "model": "front8-detail-flow-v3",
+    "async": true,
+    "scheduler": true,
+    "operations": 0
+  },
+  "ops": [
+    {
+      "id": "EPyPrfDg-N",
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "userId": "0fd4f483-39cc-4eba-a57b-aaa4b20da265"
+    },
+    {
+      "id": "QWABUOxnBe",
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "userId": "0fd4f483-39cc-4eba-a57b-aaa4b20da265"
+    },
+    {
+      "id": "b4D-cG5hMS",
+      "preset": "normal:100:69:PB15:round:wc@front8-fine-v1",
+      "userId": "f3abcc80-ddbb-476d-8500-a6cf9b56f1a1"
+    }
+  ],
+  "peerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "front": {
+    "buildDraws": 48,
+    "jumpDraws": 49,
+    "nativeDraws": 0,
+    "cacheBuilds": 3,
+    "extraBytes": 47185920
+  },
+  "scheduler": {
+    "tasks": 44,
+    "frames": 835
+  },
+  "errors": [],
+  "undoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoPeerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "reenterDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "export": {
+    "pngBytes": 2052644,
+    "pngType": "image/png",
+    "snapshotBytes": 4194324
+  },
+  "contextRestoreDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "gl": 0
+}
