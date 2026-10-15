@@ -2752,7 +2752,7 @@
   "identity": {
     "model": "front8-detail-flow-v2",
     "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
-    "room": "/room/kCptXXD4",
+    "room": "[private QA room]",
     "gpuBatch": 8,
     "extensions": [
       "ANGLE_instanced_arrays",

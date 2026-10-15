@@ -1,0 +1,95 @@
+{
+  "room": "sxXUYAD8",
+  "scope": "Full Grafetto QA room; headed Chrome AMD hardware; 1024 Fine, two 380px crosses; version front8-detail-flow-v3 + B peer stroke",
+  "identity": {
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "gpuBatch": 8,
+    "model": "front8-detail-flow-v3",
+    "async": true,
+    "scheduler": true,
+    "operations": 0
+  },
+  "ops": [
+    {
+      "id": "6b1HjCinMt",
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "userId": "7c24c14b-58b0-4085-8ae1-423cb88afea5"
+    },
+    {
+      "id": "WAOcg8orHa",
+      "preset": "normal:100:69:PB29:round:wc@front8-detail-flow-v3",
+      "userId": "7c24c14b-58b0-4085-8ae1-423cb88afea5"
+    },
+    {
+      "id": "yru6z74YKP",
+      "preset": "normal:100:69:PB15:round:wc@front8-fine-v1",
+      "userId": "46867155-e0c1-4659-9a8e-3a4e12d00412"
+    }
+  ],
+  "peerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "front": {
+    "buildDraws": 48,
+    "jumpDraws": 49,
+    "nativeDraws": 0,
+    "cacheBuilds": 3,
+    "extraBytes": 47185920
+  },
+  "scheduler": {
+    "tasks": 236,
+    "frames": 36
+  },
+  "errors": [],
+  "undoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "redoPeerDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "reenterDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "export": {
+    "pngBytes": 2050755,
+    "pngType": "image/png",
+    "snapshotBytes": 4194324
+  },
+  "contextRestoreDiff": {
+    "differentChannels": 0,
+    "maxDelta": 0,
+    "residentTiles": [
+      1,
+      1
+    ]
+  },
+  "gl": 0
+}
