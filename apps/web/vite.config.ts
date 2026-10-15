@@ -175,7 +175,7 @@ export default defineConfig(({ mode }) => {
             if (!request.url?.includes('deviceSmoke=1') && existsSync(built)) {response.end(readFileSync(built));return}
             const html = readFileSync(new URL('../../docs/qa/prototypes/mini-stand/index.html', import.meta.url), 'utf8')
             const modulePath = new URL('../../docs/qa/prototypes/mini-puddle/controller.ts', import.meta.url).pathname
-            response.end(html.replace('__MINI_PUDDLE_MODULE_V04__', '/@fs' + modulePath.replace('controller.ts', 'controller-v04.ts')).replace('__MINI_PUDDLE_MODULE_V03__', '/@fs' + modulePath.replace('controller.ts', 'controller-v03.ts')).replace('__MINI_PUDDLE_MODULE_V01__', '/@fs' + modulePath.replace('controller.ts', 'controller-v01.ts')).replace('__MINI_PUDDLE_MODULE__', '/@fs' + modulePath.replace('controller.ts', 'controller-v02.ts')))
+            response.end(html.replace('__MINI_PUDDLE_MODULE_V05__', '/@fs' + modulePath.replace('controller.ts', 'controller-v05.ts')).replace('__MINI_PUDDLE_MODULE_V04__', '/@fs' + modulePath.replace('controller.ts', 'controller-v04.ts')).replace('__MINI_PUDDLE_MODULE_V03__', '/@fs' + modulePath.replace('controller.ts', 'controller-v03.ts')).replace('__MINI_PUDDLE_MODULE_V01__', '/@fs' + modulePath.replace('controller.ts', 'controller-v01.ts')).replace('__MINI_PUDDLE_MODULE__', '/@fs' + modulePath.replace('controller.ts', 'controller-v02.ts')))
           })
         },
       },
