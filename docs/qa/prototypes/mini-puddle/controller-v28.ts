@@ -1,0 +1,3 @@
+import {installMiniPuddle as installBase} from './controller-v25'
+/** Existing specialized nib programs, warmed before accepting pen input. */
+export function installMiniPuddle(engine:any,size:number,mode:'morph'|'material',onStatus=(_message:string)=>{}){const passes=engine._ribbonPasses,old=passes.specializedWatercolorNib;passes.specializedWatercolorNib=true;for(const [mode,colour]of [[6,false],[7,false],[7,true]])passes.watercolorNibProgram(mode,colour);try{const api=installBase(engine,size,mode,onStatus),destroy=api.destroy;api.destroy=()=>{passes.specializedWatercolorNib=old;destroy()};return api}catch(error){passes.specializedWatercolorNib=old;throw error}}
