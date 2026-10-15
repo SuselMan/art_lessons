@@ -13,4 +13,4 @@ Samsung: реальный SM-T970, Adreno650; создание через /creat
 
 AMD room smoke без query: оба автора по умолчанию v3/Dry8, точка второго автора в мокрой области до Dry (sample>0),3строки журнала двух авторов. Peer/undo/redo/reentry/context restore дают0 отличий; PNG и network snapshot доступны, GL0/errors[]. Это один AMD GPU; между GPU строгого совпадения не заявляется.
 
-Картинки представлены автономным [атласом](runs/728-approved-film-gallery-2026-10-15/atlas.jpg); манифест и browser proof лежат рядом. Временные полноразмерные PNG, копии входов, Python-окружение и браузеры удаляются после сохранения доказательств; постоянные JPEG/previews и комнаты защищены.
+Картинки представлены автономным [атласом](runs/728-approved-film-gallery-2026-10-15/atlas.jpg); манифест и browser proof лежат рядом. Временные полноразмерные PNG, копии входов и Python-окружение удалены на VPS и ноутбуке через registered cleanup с сохранённой проверкой активных процессов. Собственные браузеры, reverse15384 и ADB19223 закрыты. Остались2QA frontend/1backend, постоянные JPEG/previews и комнаты.
