@@ -1,0 +1,14 @@
+{
+  "uiVersion": "61efc9da67d5bada",
+  "previous": null,
+  "publishedAt": "2026-10-15T08:27:52.708083+00:00",
+  "protectedDataSha": {
+    "data/comments.json": "413d0283b170c62edddb7a9dc7d18b8f6af2de1153a1d11efc7f0bf8dab6f0dc",
+    "data/rendered.json": "78cc323357935ab71803380cf5e91e319359b460fdf1e4b5147ce8a3b4906ab5"
+  },
+  "files": {
+    "index.html": "0f148aac1a6514798e7d5827dc6d3453b8a3e712191e857294409f7971b883ad",
+    "versions.html": "c69f4a04ed7a32acdf277171c17b34ecc3a545c21b88e3039671c6de897efc1b",
+    "gallery-controls.js": "c42f4cdc21ed57ffee89c885461b375b85e8a80e0bd7125247abb9aa746fe776"
+  }
+}
