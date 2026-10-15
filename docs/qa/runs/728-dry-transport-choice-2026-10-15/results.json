@@ -1,0 +1,1134 @@
+{
+  "baseline": "29545871",
+  "gather": "71c0753272acae4ee787a42eeb5d8a0098c63ce6",
+  "jump": "e56a49f9783c8308a26cf9578130824719658db2",
+  "stats": {
+    "baseline-cross": {
+      "samsung": {
+        "computeMs": 2309.3000000715256,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            44966455,
+            44966200,
+            40280306,
+            44966456
+          ],
+          "C": [
+            10909256,
+            4004889,
+            8170813,
+            40280306
+          ]
+        },
+        "brushPasses": 240,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {},
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 2035.2999999970198,
+        "brushPasses": 240,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {},
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "samsungRepeat": {
+        "computeMs": 2253.6999999284744,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            44966455,
+            44966200,
+            40280306,
+            44966456
+          ],
+          "C": [
+            10909256,
+            4004889,
+            8170813,
+            40280306
+          ]
+        },
+        "brushPasses": 240,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {},
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "gather-soft-cross": {
+      "samsung": {
+        "computeMs": 1881.7999999523163,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            44903739,
+            44903377,
+            40221948,
+            44903740
+          ],
+          "C": [
+            10898647,
+            4001898,
+            8157940,
+            40221948
+          ]
+        },
+        "brushPasses": 144,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticLargeStepGather": 0.75
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 1643.9000000059605,
+        "brushPasses": 144,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticLargeStepGather": 0.75
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "samsungRepeat": {
+        "computeMs": 2096,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            44903739,
+            44903377,
+            40221948,
+            44903740
+          ],
+          "C": [
+            10898647,
+            4001898,
+            8157940,
+            40221948
+          ]
+        },
+        "brushPasses": 144,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticLargeStepGather": 0.75
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "gather-strong-cross": {
+      "samsung": {
+        "computeMs": 1766.0999999046326,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            44863485,
+            44863056,
+            40183915,
+            44863486
+          ],
+          "C": [
+            10886367,
+            3999614,
+            8152030,
+            40183915
+          ]
+        },
+        "brushPasses": 144,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticLargeStepGather": 1.4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 1632.2999999970198,
+        "brushPasses": 144,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticLargeStepGather": 1.4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "samsungRepeat": {
+        "computeMs": 1785.5999999046326,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            44863485,
+            44863056,
+            40183915,
+            44863486
+          ],
+          "C": [
+            10886367,
+            3999614,
+            8152030,
+            40183915
+          ]
+        },
+        "brushPasses": 144,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticLargeStepGather": 1.4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "jump4-cross": {
+      "samsung": {
+        "computeMs": 1537.7999999523163,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            44967669,
+            44967297,
+            40279312,
+            44967670
+          ],
+          "C": [
+            10907877,
+            4003656,
+            8170663,
+            40279312
+          ]
+        },
+        "brushPasses": 48,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticMultilevelContact": 4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 1242.199999988079,
+        "brushPasses": 48,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticMultilevelContact": 4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "samsungRepeat": {
+        "computeMs": 1445.3999999761581,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            44967669,
+            44967297,
+            40279312,
+            44967670
+          ],
+          "C": [
+            10907877,
+            4003656,
+            8170663,
+            40279312
+          ]
+        },
+        "brushPasses": 48,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticMultilevelContact": 4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "jump8-cross": {
+      "samsung": {
+        "computeMs": 1320.4000000953674,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            44967669,
+            44967297,
+            40279312,
+            44967670
+          ],
+          "C": [
+            10907877,
+            4003656,
+            8170663,
+            40279312
+          ]
+        },
+        "brushPasses": 48,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticMultilevelContact": 8
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 1318.5999999940395,
+        "brushPasses": 48,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticMultilevelContact": 8
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "samsungRepeat": {
+        "computeMs": 1322.6000000238419,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            44967669,
+            44967297,
+            40279312,
+            44967670
+          ],
+          "C": [
+            10907877,
+            4003656,
+            8170663,
+            40279312
+          ]
+        },
+        "brushPasses": 48,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticMultilevelContact": 8
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "baseline-single": {
+      "samsung": {
+        "computeMs": 354.7999999523163,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            19765777,
+            19765777,
+            17645669,
+            19765777
+          ],
+          "C": [
+            7954700,
+            6455168,
+            2311309,
+            17645669
+          ]
+        },
+        "brushPasses": 128,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {},
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 200.20000000298023,
+        "brushPasses": 128,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {},
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "gather-soft-single": {
+      "samsung": {
+        "computeMs": 353.1999999284744,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            19741358,
+            19741358,
+            17621887,
+            19741358
+          ],
+          "C": [
+            7944154,
+            6446487,
+            2308129,
+            17621887
+          ]
+        },
+        "brushPasses": 84,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticLargeStepGather": 0.75
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 178.70000000298023,
+        "brushPasses": 84,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticLargeStepGather": 0.75
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "gather-strong-single": {
+      "samsung": {
+        "computeMs": 215.30000007152557,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            19715888,
+            19715888,
+            17601563,
+            19715888
+          ],
+          "C": [
+            7934871,
+            6438916,
+            2305339,
+            17601563
+          ]
+        },
+        "brushPasses": 84,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticLargeStepGather": 1.4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 123.70000000298023,
+        "brushPasses": 84,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticLargeStepGather": 1.4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "jump4-single": {
+      "samsung": {
+        "computeMs": 458.89999997615814,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            19766537,
+            19766537,
+            17645501,
+            19766537
+          ],
+          "C": [
+            7954834,
+            6455050,
+            2311299,
+            17645501
+          ]
+        },
+        "brushPasses": 28,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticMultilevelContact": 4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 207.69999998807907,
+        "brushPasses": 28,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticMultilevelContact": 4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "jump8-single": {
+      "samsung": {
+        "computeMs": 215.89999997615814,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            19766510,
+            19766510,
+            17645497,
+            19766510
+          ],
+          "C": [
+            7954686,
+            6455164,
+            2311262,
+            17645497
+          ]
+        },
+        "brushPasses": 28,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticMultilevelContact": 8
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 179.59999999403954,
+        "brushPasses": 28,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticMultilevelContact": 8
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "baseline-puddle": {
+      "samsung": {
+        "computeMs": 923.7000000476837,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            1407155,
+            1407155,
+            1407155,
+            1407155
+          ],
+          "C": [
+            609767,
+            490369,
+            145084,
+            1407155
+          ]
+        },
+        "brushPasses": 4,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {},
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 814.2000000029802,
+        "brushPasses": 4,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {},
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "gather-soft-puddle": {
+      "samsung": {
+        "computeMs": 859.1999999284744,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            1405877,
+            1405877,
+            1405877,
+            1405877
+          ],
+          "C": [
+            609464,
+            490304,
+            145080,
+            1405877
+          ]
+        },
+        "brushPasses": 6,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticLargeStepGather": 0.75
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 826.8999999910593,
+        "brushPasses": 6,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticLargeStepGather": 0.75
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "gather-strong-puddle": {
+      "samsung": {
+        "computeMs": 857.3000000715256,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            1404328,
+            1404328,
+            1404328,
+            1404328
+          ],
+          "C": [
+            608919,
+            489925,
+            145024,
+            1404328
+          ]
+        },
+        "brushPasses": 6,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticLargeStepGather": 1.4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 832.0999999940395,
+        "brushPasses": 6,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticLargeStepGather": 1.4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "jump4-puddle": {
+      "samsung": {
+        "computeMs": 852.2000000476837,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            1407285,
+            1407285,
+            1407285,
+            1407285
+          ],
+          "C": [
+            609784,
+            490393,
+            145082,
+            1407285
+          ]
+        },
+        "brushPasses": 2,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticMultilevelContact": 4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 789,
+        "brushPasses": 2,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticMultilevelContact": 4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "jump8-puddle": {
+      "samsung": {
+        "computeMs": 816.6000000238419,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            1407140,
+            1407140,
+            1407140,
+            1407140
+          ],
+          "C": [
+            609738,
+            490369,
+            145081,
+            1407140
+          ]
+        },
+        "brushPasses": 2,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticMultilevelContact": 8
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 785.1000000089407,
+        "brushPasses": 2,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticMultilevelContact": 8
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "baseline-wide-cross": {
+      "samsung": {
+        "computeMs": 2056,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            105121058,
+            105121012,
+            98351572,
+            105121058
+          ],
+          "C": [
+            26961895,
+            9886264,
+            20026434,
+            98351572
+          ]
+        },
+        "brushPasses": 216,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {},
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 1981.5,
+        "brushPasses": 216,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {},
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "gather-soft-wide-cross": {
+      "samsung": {
+        "computeMs": 1573.8999999761581,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            105087086,
+            105086797,
+            98304872,
+            105087086
+          ],
+          "C": [
+            26945950,
+            9885966,
+            20011141,
+            98304872
+          ]
+        },
+        "brushPasses": 72,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticLargeStepGather": 0.75
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 1322,
+        "brushPasses": 72,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticLargeStepGather": 0.75
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "gather-strong-wide-cross": {
+      "samsung": {
+        "computeMs": 1360.6000000238419,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            105062981,
+            105062677,
+            98279458,
+            105062981
+          ],
+          "C": [
+            26931030,
+            9885044,
+            20015615,
+            98279458
+          ]
+        },
+        "brushPasses": 72,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticLargeStepGather": 1.4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 1301.5999999940395,
+        "brushPasses": 72,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticLargeStepGather": 1.4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "jump4-wide-cross": {
+      "samsung": {
+        "computeMs": 1361.7999999523163,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            105117460,
+            105117286,
+            98349966,
+            105117460
+          ],
+          "C": [
+            26960483,
+            9887981,
+            20024363,
+            98349966
+          ]
+        },
+        "brushPasses": 72,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticMultilevelContact": 4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 1326.7999999970198,
+        "brushPasses": 72,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticMultilevelContact": 4
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    },
+    "jump8-wide-cross": {
+      "samsung": {
+        "computeMs": 1489,
+        "canonicalMass": {
+          "scratches": 1,
+          "P": [
+            105106306,
+            105106444,
+            98336248,
+            105106306
+          ],
+          "C": [
+            26956071,
+            9884465,
+            20017840,
+            98336248
+          ]
+        },
+        "brushPasses": 96,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "options": {
+          "diagnosticMultilevelContact": 8
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      },
+      "amd": {
+        "computeMs": 1382,
+        "brushPasses": 96,
+        "gl": 0,
+        "lost": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "options": {
+          "diagnosticMultilevelContact": 8
+        },
+        "model": "front8-detail-flow-v4",
+        "errors": []
+      }
+    }
+  },
+  "files": [
+    {
+      "file": "samsung-baseline-cross.jpg",
+      "sha256": "33b101f0b5e67295bc8910dc2012b0d552a9af48c9accef4284a784ae1889fa3"
+    },
+    {
+      "file": "amd-baseline-cross.jpg",
+      "sha256": "7bb036b3e3446bd1858c17b506301a3cdea295cf496a0d9192c184af03e12bb1"
+    },
+    {
+      "file": "samsung-gather-soft-cross.jpg",
+      "sha256": "315151409145a7e67f89e588d27fd8cdd833ab868bba8ffc0d5623f6dd5a8065"
+    },
+    {
+      "file": "amd-gather-soft-cross.jpg",
+      "sha256": "6ee32291a0f1dffa21c7d15e6d36509ba28042adae02d1b6806a17dc83004b31"
+    },
+    {
+      "file": "samsung-gather-strong-cross.jpg",
+      "sha256": "a2042e56136de9e5ecce32b03a0e6d7d6da2ade2c662b32946b8b697c5309b4a"
+    },
+    {
+      "file": "amd-gather-strong-cross.jpg",
+      "sha256": "cc5b907adc3f5db7e6dab4284b451136efa27c5e6ab5d27f6be975b18215b094"
+    },
+    {
+      "file": "samsung-jump4-cross.jpg",
+      "sha256": "0701372a0d0cbc478251a6a1316cac6772da5503e3e772fb3090832b58942703"
+    },
+    {
+      "file": "amd-jump4-cross.jpg",
+      "sha256": "e7aff11ad4346ccfdb148fe8f4084e6caef66b3e9db0ff9d517d641683231f50"
+    },
+    {
+      "file": "samsung-jump8-cross.jpg",
+      "sha256": "0701372a0d0cbc478251a6a1316cac6772da5503e3e772fb3090832b58942703"
+    },
+    {
+      "file": "amd-jump8-cross.jpg",
+      "sha256": "e7aff11ad4346ccfdb148fe8f4084e6caef66b3e9db0ff9d517d641683231f50"
+    },
+    {
+      "file": "samsung-baseline-single.jpg",
+      "sha256": "d5127f45bb05ea7088f1279047eac9432d0bc1191a3f0cb87861d08ea6f19019"
+    },
+    {
+      "file": "amd-baseline-single.jpg",
+      "sha256": "7fe2557a0706edd264c96bcf9d8a58b24456930008a59b3835033d6af5c36261"
+    },
+    {
+      "file": "samsung-gather-soft-single.jpg",
+      "sha256": "b93da027a812ebbde6e1601dba7a477795bab2fab0a96955674ffad4fec2f101"
+    },
+    {
+      "file": "amd-gather-soft-single.jpg",
+      "sha256": "1a561750d3d6c8702e6dd3ead04c0734bced617726582d373606812edae6163d"
+    },
+    {
+      "file": "samsung-gather-strong-single.jpg",
+      "sha256": "529b59da167446d8e39bdbe74329355b2f73b1a6d3c39fa62e4f40440f5cac1d"
+    },
+    {
+      "file": "amd-gather-strong-single.jpg",
+      "sha256": "92af131907f81c1d71e335b0da7e8bbf5c5b70d3beb426ec917f51fc7913ccfd"
+    },
+    {
+      "file": "samsung-jump4-single.jpg",
+      "sha256": "0f56502fdd2b9d85a98e31354e46a5ff61374e331a5d34fb9ea9e675bafe5ddb"
+    },
+    {
+      "file": "amd-jump4-single.jpg",
+      "sha256": "15c4840c4d701893fbd587500c942e7666cf5a0e730a84f429d171506df73760"
+    },
+    {
+      "file": "samsung-jump8-single.jpg",
+      "sha256": "9102891a95c87c2af1da6d168bb4d8bf6488493f446806f98712a1c82ae655e7"
+    },
+    {
+      "file": "amd-jump8-single.jpg",
+      "sha256": "e0faf711be9ef1149da4a4449a70ac834dfa2cad350a1d22759be54ffffc5a1a"
+    },
+    {
+      "file": "samsung-baseline-puddle.jpg",
+      "sha256": "b9c10b46535499dfcd44b1f20ed00a58615fd485b540e00c58a5aa63ae7f0f57"
+    },
+    {
+      "file": "amd-baseline-puddle.jpg",
+      "sha256": "c0ecda6047c1b7a01118b86a791cf8c871fcec569bfa38072b9401834e920969"
+    },
+    {
+      "file": "samsung-gather-soft-puddle.jpg",
+      "sha256": "a8261273b9d577ec1dcefdf75eea4e9a7bcf307f68a13156b9f0aae675fa1ba4"
+    },
+    {
+      "file": "amd-gather-soft-puddle.jpg",
+      "sha256": "50c518b1d260aa2d88bbbe8181781ff90f88196c5c5db9631ab8c64b0e2c1f9f"
+    },
+    {
+      "file": "samsung-gather-strong-puddle.jpg",
+      "sha256": "50acfed9ea2ddb1ea5ea46e31725317de3fea10e5b494073dcb9687bb3128df9"
+    },
+    {
+      "file": "amd-gather-strong-puddle.jpg",
+      "sha256": "1a2a4725235031d67b8afad9b27287a2d242c5886c954c967c7842018fa0b946"
+    },
+    {
+      "file": "samsung-jump4-puddle.jpg",
+      "sha256": "515335d8c090c6e045b21207fff5e8295f0a53a8d61301ce43510a6007df082f"
+    },
+    {
+      "file": "amd-jump4-puddle.jpg",
+      "sha256": "b964908fa92ebe8b6e6635f07184b86da33139b2bb3c7344a33a14033ff73305"
+    },
+    {
+      "file": "samsung-jump8-puddle.jpg",
+      "sha256": "9843a235745635642d0ec0e6be1400ef2d9a374473cdde04d68d2eeff49c7cb4"
+    },
+    {
+      "file": "amd-jump8-puddle.jpg",
+      "sha256": "c536e9fdd1ccb355dd89a9c60eec47318544679c702f569f6bf4e46458e06c38"
+    },
+    {
+      "file": "samsung-baseline-wide-cross.jpg",
+      "sha256": "3bcc6ce4a9deb60c3ac31b94e306147355628c94ba604ed2ce755fd141e32815"
+    },
+    {
+      "file": "amd-baseline-wide-cross.jpg",
+      "sha256": "c455b7fd144531837a2ae2ba7d50bb2b5c5e45b34a496223cb0f36a9bafd6fe0"
+    },
+    {
+      "file": "samsung-gather-soft-wide-cross.jpg",
+      "sha256": "3df81f85eb519de802247ab553f1387d8b5113d3239a7e26ff60ae2a349b0caf"
+    },
+    {
+      "file": "amd-gather-soft-wide-cross.jpg",
+      "sha256": "60c2dc4b0674062f6ebecf6b099ac12f2f4399fef562fad731f0493c19304519"
+    },
+    {
+      "file": "samsung-gather-strong-wide-cross.jpg",
+      "sha256": "99d6364394aadc1307e2f04de9dae3f7e676e17b7bff1e190eec97086bd226cf"
+    },
+    {
+      "file": "amd-gather-strong-wide-cross.jpg",
+      "sha256": "0305f02d415da5d5e52ec1c886223e090c516b94732a902584b45f7d7cdc0708"
+    },
+    {
+      "file": "samsung-jump4-wide-cross.jpg",
+      "sha256": "33dcfe4ced636cc30e7d42dabff50adedba2f73bfa176c184bc48accd56f1dd4"
+    },
+    {
+      "file": "amd-jump4-wide-cross.jpg",
+      "sha256": "19522db94859c29df341e5a2e6336880baca5f8f9aa10d526ed646c0edd1ace3"
+    },
+    {
+      "file": "samsung-jump8-wide-cross.jpg",
+      "sha256": "ab7eaf6089ca532956a7c0927b6946800630a81eb2624eab2bab9370956d6b37"
+    },
+    {
+      "file": "amd-jump8-wide-cross.jpg",
+      "sha256": "fc983e8dfaaa024497aebdf00dff98e1937e309fa4c9565f9b8b5c029144ecfd"
+    }
+  ],
+  "scope": "Independent static replay+Dry; 1024 squared fine paper, identical fixtures per device; ready after gl.finish; excludes paper load, mass readback and PNG export. Not input latency. Two cross runs, others single. Both prototype switches diagnostic only, main Mini remains v4.",
+  "inputSha256": {
+    "fixtures.json": "df24b77363f944fcfb55210031541c02aa76f59d4c3459410bf2382f1aec9d12",
+    "fixtures-wide.json": "4f210fd076ce9eaa26871b0b08d6728400d205d9a074caf37927a405ff150b02",
+    "fixtures-cross.json": "a1f37af63dda09934cde488f3c6e87f6fe377542254fb6a235b93c0f868afd66"
+  },
+  "repeatProof": [
+    {
+      "case": "jump8-cross",
+      "exactExport": true
+    },
+    {
+      "case": "gather-soft-cross",
+      "exactExport": true
+    },
+    {
+      "case": "jump4-cross",
+      "exactExport": true
+    },
+    {
+      "case": "gather-strong-cross",
+      "exactExport": true
+    },
+    {
+      "case": "baseline-cross",
+      "exactExport": true
+    }
+  ]
+}

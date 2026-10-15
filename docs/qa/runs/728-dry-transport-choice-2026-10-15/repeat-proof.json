@@ -1,0 +1,22 @@
+[
+  {
+    "case": "jump8-cross",
+    "exactExport": true
+  },
+  {
+    "case": "gather-soft-cross",
+    "exactExport": true
+  },
+  {
+    "case": "jump4-cross",
+    "exactExport": true
+  },
+  {
+    "case": "gather-strong-cross",
+    "exactExport": true
+  },
+  {
+    "case": "baseline-cross",
+    "exactExport": true
+  }
+]

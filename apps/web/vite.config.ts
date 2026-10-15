@@ -175,6 +175,7 @@ export default defineConfig(({ mode }) => {
         : []),
     ],
     server: {
+      ...(process.env.VITE_QA_TRANSPORT_RIG === '1' ? { fs: { allow: [fileURLToPath(new URL('../../../', import.meta.url))] } } : {}),
       // Vite 8's server.https only accepts an options object (or undefined)
       // — no more `https: true` shorthand. `{}` (defaults) is enough: the
       // mkcert plugin patches in its own cert/key onto this at config-resolve
