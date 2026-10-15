@@ -194,13 +194,13 @@ export function createPuddlePresentation(gl: WebGLRenderingContext, size: number
       // Even same-epoch inputs invalidate its target; wait for a fresh target.
       state.progress = 0; state.hasTarget = false
     },
-    setTarget(rgba: AccumulationBuffer, wetCoverage: AccumulationBuffer, epoch: number) {
+    setTarget(rgba: AccumulationBuffer, wetCoverage: AccumulationBuffer, epoch: number, options: {preserveAnchor?:boolean} = {}) {
       if (!state.accept(epoch)) return
       validate(rgba); validate(wetCoverage)
       draw(target, copy, { u_current: rgba })
       draw(wet, copy, { u_current: wetCoverage })
       draw(targetFeature, feature, { u_current: target })
-      draw(anchor, copy, { u_current: current })
+      if (!options.preserveAnchor) draw(anchor, copy, { u_current: current })
       draw(sourceFeature, feature, { u_current: anchor })
       draw(flow, match, { u_current: sourceFeature, u_target: targetFeature })
       state.hasTarget = true

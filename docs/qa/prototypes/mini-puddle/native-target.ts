@@ -11,7 +11,7 @@ type NativeJob = NonNullable<ReturnType<WatercolorSettlePlan['prepare']>>
 export type NativePuddleTargetOptions = {
   /** Capture BEFORE controller replaces prepare. Unbound or bound are accepted. */
   prepare?: WatercolorSettlePlan['prepare']
-  respectSettled?: boolean
+  fullResolution?: boolean
 }
 
 /** One isolated invocation of the existing v4 solver over the whole raw wash.
@@ -73,7 +73,6 @@ export function createNativePuddleTarget(engine: any, size: number, options: Nat
       // Explicit zero settled records are essential: null means inkLoad fallback.
       entry.inkSettled = pool.acquire(size, size); entry.inkSettled!.clear()
       entry.colorSettled = pool.acquire(size, size); entry.colorSettled!.clear()
-      if(options.respectSettled){(sourceEntry.inkBase??sourceEntry.inkSettled)?.copyTo(entry.inkSettled!);(sourceEntry.colorBase??sourceEntry.colorSettled)?.copyTo(entry.colorSettled!)}
       for (const name of ['solventLoad', 'foreignSolventLoad'] as const) {
         const src = sourceEntry[name]
         if (src) { const copy: AccumulationBuffer = pool.acquire(size, size); src.copyTo(copy); entry[name] = copy }
@@ -97,7 +96,8 @@ export function createNativePuddleTarget(engine: any, size: number, options: Nat
       publish(entry.inkLoad!, entry.inkColor, entry.coverage)
       const bloom = watercolorBloomStrength(ctx.landedWet, ctx.profile.pigmentLevel) * watercolorBloomPush(ctx.profile.pigmentLevel)
       // The controller's old jump experiment must not silently select a new kernel.
-      const jump = owner.diagnosticMultilevelContact
+      const jump = owner.diagnosticMultilevelContact, fine = owner.diagnosticFullResolution
+      owner.diagnosticFullResolution = options.fullResolution ?? false
       owner.diagnosticMultilevelContact = 0
       try {
         job = prepare.call(owner, clone, [tile], bounds, bloom, radius, ctx.profile.waterLevel, ctx.landedWet, standing, ctx.wetPeak, ctx.dwellMs,
@@ -105,7 +105,7 @@ export function createNativePuddleTarget(engine: any, size: number, options: Nat
         state.total = job?.ops.length ?? 0
         if (!job) { state.done = true; clone.destroy(); scratch = null; key = null }
       } catch (error) { cancel(); throw error }
-      finally { owner.diagnosticMultilevelContact = jump }
+      finally { owner.diagnosticMultilevelContact = jump; owner.diagnosticFullResolution = fine }
     },
     step(maxOps = 1) {
       if (!job || destroyed || state.done) return state

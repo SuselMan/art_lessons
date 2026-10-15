@@ -1,3 +1,4 @@
+import { morphProgress } from './morph-clock'
 import { AccumulationBuffer } from '../../../../apps/web/src/engine/src/buffers/AccumulationBuffer'
 import { wetDryMsFor } from '../../../../apps/web/src/engine/src/paper/paperWetness'
 import { createNativePuddleTarget } from './native-target'
@@ -7,11 +8,11 @@ import { createMaterialBlend } from './material-blend'
 /** Standalone experiment. The native live input path is deliberately untouched. */
 export function installMiniPuddle(engine: any, size: number, mode: 'morph'|'material', onStatus=(_message:string)=>{}) {
   const gl:WebGLRenderingContext=engine.gl
-  const respectSettled=mode==='morph'&&new URLSearchParams(location.search).get('settled')==='1'
   const originalPrepare=engine._settlePlan.prepare
   const previewAllowed=Object.getOwnPropertyDescriptor(engine._settleQueue,'allowProgressPreview')
   Object.defineProperty(engine._settleQueue,'allowProgressPreview',{configurable:true,get:()=>true})
-  const target=createNativePuddleTarget(engine,size,{prepare:originalPrepare,respectSettled})
+  const fullResolution=new URLSearchParams(location.search).get('fullResolution')==='1'
+  const target=createNativePuddleTarget(engine,size,{prepare:originalPrepare,fullResolution})
   const presentation=mode==='morph'?createPuddlePresentation(gl,size):null
   const blend=createMaterialBlend(gl,size)
   const make=()=>new AccumulationBuffer(gl,size,size)
@@ -27,7 +28,7 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph'|'mate
   function locate(){const s=scratch(),ctx=s?.finishContext;if(!ctx)return null;const tile=engine._resolveWithinSheet(ctx.target,bounds)[0];const entry=tile?s.peek(tile.buffer):null;return entry?{scratch:s,tile,entry,ctx}:null}
   function capture(){const s=scratch(),lc=engine._liveComposite;if(lc?.scratch===s)context={...lc};else if(s?.finishContext){const c=s.finishContext;context={...c,...s.compositeScalars(()=>({spreadPx:0,inkSmoothPx:0,water:0,migratePx:0,fieldSeed:c.fieldSeed,bristleRadiusPx:0})),strokeDir:s.noteDirection(0,0)}}}
   function render(m=target.buffers()){const found=locate();if(!found||!context)return;const c=context;rgba.clear();engine._drawRibbonCompositeRect({...found.tile,buffer:rgba},bounds,c.preset,c.profile,found.entry.original,m.coverage,m.p,m.c,c.color,c.opacity,c.fieldSeed,c.spreadPx??0,c.fringeWater??c.water??0,c.migratePx??0,0,c.strokeDir??[1,0],c.bristleRadiusPx??0)}
-  function commit(){const found=locate();if(!active||!found)return;const m=presentation||finished?target.buffers():shown,e=found.entry;const p=Math.min(1,clock/duration)
+  function commit(){const found=locate();if(!active||!found)return;const m=presentation||finished?target.buffers():shown,e=found.entry;const p=presentation?morphProgress(clock,duration):Math.min(1,clock/duration)
     // Morph has no exact material inverse. Use its elapsed material fraction
     // at the boundary, never the fully computed future target.
     for(const dest of [e.inkLoad,e.inkSettled,e.inkBase,e.inkDry])if(dest){if(presentation&&!finished)blend.mix(base.p,m.p,p,dest);else m.p.copyTo(dest)}
@@ -35,10 +36,10 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph'|'mate
     if(presentation&&!finished)blend.mix(base.coverage,m.coverage,p,e.coverage);else m.coverage.copyTo(e.coverage)
   }
   function request(){if(!raf&&!destroyed)raf=requestAnimationFrame(frame)}
-  function frame(at:number){raf=0;if(destroyed||down||!active)return;const dt=lastAt?Math.max(0,at-lastAt):0;lastAt=at;clock=Math.min(duration,clock+dt*(drying?100:1));const progress=clock/duration
+  function frame(at:number){raf=0;if(destroyed||down||!active)return;const dt=lastAt?Math.max(0,at-lastAt):0;lastAt=at;clock=Math.min(duration,clock+dt*(drying?100:1));const progress=presentation?morphProgress(clock,duration):clock/duration
     if(presentation||!segmentReady)target.step(drying?12:3)
     const revision=target.state.revision??target.state.iterations
-    if(presentation){if(target.state.done&&!goalReady){render();presentation.setTarget(rgba,target.buffers().coverage,epoch);goalReady=true}}
+    if(presentation){if(revision!==published){render();presentation.setTarget(rgba,target.buffers().coverage,epoch,{preserveAnchor:goalReady});goalReady=true;published=revision}}
     else {
       if(revision!==published){
         published=revision
@@ -68,7 +69,17 @@ export function installMiniPuddle(engine: any, size: number, mode: 'morph'|'mate
   engine._onEnd=function(...args:unknown[]){const r=original.get('_onEnd')!.apply(engine,args);down=false;capture();const found=locate();if(found){const e=found.entry;e.inkLoad.copyTo(base.p);e.inkColor.copyTo(base.c);e.coverage.copyTo(base.coverage);base.p.copyTo(shown.p);base.c.copyTo(shown.c);base.coverage.copyTo(shown.coverage);found.tile.buffer.copyTo(rgba);presentation?.reset(rgba,epoch);duration=wetDryMsFor(Math.max(found.ctx.wetPeak,found.ctx.profile.waterLevel));target.resetFromScratch(found.scratch,found.tile,epoch);active=true;clock=0;lastAt=0;published=target.state.revision;segmentReady=false;segmentStart=0;segmentEnd=0;lastShown=0;request()}return r}
   presentation?.reset(blank,epoch)
   return {
-    get state(){return {mode,respectSettled,epoch,iterations:target.state.iterations,total:target.state.total,done:!down&&(!active||finished),drawing:down,dry:drying,active,cancellations,inputs,progress:clock/duration,durationMs:duration,target:{...target.state},presentation:presentation?.state??null}},
+    get state(){return {mode,fullResolution,epoch,iterations:target.state.iterations,total:target.state.total,done:!down&&(!active||finished),drawing:down,dry:drying,active,cancellations,inputs,progress:presentation?morphProgress(clock,duration):clock/duration,timeProgress:clock/duration,durationMs:duration,target:{...target.state},presentation:presentation?.state??null}},
+    diagnosticSnapshot(kind:'goal'|'shown'){
+      const found=locate();if(!found)throw Error('No wet material')
+      const current=presentation?.tick(0,{dry:drying})??rgba
+      ;(kind==='goal'?rgba:current).copyTo(found.tile.buffer)
+      engine._paperPartialOK=false;engine._paperCacheKey='';engine._invalidateSplitCache()
+      original.get('_display')!.call(engine)
+      const png=(gl.canvas as HTMLCanvasElement).toDataURL('image/png')
+      current.copyTo(found.tile.buffer);engine._paperCacheKey='';engine._invalidateSplitCache();original.get('_display')!.call(engine)
+      return png
+    },
     dry(){drying=true;lastAt=performance.now();request()},
     destroy(){if(destroyed)return;destroyed=true;if(raf)cancelAnimationFrame(raf);for(const k of hooks)engine[k]=original.get(k);engine._settlePlan.prepare=originalPrepare;if(previewAllowed)Object.defineProperty(engine._settleQueue,'allowProgressPreview',previewAllowed);else delete engine._settleQueue.allowProgressPreview;target.destroy();presentation?.destroy();blend.destroy();for(const b of owned)b.destroy()},
   }

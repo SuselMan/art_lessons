@@ -60,6 +60,8 @@ export class WatercolorSettlePlan {
   /** Scheduling diagnostic only; latched by prepare, default OFF. */
   /** DEV experiment: coarse transport for ordinary brushes; native deposition is unchanged. */
   diagnosticCoarseTransport = false
+  /** DEV-only: isolate loss of internal water/pigment structure from half-resolution. */
+  diagnosticFullResolution = false
   /** DEV-only visual experiment; injected solver must price every crossed edge. */
   diagnosticFrontSchedule: ((steps: number) => readonly number[]) | null = null
   splitQuanta = false
@@ -201,6 +203,7 @@ export class WatercolorSettlePlan {
     let x1 = Math.min(maxX, Math.ceil(bounds.maxX) + pad), y1 = Math.min(maxY, Math.ceil(bounds.maxY) + pad)
     S = watercolorSettleScale(radiusPx, Math.max(x1 - x0, y1 - y0),
       fineLarge ? 'fine-large' : !fineFront && coarseTransport ? 'coarse' : 'native')
+    if (import.meta.env.DEV && this.diagnosticFullResolution) S = 1
     const CAP = 1536 * S
     if (x1 - x0 > CAP) { const c = (x0 + x1) * 0.5; x0 = Math.floor(c - CAP / 2); x1 = x0 + CAP }
     if (y1 - y0 > CAP) { const c = (y0 + y1) * 0.5; y0 = Math.floor(c - CAP / 2); y1 = y0 + CAP }
