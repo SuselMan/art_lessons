@@ -69,3 +69,5 @@ Ownpages и ADBports закрыты. Статическая сборка5.8MiB �
 - М19 (`?mode=morph&v=19`): М16 + direction totalconcentration в diffusion. GPUcounterexample исправлен, cancel/dryisolation0diff. Пятнистость слабее, но ровные границы заметнее и общее осветление не устранено: человеческая оценка обязательна, не считатьfix. Report728-mini-pale-patches-m19-2026-10-16.md.
 
 16.10 00:54: по просьбе Ильи М14/М16/М19 убраны из селектора. Видимые варианты: М01,М06,М11,М15. Прямые историческиеURL и исходники сохранены. М19 отклонён: растекание пропало.
+
+- М20 (`?mode=morph&v=20`): М15 без позднего запрета backgroundblur по motion. Исходная защита sourcepeaks остаётся. При первых3порогах1 backgroundработаетшире; Samsunggate8741→17256pixels вразныхживыхсериях, cancel/dryisolation0diff,GL0. Report728-mini-background-mask-m20-2026-10-16.md. М15сохранена; нужна человеческаяоценка.
