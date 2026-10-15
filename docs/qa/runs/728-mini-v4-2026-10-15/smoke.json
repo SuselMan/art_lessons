@@ -1,0 +1,17 @@
+{
+  "state": {
+    "title": "Мини-стенд — акварель Г, v4",
+    "model": "front8-detail-flow-v4",
+    "batch": 8,
+    "presets": [
+      "normal:100:69:PY35:round:wc@front8-detail-flow-v4",
+      "normal:100:69:PB15:round:wc@front8-detail-flow-v4"
+    ],
+    "gl": 0,
+    "lost": false,
+    "error": ""
+  },
+  "redoExact": true,
+  "cleared": true,
+  "errors": []
+}

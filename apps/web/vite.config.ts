@@ -145,6 +145,19 @@ export default defineConfig(({ mode }) => {
           return html.replace('<!-- grafetto-logo -->', logo.replace('<svg ', '<svg aria-hidden="true" '))
         },
       },
+      {
+        name: 'grafetto-watercolor-mini',
+        configureServer(server) {
+          if (process.env.VITE_QA_WATERCOLOR_REVIEW !== '1') return
+          server.middlewares.use((request, response, next) => {
+            const path = request.url?.split('?')[0]
+            if (path !== '/watercolor-mini' && path !== '/watercolor-mini/' && path !== '/watercolor-native-front8') return next()
+            response.setHeader('Content-Type', 'text/html; charset=utf-8')
+            response.setHeader('Cache-Control', 'no-store')
+            response.end(readFileSync(new URL('../../docs/qa/prototypes/mini-stand/index.html', import.meta.url)))
+          })
+        },
+      },
       react(),
       pwa,
       ...(useHttps ? [mkcert()] : []),
