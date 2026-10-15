@@ -5834,6 +5834,28 @@ export const WC_BRUSH_DRAG_BASELINE_FRAG = `
 /** Same conservative operator; skips only proven zero faces before pigment reads. */
 export const WC_BRUSH_DRAG_FRAG = brushDragEarlyZero(WC_BRUSH_DRAG_BASELINE_FRAG)
 
+/** DEV-only large-distance conservative exchange. The donor/capacity math is
+ * unchanged; every crossed wet cell must be open. Separate program preserves
+ * the accepted shader and its default execution cost. */
+export const WC_BRUSH_JUMP_FRAG = brushDragEarlyZero(WC_BRUSH_DRAG_BASELINE_FRAG)
+  .replace('uniform float u_contactGain;', 'uniform float u_contactGain; uniform float u_jump; uniform float u_mixScale;')
+  .replace('    float donor = texture2D(u_pigment, from).a;', `
+    // Symmetric path gate: reversing an edge sees exactly the same cells.
+    // Endpoint-only jumps would tunnel across dry gaps and disconnected pools.
+    float pathDose = min(flow.b, targetFlow.b);
+    for (int j = 1; j < 8; j++) {
+      if (float(j) < u_jump) {
+        vec2 q = snapUV(mix(from, to, float(j) / u_jump));
+        if (texture2D(u_water, q).a < 0.015) return 0.0;
+        pathDose = min(pathDose, flowAt(q).b);
+      }
+    }
+    if (pathDose <= 0.0) return 0.0;
+    float donor = texture2D(u_pigment, from).a;`)
+  .replace('clamp(doseB, 0.0, 1.0)', 'clamp(pathDose, 0.0, 1.0)')
+  .replace('mixFraction * doseB', 'mixFraction * pathDose * u_mixScale');
+
+
 /** Diagnostic immutable transport-domain reachability, RGBA = +x,-x,+y,-y. */
 export const WC_COST_DOMAIN_FRAG = `
   precision highp float;
