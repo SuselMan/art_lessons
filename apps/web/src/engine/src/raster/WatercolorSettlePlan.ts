@@ -62,6 +62,8 @@ export class WatercolorSettlePlan {
   diagnosticCoarseTransport = false
   /** DEV-only: isolate loss of internal water/pigment structure from half-resolution. */
   diagnosticFullResolution = false
+  /** DEV-only ablation: keep deposition weights, omit the six broad mixing advances. */
+  diagnosticSkipPuddleMix = false
   /** DEV-only visual experiment; injected solver must price every crossed edge. */
   diagnosticFrontSchedule: ((steps: number) => readonly number[]) | null = null
   splitQuanta = false
@@ -140,6 +142,7 @@ export class WatercolorSettlePlan {
   ): { ops: Array<() => void>; finish: () => void; dispose: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
     const { gl } = this
     const metadata = finishMetadata ?? scratch
+    const skipPuddleMix = import.meta.env.DEV && this.diagnosticSkipPuddleMix
     const materialModel = (finishMetadata?.finish ?? scratch.finishContext)?.profile.materialModel
     const tightField = materialModel === 'front8-detail-flow-v2' || materialModel === 'front8-detail-flow-v3' || materialModel === 'front8-detail-flow-v4'
     const detailFlow = tightField || materialModel === 'front8-detail-flow-v1'
@@ -925,7 +928,7 @@ export class WatercolorSettlePlan {
         ops.push(() => { settleSlice(0); afloat -= w.slices[0]; present(st.src, paired ? b : acc.fixed, paired?.src, colour?.b, afloat) })
         puddleSteps.forEach(({ radius, knight }, i) => {
           ops.push(() => {
-            advance(radius, knight)
+            if (!skipPuddleMix) advance(radius, knight)
             settleSlice(i + 1)
             afloat -= w.slices[i + 1]
             present(st.src, paired ? b : acc.fixed, paired?.src, colour?.b, afloat)
