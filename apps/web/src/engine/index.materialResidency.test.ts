@@ -322,3 +322,19 @@ for(const source of ['local','remote'] as const)it(`a ${source} marker cannot ov
   expect(engine.getOperations().some(op=>op.id==='marker-op')).toBe(true)
  }finally{engine.destroy()}
 })
+
+it('a public snapshot handover must not let the pre-reconnect wet goal overwrite its authoritative pixels on later Dry',async()=>{
+ const {engine}=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32},{width:32,height:32})
+ await paperReady(engine)
+ engine.appendOperation({...makeLayerAdd('B','L'),seq:1},'remote')
+ engine.appendOperation({...fillStroke('B','L',10,10,3),id:'accepted-wet',seq:2,tool:'watercolor',preset:'normal:80:60:PB29:round:wc@m70-r2-v1',strokeId:'accepted-wet',washId:'m70:L',timestamp:Date.now()},'remote')
+ const state=engine as unknown as {_puddle:PuddleRoomController}
+ const authoritative=new Uint8Array(4096).fill(77)
+ try{
+  engine.restoreLayerFromSnapshot('L',[{originX:0,originY:0,width:32,height:32,pixels:authoritative}],3)
+  expect(readTilePixels(engine,'L',0,0,32,32)!.every((value,i)=>value===authoritative[i])).toBe(true)
+  engine.appendOperation({id:'later-dry',type:'paper_dry',userId:'B',layerId:'L',timestamp:Date.now(),seq:4},'remote')
+  state._puddle.finishDrying()
+  expect(readTilePixels(engine,'L',0,0,32,32)!.every((value,i)=>value===authoritative[i])).toBe(true)
+ }finally{engine.destroy()}
+})
