@@ -5831,7 +5831,8 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   absorbHistoricalOperations(pageOps: Operation[]): void {
-    this._snapshotIO.absorbHistorical(pageOps)
+    const changed = this._snapshotIO.absorbHistorical(pageOps)
+    for (const op of changed) this._applyHistoryChange(op)
     this._resolveSnapshotHistoryRepairs()
   }
 

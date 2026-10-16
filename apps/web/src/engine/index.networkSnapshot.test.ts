@@ -198,6 +198,22 @@ describe('bakeLayerByFullReplay (#289)', () => {
 })
 
 describe('absorbHistoricalOperations (#169)', () => {
+  it('rebuilds painted pixels when a later history page supplies their undo', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
+    engine.initLayer('L')
+    const stroke = { ...makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]), seq: 2 }
+    engine.appendOperation(stroke, 'remote')
+    expect(readLayerPixels(engine, 'L')?.some(value => value !== 0)).toBe(true)
+    const undo: OperationUndoOperation = {
+      id: nanoid(10), type: 'operation_undo', userId: 'user-a', timestamp: 3, seq: 3, targetOpId: stroke.id,
+    }
+
+    engine.absorbHistoricalOperations([stroke, undo])
+
+    expect(engine.getOperations().map(op => op.id)).toEqual([undo.id])
+    expect(readLayerPixels(engine, 'L')?.some(value => value !== 0) ?? false).toBe(false)
+  })
+
   it('merges historical ops before the live tail, in correct order, without painting', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
     engine.initLayer('L') // as if seeded by a restored snapshot's layerState, not layer_add
