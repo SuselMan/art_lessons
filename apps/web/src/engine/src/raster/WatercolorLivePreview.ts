@@ -62,14 +62,31 @@ export class WatercolorLivePreview {
     // disconnected author whose stream continues while no commit can arrive.
     if (state.dabs.length + dabs.length > 6400) { state.suppressed = true; this.release(state); return }
     state.dabs.push(...dabs)
-    if (!state.buf) {
-      let bytes = 0
-      for (const item of this.streams.values()) if (item.buf) bytes += item.buf.width * item.buf.height * 4
-      if (bytes + this.host.width() * this.host.height() * 4 > 64 * 1024 * 1024) return
-      state.buf = new AccumulationBuffer(this.host.gl, this.host.width(), this.host.height())
-      state.buf.clear()
-      this.paint(state, state.dabs)
-    } else this.paint(state, dabs)
+    if (!state.buf) this.allocate(state)
+    else this.paint(state, dabs)
+  }
+
+  private allocate(state: Stream): void {
+    if (state.buf || state.suppressed || !state.dabs.length) return
+    let bytes = 0
+    for (const item of this.streams.values()) if (item.buf) bytes += item.buf.width * item.buf.height * 4
+    if (bytes + this.host.width() * this.host.height() * 4 > 64 * 1024 * 1024) return
+    state.buf = new AccumulationBuffer(this.host.gl, this.host.width(), this.host.height())
+    state.buf.clear()
+    this.paint(state, state.dabs)
+  }
+
+  /** Viewport changes invalidate buffers, not the unrecorded gesture. Retain
+   * cursor debt and repaint all pending world-space dabs at the new origin. */
+  resize(lost = false): void {
+    if (lost) { this.clear(true); return }
+    // Release every old film before allocating any new one: no doubled budget.
+    for (const state of this.streams.values()) {
+      if (state.buf) { state.buf.destroy(); this.revision++ }
+      state.buf = null
+      state.origin = this.host.origin()
+    }
+    for (const state of this.streams.values()) this.allocate(state)
   }
 
   confirm(peerId: string, strokeId: string, layerId: string, count: number): void {

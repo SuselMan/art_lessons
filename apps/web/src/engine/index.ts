@@ -3915,7 +3915,6 @@ export class PencilEngine implements PencilEngineAPI {
     const { gl, canvas } = this
     if (canvas.width === width && canvas.height === height) return
     this._clearAsyncPresentations(this._contextLost || gl.isContextLost())
-    this._watercolorLivePreview?.clear(this._contextLost || gl.isContextLost())
     canvas.width = width
     canvas.height = height
     // (#155 follow-up) A genuine layout event — Camera.canvasRect's cache is
@@ -3926,6 +3925,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._belowCache.destroy()
     this._aboveCache.destroy()
     this._assemblyFBO.destroy()
+    this._watercolorLivePreview?.resize(this._contextLost || gl.isContextLost())
     this._compositeFBO = new AccumulationBuffer(gl, width, height)
     this._belowCache = new AccumulationBuffer(gl, ew, eh)
     this._aboveCache = new AccumulationBuffer(gl, ew, eh)

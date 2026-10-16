@@ -86,3 +86,24 @@ it('remote film cannot be clipped to an unrelated local damage rectangle',async(
   expect(engine['_takePaperPartial']()).toBeNull()
  }finally{engine.destroy()}
 })
+
+it('keeps an unrecorded peer film and its committed cursor through a viewport resize',async()=>{
+ const engine=await setup()
+ try{
+  engine['_layers'].get('L')!.resolveForPaint({minX:0,minY:0,maxX:32,maxY:32})
+  engine.appendPeerLiveDabs('peer',{...packet,dabs:[dab(8,16),dab(16,16),dab(24,16)]})
+  engine['_watercolorLivePreview']!.confirm('peer','held','L',1)
+  const before=readLayerPixels(engine,'L')!.slice()
+  engine.resizeCanvas(80,48)
+  const states=[...engine['_watercolorLivePreview']!.visible()]
+  expect(states).toHaveLength(1)
+  expect(states[0].dabs.map(d=>d.x)).toEqual([16,24])
+  expect(states[0].received).toBe(3)
+  expect(states[0].committed).toBe(1)
+  expect(states[0].buf?.width).toBe(80)
+  expect(states[0].buf?.height).toBe(48)
+  expect(readLayerPixels(engine,'L')).toEqual(before)
+  engine['_watercolorLivePreview']!.confirm('peer','held','L',2)
+  expect(engine['_watercolorLivePreview']!.tiles().size).toBe(0)
+ }finally{engine.destroy()}
+})
