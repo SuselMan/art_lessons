@@ -54,3 +54,23 @@ infinite qa-undo-v1-7f5188bf-924d-401b-9460-b0e762e5ec8c.
 Их auth в приватных QA directories, не в Git; остальные наши завершённые комнаты
 удалены exact owner API, auth удалён. Координатор может удалить оставшиеся после
 решения открытых findings, compact evidence сохранять.
+
+## Финальное уточнение после #757/#758
+
+Runtime2c2f6115, ещё ровно4boundedcase, без performanceclaims: oversize1536²,
+512×768, infinite, thirdwet atomicreject PASS4. Ordinarypencil/setActive+timers
+ошибок не дают. После отвергнутого DOWN→20MOVE→UP journalIDs, failedtarget
+pixels/residency и соседниеcanonicaltargets обоих участников unchanged,
+strokeId+strokeLayernull, queue0/GL0, pencilrecovery работает. Тоесть #757
+неожиданный прогрев и #758 незаписанный локальный пигмент исправлены.
+Сами watergeometry/capacity ограничения #747 остаются unsupported.
+
+**Уборка завершена:** все37 наших recordedfixtures имеют exactownerAPI deletion
+receipt, private host-state/auth файлов осталось0. Включая прежние3retained и
+baselineghost: они удалены по явнойкоманде координатора, compactproof сохранён.
+Ни owncontext, ни coordinator процесса не осталось. Vega browser/profile/tunnel
+не трогались и переданы qa_cases на финальную уборку.
+Итог4case: temp/device-runs/745-final758-summary.json;
+cleanup receipts: temp/device-runs/745-final-owned-fixture-cleanup.json.
+Предыдущее перечисление retainedfixtures выше описывает промежуточный этап,
+сейчас оставшихся rooms/auth нет.

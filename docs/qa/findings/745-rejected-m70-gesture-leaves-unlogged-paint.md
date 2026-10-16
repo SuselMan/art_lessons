@@ -26,3 +26,10 @@ Evidence: temp/device-runs/745-757-baseline-oversize-full-gesture/report.json,
 failure PNG. Own disposablefixture сохранена дляфикса:
 qa-undo-v1-a86edebf-4f5d-4ee6-b8d1-f857e6b9af23; authprivate, неGit.
 Собственные browsercontexts закрыты, новыхcaseне запускалось.
+
+#758 исправлен и аппаратно подтверждён runtime2c2f6115: oversize1536 полный
+отвергнутый DOWN→20MOVE→UP атомарен. Failedtarget остаётсяпустым у обоих,
+journal/siblingcanonicaltargets unchanged, MOVEs/UP не бросают, strokeId/слойnull,
+pencilrecovery работает. Тотже atomiccontract PASS для thirdwet/nonsquare/infinite.
+Evidence: temp/device-runs/745-final758-summary.json и четыре report.json.
+Старый ghostfixture и auth удалены exactownerAPI после проверки.

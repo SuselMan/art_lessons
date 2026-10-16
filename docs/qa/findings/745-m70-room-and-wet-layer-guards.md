@@ -39,3 +39,13 @@ GLerror0. PASS recoverycase не означает поддержку геоме�
 Evidence: temp/device-runs/745-final5-guard-{third-wet,nonsquare,oversize,infinite}/report.json.
 Contexts закрыты. Третья wet/oversize комнаты удалены после capture; failed
 non-square/infinite сохранены для координатора с private auth (в Git не входит).
+
+Финальная проверка #757/#758 runtime2c2f6115: четыре recoverycase PASS после
+раннего pure preflight. Non-square/infinite ordinarypencil/setActive/timers
+теперь не вызывают неожиданных pageerror. Все четыре unsupported watercolor
+DOWN→MOVEs→UP оставляют журнал, failedtarget и соседний материал неизменными,
+strokeId+strokeLayernull; pencilrecovery работает, GL0/queues0.
+Это устраняет порчу/фоновые ошибки, но не добавляет поддержку геометрии или
+третьего мокрого слоя: основной productlimit #747 остаётся явноunsupported.
+Все наши failedfixture комнаты/auth теперь удалены ownerAPI; compactproofs
+сохранены в temp/device-runs/745-final758-summary.json.
