@@ -6150,6 +6150,7 @@ export class PencilEngine implements PencilEngineAPI {
       // A confirmed structural change removed the physical destination. Its
       // unrecorded tail cannot be authored after that fixed server boundary.
       const strokeId=this._strokeId
+      this._cancelLiveDabFlush()
       this._puddleStrokeRelease();this._puddleStrokeRelease=null
       if(this._dwellTimer){clearInterval(this._dwellTimer);this._dwellTimer=null}
       this._dwellCfg=null
