@@ -1,0 +1,20 @@
+{
+  "id": "approved-m70-r2-20261016",
+  "name": "Выбранный М70 · R2 · 16.10",
+  "model": "M70",
+  "presentation": "R2",
+  "sourceCommit": "b7a40cfc",
+  "parameters": {
+    "massThreshold": 0.298116,
+    "compositionThreshold": 0.474721,
+    "hueThreshold": 0.505521,
+    "hueStrength": 1,
+    "backgroundStrength": 0.877969,
+    "minimumRegionArea": 2994.2784,
+    "backgroundDistortion": 0.597529
+  },
+  "paint": "PB29",
+  "color": "#2a3b97",
+  "water": 95,
+  "pigment": 34
+}
