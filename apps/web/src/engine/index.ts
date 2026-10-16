@@ -5781,7 +5781,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _takeCheckpoint(layerId: string): void {
     const layer=this._layers.get(layerId)
-    if(layer && this._puddle?.has(layer))return
+    if(layer && this._puddle?.hasMaterial(layer))return
     if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._wcJoinedTouchLease === this._settle) return
     if (this.isSnapshotHistoryRepairPending(layerId)) return
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
@@ -5880,7 +5880,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** SnapshotIO's first bake gate — pure, see SnapshotIOContext.quiet. */
   private _snapshotQuiet(layerId: string): boolean {
     const puddleLayer=this._layers.get(layerId)
-    if(puddleLayer && this._puddle?.has(puddleLayer)) return false
+    if(puddleLayer && this._puddle?.hasMaterial(puddleLayer)) return false
     if (this.isSnapshotHistoryRepairPending(layerId) || this._wcJoinedDeferred || this._wcJoinedRecoveryLayers.has(layerId)) return false
     // A canonical request may be between solver steps, with no _settle yet.
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return false

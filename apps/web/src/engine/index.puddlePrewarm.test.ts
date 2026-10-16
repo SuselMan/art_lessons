@@ -46,3 +46,18 @@ it('still prewarms a supported free layer, but does not allocate a third wet sou
     expect(source).toHaveBeenCalledTimes(1)
   } finally { internal._puddle = null }
 })
+
+it('does not let an empty prewarm block an otherwise publishable layer', async () => {
+  const {engine} = createTestEngine({userId: 'artist', watercolorModel: 'm70-r2-v1',
+    pageWidth: 64, pageHeight: 64}, {width: 64, height: 64})
+  await paperReady(engine)
+  vi.useFakeTimers()
+  try {
+    engine.appendOperation(makeLayerAdd('artist', 'paint'), 'remote')
+    engine.setActiveLayer('paint')
+    expect(engine['_snapshotQuiet']('paint')).toBe(true)
+    vi.advanceTimersByTime(51)
+    expect(engine['_puddle']?.state.layers).toBe(1)
+    expect(engine['_snapshotQuiet']('paint')).toBe(true)
+  } finally {engine.destroy()}
+})
