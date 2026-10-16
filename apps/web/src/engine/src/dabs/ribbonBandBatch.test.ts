@@ -12,12 +12,14 @@ const materials: RibbonBandMaterialFor[] = [
   (_a, d) => ({ ink: d.pressure * .193 / 4, water: 1, paperWet: 0, strength: 0, puddle: 0, pigmentPool: 0 }),
 ]
 function exact(dabs: Dab[], previous: Dab | undefined, shape: NibShape, film: boolean, scale: number) {
-  const actual = buildRibbonBandBatch(dabs, scale, previous, shape, .23, .71, materials, film)
+  for (const views of [false, true]) for (const reuse of [false, true]) {
+  const actual = buildRibbonBandBatch(dabs, scale, previous, shape, .23, .71, materials, film, views, reuse)
   expect(actual.length).toBe(3)
   for (let i = 0; i < materials.length; i++) {
     const baseline = buildRibbonBands(dabs, scale, previous, shape, .23, .71, materials[i], film)
     // Compare encoded Float32 bits, including signed zero, rather than approximate floats.
-    expect(Buffer.compare(Buffer.from(actual[i].buffer), Buffer.from(baseline.buffer))).toBe(0)
+    expect(Buffer.compare(Buffer.from(actual[i].buffer, actual[i].byteOffset, actual[i].byteLength), Buffer.from(baseline.buffer))).toBe(0)
+  }
   }
 }
 describe('single geometry material batch', () => {

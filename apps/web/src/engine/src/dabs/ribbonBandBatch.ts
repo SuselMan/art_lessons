@@ -14,6 +14,8 @@ export function buildRibbonBandBatch(
   aaPx = 1,
   inkFor: readonly RibbonBandMaterialFor[] = [],
   fillEveryPose = false,
+  returnViews = false,
+  reusePoses = false,
 ): Float32Array[] {
   const chain = prevDab ? [prevDab, ...dabs] : dabs
   if (chain.length < 2) return inkFor.map(() => new Float32Array(0))
@@ -99,23 +101,27 @@ export function buildRibbonBandBatch(
         puddle: got.puddle ?? 1, pigmentPool: got.pigmentPool ?? 0.5 }
     })
 
-    const steps = poseSubdivisions(
-      nibGeometry(d0, sizeMultiplier, shape, cornerFraction),
-      nibGeometry(d1, sizeMultiplier, shape, cornerFraction),
-    )
+    const g0 = nibGeometry(d0, sizeMultiplier, shape, cornerFraction)
+    const g1 = nibGeometry(d1, sizeMultiplier, shape, cornerFraction)
+    const steps = poseSubdivisions(g0, g1)
+    let priorPose = d0
+    let priorGeometry = g0
 
     // Capacity only: never read encoded values back into geometry/material math.
     reserve(written + (steps * 12 + (fillEveryPose ? steps : Math.max(0, steps - 1)) * OUTLINE_SEGMENTS * 9) * 11)
     for (let k = 0; k < steps; k++) {
-      const a = k === 0 ? d0 : lerpDab(d0, d1, k / steps)
+      const a = reusePoses ? priorPose : (k === 0 ? d0 : lerpDab(d0, d1, k / steps))
       const b = k === steps - 1 ? d1 : lerpDab(d0, d1, (k + 1) / steps)
+      const cachedGa = reusePoses ? priorGeometry : undefined
+      const cachedGb = reusePoses ? (k === steps - 1 ? g1 : nibGeometry(b, sizeMultiplier, shape, cornerFraction)) : undefined
+      if (reusePoses) { priorPose = b; priorGeometry = cachedGb! }
       const dx = b.x - a.x, dy = b.y - a.y
       const len = Math.hypot(dx, dy)
       if (len < 1e-6) continue
       const nx = -dy / len, ny = dx / len
 
-      const ga = nibGeometry(a, sizeMultiplier, shape, cornerFraction)
-      const gb = nibGeometry(b, sizeMultiplier, shape, cornerFraction)
+      const ga = cachedGa ?? nibGeometry(a, sizeMultiplier, shape, cornerFraction)
+      const gb = cachedGb ?? nibGeometry(b, sizeMultiplier, shape, cornerFraction)
       pressure = tipContactPressure(a.pressure, ga.semiMinor)
       endPressure = tipContactPressure(b.pressure, gb.semiMinor)
       const la = nibSupport(ga, nx, ny), lb = nibSupport(gb, nx, ny)
@@ -131,6 +137,6 @@ export function buildRibbonBandBatch(
     }
   }
 
-  return outputs.map(output => written === output.length ? output : output.slice(0, written))
+  return outputs.map(output => written === output.length ? output : (returnViews ? output.subarray(0, written) : output.slice(0, written)))
 }
 

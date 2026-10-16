@@ -64,6 +64,12 @@ export class WatercolorSettlePlan {
   diagnosticFullResolution = false
   /** DEV-only ablation: keep deposition weights, omit the six broad mixing advances. */
   diagnosticSkipPuddleMix = false
+  /** DEV-only approximation: one field goal without chronological brush-drag contacts. */
+  diagnosticSkipBrushContacts = false
+  /** DEV-only: optical record follows pigment even for a single paint. */
+  diagnosticAlwaysPairedColour = false
+  /** DEV-only: preserve whole-field input detail independently of the last brush path. */
+  diagnosticPreserveBrushField = false
   /** DEV-only visual experiment; injected solver must price every crossed edge. */
   diagnosticFrontSchedule: ((steps: number) => readonly number[]) | null = null
   splitQuanta = false
@@ -147,7 +153,7 @@ export class WatercolorSettlePlan {
     const tightField = materialModel === 'front8-detail-flow-v2' || materialModel === 'front8-detail-flow-v3' || materialModel === 'front8-detail-flow-v4'
     const detailFlow = tightField || materialModel === 'front8-detail-flow-v1'
     const detailMaterial = detailFlow || materialModel === 'front8-detail-v1'
-    const preserveBrush = detailMaterial && metadata.brushTravel.some(d => Math.hypot(d.dx, d.dy) >= 0.01)
+    const preserveBrush = detailMaterial && ((import.meta.env.DEV && this.diagnosticPreserveBrushField) || metadata.brushTravel.some(d => Math.hypot(d.dx, d.dy) >= 0.01))
     const fineLarge = detailMaterial || materialModel === 'front8-fine-large-v1'
     const fineFront = fineLarge || materialModel === 'front8-fine-v1'
     const front8 = fineFront || materialModel === 'front8-v1'
@@ -348,9 +354,10 @@ export class WatercolorSettlePlan {
     const foreign = foreignWaterStencil(metadata.foreignSources ?? [], metadata.wetContacts,
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
     const contactRect = { x: x0, y: y0, w: field.w * S, h: field.h * S }
-    const groups = lazyContacts && !skipZeroPigmentContacts ? brushDragContactGroups(metadata.brushTravel, contactRect) : []
-    const workspace = this.diagnosticReuseFlowRaster && !lazyContacts && !skipZeroPigmentContacts ? new BrushDragRasterWorkspace() : undefined
-    const contacts = skipZeroPigmentContacts || lazyContacts ? [] : this.diagnosticHoistedContactRaster
+    const skipBrushContacts = skipZeroPigmentContacts || (import.meta.env.DEV && this.diagnosticSkipBrushContacts)
+    const groups = lazyContacts && !skipBrushContacts ? brushDragContactGroups(metadata.brushTravel, contactRect) : []
+    const workspace = this.diagnosticReuseFlowRaster && !lazyContacts && !skipBrushContacts ? new BrushDragRasterWorkspace() : undefined
+    const contacts = skipBrushContacts || lazyContacts ? [] : this.diagnosticHoistedContactRaster
       ? brushDragContactGroups(metadata.brushTravel, contactRect).map(group => ({ rect: group.rect, radius: group.radius, field: brushDragFieldHoisted(group.travel, group.rect, 4, workspace)! }))
       : brushDragContacts(metadata.brushTravel, contactRect, workspace)
     if (workspace) {
@@ -620,8 +627,9 @@ export class WatercolorSettlePlan {
     // and pigment second against the unchanged pre-step pigment field.
     // Physical reachability must be identical for owned live and synchronous replay.
     // Single-paint carry has no colour record: ca/cc are spare until reconstruction.
-    const costPathsEnabled = this.diagnosticCostDomainPaths && metadata.paints.size === 1
-    const colour = metadata.paints.size > 1 ? { a: field.ca, b: field.cb, c: field.cc } : null
+    const pairedColourEnabled = metadata.paints.size > 1 || (import.meta.env.DEV && this.diagnosticAlwaysPairedColour)
+    const costPathsEnabled = this.diagnosticCostDomainPaths && metadata.paints.size === 1 && !pairedColourEnabled
+    const colour = pairedColourEnabled ? { a: field.ca, b: field.cb, c: field.cc } : null
     const singlePaint = [...metadata.paints][0]
     const singleTau: [number, number, number] = !colour && singlePaint ? pigmentAbsorption(singlePaint.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
     // (§17.42) The wash dries as ONE component: nothing of an operation is
@@ -1019,7 +1027,7 @@ export class WatercolorSettlePlan {
     // again — half the settle's cost, which was "всё это дело притормаживает".
     let col: { out: AccumulationBuffer }
     if (pureWater) col = { out: field.cc }
-    else if (metadata.paints.size <= 1) {
+    else if (!colour) {
       const only = [...metadata.paints][0]
       const tau = only ? pigmentAbsorption(only.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
       col = { out: field.cc }

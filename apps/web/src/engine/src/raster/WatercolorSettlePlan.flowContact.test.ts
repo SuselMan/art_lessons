@@ -69,3 +69,35 @@ for (const completion of ['finish', 'abort', 'context-loss'] as const) it(`${mod
     scratch.destroy(); p._ribbonScratchPool.release(tile); engine.destroy()
   }
 })
+
+it('field-goal approximation omits contact flow without claiming zero pigment or dropping brush detail', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 1024, height: 1024 })
+  const p = engine as unknown as Probe
+  engine.initLayer('field-goal')
+  const tile = p._ribbonScratchPool.acquire(1024, 1024)
+  const scratch = new RibbonStrokeScratch(p._ribbonScratchPool, true, true)
+  scratch.filmBuffers(tile)
+  scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+  scratch.brushTravel = [{ x: 512, y: 512, radius: 128, aspect: 1, angle: 0, dx: 180, dy: 0, water: 1 }]
+  const preset = 'normal:100:69:PB15:round:wc@front8-detail-flow-v4'
+  const bounds = { minX: 100, minY: 200, maxX: 900, maxY: 800 }
+  scratch.noteFinish({ target: p._layers.get('field-goal')!, preset: p._resolvePreset('watercolor', preset), profile: ribbonProfileFor('watercolor', preset)!, color: [1, 0, 0], opacity: 1, bounds, fieldSeed: [0, 0], landedWet: 1, wetPeak: 1, radiusPx: 128, dwellMs: 0 })
+  const brush = vi.spyOn(p._watercolorPasses, 'brushPass')
+  const reconstruction = vi.spyOn(p._watercolorPasses.materialReconstruction(), 'pigment')
+  scratch.pigmentInputsKnownZero = false // Nonzero fixture; this is not the zero-pigment shortcut.
+  p._settlePlan.diagnosticSkipBrushContacts = true
+  const plan = p._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }], bounds, .2, 128, 1, 1, 1, 1)!
+  // Prepare latches the approximation; another caller may restore the flag immediately.
+  p._settlePlan.diagnosticSkipBrushContacts = false
+  try {
+    for (let i = 0; i < plan.ops.length; i++) plan.ops[i]()
+    plan.finish()
+    expect(scratch.pigmentInputsKnownZero).toBe(false)
+    expect(brush).not.toHaveBeenCalled()
+    expect(reconstruction.mock.calls.some(([request]) => request.preserveBrush)).toBe(true)
+    expect((p._settlePlan as unknown as { _ownedInputs: Set<AccumulationBuffer> })._ownedInputs.size).toBe(0)
+  } finally {
+    plan.dispose(); brush.mockRestore(); reconstruction.mockRestore()
+    scratch.destroy(); p._ribbonScratchPool.release(tile); engine.destroy()
+  }
+})
