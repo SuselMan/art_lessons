@@ -139,11 +139,12 @@ describe('historical water boundaries and abandoned redo', () => {
     expect(ids([a, e({ ...hide, visible: true }), b])).toEqual(['a', 'hide', 'b'])
     expect(ids([a, e({ ...hide, layerId: 'other' }), b])).toEqual(['a', 'hide', 'b'])
   })
-  it('a distant stroke does not extend another pool drying deadline', () => {
+  it('component drying can be selected explicitly without changing the layer-clock default', () => {
     const a = e(stroke('a', 'A', 0), 'undone')
     const distant = e(stroke('distant', 'A', 1000, { timestamp: 119000 }))
     const late = e(stroke('late', 'B', 0, { timestamp: 121000 }))
-    expect(ids([a, distant, late])).toEqual(['distant', 'late'])
+    expect(ids([a, distant, late])).toEqual(['a', 'distant', 'late'])
+    expect(effectiveWatercolorOperations([a, distant, late], { dryingScope: 'component' }).map(op => op.id)).toEqual(['distant', 'late'])
     expect(ids([a, e(stroke('refresh', 'A', 0, { timestamp: 119000 })), late])).toEqual(['a', 'refresh', 'late'])
   })
   it('chunks of one gesture on opposite sides of a dry boundary do not connect pools', () => {
@@ -154,4 +155,141 @@ describe('historical water boundaries and abandoned redo', () => {
     const b = e(stroke('b', 'B', 50))
     expect(ids([a, first, dry, second, b])).toEqual(['first', 'dry', 'second', 'b'])
   })
+})
+
+
+function eventStroke(id: string, userId: string, x = 0): StrokeOperation {
+  return { id, userId, type: 'stroke', layerId: 'L', timestamp: 100,
+    tool: 'watercolor', strokeId: id, washId: 'm70:L',
+    preset: 'normal:80:60:PB29:round:wc@m70-r2-v1', color: [0, 0, 1],
+    dabs: [{ x, y: 0, size: 10, aspectRatio: 1, angle: 0, pressure: 1,
+      opacity: 1, tiltX: 0, tiltY: 0, t: 0 }] }
+}
+function applyEvent(log: OperationLog, op: Operation): void {
+  log.append(op)
+  if (op.type === 'operation_undo') log.applyUndo(op.targetOpId, op.userId)
+  if (op.type === 'operation_redo') log.applyRedo(op.targetOpId, op.userId)
+  if (op.type === 'operation_revoke') log.revoke(op.targetOpId)
+}
+let eventSerial = 0
+function changeEvent(log: OperationLog, type: 'operation_undo' | 'operation_redo', targetOpId: string, userId: string): void {
+  applyEvent(log, { id: `meta${++eventSerial}`, type, targetOpId, userId, timestamp: 200 + eventSerial })
+}
+const eventMaterialIds = (log: OperationLog) => log.layerPixelOps('L').map(op => op.id)
+
+it('does not resurrect fully cancelled water when another participant later draws', () => {
+  const log = new OperationLog()
+  applyEvent(log, eventStroke('a', 'A')); changeEvent(log, 'operation_undo', 'a', 'A')
+  expect(eventMaterialIds(log)).toEqual([])
+  applyEvent(log, eventStroke('b', 'B'))
+  expect(eventMaterialIds(log)).toEqual(['b'])
+  changeEvent(log, 'operation_redo', 'a', 'A')
+  expect(eventMaterialIds(log)).toEqual(['a', 'b'])
+})
+
+it('does not resurrect fully cancelled water after owner closes redo branch', () => {
+  const log = new OperationLog()
+  applyEvent(log, eventStroke('a', 'A')); changeEvent(log, 'operation_undo', 'a', 'A')
+  applyEvent(log, eventStroke('newA', 'A', 100)); applyEvent(log, eventStroke('b', 'B'))
+  expect(eventMaterialIds(log)).toEqual(['newA', 'b'])
+})
+
+it('allows new consumers while water remains protected', () => {
+  const log = new OperationLog()
+  applyEvent(log, eventStroke('a', 'A')); applyEvent(log, eventStroke('b', 'B'))
+  changeEvent(log, 'operation_undo', 'a', 'A')
+  applyEvent(log, eventStroke('c', 'C'))
+  changeEvent(log, 'operation_undo', 'b', 'B')
+  expect(eventMaterialIds(log)).toEqual(['a', 'b', 'c']) // B also keeps water for later C
+})
+
+it('does not let a new consumer revive water after the last holder cancelled', () => {
+  const log = new OperationLog()
+  applyEvent(log, eventStroke('a', 'A')); applyEvent(log, eventStroke('b', 'B'))
+  changeEvent(log, 'operation_undo', 'a', 'A'); changeEvent(log, 'operation_undo', 'b', 'B')
+  expect(eventMaterialIds(log)).toEqual([])
+  applyEvent(log, eventStroke('c', 'C'))
+  expect(eventMaterialIds(log)).toEqual(['c'])
+})
+
+it('redo of the historical holder restores protection without new water duplication', () => {
+  const log = new OperationLog()
+  applyEvent(log, eventStroke('a', 'A')); applyEvent(log, eventStroke('b', 'B'))
+  changeEvent(log, 'operation_undo', 'a', 'A'); changeEvent(log, 'operation_undo', 'b', 'B')
+  changeEvent(log, 'operation_redo', 'b', 'B')
+  expect(eventMaterialIds(log)).toEqual(['a', 'b'])
+  changeEvent(log, 'operation_redo', 'a', 'A')
+  expect(eventMaterialIds(log)).toEqual(['a', 'b'])
+  expect(log.layerPixelOps('L')[0]).toMatchObject({ preset: eventStroke('a', 'A').preset })
+})
+
+it('later bridging geometry cannot resurrect a fully removed pool', () => {
+  const log = new OperationLog()
+  applyEvent(log, eventStroke('a', 'A', 0)); changeEvent(log, 'operation_undo', 'a', 'A')
+  applyEvent(log, eventStroke('b', 'B', 20)); applyEvent(log, eventStroke('bridge', 'C', 10))
+  expect(eventMaterialIds(log)).toEqual(['b', 'bridge'])
+})
+
+it('control target aliases undo and redo every chunk of the same gesture', () => {
+  const log = new OperationLog()
+  applyEvent(log, { ...eventStroke('a1', 'A'), strokeId: 'longA' }); applyEvent(log, eventStroke('b', 'B'))
+  applyEvent(log, { ...eventStroke('a2', 'A'), strokeId: 'longA' })
+  changeEvent(log, 'operation_undo', 'a1', 'A')
+  expect(eventMaterialIds(log)).toEqual(['a1', 'b', 'a2'])
+  changeEvent(log, 'operation_undo', 'b', 'B')
+  expect(eventMaterialIds(log)).toEqual([])
+  changeEvent(log, 'operation_redo', 'a2', 'A')
+  expect(eventMaterialIds(log)).toEqual(['a1', 'a2'])
+})
+
+it('teacher revocation removes protected water of a closed redo branch', () => {
+  const log = new OperationLog()
+  applyEvent(log, eventStroke('a', 'A')); applyEvent(log, eventStroke('b', 'B'))
+  changeEvent(log, 'operation_undo', 'a', 'A'); applyEvent(log, eventStroke('newA', 'A', 100))
+  expect(eventMaterialIds(log)).toEqual(['a', 'b', 'newA'])
+  applyEvent(log, { id: 'revokeA', type: 'operation_revoke', targetOpId: 'a', userId: 'teacher', timestamp: 500 })
+  expect(eventMaterialIds(log)).toEqual(['b', 'newA'])
+})
+
+describe('material boundaries match the one-source layer adapter', () => {
+  it('ordinary tools close wet source, while wet eraser does not', () => {
+    const a = e(stroke('a', 'A', 0), 'undone'), b = e(stroke('b', 'B', 0))
+    const pencil = e(stroke('pencil', 'C', 100, { tool: 'pencil' }))
+    const eraser = e(stroke('eraser', 'C', 100, { tool: 'eraser' }))
+    expect(ids([a, pencil, b])).toEqual(['pencil', 'b'])
+    expect(ids([a, eraser, b])).toEqual(['a', 'eraser', 'b'])
+  })
+  it('closes at the exact 120-second source deadline in either drying scope', () => {
+    const entries = [e(stroke('a', 'A', 0), 'undone'), e(stroke('b', 'B', 0, { timestamp: 120000 }))]
+    expect(ids(entries)).toEqual(['b'])
+    expect(effectiveWatercolorOperations(entries, { dryingScope: 'component' }).map(op => op.id)).toEqual(['b'])
+  })
+})
+
+it('a new bridge cannot revive dormant water after the historical bridge was cancelled', () => {
+  const log = new OperationLog()
+  applyEvent(log, eventStroke('a', 'A', 0)); applyEvent(log, eventStroke('b', 'B', 20))
+  applyEvent(log, eventStroke('bridgeC', 'C', 10))
+  changeEvent(log, 'operation_undo', 'a', 'A')
+  expect(eventMaterialIds(log)).toEqual(['a', 'b', 'bridgeC'])
+  changeEvent(log, 'operation_undo', 'bridgeC', 'C')
+  expect(eventMaterialIds(log)).toEqual(['b'])
+  applyEvent(log, eventStroke('newBridgeD', 'D', 10))
+  expect(eventMaterialIds(log)).toEqual(['b', 'newBridgeD'])
+  changeEvent(log, 'operation_redo', 'bridgeC', 'C')
+  expect(eventMaterialIds(log)).toEqual(['a', 'b', 'bridgeC', 'newBridgeD'])
+})
+
+it('redo of an original own connector can restore historical protection but a new bridge cannot', () => {
+  const log = new OperationLog()
+  applyEvent(log, eventStroke('a', 'A', 0)); applyEvent(log, eventStroke('b', 'B', 20))
+  applyEvent(log, eventStroke('ownBridge', 'A', 10))
+  changeEvent(log, 'operation_undo', 'a', 'A')
+  expect(eventMaterialIds(log)).toEqual(['a', 'b', 'ownBridge'])
+  changeEvent(log, 'operation_undo', 'ownBridge', 'A')
+  expect(eventMaterialIds(log)).toEqual(['b'])
+  applyEvent(log, eventStroke('newBridgeD', 'D', 10))
+  expect(eventMaterialIds(log)).toEqual(['b', 'newBridgeD'])
+  changeEvent(log, 'operation_redo', 'ownBridge', 'A')
+  expect(eventMaterialIds(log)).toEqual(['a', 'b', 'ownBridge', 'newBridgeD'])
 })
