@@ -20,7 +20,7 @@ let browser;const contexts=[];
   for(const [index,state] of [[0,env.QA_HOST_STATE],[1,null]]){
     const context=await browser.newContext({...state?{storageState:state}:{},viewport:{width:1100,height:850}});contexts.push(context);
     const p=await context.newPage();pages.push(p);p.setDefaultTimeout(180000);
-    p.on('pageerror',e=>report.errors.push({author:index,message:e.message}));
+    p.on('pageerror',e=>report.errors.push({author:index,message:e.message,stack:e.stack}));
     await p.addInitScript(()=>{const Native=WebSocket;window.__qaRoomSockets=[];window.WebSocket=class extends Native{constructor(...args){super(...args);if(String(args[0]).includes('/socket.io/'))window.__qaRoomSockets.push(this)}}});
     await context.request.get(env.QA_ENTRY_URL);
     await p.goto(new URL('/room/'+env.QA_ROOM+'?qaModel=m70-r2-v1',env.QA_BASE_URL).href);
