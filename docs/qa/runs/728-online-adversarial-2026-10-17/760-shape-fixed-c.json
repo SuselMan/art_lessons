@@ -1,0 +1,49 @@
+{
+  "source": "659852ef",
+  "kind": "actual GPU wet material then independent red shape",
+  "errors": [],
+  "ok": true,
+  "raster": {
+    "layerId": "qa-wet-shape",
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "34c670b89b053d43dc7713b222f216f44779afc690780066ad7e20ca4e522b2d",
+    "oracleHash": "34c670b89b053d43dc7713b222f216f44779afc690780066ad7e20ca4e522b2d",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 16106,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "immediate": {
+    "red": 10000,
+    "puddle": {
+      "layers": 0,
+      "drying": false,
+      "cancellations": 1,
+      "computations": 2,
+      "pending": false,
+      "revisions": []
+    },
+    "glError": 0
+  },
+  "after": {
+    "red": 10000,
+    "puddle": {
+      "layers": 1,
+      "drying": false,
+      "cancellations": 1,
+      "computations": 2,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "glError": 0
+  }
+}

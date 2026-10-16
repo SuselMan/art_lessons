@@ -1,0 +1,142 @@
+{
+  "source": "659852ef",
+  "scope": "actual observer held water/pigment, network cancel and author disconnect",
+  "cases": [
+    {
+      "name": "water-visible-on-both-observers-before-up-export-excluded",
+      "waterVisible": [
+        {
+          "actor": 1,
+          "changedChannels": 432,
+          "max": 10,
+          "meanRGB": [
+            240.65972222222223,
+            240.65972222222223,
+            240.65972222222223
+          ]
+        },
+        {
+          "actor": 2,
+          "changedChannels": 432,
+          "max": 10,
+          "meanRGB": [
+            240.63194444444446,
+            240.63194444444446,
+            240.63194444444446
+          ]
+        }
+      ]
+    },
+    {
+      "name": "cancel-network-event-and-late-packets-no-ghost",
+      "cancelled": [
+        {
+          "actor": 1,
+          "changedChannels": 0,
+          "max": 0,
+          "meanRGB": [
+            246.20833333333334,
+            246.20833333333334,
+            246.20833333333334
+          ]
+        },
+        {
+          "actor": 2,
+          "changedChannels": 0,
+          "max": 0,
+          "meanRGB": [
+            246.16666666666666,
+            246.16666666666666,
+            246.16666666666666
+          ]
+        }
+      ],
+      "screenBefore": [
+        {
+          "hash": "e2786d97d88b5500a2898a31ba1258024dea2db9158cf51ca70fb29c2d54ffdc",
+          "bytes": 3740000,
+          "glError": 0
+        },
+        {
+          "hash": "3d2288e6a33798a59c567e447381e45b3d50a1d5ee5335cdc17c21936d43c60f",
+          "bytes": 3740000,
+          "glError": 0
+        }
+      ],
+      "screenAfterCancel": [
+        {
+          "hash": "e2786d97d88b5500a2898a31ba1258024dea2db9158cf51ca70fb29c2d54ffdc",
+          "bytes": 3740000,
+          "glError": 0
+        },
+        {
+          "hash": "3d2288e6a33798a59c567e447381e45b3d50a1d5ee5335cdc17c21936d43c60f",
+          "bytes": 3740000,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "pigment-visible-on-two-observers-before-up",
+      "pigment": "Lly980U-nS",
+      "pigmentVisible": [
+        {
+          "actor": 0,
+          "changedChannels": 432,
+          "max": 71,
+          "meanRGB": [
+            206.52777777777777,
+            216.26388888888889,
+            238.04861111111111
+          ]
+        },
+        {
+          "actor": 2,
+          "changedChannels": 432,
+          "max": 71,
+          "meanRGB": [
+            206.52777777777777,
+            216.26388888888889,
+            238.04861111111111
+          ]
+        }
+      ]
+    },
+    {
+      "name": "rejected-final-online-author-no-ghost",
+      "disconnected": [
+        {
+          "actor": 0,
+          "changedChannels": 0,
+          "max": 0,
+          "meanRGB": [
+            246.16666666666666,
+            246.16666666666666,
+            246.16666666666666
+          ]
+        },
+        {
+          "actor": 2,
+          "changedChannels": 0,
+          "max": 0,
+          "meanRGB": [
+            246.16666666666666,
+            246.16666666666666,
+            246.16666666666666
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "pass": true,
+  "rejection": {
+    "ack": {
+      "ok": false,
+      "reason": "room_frozen"
+    },
+    "strokeId": "Lly980U-nS",
+    "studentConnected": true,
+    "suppressedAuthorCancel": 0
+  }
+}
