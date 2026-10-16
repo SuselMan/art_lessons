@@ -211,3 +211,56 @@ for(const active of ['dry','Lbad'])it(`refuses live eraser atomically before ges
   expect(request).toHaveBeenCalledTimes(1)
  }finally{engine.destroy()}
 })
+
+
+for(const author of ['A','B'])it(`${author==='A'?'own':'remote'} Undo during held M70 input defers only that layer rebuild until UP`,async()=>{
+ const {engine}=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32},{width:32,height:32})
+ await paperReady(engine)
+ engine.appendOperation(makeLayerAdd('B','L'),'remote')
+ engine.appendOperation({...fillStroke(author,'L',10,10,3),id:'prior',tool:'watercolor',preset:'normal:80:60:PB29:round:wc@m70-r2-v1',strokeId:'prior',washId:'m70:L',timestamp:Date.now()},'remote')
+ engine.setActiveLayer('L');engine.setTool('watercolor');engine.setPencil('normal:80:60:PB29:round')
+ const state=engine as unknown as {_puddleRebuildAtPenUp:Set<string>;_puddleStrokeRelease:unknown;_rebuildLayer(id:string):void;_rebuildJobs:Map<string,unknown>}
+ try{
+  simulateStrokeStart(engine,10,10)
+  const rebuild=vi.spyOn(state,'_rebuildLayer')
+  expect(()=>engine.appendOperation({id:'undo',type:'operation_undo',userId:author,targetOpId:'prior',timestamp:Date.now()},author==='A'?'local':'remote')).not.toThrow()
+  expect(state._puddleRebuildAtPenUp.has('L')).toBe(true)
+  expect(rebuild).not.toHaveBeenCalledWith('L')
+  expect(state._puddleStrokeRelease).toBeTruthy()
+  simulateStrokeEnd(engine,15,10)
+  expect(state._puddleStrokeRelease).toBeNull()
+  expect(rebuild).toHaveBeenCalledWith('L')
+ }finally{engine.destroy()}
+})
+it('Undo Dry while the pen is held defers wet epoch reconstruction until its lease ends',async()=>{
+ const {engine}=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32},{width:32,height:32})
+ await paperReady(engine);engine.appendOperation(makeLayerAdd('B','L'),'remote')
+ engine.appendOperation({id:'dry',type:'paper_dry',userId:'B',layerId:'L',timestamp:Date.now()},'remote')
+ engine.setActiveLayer('L');engine.setTool('watercolor');engine.setPencil('normal:80:60:PB29:round')
+ const state=engine as unknown as {_puddleRebuildAtPenUp:Set<string>;_puddleStrokeRelease:unknown}
+ try{
+  simulateStrokeStart(engine,10,10)
+  expect(()=>engine.appendOperation({id:'undo-dry',type:'operation_undo',userId:'B',targetOpId:'dry',timestamp:Date.now()},'remote')).not.toThrow()
+  expect(state._puddleRebuildAtPenUp.has('L')).toBe(true)
+  simulateStrokeEnd(engine,15,10)
+  expect(state._puddleStrokeRelease).toBeNull()
+ }finally{engine.destroy()}
+})
+it('structural Undo cancels only the unrecorded physical tail before deleting its source; later MOVE/UP do nothing',async()=>{
+ const cancel=vi.fn()
+ const {engine}=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32,onLiveStrokeEnd:cancel},{width:32,height:32})
+ await paperReady(engine);const add=makeLayerAdd('B','L');engine.appendOperation(add,'remote')
+ engine.setActiveLayer('L');engine.setTool('watercolor');engine.setPencil('normal:80:60:PB29:round')
+ const state=engine as unknown as {_flushStrokeChunk():void;_strokeId:string|null;_puddleStrokeRelease:unknown;_layers:Map<string,unknown>}
+ try{
+  simulateStrokeStart(engine,10,10);simulateStrokeMove(engine,15,10);state._flushStrokeChunk()
+  const count=engine.getOperations().filter(op=>op.type==='stroke').length
+  expect(count).toBeGreaterThan(0)
+  const physical=state._strokeId
+  expect(()=>engine.appendOperation({id:'undo-layer',type:'operation_undo',userId:'B',targetOpId:add.id,timestamp:Date.now()},'remote')).not.toThrow()
+  expect(cancel).toHaveBeenCalledWith(physical,true)
+  expect(state._puddleStrokeRelease).toBeNull();expect(state._strokeId).toBeNull();expect(state._layers.has('L')).toBe(false)
+  simulateStrokeMove(engine,20,10);simulateStrokeEnd(engine,20,10)
+  expect(engine.getOperations().filter(op=>op.type==='stroke')).toHaveLength(count)
+ }finally{engine.destroy()}
+})
