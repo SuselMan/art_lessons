@@ -1,0 +1,500 @@
+{
+  "source": "af5d7cea",
+  "verifiedEqual": true,
+  "metadataEqual": true,
+  "firstDifferentAfterProgram": "ContrastPhase.bg weighted background blur",
+  "gpus": {
+    "vega": {
+      "verified": {
+        "original": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "inkLoad": "69c9fd93afffd1b5a3816b8d8ee9bb668409a3cbc7efe26d43484d25b5bf0eab",
+        "inkColor": "172b87acabfd7d7e75166943a57f72461b3594166e0330c1dd628e0b54893692",
+        "coverage": "1380faea0f4a5962bbb4deba0a754a001ca2815f18bf8a038d203a98de53aca2",
+        "solventLoad": "305b3410cd95e5623b7080a9f6bc43c9a7ab0442b7bf5eabc7dd6cff5b4817c8"
+      },
+      "metadataSHA": "f929229a9cbb3a5e41db5657bf0b1f80773f7f37c0cf058394356b967fbd04f4",
+      "runs": [
+        {
+          "mode": "reused-1",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "28c62c5a2058de3670c80c2770c6d24152c4a6d2df7e7c4307c4b86ea111a394",
+            "c": "2eee41f6b0328e330a1061290a6c5fa34a014ff54184b88eef9f23d124a805d9",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 22
+          }
+        },
+        {
+          "mode": "reused-2",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "28c62c5a2058de3670c80c2770c6d24152c4a6d2df7e7c4307c4b86ea111a394",
+            "c": "2eee41f6b0328e330a1061290a6c5fa34a014ff54184b88eef9f23d124a805d9",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 27
+          }
+        },
+        {
+          "mode": "fresh-solver-local-pool",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "28c62c5a2058de3670c80c2770c6d24152c4a6d2df7e7c4307c4b86ea111a394",
+            "c": "2eee41f6b0328e330a1061290a6c5fa34a014ff54184b88eef9f23d124a805d9",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 5
+          }
+        }
+      ],
+      "glError": 0,
+      "firstSixDraws": [
+        {
+          "index": 0,
+          "phase": "reused-1:reset",
+          "args": [
+            4,
+            0,
+            6
+          ],
+          "viewport": [
+            0,
+            0,
+            512,
+            512
+          ],
+          "framebufferBound": true,
+          "errorBefore": 0,
+          "errorAfter": 0,
+          "beforeSHA": "dbce12112686136c8d14240b58648b62596b042adccb0c310a9ed1d6a974bbe5",
+          "afterSHA": "69c9fd93afffd1b5a3816b8d8ee9bb668409a3cbc7efe26d43484d25b5bf0eab",
+          "program": [
+            {
+              "type": 35633,
+              "sha": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05"
+            },
+            {
+              "type": 35632,
+              "sha": "d3030c22b4921c1d419ab395fe68ae49c94a8d13d31a15339f3ec73acb499590"
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "phase": "reused-1:reset",
+          "args": [
+            4,
+            0,
+            6
+          ],
+          "viewport": [
+            0,
+            0,
+            256,
+            256
+          ],
+          "framebufferBound": true,
+          "errorBefore": 0,
+          "errorAfter": 0,
+          "beforeSHA": "17c7f53ddabfe94fa6b22c0ab74bfe763c89cd61908ab33775fdb012ad919a5a",
+          "afterSHA": "cf6559085b6917bf4e172e0ff2f24a97873e98bd694aab024b80df5d190e048b",
+          "program": [
+            {
+              "type": 35633,
+              "sha": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05"
+            },
+            {
+              "type": 35632,
+              "sha": "9681c26f542b28f0df04d7927fbfa890f733cbb2b848550c80ea78dea17fd403"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "phase": "reused-1:reset",
+          "args": [
+            4,
+            0,
+            6
+          ],
+          "viewport": [
+            0,
+            0,
+            256,
+            256
+          ],
+          "framebufferBound": true,
+          "errorBefore": 0,
+          "errorAfter": 0,
+          "beforeSHA": "f047f5198f84bbab6b5854adfbe134daf2f3ffdd38fdaa7d9b989891db97c440",
+          "afterSHA": "31d8b7aab42e8e2c4db3f3627f1912dce86e0414163b451e554ceec88a20d07e",
+          "program": [
+            {
+              "type": 35633,
+              "sha": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05"
+            },
+            {
+              "type": 35632,
+              "sha": "4d6784f542213a1f29946fa83e07454c9df5712c3c46cd0d8e6f2762706f652a"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "phase": "reused-1:reset",
+          "args": [
+            4,
+            0,
+            6
+          ],
+          "viewport": [
+            0,
+            0,
+            512,
+            512
+          ],
+          "framebufferBound": true,
+          "errorBefore": 0,
+          "errorAfter": 0,
+          "beforeSHA": "69c9fd93afffd1b5a3816b8d8ee9bb668409a3cbc7efe26d43484d25b5bf0eab",
+          "afterSHA": "7511c0f99c6e85448d85f478eccf801b06fa82f8ed61bd9ceba92692796494aa",
+          "program": [
+            {
+              "type": 35633,
+              "sha": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05"
+            },
+            {
+              "type": 35632,
+              "sha": "4d6784f542213a1f29946fa83e07454c9df5712c3c46cd0d8e6f2762706f652a"
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "phase": "reused-1:reset",
+          "args": [
+            4,
+            0,
+            6
+          ],
+          "viewport": [
+            0,
+            0,
+            512,
+            512
+          ],
+          "framebufferBound": true,
+          "errorBefore": 0,
+          "errorAfter": 0,
+          "beforeSHA": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+          "afterSHA": "24ce46688071d8afcd7ddabf1004a28b5002075bbea1f801dbb096b457706bad",
+          "program": [
+            {
+              "type": 35633,
+              "sha": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05"
+            },
+            {
+              "type": 35632,
+              "sha": "4d6784f542213a1f29946fa83e07454c9df5712c3c46cd0d8e6f2762706f652a"
+            }
+          ]
+        },
+        {
+          "index": 5,
+          "phase": "reused-1:reset",
+          "args": [
+            4,
+            0,
+            6
+          ],
+          "viewport": [
+            0,
+            0,
+            256,
+            256
+          ],
+          "framebufferBound": true,
+          "errorBefore": 0,
+          "errorAfter": 0,
+          "beforeSHA": "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+          "afterSHA": "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+          "program": [
+            {
+              "type": 35633,
+              "sha": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05"
+            },
+            {
+              "type": 35632,
+              "sha": "40afe3aa55b3abcec35e0c1c6ac0655e2b6b99f711876651cbc992b63ed2817c"
+            }
+          ]
+        }
+      ]
+    },
+    "surface": {
+      "verified": {
+        "original": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "inkLoad": "69c9fd93afffd1b5a3816b8d8ee9bb668409a3cbc7efe26d43484d25b5bf0eab",
+        "inkColor": "172b87acabfd7d7e75166943a57f72461b3594166e0330c1dd628e0b54893692",
+        "coverage": "1380faea0f4a5962bbb4deba0a754a001ca2815f18bf8a038d203a98de53aca2",
+        "solventLoad": "305b3410cd95e5623b7080a9f6bc43c9a7ab0442b7bf5eabc7dd6cff5b4817c8"
+      },
+      "metadataSHA": "f929229a9cbb3a5e41db5657bf0b1f80773f7f37c0cf058394356b967fbd04f4",
+      "runs": [
+        {
+          "mode": "reused-1",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "88ff905b7fe360db94e7f4ac0c2b0921c7c3809b27e237169923dae64fc00248",
+            "c": "8f1f51ee5f89758b0f1373c59768acbb2cbd100e4b22bc88aa460942a58443ae",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 20
+          }
+        },
+        {
+          "mode": "reused-2",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "88ff905b7fe360db94e7f4ac0c2b0921c7c3809b27e237169923dae64fc00248",
+            "c": "8f1f51ee5f89758b0f1373c59768acbb2cbd100e4b22bc88aa460942a58443ae",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 25
+          }
+        },
+        {
+          "mode": "fresh-solver-local-pool",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "88ff905b7fe360db94e7f4ac0c2b0921c7c3809b27e237169923dae64fc00248",
+            "c": "8f1f51ee5f89758b0f1373c59768acbb2cbd100e4b22bc88aa460942a58443ae",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 5
+          }
+        }
+      ],
+      "glError": 0,
+      "firstSixDraws": [
+        {
+          "index": 0,
+          "phase": "reused-1:reset",
+          "args": [
+            4,
+            0,
+            6
+          ],
+          "viewport": [
+            0,
+            0,
+            512,
+            512
+          ],
+          "framebufferBound": true,
+          "errorBefore": 0,
+          "errorAfter": 0,
+          "beforeSHA": "2c493db40a35403c0e7893dcaee1eb6b98c8c006636c885cd0bfca1c6a296804",
+          "afterSHA": "69c9fd93afffd1b5a3816b8d8ee9bb668409a3cbc7efe26d43484d25b5bf0eab",
+          "program": [
+            {
+              "type": 35633,
+              "sha": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05"
+            },
+            {
+              "type": 35632,
+              "sha": "d3030c22b4921c1d419ab395fe68ae49c94a8d13d31a15339f3ec73acb499590"
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "phase": "reused-1:reset",
+          "args": [
+            4,
+            0,
+            6
+          ],
+          "viewport": [
+            0,
+            0,
+            256,
+            256
+          ],
+          "framebufferBound": true,
+          "errorBefore": 0,
+          "errorAfter": 0,
+          "beforeSHA": "ed28661b6f4b3b7ba563fb9e5cb824b744a00b0ed903762a26f2eb50828d90c9",
+          "afterSHA": "ed28661b6f4b3b7ba563fb9e5cb824b744a00b0ed903762a26f2eb50828d90c9",
+          "program": [
+            {
+              "type": 35633,
+              "sha": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05"
+            },
+            {
+              "type": 35632,
+              "sha": "9681c26f542b28f0df04d7927fbfa890f733cbb2b848550c80ea78dea17fd403"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "phase": "reused-1:reset",
+          "args": [
+            4,
+            0,
+            6
+          ],
+          "viewport": [
+            0,
+            0,
+            256,
+            256
+          ],
+          "framebufferBound": true,
+          "errorBefore": 0,
+          "errorAfter": 0,
+          "beforeSHA": "41afdfdb5c30b237b810ff415427a781b7ac79ef84f5af5e5f0a3aee5b10a2be",
+          "afterSHA": "41afdfdb5c30b237b810ff415427a781b7ac79ef84f5af5e5f0a3aee5b10a2be",
+          "program": [
+            {
+              "type": 35633,
+              "sha": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05"
+            },
+            {
+              "type": 35632,
+              "sha": "4d6784f542213a1f29946fa83e07454c9df5712c3c46cd0d8e6f2762706f652a"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "phase": "reused-1:reset",
+          "args": [
+            4,
+            0,
+            6
+          ],
+          "viewport": [
+            0,
+            0,
+            512,
+            512
+          ],
+          "framebufferBound": true,
+          "errorBefore": 0,
+          "errorAfter": 0,
+          "beforeSHA": "69c9fd93afffd1b5a3816b8d8ee9bb668409a3cbc7efe26d43484d25b5bf0eab",
+          "afterSHA": "08f521196f5ebb509eb5af64fb902c2c444c5b1da9977718142e97e96735d374",
+          "program": [
+            {
+              "type": 35633,
+              "sha": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05"
+            },
+            {
+              "type": 35632,
+              "sha": "4d6784f542213a1f29946fa83e07454c9df5712c3c46cd0d8e6f2762706f652a"
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "phase": "reused-1:reset",
+          "args": [
+            4,
+            0,
+            6
+          ],
+          "viewport": [
+            0,
+            0,
+            512,
+            512
+          ],
+          "framebufferBound": true,
+          "errorBefore": 0,
+          "errorAfter": 0,
+          "beforeSHA": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+          "afterSHA": "48c8593aac9527680b5e2c3f29b5d97997a562bbc64cb1ed7a9f556cdf2eb5f3",
+          "program": [
+            {
+              "type": 35633,
+              "sha": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05"
+            },
+            {
+              "type": 35632,
+              "sha": "4d6784f542213a1f29946fa83e07454c9df5712c3c46cd0d8e6f2762706f652a"
+            }
+          ]
+        },
+        {
+          "index": 5,
+          "phase": "reused-1:reset",
+          "args": [
+            4,
+            0,
+            6
+          ],
+          "viewport": [
+            0,
+            0,
+            256,
+            256
+          ],
+          "framebufferBound": true,
+          "errorBefore": 0,
+          "errorAfter": 0,
+          "beforeSHA": "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+          "afterSHA": "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+          "program": [
+            {
+              "type": 35633,
+              "sha": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05"
+            },
+            {
+              "type": 35632,
+              "sha": "40afe3aa55b3abcec35e0c1c6ac0655e2b6b99f711876651cbc992b63ed2817c"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
