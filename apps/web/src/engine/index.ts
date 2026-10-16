@@ -2477,10 +2477,24 @@ export class PencilEngine implements PencilEngineAPI {
         // A structural copy reads the source's history at the operation,
         // including its dry/visibility boundaries, rather than today's state.
         const liveLog = this._log
+        const livePuddle = this._puddle
         this._log = liveLog.historicalPrefix(beforeSeq)
-        try { this._replayInto(buf, id, ops, false) }
-        finally { this._log = liveLog }
+        // Historical reads own their material independently of live water.
+        this._puddle = null
+        try {
+          this._replayInto(buf, id, ops, false)
+          const material = this._puddle as PuddleRoomController | null
+          material?.close(buf)
+        } finally {
+          (this._puddle as PuddleRoomController | null)?.destroy()
+          this._puddle = livePuddle
+          this._log = liveLog
+        }
       },
+      sourceNeedsReplay: id => this._watercolorModel === 'm70-r2-v1'
+        && (this._unsettledLayers.has(id) || this._rebuildJobs.has(id)
+          || this._pendingRebuilds.has(id) || this._hasUnrecordedInk(id)
+          || this._log.hasPendingPixelOps(id)),
       compositeTextures: (items, fbo, w, h) => this._compositeTextures(items, fbo, w, h),
       takeCheckpoint: id => this._takeCheckpoint(id),
       canonicalTiles: source => this._puddle?.canonicalTiles(source) ?? source.allResident(),
