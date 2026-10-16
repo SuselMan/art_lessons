@@ -1,5 +1,5 @@
 import {afterEach,expect,it,vi} from 'vitest'
-import {createTestEngine,makeLayerAdd,fillStroke,paperReady,simulateStrokeStart,simulateStrokeMove,simulateStrokeEnd} from './testing/engineTestUtils'
+import {createTestEngine,makeLayerAdd,fillStroke,paperReady,simulateStrokeStart,simulateStrokeMove,simulateStrokeEnd,readTilePixels} from './testing/engineTestUtils'
 import type {PuddleRoomController} from './src/watercolor/puddle/PuddleRoomController'
 import type {ILayerBuffer} from './src/buffers/ILayerBuffer'
 import type {CheckpointStore} from './src/oplog/checkpointStore'
@@ -183,5 +183,31 @@ it('a physical DOWN explicitly cancels one suspended replay lease and schedules 
   simulateStrokeEnd(engine,15,10)
   expect(rebuild).toHaveBeenCalledWith('L1')
   expect(state._puddleRebuildAtPenUp.size).toBe(0)
+ }finally{engine.destroy()}
+})
+
+
+for(const active of ['dry','Lbad'])it(`refuses live eraser atomically before gesture state when ${active==='dry'?'a through-layer target':'its active target'} needs material backfill`,async()=>{
+ const request=vi.fn()
+ const {engine}=createTestEngine({userId:'A',pageWidth:32,pageHeight:32,onSnapshotHistoryRepairNeeded:request},{width:32,height:32})
+ await paperReady(engine)
+ const state=engine as unknown as {_puddleFor():PuddleRoomController;_checkpoints:CheckpointStore;_strokeId:string|null}
+ try{
+  for(const id of ['dry','Lbad','L1','L2'])engine.appendOperation(makeLayerAdd('A',id),'remote')
+  engine.appendOperation(fillStroke('A','dry',10,10,7),'remote')
+  engine.restoreLayerFromSnapshot('Lbad',[{originX:0,originY:0,width:32,height:32,pixels:new Uint8Array(4096).fill(77)}],1)
+  const controller=state._puddleFor()
+  Object.defineProperty((controller as unknown as {residency:unknown}).residency,'byteBudget',{value:0})
+  for(const [i,layerId]of ['Lbad','L1','L2'].entries())engine.appendOperation({...fillStroke('B',layerId,10,10,3),id:`wet${i}`,tool:'watercolor',preset:'normal:80:60:PB29:round:wc@m70-r2-v1',strokeId:`wet${i}`,washId:`m70:${layerId}`,timestamp:100,seq:10+i},'remote')
+  state._checkpoints.all().find(cp=>cp.layerId==='Lbad' && cp.fromSnapshot)!.canonicalValid=()=>false
+  engine.setActiveLayer(active);engine.setTool('eraser');engine.setEraseThroughLayers(['Lbad'])
+  const before=readTilePixels(engine,'dry',0,0,32,32),count=engine.getOperations().length
+  expect(()=>simulateStrokeStart(engine,10,10)).not.toThrow()
+  simulateStrokeMove(engine,15,10);simulateStrokeEnd(engine,15,10)
+  expect(state._strokeId).toBeNull()
+  expect(engine.getOperations()).toHaveLength(count)
+  expect(readTilePixels(engine,'dry',0,0,32,32)).toEqual(before)
+  expect(engine.isSnapshotHistoryRepairPending('Lbad')).toBe(true)
+  expect(request).toHaveBeenCalledTimes(1)
  }finally{engine.destroy()}
 })

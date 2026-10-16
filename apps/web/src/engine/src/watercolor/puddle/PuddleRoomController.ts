@@ -108,8 +108,11 @@ export class PuddleRoomController {
     return [...this.layers.values()].some(l => l.scratch === scratch)
   }
   /** No allocation/readback. Suspended generators own their textures until finally. */
-  assertSourceAvailable(target: ILayerBuffer): void {
+  assertMaterialReady(target: ILayerBuffer): void {
     if(this.parked.has(target) && !this.residency.hasBytes(target) && this.host.materialReady?.(target)===false)throw new MaterialHistoryNotReady()
+  }
+  assertSourceAvailable(target: ILayerBuffer): void {
+    this.assertMaterialReady(target)
     if (this.layers.has(target) || this.layers.size < 2) return
     if (![...this.layers.values()].some(l => !this.residency.pinned(l.target)
       && (l.gesture==='prewarm' && !l.context || !!l.context && l.scratch.canCaptureRestingCpu()))) throw new MaterialSourceBusy()
