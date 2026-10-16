@@ -23,3 +23,7 @@
 Одинаковый журнал: 100 либо 800 M70 операций → recorded Dry → один новый мазок → Undo нового мазка. До изменения eager invalidation удаляет старый CP; после изменения ожидается сохранение CP и replay только хвоста (при отмене единственного хвостового мазка — ноль старых операций). Снять wall time DOWN/Undo→ack→swap, cp.start/число replay dabs/goals, live canonical pixels против full replay на каждом участнике. Затем undo раннего мазка и undo Dry: CP обязан быть отвергнут, картинка снова должна совпасть с oracle.
 
 Время на реальном GPU ещё не измерено этим кандидатом. **Открытая эпоха из 100 мокрых мазков без записанной Dry по-прежнему требует replay**; мокрые snapshots не добавлялись. Чтение/упаковка сухого CP имеет собственную цену; оно вынесено из пути Undo. Новые данные не публиковались, временные процессы не создавались.
+
+## Закрытая эпоха после cold-history rebuild
+
+Дополнительный runtime baseline подтвердил, что source, закрытый до swap приватного job.fresh, не создавал CP: released callback ещё не видел его среди root layers. Теперь после swap используется тот же guarded scheduler. Проверяются текущий root target, canonical dry proof, отсутствие snapshot coverage и все обычные _takeCheckpoint guards. Runtime regression проходит через настоящий sliced rebuild: jobs1→0, пиксели сохраняются, появляется проверяемый CP. Targeted checkpoint/callback + snapshot suite: 64 PASS (4 файла). GPU latency повтор ещё не проводился.

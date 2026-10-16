@@ -1676,10 +1676,7 @@ export class PencilEngine implements PencilEngineAPI {
         if(this._wash?.scratch===scratch){this._wash=null;this._washId=null}
         const target=scratch.finishContext?.target
         for(const [id,buf]of this._layers)if(buf===target && !this._snapshots.hasCoverage(id)) {
-          // forget() also runs on cancellation. _takeCheckpoint and the dry
-          // proof below reject open, changed or intermediate replay material.
-          setTimeout(()=>{if(!this._destroyed && this._layers.get(id)===buf
-            && this._closedM70Checkpoint(id))this._takeCheckpoint(id)},0)
+          this._scheduleClosedM70Checkpoint(id,buf)
           break
         }
       },
@@ -4924,6 +4921,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._invalidateSplitCache()
     this._displayIfNotSuspended()
     this._flushSnapshotDependentLayers()
+    this._scheduleClosedM70Checkpoint(layerId,job.fresh)
   }
 
   private _replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[], useCheckpoints = true): void {
@@ -5642,6 +5640,14 @@ export class PencilEngine implements PencilEngineAPI {
   private _dropWashBoundaries(): void {
     for (const b of this._washBoundaries.values()) this._freeBoundary(b)
     this._washBoundaries.clear()
+  }
+
+  private _scheduleClosedM70Checkpoint(layerId: string, target: ILayerBuffer): void {
+    if(this._snapshots.hasCoverage(layerId) || !this._closedM70Checkpoint(layerId))return
+    // A release may precede a swap. Recheck identity and all ordinary bake
+    // guards after the canonical target has become the layer's root buffer.
+    setTimeout(()=>{if(!this._destroyed && this._layers.get(layerId)===target
+      && this._closedM70Checkpoint(layerId))this._takeCheckpoint(layerId)},0)
   }
 
   private _closedM70Checkpoint(layerId: string) {
