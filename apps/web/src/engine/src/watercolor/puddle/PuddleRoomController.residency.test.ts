@@ -72,3 +72,73 @@ it('CPU eviction preserves marker and requests strict incoming-operation prefix 
  expect(restored.scratch.peek(targets[0].allResident()[0].buffer)!.inkLoad!.readPixels()).toEqual(new Uint8Array(64).fill(10))
  controller.destroy();pool.trimFree();vi.unstubAllGlobals()
 })
+
+it('restores previous goal and water material without target recomputation, then continues painting into that source',()=>{
+ const {controller,pool,profile,targets,draw}=fixture()
+ draw(0);controller.canonicalTiles(targets[0])
+ const wet=Float64Array.of(1,2,.8,12,.4)
+ expect(controller.captureUndo(targets[0],()=>true,()=>wet)).toBe(true)
+ const after=controller.source(targets[0],'new',profile,2,'',{pin:true})
+ after.scratch.peek(targets[0].allResident()[0].buffer)!.inkLoad!.restorePixelsRect(4,4,new Uint8Array(64).fill(200))
+ controller.finish(after.scratch);after.release()
+ const computations=controller.state.computations
+ expect(controller.restoreUndo(targets[0])).toEqual({wet})
+ expect(controller.state.undoHits).toBe(1)
+ expect(controller.state.computations).toBe(computations)
+ expect(targets[0].allResident()[0].buffer.readPixels()).toEqual(new Uint8Array(64).fill(10))
+ const next=controller.source(targets[0],'third',profile,3,'',{pin:true})
+ const entry=next.scratch.peek(targets[0].allResident()[0].buffer)!
+ expect(entry.original.readPixels()).toEqual(new Uint8Array(64))
+ const pixels=entry.inkLoad!.readPixels().map(v=>v+5)
+ entry.inkLoad!.restorePixelsRect(4,4,pixels)
+ controller.finish(next.scratch);next.release()
+ expect(controller.canonicalTiles(targets[0])[0].buffer.readPixels()).toEqual(new Uint8Array(64).fill(15))
+ controller.destroy();pool.trimFree();vi.unstubAllGlobals()
+})
+it('declines not-ready capture without synchronously computing a goal',()=>{
+ const {controller,pool,targets,draw}=fixture()
+ draw(0)
+ expect(controller.captureUndo(targets[0],()=>true,()=>new Float64Array())).toBe(false)
+ expect(controller.state.computations).toBe(0);expect(controller.state.cpuBytes).toBe(0)
+ controller.destroy();pool.trimFree();vi.unstubAllGlobals()
+})
+it('shares one bounded budget with parking, which can overwrite or evict an Undo checkpoint',()=>{
+ const {controller,pool,targets,draw}=fixture(300)
+ draw(0);controller.canonicalTiles(targets[0])
+ // original+coverage+P+C+goal alone exceed 300 bytes.
+ expect(controller.captureUndo(targets[0],()=>true,()=>new Float64Array())).toBe(false)
+ expect(controller.state.cpuBytes).toBeLessThanOrEqual(300)
+ expect(controller.restoreUndo(targets[0])).toBeNull()
+ controller.destroy();pool.trimFree();vi.unstubAllGlobals()
+ const f=fixture()
+ f.draw(0);f.controller.canonicalTiles(f.targets[0]);expect(f.controller.captureUndo(f.targets[0],()=>true,()=>new Float64Array())).toBe(true)
+ f.draw(1);f.draw(2)
+ expect(f.controller.restoreUndo(f.targets[0])).toBeNull() // Parking replaced pre-gesture version.
+ f.controller.destroy();f.pool.trimFree();vi.unstubAllGlobals()
+})
+it('rejects invalid history proof and consumes a successful checkpoint so Redo uses ordinary replay',()=>{
+ const {controller,pool,targets,draw}=fixture()
+ draw(0);controller.canonicalTiles(targets[0])
+ let valid=false
+ expect(controller.captureUndo(targets[0],()=>valid,()=>new Float64Array())).toBe(true)
+ expect(controller.restoreUndo(targets[0])).toBeNull()
+ valid=true;expect(controller.restoreUndo(targets[0])).not.toBeNull()
+ expect(controller.restoreUndo(targets[0])).toBeNull()
+ controller.destroy();pool.trimFree();vi.unstubAllGlobals()
+})
+
+it('parking another layer evicts the resident Undo bytes through the same LRU budget without discarding its pinned live source',()=>{
+ const {controller,pool,profile,targets,draw}=fixture(500)
+ draw(0);controller.canonicalTiles(targets[0])
+ expect(controller.captureUndo(targets[0],()=>true,()=>new Float64Array())).toBe(true)
+ expect(controller.state.cpuBytes).toBe(320)
+ draw(1)
+ const lease=controller.source(targets[0],'g0',profile,2,'',{pin:true})
+ draw(2) // Must park layer 1; layer 0's executing material cannot be evicted.
+ expect(controller.state.cpuBytes).toBeLessThanOrEqual(500)
+ expect(controller.owns(lease.scratch)).toBe(true)
+ lease.release()
+ expect(controller.restoreUndo(targets[0])).toBeNull()
+ expect(controller.state.layers).toBe(3)
+ controller.destroy();pool.trimFree();vi.unstubAllGlobals()
+})

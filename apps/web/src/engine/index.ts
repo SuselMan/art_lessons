@@ -1,3 +1,4 @@
+import {exactMaterialHistory} from './src/oplog/exactMaterialHistory'
 import {closedWatercolorCheckpoint} from './src/oplog/closedWatercolorCheckpoint'
 import {PuddleRoomController, MaterialSourceBusy, MaterialHistoryNotReady} from './src/watercolor/puddle/PuddleRoomController'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
@@ -1643,6 +1644,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetTex: WebGLTexture | null = null
   private _wetTexSize: [number, number] = [0, 0]
   private _watercolorReview = false
+  /** QA prototype: capture cost on real devices must be measured before enabling. */
+  diagnosticOpenWetUndoCache=false
   private _puddle: PuddleRoomController | null = null
   private _puddleStrokeRelease: (() => void) | null = null
   private _m70GeometrySupported(): boolean {
@@ -4468,6 +4471,20 @@ export class PencilEngine implements PencilEngineAPI {
         && (op.type==='paper_dry' || op.type==='layer_visibility' || this._log.entries.some(e=>isM70WatercolorStroke(e.op) && e.op.layerId===cp.layerId)))this._checkpoints.remove(cp)
     }
     if (this._contextLost || this.gl.isContextLost()) return
+    if(this.diagnosticOpenWetUndoCache && !historicalCause && !this._strokeLayerId && !this._displaySuspendDepth
+      && cause?.type==='operation_undo' && cause.userId===this._userId && isM70WatercolorStroke(op)
+      && !this._rebuildJobs.has(op.layerId) && !this.isSnapshotHistoryRepairPending(op.layerId)){
+      const target=this._layers.get(op.layerId)
+      const restored=target ? this._puddle?.restoreUndo(target) : null
+      if(restored){
+        this._paperWet.restoreLayer(op.layerId,restored.wet)
+        this._wetTexAt=0
+        this._scheduleDryingRepaint()
+        this._invalidateSplitCache()
+        this._displayIfNotSuspended()
+        return
+      }
+    }
     switch (op.type) {
       case 'layer_visibility':
         for(const id of operationLayerIds(op)){this._paperWet.forgetLayer(id);this._rebuildLayerOrDefer(id)}
@@ -6376,6 +6393,8 @@ export class PencilEngine implements PencilEngineAPI {
         this._puddle.assertSourceAvailable(target)
       }
     }
+    if(m70Stroke && this.diagnosticOpenWetUndoCache)this._puddle?.captureUndo(this._layers.get(layerId)!,
+      exactMaterialHistory(this._log.watercolorEffectiveOperations(),()=>this._log.watercolorEffectiveOperations()),()=>this._paperWet.captureLayer(layerId))
     // (#536, §17.52) Any tool: a settle spread over frames (a peer's
     // operation, or this author's own last wash) lands before this stroke
     // paints, or its copy-back would cover what the stroke lays under the
