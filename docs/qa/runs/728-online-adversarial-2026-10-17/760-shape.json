@@ -1,0 +1,84 @@
+{
+  "source": "ce68a405",
+  "kind": "actual GPU wet material then independent red shape",
+  "errors": [],
+  "paint": {
+    "stroke": "k2mfNFAyvC",
+    "model": "m70-r2-v1",
+    "puddle": {
+      "layers": 1,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 0,
+      "pending": true,
+      "revisions": [
+        {
+          "epoch": 2,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "page": {
+      "w": 512,
+      "h": 512
+    }
+  },
+  "before": {
+    "red": 0,
+    "puddle": {
+      "layers": 1,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 1,
+      "pending": true,
+      "revisions": [
+        {
+          "epoch": 2,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "glError": 0
+  },
+  "immediate": {
+    "red": 10000,
+    "puddle": {
+      "layers": 1,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 1,
+      "pending": true,
+      "revisions": [
+        {
+          "epoch": 2,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "glError": 0
+  },
+  "after": {
+    "red": 0,
+    "puddle": {
+      "layers": 1,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 1,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 2,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "glError": 0
+  },
+  "ok": false,
+  "error": "AssertionError [ERR_ASSERTION]: M70 presentation overwrote the independent shape\n\n0 !== 10000\n\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/760-wet-shape.cjs:23:9",
+  "scope": "Wet pigment left, independent red shape right; actual layer readback before any oracle or close"
+}

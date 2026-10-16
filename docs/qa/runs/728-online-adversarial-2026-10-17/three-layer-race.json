@@ -1,0 +1,565 @@
+{
+  "source": "ce68a405",
+  "cases": [
+    {
+      "name": "three-different-layers-held-before-any-foreign-operation",
+      "layers": [
+        "qa-race-ef5f5b3a-3831-47e9-b98b-69e6fa9113ff",
+        "qa-race-6e8c8537-4212-4081-b102-555004e4830f",
+        "qa-race-a4f20a45-444a-4a1c-b8ad-d097ecfcb409"
+      ],
+      "gestures": [
+        "YtJmMyD45E",
+        "pCLBQ9TKUh",
+        "PNDDmgzLEp"
+      ],
+      "before": [
+        {
+          "puddle": {
+            "layers": 1,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 0,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 2,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "committed": 0,
+          "held": "YtJmMyD45E"
+        },
+        {
+          "puddle": {
+            "layers": 1,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 0,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 2,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "committed": 0,
+          "held": "pCLBQ9TKUh"
+        },
+        {
+          "puddle": {
+            "layers": 1,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 0,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 2,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "committed": 0,
+          "held": "PNDDmgzLEp"
+        }
+      ]
+    },
+    {
+      "name": "all-three-server-accepted-and-replicated",
+      "ids": [
+        [
+          "lOcnO1M-Ql"
+        ],
+        [
+          "-GgHPhz_Sg"
+        ],
+        [
+          "AV2W-1Oea-"
+        ]
+      ],
+      "server": {
+        "strokes": [
+          {
+            "id": "-GgHPhz_Sg",
+            "layerId": "qa-race-6e8c8537-4212-4081-b102-555004e4830f",
+            "strokeId": "pCLBQ9TKUh",
+            "userId": "5c7c2876-5ae4-444a-af44-a654ea75a6ee",
+            "seq": 4
+          },
+          {
+            "id": "lOcnO1M-Ql",
+            "layerId": "qa-race-ef5f5b3a-3831-47e9-b98b-69e6fa9113ff",
+            "strokeId": "YtJmMyD45E",
+            "userId": "d4f3102c-cfa0-4f4d-a5ea-c0808aac9bbd",
+            "seq": 5
+          },
+          {
+            "id": "AV2W-1Oea-",
+            "layerId": "qa-race-a4f20a45-444a-4a1c-b8ad-d097ecfcb409",
+            "strokeId": "PNDDmgzLEp",
+            "userId": "3617935a-ad3b-4737-99db-744620298322",
+            "seq": 6
+          }
+        ],
+        "operations": 6
+      },
+      "after": [
+        {
+          "puddle": {
+            "layers": 2,
+            "drying": false,
+            "cancellations": 1,
+            "computations": 2,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 2,
+                "ready": false,
+                "active": false
+              },
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "entries": [
+            {
+              "id": "9f0b26de-d546-4704-9ae3-c23d644fbef1",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "c5debd92-245f-4d1d-917d-d2f2b35311d8",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "74c2ca9b-4b28-43c0-acd9-5b3ab12eaff9",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "-GgHPhz_Sg",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "lOcnO1M-Ql",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "AV2W-1Oea-",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            }
+          ],
+          "queue": 0,
+          "pending": 0,
+          "jobs": 0
+        },
+        {
+          "puddle": {
+            "layers": 2,
+            "drying": false,
+            "cancellations": 1,
+            "computations": 2,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 2,
+                "ready": false,
+                "active": false
+              },
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "entries": [
+            {
+              "id": "9f0b26de-d546-4704-9ae3-c23d644fbef1",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "c5debd92-245f-4d1d-917d-d2f2b35311d8",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "74c2ca9b-4b28-43c0-acd9-5b3ab12eaff9",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "-GgHPhz_Sg",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "lOcnO1M-Ql",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "AV2W-1Oea-",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            }
+          ],
+          "queue": 0,
+          "pending": 0,
+          "jobs": 0
+        },
+        {
+          "puddle": {
+            "layers": 2,
+            "drying": false,
+            "cancellations": 1,
+            "computations": 2,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 2,
+                "ready": false,
+                "active": false
+              },
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "entries": [
+            {
+              "id": "9f0b26de-d546-4704-9ae3-c23d644fbef1",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "c5debd92-245f-4d1d-917d-d2f2b35311d8",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "74c2ca9b-4b28-43c0-acd9-5b3ab12eaff9",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "-GgHPhz_Sg",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "lOcnO1M-Ql",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "AV2W-1Oea-",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            }
+          ],
+          "queue": 0,
+          "pending": 0,
+          "jobs": 0
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "actor": 2,
+      "message": "M70 QA supports two wet layers at once; dry a layer first"
+    },
+    {
+      "actor": 0,
+      "message": "M70 QA supports two wet layers at once; dry a layer first"
+    },
+    {
+      "actor": 1,
+      "message": "M70 QA supports two wet layers at once; dry a layer first"
+    }
+  ],
+  "identity": [
+    {
+      "user": "d4f3102c-cfa0-4f4d-a5ea-c0808aac9bbd",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "5c7c2876-5ae4-444a-af44-a654ea75a6ee",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "3617935a-ad3b-4737-99db-744620298322",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "server": {
+    "strokes": [
+      {
+        "id": "-GgHPhz_Sg",
+        "layerId": "qa-race-6e8c8537-4212-4081-b102-555004e4830f",
+        "strokeId": "pCLBQ9TKUh",
+        "userId": "5c7c2876-5ae4-444a-af44-a654ea75a6ee",
+        "seq": 4
+      },
+      {
+        "id": "lOcnO1M-Ql",
+        "layerId": "qa-race-ef5f5b3a-3831-47e9-b98b-69e6fa9113ff",
+        "strokeId": "YtJmMyD45E",
+        "userId": "d4f3102c-cfa0-4f4d-a5ea-c0808aac9bbd",
+        "seq": 5
+      },
+      {
+        "id": "AV2W-1Oea-",
+        "layerId": "qa-race-a4f20a45-444a-4a1c-b8ad-d097ecfcb409",
+        "strokeId": "PNDDmgzLEp",
+        "userId": "3617935a-ad3b-4737-99db-744620298322",
+        "seq": 6
+      }
+    ],
+    "operations": 6
+  },
+  "after": [
+    {
+      "puddle": {
+        "layers": 2,
+        "drying": false,
+        "cancellations": 1,
+        "computations": 2,
+        "pending": true,
+        "revisions": [
+          {
+            "epoch": 2,
+            "ready": false,
+            "active": false
+          },
+          {
+            "epoch": 1,
+            "ready": false,
+            "active": false
+          }
+        ]
+      },
+      "entries": [
+        {
+          "id": "9f0b26de-d546-4704-9ae3-c23d644fbef1",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "c5debd92-245f-4d1d-917d-d2f2b35311d8",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "74c2ca9b-4b28-43c0-acd9-5b3ab12eaff9",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "-GgHPhz_Sg",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "lOcnO1M-Ql",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "AV2W-1Oea-",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        }
+      ],
+      "queue": 0,
+      "pending": 0,
+      "jobs": 0
+    },
+    {
+      "puddle": {
+        "layers": 2,
+        "drying": false,
+        "cancellations": 1,
+        "computations": 2,
+        "pending": true,
+        "revisions": [
+          {
+            "epoch": 2,
+            "ready": false,
+            "active": false
+          },
+          {
+            "epoch": 1,
+            "ready": false,
+            "active": false
+          }
+        ]
+      },
+      "entries": [
+        {
+          "id": "9f0b26de-d546-4704-9ae3-c23d644fbef1",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "c5debd92-245f-4d1d-917d-d2f2b35311d8",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "74c2ca9b-4b28-43c0-acd9-5b3ab12eaff9",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "-GgHPhz_Sg",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "lOcnO1M-Ql",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "AV2W-1Oea-",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        }
+      ],
+      "queue": 0,
+      "pending": 0,
+      "jobs": 0
+    },
+    {
+      "puddle": {
+        "layers": 2,
+        "drying": false,
+        "cancellations": 1,
+        "computations": 2,
+        "pending": true,
+        "revisions": [
+          {
+            "epoch": 2,
+            "ready": false,
+            "active": false
+          },
+          {
+            "epoch": 1,
+            "ready": false,
+            "active": false
+          }
+        ]
+      },
+      "entries": [
+        {
+          "id": "9f0b26de-d546-4704-9ae3-c23d644fbef1",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "c5debd92-245f-4d1d-917d-d2f2b35311d8",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "74c2ca9b-4b28-43c0-acd9-5b3ab12eaff9",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "-GgHPhz_Sg",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "lOcnO1M-Ql",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "AV2W-1Oea-",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        }
+      ],
+      "queue": 0,
+      "pending": 0,
+      "jobs": 0
+    }
+  ],
+  "pass": false,
+  "failure": "AssertionError [ERR_ASSERTION]: Room runtime failed after accepted3wetlayers\n+ actual - expected\n\n+ [\n+   {\n+     actor: 2,\n+     message: 'M70 QA supports two wet layers at once; dry a layer first'\n+   },\n+   {\n+     actor: 0,\n+     message: 'M70 QA supports two wet layers at once; dry a layer first'\n+   },\n+   {\n+     actor: 1,\n+     message: 'M70 QA supports two wet layers at once; dry a layer first'\n+   }\n+ ]\n- []\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/three-layer-race.cjs:9:1398",
+  "scope": "Three simultaneous authors on distinct layers; no foreign committed strokes before all three gestures began"
+}

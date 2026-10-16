@@ -1,0 +1,141 @@
+{
+  "source": "ce68a405",
+  "cases": [
+    {
+      "name": "water-visible-on-both-observers-before-up-export-excluded",
+      "waterVisible": [
+        {
+          "actor": 1,
+          "changedChannels": 432,
+          "max": 10,
+          "meanRGB": [
+            240.65972222222223,
+            240.65972222222223,
+            240.65972222222223
+          ]
+        },
+        {
+          "actor": 2,
+          "changedChannels": 432,
+          "max": 10,
+          "meanRGB": [
+            240.63194444444446,
+            240.63194444444446,
+            240.63194444444446
+          ]
+        }
+      ]
+    },
+    {
+      "name": "cancel-network-event-and-late-packets-no-ghost",
+      "cancelled": [
+        {
+          "actor": 1,
+          "changedChannels": 0,
+          "max": 0,
+          "meanRGB": [
+            246.20833333333334,
+            246.20833333333334,
+            246.20833333333334
+          ]
+        },
+        {
+          "actor": 2,
+          "changedChannels": 0,
+          "max": 0,
+          "meanRGB": [
+            246.16666666666666,
+            246.16666666666666,
+            246.16666666666666
+          ]
+        }
+      ],
+      "screenBefore": [
+        {
+          "hash": "e2786d97d88b5500a2898a31ba1258024dea2db9158cf51ca70fb29c2d54ffdc",
+          "bytes": 3740000,
+          "glError": 0
+        },
+        {
+          "hash": "3d2288e6a33798a59c567e447381e45b3d50a1d5ee5335cdc17c21936d43c60f",
+          "bytes": 3740000,
+          "glError": 0
+        }
+      ],
+      "screenAfterCancel": [
+        {
+          "hash": "e2786d97d88b5500a2898a31ba1258024dea2db9158cf51ca70fb29c2d54ffdc",
+          "bytes": 3740000,
+          "glError": 0
+        },
+        {
+          "hash": "3d2288e6a33798a59c567e447381e45b3d50a1d5ee5335cdc17c21936d43c60f",
+          "bytes": 3740000,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "pigment-visible-on-two-observers-before-up",
+      "pigment": "WZ9NM-q_24",
+      "pigmentVisible": [
+        {
+          "actor": 0,
+          "changedChannels": 432,
+          "max": 71,
+          "meanRGB": [
+            206.52777777777777,
+            216.26388888888889,
+            238.04861111111111
+          ]
+        },
+        {
+          "actor": 2,
+          "changedChannels": 432,
+          "max": 71,
+          "meanRGB": [
+            206.52777777777777,
+            216.26388888888889,
+            238.04861111111111
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "6ef71c06-b338-4eec-84ad-2548ac7a7466",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "f46de43e-d324-4705-9f12-7c6d0c33a346",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "fd593c22-af1e-4476-b889-51fda466a750",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "pass": false,
+  "failure": "AssertionError [ERR_ASSERTION]: Disconnected author left preview ghost\n\n432 !== 0\n\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/observer-preview.cjs:14:1652",
+  "scope": "AMD/Intel/AMD three participants; observer water/pigment before UP, cancel and disconnect; DOM peer cursors hidden before all screenshots; natural RAF only"
+}
