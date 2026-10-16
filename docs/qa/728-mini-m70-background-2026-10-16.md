@@ -32,3 +32,7 @@ Samsung SM-T970 / Adreno650, WebGL1, собственные CDP страницы
 - Scoped TypeScript check и статическая сборка Mini прошли.
 
 Рабочий Mini остаётся на существующем QA сервисе. Новые сервисы/agents не запускались. Собственные тестовые вкладки и ADB mappings закрыты, вспомогательные скрипт/tsconfig удалены, компактные JSON/PNG оставлены. Production/push не выполнялись, галерея не пересчитывалась.
+
+## 13:50: полосы прокрутки в landscape
+
+В прокручиваемой панели добавлены пустые padding32px слева/справа. Обычная боковая панель340px, при landscape-высоте≤500px —300px; portrait CSS не изменён. Проверено Samsung CDP touch: вертикальный свайп по каждой полосе прокручивает controlsScroll на160px, значения всех range остаются прежними. Hit-test обеих полос — сам scroll container, не slider. UI layout1366×900/430×932: горизонтального overflow нет, холст квадратный. Доказательства `temp/device-runs/mini-scroll-gutters-20261016`. Собственные вкладки и ADB mappings закрыты; существующий QA Mini остаётся.
