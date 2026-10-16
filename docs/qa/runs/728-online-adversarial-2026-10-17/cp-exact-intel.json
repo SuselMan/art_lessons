@@ -1,0 +1,97 @@
+{
+  "source": "1b1c0194",
+  "inputSHA": "914c0244d5ab6b12644aeaee241b2713c47dc730c70966f95cedc594a9d249c9",
+  "identity": {
+    "model": "m70-r2-v1",
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "empty": true
+  },
+  "cases": [
+    {
+      "name": "recorded-prefix-dry-before-new-epoch",
+      "actualHash": "3da823cb46de68ec0e4a4c9405c9c9891acbe49dc82a4d5b5922d364196332e7",
+      "oracle1Hash": "3da823cb46de68ec0e4a4c9405c9c9891acbe49dc82a4d5b5922d364196332e7",
+      "oracle2Hash": "3da823cb46de68ec0e4a4c9405c9c9891acbe49dc82a4d5b5922d364196332e7",
+      "cpDecodedHash": "3da823cb46de68ec0e4a4c9405c9c9891acbe49dc82a4d5b5922d364196332e7",
+      "actualVsOracle1": {
+        "changed": 0,
+        "max": 0,
+        "first": []
+      },
+      "oracle1Vs2": {
+        "changed": 0,
+        "max": 0,
+        "first": []
+      },
+      "actualVsCP": {
+        "changed": 0,
+        "max": 0,
+        "first": []
+      },
+      "cpVsOracle1": {
+        "changed": 0,
+        "max": 0,
+        "first": []
+      },
+      "cp": {
+        "sameSaved": true,
+        "start": 4,
+        "opCount": 4,
+        "valid": true
+      },
+      "puddle": {
+        "layers": 0,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 10,
+        "pending": false,
+        "revisions": []
+      },
+      "glError": 0
+    },
+    {
+      "name": "new-open-epoch-undone-restores-same-closed-cp",
+      "actualHash": "3da823cb46de68ec0e4a4c9405c9c9891acbe49dc82a4d5b5922d364196332e7",
+      "oracle1Hash": "3da823cb46de68ec0e4a4c9405c9c9891acbe49dc82a4d5b5922d364196332e7",
+      "oracle2Hash": "3da823cb46de68ec0e4a4c9405c9c9891acbe49dc82a4d5b5922d364196332e7",
+      "cpDecodedHash": "3da823cb46de68ec0e4a4c9405c9c9891acbe49dc82a4d5b5922d364196332e7",
+      "actualVsOracle1": {
+        "changed": 0,
+        "max": 0,
+        "first": []
+      },
+      "oracle1Vs2": {
+        "changed": 0,
+        "max": 0,
+        "first": []
+      },
+      "actualVsCP": {
+        "changed": 0,
+        "max": 0,
+        "first": []
+      },
+      "cpVsOracle1": {
+        "changed": 0,
+        "max": 0,
+        "first": []
+      },
+      "cp": {
+        "sameSaved": true,
+        "start": 4,
+        "opCount": 4,
+        "valid": true
+      },
+      "puddle": {
+        "layers": 0,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 11,
+        "pending": false,
+        "revisions": []
+      },
+      "glError": 0
+    }
+  ],
+  "errors": [],
+  "pass": true
+}

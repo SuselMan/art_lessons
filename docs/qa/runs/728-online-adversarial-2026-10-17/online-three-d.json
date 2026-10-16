@@ -1,0 +1,1939 @@
+{
+  "source": "1b1c0194",
+  "scope": "3 online authors AMD/Intel/AMD; actual observer held-preview, natural800dabchunks across foreignDry, offlineoutbox and whole-gestureundoRedo, closedepochCP",
+  "identity": [
+    {
+      "user": "752847fa-dc21-49db-aea0-e2b2617fce79",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224,
+      "liveFlushTimerField": true
+    },
+    {
+      "user": "f1d5e59b-6521-4966-9dbf-e290bba48bf6",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224,
+      "liveFlushTimerField": true
+    },
+    {
+      "user": "7acbb992-1c5d-4b93-bdcb-fccbc6b68760",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224,
+      "liveFlushTimerField": true
+    }
+  ],
+  "cases": [
+    {
+      "name": "three-author-actual-held-preview-before-any-chunk",
+      "gesture": "o_jF9hGxP9",
+      "previews": [
+        {
+          "actor": 0,
+          "changedChannels": 432,
+          "max": 180,
+          "meanRGB": [
+            82.98611111111111,
+            131.18055555555554,
+            217.59722222222223
+          ],
+          "state": {
+            "active": "o_jF9hGxP9",
+            "peers": 0,
+            "committedStrokes": 0,
+            "film": []
+          }
+        },
+        {
+          "actor": 1,
+          "changedChannels": 432,
+          "max": 118,
+          "meanRGB": [
+            166.09722222222223,
+            184.95833333333334,
+            227.20833333333334
+          ],
+          "state": {
+            "active": null,
+            "peers": 1,
+            "committedStrokes": 0,
+            "film": [
+              {
+                "received": 13,
+                "committed": 0,
+                "dabs": 13,
+                "first": {
+                  "x": 120,
+                  "y": 160,
+                  "pressure": 0.75,
+                  "tiltX": 0,
+                  "tiltY": 0,
+                  "size": 17.471073150634766,
+                  "aspectRatio": 1,
+                  "angle": 0,
+                  "opacity": 0.9900000095367432,
+                  "t": 0
+                },
+                "last": {
+                  "x": 193.9199981689453,
+                  "y": 160,
+                  "pressure": 0.75,
+                  "tiltX": 0,
+                  "tiltY": 0,
+                  "size": 24.265378952026367,
+                  "aspectRatio": 1,
+                  "angle": 0,
+                  "opacity": 0.9900000095367432,
+                  "t": 18.200000762939453
+                }
+              }
+            ]
+          }
+        },
+        {
+          "actor": 2,
+          "changedChannels": 432,
+          "max": 120,
+          "meanRGB": [
+            164.86111111111111,
+            184.79861111111111,
+            229.40972222222223
+          ],
+          "state": {
+            "active": null,
+            "peers": 1,
+            "committedStrokes": 0,
+            "film": [
+              {
+                "received": 13,
+                "committed": 0,
+                "dabs": 13,
+                "first": {
+                  "x": 120,
+                  "y": 160,
+                  "pressure": 0.75,
+                  "tiltX": 0,
+                  "tiltY": 0,
+                  "size": 17.471073150634766,
+                  "aspectRatio": 1,
+                  "angle": 0,
+                  "opacity": 0.9900000095367432,
+                  "t": 0
+                },
+                "last": {
+                  "x": 193.9199981689453,
+                  "y": 160,
+                  "pressure": 0.75,
+                  "tiltX": 0,
+                  "tiltY": 0,
+                  "size": 24.265378952026367,
+                  "aspectRatio": 1,
+                  "angle": 0,
+                  "opacity": 0.9900000095367432,
+                  "t": 18.200000762939453
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "paused-held-tail-diagnostic",
+      "pausedTail": [
+        {
+          "actor": 0,
+          "changedChannels": 424,
+          "max": 91,
+          "meanRGB": [
+            195.75694444444446,
+            216.80555555555554,
+            239.32638888888889
+          ]
+        },
+        {
+          "actor": 1,
+          "changedChannels": 432,
+          "max": 105,
+          "meanRGB": [
+            192.76388888888889,
+            205.04166666666666,
+            233.09722222222223
+          ]
+        },
+        {
+          "actor": 2,
+          "changedChannels": 432,
+          "max": 107,
+          "meanRGB": [
+            191.90277777777777,
+            205.04166666666666,
+            234.51388888888889
+          ]
+        }
+      ],
+      "pausedAuthor": {
+        "queued": 0,
+        "held": "o_jF9hGxP9",
+        "sinceLastEmitMs": 4845.5999999940395
+      }
+    },
+    {
+      "name": "interleaved-chunks-foreign-dry-offline-stroke-undo",
+      "prefix": {
+        "chunks": [
+          "Xl2PnFowz4"
+        ],
+        "localDabs": 0,
+        "active": "o_jF9hGxP9"
+      },
+      "tail": {
+        "chunks": [
+          "Xl2PnFowz4",
+          "miPZNl3pGx"
+        ],
+        "localDabs": 0,
+        "active": "o_jF9hGxP9"
+      },
+      "bStroke": [
+        "jF9uDU6uwj"
+      ],
+      "dry": "06cadb12-d600-4466-a93b-3e317ba2a853",
+      "offlineIds": [
+        "3IZWqMEY86"
+      ],
+      "cUndo": "3IZWqMEY86"
+    },
+    {
+      "name": "whole-gesture-undo-redo-across-dry",
+      "undoA": "1fxeksRDRE",
+      "redoA": "Xl2PnFowz4",
+      "chunkStatesAfterUndo": [
+        "undone",
+        "undone",
+        "undone"
+      ]
+    },
+    {
+      "name": "final-dry-three-authors-live-and-physical-equal-independent-replay",
+      "captures": [
+        {
+          "actor": 0,
+          "wet": false,
+          "liveHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "actualHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracleHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracle2Hash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cpDecodedHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cp": {
+            "start": 4,
+            "opCount": 4,
+            "sameSaved": false
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "wet": false,
+          "liveHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "actualHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "oracleHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "oracle2Hash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "cpDecodedHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "cp": {
+            "start": 4,
+            "opCount": 4,
+            "sameSaved": false
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "wet": false,
+          "liveHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "actualHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracleHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracle2Hash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cpDecodedHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cp": {
+            "start": 4,
+            "opCount": 4,
+            "sameSaved": false
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "closed-epoch-cp-reused-after-new-foreign-open-epoch-undo",
+      "beforeCP": [
+        {
+          "bestStart": 4,
+          "ops": 4,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-bb35e7c2-7f49-4616-b5bc-69cf4ffe4ed3"
+              ]
+            }
+          ],
+          "sameSaved": false,
+          "computations": 8,
+          "cancellations": 0
+        },
+        {
+          "bestStart": 4,
+          "ops": 4,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-bb35e7c2-7f49-4616-b5bc-69cf4ffe4ed3"
+              ]
+            }
+          ],
+          "sameSaved": false,
+          "computations": 8,
+          "cancellations": 1
+        },
+        {
+          "bestStart": 4,
+          "ops": 4,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-bb35e7c2-7f49-4616-b5bc-69cf4ffe4ed3"
+              ]
+            }
+          ],
+          "sameSaved": false,
+          "computations": 9,
+          "cancellations": 1
+        }
+      ],
+      "beforeUndoCP": [
+        {
+          "bestStart": 4,
+          "ops": 5,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-bb35e7c2-7f49-4616-b5bc-69cf4ffe4ed3"
+              ]
+            }
+          ],
+          "sameSaved": true,
+          "computations": 9,
+          "cancellations": 0
+        },
+        {
+          "bestStart": 4,
+          "ops": 5,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-bb35e7c2-7f49-4616-b5bc-69cf4ffe4ed3"
+              ]
+            }
+          ],
+          "sameSaved": true,
+          "computations": 9,
+          "cancellations": 1
+        },
+        {
+          "bestStart": 4,
+          "ops": 5,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-bb35e7c2-7f49-4616-b5bc-69cf4ffe4ed3"
+              ]
+            }
+          ],
+          "sameSaved": true,
+          "computations": 10,
+          "cancellations": 1
+        }
+      ],
+      "afterCP": [
+        {
+          "bestStart": 4,
+          "ops": 4,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-bb35e7c2-7f49-4616-b5bc-69cf4ffe4ed3"
+              ]
+            },
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-bb35e7c2-7f49-4616-b5bc-69cf4ffe4ed3"
+              ]
+            }
+          ],
+          "sameSaved": true,
+          "computations": 9,
+          "cancellations": 0
+        },
+        {
+          "bestStart": 4,
+          "ops": 4,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-bb35e7c2-7f49-4616-b5bc-69cf4ffe4ed3"
+              ]
+            },
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-bb35e7c2-7f49-4616-b5bc-69cf4ffe4ed3"
+              ]
+            }
+          ],
+          "sameSaved": true,
+          "computations": 9,
+          "cancellations": 1
+        },
+        {
+          "bestStart": 4,
+          "ops": 4,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-bb35e7c2-7f49-4616-b5bc-69cf4ffe4ed3"
+              ]
+            },
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-bb35e7c2-7f49-4616-b5bc-69cf4ffe4ed3"
+              ]
+            }
+          ],
+          "sameSaved": true,
+          "computations": 10,
+          "cancellations": 1
+        }
+      ]
+    },
+    {
+      "name": "closed-epoch-after-undo-exact",
+      "captures": [
+        {
+          "actor": 0,
+          "wet": false,
+          "liveHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "actualHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracleHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracle2Hash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cpDecodedHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cp": {
+            "start": 4,
+            "opCount": 4,
+            "sameSaved": true
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "wet": false,
+          "liveHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "actualHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "oracleHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "oracle2Hash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "cpDecodedHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "cp": {
+            "start": 4,
+            "opCount": 4,
+            "sameSaved": true
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "wet": false,
+          "liveHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "actualHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracleHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracle2Hash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cpDecodedHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cp": {
+            "start": 4,
+            "opCount": 4,
+            "sameSaved": true
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "undo-terminal-dry-invalidates-closed-epoch-checkpoint",
+      "undoDry": "2e585724-64a9-4b64-a6da-63f3c4f09fe1",
+      "invalidatedCP": [
+        {
+          "retained": false,
+          "valid": false
+        },
+        {
+          "retained": false,
+          "valid": false
+        },
+        {
+          "retained": false,
+          "valid": false
+        }
+      ]
+    },
+    {
+      "name": "undo-terminal-dry-target-equals-full-replay",
+      "captures": [
+        {
+          "actor": 0,
+          "wet": true,
+          "liveHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "actualHash": "312befd1d16a50120462d5297c574f3d1dbe2b8d8df47f48007d1c54ffe5d4a6",
+          "oracleHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracle2Hash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cpDecodedHash": null,
+          "cp": {
+            "sameSaved": false
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 107907,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 107907,
+            "max": 112,
+            "first": [
+              {
+                "byte": 383521,
+                "x": 131,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 1,
+                "b": 0
+              },
+              {
+                "byte": 383522,
+                "x": 131,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 1,
+                "b": 0
+              },
+              {
+                "byte": 383523,
+                "x": 131,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 2,
+                "b": 0
+              },
+              {
+                "byte": 383525,
+                "x": 132,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 4,
+                "b": 6
+              },
+              {
+                "byte": 383526,
+                "x": 132,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 10,
+                "b": 13
+              },
+              {
+                "byte": 383527,
+                "x": 132,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 10,
+                "b": 13
+              },
+              {
+                "byte": 383530,
+                "x": 133,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 15,
+                "b": 16
+              },
+              {
+                "byte": 383531,
+                "x": 133,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 15,
+                "b": 16
+              },
+              {
+                "byte": 383533,
+                "x": 134,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 10,
+                "b": 11
+              },
+              {
+                "byte": 383534,
+                "x": 134,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 17,
+                "b": 23
+              },
+              {
+                "byte": 383535,
+                "x": 134,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 21,
+                "b": 23
+              },
+              {
+                "byte": 383537,
+                "x": 135,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 17,
+                "b": 46
+              },
+              {
+                "byte": 383538,
+                "x": 135,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 29,
+                "b": 59
+              },
+              {
+                "byte": 383539,
+                "x": 135,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 33,
+                "b": 59
+              },
+              {
+                "byte": 383541,
+                "x": 136,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 11,
+                "b": 10
+              },
+              {
+                "byte": 383542,
+                "x": 136,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 25,
+                "b": 27
+              },
+              {
+                "byte": 383543,
+                "x": 136,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 30,
+                "b": 27
+              },
+              {
+                "byte": 383545,
+                "x": 137,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 10,
+                "b": 7
+              },
+              {
+                "byte": 383546,
+                "x": 137,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 21,
+                "b": 17
+              },
+              {
+                "byte": 383547,
+                "x": 137,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 25,
+                "b": 17
+              },
+              {
+                "byte": 383549,
+                "x": 138,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 10,
+                "b": 14
+              },
+              {
+                "byte": 383550,
+                "x": 138,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 17,
+                "b": 22
+              },
+              {
+                "byte": 383551,
+                "x": 138,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 21,
+                "b": 22
+              },
+              {
+                "byte": 383553,
+                "x": 139,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 11,
+                "b": 17
+              },
+              {
+                "byte": 383554,
+                "x": 139,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 20,
+                "b": 24
+              },
+              {
+                "byte": 383555,
+                "x": 139,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 22,
+                "b": 24
+              },
+              {
+                "byte": 383557,
+                "x": 140,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 1,
+                "b": 0
+              },
+              {
+                "byte": 383558,
+                "x": 140,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 3,
+                "b": 0
+              },
+              {
+                "byte": 383559,
+                "x": 140,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 3,
+                "b": 0
+              },
+              {
+                "byte": 385561,
+                "x": 129,
+                "bufferY": 188,
+                "channel": 1,
+                "a": 3,
+                "b": 6
+              },
+              {
+                "byte": 385562,
+                "x": 129,
+                "bufferY": 188,
+                "channel": 2,
+                "a": 6,
+                "b": 13
+              },
+              {
+                "byte": 385563,
+                "x": 129,
+                "bufferY": 188,
+                "channel": 3,
+                "a": 6,
+                "b": 13
+              }
+            ]
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": null,
+          "cpVsOracle": null,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "wet": true,
+          "liveHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "actualHash": "caf70a8c4da74b5c4e8758deae4e75af76dba036f6cc7adef1d06c4d851c4319",
+          "oracleHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "oracle2Hash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "cpDecodedHash": null,
+          "cp": {
+            "sameSaved": false
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 107124,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 107124,
+            "max": 83,
+            "first": [
+              {
+                "byte": 383521,
+                "x": 131,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 1,
+                "b": 0
+              },
+              {
+                "byte": 383522,
+                "x": 131,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 2,
+                "b": 0
+              },
+              {
+                "byte": 383523,
+                "x": 131,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 2,
+                "b": 0
+              },
+              {
+                "byte": 383526,
+                "x": 132,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 14,
+                "b": 13
+              },
+              {
+                "byte": 383527,
+                "x": 132,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 15,
+                "b": 13
+              },
+              {
+                "byte": 383529,
+                "x": 133,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 10,
+                "b": 7
+              },
+              {
+                "byte": 383530,
+                "x": 133,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 22,
+                "b": 16
+              },
+              {
+                "byte": 383531,
+                "x": 133,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 25,
+                "b": 16
+              },
+              {
+                "byte": 383533,
+                "x": 134,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 14,
+                "b": 11
+              },
+              {
+                "byte": 383534,
+                "x": 134,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 30,
+                "b": 23
+              },
+              {
+                "byte": 383535,
+                "x": 134,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 33,
+                "b": 23
+              },
+              {
+                "byte": 383537,
+                "x": 135,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 32,
+                "b": 46
+              },
+              {
+                "byte": 383538,
+                "x": 135,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 50,
+                "b": 59
+              },
+              {
+                "byte": 383539,
+                "x": 135,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 54,
+                "b": 59
+              },
+              {
+                "byte": 383541,
+                "x": 136,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 18,
+                "b": 10
+              },
+              {
+                "byte": 383542,
+                "x": 136,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 37,
+                "b": 27
+              },
+              {
+                "byte": 383543,
+                "x": 136,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 41,
+                "b": 27
+              },
+              {
+                "byte": 383545,
+                "x": 137,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 17,
+                "b": 7
+              },
+              {
+                "byte": 383546,
+                "x": 137,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 33,
+                "b": 17
+              },
+              {
+                "byte": 383547,
+                "x": 137,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 37,
+                "b": 17
+              },
+              {
+                "byte": 383549,
+                "x": 138,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 18,
+                "b": 14
+              },
+              {
+                "byte": 383550,
+                "x": 138,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 32,
+                "b": 22
+              },
+              {
+                "byte": 383551,
+                "x": 138,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 36,
+                "b": 22
+              },
+              {
+                "byte": 383554,
+                "x": 139,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 30,
+                "b": 25
+              },
+              {
+                "byte": 383555,
+                "x": 139,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 34,
+                "b": 25
+              },
+              {
+                "byte": 383557,
+                "x": 140,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 2,
+                "b": 0
+              },
+              {
+                "byte": 383558,
+                "x": 140,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 4,
+                "b": 0
+              },
+              {
+                "byte": 383559,
+                "x": 140,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 5,
+                "b": 0
+              },
+              {
+                "byte": 385561,
+                "x": 129,
+                "bufferY": 188,
+                "channel": 1,
+                "a": 4,
+                "b": 6
+              },
+              {
+                "byte": 385562,
+                "x": 129,
+                "bufferY": 188,
+                "channel": 2,
+                "a": 9,
+                "b": 13
+              },
+              {
+                "byte": 385563,
+                "x": 129,
+                "bufferY": 188,
+                "channel": 3,
+                "a": 9,
+                "b": 13
+              },
+              {
+                "byte": 385565,
+                "x": 130,
+                "bufferY": 188,
+                "channel": 1,
+                "a": 11,
+                "b": 15
+              }
+            ]
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": null,
+          "cpVsOracle": null,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "wet": true,
+          "liveHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "actualHash": "a33a987cb3a1a0f6a36ed2b267fdc4791e9af480ba917be4ddaaab20e86b5c16",
+          "oracleHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracle2Hash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cpDecodedHash": null,
+          "cp": {
+            "sameSaved": false
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 98537,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 98537,
+            "max": 51,
+            "first": [
+              {
+                "byte": 383521,
+                "x": 131,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 1,
+                "b": 0
+              },
+              {
+                "byte": 383522,
+                "x": 131,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 2,
+                "b": 0
+              },
+              {
+                "byte": 383523,
+                "x": 131,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 2,
+                "b": 0
+              },
+              {
+                "byte": 383525,
+                "x": 132,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 8,
+                "b": 6
+              },
+              {
+                "byte": 383526,
+                "x": 132,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 17,
+                "b": 13
+              },
+              {
+                "byte": 383527,
+                "x": 132,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 18,
+                "b": 13
+              },
+              {
+                "byte": 383529,
+                "x": 133,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 11,
+                "b": 7
+              },
+              {
+                "byte": 383530,
+                "x": 133,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 23,
+                "b": 16
+              },
+              {
+                "byte": 383531,
+                "x": 133,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 25,
+                "b": 16
+              },
+              {
+                "byte": 383533,
+                "x": 134,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 16,
+                "b": 11
+              },
+              {
+                "byte": 383534,
+                "x": 134,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 33,
+                "b": 23
+              },
+              {
+                "byte": 383535,
+                "x": 134,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 36,
+                "b": 23
+              },
+              {
+                "byte": 383537,
+                "x": 135,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 38,
+                "b": 46
+              },
+              {
+                "byte": 383538,
+                "x": 135,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 56,
+                "b": 59
+              },
+              {
+                "byte": 383541,
+                "x": 136,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 16,
+                "b": 10
+              },
+              {
+                "byte": 383542,
+                "x": 136,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 38,
+                "b": 27
+              },
+              {
+                "byte": 383543,
+                "x": 136,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 41,
+                "b": 27
+              },
+              {
+                "byte": 383545,
+                "x": 137,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 14,
+                "b": 7
+              },
+              {
+                "byte": 383546,
+                "x": 137,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 32,
+                "b": 17
+              },
+              {
+                "byte": 383547,
+                "x": 137,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 35,
+                "b": 17
+              },
+              {
+                "byte": 383549,
+                "x": 138,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 18,
+                "b": 14
+              },
+              {
+                "byte": 383550,
+                "x": 138,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 34,
+                "b": 22
+              },
+              {
+                "byte": 383551,
+                "x": 138,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 37,
+                "b": 22
+              },
+              {
+                "byte": 383553,
+                "x": 139,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 20,
+                "b": 17
+              },
+              {
+                "byte": 383554,
+                "x": 139,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 34,
+                "b": 24
+              },
+              {
+                "byte": 383555,
+                "x": 139,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 37,
+                "b": 24
+              },
+              {
+                "byte": 383557,
+                "x": 140,
+                "bufferY": 187,
+                "channel": 1,
+                "a": 2,
+                "b": 0
+              },
+              {
+                "byte": 383558,
+                "x": 140,
+                "bufferY": 187,
+                "channel": 2,
+                "a": 5,
+                "b": 0
+              },
+              {
+                "byte": 383559,
+                "x": 140,
+                "bufferY": 187,
+                "channel": 3,
+                "a": 5,
+                "b": 0
+              },
+              {
+                "byte": 385561,
+                "x": 129,
+                "bufferY": 188,
+                "channel": 1,
+                "a": 5,
+                "b": 6
+              },
+              {
+                "byte": 385562,
+                "x": 129,
+                "bufferY": 188,
+                "channel": 2,
+                "a": 12,
+                "b": 13
+              },
+              {
+                "byte": 385563,
+                "x": 129,
+                "bufferY": 188,
+                "channel": 3,
+                "a": 12,
+                "b": 13
+              }
+            ]
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": null,
+          "cpVsOracle": null,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "redo-terminal-dry-rebuilds-canonical-proof",
+      "redoDry": "2e585724-64a9-4b64-a6da-63f3c4f09fe1"
+    },
+    {
+      "name": "redo-terminal-dry-actual-and-target-exact",
+      "captures": [
+        {
+          "actor": 0,
+          "wet": false,
+          "liveHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "actualHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracleHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracle2Hash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cpDecodedHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cp": {
+            "start": 4,
+            "opCount": 4,
+            "sameSaved": false
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "wet": false,
+          "liveHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "actualHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "oracleHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "oracle2Hash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "cpDecodedHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "cp": {
+            "start": 4,
+            "opCount": 4,
+            "sameSaved": false
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "wet": false,
+          "liveHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "actualHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracleHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracle2Hash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cpDecodedHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cp": {
+            "start": 4,
+            "opCount": 4,
+            "sameSaved": false
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "cold-rejoin-causal-state-and-target-exact",
+      "captures": [
+        {
+          "actor": 0,
+          "wet": false,
+          "liveHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "actualHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracleHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracle2Hash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cpDecodedHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cp": {
+            "start": 4,
+            "opCount": 4,
+            "sameSaved": false
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "wet": false,
+          "liveHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "actualHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "oracleHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "oracle2Hash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "cpDecodedHash": "08aed6a522ce90a6d69dde0010835dffeeb33e8cd62971f2c2e6d36ecffa9098",
+          "cp": {
+            "start": 4,
+            "opCount": 4,
+            "sameSaved": false
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "wet": false,
+          "liveHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "actualHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracleHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "oracle2Hash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cpDecodedHash": "686549545f229cd424be9fa77f284032e46d9d0d38bcb1a3aed1b4b3630793b3",
+          "cp": {
+            "start": 4,
+            "opCount": 4,
+            "sameSaved": false
+          },
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "canonicalVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "actualVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "oracle1Vs2": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsActual": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "cpVsOracle": {
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "glError": 0
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "findings": [],
+  "heldPreviews": [
+    {
+      "actor": 0,
+      "changedChannels": 432,
+      "max": 180,
+      "meanRGB": [
+        82.98611111111111,
+        131.18055555555554,
+        217.59722222222223
+      ],
+      "state": {
+        "active": "o_jF9hGxP9",
+        "peers": 0,
+        "committedStrokes": 0,
+        "film": []
+      }
+    },
+    {
+      "actor": 1,
+      "changedChannels": 432,
+      "max": 118,
+      "meanRGB": [
+        166.09722222222223,
+        184.95833333333334,
+        227.20833333333334
+      ],
+      "state": {
+        "active": null,
+        "peers": 1,
+        "committedStrokes": 0,
+        "film": [
+          {
+            "received": 13,
+            "committed": 0,
+            "dabs": 13,
+            "first": {
+              "x": 120,
+              "y": 160,
+              "pressure": 0.75,
+              "tiltX": 0,
+              "tiltY": 0,
+              "size": 17.471073150634766,
+              "aspectRatio": 1,
+              "angle": 0,
+              "opacity": 0.9900000095367432,
+              "t": 0
+            },
+            "last": {
+              "x": 193.9199981689453,
+              "y": 160,
+              "pressure": 0.75,
+              "tiltX": 0,
+              "tiltY": 0,
+              "size": 24.265378952026367,
+              "aspectRatio": 1,
+              "angle": 0,
+              "opacity": 0.9900000095367432,
+              "t": 18.200000762939453
+            }
+          }
+        ]
+      }
+    },
+    {
+      "actor": 2,
+      "changedChannels": 432,
+      "max": 120,
+      "meanRGB": [
+        164.86111111111111,
+        184.79861111111111,
+        229.40972222222223
+      ],
+      "state": {
+        "active": null,
+        "peers": 1,
+        "committedStrokes": 0,
+        "film": [
+          {
+            "received": 13,
+            "committed": 0,
+            "dabs": 13,
+            "first": {
+              "x": 120,
+              "y": 160,
+              "pressure": 0.75,
+              "tiltX": 0,
+              "tiltY": 0,
+              "size": 17.471073150634766,
+              "aspectRatio": 1,
+              "angle": 0,
+              "opacity": 0.9900000095367432,
+              "t": 0
+            },
+            "last": {
+              "x": 193.9199981689453,
+              "y": 160,
+              "pressure": 0.75,
+              "tiltX": 0,
+              "tiltY": 0,
+              "size": 24.265378952026367,
+              "aspectRatio": 1,
+              "angle": 0,
+              "opacity": 0.9900000095367432,
+              "t": 18.200000762939453
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "pass": true
+}

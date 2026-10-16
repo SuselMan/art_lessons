@@ -1,0 +1,541 @@
+{
+  "source": "1b1c0194",
+  "scope": "3 online authors AMD/Intel/AMD; actual observer held-preview, natural800dabchunks across foreignDry, offlineoutbox and whole-gestureundoRedo, closedepochCP",
+  "identity": [
+    {
+      "user": "969a2575-526a-4283-8b86-87839289ce18",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224,
+      "liveFlushTimerField": true
+    },
+    {
+      "user": "4e08e7ca-1413-47b7-84c8-c606a45fd8d5",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224,
+      "liveFlushTimerField": true
+    },
+    {
+      "user": "01cb4605-0c7a-4d5e-bf00-28af91d18630",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224,
+      "liveFlushTimerField": true
+    }
+  ],
+  "cases": [
+    {
+      "name": "three-author-actual-held-preview-before-any-chunk",
+      "gesture": "s4v3rYywcX",
+      "previews": [
+        {
+          "actor": 0,
+          "changedChannels": 432,
+          "max": 169,
+          "meanRGB": [
+            88.56944444444444,
+            136.86805555555554,
+            220.44444444444446
+          ],
+          "state": {
+            "active": "s4v3rYywcX",
+            "peers": 0,
+            "committedStrokes": 0,
+            "film": []
+          }
+        },
+        {
+          "actor": 1,
+          "changedChannels": 432,
+          "max": 118,
+          "meanRGB": [
+            166.09722222222223,
+            184.95833333333334,
+            227.20833333333334
+          ],
+          "state": {
+            "active": null,
+            "peers": 1,
+            "committedStrokes": 0,
+            "film": [
+              {
+                "received": 13,
+                "committed": 0,
+                "dabs": 13,
+                "first": {
+                  "x": 120,
+                  "y": 160,
+                  "pressure": 0.75,
+                  "tiltX": 0,
+                  "tiltY": 0,
+                  "size": 17.471073150634766,
+                  "aspectRatio": 1,
+                  "angle": 0,
+                  "opacity": 0.9900000095367432,
+                  "t": 0
+                },
+                "last": {
+                  "x": 193.9199981689453,
+                  "y": 160,
+                  "pressure": 0.75,
+                  "tiltX": 0,
+                  "tiltY": 0,
+                  "size": 24.265378952026367,
+                  "aspectRatio": 1,
+                  "angle": 0,
+                  "opacity": 0.9900000095367432,
+                  "t": 22.899999618530273
+                }
+              }
+            ]
+          }
+        },
+        {
+          "actor": 2,
+          "changedChannels": 432,
+          "max": 120,
+          "meanRGB": [
+            164.86111111111111,
+            184.79861111111111,
+            229.40972222222223
+          ],
+          "state": {
+            "active": null,
+            "peers": 1,
+            "committedStrokes": 0,
+            "film": [
+              {
+                "received": 13,
+                "committed": 0,
+                "dabs": 13,
+                "first": {
+                  "x": 120,
+                  "y": 160,
+                  "pressure": 0.75,
+                  "tiltX": 0,
+                  "tiltY": 0,
+                  "size": 17.471073150634766,
+                  "aspectRatio": 1,
+                  "angle": 0,
+                  "opacity": 0.9900000095367432,
+                  "t": 0
+                },
+                "last": {
+                  "x": 193.9199981689453,
+                  "y": 160,
+                  "pressure": 0.75,
+                  "tiltX": 0,
+                  "tiltY": 0,
+                  "size": 24.265378952026367,
+                  "aspectRatio": 1,
+                  "angle": 0,
+                  "opacity": 0.9900000095367432,
+                  "t": 22.899999618530273
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "paused-held-tail-diagnostic",
+      "pausedTail": [
+        {
+          "actor": 0,
+          "changedChannels": 424,
+          "max": 96,
+          "meanRGB": [
+            193.04861111111111,
+            216.60416666666666,
+            239.40277777777777
+          ]
+        },
+        {
+          "actor": 1,
+          "changedChannels": 432,
+          "max": 105,
+          "meanRGB": [
+            192.76388888888889,
+            205.04166666666666,
+            233.09722222222223
+          ]
+        },
+        {
+          "actor": 2,
+          "changedChannels": 432,
+          "max": 107,
+          "meanRGB": [
+            191.90277777777777,
+            205.04166666666666,
+            234.51388888888889
+          ]
+        }
+      ],
+      "pausedAuthor": {
+        "queued": 0,
+        "held": "s4v3rYywcX",
+        "sinceLastEmitMs": 5154.100000023842
+      }
+    },
+    {
+      "name": "interleaved-chunks-foreign-dry-offline-stroke-undo",
+      "prefix": {
+        "chunks": [
+          "SeomiqY9Hk"
+        ],
+        "localDabs": 0,
+        "active": "s4v3rYywcX"
+      },
+      "tail": {
+        "chunks": [
+          "SeomiqY9Hk",
+          "zActeED-oN"
+        ],
+        "localDabs": 0,
+        "active": "s4v3rYywcX"
+      },
+      "bStroke": [
+        "n9B8QidcKc"
+      ],
+      "dry": "725f1762-d7c8-45c8-adf3-9b4807057f44",
+      "offlineIds": [
+        "fz1bS9oQCb"
+      ],
+      "cUndo": "fz1bS9oQCb"
+    },
+    {
+      "name": "whole-gesture-undo-redo-across-dry",
+      "undoA": "UostChZQpz",
+      "redoA": "SeomiqY9Hk",
+      "chunkStatesAfterUndo": [
+        "undone",
+        "undone",
+        "undone"
+      ]
+    },
+    {
+      "name": "final-dry-three-authors-live-and-physical-equal-independent-replay",
+      "captures": [
+        {
+          "actor": 0,
+          "wet": false,
+          "liveHash": "c20f7d8e35a872e004ecf1e3d620d2618ac1f63fcfa1691d7e4e07ca22985aac",
+          "oracleHash": "c20f7d8e35a872e004ecf1e3d620d2618ac1f63fcfa1691d7e4e07ca22985aac",
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "wet": false,
+          "liveHash": "3da823cb46de68ec0e4a4c9405c9c9891acbe49dc82a4d5b5922d364196332e7",
+          "oracleHash": "3da823cb46de68ec0e4a4c9405c9c9891acbe49dc82a4d5b5922d364196332e7",
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "wet": false,
+          "liveHash": "c20f7d8e35a872e004ecf1e3d620d2618ac1f63fcfa1691d7e4e07ca22985aac",
+          "oracleHash": "c20f7d8e35a872e004ecf1e3d620d2618ac1f63fcfa1691d7e4e07ca22985aac",
+          "changed": 0,
+          "max": 0,
+          "physicalRawChanged": 0,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "closed-epoch-cp-reused-after-new-foreign-open-epoch-undo",
+      "beforeCP": [
+        {
+          "bestStart": 4,
+          "ops": 4,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-b4159dcf-934b-4aac-9882-f6ec77e8fa10"
+              ]
+            }
+          ],
+          "sameSaved": false,
+          "computations": 9,
+          "cancellations": 0
+        },
+        {
+          "bestStart": 4,
+          "ops": 4,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-b4159dcf-934b-4aac-9882-f6ec77e8fa10"
+              ]
+            }
+          ],
+          "sameSaved": false,
+          "computations": 9,
+          "cancellations": 1
+        },
+        {
+          "bestStart": 4,
+          "ops": 4,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-b4159dcf-934b-4aac-9882-f6ec77e8fa10"
+              ]
+            }
+          ],
+          "sameSaved": false,
+          "computations": 9,
+          "cancellations": 0
+        }
+      ],
+      "beforeUndoCP": [
+        {
+          "bestStart": 4,
+          "ops": 5,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-b4159dcf-934b-4aac-9882-f6ec77e8fa10"
+              ]
+            }
+          ],
+          "sameSaved": true,
+          "computations": 10,
+          "cancellations": 0
+        },
+        {
+          "bestStart": 4,
+          "ops": 5,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-b4159dcf-934b-4aac-9882-f6ec77e8fa10"
+              ]
+            }
+          ],
+          "sameSaved": true,
+          "computations": 10,
+          "cancellations": 1
+        },
+        {
+          "bestStart": 4,
+          "ops": 5,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-b4159dcf-934b-4aac-9882-f6ec77e8fa10"
+              ]
+            }
+          ],
+          "sameSaved": true,
+          "computations": 10,
+          "cancellations": 0
+        }
+      ],
+      "afterCP": [
+        {
+          "bestStart": 4,
+          "ops": 4,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-b4159dcf-934b-4aac-9882-f6ec77e8fa10"
+              ]
+            },
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-b4159dcf-934b-4aac-9882-f6ec77e8fa10"
+              ]
+            }
+          ],
+          "sameSaved": true,
+          "computations": 10,
+          "cancellations": 0
+        },
+        {
+          "bestStart": 4,
+          "ops": 4,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-b4159dcf-934b-4aac-9882-f6ec77e8fa10"
+              ]
+            },
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-b4159dcf-934b-4aac-9882-f6ec77e8fa10"
+              ]
+            }
+          ],
+          "sameSaved": true,
+          "computations": 10,
+          "cancellations": 1
+        },
+        {
+          "bestStart": 4,
+          "ops": 4,
+          "valid": [
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-b4159dcf-934b-4aac-9882-f6ec77e8fa10"
+              ]
+            },
+            {
+              "opCount": 4,
+              "closedWashIds": [
+                "m70:qa-three-b4159dcf-934b-4aac-9882-f6ec77e8fa10"
+              ]
+            }
+          ],
+          "sameSaved": true,
+          "computations": 10,
+          "cancellations": 0
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "heldPreviews": [
+    {
+      "actor": 0,
+      "changedChannels": 432,
+      "max": 169,
+      "meanRGB": [
+        88.56944444444444,
+        136.86805555555554,
+        220.44444444444446
+      ],
+      "state": {
+        "active": "s4v3rYywcX",
+        "peers": 0,
+        "committedStrokes": 0,
+        "film": []
+      }
+    },
+    {
+      "actor": 1,
+      "changedChannels": 432,
+      "max": 118,
+      "meanRGB": [
+        166.09722222222223,
+        184.95833333333334,
+        227.20833333333334
+      ],
+      "state": {
+        "active": null,
+        "peers": 1,
+        "committedStrokes": 0,
+        "film": [
+          {
+            "received": 13,
+            "committed": 0,
+            "dabs": 13,
+            "first": {
+              "x": 120,
+              "y": 160,
+              "pressure": 0.75,
+              "tiltX": 0,
+              "tiltY": 0,
+              "size": 17.471073150634766,
+              "aspectRatio": 1,
+              "angle": 0,
+              "opacity": 0.9900000095367432,
+              "t": 0
+            },
+            "last": {
+              "x": 193.9199981689453,
+              "y": 160,
+              "pressure": 0.75,
+              "tiltX": 0,
+              "tiltY": 0,
+              "size": 24.265378952026367,
+              "aspectRatio": 1,
+              "angle": 0,
+              "opacity": 0.9900000095367432,
+              "t": 22.899999618530273
+            }
+          }
+        ]
+      }
+    },
+    {
+      "actor": 2,
+      "changedChannels": 432,
+      "max": 120,
+      "meanRGB": [
+        164.86111111111111,
+        184.79861111111111,
+        229.40972222222223
+      ],
+      "state": {
+        "active": null,
+        "peers": 1,
+        "committedStrokes": 0,
+        "film": [
+          {
+            "received": 13,
+            "committed": 0,
+            "dabs": 13,
+            "first": {
+              "x": 120,
+              "y": 160,
+              "pressure": 0.75,
+              "tiltX": 0,
+              "tiltY": 0,
+              "size": 17.471073150634766,
+              "aspectRatio": 1,
+              "angle": 0,
+              "opacity": 0.9900000095367432,
+              "t": 0
+            },
+            "last": {
+              "x": 193.9199981689453,
+              "y": 160,
+              "pressure": 0.75,
+              "tiltX": 0,
+              "tiltY": 0,
+              "size": 24.265378952026367,
+              "aspectRatio": 1,
+              "angle": 0,
+              "opacity": 0.9900000095367432,
+              "t": 22.899999618530273
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "pass": false,
+  "failure": "AssertionError [ERR_ASSERTION]: closed-epoch-after-undo-exact canonical target != independentreplay actor1\n\n5 !== 0\n\n    at capture (/home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/online-three.cjs:13:2201)\n    at async /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/online-three.cjs:15:1321"
+}
