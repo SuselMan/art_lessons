@@ -1,3 +1,4 @@
+import {closedWatercolorCheckpoint} from './src/oplog/closedWatercolorCheckpoint'
 import {PuddleRoomController} from './src/watercolor/puddle/PuddleRoomController'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
@@ -1670,7 +1671,17 @@ export class PencilEngine implements PencilEngineAPI {
       },
       changed:target=>{target.resolveExistingForPaint(bounds);target.markContentPainted(bounds);this._paperPartialOK=false;this._paperCacheKey='';this._invalidateSplitCache()},
       display:()=>this._displayIfNotSuspended(),
-      released:scratch=>{if(this._wash?.scratch===scratch){this._wash=null;this._washId=null}},
+      released:scratch=>{
+        if(this._wash?.scratch===scratch){this._wash=null;this._washId=null}
+        const target=scratch.finishContext?.target
+        for(const [id,buf]of this._layers)if(buf===target && !this._snapshots.hasCoverage(id)) {
+          // forget() also runs on cancellation. _takeCheckpoint and the dry
+          // proof below reject open, changed or intermediate replay material.
+          setTimeout(()=>{if(!this._destroyed && this._layers.get(id)===buf
+            && this._closedM70Checkpoint(id))this._takeCheckpoint(id)},0)
+          break
+        }
+      },
     })
   }
   private _watercolorModel: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1' | 'front8-detail-flow-v2' | 'front8-detail-flow-v3' | 'front8-detail-flow-v4' | 'm70-r2-v1' = 'legacy'
@@ -4346,7 +4357,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._noteSnapshotHistoryMutation(op)
     const changedLayers=op.type==='layer_visibility' ? operationLayerIds(op) : this._log.gestureLayerIds(op)
     for(const cp of [...this._checkpoints.all()]) {
-      if(!cp.fromSnapshot && changedLayers.includes(cp.layerId)
+      if(!cp.fromSnapshot && !(cp.canonicalValid?.()) && changedLayers.includes(cp.layerId)
         && (op.type==='paper_dry' || op.type==='layer_visibility' || this._log.entries.some(e=>isM70WatercolorStroke(e.op) && e.op.layerId===cp.layerId)))this._checkpoints.remove(cp)
     }
     if (this._contextLost || this.gl.isContextLost()) return
@@ -4357,7 +4368,7 @@ export class PencilEngine implements PencilEngineAPI {
       case 'paper_dry':
         for(const id of op.layerId ? [op.layerId] : this._layers.keys()) {
           this._paperWet.forgetLayer(id)
-          for(const cp of [...this._checkpoints.all()])if(cp.layerId===id && !cp.fromSnapshot)this._checkpoints.remove(cp)
+          for(const cp of [...this._checkpoints.all()])if(cp.layerId===id && !cp.fromSnapshot && !cp.canonicalValid?.())this._checkpoints.remove(cp)
           this._rebuildLayerOrDefer(id)
         }
         break
@@ -5607,6 +5618,13 @@ export class PencilEngine implements PencilEngineAPI {
     this._washBoundaries.clear()
   }
 
+  private _closedM70Checkpoint(layerId: string) {
+    if(this._snapshots.hasCoverage(layerId))return null
+    return closedWatercolorCheckpoint(layerId,this._log.watercolorEffectiveOperations(),()=>({
+      revision:this._log.revision,operations:this._log.watercolorEffectiveOperations(),
+    }))
+  }
+
   private _takeCheckpoint(layerId: string): void {
     const layer=this._layers.get(layerId)
     if(layer && this._puddle?.has(layer))return
@@ -5673,8 +5691,9 @@ export class PencilEngine implements PencilEngineAPI {
       packed: packTilePixels(buffer.readPixels()),
     })
     const opIds = ops.map(o => o.id)
+    const closed = this._closedM70Checkpoint(layerId)
     if (resident.length === 1 || typeof document === 'undefined') {
-      this._checkpoints.add({ layerId, opIds, tiles: resident.map(read) })
+      this._checkpoints.add({ layerId, opIds, tiles: resident.map(read), ...closed })
       return
     }
     // (§17.72) A tile a step: reading back a six-tile layer at once was a

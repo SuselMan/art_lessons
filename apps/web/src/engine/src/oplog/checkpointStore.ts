@@ -63,6 +63,9 @@ export interface Checkpoint {
    *  it may stand inside them. What that state is, is the engine's business
    *  (`washes`); the store only needs to know which ones are covered. */
   washIds?: readonly string[]
+  /** Exact effective-material proof for a recorded closed M70 epoch. */
+  canonicalValid?: () => boolean
+  closedWashIds?: readonly string[]
   washes?: unknown
   /** Frees what the checkpoint holds outside the packed tiles (the washes'
    *  GPU textures) when it is evicted, replaced or cleared. */
@@ -181,11 +184,12 @@ export class CheckpointStore {
     let spans: WashSpans | null = null
     for (const cp of this.list) {
       if (cp.layerId !== layerId) continue
+      if (cp.canonicalValid && !cp.canonicalValid() || cp.closedWashIds && !cp.canonicalValid) continue
       if (best && cp.opIds.length <= best.cp.opIds.length) continue
       if (cp.opIds.length > ops.length) continue
       const start = checkpointPrefixEnd(cp.opIds, ops, inSnapshot)
       if (start < 0) continue
-      if (!cp.fromSnapshot && crossesWash(spans ??= washSpans(ops), start, cp.washIds)) continue
+      if (!cp.fromSnapshot && crossesWash(spans ??= washSpans(ops), start, [...(cp.washIds ?? []), ...(cp.closedWashIds ?? [])])) continue
       best = { cp, start }
     }
     return best
@@ -195,6 +199,7 @@ export class CheckpointStore {
    *  rule as best(), or -1 when the log has moved away from it (an undo, a
    *  revoke). A sliced rebuild re-checks its checkpoint with this every slice. */
   startOf(cp: Checkpoint, ops: readonly WashOp[]): number {
+    if (cp.canonicalValid && !cp.canonicalValid() || cp.closedWashIds && !cp.canonicalValid) return -1
     let inSnapshot: Set<string> | null = null
     for (const c of this.list) {
       if (c.layerId !== cp.layerId || !c.fromSnapshot || !c.covered) continue
@@ -202,7 +207,7 @@ export class CheckpointStore {
       for (const id of c.covered) inSnapshot.add(id)
     }
     const start = checkpointPrefixEnd(cp.opIds, ops, inSnapshot)
-    return start >= 0 && !cp.fromSnapshot && crossesWash(washSpans(ops), start, cp.washIds) ? -1 : start
+    return start >= 0 && !cp.fromSnapshot && crossesWash(washSpans(ops), start, [...(cp.washIds ?? []), ...(cp.closedWashIds ?? [])]) ? -1 : start
   }
 
   /** (#479) Backfill has put these operations in the log: record, on every
