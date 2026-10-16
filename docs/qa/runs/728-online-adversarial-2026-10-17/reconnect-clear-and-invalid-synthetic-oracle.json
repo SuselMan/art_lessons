@@ -1,0 +1,359 @@
+{
+  "source": "717506a8e7b0d730079973e229f12aea837d9cd5",
+  "scope": "Real server Clear ordered before held UP through forced queue drain; public snapshot substrate handover then Dry on native GPU",
+  "cases": [
+    {
+      "name": "forced-suspend-drain-preserves-destructive-FIFO-during-held",
+      "held": "uqU-Qqoo7M",
+      "clear": "00653c7e-fbdd-4544-b2af-ce1a6c7e50c8",
+      "heldAfter": {
+        "stroke": "uqU-Qqoo7M",
+        "lease": true,
+        "queue": [
+          "00653c7e-fbdd-4544-b2af-ce1a6c7e50c8"
+        ],
+        "clearLog": false
+      }
+    },
+    {
+      "name": "server-clear-before-held-tail-ack-restores-recorded-order",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-df6bf883-5fc3-4ef7-b1f3-a16264abced5",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "ac615c05e781184ffda01919c18f895cd791f8a8435374e9bc9de320ba65f792",
+          "oracleHash": "ac615c05e781184ffda01919c18f895cd791f8a8435374e9bc9de320ba65f792",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4136,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-df6bf883-5fc3-4ef7-b1f3-a16264abced5",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "49f1ffbf5a2d4f87d0176c05077b6057e05efc7aec1837a963fc2f45b42b6216",
+          "oracleHash": "49f1ffbf5a2d4f87d0176c05077b6057e05efc7aec1837a963fc2f45b42b6216",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4136,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-df6bf883-5fc3-4ef7-b1f3-a16264abced5",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "ac615c05e781184ffda01919c18f895cd791f8a8435374e9bc9de320ba65f792",
+          "oracleHash": "ac615c05e781184ffda01919c18f895cd791f8a8435374e9bc9de320ba65f792",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4136,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "real-server-clear-sequence-before-held-up",
+      "clearSeq": 3,
+      "tail": [
+        {
+          "id": "fJP5rP0csX",
+          "seq": 4
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "b9f182ef-d18d-4bbc-bbc7-1176b0e9f4d9",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "9cffa9b4-46c8-472b-935d-e096df3ac268",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "2a20a579-bcca-42e0-b136-05f83ac32b33",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "pass": false,
+  "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n1048564 !== 0\n\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/reconnect-snapshot.cjs:19:1264",
+  "diag0": {
+    "locked": false,
+    "stroke": null,
+    "queue": 0,
+    "pending": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 0,
+      "residentLayers": 0,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 3,
+      "pending": false,
+      "revisions": []
+    },
+    "peerLive": 0,
+    "journal": [
+      {
+        "id": "51ab746e-88e2-4c5e-8541-d57f6d340f40",
+        "type": "layer_add",
+        "state": "done",
+        "pending": false,
+        "seq": 0
+      },
+      {
+        "id": "4deys3xNin",
+        "type": "stroke",
+        "strokeId": "yhAzlGQSj6",
+        "state": "done",
+        "pending": false,
+        "seq": 1
+      },
+      {
+        "id": "00653c7e-fbdd-4544-b2af-ce1a6c7e50c8",
+        "type": "layer_clear",
+        "state": "done",
+        "seq": 2
+      },
+      {
+        "id": "fJP5rP0csX",
+        "type": "stroke",
+        "strokeId": "uqU-Qqoo7M",
+        "state": "done",
+        "pending": false,
+        "seq": 3
+      },
+      {
+        "id": "eb271d49-b1f0-4a45-8c01-3eaa7f7589fd",
+        "type": "paper_dry",
+        "state": "done",
+        "seq": 4
+      },
+      {
+        "id": "8e9f83e1-ac32-40fc-9583-69cca5e84eb3",
+        "type": "layer_add",
+        "state": "done",
+        "pending": false,
+        "seq": 5
+      },
+      {
+        "id": "QEXyJ5H3kL",
+        "type": "stroke",
+        "strokeId": "61jDZuzuc8",
+        "state": "done",
+        "pending": false,
+        "seq": 6
+      },
+      {
+        "id": "b7fe4be4-de3f-4681-9daa-dc927743d19c",
+        "type": "paper_dry",
+        "state": "done",
+        "seq": 7
+      }
+    ]
+  },
+  "diag1": {
+    "locked": false,
+    "stroke": null,
+    "queue": 0,
+    "pending": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 2,
+      "residentLayers": 2,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 2,
+      "computations": 5,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": true,
+          "active": true
+        },
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "peerLive": 0,
+    "journal": [
+      {
+        "id": "51ab746e-88e2-4c5e-8541-d57f6d340f40",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 0
+      },
+      {
+        "id": "4deys3xNin",
+        "type": "stroke",
+        "strokeId": "yhAzlGQSj6",
+        "state": "done",
+        "seq": 1
+      },
+      {
+        "id": "00653c7e-fbdd-4544-b2af-ce1a6c7e50c8",
+        "type": "layer_clear",
+        "state": "done",
+        "pending": false,
+        "seq": 2
+      },
+      {
+        "id": "fJP5rP0csX",
+        "type": "stroke",
+        "strokeId": "uqU-Qqoo7M",
+        "state": "done",
+        "seq": 3
+      },
+      {
+        "id": "eb271d49-b1f0-4a45-8c01-3eaa7f7589fd",
+        "type": "paper_dry",
+        "state": "done",
+        "seq": 4
+      },
+      {
+        "id": "8e9f83e1-ac32-40fc-9583-69cca5e84eb3",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 5
+      },
+      {
+        "id": "QEXyJ5H3kL",
+        "type": "stroke",
+        "strokeId": "61jDZuzuc8",
+        "state": "done",
+        "seq": 6
+      }
+    ]
+  },
+  "diag2": {
+    "locked": false,
+    "stroke": null,
+    "queue": 0,
+    "pending": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 2,
+      "residentLayers": 2,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 2,
+      "computations": 5,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": true,
+          "active": true
+        },
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "peerLive": 0,
+    "journal": [
+      {
+        "id": "51ab746e-88e2-4c5e-8541-d57f6d340f40",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 0
+      },
+      {
+        "id": "4deys3xNin",
+        "type": "stroke",
+        "strokeId": "yhAzlGQSj6",
+        "state": "done",
+        "seq": 1
+      },
+      {
+        "id": "00653c7e-fbdd-4544-b2af-ce1a6c7e50c8",
+        "type": "layer_clear",
+        "state": "done",
+        "seq": 2
+      },
+      {
+        "id": "fJP5rP0csX",
+        "type": "stroke",
+        "strokeId": "uqU-Qqoo7M",
+        "state": "done",
+        "seq": 3
+      },
+      {
+        "id": "eb271d49-b1f0-4a45-8c01-3eaa7f7589fd",
+        "type": "paper_dry",
+        "state": "done",
+        "pending": false,
+        "seq": 4
+      },
+      {
+        "id": "8e9f83e1-ac32-40fc-9583-69cca5e84eb3",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 5
+      },
+      {
+        "id": "QEXyJ5H3kL",
+        "type": "stroke",
+        "strokeId": "61jDZuzuc8",
+        "state": "done",
+        "seq": 6
+      }
+    ]
+  },
+  "classification": "HARNESS_FALSE_POSITIVE: arbitrary synthetic bitmap is absent from journal; bakeLayerByFullReplay deliberately ignores network snapshots, so it is not an oracle for this bitmap",
+  "validRealServerCases": 3,
+  "runtimeFinding": false
+}
