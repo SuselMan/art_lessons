@@ -2,6 +2,7 @@ import {afterEach,expect,it,vi} from 'vitest'
 import {createTestEngine,makeLayerAdd,fillStroke,paperReady,simulateStrokeStart,simulateStrokeMove,simulateStrokeEnd,readTilePixels} from './testing/engineTestUtils'
 import type {PuddleRoomController} from './src/watercolor/puddle/PuddleRoomController'
 import type {ILayerBuffer} from './src/buffers/ILayerBuffer'
+import {decodeLayerTiles} from './src/oplog/snapshotCodec'
 import type {CheckpointStore} from './src/oplog/checkpointStore'
 import type {OperationLog} from './src/oplog/OperationLog'
 // Native GLSL accuracy belongs to hardware QA; exercise real journal, scratch,
@@ -336,5 +337,108 @@ it('a public snapshot handover must not let the pre-reconnect wet goal overwrite
   engine.appendOperation({id:'later-dry',type:'paper_dry',userId:'B',layerId:'L',timestamp:Date.now(),seq:4},'remote')
   state._puddle.finishDrying()
   expect(readTilePixels(engine,'L',0,0,32,32)!.every((value,i)=>value===authoritative[i])).toBe(true)
+ }finally{engine.destroy()}
+})
+
+for(const alreadyBaked of [false,true])it(`snapshot handover preserves pending local ink and ${alreadyBaked?'late ACK removes duplicate coverage':'uses confirmed room sequence instead of its local index'}`,async()=>{
+ const emitted:string[]=[]
+ const {engine}=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32,onLocalOperation:op=>emitted.push(op.id)},{width:32,height:32})
+ await paperReady(engine);engine.appendOperation({...makeLayerAdd('B','L'),seq:1},'remote')
+ const prior=fillStroke('B','L',10,10,4)
+ engine.appendOperation({...prior,id:'prefix',seq:2,dabs:prior.dabs!.map(dab=>({...dab,opacity:.3}))},'remote')
+ const prefix=readTilePixels(engine,'L',0,0,32,32)!.slice()
+ engine.setActiveLayer('L')
+ const state=engine as unknown as {_log:OperationLog;_checkpoints:CheckpointStore}
+ try{
+  simulateStrokeStart(engine,22,22);simulateStrokeMove(engine,25,22);simulateStrokeEnd(engine,25,22)
+  const once=readTilePixels(engine,'L',0,0,32,32)!.slice()
+  expect(once.some((v,i)=>v!==prefix[i])).toBe(true)
+  const pending=state._log.entries.find(entry=>entry.pending && entry.op.type==='stroke')!
+  const id=pending.op.id,seq=alreadyBaked?3:2
+  const bitmap=alreadyBaked?once:prefix
+  engine.restoreLayerFromSnapshot('L',[{originX:0,originY:0,width:32,height:32,pixels:bitmap}],seq)
+  expect(state._log.entries.find(entry=>entry.op.id===id)?.pending).toBe(true)
+  const cp=state._checkpoints.all().find(cp=>cp.fromSnapshot && cp.layerId==='L')!
+  expect(cp.covered?.has('prefix')).toBe(true)
+  expect(cp.covered?.has(id)).toBe(false)
+  expect(emitted.filter(opId=>opId===id)).toHaveLength(1)
+  if(alreadyBaked)engine.confirmOperation(id,3)
+  expect(readTilePixels(engine,'L',0,0,32,32)!.every((value,i)=>value===once[i])).toBe(true)
+  expect(decodeLayerTiles(engine.bakeLayerByFullReplay('L')!,0).tiles[0].pixels.every((value,i)=>value===once[i])).toBe(true)
+ }finally{engine.destroy()}
+})
+it('snapshot handover cancels a held wet tail while retaining its already accepted chunk for replay over the new substrate',async()=>{
+ const cancelled=vi.fn(),emitted:string[]=[]
+ const {engine}=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32,onLiveStrokeEnd:cancelled,onLocalOperation:op=>emitted.push(op.id)},{width:32,height:32})
+ await paperReady(engine);engine.appendOperation({...makeLayerAdd('B','L'),seq:1},'remote')
+ engine.setActiveLayer('L');engine.setTool('watercolor');engine.setPencil('normal:80:60:PB29:round')
+ const state=engine as unknown as {_log:OperationLog;_strokeId:string|null;_flushStrokeChunk():void;_layers:Map<string,ILayerBuffer>;_puddle:PuddleRoomController;
+  _rebuildJobs:Map<string,{timer:ReturnType<typeof setTimeout>}>;_stepRebuildJob(job:unknown):void}
+ try{
+  simulateStrokeStart(engine,10,10);simulateStrokeMove(engine,15,10);state._flushStrokeChunk();simulateStrokeMove(engine,18,12)
+  const physical=state._strokeId,id=state._log.entries.find(e=>e.pending && e.op.type==='stroke')!.op.id
+  const bitmap=new Uint8Array(4096).fill(77)
+  engine.restoreLayerFromSnapshot('L',[{originX:0,originY:0,width:32,height:32,pixels:bitmap}],1)
+  expect(cancelled).toHaveBeenCalledWith(physical,true)
+  expect(state._strokeId).toBeNull()
+  simulateStrokeMove(engine,20,12);simulateStrokeEnd(engine,20,12)
+  for(let n=0;n<20 && state._rebuildJobs.size;n++)for(const job of [...state._rebuildJobs.values()]){clearTimeout(job.timer);state._stepRebuildJob(job)}
+  expect(state._rebuildJobs.size).toBe(0)
+  expect(state._log.entries.find(e=>e.op.id===id)?.pending).toBe(true)
+  expect(emitted).toEqual([id])
+  const saved=state._puddle.capture(state._layers.get('L')!)!
+  expect(saved.tiles[0].bufs.original!.pixels.every(value=>value===77)).toBe(true)
+ }finally{engine.destroy()}
+})
+
+it('after forced reconnect drain and server confirmation, the held UP stroke survives the earlier remote clear exactly as full replay',async()=>{
+ const {engine}=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32},{width:32,height:32})
+ await paperReady(engine);engine.appendOperation({...makeLayerAdd('B','L'),seq:1},'remote')
+ engine.setActiveLayer('L');engine.setTool('watercolor');engine.setPencil('normal:80:60:PB29:round')
+ const state=engine as unknown as {_log:OperationLog;_flushOpQueue():void;_layers:Map<string,ILayerBuffer>;_puddle:PuddleRoomController;
+  _rebuildJobs:Map<string,{timer:ReturnType<typeof setTimeout>}>;_stepRebuildJob(job:unknown):void}
+ try{
+  simulateStrokeStart(engine,10,10);simulateStrokeMove(engine,15,10)
+  engine.appendOperation({id:'clear-before-up',type:'layer_clear',userId:'B',layerId:'L',seq:2,timestamp:Date.now()},'remote')
+  engine.suspendDisplay();engine.resumeDisplay()
+  simulateStrokeEnd(engine,18,12);state._flushOpQueue()
+  const own=state._log.entries.find(e=>e.pending && e.op.type==='stroke')!
+  engine.confirmOperation(own.op.id,3)
+  for(let n=0;n<20 && state._rebuildJobs.size;n++)for(const job of [...state._rebuildJobs.values()]){clearTimeout(job.timer);state._stepRebuildJob(job)}
+  expect(state._rebuildJobs.size).toBe(0)
+  const actual=state._puddle.canonicalTiles(state._layers.get('L')!)[0].buffer.readPixels()
+  const oracle=decodeLayerTiles(engine.bakeLayerByFullReplay('L')!,0).tiles[0].pixels
+  expect(actual.some(value=>value>0)).toBe(true)
+  expect(actual.every((value,i)=>value===oracle[i])).toBe(true)
+ }finally{engine.destroy()}
+})
+
+it('a snapshot cannot silently resurrect an already pending Undo of its covered confirmed prefix',async()=>{
+ const {engine}=createTestEngine({userId:'B',pageWidth:32,pageHeight:32},{width:32,height:32})
+ await paperReady(engine);engine.appendOperation({...makeLayerAdd('B','L'),seq:1},'remote')
+ engine.appendOperation({...fillStroke('B','L',10,10,4),id:'covered-paint',seq:2},'remote')
+ const painted=readTilePixels(engine,'L',0,0,32,32)!.slice()
+ const state=engine as unknown as {_log:OperationLog}
+ try{
+  engine.undo()
+  const undo=state._log.entries.find(e=>e.op.type==='operation_undo')!
+  engine.restoreLayerFromSnapshot('L',[{originX:0,originY:0,width:32,height:32,pixels:painted}],2)
+  const pixels=readTilePixels(engine,'L',0,0,32,32)
+  expect(pixels===null || pixels.every(v=>v===0)).toBe(true)
+  expect(state._log.isPending(undo.op.id)).toBe(true)
+  expect(engine.isSnapshotHistoryRepairPending('L')).toBe(false) // Full confirmed prefix was already held.
+ }finally{engine.destroy()}
+})
+it('an unknown-sequence accepted wet tail requires history repair instead of guessing snapshot coverage',async()=>{
+ const request=vi.fn()
+ const {engine}=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32,onSnapshotHistoryRepairNeeded:request},{width:32,height:32})
+ await paperReady(engine);engine.appendOperation({...makeLayerAdd('B','L'),seq:1},'remote')
+ engine.appendOperation({...fillStroke('B','L',10,10,3),id:'unknown-wet',tool:'watercolor',preset:'normal:80:60:PB29:round:wc@m70-r2-v1',strokeId:'unknown-wet',washId:'m70:L',timestamp:Date.now()},'remote')
+ try{
+  engine.restoreLayerFromSnapshot('L',[{originX:0,originY:0,width:32,height:32,pixels:new Uint8Array(4096).fill(77)}],3)
+  expect(engine.isSnapshotHistoryRepairPending('L')).toBe(true)
+  expect(engine.getOperations().some(op=>op.id==='unknown-wet')).toBe(true)
+  expect(engine.bakeNetworkSnapshot('L')).toBeNull()
+  expect(request).toHaveBeenCalledTimes(1)
  }finally{engine.destroy()}
 })
