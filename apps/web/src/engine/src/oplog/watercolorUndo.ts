@@ -2,6 +2,7 @@ import type { Dab, Operation, StrokeOperation } from '@grafetto/shared'
 import { operationLayerIds, strokeDabs } from '@grafetto/shared'
 
 import { watercolorMixFromPreset } from '../presets/watercolorPresets'
+import { WatercolorFootprintIndex, type FootprintBounds } from './watercolorFootprintIndex'
 
 /** Minimal journal projection, independent of the OperationLog implementation. */
 export interface WatercolorHistoryEntry {
@@ -15,7 +16,7 @@ export const WATERCOLOR_UNDO_DRY_MS = 120_000
 
 type Point = { x: number; y: number }
 type Capsule = { a: Point; b: Point; r: number }
-type Bounds = { left: number; top: number; right: number; bottom: number }
+type Bounds = FootprintBounds
 type WetNode = { op: StrokeOperation; group: string; index: number; active: boolean; water: boolean; footprint: Capsule[]; bounds: Bounds }
 
 
@@ -90,8 +91,23 @@ function isRemovedWaterCandidate(entry: WatercolorHistoryEntry): boolean {
   return entry.state === 'undone' || (entry.state === 'gone' && entry.goneReason === 'branch')
 }
 
+const modelCache = new WeakMap<StrokeOperation, boolean>()
 export function isM70WatercolorStroke(op: Operation): op is StrokeOperation & { tool: 'watercolor' } {
-  return op.type === 'stroke' && op.tool === 'watercolor' && op.preset.split(':')[5] === 'wc@m70-r2-v1'
+  if (op.type !== 'stroke' || op.tool !== 'watercolor') return false
+  const cached = modelCache.get(op)
+  if (cached !== undefined) return cached
+  const result = op.preset.split(':')[5] === 'wc@m70-r2-v1'
+  modelCache.set(op, result)
+  return result
+}
+
+const waterLevels = new WeakMap<StrokeOperation, number>()
+function waterLevel(op: StrokeOperation): number {
+  const cached = waterLevels.get(op)
+  if (cached !== undefined) return cached
+  const result = watercolorMixFromPreset(op.preset).water
+  waterLevels.set(op, result)
+  return result
 }
 
 /** Preserve the entire gesture's water, never selected pixels or fragments.
@@ -118,7 +134,14 @@ export interface WatercolorUndoOptions {
 }
 
 type Eligibility = Map<string, Set<string>>
-const groupOf = (op: StrokeOperation): string => JSON.stringify([op.userId, op.layerId, op.strokeId ?? op.id])
+const gestureGroups = new WeakMap<StrokeOperation, string>()
+function groupOf(op: StrokeOperation): string {
+  const cached = gestureGroups.get(op)
+  if (cached !== undefined) return cached
+  const group = JSON.stringify([op.userId, op.layerId, op.strokeId ?? op.id])
+  gestureGroups.set(op, group)
+  return group
+}
 
 function resolveGeometry(
   entries: readonly WatercolorHistoryEntry[], options: WatercolorUndoOptions = {},
@@ -127,7 +150,7 @@ function resolveGeometry(
   const candidateLayers = new Set<string>()
   for (const entry of entries) {
     if (isRemovedWaterCandidate(entry) && isM70WatercolorStroke(entry.op)
-      && watercolorMixFromPreset(entry.op.preset).water > 0) candidateLayers.add(entry.op.layerId)
+      && waterLevel(entry.op) > 0) candidateLayers.add(entry.op.layerId)
   }
   if (!candidateLayers.size) return entries.filter(e => e.state === 'done').map(e => e.op)
   const dryAfter = options.dryAfterMs ?? WATERCOLOR_UNDO_DRY_MS
@@ -140,7 +163,7 @@ function resolveGeometry(
     if (entry.state !== 'done' && (enabled && !enabled.has(group)
       || eligibility && !unrestricted.has(group) && !eligibility.get(group)?.size)) continue
     const node: WetNode = { op, group, index, active: entry.state === 'done',
-      water: watercolorMixFromPreset(op.preset).water > 0, ...geometryOf(op) }
+      water: waterLevel(op) > 0, ...geometryOf(op) }
     nodes.set(op.id, node)
     if (!node.active && node.water) candidateGroups.add(group)
   }
@@ -149,15 +172,16 @@ function resolveGeometry(
     const wet: WetNode[] = [], parent: number[] = [], lastAt: number[] = []
     const open = new Map<string, Set<number>>()
     const layerLastAt = new Map<string, number>()
-    const members = new Map<number, number[]>(), componentBounds = new Map<number, Bounds>()
+    const spatial = new Map<string, WatercolorFootprintIndex>()
+    const componentSize: number[] = []
     const consumers: { component: number; node: WetNode }[] = []
     const root = (i: number): number => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i] } return i }
-    const close = (layer: string) => { open.delete(layer); layerLastAt.delete(layer) }
+    const close = (layer: string) => { open.delete(layer); layerLastAt.delete(layer); spatial.delete(layer) }
     for (const entry of entries) {
       const op = entry.op
       if (entry.state === 'done') {
         if (op.type === 'paper_dry') {
-          if (op.layerId) close(op.layerId); else { open.clear(); layerLastAt.clear() }
+          if (op.layerId) close(op.layerId); else { open.clear(); layerLastAt.clear(); spatial.clear() }
         } else if (op.type === 'layer_clear' || op.type === 'layer_delete'
           || (op.type === 'layer_visibility' && !op.visible)) {
           for (const layer of operationLayerIds(op)) close(layer)
@@ -179,14 +203,20 @@ function resolveGeometry(
       }
       const active = open.get(node.op.layerId) ?? new Set<number>()
       open.set(node.op.layerId, active)
-      const roots = new Set([...active].map(root)); active.clear()
-      for (const id of roots) if ((options.dryingScope ?? 'layer') === 'layer' || op.timestamp - lastAt[id] < dryAfter) active.add(id)
+      // Union removes replaced roots from this set, so it already contains
+      // canonical roots. Layer-clock mode needs no per-stroke normalization.
+      if (options.dryingScope === 'component') for (const id of active) {
+        if (op.timestamp - lastAt[id] >= dryAfter) active.delete(id)
+      }
+      const index = spatial.get(node.op.layerId) ?? new WatercolorFootprintIndex()
+      spatial.set(node.op.layerId, index)
       // Components are broad-phase filtered through their member AABBs; old
       // dry periods are never scanned or accidentally revived by a distant dab.
       const hit = new Set<number>()
-      for (const component of active) {
-        if (overlap(node.bounds, componentBounds.get(component)!)
-          && members.get(component)!.some(i => intersects(node, wet[i]))) hit.add(component)
+      for (const id of index.candidates(node.bounds)) {
+        const component = root(id)
+        if (!hit.has(component) && active.has(component) && intersects(node, wet[id])) hit.add(component)
+        if (hit.size === active.size) break
       }
       if (!node.water) {
         if (node.active) for (const component of hit) {
@@ -195,26 +225,21 @@ function resolveGeometry(
         continue
       }
       const id = wet.length; wet.push(node); parent.push(id); lastAt.push(op.timestamp)
-      // Union by member count: a long running pool does not copy its entire
-      // membership on each new dab/chunk.
+      index.add(id, node.bounds)
+      // Union by size keeps historical component roots shallow without
+      // copying every member or merged bounding box on each new stroke.
+      componentSize.push(1)
       let base = id
-      for (const component of hit) if ((members.get(component)?.length ?? 0) > (members.get(base)?.length ?? 0)) base = component
-      const mergedMembers = members.get(base) ?? [], mergedBounds = { ...(componentBounds.get(base) ?? node.bounds) }
-      mergedMembers.push(id); parent[id] = base
+      for (const component of hit) if (componentSize[component] > componentSize[base]) base = component
+      parent[id] = base
+      if (base !== id) componentSize[base]++
       lastAt[base] = Math.max(lastAt[base], op.timestamp)
-      mergedBounds.left = Math.min(mergedBounds.left, node.bounds.left); mergedBounds.right = Math.max(mergedBounds.right, node.bounds.right)
-      mergedBounds.top = Math.min(mergedBounds.top, node.bounds.top); mergedBounds.bottom = Math.max(mergedBounds.bottom, node.bounds.bottom)
       for (const component of hit) {
         active.delete(component)
         if (component === base) continue
-        for (const member of members.get(component)!) mergedMembers.push(member)
-        const oldBounds = componentBounds.get(component)!
-        mergedBounds.left = Math.min(mergedBounds.left, oldBounds.left); mergedBounds.right = Math.max(mergedBounds.right, oldBounds.right)
-        mergedBounds.top = Math.min(mergedBounds.top, oldBounds.top); mergedBounds.bottom = Math.max(mergedBounds.bottom, oldBounds.bottom)
+        componentSize[base] += componentSize[component]
         parent[component] = base; lastAt[base] = Math.max(lastAt[base], lastAt[component])
-        members.delete(component); componentBounds.delete(component)
       }
-      members.set(base, mergedMembers); componentBounds.set(base, mergedBounds)
       active.add(base)
     }
     // Latest active contribution per author and historical component. This
@@ -266,7 +291,7 @@ function resolveGeometry(
 
 type TimelineState = {
   source: Operation[]; simulated: WatercolorHistoryEntry[]; byId: Map<string, WatercolorHistoryEntry>
-  eligibility: Eligibility; reactivators: Eligibility; view: Operation[]; enabled: Set<string>; dryAfterMs: number | undefined; dryingScope: WatercolorUndoOptions['dryingScope']
+  eligibility: Eligibility; reactivators: Eligibility; view: Operation[]; material?: Operation[]; enabled: Set<string>; dryAfterMs: number | undefined; dryingScope: WatercolorUndoOptions['dryingScope']
 }
 const timelines = new WeakMap<readonly WatercolorHistoryEntry[], TimelineState>()
 
@@ -293,6 +318,7 @@ export function effectiveWatercolorOperations(
   }
   const {simulated, byId, eligibility, reactivators} = state
   let view = state.view
+  let material = state.material
   let enabled = state.enabled
   for (let cursor = state.source.length; cursor < entries.length; cursor++) {
     const original = entries[cursor]
@@ -336,9 +362,10 @@ export function effectiveWatercolorOperations(
       }
     }
     const unrestricted = new Set([...present, ...freshUndo])
+    material = undefined
     if (unrestricted.size) {
       const observed: Eligibility = new Map(), historicalLinks: Eligibility = new Map()
-      resolveGeometry(simulated, options, eligibility, unrestricted, observed, enabled, historicalLinks)
+      material = resolveGeometry(simulated, options, eligibility, unrestricted, observed, enabled, historicalLinks)
       for (const group of unrestricted) {
         const consumers = eligibility.get(group) ?? new Set<string>()
         for (const consumer of observed.get(group) ?? []) consumers.add(consumer)
@@ -348,8 +375,8 @@ export function effectiveWatercolorOperations(
         reactivators.set(group, groups)
       }
     }
-    view = eligibility.size ? resolveGeometry(simulated, options, eligibility, undefined, undefined, enabled)
-      .filter(source => isM70WatercolorStroke(source) && byId.get(source.id)?.state !== 'done') : []
+    if (!material && eligibility.size) material = resolveGeometry(simulated, options, eligibility, undefined, undefined, enabled)
+    view = material?.filter(source => isM70WatercolorStroke(source) && byId.get(source.id)?.state !== 'done') ?? []
     enabled = new Set(view.filter(isM70WatercolorStroke).map(groupOf))
   }
   // A snapshot page can include already-resolved entries whose controlling
@@ -368,13 +395,14 @@ export function effectiveWatercolorOperations(
   }
   if (synthetic.size) {
     const observed: Eligibility = new Map()
-    resolveGeometry(simulated, options, eligibility, synthetic, observed, enabled)
+    material = resolveGeometry(simulated, options, eligibility, synthetic, observed, enabled)
     for (const [group, consumers] of observed) eligibility.set(group, consumers)
-    view = eligibility.size ? resolveGeometry(simulated, options, eligibility, undefined, undefined, enabled)
-      .filter(source => isM70WatercolorStroke(source) && byId.get(source.id)?.state !== 'done') : []
+    view = material.filter(source => isM70WatercolorStroke(source) && byId.get(source.id)?.state !== 'done')
     enabled = new Set(view.filter(isM70WatercolorStroke).map(groupOf))
   }
-  if (reconciled) timelines.delete(entries)
-  else { state.view = view; state.enabled = enabled; timelines.set(entries, state) }
-  return resolveGeometry(simulated, options, eligibility, undefined, undefined, enabled)
+  if (reconciled) {
+    timelines.delete(entries)
+    if (!synthetic.size) material = undefined
+  } else { state.view = view; state.enabled = enabled; state.material = material; timelines.set(entries, state) }
+  return material ?? resolveGeometry(simulated, options, eligibility, undefined, undefined, enabled)
 }
