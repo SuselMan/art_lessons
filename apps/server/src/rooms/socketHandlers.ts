@@ -580,6 +580,13 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
             'rejected operation (role/freeze/owner-lock check)',
           )
           ack?.({ ok: false, reason })
+          // Earlier ephemeral packets can already be visible. A final refusal
+          // means no durable operation will ever retire that tail, even when
+          // its ordinary pen-up has arrived. Accepted chunks remain in the log;
+          // cancellation repairs only the unrecorded remainder on observers.
+          if (op.type === 'stroke' && op.strokeId) {
+            socket.to(roomId).emit('peer_stroke_live_end', { userId, strokeId: op.strokeId, cancelled: true })
+          }
           return
         }
 

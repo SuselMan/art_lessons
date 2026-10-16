@@ -296,3 +296,28 @@ describe('explicit cancellation of an ephemeral live tail', () => {
     }
   })
 })
+
+it('cancels already relayed live ink when the final stroke is rejected after a room freeze',async()=>{
+ const {teacher,student}=await classroom()
+ const strokeId='freeze-mid-watercolor'
+ const live=next(teacher,'peer_stroke_live')
+ student.emit('stroke_live',{strokeId,layerId:'layer-1',tool:'watercolor',preset:'normal:100:50:PB29:round:wc@m70-r2-v1',color:[0,0,1],packetSeq:0,dabsPacked:''})
+ expect((await live).strokeId).toBe(strokeId)
+ const frozen=next(student,'room_frozen_changed')
+ teacher.emit('set_room_frozen',true)
+ expect((await frozen).frozen).toBe(true)
+ const cancellation=next(teacher,'peer_stroke_live_end',300)
+ const verdict=await new Promise(resolve=>student.emit('operation',{...stroke('refused-watercolor','student'),tool:'watercolor',strokeId},resolve))
+ expect(verdict).toMatchObject({ok:false,reason:'room_frozen'})
+ expect(await cancellation).toEqual({userId:'student',strokeId,cancelled:true})
+})
+
+it('keeps accepted chunks and does not cancel successfully recorded live ink',async()=>{
+ const {teacher,student}=await classroom()
+ const confirmation=next(teacher,'operation_confirmed')
+ const op={...stroke('accepted-chunk','student'),strokeId:'long-accepted'}
+ const verdict=await new Promise(resolve=>student.emit('operation',op,resolve))
+ expect(verdict).toMatchObject({ok:true})
+ expect((await confirmation).operation.id).toBe(op.id)
+ await silent(teacher,'peer_stroke_live_end',40)
+})
