@@ -34,7 +34,7 @@ let browser;const contexts=[];
   const identity=await a.evaluate(()=>({model:__engine._watercolorModel,strokes:__engine.getOperations().filter(o=>o.type==='stroke').length,user:__roomStore.getState().userId}));
   assert.equal(identity.model,'m70-r2-v1');assert.equal(identity.strokes,0,'Refusing nonempty fixture');
   assert.notEqual(identity.user,await b.evaluate(()=>__roomStore.getState().userId),'Independent authors required');
-  report.identity=identity;
+  report.identity=identity;report.renderer=await a.evaluate(()=>{const gl=__engine.gl,ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):null});if(env.QA_CDP)assert.ok(report.renderer&&!/swiftshader|llvmpipe/i.test(report.renderer),'Real hardware CDP required');
   const idle=async()=>{for(const p of pages)await p.waitForFunction(()=>{const e=__engine;return !e._locked&&!e._contextLost&&!e._pendingRebuilds.size&&!e._rebuildJobs.size&&!e._opQueue.length&&!e._puddle?.state.pending&&!e._wcCanonical.pending&&!e._settle},null,{timeout:45000})};
   const sync=async(p)=>{const id=await p.evaluate(()=>__engine.getOperations().at(-1)?.id);console.log('SYNC',id);for(const peer of pages)await peer.waitForFunction(id=>__engine.getOperations().some(o=>o.id===id),id,{timeout:20000});await idle();return id};
   const append=async(p,draft)=>{const id=await p.evaluate(draft=>{const op={...draft,id:crypto.randomUUID(),userId:__roomStore.getState().userId,timestamp:Date.now()};__engine.appendOperation(op);return op.id},draft);await sync(p);return id};
@@ -75,6 +75,15 @@ let browser;const contexts=[];
   // Rejoin independently recomputes the final fixture without local-only state.
   const expected=await pixels(a,dryLayer);await b.reload();await b.waitForFunction(()=>window.__engine&&!__engine._locked);await b.evaluate(()=>__engine.paperReady());await sync(a);assert.deepEqual(await pixels(b,dryLayer),expected,'Rejoin target mismatch');
   for(const p of pages)assert.equal(await p.evaluate(()=>__engine.gl.getError()),0);
+  for(const lid of [wetLayer,dryLayer])await append(a,{type:'paper_dry',layerId:lid});
+  await idle();
+  for(const [i,p]of pages.entries()){
+    await p.screenshot({path:env.QA_OUTPUT+'/final-dry-'+i+'.png'});
+    for(const lid of [wetLayer,dryLayer]){
+      const live=await p.evaluate(id=>{const data=__engine.bakeNetworkSnapshot(id);return data?Array.from(data):null},lid);
+      assert.deepEqual(live,await pixels(p,lid),'Live dry pixels disagree with full replay target, page '+i);
+    }
+  }
   assert.deepEqual(report.errors,[]);report.pass=true;
 })().catch(async error=>{report.pass=false;report.failure=error.stack;process.exitCode=1;
   for(const [i,c]of contexts.entries())for(const p of c.pages())try{

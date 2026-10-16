@@ -54,3 +54,11 @@ pure resolver tests. This harness covers one simple bridge, not arbitrary graph
 combinatorics. Cross-GPU comparison needs the same operation log replayed on real
 hardware; do not call two SwiftShader contexts a device pass. No broad room, layer
 merge, transform, annotation or performance campaign is included here.
+
+`capture.cjs` uses the same environment to rejoin a completed disposable fixture
+read-only. It records all case layers' final target hashes, lengths and GPU identity
+in `final-targets.json`, plus a viewport screenshot. Run on the second real GPU
+against the exact same fixture and compare targets by `id`; retain differing bytes
+only when investigating a mismatch. This script does not draw, dry, undo or clear.
+The main runner also saves final dry screenshots and compares live snapshot pixels
+to full-replay target on both last layers, beyond comparing replay with replay.
