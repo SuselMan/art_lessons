@@ -340,7 +340,7 @@ it('a public snapshot handover must not let the pre-reconnect wet goal overwrite
  }finally{engine.destroy()}
 })
 
-for(const alreadyBaked of [false,true])it(`snapshot handover preserves pending local ink and ${alreadyBaked?'late ACK removes duplicate coverage':'uses confirmed room sequence instead of its local index'}`,async()=>{
+for(const route of ['ack','history'])for(const alreadyBaked of [false,true])it(`${route}: snapshot handover preserves pending local ink and ${alreadyBaked?'late ACK removes duplicate coverage':'uses confirmed room sequence instead of its local index'}`,async()=>{
  const emitted:string[]=[]
  const {engine}=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32,onLocalOperation:op=>emitted.push(op.id)},{width:32,height:32})
  await paperReady(engine);engine.appendOperation({...makeLayerAdd('B','L'),seq:1},'remote')
@@ -362,7 +362,10 @@ for(const alreadyBaked of [false,true])it(`snapshot handover preserves pending l
   expect(cp.covered?.has('prefix')).toBe(true)
   expect(cp.covered?.has(id)).toBe(false)
   expect(emitted.filter(opId=>opId===id)).toHaveLength(1)
-  if(alreadyBaked)engine.confirmOperation(id,3)
+  if(alreadyBaked){
+   if(route==='ack')engine.confirmOperation(id,3)
+   else engine.absorbHistoricalOperations([{...pending.op,seq:3}])
+  }
   expect(readTilePixels(engine,'L',0,0,32,32)!.every((value,i)=>value===once[i])).toBe(true)
   expect(decodeLayerTiles(engine.bakeLayerByFullReplay('L')!,0).tiles[0].pixels.every((value,i)=>value===once[i])).toBe(true)
  }finally{engine.destroy()}
