@@ -1,0 +1,110 @@
+{
+  "before": {
+    "source": "old-backend-before-6cfb84cd",
+    "started": "2026-10-16T22:38:21.172Z",
+    "finished": "2026-10-16T22:38:21.460Z",
+    "ok": null,
+    "deleted": true,
+    "deleteStatus": 200,
+    "beforeSnapshotLayers": [
+      {
+        "layerId": "qa-chunks",
+        "seq": 3
+      },
+      {
+        "layerId": "layer-1",
+        "seq": 3
+      }
+    ],
+    "afterSnapshotLayers": [
+      {
+        "layerId": "qa-chunks",
+        "seq": 3
+      },
+      {
+        "layerId": "layer-1",
+        "seq": 3
+      }
+    ],
+    "error": "AssertionError [ERR_ASSERTION]: Snapshot containing first chunk must not survive whole-gesture undo of the later chunk",
+    "input": [
+      {
+        "type": "layer_add",
+        "seq": 1,
+        "gesture": null
+      },
+      {
+        "type": "stroke",
+        "seq": 2,
+        "gesture": "same-gesture"
+      },
+      {
+        "type": "paper_dry",
+        "seq": 3,
+        "gesture": null
+      },
+      {
+        "type": "stroke",
+        "seq": 4,
+        "gesture": "same-gesture"
+      },
+      {
+        "type": "operation_undo",
+        "seq": 5,
+        "gesture": null
+      }
+    ]
+  },
+  "after": {
+    "source": "150a2933",
+    "started": "2026-10-16T22:47:01.387Z",
+    "finished": "2026-10-16T22:47:01.653Z",
+    "ok": true,
+    "deleted": true,
+    "deleteStatus": 200,
+    "beforeSnapshotLayers": [
+      {
+        "layerId": "qa-chunks",
+        "seq": 3
+      },
+      {
+        "layerId": "layer-1",
+        "seq": 3
+      }
+    ],
+    "afterSnapshotLayers": [
+      {
+        "layerId": "layer-1",
+        "seq": 3
+      }
+    ],
+    "error": "",
+    "input": [
+      {
+        "type": "layer_add",
+        "seq": 1,
+        "gesture": null
+      },
+      {
+        "type": "stroke",
+        "seq": 2,
+        "gesture": "same-gesture"
+      },
+      {
+        "type": "paper_dry",
+        "seq": 3,
+        "gesture": null
+      },
+      {
+        "type": "stroke",
+        "seq": 4,
+        "gesture": "same-gesture"
+      },
+      {
+        "type": "operation_undo",
+        "seq": 5,
+        "gesture": null
+      }
+    ]
+  }
+}
