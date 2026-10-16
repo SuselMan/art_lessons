@@ -700,14 +700,19 @@ export class RibbonStrokeScratch {
     return { ...this._scalars(), tiles }
   }
 
+  canCaptureRestingCpu(): boolean {
+    if(this._materialGesture!==null && this._materialGesture!==this.gesture
+      || this.diffusePending || this.pendingComposite.size || this.trackRunningSource || this.runningSourceCommands.length)return false
+    for(const entry of this._tiles.values())if(entry.coverageFilm || entry.strokeInk || entry.inkBase
+      || entry.strokeColor || entry.colorBase || entry.strokeSolvent || entry.solventBase)return false
+    return true
+  }
+
   /** Read an idle material source directly into RAM, with no temporary GPU
    * textures. Callers must also hold an operation-boundary lease: a generator
    * paused between draws can retain buffer references even before finish. */
   captureRestingCpu(originOf: (tile: AccumulationBuffer) => {originX: number; originY: number} | null): CpuScratchSnapshot | null {
-    if(this._materialGesture!==null && this._materialGesture!==this.gesture
-      || this.diffusePending || this.pendingComposite.size || this.trackRunningSource || this.runningSourceCommands.length)return null
-    for(const entry of this._tiles.values())if(entry.coverageFilm || entry.strokeInk || entry.inkBase
-      || entry.strokeColor || entry.colorBase || entry.strokeSolvent || entry.solventBase)return null
+    if (!this.canCaptureRestingCpu()) return null
     const tiles:CpuScratchSnapshot['tiles']=[]
     let bytes=0
     for(const [tile,entry]of this._tiles){

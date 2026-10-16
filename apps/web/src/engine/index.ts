@@ -1,5 +1,5 @@
 import {closedWatercolorCheckpoint} from './src/oplog/closedWatercolorCheckpoint'
-import {PuddleRoomController} from './src/watercolor/puddle/PuddleRoomController'
+import {PuddleRoomController, MaterialSourceBusy, MaterialHistoryNotReady} from './src/watercolor/puddle/PuddleRoomController'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
 import { WatercolorPresentationRaster } from './src/watercolor/WatercolorPresentationRaster'
@@ -1644,6 +1644,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetTexSize: [number, number] = [0, 0]
   private _watercolorReview = false
   private _puddle: PuddleRoomController | null = null
+  private _puddleStrokeRelease: (() => void) | null = null
   private _m70GeometrySupported(): boolean {
     const page=this._paper.pageSize(),tile=this._tileSize()
     return !this._infinite && [page.w,page.h,tile.w,tile.h].every(Number.isFinite)
@@ -1674,6 +1675,11 @@ export class PencilEngine implements PencilEngineAPI {
       },
       changed:target=>{target.resolveExistingForPaint(bounds);target.markContentPainted(bounds);this._paperPartialOK=false;this._paperCacheKey='';this._invalidateSplitCache()},
       display:()=>this._displayIfNotSuspended(),
+      materialReady:target=>{
+        const id=[...this._layers].find(([,buf])=>buf===target)?.[0] ?? [...this._rebuildJobs.values()].find(job=>job.fresh===target)?.layerId
+        return !id || !this._snapshots.hasCoverage(id) || !!this._checkpoints.best(id,this._log.layerPixelOps(id))
+      },
+      rehydrate:(target,beforeRecordedOpId)=>this._rehydrateM70Source(target,beforeRecordedOpId),
       released:scratch=>{
         if(this._wash?.scratch===scratch){this._wash=null;this._washId=null}
         const target=scratch.finishContext?.target
@@ -1683,6 +1689,44 @@ export class PencilEngine implements PencilEngineAPI {
         }
       },
     })
+  }
+  /** QA cache miss: reconstruct material without touching the operation stream.
+   * Current effective projections are authoritative, even when controls arrived
+   * after the incoming op. The incoming op itself must never paint twice. */
+  private _rehydrateM70Source(target: ILayerBuffer, beforeRecordedOpId?: string) {
+    const layerId=[...this._layers].find(([,buffer])=>buffer===target)?.[0]
+      ?? [...this._rebuildJobs.values()].find(job=>job.fresh===target)?.layerId
+    if(!layerId)throw new Error('M70 journal cache miss has no layer identity')
+    const original=this._log
+    const cut=beforeRecordedOpId ? original.entries.find(e=>e.op.id===beforeRecordedOpId)?.op.seq : undefined
+    if(beforeRecordedOpId && cut===undefined)throw new Error('M70 journal prefix operation is unavailable')
+    const ops=original.layerPixelOps(layerId).filter(op=>cut===undefined || (original.entries.find(e=>e.op.id===op.id)?.op.seq ?? Infinity)<cut)
+    const covered=this._snapshots.hasCoverage(layerId)
+    if(covered && !this._checkpoints.best(layerId,ops)){
+      this._snapshotIO.requireMaterialHistory(layerId)
+      queueMicrotask(()=>{if(!this._destroyed)this._onSnapshotHistoryRepairNeeded?.()})
+      throw new MaterialHistoryNotReady()
+    }
+    const prefix=new OperationLog()
+    const prefixEntries=original.entries.filter(e=>cut===undefined || (e.op.seq ?? Infinity)<cut)
+    for(const entry of prefixEntries)prefix.append(entry.op,entry.pending ? {pending:true} : {serverSeq:entry.serverSeq},false)
+    for(const entry of prefix.entries){const source=prefixEntries.find(e=>e.op.id===entry.op.id)!;entry.state=source.state;entry.goneReason=source.goneReason}
+    const temp=this._makeLayerBuffer(layerId)
+    const chunks=this._replayRibbonChunks
+    this._replayRibbonChunks=new Map()
+    this._log=prefix
+    try {
+      this._replayInto(temp,layerId,ops,covered)
+      const snapshot=this._puddle?.capture(temp)
+      if(!snapshot)throw new Error('M70 journal prefix did not produce resting material')
+      return snapshot
+    } finally {
+      this._puddle?.forget(temp)
+      for(const chunk of this._replayRibbonChunks.values())chunk.scratch.destroy()
+      this._replayRibbonChunks=chunks
+      this._log=original
+      temp.destroy()
+    }
   }
   private _watercolorModel: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1' | 'front8-detail-flow-v2' | 'front8-detail-flow-v3' | 'front8-detail-flow-v4' | 'm70-r2-v1' = 'legacy'
   private _wcDryWorkScheduler: WatercolorWorkScheduler | null = null
@@ -2874,8 +2918,21 @@ export class PencilEngine implements PencilEngineAPI {
   private _opQueue: Array<{ op: Operation; source: OperationSource }> = []
   private _opDrainRaf = 0
 
+  private _m70DestructiveDuringInput(op: Operation): boolean {
+    const layer=this._strokeLayerId
+    if(!layer || !this._puddleStrokeRelease)return false
+    if(op.type==='layer_delete')return op.layerIds.includes(layer)
+    if(op.type==='stroke')return false // Existing stroke queue already waits for UP.
+    return [...pixelWriteLayerIds(op),...pixelReadLayerIds(op)].includes(layer)
+  }
+  private _m70SourceBusy(op: Operation): boolean {
+    if(!this._puddle || op.type!=='stroke' || op.tool!=='watercolor' || ribbonProfileFor(op.tool,op.preset,wetAt(op.wet,0)).materialModel!=='m70-r2-v1')return false
+    const target=this._layers.get(op.layerId)
+    if(!target)return false
+    try{this._puddle.assertSourceAvailable(target);return false}catch(error){if(error instanceof MaterialHistoryNotReady){this._snapshotIO.requireMaterialHistory(op.layerId);queueMicrotask(()=>{if(!this._destroyed)this._onSnapshotHistoryRepairNeeded?.()});return false}if(error instanceof MaterialSourceBusy)return true;throw error}
+  }
   private _shouldQueue(op: Operation, source: OperationSource): boolean {
-    if(this._puddle?.state.drying) return true
+    if(this._puddle?.state.drying || source==='remote' && (this._m70DestructiveDuringInput(op) || this._m70SourceBusy(op))) return true
     if ([...pixelWriteLayerIds(op), ...pixelReadLayerIds(op)].some(id => this.isSnapshotHistoryRepairPending(id))) return false
     if (source !== 'remote' || this._displaySuspendDepth !== 0 || this._destroyed || this._contextLost) return false
     if (typeof requestAnimationFrame !== 'function') return false
@@ -2897,6 +2954,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(this._puddle?.state.drying){this._scheduleOpDrain();return}
     if (this._wcAsyncFinish && this._wcCanonical.pending && !this._contextLost && !this.gl.isContextLost()) { this._scheduleOpDrain(); return }
     while (this._opQueue.length) {
+      if(this._m70SourceBusy(this._opQueue[0].op)){this._scheduleOpDrain();break}
       const { op, source } = this._opQueue.shift()!
       this._appendOperationNow(op, source)
       this._onQueuedOperationApplied?.(op)
@@ -2912,7 +2970,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (!this._opQueue.length || this._destroyed) return
       // Not under this user's own pen either: a peer's operation lands in
       // 30-280 ms on the iPad, and the stroke in hand would stutter by it.
-      if (!this._puddle?.state.drying && !this._settle && !this._strokeLayerId && !(this._wcAsyncFinish && this._wcCanonical.pending)) {
+      if (!this._puddle?.state.drying && !this._settle && !this._strokeLayerId && !this._m70SourceBusy(this._opQueue[0].op) && !(this._wcAsyncFinish && this._wcCanonical.pending)) {
         const { op, source } = this._opQueue.shift()!
         this._appendOperationNow(op, source)
         this._onQueuedOperationApplied?.(op)
@@ -2922,6 +2980,13 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _appendOperationNow(op: Operation, source: OperationSource, canonicalExecution = false, alreadyLogged = false): void {
+    if(source==='local' && !alreadyLogged && this._m70DestructiveDuringInput(op)){
+      // Preserve the unrecorded physical tail before a genuinely optimistic
+      // destructive action. Confirmed server operations retain their order and
+      // wait via the queue instead; no synthetic local stroke is made for them.
+      this._onEnd({x:this._lastPointerX,y:this._lastPointerY,pressure:this._lastPointerPressure,
+        tiltX:this._lastPointerTiltX,tiltY:this._lastPointerTiltY,speed:0,pointerType:'pen',timeStamp:performance.now()})
+    }
     if (this._wcAsyncFinish && source === 'local' && !canonicalExecution && this._wcCanonical.pending) {
       if (op.type === 'operation_undo' || op.type === 'operation_redo' || op.type === 'operation_revoke') this._cancelSettle()
       else if (op.type !== 'paper_dry') {
@@ -3089,6 +3154,7 @@ export class PencilEngine implements PencilEngineAPI {
           // (§17.52) A peer's operation arriving live settles over frames;
           // a history batch (the display suspended) stays synchronous.
           const spread = source === 'remote' && this._displaySuspendDepth === 0
+          try {
           if (spread && op.tool === 'watercolor' && dabs.length && (op.washId ?? op.strokeId)
             && typeof requestAnimationFrame === 'function') {
             this._paintOpOverFrames(buf, op, dabs) // (§17.72)
@@ -3099,6 +3165,13 @@ export class PencilEngine implements PencilEngineAPI {
             // (#536) The same dabs, and the same slice: whatever the live stream
             // already delivered has already wet the paper here.
             this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, standing, op.id)
+          }
+          } catch(error) {
+            if(!(error instanceof MaterialHistoryNotReady))throw error
+            this._snapshotIO.requireMaterialHistory(op.layerId)
+            queueMicrotask(()=>{if(!this._destroyed)this._onSnapshotHistoryRepairNeeded?.()})
+            if(source==='local' && !alreadyLogged)this._onLocalOperation?.(op)
+            return
           }
           this._snapshots.markDirty(op.layerId)
           // (#468) Never mid-wash, the same rule the local path follows one
@@ -4267,7 +4340,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   destroy(): void {
     this._cancelLiveDabFlush()
-    this._puddle?.destroy(); this._puddle=null
+    this._puddleStrokeRelease?.();this._puddleStrokeRelease=null
     this._continuationGpuFence?.release()
     this._continuationGpuFence = null
     this._opQueue = [] // (§17.58)
@@ -4277,6 +4350,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._cancelSpillJob()
     this._paper.destroy()
     for (const id of [...this._rebuildJobs.keys()]) this._cancelRebuildJob(id) // (§17.53)
+    this._puddle?.destroy();this._puddle=null
     this._dropWashBoundaries() // (§17.55)
     // Dwell (#245): the one non-rAF timer this engine owns — must not
     // outlive destroy() (e.g. a component unmounting mid-stroke).
@@ -4593,6 +4667,8 @@ export class PencilEngine implements PencilEngineAPI {
     const job = this._rebuildJobs.get(layerId)
     if (!job) return
     if (job.timer) clearTimeout(job.timer)
+    job.part?.work.return(undefined)
+    job.part=null
     this._rebuildJobs.delete(layerId)
     if (this._settle && this._jobOwnsSettle(job)) this._completeSettle()
     for (const c of job.chunks.values()) c.scratch.destroy()
@@ -4694,6 +4770,16 @@ export class PencilEngine implements PencilEngineAPI {
         } else break
         gl.finish()
       }
+    } catch(error) {
+      if(!(error instanceof MaterialSourceBusy))throw error
+      job.part?.work.return(undefined)
+      job.part=null
+      if(error instanceof MaterialHistoryNotReady){
+        this._snapshotIO.requireMaterialHistory(job.layerId)
+        queueMicrotask(()=>{if(!this._destroyed)this._onSnapshotHistoryRepairNeeded?.()})
+      }
+      job.timer=setTimeout(()=>this._stepRebuildJob(job),16)
+      return
     } finally {
       job.chunks = this._replayRibbonChunks
       this._replayRibbonChunks = live
@@ -4731,6 +4817,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _replayStrokeSlice(job: RebuildJob, op: StrokeOperation): boolean {
     let p = job.part
     if (!p || p.opId !== op.id) {
+      if(this._puddle && ribbonProfileFor(op.tool,op.preset,wetAt(op.wet,0)).materialModel==='m70-r2-v1'){
+        this._puddle.assertSourceAvailable(job.fresh)
+      }
       this._retireWashesOf(op) // (§17.57)
       const dabs = strokeDabs(op)
       p = job.part = {
@@ -5286,8 +5375,15 @@ export class PencilEngine implements PencilEngineAPI {
     this._cancelLiveDabFlush()
     this._continuationGpuFence?.forget()
     e.preventDefault()
-    this._puddle?.destroy(); this._puddle=null
     this._contextLost = true
+    this._puddleStrokeRelease?.();this._puddleStrokeRelease=null
+    if(this._strokeId)this._onLiveStrokeEnd?.(this._strokeId,true)
+    this._strokeId=null;this._strokeLayerId=null;this._strokeDabs=[];this._liveDabQueue=[]
+    this._ribbonPainter.releaseWaterSources(true)
+    this._settlePlan.forgetTextures() // Captured inputs must go before suspended generators release buffers.
+    this._cancelSettle()
+    for(const id of [...this._rebuildJobs.keys()])this._cancelRebuildJob(id)
+    this._puddle?.destroy(); this._puddle=null
     this._watercolorLivePreview?.clear(true)
     this._wcDryWorkScheduler?.stop()
     this._wcDryTickets.clear()
@@ -5303,9 +5399,6 @@ export class PencilEngine implements PencilEngineAPI {
     for (const state of previews) if (state.timer !== null) clearTimeout(state.timer)
     this._peerPreviews.clear()
     for (const op of confirmed) this._onPreviewApplied?.(op)
-    this._ribbonPainter.releaseWaterSources(true)
-    this._settlePlan.forgetTextures() // Forget captured inputs before cancellation can release them.
-    this._cancelSettle() // Auxiliary handles were forgotten; close their coroutine without resuming GL.
     this._cancelSpillJob()
   }
 
@@ -6254,7 +6347,21 @@ export class PencilEngine implements PencilEngineAPI {
     // An accepted Dry must land before this stroke, rather than dropping DOWN.
     // Only closing layers are committed; peer operations remain queued.
     this._puddle?.finishDrying()
-    if(m70Stroke)this._puddle?.assertSourceAvailable(this._layers.get(layerId)!)
+    if(m70Stroke && this._puddle){
+      const target=this._layers.get(layerId)!
+      try { this._puddle.assertSourceAvailable(target) }
+      catch(error){
+        if(error instanceof MaterialHistoryNotReady){this._snapshotIO.requireMaterialHistory(layerId);this._onSnapshotHistoryRepairNeeded?.();return}
+        if(!(error instanceof MaterialSourceBusy))throw error
+        // Explicit cancellation closes the suspended generator before any texture
+        // goes away. Its journal is replayed after the local gesture finishes.
+        const job=[...this._rebuildJobs.values()].find(job=>job.part)
+        if(!job)throw error
+        this._cancelRebuildJob(job.layerId)
+        this._puddleRebuildAtPenUp.add(job.layerId)
+        this._puddle.assertSourceAvailable(target)
+      }
+    }
     // (#536, §17.52) Any tool: a settle spread over frames (a peer's
     // operation, or this author's own last wash) lands before this stroke
     // paints, or its copy-back would cover what the stroke lays under the
@@ -6362,7 +6469,17 @@ export class PencilEngine implements PencilEngineAPI {
       if (this._settle && !this._wcAsyncFinish && !(joinedTouch && joins && this._wcJoinedTouchLease === this._settle)) this._completeSettle()
       if (this._strokeTool==='watercolor' && this._watercolorModel==='m70-r2-v1') {
         const target=this._layers.get(layerId)!
-        this._ribbonStrokeScratch=this._puddleFor().source(target,puddleGesture!,profile,Date.now(),this._log.entries.filter(e=>e.state==='done' && (e.op.type==='paper_dry' && (!e.op.layerId || e.op.layerId===layerId) || e.op.type==='layer_visibility' && !e.op.visible && operationLayerIds(e.op).includes(layerId))).at(-1)?.op.id??'').scratch
+        try {
+        const source=this._puddleFor().source(target,puddleGesture!,profile,Date.now(),this._log.entries.filter(e=>e.state==='done' && (e.op.type==='paper_dry' && (!e.op.layerId || e.op.layerId===layerId) || e.op.type==='layer_visibility' && !e.op.visible && operationLayerIds(e.op).includes(layerId))).at(-1)?.op.id??'',{pin:true})
+        this._ribbonStrokeScratch=source.scratch
+        this._puddleStrokeRelease=source.release
+        } catch(error) {
+          this._puddleStrokeRelease?.();this._puddleStrokeRelease=null
+          this._ribbonStrokeScratch=null
+          this._strokeId=null;this._strokeLayerId=null;this._strokeDabs=[]
+          if(error instanceof MaterialHistoryNotReady){this._snapshotIO.requireMaterialHistory(layerId);this._onSnapshotHistoryRepairNeeded?.();return}
+          throw error
+        }
         this._washId='m70:'+layerId
         this._wash={id:this._washId,layerId,signature:washSignature,endedAt:Infinity,scratch:this._ribbonStrokeScratch}
       } else if (joins && open) {
@@ -6821,6 +6938,7 @@ export class PencilEngine implements PencilEngineAPI {
     const localHeld = this._wcAsyncLocalStroke ? this._wcAsyncLocalTools.get(this._wcAsyncLocalStroke) : undefined
     if (localHeld) localHeld.ended = true
     this._wcAsyncLocalStroke = null
+    this._puddleStrokeRelease?.();this._puddleStrokeRelease=null
     this._strokeId = null
     this._strokeLayerId = null
     this._strokeExtraLayerIds = []
@@ -7424,7 +7542,7 @@ export class PencilEngine implements PencilEngineAPI {
     recordedOp?: StrokeOperation,
   ): ReadonlyMap<Dab, number> | undefined {
     if (!dabs.length) return undefined
-    if (!(target instanceof AccumulationBuffer) && tool==='eraser' && this._puddle?.eraseDryBase(target,base=>this._stamps.paint(base,dabs,tool,presetName,color),logicalAt)) return undefined
+    if (!(target instanceof AccumulationBuffer) && tool==='eraser' && this._puddle?.eraseDryBase(target,base=>this._stamps.paint(base,dabs,tool,presetName,color),logicalAt,recordedOp?.id)) return undefined
     if (tool!=='watercolor' && !(target instanceof AccumulationBuffer)) this._closeM70PixelSource(target, recordedOp?.layerId ?? [...this._layers].find(([, buf])=>buf===target)?.[0])
     // Logical input remains immediate. Only isolated display copies may change
     // before the preceding canonical solver has landed.
@@ -7558,9 +7676,10 @@ export class PencilEngine implements PencilEngineAPI {
     const recorded=recordedOp ?? (recordedIndex>=0?this._log.entries[recordedIndex].op:undefined)
     const puddleLayerId=recorded && 'layerId' in recorded ? recorded.layerId : [...this._layers].find(([,b])=>b===target)?.[0]
     const boundary=this._log.entries.slice(0,recordedIndex<0?undefined:recordedIndex).filter(e=>e.state==='done' && (e.op.type==='paper_dry' && (!e.op.layerId || e.op.layerId===puddleLayerId) || e.op.type==='layer_visibility' && !e.op.visible && !!puddleLayerId && operationLayerIds(e.op).includes(puddleLayerId))).at(-1)?.op.id??''
-    const chunk = ribbonScratch ? null : puddle ? puddle.source(target,strokeId??washId??'m70-replay',initialProfile,recorded?.timestamp??Date.now(),boundary)
+    const chunk = ribbonScratch ? null : puddle ? puddle.source(target,strokeId??washId??'m70-replay',initialProfile,recorded?.timestamp??Date.now(),boundary,{pin:true,beforeRecordedOpId:recordedOp?.id})
       : this._replayChunkScratch(target, strokeId, washId, dabs, initialProfile)
     const scratch = ribbonScratch ?? chunk?.scratch ?? new RibbonStrokeScratch(this._ribbonScratchPool, initialProfile.ink, initialProfile.normalizeDeposit)
+    try {
     const profile = ribbonProfileFor(tool, presetName, scratch.finishContext?.landedWet ?? wetAt(wetProfile, 0))
     if (puddle) { scratch.foreignSources=[];puddle.beforePaint(scratch) }
     if (!puddle && profile.normalizeDeposit && wetPeak(wetProfile) > 0 && scratch.foreignSources === null) {
@@ -7635,6 +7754,9 @@ export class PencilEngine implements PencilEngineAPI {
     // when a different gesture arrives, or with the engine.
     if (!ribbonScratch && !chunk) scratch.destroy()
     return standing
+    } finally {
+      if(puddle && !ribbonScratch && chunk && 'release' in chunk && typeof chunk.release==='function')chunk.release()
+    }
   }
 
   /** (§17.68) A lost wash's next operation: the layer is rebuilt, which replays

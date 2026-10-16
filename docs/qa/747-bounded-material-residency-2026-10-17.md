@@ -1,0 +1,11 @@
+# #747: ограниченная резидентность мокрых источников (QA-кандидат)
+
+Логический мокрый слой существует независимо от GPU-резидентности. Максимум два источника держат GPU scratch/raw/goal/presentation. Операция pin удерживает источник до UP либо finally replay-генератора. Отмена job сначала закрывает generator, затем освобождает материал. Третий исполнитель ждёт границы; локальный DOWN может явно отменить/restart один фоновый job, сохранив журнал.
+
+Parking вычисляет канонический target, показывает его на слое, напрямую читает десять RGBA8 material-полей в CPU-owned массивы и освобождает GPU scratch. Это не Dry: previous dab, gesture, recorded timestamp, boundary, epoch, original dry substrate, вода и пигмент сохраняются. На reopen восстанавливаются точные байты и scalar metadata; декоративная анимация начинает новый показ от текущего canonical display.
+
+CPU material cache ограничен 64 MiB. Вытеснение удаляет массивы, оставляет логический marker. Cache miss синхронно проигрывает текущий effective prefix в отдельный TEMP buffer; входящая записанная операция исключена по её исходному local seq. Защищённая отмена использует water-only projection, а не старый пигмент. TEMP не пишет журнал, outbox или новые operation IDs. Для snapshot-backed prefix требуется проверенный checkpoint; при его отсутствии слой использует существующий history-repair/backfill gate.
+
+Проверки: реальные CPU byte arrays без GPU clones для десяти полей; восемь слоёв через два слота; нулевой CPU budget и восстановление; недоступный журнал; pin двух suspended executors; three-author engine journal; retained-water projection; packed snapshot dry baseline; invalid snapshot proof → quarantine; job cancellation finally и context-loss освобождение lease. Native GLSL и presentation в engine fixture заменены, поэтому визуальное совпадение требует аппаратной QA.
+
+Риски кандидата: readPixels/синхронный CPU-miss replay может задерживать DOWN/remote operation, особенно 1024px. Существующие ограничения square finite page≤1024 и recorded-time drying не менялись. Это функциональный bounded-memory прототип, без обещания устранить latency. Для QA диагностика: `_puddle.state.residentLayers/parkedLayers/cpuBytes`; бюджет можно принудительно уменьшить через JS `Object.defineProperty(_puddle.residency,'byteBudget',{value:0})` до parking.

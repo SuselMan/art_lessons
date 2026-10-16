@@ -13,6 +13,7 @@ export class MaterialResidency<K, V extends {bytes: number}> {
   get bytes(): number { return this.used }
   get size(): number { return this.entries.size }
   has(key: K): boolean { return this.entries.has(key) }
+  hasBytes(key: K): boolean { return !!this.entries.get(key)?.value }
   /** A pin belongs to an executing operation, including suspended generators. */
   acquire(key: K): () => void {
     let entry = this.entries.get(key)
