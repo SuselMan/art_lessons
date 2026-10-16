@@ -96,7 +96,9 @@ export class PuddleRoomController {
     // Logical operation time, never animation progress, closes a dried wash.
     if (layer && (boundary!==layer.boundary || timestamp >= layer.timestamp + WATERCOLOR_WET_DRY_MS)) { this.close(target); layer = undefined }
     if (!layer) {
-      for(const [key,old]of this.layers)if(!old.context)this.forget(key)
+      // A sliced replay can own real material before its first accept().
+      // Only the engine's explicit prewarm placeholder is disposable here.
+      for(const [key,old]of this.layers)if(old.gesture==='prewarm' && !old.context)this.forget(key)
       if (this.layers.size >= 2) throw new Error('M70 QA supports two wet layers at once; dry a layer first')
       const make = () => new AccumulationBuffer(this.host.gl, this.host.size, this.host.size)
       layer = {target, scratch:new RibbonStrokeScratch(this.host.pool, profile.ink, profile.normalizeDeposit),

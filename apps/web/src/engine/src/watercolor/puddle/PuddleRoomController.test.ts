@@ -164,3 +164,52 @@ it('still closes a recorded dry boundary synchronously while replay is busy', ()
     expect(changed).toHaveBeenCalledTimes(1)
   } finally { controller.destroy(); vi.unstubAllGlobals() }
 })
+
+
+it('keeps two unfinished real sources alive across interleaved replay slices', () => {
+  vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
+  vi.stubGlobal('cancelAnimationFrame', vi.fn())
+  const released = vi.fn()
+  const controller = new PuddleRoomController({
+    gl: {}, pool: {}, size: 16, settlePlan: {prepare: vi.fn()}, released,
+  } as unknown as PuddleRoomHost)
+  const a = {} as ILayerBuffer, b = {} as ILayerBuffer, third = {} as ILayerBuffer
+  const profile = {ink: {}, normalizeDeposit: false} as Parameters<typeof controller.source>[2]
+  try {
+    // Neither generator has reached finish/accept yet. Missing context does
+    // not imply missing material or permission to destroy its active scratch.
+    const first = controller.source(a, 'real-a', profile, 1)
+    const second = controller.source(b, 'real-b', profile, 1)
+    expect(controller.has(a)).toBe(true)
+    expect(controller.has(b)).toBe(true)
+    expect(first.scratch.destroy).not.toHaveBeenCalled()
+    expect(second.scratch.destroy).not.toHaveBeenCalled()
+    expect(released).not.toHaveBeenCalled()
+    expect(() => controller.source(third, 'real-c', profile, 1)).toThrow('two wet layers')
+    expect(controller.has(a)).toBe(true)
+    expect(controller.has(b)).toBe(true)
+  } finally { controller.destroy(); vi.unstubAllGlobals() }
+})
+
+it('evicts only an explicit empty prewarm to make room for real sources', () => {
+  vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
+  vi.stubGlobal('cancelAnimationFrame', vi.fn())
+  const released = vi.fn()
+  const controller = new PuddleRoomController({
+    gl: {}, pool: {}, size: 16, settlePlan: {prepare: vi.fn()}, released,
+  } as unknown as PuddleRoomHost)
+  const placeholder = {} as ILayerBuffer, a = {} as ILayerBuffer, b = {} as ILayerBuffer
+  const profile = {ink: {}, normalizeDeposit: false} as Parameters<typeof controller.source>[2]
+  try {
+    const warm = controller.source(placeholder, 'prewarm', profile, 1)
+    const first = controller.source(a, 'real-a', profile, 1)
+    controller.source(b, 'real-b', profile, 1)
+    expect(controller.has(placeholder)).toBe(false)
+    expect(warm.scratch.destroy).toHaveBeenCalledTimes(1)
+    expect(released).toHaveBeenCalledExactlyOnceWith(warm.scratch)
+    expect(controller.has(a)).toBe(true)
+    expect(controller.has(b)).toBe(true)
+    expect(first.scratch.destroy).not.toHaveBeenCalled()
+    expect(controller.state.layers).toBe(2)
+  } finally { controller.destroy(); vi.unstubAllGlobals() }
+})
