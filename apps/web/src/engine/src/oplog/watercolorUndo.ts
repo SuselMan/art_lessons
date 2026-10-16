@@ -3,6 +3,7 @@ import { operationLayerIds, strokeDabs } from '@grafetto/shared'
 
 import { watercolorMixFromPreset } from '../presets/watercolorPresets'
 import { WatercolorFootprintIndex, type FootprintBounds } from './watercolorFootprintIndex'
+import { watercolorMaterialBoundaryLayers } from './watercolorMaterialBoundaries'
 
 /** Minimal journal projection, independent of the OperationLog implementation. */
 export interface WatercolorHistoryEntry {
@@ -180,6 +181,7 @@ function resolveGeometry(
     for (const entry of entries) {
       const op = entry.op
       if (entry.state === 'done') {
+        for (const id of watercolorMaterialBoundaryLayers(op)) close(id)
         if (op.type === 'paper_dry') {
           if (op.layerId) close(op.layerId); else { open.clear(); layerLastAt.clear(); spatial.clear() }
         } else if (op.type === 'layer_clear' || op.type === 'layer_delete'

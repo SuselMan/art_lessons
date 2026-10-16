@@ -5,6 +5,7 @@ import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './
 import { WatercolorPresentationRaster } from './src/watercolor/WatercolorPresentationRaster'
 import { hasActiveWater, wetReplayOperationIds } from './src/oplog/hasActiveWater'
 import { isM70WatercolorStroke } from './src/oplog/watercolorUndo'
+import { watercolorMaterialBoundaryLayers } from './src/oplog/watercolorMaterialBoundaries'
 import { LayerCompositor, type CompositeItem, type WashReveal } from './src/raster/LayerCompositor'
 export type { CompositeItem } from './src/raster/LayerCompositor'
 import { pureWaterLayerProof } from './src/watercolor/pureWaterLayerProof'
@@ -2884,6 +2885,8 @@ export class PencilEngine implements PencilEngineAPI {
     // landing it first was a synchronous settle, up to half a second on the
     // Surface, for a pencil line arriving at the wrong moment. The rare
     // structural operations (a dry, a layer change) still land it now.
+    if (this._strokeLayerId && this._strokeTool === 'watercolor' && this._watercolorModel === 'm70-r2-v1'
+      && watercolorMaterialBoundaryLayers(op).includes(this._strokeLayerId)) return true
     if (op.type !== 'stroke') return false
     return !!this._settle || (op.tool === 'watercolor' && !!this._strokeLayerId)
   }
@@ -3133,6 +3136,7 @@ export class PencilEngine implements PencilEngineAPI {
           break
         }
         if (buf) {
+          this._closeM70PixelSource(buf, op.layerId)
           this._snapshots.markDirty(op.layerId)
           // (#398) The image is already decoded on every replay path (see
           // preloadImages) — paint it here and now, so the operations after
@@ -3165,6 +3169,7 @@ export class PencilEngine implements PencilEngineAPI {
         const buf = this._layers.get(op.layerId)
         if (!buf) { this._log.revoke(op.id); break }
         if (this._snapshots.isCovered(op.layerId, op.seq)) { this._log.revoke(op.id); break }
+        this._closeM70PixelSource(buf, op.layerId)
         if (op.type === 'layer_filter') this._filters.apply(buf, op.filter)
         else if (op.type === 'shape') this._shapes.draw(buf, op)
         else if (op.type === 'area_transform') this._area.bakeAreaTransform(buf, op.selection, op.matrix)
@@ -3186,6 +3191,7 @@ export class PencilEngine implements PencilEngineAPI {
         if (!buf) { this._log.revoke(op.id); break }
         if (this._snapshots.isCovered(op.layerId, op.seq)) { this._log.revoke(op.id); break }
         this._snapshots.markDirty(op.layerId)
+        this._closeM70PixelSource(buf, op.layerId)
         const record = asImportRecord(op)
         const matrix = op.type === 'area_paste' ? op.matrix : undefined
         // Same decoded/late split as image_import above — see #398. A local
@@ -3220,6 +3226,7 @@ export class PencilEngine implements PencilEngineAPI {
           // make a later undo unable to take it back off the layers it
           // genuinely still applies to.
           if (this._snapshots.isCovered(t.layerId, op.seq)) { appliedAny = true; continue }
+          this._closeM70PixelSource(buf, t.layerId)
           this._area.bakeLayerTransform(buf, t.matrix)
           this._snapshots.markDirty(t.layerId)
           this._maybeCheckpoint(t.layerId)
@@ -5019,7 +5026,22 @@ export class PencilEngine implements PencilEngineAPI {
     this._smudge.dropReplayChunks({ userId: this._userId, strokeId: this._strokeId })
   }
 
+  private _closeM70PixelSource(buf: ILayerBuffer, layerId?: string): void {
+    // close() may cancel the shared solver; an unrelated dry layer must not
+    // interrupt another layer's work merely because an ordinary tool paints.
+    if (!this._puddle?.has(buf)) return
+    if (layerId && this._strokeLayerId === layerId && this._ribbonStrokeScratch && this._puddle.owns(this._ribbonStrokeScratch)) {
+      // A forced queue drain must not destroy the scratch still under the pen.
+      // Rebuild the recorded order as soon as UP has recorded the whole tail.
+      this._puddleRebuildAtPenUp.add(layerId)
+      return
+    }
+    this._puddle.close(buf)
+    if (layerId) this._paperWet.forgetLayer(layerId)
+  }
+
   private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation, spreadSettle = false): void {
+    if (watercolorMaterialBoundaryLayers(op).includes(layerId)) this._closeM70PixelSource(buf, layerId)
     switch (op.type) {
       case 'stroke': {
         this._retireWashesOf(op) // (§17.57)
@@ -5088,6 +5110,7 @@ export class PencilEngine implements PencilEngineAPI {
         break
       case 'area_paste':
       case 'area_fill': {
+        this._closeM70PixelSource(buf, op.layerId)
         const record = asImportRecord(op)
         const matrix = op.type === 'area_paste' ? op.matrix : undefined
         // Same as image_import's own branch: a rebuild reaches this with the
@@ -7397,7 +7420,7 @@ export class PencilEngine implements PencilEngineAPI {
   ): ReadonlyMap<Dab, number> | undefined {
     if (!dabs.length) return undefined
     if (!(target instanceof AccumulationBuffer) && tool==='eraser' && this._puddle?.eraseDryBase(target,base=>this._stamps.paint(base,dabs,tool,presetName,color),logicalAt)) return undefined
-    if (tool!=='watercolor' && !(target instanceof AccumulationBuffer)) this._puddle?.close(target)
+    if (tool!=='watercolor' && !(target instanceof AccumulationBuffer)) this._closeM70PixelSource(target, recordedOp?.layerId ?? [...this._layers].find(([, buf])=>buf===target)?.[0])
     // Logical input remains immediate. Only isolated display copies may change
     // before the preceding canonical solver has landed.
     if (!strokeId && this._wcAsyncLocalStroke && tool !== 'watercolor') {
@@ -7525,7 +7548,7 @@ export class PencilEngine implements PencilEngineAPI {
     // cached scalars and its final recomposite is the first one.
     const initialProfile = ribbonProfileFor(tool, presetName, wetAt(wetProfile, 0))
     const puddle=initialProfile.materialModel==='m70-r2-v1' ? this._puddleFor() : null
-    if (!puddle) this._puddle?.close(target)
+    if (!puddle) this._closeM70PixelSource(target, recordedOp?.layerId ?? [...this._layers].find(([, buf])=>buf===target)?.[0])
     const recordedIndex=recordedOp ? this._log.entries.findIndex(e=>e.op.id===recordedOp.id) : strokeId ? this._log.entries.findIndex(e=>e.op.type==='stroke' && e.op.strokeId===strokeId) : -1
     const recorded=recordedOp ?? (recordedIndex>=0?this._log.entries[recordedIndex].op:undefined)
     const puddleLayerId=recorded && 'layerId' in recorded ? recorded.layerId : [...this._layers].find(([,b])=>b===target)?.[0]

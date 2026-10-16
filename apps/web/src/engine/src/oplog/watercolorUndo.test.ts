@@ -293,3 +293,10 @@ it('redo of an original own connector can restore historical protection but a ne
   changeEvent(log, 'operation_redo', 'ownBridge', 'A')
   expect(eventMaterialIds(log)).toEqual(['a', 'b', 'ownBridge', 'newBridgeD'])
 })
+it('an ordinary pixel writer ends the wet dependency epoch on its own layer',()=>{
+ const a=e(stroke('a','A',0),'undone'),b=e(stroke('b','B',0))
+ const shape:Operation={id:'shape',type:'shape',userId:'C',timestamp:1,layerId:'L',geometry:{kind:'rectangle',cornerRadius:0},frame:{x:0,y:0,width:8,height:8,angle:0},stroke:null,fill:{color:[1,0,0]}}
+ expect(ids([a,e(shape),b])).toEqual(['shape','b'])
+ expect(pigment([a,e({...shape,layerId:'other'}),b],'a')).toBe('0')
+ expect(pigment([a,e(shape,'undone'),b],'a')).toBe('0')
+})

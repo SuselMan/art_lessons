@@ -110,3 +110,23 @@ it('hide dries only selected layers and showing does not undo its dry boundary',
   expect(wetReplayOperationIds([a,b,hide,show])).toEqual(new Set(['b']))
   expect(wetReplayOperationIds([a,b,show])).toEqual(new Set(['a','b']))
 })
+
+it('ordinary pixel boundaries consume M70 water only, preserving legacy wet history',()=>{
+ const current=water('L','normal:100:0:PB29:round:wc@m70-r2-v1')
+ const legacy=water('L')
+ const shape:Operation={id:'shape',type:'shape',userId:'B',timestamp:now,layerId:'L',geometry:{kind:'rectangle',cornerRadius:0},frame:{x:0,y:0,width:8,height:8,angle:0},stroke:null,fill:{color:[1,0,0]}}
+ expect(hasActiveWater([current,shape],'L',now)).toBe(false)
+ expect(wetReplayOperationIds([current,shape]).has(current.id)).toBe(false)
+ expect(hasActiveWater([legacy,shape],'L',now)).toBe(true)
+ expect(wetReplayOperationIds([legacy,shape]).has(legacy.id)).toBe(true)
+ expect(hasActiveWater([current,{...shape,layerId:'other'}],'L',now)).toBe(true)
+ expect(hasActiveWater([shape,current],'L',now)).toBe(true)
+})
+it('ordinary strokes consume M70 water, while erasing retains it',()=>{
+ const current=water('L','normal:100:0:PB29:round:wc@m70-r2-v1')
+ const pencil=makeStroke('B','L',[])
+ expect(hasActiveWater([current,pencil],'L',now)).toBe(false)
+ expect(wetReplayOperationIds([current,pencil]).has(current.id)).toBe(false)
+ expect(hasActiveWater([current,{...pencil,tool:'eraser'}],'L',now)).toBe(true)
+ expect(wetReplayOperationIds([current,{...pencil,tool:'eraser'}]).has(current.id)).toBe(true)
+})
