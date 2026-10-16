@@ -5,12 +5,15 @@
 два независимых автора, координатор выделяет реальный CDP GPU.
 
 `QA_LAYER_CASES` — запятыми выбранные сценарии (чтобы после находки не повторять
-всё): `duplicate-wet,duplicate-dry,clear,delete,merge,move,concurrent,load`.
+всё): `duplicate-wet,duplicate-dry,clear,delete,merge,move,concurrent,load,reconnect`.
 Отдельный негативный `three-wet-layers` не включён по умолчанию: третий мокрый
 слой сейчас запрещён runtime guard и это известный продуктовый блокер.
 
 - Копирование и merge проверяются по **живым** пикселям до full-replay oracle.
 - Clear/delete/move проходят адресованные undo/redo и проверку обоих участников.
+- Reconnect изолирует сеть только своего browser context, записывает локальный
+  и чужой вклад, возвращает сеть в finally, ждёт подтверждений и сравнивает журнал.
+  Wi-Fi/SSH устройства не меняются.
 - Concurrent запускает реальный локальный pen pipeline двух авторов одновременно.
 - Load ждёт полный журнал (включая meta), проверяет его против живого участника,
   затем реальные пиксели и oracle. Два viewport: обычный1100×850 и компактный
