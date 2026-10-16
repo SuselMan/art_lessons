@@ -186,7 +186,8 @@ export class OperationLog {
    *  (#537) Returns the entries that now come *after* `op` although they were
    *  already applied — empty in the common case, where `op` lands on the end
    *  of its region with nothing painted above it. See the class doc comment. */
-  append(op: Operation, placement: Placement = {}): LogEntry[] {
+  // Historical refolding suppresses coalescing to preserve operation identities.
+  append(op: Operation, placement: Placement = {}, coalesce = true): LogEntry[] {
     this._revision++
     if (!META_OP_TYPES.has(op.type)) {
       for (const e of this._entries) {
@@ -199,7 +200,7 @@ export class OperationLog {
       // operation into a confirmed one would leave that entry claiming a
       // confirmation it no longer has.
       const last = this._entries[this._entries.length - 1]
-      if (last && last.pending && last.state === 'done' && coalesces(last.op, op)) {
+      if (coalesce && last && last.pending && last.state === 'done' && coalesces(last.op, op)) {
         last.op = { ...op, seq: last.op.seq }
         return []
       }
@@ -210,7 +211,7 @@ export class OperationLog {
 
     const at = this._confirmedSlot(placement.serverSeq)
     const prev = this._entries[at - 1]
-    if (prev && !prev.pending && prev.state === 'done' && coalesces(prev.op, op)) {
+    if (coalesce && prev && !prev.pending && prev.state === 'done' && coalesces(prev.op, op)) {
       prev.op = { ...op, seq: prev.op.seq }
       if (placement.serverSeq !== undefined) prev.serverSeq = placement.serverSeq
       return this._entries.slice(at)
@@ -443,32 +444,71 @@ export class OperationLog {
     return null
   }
 
-  /** Prepends already-resolved historical entries — #169's background
-   *  backfill of pre-snapshot history, older than the live tail applied right
-   *  after a network-snapshot restore. Not necessarily absent from it, though:
-   *  a layer with no pixel snapshot gets its whole history in that tail
-   *  (#372), so the caller drops whatever this log already holds (#536,
-   *  §17.61) — this method trusts it and does not check. `entries` must arrive with correct
-   *  done/undone/gone states already resolved — see
-   *  engine/index.ts's absorbHistoricalOperations, the one caller, which
-   *  builds them by replaying the historical ops through a scratch
-   *  OperationLog's normal append/applyUndo/applyRedo/revoke so their
-   *  states come from the exact same state machine live entries do.
-   *
-   *  Deliberately bypasses append()'s own logic entirely — in particular
-   *  its "mark my undone entries gone" side effect, which is meant for a
-   *  user genuinely taking a new action, not history arriving late. This
-   *  is the reason this exists as its own method rather than teaching
-   *  append() to insert: append() stays exactly as it is for every live
-   *  call site, and this only ever runs on the background backfill path.
-   *
-   *  Renumbers every entry's local `seq` to its final array position
-   *  afterward. `entries` arrives with its own independent local numbering
-   *  (the scratch log's own counter also starts at 0) that would otherwise
-   *  collide with this log's existing entries' numbering once merged —
-   *  local seq has always meant "array index" (see append()), this keeps
-   *  that invariant true across the splice. O(n) in the log's total size;
-   *  fine for a background, few-times-per-session operation. */
+  /** Merge original server history and refold the entire known order. A
+   * control already held in the tail can target a newly arriving old entry;
+   * folding only the new page would permanently miss that transition.
+   * Pending locals remain after all confirmed operations. Existing coalesced
+   * entries are retained; restoration never coalesces additional identities. */
+  absorbHistorical(pageOps: readonly Operation[]): Operation[] {
+    const held = new Map(this._entries.map(entry => [entry.op.id, entry]))
+    const page = new Map(pageOps.map(op => [op.id, op]))
+    const added = [...page.values()].filter(op => !held.has(op.id))
+    if (!added.length) return []
+    const incoming: LogEntry[] = added.map(op => ({ op, state: 'done', serverSeq: op.seq }))
+    for (const entry of this._entries) {
+      const authoritative = page.get(entry.op.id)
+      incoming.push(authoritative?.seq === undefined ? entry : {
+        ...entry, op: authoritative, serverSeq: authoritative.seq, pending: false,
+      })
+    }
+    if (incoming.every(entry => entry.pending || entry.serverSeq !== undefined)) {
+      incoming.sort((a, b) => a.pending ? (b.pending ? 0 : 1) : b.pending ? -1 : a.serverSeq! - b.serverSeq!)
+    } else {
+      // Legacy seq-less imports retain the established prepend convention.
+      incoming.sort((a, b) => Number(!!a.pending) - Number(!!b.pending))
+    }
+    const scratch = new OperationLog()
+    const controlled = new Set<string>()
+    for (const entry of incoming) {
+      const op = entry.op
+      scratch.append(op, entry.pending ? { pending: true } : { serverSeq: entry.serverSeq }, false)
+      if (op.type === 'operation_undo' || op.type === 'operation_redo' || op.type === 'operation_revoke') {
+        const target = scratch._entries.find(other => other.op.id === op.targetOpId)?.op
+        if (target && (op.type === 'operation_revoke' || target.userId === op.userId)) {
+          controlled.add(target.id)
+          if (op.type !== 'operation_revoke' && target.type === 'stroke' && target.strokeId) {
+            for (const other of scratch._entries) if (other.op.type === 'stroke'
+              && other.op.userId === target.userId && other.op.strokeId === target.strokeId) controlled.add(other.op.id)
+          }
+        }
+        if (op.type === 'operation_undo') scratch.applyUndo(op.targetOpId, op.userId)
+        else if (op.type === 'operation_redo') scratch.applyRedo(op.targetOpId, op.userId)
+        else scratch.revoke(op.targetOpId)
+      }
+    }
+    // A partial historical window may lack an old controlling event. Do not
+    // resurrect a previously resolved removed entry just because of that gap.
+    for (const entry of scratch._entries) {
+      const previous = held.get(entry.op.id)
+      if (previous && previous.state !== 'done' && !controlled.has(entry.op.id)) {
+        entry.state = previous.state
+        entry.goneReason = previous.goneReason
+      }
+    }
+    scratch._pixelOpDoneCount.clear()
+    for (const entry of scratch._entries) if (entry.state === 'done') scratch._bumpPixelOpCount(entry.op, 1)
+    this._entries = scratch._entries
+    this._confirmedCount = scratch._confirmedCount
+    this._nextSeq = scratch._nextSeq
+    this._pixelOpDoneCount = scratch._pixelOpDoneCount
+    this._revision++
+    return added
+  }
+
+  /** Legacy import of already-resolved entries without original controls.
+   * Network history uses absorbHistorical() to resolve controls across page
+   * boundaries. This method preserves supplied states, prepends known older
+   * entries and renumbers local seq, without inventing new user actions. */
   prependHistorical(entries: readonly LogEntry[]): void {
     this._revision++
     const incoming = [...entries.map(e => ({ ...e, pending: false })), ...this._entries]

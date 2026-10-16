@@ -23,7 +23,7 @@ import type { ILayerBuffer } from '../buffers/ILayerBuffer'
 import { packTilePixels } from '../buffers/pinnedTiles'
 import { isFullyTransparent, retileSnapshotTiles } from '../buffers/retileSnapshot'
 import type { CheckpointStore } from './checkpointStore'
-import { OperationLog, type PixelOperation } from './OperationLog'
+import type { OperationLog, PixelOperation } from './OperationLog'
 import type { SnapshotRestoreAudit } from './snapshotAudit'
 import { encodeLayerTiles, type SnapshotTile } from './snapshotCodec'
 import type { SnapshotLedger } from './snapshotLedger'
@@ -375,34 +375,20 @@ export class SnapshotIO {
     this.ctx.checkpoints().pinSnapshot(layerId, held, coveredSeq)
   }
 
-  /** PencilEngineAPI.absorbHistoricalOperations — see its doc comment and
-   *  OperationLog.prependHistorical's own for the full reasoning. Replays
-   *  `ops` through a throwaway scratch log using its normal public
-   *  append/applyUndo/applyRedo/revoke methods — exactly the same
-   *  log-bookkeeping sequence the engine's appendOperation drives for a live
-   *  operation, just without ever touching a buffer — so the resulting
-   *  entries' done/undone/gone states come from the exact same state machine,
-   *  then merges them into the real log in one step. */
-  absorbHistorical(pageOps: Operation[]): void {
+  /** Merge original history with the held journal before resolving controls.
+   * A held undo/redo can address a target arriving in this older page. Return
+   * changed existing entries so the engine can invalidate their rendered state;
+   * newly admitted entries remain history-only and do not paint by themselves. */
+  absorbHistorical(pageOps: Operation[]): Operation[] {
     const log = this.ctx.log()
-    // (#536, §17.61) A backfill page is "everything below the snapshot's seq",
-    // but since #372 the join tail is judged per layer: a layer with no pixel
-    // snapshot of its own gets its whole history in the tail. So a page can
-    // repeat what the log already holds — in room jExxU2EJ all 100 of it, and
-    // again on every reconnect's restore. Prepended twice, a stroke is painted
-    // twice by every later rebuild: undo darkened the layer it rebuilt.
-    const held = new Set(log.entries.map(e => e.op.id))
-    const ops = pageOps.filter(op => !held.has(op.id))
-    if (ops.length === 0) return
-    const scratch = new OperationLog()
-    for (const op of ops) {
-      scratch.append(op, op.seq === undefined ? undefined : { serverSeq: op.seq })
-      if (op.type === 'operation_undo') scratch.applyUndo(op.targetOpId, op.userId)
-      else if (op.type === 'operation_redo') scratch.applyRedo(op.targetOpId, op.userId)
-      else if (op.type === 'operation_revoke') scratch.revoke(op.targetOpId)
-    }
-    log.prependHistorical(scratch.entries)
-    this._historicalEntryCount += scratch.entries.length
+    const previous = new Map(log.entries.map(entry => [entry.op.id, { state: entry.state, goneReason: entry.goneReason }]))
+    const ops = log.absorbHistorical(pageOps)
+    if (ops.length === 0) return []
+    const changed = log.entries.filter(entry => {
+      const before = previous.get(entry.op.id)
+      return before && (before.state !== entry.state || before.goneReason !== entry.goneReason)
+    }).map(entry => entry.op)
+    this._historicalEntryCount += ops.length
     // (#479) These operations are now in the log, and a restored layer's
     // pinned checkpoint already holds the pixels of whichever of them predate
     // its snapshot — record them so a later rebuild skips rather than repaints
@@ -416,6 +402,7 @@ export class SnapshotIO {
     // Decoding in the background now is what lets it find the image ready;
     // deliberately not awaited, since backfill itself never blocks anything.
     this.ctx.preloadImages(ops)
+    return changed
   }
 
   /** A covered history mutation cannot be subtracted from a baked tile.
