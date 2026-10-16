@@ -131,8 +131,8 @@ describe('a transform a restored snapshot already accounts for', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
     engine.initLayer('B')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]), 'remote')
-    engine.appendOperation(makeStroke('user-a', 'B', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })], { seq: 1 }), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'B', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })], { seq: 2 }), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const coveredBefore = readLayerPixels(engine, 'A')!.slice()
     const uncoveredBefore = readLayerPixels(engine, 'B')!.slice()
@@ -152,7 +152,7 @@ describe('a transform a restored snapshot already accounts for', () => {
   it('applies to a covered layer when the transform is newer than the coverage', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })], { seq: 1 }), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const before = readLayerPixels(engine, 'A')!.slice()
 
@@ -218,7 +218,7 @@ describe('a pure pixel operation the restored pixels already contain', () => {
   it('still paints a stroke made after the coverage', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })]), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })], { seq: 1 }), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const restored = readLayerPixels(engine, 'A')!.slice()
 
