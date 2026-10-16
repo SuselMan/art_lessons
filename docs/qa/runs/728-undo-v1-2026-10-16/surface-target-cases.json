@@ -1,0 +1,128 @@
+{
+  "sourceSha": "550b1284",
+  "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "cases": [
+    {
+      "name": "overlap-before",
+      "hash": "f3ee5e7f7f3e99f4d624e58ceb17a06a78c7028435ddabf459cd6fd93a81c605",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "overlap-undo",
+      "hash": "07d53622ab1462116661c73f27f55c7fe18dbaaadb15feac83b5098d6a5874fa",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "overlap-redo",
+      "hash": "f3ee5e7f7f3e99f4d624e58ceb17a06a78c7028435ddabf459cd6fd93a81c605",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "water-released",
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "pure-water-retained",
+      "hash": "ac6709a4c401909149c36c400c77e2292f5f2adbc4932e1ffb2f95afd7507045",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "pure-water-released",
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "disjoint-full-undo",
+      "hash": "2f3a94fd109ddb656d5abc2935ef6adf2b12a5101acc906bf52011061e1ad67c",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "bridge-before",
+      "hash": "024394a84c4c76680d3aa2b8957061586c7f2beb2b881da94f74e2ab404725a0",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "bridge-removed",
+      "hash": "64c6df78a12dd9564ee787152b40b4b016d45cf75c523ab2e48df534019cd59e",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "bridge-redo",
+      "hash": "024394a84c4c76680d3aa2b8957061586c7f2beb2b881da94f74e2ab404725a0",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "wet-before-eraser",
+      "hash": "1aa95ed57a1d960acb710e3352f4f756821aa816ff9cc5ec0c195ff1fbe6a668",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "eraser-leaves-wet",
+      "hash": "1aa95ed57a1d960acb710e3352f4f756821aa816ff9cc5ec0c195ff1fbe6a668",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "eraser-removes-dry",
+      "hash": "94b7a36eb1a65ea8eceff0443440b67287d82fdca720d06ec337a4373a986894",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "undo-dry-restores-wet-under-eraser",
+      "hash": "1aa95ed57a1d960acb710e3352f4f756821aa816ff9cc5ec0c195ff1fbe6a668",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "redo-dry-reapplies-eraser",
+      "hash": "94b7a36eb1a65ea8eceff0443440b67287d82fdca720d06ec337a4373a986894",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "other-layer-before-eraser",
+      "hash": "cc134a9a7b38799341166b5adcfae0fd48f0ee78eeb003685a0f8f4814f44674",
+      "twoClientsEqual": true,
+      "expectationPassed": true
+    },
+    {
+      "name": "other-layer-still-wet",
+      "hash": "358092a7cb05b291f613a04d261e492d25b8b2c4b5e8fb6e10a951290dd236e2",
+      "twoClientsEqual": true,
+      "expectationPassed": false
+    }
+  ],
+  "errors": [],
+  "interpretation": {
+    "sourceSha": "550b1284",
+    "finishedAt": "2026-10-16T20:18:13.679353+00:00",
+    "createdAt": "2026-10-16T20:09:53.652Z",
+    "wallclockSecondsIncludingAllCDPAndTwoClientOverhead": 500.027353,
+    "assertionsPassedBeforeHarnessFailure": 16,
+    "failedCase": "other-layer-still-wet",
+    "testExpectationInvalid": true,
+    "reason": "water was already naturally dry at eraser timestamp",
+    "waterTimestamp": 1792181660961,
+    "eraserTimestamp": 1792181823473,
+    "ageMs": 162512,
+    "naturalDryMs": 120000,
+    "bothClientsAgreeTarget": true,
+    "rejoinAndFinalLiveOracle": "not reached",
+    "contextsClosed": true,
+    "fixtureDeleted": true,
+    "wallclockSecondsUntilHarnessReportIncludingCDPAndTwoClientOverhead": 453.538759
+  }
+}

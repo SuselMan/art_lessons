@@ -1,0 +1,193 @@
+{
+  "runtimeSource": "64cf7cc3",
+  "completedUTC": "2026-10-16T20:30:22.841262+00:00",
+  "scope": "Focused undo/redo/water/dry/eraser/hide checks; not broad acceptance or performance campaign",
+  "syntheticInputSHA256": "ab26b407b306f0333c277bebc46582146815df9765ed6dc9256e40ba01f50b03",
+  "vegaDisjoint": {
+    "pass": true,
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "cases": [
+      {
+        "name": "disjoint-before-dry",
+        "targetHash": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+        "bytes": 1048596
+      },
+      {
+        "name": "disjoint-after-dry",
+        "targetHash": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+        "bytes": 1048596
+      },
+      {
+        "name": "disjoint-after-rejoin",
+        "targetHash": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+        "bytes": 1048596
+      }
+    ],
+    "liveAfterDryHash": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+    "liveAfterRejoinHash": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+    "liveVsTargetChangedBytes": 0,
+    "statesBefore": [
+      {
+        "type": "layer_add",
+        "state": "done",
+        "goneReason": null
+      },
+      {
+        "type": "stroke",
+        "state": "gone",
+        "goneReason": "branch"
+      },
+      {
+        "type": "stroke",
+        "state": "done",
+        "goneReason": null
+      },
+      {
+        "type": "operation_undo",
+        "state": "done",
+        "goneReason": null
+      },
+      {
+        "type": "paper_dry",
+        "state": "done",
+        "goneReason": null
+      }
+    ],
+    "statesAfter": [
+      {
+        "type": "layer_add",
+        "state": "done",
+        "goneReason": null
+      },
+      {
+        "type": "stroke",
+        "state": "gone",
+        "goneReason": "branch"
+      },
+      {
+        "type": "stroke",
+        "state": "done",
+        "goneReason": null
+      },
+      {
+        "type": "operation_undo",
+        "state": "done",
+        "goneReason": null
+      },
+      {
+        "type": "paper_dry",
+        "state": "done",
+        "goneReason": null
+      }
+    ],
+    "effectiveHashBefore": "f3839f7e80e2575a3ee2f2dd1d0bcabf702e69693405e7fb2255b910b0a87c07",
+    "effectiveHashAfter": "f3839f7e80e2575a3ee2f2dd1d0bcabf702e69693405e7fb2255b910b0a87c07"
+  },
+  "vegaScoped": {
+    "passedCheckpoints": [
+      {
+        "name": "scoped-wet-baseline",
+        "targetHash": "20721f9f8c7ebe01fb38d617082db0c7b18ffb54a74575569e31f62e6ba544c0",
+        "bytes": 1048596
+      },
+      {
+        "name": "scoped-other-dry-wet-eraser",
+        "targetHash": "6d823e4bb144ac596e6fdeeffb84932b1f7ab4d82234344d53d5afd701d3b8d5",
+        "bytes": 1048596
+      },
+      {
+        "name": "scoped-wet-eraser-undo",
+        "targetHash": "6d823e4bb144ac596e6fdeeffb84932b1f7ab4d82234344d53d5afd701d3b8d5",
+        "bytes": 1048596
+      },
+      {
+        "name": "scoped-wet-eraser-redo",
+        "targetHash": "6d823e4bb144ac596e6fdeeffb84932b1f7ab4d82234344d53d5afd701d3b8d5",
+        "bytes": 1048596
+      }
+    ],
+    "wetAgeAtEraserMs": 2758,
+    "limitation": "Harness waited for editing unlock after intentional hide; last phases covered by Surface, no full rerun"
+  },
+  "surfaceScoped": {
+    "pass": true,
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "cases": [
+      {
+        "name": "scoped-wet-baseline",
+        "targetHash": "c7314db4f9b605dc4a5cd7f240166e9423aff7b99866a2f2d76db3d2b976b461",
+        "bytes": 1048596
+      },
+      {
+        "name": "scoped-other-dry-wet-eraser",
+        "targetHash": "fe36d654ffcf48a895d08daed1447ce27be5f1c80e094ef877ea70d833d113e0",
+        "bytes": 1048596
+      },
+      {
+        "name": "scoped-wet-eraser-undo",
+        "targetHash": "fe36d654ffcf48a895d08daed1447ce27be5f1c80e094ef877ea70d833d113e0",
+        "bytes": 1048596
+      },
+      {
+        "name": "scoped-wet-eraser-redo",
+        "targetHash": "fe36d654ffcf48a895d08daed1447ce27be5f1c80e094ef877ea70d833d113e0",
+        "bytes": 1048596
+      },
+      {
+        "name": "hide-show-dry-target",
+        "targetHash": "0686f3313955197b4513c1d7abcd48ba312576e71aa24f884d257dbd38197a78",
+        "bytes": 1048596
+      },
+      {
+        "name": "eraser-after-hide",
+        "targetHash": "37f49a297f248e9eea1732610c8f18b4a82e89ab29c42f6612ab3fae0a5f9182",
+        "bytes": 1048596
+      },
+      {
+        "name": "undo-eraser-after-hide",
+        "targetHash": "0686f3313955197b4513c1d7abcd48ba312576e71aa24f884d257dbd38197a78",
+        "bytes": 1048596
+      }
+    ],
+    "wetAgeAtEraserMs": 4078,
+    "hideWetAgeMs": 8990,
+    "showUnlocked": true,
+    "historyAndEffectiveOperationsMatchLivePeer": true,
+    "coldLiveVsTargetChangedBytes": 0,
+    "effectiveHashBefore": "77fbeed020ca07b6b4e69bc254d77522526cd791261da32f95cadd9fe4bfd837",
+    "effectiveHashAfter": "77fbeed020ca07b6b4e69bc254d77522526cd791261da32f95cadd9fe4bfd837"
+  },
+  "finalCrossGPU": {
+    "runtimeSource": "64cf7cc3",
+    "historyIdentical": true,
+    "causalStatesIdentical": true,
+    "effectiveOperationsIdentical": true,
+    "renderers": [
+      "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+    ],
+    "bytes": [
+      1048596,
+      1048596
+    ],
+    "targetHashes": [
+      "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+      "2d5bebe503d733ede35a380a3e109b4a004a716d925a729c2d2045412cad501a"
+    ],
+    "surfaceLiveSnapshotMatchesVega": true,
+    "surfaceLiveHash": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+    "surfaceOwnTargetEqualsSnapshot": false,
+    "diff": {
+      "changedChannels": 2909,
+      "max": 14,
+      "over1": 1513,
+      "over4": 137,
+      "over16": 0,
+      "alphaChangedPixels": 934,
+      "mean": 0.005435943603515625
+    },
+    "classification": "Known cross-GPU material target divergence; hydration causal state and snapshot restore both match"
+  },
+  "knownBlocker": "Cross-GPU exact target convergence remains unfulfilled; same-GPU replay and hydration state checks passed",
+  "cleanup": "Completed: exact owner API deleted all 9 own fixtures, private synthetic identity storage removed, raw GPU bins removed; see cleanup.json"
+}

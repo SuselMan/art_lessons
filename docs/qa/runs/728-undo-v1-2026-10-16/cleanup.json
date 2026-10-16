@@ -1,0 +1,78 @@
+{
+  "completedUTC": "2026-10-16T20:30:56.402314+00:00",
+  "ownFixtureRoomsDeleted": 9,
+  "fixtures": [
+    {
+      "fixtureLabel": "undo-v1-fixture-20261016",
+      "ownerAPIStatus": 200,
+      "privateAuthFilesRemoved": [
+        "host-state.json"
+      ]
+    },
+    {
+      "fixtureLabel": "undo-v1-fixture512-20261016",
+      "ownerAPIStatus": 200,
+      "privateAuthFilesRemoved": [
+        "host-state.json"
+      ]
+    },
+    {
+      "fixtureLabel": "undo-v1-fixture512b-20261016",
+      "ownerAPIStatus": 200,
+      "privateAuthFilesRemoved": [
+        "host-state.json"
+      ]
+    },
+    {
+      "fixtureLabel": "undo-v1-fixture-vega-20261016",
+      "ownerAPIStatus": 200,
+      "privateAuthFilesRemoved": [
+        "host-state.json",
+        "host-state-tools.json"
+      ]
+    },
+    {
+      "fixtureLabel": "undo-v1-no-ghost-vega-20261016",
+      "ownerAPIStatus": 200,
+      "privateAuthFilesRemoved": [
+        "host-state.json",
+        "host-state-tools.json"
+      ]
+    },
+    {
+      "fixtureLabel": "undo-v1-disjoint-vega-20261016",
+      "ownerAPIStatus": 200,
+      "privateAuthFilesRemoved": [
+        "host-state.json",
+        "host-state-tools.json"
+      ]
+    },
+    {
+      "fixtureLabel": "undo-v1-disjoint-final-vega-20261016",
+      "ownerAPIStatus": 200,
+      "privateAuthFilesRemoved": [
+        "host-state.json",
+        "host-state-tools.json"
+      ]
+    },
+    {
+      "fixtureLabel": "undo-v1-scoped-final-vega-20261016",
+      "ownerAPIStatus": 200,
+      "privateAuthFilesRemoved": [
+        "host-state.json",
+        "host-state-tools.json"
+      ]
+    },
+    {
+      "fixtureLabel": "undo-v1-scoped-final-surface-20261016",
+      "ownerAPIStatus": 200,
+      "privateAuthFilesRemoved": [
+        "host-state.json",
+        "host-state-tools.json"
+      ]
+    }
+  ],
+  "ownRawBinRemoved": 6,
+  "browsers": "All contexts created by qa_cases closed; remote browser profiles/tunnels managed by root; no user tabs touched",
+  "services": "No extra server or service card created"
+}

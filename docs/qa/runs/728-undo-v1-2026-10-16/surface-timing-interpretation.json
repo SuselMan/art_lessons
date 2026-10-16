@@ -1,0 +1,19 @@
+{
+  "sourceSha": "550b1284",
+  "finishedAt": "2026-10-16T20:18:13.679353+00:00",
+  "createdAt": "2026-10-16T20:09:53.652Z",
+  "wallclockSecondsIncludingAllCDPAndTwoClientOverhead": 500.027353,
+  "assertionsPassedBeforeHarnessFailure": 16,
+  "failedCase": "other-layer-still-wet",
+  "testExpectationInvalid": true,
+  "reason": "water was already naturally dry at eraser timestamp",
+  "waterTimestamp": 1792181660961,
+  "eraserTimestamp": 1792181823473,
+  "ageMs": 162512,
+  "naturalDryMs": 120000,
+  "bothClientsAgreeTarget": true,
+  "rejoinAndFinalLiveOracle": "not reached",
+  "contextsClosed": true,
+  "fixtureDeleted": true,
+  "wallclockSecondsUntilHarnessReportIncludingCDPAndTwoClientOverhead": 453.538759
+}
