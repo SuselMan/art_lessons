@@ -5,7 +5,7 @@ body{overscroll-behavior:none;margin:0;height:100dvh;overflow:hidden;display:fle
 #controlsPanel{display:flex;flex-direction:column;flex:none;max-height:46dvh;overflow:hidden;background:var(--panel);border-bottom:1px solid var(--line);overscroll-behavior:none}
 #controlsScroll{min-height:0;overflow:auto;flex:1;overscroll-behavior:none;padding-inline:32px}header{flex:none;padding:12px 16px}h1{font-size:16px;line-height:1.3;margin:0;font-weight:600}
 .panelGroup{border-top:1px solid var(--line)}summary{padding:12px 16px;cursor:pointer;font-weight:600;min-height:44px}
-.groupBody{padding:0 16px 14px;display:grid;gap:12px}.field{display:grid;gap:5px}.field>select{width:100%;min-width:0}
+.groupBody{padding:0 16px 14px;display:grid;gap:12px}.field{display:grid;gap:5px}.field>select,.field>input{width:100%;min-width:0}
 select,button,input{font:inherit;accent-color:var(--accent)}select,button{border:1px solid #48484f;border-radius:7px;background:#2c2c31;color:inherit;min-height:42px;padding:8px}
 button{cursor:pointer;line-height:1.2}button:hover{background:#38383f}button:disabled{opacity:.4;cursor:default}.primary{background:#514973;border-color:#8276ad}.primary:hover{background:#635887}
 .colorField{display:flex;align-items:center;justify-content:space-between}.colorField input{width:56px;height:36px;background:none;border:0;padding:0}
@@ -39,6 +39,11 @@ main{flex:1;min-width:0;min-height:0;display:flex;align-items:center;justify-con
 <label class="checkField"><input id="touchDrawing" type="checkbox">Рисовать пальцем</label>
 </div></details>
 <details class="panelGroup" id="tuning"><summary>Растекание</summary><div class="groupBody">
+<details id="presetControls"><summary>Удачные наборы</summary><div class="groupBody"><label class="field">Набор<select id="tuningPreset"></select></label>
+<button id="applyPreset">Применить набор</button>
+<div class="field"><label for="presetName">Название нового набора</label><input id="presetName" type="text" maxlength="64" placeholder="Например: мягкие переходы"></div>
+<button id="savePreset">Сохранить текущие настройки</button>
+<span id="presetStatus" class="hint" role="status">Наборы применяются к текущей версии без очистки листа. Свои наборы сохраняются в этом браузере.</span></div></details>
 <div id="tuningControls"></div>
 <div class="buttonGrid"><button id="authorTuning">Настройки автора</button><button id="resetTuning">Сбросить</button><button id="copyTuning" class="wide">Скопировать настройки</button></div>
 <span id="tuningStatus" class="hint" role="status"></span>
@@ -129,9 +134,37 @@ document.getElementById('copyTuning').onclick=async()=>{const text=JSON.stringif
 document.getElementById('authorTuning').onclick=()=>{const values=authorTuning(version);for(const key of Object.keys(values)){window.__miniTuning[key]=values[key];const input=document.getElementById('tune-'+key);input.value=Math.sqrt(values[key]/(key==='minimumRegionArea'?4096:1));input.previousElementSibling.value=values[key].toFixed(4)}localStorage.setItem(tuningStorageKey(version),JSON.stringify(window.__miniTuning));notifyTuning('Настройки автора; следующий мазок')};
 document.getElementById('resetTuning').onclick=()=>{for(const key of Object.keys(tuningDefaults)){const value=defaultsFor(version)[key];const input=document.getElementById('tune-'+key);input.value=Math.sqrt(value/(key==='minimumRegionArea'?4096:1));window.__miniTuning[key]=value;input.previousElementSibling.value=value.toFixed(4)}localStorage.setItem(tuningStorageKey(version),JSON.stringify(window.__miniTuning));notifyTuning('Настройки сброшены; применятся к следующему мазку')};
 let puddle=null;
-function notifyTuning(message){if(puddle?.tuningChanged){puddle.tuningChanged();message='Контуры обновляются на текущих штрихах'}document.getElementById('tuningStatus').textContent=message;}
+function notifyTuning(message){if(puddle?.tuningChanged){puddle.tuningChanged();message=puddle.state.effectRequested?'Обновляется эффект; предыдущий результат остаётся виден':'Контуры обновляются на текущих штрихах'}document.getElementById('tuningStatus').textContent=message;}
 const ordinaryTuningHelp=document.getElementById('tuningHelp').textContent;
 c.effect.onclick=()=>{if(!puddle?.toggleEffect)return;puddle.toggleEffect();c.effect.textContent=puddle.state.effectRequested?'Скрыть эффект':'Показать эффект'};
+// Named parameter sets do not switch engine versions or clear the sheet.
+const presetStorageKey='mini-watercolor-presets-v1';
+const builtInPresets=[
+ {id:'default-20261016',name:'Текущий дефолт · М70',model:'M70',parameters:{...m69Defaults,backgroundDistortion:.6},paint:'PB15',color:'#2688d3',water:100,pigment:100},
+ {id:'ilya-20261016',name:'Илья · М69 · без искажения',model:'M69',parameters:{...m69Defaults,backgroundDistortion:0},paint:'PB15',color:'#2688d3',water:100,pigment:100}
+];
+let customPresets=[];try{const loaded=JSON.parse(localStorage.getItem(presetStorageKey)||'[]');if(Array.isArray(loaded))customPresets=loaded.filter(p=>p&&typeof p.id==='string'&&typeof p.name==='string'&&p.parameters&&typeof p.parameters==='object')}catch{}
+const presetSelect=document.getElementById('tuningPreset'),presetStatus=document.getElementById('presetStatus');
+function fillPresets(selected){presetSelect.replaceChildren();for(const p of [...builtInPresets,...customPresets]){const option=document.createElement('option');option.value=p.id;option.textContent=p.name;presetSelect.append(option)}if(selected)presetSelect.value=selected}
+fillPresets();
+document.getElementById('savePreset').onclick=()=>{
+ const name=document.getElementById('presetName').value.trim()||('М'+version+' · набор '+(customPresets.length+1));
+ const preset={id:crypto.randomUUID(),name,model:'M'+version.padStart(2,'0'),parameters:{...window.__miniTuning},paint:c.paint.value,color:c.color.value,water:Number(c.water.value),pigment:Number(c.pigment.value)};
+ try{const next=[...customPresets,preset];localStorage.setItem(presetStorageKey,JSON.stringify(next));customPresets=next;fillPresets(preset.id);document.getElementById('presetName').value='';presetStatus.textContent='Сохранён набор «'+name+'» в этом браузере'}catch{presetStatus.textContent='Не удалось сохранить набор: хранилище браузера недоступно'}
+};
+document.getElementById('applyPreset').onclick=()=>{
+ const preset=[...builtInPresets,...customPresets].find(p=>p.id===presetSelect.value);if(!preset)return;
+ for(const key of Object.keys(tuningDefaults)){
+  const value=preset.parameters[key],scale=key==='minimumRegionArea'?4096:1;
+  if(!Number.isFinite(value))continue;const bounded=Math.max(0,Math.min(scale,value));window.__miniTuning[key]=bounded;
+  const input=document.getElementById('tune-'+key);input.value=Math.sqrt(bounded/scale);input.previousElementSibling.value=bounded.toFixed(4);
+ }
+ if(Array.from(c.paint.options).some(o=>o.value===preset.paint))c.paint.value=preset.paint;
+ if(/^#[0-9a-f]{6}$/i.test(preset.color))c.color.value=preset.color;
+ for(const key of ['water','pigment'])if(Number.isFinite(preset[key])){c[key].value=Math.max(0,Math.min(100,preset[key]));document.getElementById(key+'Value').value=c[key].value+'%'}
+ settings();try{localStorage.setItem(tuningStorageKey(version),JSON.stringify(window.__miniTuning))}catch{}
+ notifyTuning('Набор применён; следующий мазок');presetStatus.textContent='Применён «'+preset.name+'» к М'+version+'; лист сохранён';
+};
 const landscape=matchMedia('(orientation: landscape)');
 const arrangeGroups=()=>{for(const group of document.querySelectorAll('.panelGroup'))group.open=landscape.matches&&(!['68','69','70'].includes(version)||group.id==='tuning');viewport()};
 landscape.addEventListener('change',arrangeGroups);

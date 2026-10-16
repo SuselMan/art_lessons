@@ -70,7 +70,7 @@ export function installMiniPuddle(engine:any,size:number,_mode:'morph'|'material
  }
  return{
   get state(){return{diagnostic:true,epoch,drawing:down,showingEffect:showEffect,effectRequested:wantEffect,calculating:calculating||goalPending,goalReady,regions:regions.state,target:{...target.state}}},
-  tuningChanged(){maskDirty=true;goalReady=false;if(wantEffect){cancelGoal();goalPending=true;goalAfter=performance.now()+180;showEffect=false;regions.show(true);engine._display()}request()},
+  tuningChanged(){maskDirty=true;goalReady=false;if(wantEffect){cancelGoal();goalPending=true;goalAfter=performance.now()+180;regions.show(false);engine._display()}request()},
   toggleEffect(){
    wantEffect=!wantEffect
    if(!wantEffect){if(calculating||goalPending)cancelGoal();showEffect=false;regions.show(true);engine._display();onStatus('Исходные штрихи');return false}
