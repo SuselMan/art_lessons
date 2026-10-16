@@ -442,3 +442,21 @@ it('an unknown-sequence accepted wet tail requires history repair instead of gue
   expect(request).toHaveBeenCalledTimes(1)
  }finally{engine.destroy()}
 })
+it('metadata-only history completes a quarantined snapshot prefix without admitting duplicate operations',async()=>{
+ const {engine}=createTestEngine({userId:'A',pageWidth:32,pageHeight:32},{width:32,height:32})
+ await paperReady(engine)
+ const add={...makeLayerAdd('B','L'),seq:1}
+ const wet={...fillStroke('B','L',10,10,3),id:'unknown-wet',tool:'watercolor' as const,preset:'normal:80:60:PB29:round:wc@m70-r2-v1',strokeId:'unknown-wet',washId:'m70:L',timestamp:Date.now()}
+ engine.appendOperation(add,'remote');engine.appendOperation(wet,'remote')
+ try{
+  engine.restoreLayerFromSnapshot('L',[{originX:0,originY:0,width:32,height:32,pixels:new Uint8Array(4096).fill(77)}],2)
+  expect(engine.isSnapshotHistoryRepairPending('L')).toBe(true)
+  engine.absorbHistoricalOperations([{...add,seq:1},{...wet,seq:2}])
+  const work=engine as unknown as {_rebuildJobs:Map<string,{timer:ReturnType<typeof setTimeout>}>;_stepRebuildJob(job:unknown):void}
+  for(let i=0;i<100 && work._rebuildJobs.size;i++)for(const job of [...work._rebuildJobs.values()]){clearTimeout(job.timer);work._stepRebuildJob(job)}
+  expect(engine.isSnapshotHistoryRepairPending('L')).toBe(false)
+  const state=engine as unknown as {_log:OperationLog}
+  expect(state._log.entries).toHaveLength(2)
+  expect(state._log.entries.find(entry=>entry.op.id===wet.id)?.serverSeq).toBe(2)
+ }finally{engine.destroy()}
+})
