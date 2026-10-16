@@ -1,0 +1,82 @@
+/* Focused two-author room probe. Never opens existing user tabs or clears a layer.
+ * QA_ROOM must be a NEW disposable empty room; its owner state is required.
+ * See README.md. This intentionally fails against the pre-undo-v1 implementation.
+ */
+const {chromium}=require('@playwright/test');
+const fs=require('node:fs');
+const crypto=require('node:crypto');
+const assert=require('node:assert/strict');
+const env=process.env;
+for(const name of ['QA_ENTRY_URL','QA_BASE_URL','QA_ROOM','QA_OUTPUT','QA_HOST_STATE'])
+  if(!env[name])throw Error('Missing '+name);
+if(env.QA_DISPOSABLE_ROOM!==env.QA_ROOM)throw Error('Set QA_DISPOSABLE_ROOM to the exact disposable QA_ROOM id');
+fs.mkdirSync(env.QA_OUTPUT,{recursive:true});
+const report={scope:'Target pixels and effective material; two independent authors. Same-rasterizer parity only.',cases:[],errors:[]};
+let browser;const contexts=[];
+(async()=>{
+  browser=env.QA_CDP?await chromium.connectOverCDP(env.QA_CDP):await chromium.launch({headless:true,args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+  const pages=[];
+  for(const [index,state] of [[0,env.QA_HOST_STATE],[1,null]]){
+    const context=await browser.newContext({...state?{storageState:state}:{},viewport:{width:1100,height:850}});contexts.push(context);
+    const p=await context.newPage();pages.push(p);p.setDefaultTimeout(180000);
+    p.on('pageerror',e=>report.errors.push({author:index,message:e.message}));
+    await context.request.get(env.QA_ENTRY_URL);
+    await p.goto(new URL('/room/'+env.QA_ROOM+'?qaModel=m70-r2-v1',env.QA_BASE_URL).href);
+    await p.waitForFunction(()=>window.__engine&&!__engine._locked||document.querySelector('form input[type="text"]'));
+    if(await p.locator('form input[type="text"]').count()){
+      await p.locator('form input[type="text"]').first().fill('Undo v1 QA '+index);
+      await p.locator('form button[type="submit"]').click();
+    }
+    await p.waitForFunction(()=>window.__engine&&!__engine._locked);
+    await p.evaluate(()=>__engine.paperReady());
+  }
+  const [a,b]=pages;
+  const identity=await a.evaluate(()=>({model:__engine._watercolorModel,strokes:__engine.getOperations().filter(o=>o.type==='stroke').length,user:__roomStore.getState().userId}));
+  assert.equal(identity.model,'m70-r2-v1');assert.equal(identity.strokes,0,'Refusing nonempty fixture');
+  assert.notEqual(identity.user,await b.evaluate(()=>__roomStore.getState().userId),'Independent authors required');
+  report.identity=identity;
+  const idle=async()=>{for(const p of pages)await p.waitForFunction(()=>{const e=__engine;return !e._locked&&!e._contextLost&&!e._pendingRebuilds.size&&!e._rebuildJobs.size&&!e._opQueue.length&&!e._puddle?.state.pending&&!e._wcCanonical.pending&&!e._settle})};
+  const sync=async(p)=>{const id=await p.evaluate(()=>__engine.getOperations().at(-1)?.id);for(const peer of pages)await peer.waitForFunction(id=>__engine.getOperations().some(o=>o.id===id),id);await idle();return id};
+  const append=async(p,draft)=>{const id=await p.evaluate(draft=>{const op={...draft,id:crypto.randomUUID(),userId:__roomStore.getState().userId,timestamp:Date.now()};__engine.appendOperation(op);return op.id},draft);await sync(p);return id};
+  const layer=async(name)=>{const id='qa-'+crypto.randomUUID();await append(a,{type:'layer_add',layerId:id,name});for(const p of pages)await p.evaluate(id=>__engine.setActiveLayer(id),id);return id};
+  const stroke=async(p,{pigment=.65,x=220,y=300,vertical=false,tool='watercolor'}={})=>{
+    await p.evaluate(({pigment,tool})=>{const s=__roomStore.getState();s.setTool(tool);for(const[k,v]of Object.entries({size:90,water:1,pigment,pressureResponse:'normal',nib:'round',color:[.15,.35,.8]}))s.setToolSetting(tool,k,v)}, {pigment,tool});
+    await p.waitForFunction(tool=>__engine._opts.tool===tool,tool);
+    const ids=await p.evaluate(({x,y,vertical})=>{const e=__engine,previous=new Set(e.getOperations().map(o=>o.id));let t=1000;const ev=i=>({x:x+(vertical?0:i*8),y:y+(vertical?i*8:0),pressure:.8,tiltX:0,tiltY:0,speed:.4,pointerType:'pen',timeStamp:t+=16});e._onStart(ev(0));if(e._dwellTimer){clearInterval(e._dwellTimer);e._dwellTimer=null}if(!e._strokeId)throw Error('Stroke refused');for(let i=1;i<=20;i++)e._onMove(ev(i));e._onEnd(ev(20));return e.getOperations().filter(o=>o.type==='stroke'&&!previous.has(o.id)).map(o=>o.id)}, {x,y,vertical});
+    assert.ok(ids.length,'Stroke committed');await sync(p);return ids;
+  };
+  const undo=async(p)=>{const id=await p.evaluate(()=>{const op=__engine.undo();if(!op)throw Error('Undo refused');return op.id});await sync(p);return id};
+  const redo=async(p)=>{await p.evaluate(()=>{if(!__engine.redo())throw Error('Redo refused')});await sync(p)};
+  const material=async(p,id)=>p.evaluate(id=>__engine._log.layerPixelOps(id).filter(o=>o.type==='stroke').map(o=>({id:o.id,tool:o.tool,water:o.tool==='watercolor'?Number(o.preset.split(':')[1]):0,pigment:o.tool==='watercolor'?Number(o.preset.split(':')[2]):null})),id);
+  const pixels=async(p,id)=>p.evaluate(id=>{const data=__engine.bakeLayerByFullReplay(id);return data?Array.from(data):null},id);
+  const hash=bytes=>crypto.createHash('sha256').update(Buffer.from(bytes||[])).digest('hex');
+  const check=async(name,id)=>{await idle();const left=await pixels(a,id),right=await pixels(b,id);assert.deepEqual(left,right,name+' target divergence');const data={name,layer:id,targetHash:hash(left),bytes:left?.length??0,material:await material(a,id)};report.cases.push(data);return left};
+  const expectMix=(entries,ids,pigment)=>{for(const id of ids){const op=entries.find(o=>o.id===id);if(pigment===null)assert.equal(op,undefined,'Stroke should be removed');else{assert.ok(op,'Retained source missing');assert.equal(op.pigment,pigment);assert.ok(op.water>0)}}};
+  // Dependent colored gesture: undo retains all water, redo restores exact target.
+  let id=await layer('overlap-retention');const aa=await stroke(a);await stroke(b,{x:300,y:240,vertical:true});const before=await check('overlap-before',id);
+  await undo(a);expectMix(await material(a,id),aa,0);const after=await check('overlap-undo',id);assert.notDeepEqual(before,after,'Pigment removal must change pixels');
+  await redo(a);assert.deepEqual(await check('overlap-redo',id),before,'Redo must restore target');
+  await undo(a);await undo(b);assert.equal((await material(a,id)).length,0,'Water must release when foreign gesture is undone');await check('water-released',id);await append(a,{type:'paper_dry',layerId:id});
+  // Pure water cannot be tested by pigment hash alone: inspect effective source.
+  id=await layer('pure-water-release');const water=await stroke(a,{pigment:0});await stroke(b,{x:300,y:240,vertical:true});await undo(a);expectMix(await material(a,id),water,0);await check('pure-water-retained',id);await undo(b);assert.equal((await material(a,id)).length,0);await check('pure-water-released',id);await append(a,{type:'paper_dry',layerId:id});
+  // Disjoint foreign gesture does not retain water.
+  id=await layer('disjoint');const disjoint=await stroke(a,{x:160,y:160});await stroke(b,{x:650,y:650});await undo(a);expectMix(await material(a,id),disjoint,null);await check('disjoint-full-undo',id);await append(a,{type:'paper_dry',layerId:id});
+  // A latest connecting gesture is fully removable, then redo is exact.
+  id=await layer('bridge');await stroke(a,{x:150,y:300});await stroke(b,{x:510,y:300});const bridge=await stroke(a,{x:330,y:300});const bridged=await check('bridge-before',id);await undo(a);expectMix(await material(a,id),bridge,null);await check('bridge-removed',id);await redo(a);assert.deepEqual(await check('bridge-redo',id),bridged);await append(a,{type:'paper_dry',layerId:id});
+  // Explicit layer barrier must not dry another layer, and remains undoable.
+  const wetLayer=await layer('other-wet-layer');await stroke(a);const dryLayer=await layer('dry-and-eraser');await stroke(a);const wet=await check('wet-before-eraser',dryLayer);
+  await stroke(b,{tool:'eraser',x:220,y:300});assert.deepEqual(await check('eraser-leaves-wet',dryLayer),wet,'Eraser affected wet pigment');await undo(b);
+  const dry=await append(a,{type:'paper_dry',layerId:dryLayer});const dryOp=await a.evaluate(id=>__engine.getOperations().find(o=>o.id===id),dry);assert.equal(dryOp.layerId,dryLayer);
+  await stroke(b,{tool:'eraser',x:220,y:300});assert.notDeepEqual(await check('eraser-removes-dry',dryLayer),wet,'Eraser failed on dry pigment');
+  await append(a,{type:'operation_undo',targetOpId:dry});assert.deepEqual(await check('undo-dry-restores-wet-under-eraser',dryLayer),wet);
+  await append(a,{type:'operation_redo',targetOpId:dry});await check('redo-dry-reapplies-eraser',dryLayer);
+  for(const p of pages)await p.evaluate(id=>__engine.setActiveLayer(id),wetLayer);
+  const otherWet=await check('other-layer-before-eraser',wetLayer);await stroke(b,{tool:'eraser'});assert.deepEqual(await check('other-layer-still-wet',wetLayer),otherWet,'Dry affected unrelated layer');
+  // Rejoin independently recomputes the final fixture without local-only state.
+  const expected=await pixels(a,dryLayer);await b.reload();await b.waitForFunction(()=>window.__engine&&!__engine._locked);await b.evaluate(()=>__engine.paperReady());await sync(a);assert.deepEqual(await pixels(b,dryLayer),expected,'Rejoin target mismatch');
+  for(const p of pages)assert.equal(await p.evaluate(()=>__engine.gl.getError()),0);
+  assert.deepEqual(report.errors,[]);report.pass=true;
+})().catch(error=>{report.pass=false;report.failure=error.stack;process.exitCode=1}).finally(async()=>{
+  for(const c of contexts)await c.close();if(browser)await browser.close();
+  fs.writeFileSync(env.QA_OUTPUT+'/report.json',JSON.stringify(report,null,2));console.log(JSON.stringify({pass:report.pass,cases:report.cases.length,failure:report.failure}));
+});
