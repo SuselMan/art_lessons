@@ -3348,6 +3348,11 @@ export class PencilEngine implements PencilEngineAPI {
     const confirmed = this._log.confirm(opId, seq)
     if (!confirmed) return false
     this._noteOvertaken(confirmed.op, confirmed.overtaken)
+    const coveredLayers=pixelWriteLayerIds(confirmed.op).filter(id=>this._snapshots.isCovered(id,seq))
+    if(coveredLayers.length){
+      this._checkpoints.markCovered([{id:opId,seq}])
+      for(const id of coveredLayers)this._rebuildLayerOrDefer(id)
+    }
     this._settleLayers()
     return true
   }
@@ -5913,7 +5918,31 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
+    const target=this._layers.get(layerId)
+    if(target){
+      this._cancelM70PhysicalInput(layerId)
+      this._cancelRebuildJob(layerId)
+      this._forgetWashesOf(target) // Authoritative handover, never commit an obsolete wet goal.
+      this._paperWet.forgetLayer(layerId)
+      for(const cp of [...this._checkpoints.all()])if(cp.layerId===layerId && !cp.fromSnapshot)this._checkpoints.remove(cp)
+    }
     this._snapshotIO.restore(layerId, tiles, coveredSeq)
+    if(!target || coveredSeq===undefined)return
+    // The log's op.seq is a local index. Only actual confirmed room sequences
+    // can prove that this bitmap already contains an accepted operation.
+    this._checkpoints.markCovered(this._log.entries.filter(e=>!e.pending && e.serverSeq!==undefined)
+      .map(e=>({id:e.op.id,seq:e.serverSeq})))
+    const covered=this._checkpoints.all().find(cp=>cp.layerId===layerId && cp.fromSnapshot)?.covered
+    for(const entry of this._log.entries)if(entry.state!=='done' && covered?.has(entry.op.id)){
+      this._noteSnapshotHistoryMutation(entry.op,this._historicalMutationCause(entry.op),true)
+    }
+    const tail=this._log.layerPixelOps(layerId).filter(op=>!covered?.has(op.id))
+    if(tail.some(op=>this._log.entries.some(e=>e.op.id===op.id && !e.pending && e.serverSeq===undefined))){
+      this._snapshotIO.requireMaterialHistory(layerId)
+      this._onSnapshotHistoryRepairNeeded?.()
+      return
+    }
+    if(tail.length)this._rebuildLayerOrDefer(layerId)
   }
 
   takeSnapshotRestoreAudit(): SnapshotRestoreAudit[] {
@@ -6103,9 +6132,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._layers.set(id, buf)
   }
 
-  private _destroyBuffer(id: string): void {
+  private _cancelM70PhysicalInput(id: string): void {
     if(this._puddleStrokeRelease && this._strokeLayerId===id){
-      // A confirmed structural change removed the physical destination. Its
+      // A confirmed handover removed or replaced the physical destination. Its
       // unrecorded tail cannot be authored after that fixed server boundary.
       const strokeId=this._strokeId
       this._puddleStrokeRelease();this._puddleStrokeRelease=null
@@ -6120,6 +6149,10 @@ export class PencilEngine implements PencilEngineAPI {
       this._puddleRebuildAtPenUp.delete(id)
       if(strokeId)this._onLiveStrokeEnd?.(strokeId,true)
     }
+  }
+
+  private _destroyBuffer(id: string): void {
+    this._cancelM70PhysicalInput(id)
     this._wcJoinedRecoveryLayers.delete(id)
     if (!this._wcJoinedRecoveryLayers.size) this._wcJoinedDeferredError = null
     this._cancelledPeerLayers.delete(id)
