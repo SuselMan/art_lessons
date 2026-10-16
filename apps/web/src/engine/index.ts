@@ -2665,6 +2665,12 @@ export class PencilEngine implements PencilEngineAPI {
     this._activeId = id
     if (this._watercolorModel==='m70-r2-v1') setTimeout(()=>{
       if(this._destroyed || this._contextLost || this._activeId!==id)return
+      const page=this._paper.pageSize(),tile=this._tileSize()
+      // Prewarming is optional. Unsupported geometry must not break ordinary
+      // tools merely because this room selected the M70 review model.
+      if(this._infinite || ![page.w,page.h,tile.w,tile.h].every(Number.isFinite)
+        || page.w<=0 || page.h<=0 || page.w!==page.h || page.w>1024
+        || tile.w<=0 || tile.h<=0 || tile.w!==tile.h || tile.w>1024)return
       const target=this._layers.get(id)
       if(target && (!this._puddle || this._puddle.state.layers<2) && !this._puddle?.has(target)) {
         const profile=ribbonProfileFor('watercolor',withWatercolorModel(this._opts.pencilType,'m70-r2-v1'))
