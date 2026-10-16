@@ -1,0 +1,163 @@
+{
+  "source": "659852ef",
+  "scope": "Held pointer paused more than4seconds, author far-tail versus both actual observers; DOM cursors hidden",
+  "cases": [
+    {
+      "name": "three-author-actual-held-preview-before-any-chunk",
+      "gesture": "AMX1gSwtdk",
+      "previews": [
+        {
+          "actor": 0,
+          "changedChannels": 432,
+          "max": 197,
+          "meanRGB": [
+            65.16666666666667,
+            110.22916666666667,
+            208.54861111111111
+          ],
+          "state": {
+            "active": "AMX1gSwtdk",
+            "peers": 0,
+            "committedStrokes": 0,
+            "film": []
+          }
+        },
+        {
+          "actor": 1,
+          "changedChannels": 432,
+          "max": 70,
+          "meanRGB": [
+            199.93055555555554,
+            210.54166666666666,
+            234.96527777777777
+          ],
+          "state": {
+            "active": null,
+            "peers": 1,
+            "committedStrokes": 0,
+            "film": [
+              {
+                "received": 1,
+                "committed": 0,
+                "dabs": 1,
+                "first": {
+                  "x": 120,
+                  "y": 160,
+                  "pressure": 0.75,
+                  "tiltX": 0,
+                  "tiltY": 0,
+                  "size": 17.471073150634766,
+                  "aspectRatio": 1,
+                  "angle": 0,
+                  "opacity": 0.9900000095367432,
+                  "t": 0
+                },
+                "last": {
+                  "x": 120,
+                  "y": 160,
+                  "pressure": 0.75,
+                  "tiltX": 0,
+                  "tiltY": 0,
+                  "size": 17.471073150634766,
+                  "aspectRatio": 1,
+                  "angle": 0,
+                  "opacity": 0.9900000095367432,
+                  "t": 0
+                }
+              }
+            ]
+          }
+        },
+        {
+          "actor": 2,
+          "changedChannels": 432,
+          "max": 71,
+          "meanRGB": [
+            198.96527777777777,
+            210.48611111111111,
+            236.28472222222223
+          ],
+          "state": {
+            "active": null,
+            "peers": 1,
+            "committedStrokes": 0,
+            "film": [
+              {
+                "received": 1,
+                "committed": 0,
+                "dabs": 1,
+                "first": {
+                  "x": 120,
+                  "y": 160,
+                  "pressure": 0.75,
+                  "tiltX": 0,
+                  "tiltY": 0,
+                  "size": 17.471073150634766,
+                  "aspectRatio": 1,
+                  "angle": 0,
+                  "opacity": 0.9900000095367432,
+                  "t": 0
+                },
+                "last": {
+                  "x": 120,
+                  "y": 160,
+                  "pressure": 0.75,
+                  "tiltX": 0,
+                  "tiltY": 0,
+                  "size": 17.471073150634766,
+                  "aspectRatio": 1,
+                  "angle": 0,
+                  "opacity": 0.9900000095367432,
+                  "t": 0
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "paused-held-tail-diagnostic",
+      "pausedTail": [
+        {
+          "actor": 0,
+          "changedChannels": 426,
+          "max": 100,
+          "meanRGB": [
+            191.50694444444446,
+            215.34722222222223,
+            239.40972222222223
+          ]
+        },
+        {
+          "actor": 1,
+          "changedChannels": 0,
+          "max": 0,
+          "meanRGB": [
+            245.28472222222223,
+            245.28472222222223,
+            245.28472222222223
+          ]
+        },
+        {
+          "actor": 2,
+          "changedChannels": 0,
+          "max": 0,
+          "meanRGB": [
+            245.24305555555554,
+            245.24305555555554,
+            245.24305555555554
+          ]
+        }
+      ],
+      "pausedAuthor": {
+        "queued": 12,
+        "held": "AMX1gSwtdk",
+        "sinceLastEmitMs": 4687
+      }
+    }
+  ],
+  "knownHeldTailBug": true,
+  "errors": [],
+  "laterHarnessTimeout": "Foreign operation correctly deferred in held author _opQueue; harness presence gate revised to accept remote queued operation until UP"
+}
