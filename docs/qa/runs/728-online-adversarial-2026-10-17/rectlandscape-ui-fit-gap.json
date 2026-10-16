@@ -1,0 +1,220 @@
+{
+  "source": "b7c19950015a984a4ea224b02f5451d8b121f017",
+  "scope": "Rectangular single-tile M70: real far-edge visible pigment, foreign water, Dry undo/redo and actual/replay equality",
+  "cases": [],
+  "errors": [],
+  "identity": [
+    {
+      "user": "733eb527-592b-41df-b896-1501b1fa1ce5",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 768,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "a8118b4b-33aa-4fcb-8925-f83826e4cbbc",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 768,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "e96a7e67-03a4-4d74-8f1d-3d04df8d16e8",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 768,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "page": {
+    "w": 768,
+    "h": 512
+  },
+  "rois": [
+    {
+      "x": 852,
+      "y": 419,
+      "width": 12,
+      "height": 12
+    },
+    {
+      "x": 852,
+      "y": 419,
+      "width": 12,
+      "height": 12
+    },
+    {
+      "x": 852,
+      "y": 419,
+      "width": 12,
+      "height": 12
+    }
+  ],
+  "roiElements": [
+    {
+      "tag": "DIV",
+      "canvas": false,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1100,
+        "height": 850,
+        "top": 0,
+        "right": 1100,
+        "bottom": 850,
+        "left": 0
+      }
+    },
+    {
+      "tag": "DIV",
+      "canvas": false,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1100,
+        "height": 850,
+        "top": 0,
+        "right": 1100,
+        "bottom": 850,
+        "left": 0
+      }
+    },
+    {
+      "tag": "DIV",
+      "canvas": false,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1100,
+        "height": 850,
+        "top": 0,
+        "right": 1100,
+        "bottom": 850,
+        "left": 0
+      }
+    }
+  ],
+  "pass": false,
+  "failure": "AssertionError [ERR_ASSERTION]: Requested far-edge ROI hidden by UI; fit before testing\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/rect-room.cjs:16:993",
+  "diag0": {
+    "locked": false,
+    "stroke": null,
+    "queue": 0,
+    "pending": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 0,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "peerLive": 0,
+    "journal": [
+      {
+        "id": "37984e5b-4a53-4681-bad9-7c7cce2cd16a",
+        "type": "layer_add",
+        "state": "done",
+        "pending": false,
+        "seq": 0
+      }
+    ]
+  },
+  "diag1": {
+    "locked": false,
+    "stroke": null,
+    "queue": 0,
+    "pending": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 0,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "peerLive": 0,
+    "journal": [
+      {
+        "id": "37984e5b-4a53-4681-bad9-7c7cce2cd16a",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 0
+      }
+    ]
+  },
+  "diag2": {
+    "locked": false,
+    "stroke": null,
+    "queue": 0,
+    "pending": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 0,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "peerLive": 0,
+    "journal": [
+      {
+        "id": "37984e5b-4a53-4681-bad9-7c7cce2cd16a",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 0
+      }
+    ]
+  }
+}
