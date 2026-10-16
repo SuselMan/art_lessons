@@ -2472,7 +2472,15 @@ export class PencilEngine implements PencilEngineAPI {
       makeLayerBuffer: id => this._makeLayerBuffer(id),
       createBuffer: id => this._createBuffer(id),
       destroyBuffer: id => this._destroyBuffer(id),
-      replayInto: (buf, id, ops) => this._replayInto(buf, id, ops),
+      replayInto: (buf, id, ops, beforeSeq) => {
+        if (beforeSeq === undefined) { this._replayInto(buf, id, ops); return }
+        // A structural copy reads the source's history at the operation,
+        // including its dry/visibility boundaries, rather than today's state.
+        const liveLog = this._log
+        this._log = liveLog.historicalPrefix(beforeSeq)
+        try { this._replayInto(buf, id, ops, false) }
+        finally { this._log = liveLog }
+      },
       compositeTextures: (items, fbo, w, h) => this._compositeTextures(items, fbo, w, h),
       takeCheckpoint: id => this._takeCheckpoint(id),
       canonicalTiles: source => this._puddle?.canonicalTiles(source) ?? source.allResident(),
@@ -4862,7 +4870,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._flushSnapshotDependentLayers()
   }
 
-  private _replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[]): void {
+  private _replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[], useCheckpoints = true): void {
     // #144: `buf`'s own tile count while this method is repopulating it is a
     // meaningless, in-flux intermediate value (e.g. restoring a checkpoint's
     // tiles can momentarily exceed what the final done-history actually
@@ -4883,7 +4891,9 @@ export class PencilEngine implements PencilEngineAPI {
     tiled?.suspendEviction()
     try {
       let start = 0
-      const best = this._checkpoints.best(layerId, ops)
+      // A source snapshot may be newer than the copy being reconstructed.
+      // Historical structural reads use the complete original prefix instead.
+      const best = useCheckpoints ? this._checkpoints.best(layerId, ops) : null
       const cp = best?.cp
       if (best && cp) {
         buf.clear()
