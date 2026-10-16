@@ -1,0 +1,80 @@
+{
+  "ownOnly": true,
+  "rooms": [
+    {
+      "device": "surface",
+      "mode": "default",
+      "repeat": 1,
+      "room": "qa-undo-v1-11b38afb-ea03-48f7-8036-4f0b19d2af7f",
+      "serverOperationCount": 0,
+      "ownerDeleteStatus": 200,
+      "authDirectoryRemoved": true
+    },
+    {
+      "device": "surface",
+      "mode": "default",
+      "repeat": 2,
+      "room": "qa-undo-v1-44deb15c-3d12-4a95-bb07-0e0a425fa5df",
+      "serverOperationCount": 0,
+      "ownerDeleteStatus": 200,
+      "authDirectoryRemoved": true
+    },
+    {
+      "device": "surface",
+      "mode": "off",
+      "repeat": 1,
+      "room": "qa-undo-v1-48798662-c18c-4e05-9084-7163cc7e8a88",
+      "serverOperationCount": 0,
+      "ownerDeleteStatus": 200,
+      "authDirectoryRemoved": true
+    },
+    {
+      "device": "surface",
+      "mode": "off",
+      "repeat": 2,
+      "room": "qa-undo-v1-48c2ef7b-e4df-45fb-9d7f-0ca49709dcbc",
+      "serverOperationCount": 0,
+      "ownerDeleteStatus": 200,
+      "authDirectoryRemoved": true
+    },
+    {
+      "device": "vega",
+      "mode": "default",
+      "repeat": 1,
+      "room": "qa-undo-v1-6b1c445b-d2d0-45c5-8417-82bea96c4f90",
+      "serverOperationCount": 0,
+      "ownerDeleteStatus": 200,
+      "authDirectoryRemoved": true
+    },
+    {
+      "device": "vega",
+      "mode": "default",
+      "repeat": 2,
+      "room": "qa-undo-v1-b4e00341-448a-4a15-8bae-4c4d66f25bf1",
+      "serverOperationCount": 0,
+      "ownerDeleteStatus": 200,
+      "authDirectoryRemoved": true
+    },
+    {
+      "device": "vega",
+      "mode": "off",
+      "repeat": 1,
+      "room": "qa-undo-v1-e3476142-e390-4ce5-974f-fd8e4e8cb88a",
+      "serverOperationCount": 0,
+      "ownerDeleteStatus": 200,
+      "authDirectoryRemoved": true
+    },
+    {
+      "device": "vega",
+      "mode": "off",
+      "repeat": 2,
+      "room": "qa-undo-v1-d22f5cfe-7f55-4128-bdeb-d2e322c8a60b",
+      "serverOperationCount": 0,
+      "ownerDeleteStatus": 200,
+      "authDirectoryRemoved": true
+    }
+  ],
+  "raw": "Four1MiBtargetbins remain registeredTTLcache awaiting finalVega guards; compactproofcommittedbc6da834",
+  "surface": "Owned Chrome3344 closed; zeroownedprocesses and profileRemoved verified; SSH19334forward3837295/session10968stopped",
+  "vega": "Retained547580/19333 for root757guards"
+}
