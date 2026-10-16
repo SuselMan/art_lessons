@@ -47,21 +47,12 @@ export type OperationRedoOperation = OperationBase & {
   targetOpId: string
 }
 
-/** (#536, ADR 011 §17.48) "Высушить всё" - the watercolour paper is dry, for
- *  everyone in the room, from this point in the log on. The whole sheet, not
- *  a layer: the teacher presses it to KNOW that what a student lays next goes
- *  onto dry paper, which a per-client button could not promise.
- *
- *  It does not directly paint pigment. It clears live paper wetness and
- *  ends the eligibility of earlier water as a foreign donor for later
- *  strokes. Recorded wet profiles describe contact; they do not encode all
- *  historical donor geometry. A later replay therefore needs this ordered
- *  barrier even after the current paper's sheen has disappeared.
- *
- *  Not undoable (there is no "wet it again"). Retained as an ordered
- *  historical barrier for foreign-water replay after the live paper dries. */
+/** Recorded drying boundary. New actions target one layer; historical markers
+ * without layerId retain their all-layer meaning. Undo removes the boundary,
+ * so subsequent material is replayed under the restored wet conditions. */
 export type PaperDryOperation = OperationBase & {
   type: 'paper_dry'
+  layerId?: string
 }
 
 /** (#536) How long live watercolour water stays on the paper, in ms.
@@ -123,6 +114,8 @@ export type Operation =
  *  rooms.ts's `ownerLockedTargets`). */
 export function paintedLayerIds(op: OperationDraft): string[] {
   switch (op.type) {
+    case 'paper_dry':
+      return op.layerId ? [op.layerId] : []
     case 'stroke':
     case 'image_import':
     case 'layer_clear':

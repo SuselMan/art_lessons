@@ -22,7 +22,7 @@ it('defers only a hidden Dry display composite and retains the mandatory boundar
   const key = {} as AccumulationBuffer
   const arm = () => {
     scratch.pendingComposite.set(key, { tile: {} as Parameters<typeof scratch.pendingComposite.set>[1]['tile'], bounds: { minX: 0, minY: 0, maxX: 1, maxY: 1 } })
-    engine['_liveComposite'] = { scratch } as NonNullable<typeof engine['_liveComposite']>
+    engine['_liveComposite'] = { scratch, profile: {materialModel: 'legacy'} } as NonNullable<typeof engine['_liveComposite']>
   }
   try {
     arm(); engine['_flushLiveComposite'](true)

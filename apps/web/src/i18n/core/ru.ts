@@ -568,7 +568,7 @@ export const ru: Dictionary = {
   'tool.watercolorMix.dry': 'Сухая',
   'tool.watercolorMix.damp': 'Влажная',
   'tool.watercolorMix.wet': 'Мокрая',
-  'tool.watercolor.dryAll': 'Высушить всё',
+  'tool.watercolor.dryAll': 'Высушить слой',
   'tool.watercolor': 'Акварель',
   'tool.watercolorTitle': 'Акварель — прозрачная заливка; второй слой поверх высохшего первого делает цвет глубже  {hotkey}',
   'tool.hand': 'Рука',

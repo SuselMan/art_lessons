@@ -62,6 +62,8 @@ export interface SnapshotIOContext {
   scratchLayer(layerId: string): ILayerBuffer
   /** The engine's _applyPixelOp: what a first-ever paint of `op` does. */
   applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation): void
+  /** Complete the deterministic target before reading a throwaway replay. */
+  finishReplay?(buf: ILayerBuffer): void
   /** Starts decoding the images `ops` import; never awaited. */
   preloadImages(ops: Operation[]): void
 }
@@ -203,6 +205,7 @@ export class SnapshotIO {
     try {
       scratch.clear()
       for (const op of ops) this.ctx.applyPixelOp(scratch, layerId, op)
+      this.ctx.finishReplay?.(scratch)
       // (#425) The same clipping as `bake`, and it has to be the same call:
       // this is the oracle those bytes are compared against (#168, #289), so
       // a difference in geometry here would read as a determinism violation
