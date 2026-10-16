@@ -52,3 +52,37 @@ it('gapped live packets stop extending the decorative film, while the operation 
   expect(vi.mocked(engine['_paintDabs']).mock.calls[0][1]).toEqual(packet.dabs)
  }finally{engine.destroy()}
 })
+it('replaying a recorded operation does not acknowledge its presentation prefix a second time',async()=>{
+ const engine=await setup()
+ try{
+  engine['_paintDabs']=vi.fn(()=>undefined)
+  const op=makeStroke('peer','L',packet.dabs,{tool:'watercolor',preset,strokeId:'held',washId:'m70:L'})
+  engine.appendOperation(op)
+  const committed=()=>[...engine['_watercolorLivePreview']!.visible()][0].committed
+  expect(committed()).toBe(1)
+  engine['_applyPixelOp'](engine['_layers'].get('L')!,'L',op)
+  expect(committed()).toBe(1)
+ }finally{engine.destroy()}
+})
+it('peer leave requests a real display even when its only ink was a temporary film',async()=>{
+ const engine=await setup()
+ try{
+  engine.appendPeerLiveDabs('peer',packet)
+  const display=vi.spyOn(engine as unknown as {_scheduleDisplay():void},'_scheduleDisplay')
+  engine.endPeerLiveStroke('peer')
+  expect(display).toHaveBeenCalled()
+ }finally{engine.destroy()}
+})
+it('remote film cannot be clipped to an unrelated local damage rectangle',async()=>{
+ const engine=await setup()
+ try{
+  engine['_takePaperPartial']()
+  engine['_markPaperDamage']({minX:0,minY:0,maxX:2,maxY:2})
+  engine.appendPeerLiveDabs('peer',packet)
+  expect(engine['_takePaperPartial']()).toBeNull()
+  engine.endPeerLiveStroke('peer')
+  // Another local event in the same frame cannot erase the owed full redraw.
+  engine['_markPaperDamage']({minX:0,minY:0,maxX:2,maxY:2})
+  expect(engine['_takePaperPartial']()).toBeNull()
+ }finally{engine.destroy()}
+})

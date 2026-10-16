@@ -9,6 +9,7 @@ interface Stream {
   layerId: string
   received: number
   committed: number
+  suppressed: boolean
   dabs: Dab[]
   preset: string
   color: [number, number, number]
@@ -29,6 +30,7 @@ const keyOf = (peer: string, stroke: string, layer: string) => JSON.stringify([p
  * that prefix back. The real operation always paints every recorded dab. */
 export class WatercolorLivePreview {
   private streams = new Map<string, Stream>()
+  revision = 0
   constructor(privateHost: Host) { this.host = privateHost }
   private readonly host: Host
 
@@ -39,10 +41,11 @@ export class WatercolorLivePreview {
       // Bound pending gestures and late-packet tombstones together.
       while (this.streams.size >= 64) {
         const oldest = this.streams.keys().next().value!
-        this.streams.get(oldest)?.buf?.destroy()
+        const old = this.streams.get(oldest)
+        if (old) this.release(old)
         this.streams.delete(oldest)
       }
-      state = { peerId, strokeId, layerId, received: 0, committed: 0, dabs: [], preset: '', color: [0, 0, 0], origin: this.host.origin(), buf: null }
+      state = { peerId, strokeId, layerId, received: 0, committed: 0, suppressed: false, dabs: [], preset: '', color: [0, 0, 0], origin: this.host.origin(), buf: null }
       this.streams.set(key, state)
     }
     return state
@@ -53,11 +56,11 @@ export class WatercolorLivePreview {
     const skip = Math.min(packet.dabs.length, Math.max(0, state.committed - state.received))
     state.received += packet.dabs.length
     const dabs = packet.dabs.slice(skip)
-    if (!dabs.length) return
+    if (!dabs.length || state.suppressed) return
     state.preset = packet.preset; state.color = packet.color
     // Each real gesture is chunked at 800 dabs; bounded memory also covers a
     // disconnected author whose stream continues while no commit can arrive.
-    if (state.dabs.length + dabs.length > 6400) { this.release(state); return }
+    if (state.dabs.length + dabs.length > 6400) { state.suppressed = true; this.release(state); return }
     state.dabs.push(...dabs)
     if (!state.buf) {
       let bytes = 0
@@ -73,6 +76,10 @@ export class WatercolorLivePreview {
     const state = this.get(peerId, strokeId, layerId)
     const remove = Math.min(state.dabs.length, Math.max(0, state.received - state.committed), count)
     state.committed += count
+    if (state.suppressed) {
+      if (state.committed >= state.received) state.suppressed = false
+      return
+    }
     state.dabs.splice(0, remove)
     if (!state.dabs.length) this.release(state)
     else if (state.buf) { state.buf.clear(); this.paint(state, state.dabs) }
@@ -83,8 +90,10 @@ export class WatercolorLivePreview {
     const waterOnly = watercolorMixFromPreset(state.preset).pigment <= 0
     const marks = dabs.map(d => ({ ...d, opacity: d.opacity * (waterOnly ? 0.12 : 0.5) }))
     this.host.paint(state.buf, marks, state.preset, waterOnly ? [0.5, 0.5, 0.5] : state.color, state.origin)
+    this.revision++
   }
   private release(state: Stream, lost = false): void {
+    if (state.buf) this.revision++
     if (!lost) state.buf?.destroy()
     state.buf = null; state.dabs = []
   }

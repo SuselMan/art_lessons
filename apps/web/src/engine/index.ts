@@ -1831,6 +1831,7 @@ export class PencilEngine implements PencilEngineAPI {
   // entry.
   private _peerLiveStrokes = new Map<string, PeerLiveStroke>()
   private _watercolorLivePreview: WatercolorLivePreview | null = null
+  private _watercolorPreviewFrameRevision = 0
   private _liveWatercolorPreview(): WatercolorLivePreview {
     return this._watercolorLivePreview ??= new WatercolorLivePreview({
       gl: this.gl, width: () => this.canvas.width, height: () => this.canvas.height,
@@ -4026,7 +4027,10 @@ export class PencilEngine implements PencilEngineAPI {
     if (cancelled && !strokeId) return 0
     // A normal UP precedes the durable operation: keep its transient film
     // until the recorded prefix arrives. Cancellation/leave has no such debt.
-    if (cancelled || !strokeId) this._watercolorLivePreview?.cancel(peerId, strokeId)
+    if (cancelled || !strokeId) {
+      this._watercolorLivePreview?.cancel(peerId, strokeId)
+      if (!this._contextLost && !this.gl.isContextLost()) this._displayIfNotSuspended()
+    }
     if (cancelled && strokeId) {
       // Socket.io preserves packet/end order. Also reject already queued or
       // repeated packets for recent cancellations; held FIFO closures are
@@ -5018,7 +5022,6 @@ export class PencilEngine implements PencilEngineAPI {
   private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation, spreadSettle = false): void {
     switch (op.type) {
       case 'stroke': {
-        if (op.tool === 'watercolor' && op.strokeId) this._liveWatercolorPreview().confirm(op.userId, op.strokeId, op.layerId, strokeDabs(op).length)
         this._retireWashesOf(op) // (§17.57)
         // Smudge (#416): nothing to seed — see appendOperation's own stroke
         // case for why replay/undo/redo is deterministic from the op's own
@@ -9576,6 +9579,12 @@ export class PencilEngine implements PencilEngineAPI {
     }
     const cam = this._camera.pose
     const key = `${cam.wx},${cam.wy},${cam.zoom},${cam.angle},${canvas.width},${canvas.height}`
+    const previewRevision = this._watercolorLivePreview?.revision ?? 0
+    // Remote presentation can change outside the local pen's damage rect.
+    // Its removal also owes a complete frame even if a local MOVE arrives
+    // later in the same task and starts a new partial damage rectangle.
+    if (previewRevision !== this._watercolorPreviewFrameRevision || this._watercolorLivePreview?.tiles().size) this._paperPartialOK = false
+    this._watercolorPreviewFrameRevision = previewRevision
     const partial = this._paperPartialOK && this._paperDamage && key === this._paperCacheKey ? this._paperDamage : null
     this._paperPartialOK = false
     this._paperDamage = null

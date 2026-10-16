@@ -73,3 +73,26 @@ describe('watercolor live presentation is separate from canonical material',()=>
     preview.clear()
   })
 })
+it('requests a fresh presentation revision for removal as well as new ink',()=>{
+ const {preview}=setup()
+ const first=preview.revision
+ preview.append('a',packet([1]))
+ expect(preview.revision).toBeGreaterThan(first)
+ const visible=preview.revision
+ preview.cancel('a')
+ expect(preview.revision).toBeGreaterThan(visible)
+ preview.clear()
+})
+it('keeps an overflowing stream suppressed until its recorded cursor catches up',()=>{
+ const {preview,states}=setup()
+ preview.append('a',packet(Array.from({length:6401},(_,i)=>i)))
+ preview.append('a',packet([6401,6402]))
+ expect(states()[0].buf).toBeNull()
+ preview.confirm('a','s','L',6401)
+ expect(states()[0].suppressed).toBe(true)
+ preview.confirm('a','s','L',2)
+ expect(states()[0].suppressed).toBe(false)
+ preview.append('a',packet([6403]))
+ expect(states()[0].dabs.map(d=>d.x)).toEqual([6403])
+ preview.clear()
+})
