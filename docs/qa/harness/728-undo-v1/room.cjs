@@ -41,7 +41,7 @@ let browser;const contexts=[];
   const layer=async(name)=>{const id='qa-'+crypto.randomUUID();await append(a,{type:'layer_add',layerId:id,name});for(const p of pages)await p.evaluate(id=>{const s=__roomStore.getState();s.setLayerStateLocal(prev=>({...prev,activeId:id}));__engine.setActiveLayer(id)},id);return id};
   const stroke=async(p,{pigment=.65,x=220,y=300,vertical=false,tool='watercolor'}={})=>{
     await p.evaluate(({pigment,tool})=>{const s=__roomStore.getState();s.setTool(tool);for(const[k,v]of Object.entries({size:45,water:1,pigment,pressureResponse:'normal',nib:'round',color:[.15,.35,.8]}))s.setToolSetting(tool,k,v)}, {pigment,tool});
-    await p.waitForFunction(tool=>__engine._opts.tool===tool,tool);
+    await p.waitForFunction(tool=>__engine._opts.tool===tool,tool);await p.evaluate(()=>__engine.setColor([.15,.35,.8]));
     const ids=await p.evaluate(({x,y,vertical})=>{const e=__engine,previous=new Set(e.getOperations().map(o=>o.id));let t=1000;const ev=i=>({x:(x+(vertical?0:i*8))*.5,y:(y+(vertical?i*8:0))*.5,pressure:.8,tiltX:0,tiltY:0,speed:.4,pointerType:'pen',timeStamp:t+=16});e._onStart(ev(0));if(e._dwellTimer){clearInterval(e._dwellTimer);e._dwellTimer=null}if(!e._strokeId)throw Error('Stroke refused');for(let i=1;i<=20;i++)e._onMove(ev(i));e._onEnd(ev(20));return e.getOperations().filter(o=>o.type==='stroke'&&!previous.has(o.id)).map(o=>o.id)}, {x,y,vertical});
     assert.ok(ids.length,'Stroke committed');await sync(p);return ids;
   };
@@ -73,7 +73,7 @@ let browser;const contexts=[];
   for(const p of pages)await p.evaluate(id=>{const s=__roomStore.getState();s.setLayerStateLocal(prev=>({...prev,activeId:id}));__engine.setActiveLayer(id)},wetLayer);
   const otherWet=await check('other-layer-before-eraser',wetLayer);await stroke(b,{tool:'eraser'});assert.deepEqual(await check('other-layer-still-wet',wetLayer),otherWet,'Dry affected unrelated layer');
   // Rejoin independently recomputes the final fixture without local-only state.
-  const expected=await pixels(a,dryLayer);await b.reload();await b.waitForFunction(()=>window.__engine&&!__engine._locked);await b.evaluate(()=>__engine.paperReady());await sync(a);assert.deepEqual(await pixels(b,dryLayer),expected,'Rejoin target mismatch');
+  const expected=await pixels(a,dryLayer);await b.reload();await b.waitForFunction(()=>window.__engine&&!__engine._locked||document.querySelector('form input[type="text"]'));if(await b.locator('form input[type="text"]').count()){await b.locator('form input[type="text"]').first().fill('Undo v1 QA rejoin');await b.locator('form button[type="submit"]').click()}await b.waitForFunction(()=>window.__engine&&!__engine._locked);await b.evaluate(()=>__engine.paperReady());await sync(a);assert.deepEqual(await pixels(b,dryLayer),expected,'Rejoin target mismatch');
   for(const p of pages)assert.equal(await p.evaluate(()=>__engine.gl.getError()),0);
   for(const lid of [wetLayer,dryLayer])await append(a,{type:'paper_dry',layerId:lid});
   await idle();

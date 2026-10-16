@@ -5,7 +5,7 @@ for(const key of ['QA_CDP','QA_ENTRY_URL','QA_BASE_URL','QA_ROOM','QA_OUTPUT','Q
 const env=process.env;if(env.QA_DISPOSABLE_ROOM!==env.QA_ROOM)throw Error('Explicit disposable fixture required');
 fs.mkdirSync(env.QA_OUTPUT,{recursive:true});
 (async()=>{const b=await chromium.connectOverCDP(env.QA_CDP);let c;try{
- c=await b.newContext({storageState:env.QA_HOST_STATE,viewport:{width:1100,height:850}});const p=await c.newPage();p.setDefaultTimeout(90000);await c.request.get(env.QA_ENTRY_URL);await p.goto(new URL('/room/'+env.QA_ROOM+'?qaModel=m70-r2-v1',env.QA_BASE_URL).href);
+ let p;if(env.QA_CAPTURE_EXISTING==='1'){for(const context of b.contexts())for(const candidate of context.pages())if(candidate.url().includes(env.QA_ROOM)&&await candidate.evaluate(()=>!!window.__engine))p=candidate;if(!p)throw Error('No existing own fixture engine page')}else{c=await b.newContext({storageState:env.QA_HOST_STATE,viewport:{width:1100,height:850}});p=await c.newPage();p.setDefaultTimeout(90000);await c.request.get(env.QA_ENTRY_URL);await p.goto(new URL('/room/'+env.QA_ROOM+'?qaModel=m70-r2-v1',env.QA_BASE_URL).href);}
  await p.waitForFunction(()=>window.__engine&&!__engine._locked||document.querySelector('form input[type="text"]'));
  if(await p.locator('form input[type="text"]').count()){await p.locator('form input[type="text"]').first().fill('Undo target read-only QA');await p.locator('form button[type="submit"]').click()}
  await p.waitForFunction(()=>window.__engine&&!__engine._locked);await p.evaluate(()=>__engine.paperReady());
