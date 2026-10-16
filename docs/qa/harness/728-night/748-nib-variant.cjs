@@ -1,11 +1,16 @@
 // QA-only program source variant. Baseline is untouched unless explicitly selected.
 // 'pixel-uv' is deliberately restricted to the original zero-angle test input.
 module.exports=function installNibVariant(mode){
- if(!['baseline','uniform-scalars','pixel-uv'].includes(mode))throw Error('Unknown nib variant');
+ if(!['baseline','uniform-scalars','pixel-uv','highp-samplers'].includes(mode))throw Error('Unknown nib variant');
  window.__qaNibVariant={mode,patched:0};if(mode==='baseline')return;
  const patch=prototype=>{if(!prototype)return;const source=prototype.shaderSource;prototype.shaderSource=function(shader,text){
+  if(mode==='highp-samplers'&&text.includes('sampler2D')){
+   let inserted=false;text=text.replace(/precision\s+(?:lowp|mediump|highp)\s+float\s*;/g,statement=>{inserted=true;return statement+'\nprecision highp sampler2D;'});
+   if(!inserted)text='precision highp sampler2D;\n'+text;
+   window.__qaNibVariant.patched++;
+  }
   const nib=/const float u_inkMode = [67]\.0;/.test(text);
-  if(nib){
+  if(nib&&(mode==='uniform-scalars'||mode==='pixel-uv')){
    for(const [varying,uniform]of [['v_radius','u_dabRadius'],['v_aspectRatio','u_aspectRatio'],['v_pressure','u_pressure'],['v_opacity','u_opacity'],['v_tiltX','u_tiltX'],['v_tiltY','u_tiltY']]){
     text=text.replace('varying float '+varying+';','uniform float '+uniform+';').replaceAll(varying,uniform);
    }
