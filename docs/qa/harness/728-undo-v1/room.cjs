@@ -35,8 +35,8 @@ let browser;const contexts=[];
   assert.equal(identity.model,'m70-r2-v1');assert.equal(identity.strokes,0,'Refusing nonempty fixture');
   assert.notEqual(identity.user,await b.evaluate(()=>__roomStore.getState().userId),'Independent authors required');
   report.identity=identity;
-  const idle=async()=>{for(const p of pages)await p.waitForFunction(()=>{const e=__engine;return !e._locked&&!e._contextLost&&!e._pendingRebuilds.size&&!e._rebuildJobs.size&&!e._opQueue.length&&!e._puddle?.state.pending&&!e._wcCanonical.pending&&!e._settle})};
-  const sync=async(p)=>{const id=await p.evaluate(()=>__engine.getOperations().at(-1)?.id);for(const peer of pages)await peer.waitForFunction(id=>__engine.getOperations().some(o=>o.id===id),id);await idle();return id};
+  const idle=async()=>{for(const p of pages)await p.waitForFunction(()=>{const e=__engine;return !e._locked&&!e._contextLost&&!e._pendingRebuilds.size&&!e._rebuildJobs.size&&!e._opQueue.length&&!e._puddle?.state.pending&&!e._wcCanonical.pending&&!e._settle},null,{timeout:45000})};
+  const sync=async(p)=>{const id=await p.evaluate(()=>__engine.getOperations().at(-1)?.id);console.log('SYNC',id);for(const peer of pages)await peer.waitForFunction(id=>__engine.getOperations().some(o=>o.id===id),id,{timeout:20000});await idle();return id};
   const append=async(p,draft)=>{const id=await p.evaluate(draft=>{const op={...draft,id:crypto.randomUUID(),userId:__roomStore.getState().userId,timestamp:Date.now()};__engine.appendOperation(op);return op.id},draft);await sync(p);return id};
   const layer=async(name)=>{const id='qa-'+crypto.randomUUID();await append(a,{type:'layer_add',layerId:id,name});for(const p of pages)await p.evaluate(id=>{const s=__roomStore.getState();s.setLayerStateLocal(prev=>({...prev,activeId:id}));__engine.setActiveLayer(id)},id);return id};
   const stroke=async(p,{pigment=.65,x=220,y=300,vertical=false,tool='watercolor'}={})=>{
@@ -79,7 +79,7 @@ let browser;const contexts=[];
 })().catch(async error=>{report.pass=false;report.failure=error.stack;process.exitCode=1;
   for(const [i,c]of contexts.entries())for(const p of c.pages())try{
     await p.screenshot({path:env.QA_OUTPUT+'/failure-'+i+'.png',timeout:10000});
-    report['diagnostic'+i]=await p.evaluate(()=>({url:location.href,text:document.body.innerText.slice(0,2000),engine:window.__engine?{locked:__engine._locked,queue:__engine._opQueue.length,pendingRebuilds:[...__engine._pendingRebuilds],jobs:__engine._rebuildJobs.size,puddle:__engine._puddle?.state,operations:__engine.getOperations().map(o=>({id:o.id,type:o.type,layerId:o.layerId}))}:null}));
+    report['diagnostic'+i]=await p.evaluate(()=>({url:location.href,text:document.body.innerText.slice(0,2000),engine:window.__engine?{locked:__engine._locked,queue:__engine._opQueue.length,pendingRebuilds:[...__engine._pendingRebuilds],jobs:__engine._rebuildJobs.size,puddle:__engine._puddle?.state,operations:__engine.getOperations().map(o=>({id:o.id,type:o.type,layerId:o.layerId})),entries:__engine._log.entries.map(e=>({id:e.op.id,type:e.op.type,state:e.state,user:e.op.userId,seq:e.op.seq,pending:e.pending})),store:{user:__roomStore.getState().userId,active:__roomStore.getState().layerState.activeId,connection:__roomStore.getState().connectionStatus}}:null}));
   }catch(diag){report['diagnosticError'+i]=diag.message}
 }).finally(async()=>{
   await Promise.allSettled(contexts.map(c=>c.close()));if(browser)await browser.close().catch(()=>{});
