@@ -1,0 +1,83 @@
+{
+  "pass": true,
+  "scope": "Two independent authors on one real Vega/AMD GPU, fresh 512x512 fixture. No rejoin in this probe.",
+  "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+  "cases": [
+    {
+      "name": "full-undo-water-empty",
+      "targetHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "material": []
+    },
+    {
+      "name": "later-foreign-no-resurrection",
+      "targetHash": "8de32822427e64a8abcbbc8d431b3262735a40367622a4f2b10f5f6f09e27ba6",
+      "bytes": 1048596,
+      "material": [
+        {
+          "tool": "watercolor",
+          "water": 100,
+          "pigment": 65
+        }
+      ]
+    },
+    {
+      "name": "foreign-undo-no-resurrection",
+      "targetHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "material": []
+    },
+    {
+      "name": "foreign-redo-no-resurrection",
+      "targetHash": "8de32822427e64a8abcbbc8d431b3262735a40367622a4f2b10f5f6f09e27ba6",
+      "bytes": 1048596,
+      "material": [
+        {
+          "tool": "watercolor",
+          "water": 100,
+          "pigment": 65
+        }
+      ]
+    },
+    {
+      "name": "author-redo-restores-water",
+      "targetHash": "8c141bc894b6921d37e8b5cb2dfdd6d42bf60227cb84ee7323c2397e36c76be5",
+      "bytes": 1048596,
+      "material": [
+        {
+          "tool": "watercolor",
+          "water": 100,
+          "pigment": 0
+        },
+        {
+          "tool": "watercolor",
+          "water": 100,
+          "pigment": 65
+        }
+      ]
+    },
+    {
+      "name": "subsequent-undo-retains-water",
+      "targetHash": "8c141bc894b6921d37e8b5cb2dfdd6d42bf60227cb84ee7323c2397e36c76be5",
+      "bytes": 1048596,
+      "material": [
+        {
+          "tool": "watercolor",
+          "water": 100,
+          "pigment": 0
+        },
+        {
+          "tool": "watercolor",
+          "water": 100,
+          "pigment": 65
+        }
+      ]
+    },
+    {
+      "name": "dependent-undo-releases-water",
+      "targetHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "material": []
+    }
+  ]
+}
