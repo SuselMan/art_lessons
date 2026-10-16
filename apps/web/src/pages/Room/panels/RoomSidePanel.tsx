@@ -95,7 +95,7 @@ export function RoomSidePanel({
   }, [layerDrawers, participants])
 
   return (
-    <div className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
+    <div data-canvas-fit-edge="right" data-canvas-fit-hidden={uiHidden} className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
       <SidePanel
         active={active}
         onSelect={onSelect}

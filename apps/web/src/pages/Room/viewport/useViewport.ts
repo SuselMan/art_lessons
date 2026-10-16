@@ -2,8 +2,9 @@ import { useRef, useState, useCallback, useLayoutEffect, useEffect } from 'react
 import type { RefObject, Dispatch, SetStateAction } from 'react'
 import { clamp } from 'lodash-es'
 
-import { ZOOM_MAX, deviceNativeZoom, fitZoom, holdAngle, minZoom, pinchViewport, rotateViewportAround, clampToPage } from './cameraMath'
+import { ZOOM_MAX, deviceNativeZoom, holdAngle, minZoom, pinchViewport, rotateViewportAround, clampToPage } from './cameraMath'
 import { PinchTracker } from './pinchTracker'
+import {fittedViewport,readFitArea} from './fitArea'
 import { diagLog } from '../../../lib/observability/diagLog'
 import { useRoomStore } from '../../../stores/roomStore'
 import { isHandActive, type Viewport } from '../../../stores/slices/viewportSlice'
@@ -214,10 +215,7 @@ export function useViewport(
     if (!canvas || !el) return
     const v = infinite
       ? { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom: deviceNativeZoom(), angle: 0 }
-      : {
-          cx: el.clientWidth / 2, cy: el.clientHeight / 2, angle: 0,
-          zoom: fitZoom(el.clientWidth, el.clientHeight, canvas, 0),
-        }
+      : fittedViewport(readFitArea(el),canvas,0)
     vpState.current = v
     useRoomStore.getState().setViewport(v)
   }, [canvas, infinite, vpEl])
@@ -501,10 +499,7 @@ export function useViewport(
     const angle = useRoomStore.getState().rotationLocked ? vpState.current.angle : 0
     const v = infinite
       ? { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom: deviceNativeZoom(), angle }
-      : {
-          cx: el.clientWidth / 2, cy: el.clientHeight / 2, angle,
-          zoom: fitZoom(el.clientWidth, el.clientHeight, c, angle),
-        }
+      : fittedViewport(readFitArea(el),c,angle)
     vpState.current = v
     useRoomStore.getState().setViewport(v)
   }, [infinite])

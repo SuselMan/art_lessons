@@ -228,7 +228,7 @@ export function RoomHeader({
   ]
 
   return (
-    <header className={clsx(styles.header, compact && styles.headerCompact, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
+    <header data-canvas-fit-edge="top" data-canvas-fit-hidden={uiHidden} className={clsx(styles.header, compact && styles.headerCompact, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
       {/* The wordmark is the way out of the editor, same as on every other
           page — it replaced an arrow_back that went to /create rather than
           anywhere back, and left without asking. */}
