@@ -84,3 +84,19 @@ describe('network snapshot active water gate', () => {
   })
 
 })
+
+ describe('layer-scoped dry boundaries', () => {
+  it('retains water on other layers and restores eligibility when dry is undone', () => {
+    const a = { ...water(), id: 'a' }, b = { ...water('B'), id: 'b' }
+    const dry: Operation = { type: 'paper_dry', id: 'dry-layer', userId: 'A', timestamp: now, layerId: 'L' }
+    expect(hasActiveWater([a, b, dry], 'B', now)).toBe(true)
+    expect(hasActiveWater([a, b, dry], 'L', now)).toBe(false)
+    expect([...wetReplayOperationIds([a, b, dry])]).toEqual(['b'])
+    const log = new OperationLog()
+    log.append(a); log.append(b); log.append(dry)
+    log.applyUndo(dry.id, 'A')
+    expect(wetReplayOperationIds(log.doneOperations())).toEqual(new Set(['a', 'b']))
+    log.applyRedo(dry.id, 'A')
+    expect(wetReplayOperationIds(log.doneOperations())).toEqual(new Set(['b']))
+  })
+})

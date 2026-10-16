@@ -65,3 +65,18 @@ describe('structural coverage independently from pixel candidates', () => {
     expect(planSnapshotReplay([snapshot(5)], [stroke('s', 3), change('undo6', 6, 's')], undefined, 5).replayStructure).toBeUndefined()
   })
 })
+
+describe('undoable dry snapshot selection', () => {
+  it('invalidates only the dried layer after undo of a baked boundary', () => {
+    const dry: Operation = {id: 'dry', type: 'paper_dry', userId: 'A', timestamp: 3, seq: 3, layerId: 'L'}
+    const p = planSnapshotReplay([snapshot(5), snapshot(2), snapshot(5, 'other')], [dry, change('u', 6, dry.id)])
+    expect(p.snapshots).toEqual([snapshot(5, 'other')])
+    expect(p.historyLayers).toEqual(new Set(['L']))
+  })
+  it('invalidates every layer for an undone legacy all-layer boundary', () => {
+    const dry: Operation = {id: 'dry', type: 'paper_dry', userId: 'A', timestamp: 3, seq: 3}
+    const p = planSnapshotReplay([snapshot(5), snapshot(5, 'other')], [dry, change('u', 6, dry.id)])
+    expect(p.snapshots).toEqual([])
+    expect(p.historyLayers).toEqual(new Set(['L', 'other']))
+  })
+})

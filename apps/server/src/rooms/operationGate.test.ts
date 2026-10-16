@@ -103,3 +103,12 @@ describe('content on a destroyed layer (#311)', () => {
     expect(reason(board(), lesson(), stroke(STUDENT, 'layer-new'))).toBeNull()
   })
 })
+
+describe('layer-scoped drying permissions', () => {
+  const dry: Operation = {...base(STUDENT), type: 'paper_dry', layerId: 'layer-1'}
+  it('rejects drying a deleted or owner-reserved layer', () => {
+    expect(reason(board({deletedIds: new Set(['layer-1'])}), lesson(), dry)).toBe('target_gone')
+    expect(reason(board({lockedLayerIds: new Set(['layer-1'])}), lesson(), dry)).toBe('layer_owner_locked')
+    expect(reason(board({lockedLayerIds: new Set(['other'])}), lesson(), dry)).toBeNull()
+  })
+})

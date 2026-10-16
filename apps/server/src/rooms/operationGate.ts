@@ -149,7 +149,7 @@ function ownerLockedTargets(record: GateBoard, op: Operation): boolean {
   if (op.type === 'layer_transform') {
     return paintedLayerIds(op).some(id => record.lockedLayerIds.has(id))
   }
-  return 'layerId' in op && record.lockedLayerIds.has(op.layerId)
+  return 'layerId' in op && typeof op.layerId === 'string' && record.lockedLayerIds.has(op.layerId)
 }
 
 /** (#518) Whether the operation paints into a layer someone in the room has
@@ -226,6 +226,7 @@ function hasMissingAliveTarget(record: GateBoard, op: Operation): boolean {
     // (#574) Class 2: the filter is its own parameters, and a layer that is
     // gone has nothing left to filter.
     case 'layer_filter': return record.deletedIds.has(op.layerId)
+    case 'paper_dry': return !!op.layerId && record.deletedIds.has(op.layerId)
     default: return false
   }
 }

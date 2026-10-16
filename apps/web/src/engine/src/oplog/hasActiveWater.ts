@@ -7,7 +7,7 @@ import { watercolorMixFromPreset } from '../presets/watercolorPresets'
 export function hasActiveWater(ops: readonly Operation[], layerId: string, now: number): boolean {
   let active = false
   for (const op of ops) {
-    if (op.type === 'paper_dry' || (op.type === 'layer_clear' && op.layerId === layerId)) {
+    if ((op.type === 'paper_dry' && (!op.layerId || op.layerId === layerId)) || (op.type === 'layer_clear' && op.layerId === layerId)) {
       active = false
     } else if (op.type === 'stroke' && op.layerId === layerId && op.tool === 'watercolor'
       && watercolorMixFromPreset(op.preset).water > 0
@@ -23,7 +23,10 @@ export function hasActiveWater(ops: readonly Operation[], layerId: string, now: 
 export function wetReplayOperationIds(ops: readonly Operation[]): Set<string> {
   const layers = new Map<string, Set<string>>()
   for (const op of ops) {
-    if (op.type === 'paper_dry') layers.clear()
+    if (op.type === 'paper_dry') {
+      if (op.layerId) layers.delete(op.layerId)
+      else layers.clear()
+    }
     else if (op.type === 'layer_clear') layers.delete(op.layerId)
     else if (op.type === 'stroke' && op.tool === 'watercolor') {
       let ids = layers.get(op.layerId)

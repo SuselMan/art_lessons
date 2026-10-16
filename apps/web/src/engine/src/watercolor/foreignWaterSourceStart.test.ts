@@ -17,7 +17,7 @@ function collect(entries: LogEntry[], gesture: string | undefined, layer: string
     const e = entries[i], op = e.op
     if (gesture && op.type === 'stroke' && op.strokeId === gesture) break
     if (e.state !== 'done') continue
-    if (op.type === 'paper_dry' || (op.type === 'layer_clear' && op.layerId === layer)) output.length = 0
+    if ((op.type === 'paper_dry' && (!op.layerId || op.layerId === layer)) || (op.type === 'layer_clear' && op.layerId === layer)) output.length = 0
     if (op.type !== 'stroke' || op.tool !== 'watercolor' || op.layerId !== layer) continue
     decodeCalls++
     output.push({ id: op.id, dabs: strokeDabs(op) })
@@ -62,4 +62,13 @@ describe('foreign source discarded-prefix decoding', () => {
       expect(JSON.stringify(entries)).toBe(before)
     }
   })
+})
+
+it('only cuts foreign-water history at dry boundaries for the requested layer', () => {
+  const local: Operation = {...dry, layerId: 'L'}
+  const entries = [entry(stroke('a')), entry(local), entry(stroke('b'))]
+  expect(foreignWaterSourceStart(entries, undefined, 'L')).toBe(2)
+  expect(foreignWaterSourceStart(entries, undefined, 'B')).toBe(0)
+  entries[1].state = 'undone'
+  expect(foreignWaterSourceStart(entries, undefined, 'L')).toBe(0)
 })

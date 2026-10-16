@@ -53,7 +53,7 @@ export class PuddleRoomController {
   private solving: Layer | null = null
   private raf = 0
   private disposed = false
-  private closing = false
+  private readonly closing = new Set<ILayerBuffer>()
   private cancellations = 0
   private computations = 0
   private readonly host: PuddleRoomHost
@@ -67,7 +67,7 @@ export class PuddleRoomController {
     }})
   }
   get state() {
-    return {layers: this.layers.size, drying:this.closing, cancellations:this.cancellations, computations:this.computations, pending: this.closing || !!this.solving || [...this.layers.values()].some(l => l.dirty),
+    return {layers: this.layers.size, drying:this.closing.size > 0, cancellations:this.cancellations, computations:this.computations, pending: this.closing.size > 0 || !!this.solving || [...this.layers.values()].some(l => l.dirty),
       revisions: [...this.layers.values()].map(l => ({epoch:l.epoch, ready:l.goalReady, active:l.active}))}
   }
   has(target: ILayerBuffer): boolean { return this.layers.has(target) }
@@ -165,7 +165,7 @@ export class PuddleRoomController {
     this.solver.dry()
     this.host.render(layer.scratch,layer.tile,layer.context,layer.goal,this.solver.buffers())
     layer.dirty=false;layer.goalReady=true;layer.active=true;layer.started=performance.now()
-    if(this.closing) layer.dryAt=layer.started
+    if(this.closing.has(layer.target)) layer.dryAt=layer.started
     layer.presentation.setTarget(layer.goal,this.solver.buffers().coverage,layer.epoch)
     this.solving=null
   }
@@ -189,11 +189,10 @@ export class PuddleRoomController {
       this.present(layer)
       if (progress>=1) {
         layer.active=false
-        if(this.closing && layer.tile){layer.goal.copyTo(layer.tile.buffer);this.host.changed(layer.target);this.forget(layer.target)}
+        if(this.closing.has(layer.target) && layer.tile){layer.goal.copyTo(layer.tile.buffer);this.host.changed(layer.target);this.forget(layer.target)}
       }
       else moving=true
     }
-    if(this.closing && !this.layers.size) this.closing=false
     this.host.display()
     if (moving || this.solving || [...this.layers.values()].some(l => l.dirty)) this.request()
   }
@@ -203,20 +202,42 @@ export class PuddleRoomController {
     layer.presentation.tick(0,{dry:false}).copyTo(layer.tile.buffer)
     this.host.changed(layer.target)
   }
+  /** Mutate only the dry substrate. Wet deposits remain the canonical source;
+   * presentation pixels are never fed back into either material buffer. */
+  eraseDryBase(target: ILayerBuffer, paint: (base: AccumulationBuffer) => void): boolean {
+    const layer = this.layers.get(target)
+    if (!layer?.tile || !layer.context) return false
+    const entry = layer.scratch.peek(layer.tile.buffer)
+    if (!entry?.inkLoad || !entry.inkColor) return false
+    this.cancelCurrent()
+    paint(entry.original)
+    layer.epoch++
+    this.host.render(layer.scratch, layer.tile, layer.context, layer.raw,
+      {p: entry.inkLoad, c: entry.inkColor, coverage: entry.coverage})
+    layer.presentation.reset(layer.raw, layer.epoch)
+    layer.presentationDirty = true
+    layer.active = false
+    layer.goalReady = false
+    layer.dirty = true
+    layer.after = 0
+    this.present(layer)
+    this.request()
+    return true
+  }
   presentAll(): void { for (const layer of this.layers.values()) this.present(layer) }
   /** Manual Dry accelerates presentation and computes only the current target.
    * The engine defers later log operations until this explicit boundary lands. */
-  dry(): void {
-    if(this.closing || !this.layers.size)return
-    this.closing=true
+  dry(target?: ILayerBuffer): void {
+    if(!this.layers.size)return
     const now=performance.now()
     for(const layer of [...this.layers.values()]) {
+      if((target && layer.target !== target) || this.closing.has(layer.target)) continue
+      this.closing.add(layer.target)
       if(!layer.context){this.forget(layer.target);continue}
       layer.after=0
       if(layer.goalReady){layer.active=true;layer.dryAt=now}
       else if(this.solving!==layer) layer.dirty=true
     }
-    if(!this.layers.size)this.closing=false
     this.request()
   }
   /** Explicit recorded boundary. Replays and manual Dry use the same goal.
@@ -242,13 +263,14 @@ export class PuddleRoomController {
     if (!layer) return
     if (this.solving===layer) { this.solver.cancel();this.solving=null }
     this.layers.delete(target)
+    this.closing.delete(target)
     this.host.released(layer.scratch)
     layer.scratch.destroy();layer.raw.destroy();layer.next.destroy();layer.goal.destroy();layer.presentation.destroy()
   }
   destroy(): void {
     if (this.disposed) return
     this.disposed=true
-    this.closing=false
+    this.closing.clear()
     if (this.raf) cancelAnimationFrame(this.raf)
     for (const target of [...this.layers.keys()]) this.forget(target)
     this.solver.destroy()

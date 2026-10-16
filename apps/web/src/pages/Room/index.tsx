@@ -1555,7 +1555,7 @@ function RoomEditor() {
           paintTargetId={paintTargetId} paintTargetLocked={paintTargetLocked}
           copySelection={() => { void copySelection() }} cutSelection={() => { void cutSelection() }}
           pasteClipboard={() => { void pasteClipboard() }} deleteSelectionContents={deleteSelectionContents}
-          onWatercolorDry={() => { dispatchOp({ type: 'paper_dry' }) }}
+          onWatercolorDry={() => { if (paintTargetId && !paintTargetLocked) dispatchOp({ type: 'paper_dry', layerId: paintTargetId }) }}
         />
         </div>
 
