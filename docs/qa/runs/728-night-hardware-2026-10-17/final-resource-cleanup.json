@@ -1,0 +1,60 @@
+{
+  "sourceFinalRuntime": "2c2f6115",
+  "completedUTC": "2026-10-16T22:10:10.131407+00:00",
+  "ownedContextsRemaining": 0,
+  "ownedBrowserProcessesRemaining": 0,
+  "ownedTunnelProcessesRemaining": 0,
+  "ownedFixturesDeleted": 21,
+  "ownedFixtureAuthDirectoriesRemaining": 0,
+  "vega": {
+    "expectedPid": 547580,
+    "exactCommandAndProfileVerifiedBeforeClose": true,
+    "browserClosedGracefully": true,
+    "ownedProcessCountAfter": 0,
+    "profileRemovedVerified": true,
+    "forwardPid": 3806609,
+    "forwardStopped": true
+  },
+  "surface": {
+    "bothOwnedProfilesAbsent": true,
+    "ownedChromeCount": 0,
+    "bothForwardPidsGone": [
+      3806610,
+      3837295
+    ]
+  },
+  "samsung": {
+    "isolatedContextsClosed": true,
+    "ownAdbForward19335Absent": true,
+    "userCookiesAndChromePreserved": true
+  },
+  "cacheCleanup": {
+    "resources": [
+      {
+        "id": "728-night-hardware-20261016b",
+        "cacheExists": false
+      },
+      {
+        "id": "728-dither-ab-20261017",
+        "cacheExists": false
+      }
+    ],
+    "bothRegistryEntriesRemoved": true,
+    "note": "Normal finish conservatively blocked unrelated unreadable sd-pam/sshd. Root read-only /proc audit found zero cache references and zero unreadable processes. Own marker+nonce/path validated, caches removed; normal finish then returned absent and unregistered both."
+  },
+  "tcpListeners": {
+    "19333": false,
+    "19334": false,
+    "19335": false,
+    "5383": true,
+    "5384": true,
+    "4558": true
+  },
+  "remainingTaskResources": [
+    "Existing shared QA frontend5383",
+    "Existing shared QA frontend5384",
+    "Existing shared QA backend4558"
+  ],
+  "newServicesStarted": false,
+  "privateMetadataRetained": "Two small ignored resources.json registries and devices.json; no auth/rawdump/trace."
+}

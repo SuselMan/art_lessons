@@ -68,5 +68,5 @@
     }
   ],
   "ownOnly": true,
-  "profiles": "Surface own browser/profile removedverified and19334forwardstopped; Samsung isolatedcontextsdisposed andown19335ADBforwardremoved; Vega ownbrowser/profile/19333forward intentionallyretained for agentdry ongoingQA"
+  "profiles": "All ownedVega/SurfaceChrome andprofiles removedverified, all ownSSH/ADBforwards gone; final-resource-cleanup.json"
 }

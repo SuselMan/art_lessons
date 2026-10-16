@@ -74,7 +74,7 @@
       "authDirectoryRemoved": true
     }
   ],
-  "raw": "Four1MiBtargetbins remain registeredTTLcache awaiting finalVega guards; compactproofcommittedbc6da834",
+  "raw": "All targetbins/rawcache removed after compactproof; both disposablecache entries unregistered",
   "surface": "Owned Chrome3344 closed; zeroownedprocesses and profileRemoved verified; SSH19334forward3837295/session10968stopped",
-  "vega": "Retained547580/19333 for root757guards"
+  "vega": "Chrome547580 closed/profile removedverified/19333forwardstopped after757/758END"
 }

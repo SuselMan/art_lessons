@@ -13,7 +13,7 @@ Surface использовал отдельные Playwright contexts с DPR1/ha
 
 Ни один снимок actual не получен через экспорт/replay oracle или принудительный display. Чтение screenCache сохраняет framebuffer bindings, проверяет GLerrors и добавляет наблюдательную стоимость. Физическое появление пикселей ограничивается compositor screenshot, а не timestamp JS.
 
-Временные профили и disposable-комнаты пока сохранены для повторной проверки оптимизации. Их точные владельцы и PID зарегистрированы приватно в `temp/device-runs/728-night-hardware-20261016b/resources.json`.
+Финальная уборка завершена после последней проверки #757/#758; см. `final-resource-cleanup.json`. Приватные metadataрегистры сохранены без auth и сырых дампов.
 
 На `e86db307` повтор100 на той же спецификации ввода дал CPU22.2ms, swap1931.5ms и1 новое вычисление цели без отмен (до guard:3 вычисления/2 отмены). Это один прогон, поэтому оценку выигрыша скорости не обобщаем. Live-слой побайтно совпал с fullReplay:0 отличий, SHA256 `082c1157896b1d7ec227a6108db1a547b6307bb807cfc05375056dea6369aa63`. Восьмипиксельный screenCache probe по-прежнему не дал надёжной границы первого отображения в2s.
 
@@ -23,4 +23,6 @@ Surface использовал отдельные Playwright contexts с DPR1/ha
 
 Один обычный reload в том же уже вошедшем context дал internalroomOpen920ms на Surface и2606ms на Samsung. Форма входа появляется при каждом mount по текущему design; внутренний таймер начинается после её подтверждения. Отчёты warm-loading сохраняют этот факт явно.
 
-После проверок13 собственных disposable-комнат удалены обычным ownerAPI (HTTP200), приватные synthetic-auth каталоги удалены. Surface QAChrome/profile и SSHforward19334 закрыты; Samsung isolatedcontexts и наш ADBforward19335 удалены, основная Chrome-сессия сохранена. Vega QAChrome/profile/SSHforward19333 пока оставлены для продолжающейся матрицы другого агента.
+После проверок13 собственных disposable-комнат удалены обычным ownerAPI (HTTP200), приватные synthetic-auth каталоги удалены. Surface QAChrome/profile и SSHforward19334 закрыты; Samsung isolatedcontexts и наш ADBforward19335 удалены, основная Chrome-сессия сохранена. Vega QAChrome/profile/SSHforward19333 впоследствии также закрыты после завершения матрицы другого агента.
+
+Финально:21 собственная комната удалена ownerAPI, authкаталоги отсутствуют. Все собственные Chrome/context/profile/SSH/ADBforward закрыты. Оба зарегистрированных cache с сырыми результатами удалены и сняты с реестра. Остались только существующие общие QAfrontend5383/5384 и backend4558.
