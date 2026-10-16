@@ -406,6 +406,24 @@ export class PaperWetness {
    *  it has been undone is plainly wrong. Dropping the whole layer's water
    *  takes other strokes' with it, which is a small over-correction on a field
    *  that is ephemeral anyway and dries in seconds. */
+  /** Same-client Undo cache only; monotonic timestamps continue aging normally.
+   * This is ephemeral input/display state, never a network snapshot format. */
+  captureLayer(layerId: string): Float64Array {
+    const cells=this._layers.get(layerId)
+    const data=new Float64Array((cells?.size??0)*5)
+    let i=0
+    if(cells)for(const cell of cells.values()){data[i++]=cell.cx;data[i++]=cell.cy;data[i++]=cell.w;data[i++]=cell.at;data[i++]=cell.p??0}
+    return data
+  }
+  restoreLayer(layerId: string, data: Float64Array): void {
+    if(data.length%5)throw new Error('Invalid ephemeral wet-cell cache')
+    const cells=new Map<number,WetCell>()
+    for(let i=0;i<data.length;i+=5){const [cx,cy,w,at,p]=data.subarray(i,i+5);cells.set(key(cx,cy),{cx,cy,w,at,p});this._notePeak(w,at)}
+    this._layers.set(layerId,cells)
+    this._pending.delete(layerId)
+    this._recomputeBox()
+  }
+
   forgetLayer(layerId: string): void {
     this._layers.delete(layerId)
     this._pending.delete(layerId)

@@ -35,6 +35,10 @@ interface Layer {
   dryAt?: number
 }
 type ParkedLayer = Pick<Layer, 'target'|'gesture'|'previous'|'timestamp'|'boundary'|'epoch'>
+interface UndoMaterialSnapshot extends CpuScratchSnapshot {
+  undo: {layer: ParkedLayer; goal: Uint8Array; wet: Float64Array; valid: () => boolean}
+}
+function undoSnapshot(value: CpuScratchSnapshot | undefined): value is UndoMaterialSnapshot { return !!value && 'undo' in value }
 export class MaterialSourceBusy extends Error {
   constructor() { super('M70 material sources are executing; retry after an operation boundary') }
 }
@@ -69,6 +73,10 @@ export class PuddleRoomController {
   private cancellations = 0
   private computations = 0
   private readonly dimensions: {width:number;height:number}
+  private undoCaptures=0
+  private undoHits=0
+  private undoCaptureLastMs=0
+  private undoRestoreLastMs=0
   private readonly host: PuddleRoomHost
   constructor(host: PuddleRoomHost) {
     this.host=host
@@ -82,7 +90,7 @@ export class PuddleRoomController {
     }})
   }
   get state() {
-    return {layers: this.layers.size + this.parked.size, residentLayers:this.layers.size, parkedLayers:this.parked.size, cpuBytes:this.residency.bytes, drying:this.closing.size > 0, cancellations:this.cancellations, computations:this.computations, pending: this.closing.size > 0 || !!this.solving || [...this.layers.values()].some(l => l.dirty),
+    return {undoCaptureLastMs:this.undoCaptureLastMs,undoRestoreLastMs:this.undoRestoreLastMs,undoCaptures:this.undoCaptures,undoHits:this.undoHits,layers: this.layers.size + this.parked.size, residentLayers:this.layers.size, parkedLayers:this.parked.size, cpuBytes:this.residency.bytes, drying:this.closing.size > 0, cancellations:this.cancellations, computations:this.computations, pending: this.closing.size > 0 || !!this.solving || [...this.layers.values()].some(l => l.dirty),
       revisions: [...this.layers.values()].map(l => ({epoch:l.epoch, ready:l.goalReady, active:l.active}))}
   }
   has(target: ILayerBuffer): boolean { return this.layers.has(target) || this.parked.has(target) }
@@ -142,11 +150,11 @@ export class PuddleRoomController {
     this.host.changed(victim.target)
   }
   /** Journal fallback must replay a strict prefix, excluding the incoming op. */
-  private awaken(target: ILayerBuffer, beforeRecordedOpId?: string): Layer | undefined {
+  private awaken(target: ILayerBuffer, beforeRecordedOpId?: string, prepared?:CpuScratchSnapshot): Layer | undefined {
     const old=this.parked.get(target)
     if(!old)return undefined
     this.ensureSlot(target)
-    const snapshot=this.residency.take(target) ?? this.host.rehydrate?.(target,beforeRecordedOpId)
+    const snapshot=prepared ?? this.residency.take(target) ?? this.host.rehydrate?.(target,beforeRecordedOpId)
     if(!snapshot)throw new Error('M70 evicted material requires journal reconstruction')
     if(snapshot.tiles.length!==1 || snapshot.tiles[0].originX || snapshot.tiles[0].originY || snapshot.tiles[0].width!==this.dimensions.width || snapshot.tiles[0].height!==this.dimensions.height)throw new Error('M70 material snapshot dimensions differ from page')
     const scratch=RibbonStrokeScratch.restoreCpu(this.host.pool,snapshot,target)
@@ -181,6 +189,52 @@ export class PuddleRoomController {
       const tile=target.allResident().find(t=>t.buffer===buffer)
       return tile ? {originX:tile.originX,originY:tile.originY} : null
     })
+  }
+  /** QA-only fast Undo cache, charged to the same byte budget as parked water.
+   * Never finish a pending goal on DOWN just to manufacture a checkpoint. */
+  captureUndo(target: ILayerBuffer, valid: () => boolean, readWet: () => Float64Array): boolean {
+    const layer=this.layers.get(target)
+    if(!layer?.tile || !layer.context || !layer.goalReady || layer.dirty || this.residency.pinned(target) || this.closing.has(target) || this.residency.byteBudget===0)return false
+    const started=performance.now()
+    try {
+      const source=this.capture(target)
+      if(!source)return false
+      const goal=layer.goal.readPixels()
+      const wet=readWet()
+      const {gesture,previous,timestamp,boundary,epoch}=layer
+      const saved:UndoMaterialSnapshot={...source,bytes:source.bytes+goal.byteLength+wet.byteLength,
+        undo:{layer:{target,gesture,previous,timestamp,boundary,epoch},goal,wet,valid}}
+      if(saved.bytes>this.residency.byteBudget)return false
+      this.residency.store(target,saved)
+      if(!this.residency.hasBytes(target))return false
+      this.undoCaptures++
+      return true
+    } catch { return false } // Optional cache failure must never reject DOWN.
+    finally { this.undoCaptureLastMs=performance.now()-started }
+  }
+  /** The caller has already folded Undo into its journal. Exact proof failure
+   * preserves ordinary replay; water-only/foreign/Dry states cannot use this. */
+  restoreUndo(target: ILayerBuffer): {wet:Float64Array} | null {
+    const saved=this.residency.peek(target)
+    if(!undoSnapshot(saved) || saved.bytes>this.residency.byteBudget || !saved.undo.valid() || this.residency.pinned(target))return null
+    const current=this.layers.get(target)
+    if(!current || this.closing.has(target))return null
+    const started=performance.now()
+    this.residency.take(target)
+    this.parked.set(target,saved.undo.layer)
+    this.releaseResident(current)
+    try {
+      const layer=this.awaken(target,undefined,saved)
+      if(!layer?.tile)throw new Error('Cached Undo has no source tile')
+      layer.goal.restorePixelsRect(this.dimensions.width,this.dimensions.height,saved.undo.goal)
+      layer.presentation.reset(layer.goal,layer.epoch)
+      layer.goalReady=true;layer.dirty=false;layer.active=false;layer.presentationDirty=false
+      layer.goal.copyTo(layer.tile.buffer)
+      this.host.changed(target)
+      this.undoHits++
+      return {wet:saved.undo.wet}
+    } catch { return null } // Root display is unchanged until all restore allocations succeed.
+    finally { this.undoRestoreLastMs=performance.now()-started }
   }
   source(target: ILayerBuffer, gesture: string, profile: RibbonProfile, timestamp: number, boundary='', request?: {pin?: boolean; beforeRecordedOpId?: string}): {scratch: RibbonStrokeScratch; prevDab?: Dab; release: () => void} {
     const parked=this.parked.get(target)
