@@ -1,14 +1,16 @@
+import {puddleDimensions,puddleLowDimensions,type PuddleSize} from './PuddleDimensions'
 import {createPuddleNoiseTexture} from './PortablePuddleNoise'
 import type {ReadPuddleParameters} from './PuddleParameters'
 import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
 import {createProgram} from '../../raster/utils'
 /** M70 background diffusion and spatial distortion outside selected pigment peaks.
  * Room M70 uses the offline lattice; Mini retains the approved legacy hash for reference. */
-export function createBackgroundMix(gl:WebGLRenderingContext,size:number,readParameters: ReadPuddleParameters, portableNoise=false){
+export function createBackgroundMix(gl:WebGLRenderingContext,size:PuddleSize,readParameters: ReadPuddleParameters, portableNoise=false){
+ const {width,height}=puddleDimensions(size),low=puddleLowDimensions(size)
  const noiseTexture=portableNoise?createPuddleNoiseTexture(gl):null
  let capturedStrength=.65,capturedDistortion=.6
- const low=256,make=()=>new AccumulationBuffer(gl,low,low,'linear')
- const eligible=make(),gate=make(),p0=make(),c0=make(),pa=make(),ca=make(),pb=make(),cb=make(),full=new AccumulationBuffer(gl,size,size)
+ const make=()=>new AccumulationBuffer(gl,low.width,low.height,'linear')
+ const eligible=make(),gate=make(),p0=make(),c0=make(),pa=make(),ca=make(),pb=make(),cb=make(),full=new AccumulationBuffer(gl,width,height)
  const vertex='attribute vec2 pos;varying vec2 uv;void main(){uv=pos*.5+.5;gl_Position=vec4(pos,0.,1.);}'
  const eligibility=createProgram(gl,vertex,`precision highp float;varying vec2 uv;uniform sampler2D initial,reference,coverage;uniform vec2 margin;void main(){float peak=0.;for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 q=uv+vec2(float(x),float(y))*margin;float a=texture2D(initial,q).a,b=texture2D(reference,q).a;if(a>.004)peak=max(peak,clamp(1.-b/a,0.,1.));}vec4 cov=texture2D(coverage,uv);float g=(1.-smoothstep(.03,.12,peak))*cov.a*step(.002,cov.b);gl_FragColor=vec4(g);}`)
 
@@ -21,12 +23,12 @@ export function createBackgroundMix(gl:WebGLRenderingContext,size:number,readPar
  const smooth=createProgram(gl,vertex,'precision highp float;varying vec2 uv;uniform sampler2D source,eligible;uniform vec2 stride;void main(){vec4 own=texture2D(source,uv),value=own;float wi=texture2D(eligible,uv).r;for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){if(x==0&&y==0)continue;vec2 p=uv+vec2(float(x),float(y))*stride;float wj=texture2D(eligible,p).r;value+=.08*min(wi,wj)*(texture2D(source,p)-own);}gl_FragColor=clamp(value,0.,1.);}')
  const quad=gl.createBuffer()!;gl.bindBuffer(gl.ARRAY_BUFFER,quad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)
  function draw(program:WebGLProgram,out:AccumulationBuffer,textures:Record<string,AccumulationBuffer>,uniform?:()=>void){out.beginReplaceDraw();gl.disable(gl.SCISSOR_TEST);gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,quad);const a=gl.getAttribLocation(program,'pos');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);Object.entries(textures).forEach(([name,t],i)=>{gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,t.texture);gl.uniform1i(gl.getUniformLocation(program,name),i)});uniform?.();gl.drawArrays(gl.TRIANGLES,0,6);out.endDraw();gl.activeTexture(gl.TEXTURE0)}
- return{capture(initial:AccumulationBuffer,reference:AccumulationBuffer,coverage:AccumulationBuffer){capturedStrength=readParameters().backgroundStrength??.65;capturedDistortion=readParameters().backgroundDistortion??.6;draw(eligibility,eligible,{initial,reference,coverage},()=>gl.uniform2f(gl.getUniformLocation(eligibility,'margin'),12/size,12/size))},ops(p:AccumulationBuffer,c:AccumulationBuffer,coverage:AccumulationBuffer,_initialP:AccumulationBuffer,_initialC:AccumulationBuffer){
-  const strength=capturedStrength;const distortion=capturedDistortion;const setStrength=()=>{gl.uniform1f(gl.getUniformLocation(reconstruct,'strength'),strength);gl.uniform1f(gl.getUniformLocation(reconstruct,'distortion'),distortion);gl.uniform2f(gl.getUniformLocation(reconstruct,'worldSize'),size,size);if(noiseTexture){gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,noiseTexture);gl.uniform1i(gl.getUniformLocation(reconstruct,'noiseLattice'),5)}};const ops:Array<()=>void>=[]
+ return{capture(initial:AccumulationBuffer,reference:AccumulationBuffer,coverage:AccumulationBuffer){capturedStrength=readParameters().backgroundStrength??.65;capturedDistortion=readParameters().backgroundDistortion??.6;draw(eligibility,eligible,{initial,reference,coverage},()=>gl.uniform2f(gl.getUniformLocation(eligibility,'margin'),12/width,12/height))},ops(p:AccumulationBuffer,c:AccumulationBuffer,coverage:AccumulationBuffer,_initialP:AccumulationBuffer,_initialC:AccumulationBuffer){
+  const strength=capturedStrength;const distortion=capturedDistortion;const setStrength=()=>{gl.uniform1f(gl.getUniformLocation(reconstruct,'strength'),strength);gl.uniform1f(gl.getUniformLocation(reconstruct,'distortion'),distortion);gl.uniform2f(gl.getUniformLocation(reconstruct,'worldSize'),width,height);if(noiseTexture){gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,noiseTexture);gl.uniform1i(gl.getUniformLocation(reconstruct,'noiseLattice'),5)}};const ops:Array<()=>void>=[]
   ops.push(()=>draw(copy,gate,{source:eligible},()=>gl.uniform2f(gl.getUniformLocation(copy,'texel'),0,0)))
-  ops.push(()=>{for(const [source,out]of [[p,p0],[c,c0]])draw(copy,out,{source},()=>gl.uniform2f(gl.getUniformLocation(copy,'texel'),1/size,1/size))})
+  ops.push(()=>{for(const [source,out]of [[p,p0],[c,c0]])draw(copy,out,{source},()=>gl.uniform2f(gl.getUniformLocation(copy,'texel'),1/width,1/height))})
   let ps=p0,cs=c0
-  for(const [i,radius]of [2,4,8,4].entries()){const pd=i%2?pb:pa,cd=i%2?cb:ca,P=ps,C=cs;ops.push(()=>{for(const [source,out]of [[P,pd],[C,cd]])draw(smooth,out,{source,eligible:gate},()=>gl.uniform2f(gl.getUniformLocation(smooth,'stride'),radius/low,radius/low))});ps=pd;cs=cd}
+  for(const [i,radius]of [2,4,8,4].entries()){const pd=i%2?pb:pa,cd=i%2?cb:ca,P=ps,C=cs;ops.push(()=>{for(const [source,out]of [[P,pd],[C,cd]])draw(smooth,out,{source,eligible:gate},()=>gl.uniform2f(gl.getUniformLocation(smooth,'stride'),radius/low.width,radius/low.height))});ps=pd;cs=cd}
   const finalP=ps,finalC=cs
   ops.push(()=>{draw(reconstruct,full,{source:p,lowBefore:p0,lowAfter:finalP,coverage,eligible},setStrength);full.copyTo(p)})
   ops.push(()=>{draw(reconstruct,full,{source:c,lowBefore:c0,lowAfter:finalC,coverage,eligible},setStrength);full.copyTo(c)})

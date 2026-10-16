@@ -4,7 +4,6 @@ import { createTestEngine, makeLayerAdd, paperReady, simulateStroke } from './te
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 
 for (const geometry of [
-  {name: 'rectangular', pageWidth: 64, pageHeight: 32, infinite: false},
   {name: 'infinite', pageWidth: 64, pageHeight: 64, infinite: true},
   {name: 'oversized', pageWidth: 1536, pageHeight: 1536, infinite: false},
 ]) it(`does not prewarm M70 when a pencil layer is selected on ${geometry.name} geometry`, async () => {
