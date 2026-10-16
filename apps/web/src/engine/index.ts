@@ -1640,10 +1640,16 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetTexSize: [number, number] = [0, 0]
   private _watercolorReview = false
   private _puddle: PuddleRoomController | null = null
+  private _m70GeometrySupported(): boolean {
+    const page=this._paper.pageSize(),tile=this._tileSize()
+    return !this._infinite && [page.w,page.h,tile.w,tile.h].every(Number.isFinite)
+      && page.w>0 && page.h>0 && page.w===page.h && page.w<=1024
+      && tile.w>0 && tile.h>0 && tile.w===tile.h && tile.w<=1024
+  }
   private _puddleFor(): PuddleRoomController {
+    if (!this._m70GeometrySupported()) throw new Error('M70 QA needs a square page up to 1024px')
     if (this._puddle) return this._puddle
     const {w,h}=this._tileSize()
-    if (this._infinite || w!==h || w>1024) throw new Error('M70 QA needs a square page up to 1024px')
     const bounds={minX:0,minY:0,maxX:w,maxY:h}
     this._ribbonPasses.diagnosticPigmentBlot=.45
     this._ribbonPainter.diagnosticBandBatch=true
@@ -2665,12 +2671,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._activeId = id
     if (this._watercolorModel==='m70-r2-v1') setTimeout(()=>{
       if(this._destroyed || this._contextLost || this._activeId!==id)return
-      const page=this._paper.pageSize(),tile=this._tileSize()
-      // Prewarming is optional. Unsupported geometry must not break ordinary
-      // tools merely because this room selected the M70 review model.
-      if(this._infinite || ![page.w,page.h,tile.w,tile.h].every(Number.isFinite)
-        || page.w<=0 || page.h<=0 || page.w!==page.h || page.w>1024
-        || tile.w<=0 || tile.h<=0 || tile.w!==tile.h || tile.w>1024)return
+      // Prewarming must not break ordinary tools on unsupported pages.
+      if(!this._m70GeometrySupported())return
       const target=this._layers.get(id)
       if(target && (!this._puddle || this._puddle.state.layers<2) && !this._puddle?.has(target)) {
         const profile=ribbonProfileFor('watercolor',withWatercolorModel(this._opts.pencilType,'m70-r2-v1'))
@@ -6131,9 +6133,13 @@ export class PencilEngine implements PencilEngineAPI {
       })
       return
     }
+    const m70Stroke=this._opts.tool==='watercolor' && this._watercolorModel==='m70-r2-v1'
+    // Reject before allocating gesture state: subsequent MOVE/UP must be no-ops.
+    if(m70Stroke && !this._m70GeometrySupported())throw new Error('M70 QA needs a square page up to 1024px')
     // An accepted Dry must land before this stroke, rather than dropping DOWN.
     // Only closing layers are committed; peer operations remain queued.
     this._puddle?.finishDrying()
+    if(m70Stroke)this._puddle?.assertSourceAvailable(this._layers.get(layerId)!)
     // (#536, §17.52) Any tool: a settle spread over frames (a peer's
     // operation, or this author's own last wash) lands before this stroke
     // paints, or its copy-back would cover what the stroke lays under the

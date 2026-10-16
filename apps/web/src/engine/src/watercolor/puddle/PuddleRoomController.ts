@@ -91,6 +91,13 @@ export class PuddleRoomController {
   owns(scratch: RibbonStrokeScratch): boolean {
     return [...this.layers.values()].some(l => l.scratch === scratch)
   }
+  /** Pure preflight; a valid DOWN must not leave half-created gesture state. */
+  assertSourceAvailable(target: ILayerBuffer): void {
+    if(this.layers.has(target))return
+    let real=0
+    for(const layer of this.layers.values())if(layer.gesture!=='prewarm' || layer.context)real++
+    if(real>=2)throw new Error('M70 QA supports two wet layers at once; dry a layer first')
+  }
   source(target: ILayerBuffer, gesture: string, profile: RibbonProfile, timestamp: number, boundary=''): {scratch: RibbonStrokeScratch; prevDab?: Dab} {
     let layer = this.layers.get(target)
     // Logical operation time, never animation progress, closes a dried wash.
@@ -99,7 +106,7 @@ export class PuddleRoomController {
       // A sliced replay can own real material before its first accept().
       // Only the engine's explicit prewarm placeholder is disposable here.
       for(const [key,old]of this.layers)if(old.gesture==='prewarm' && !old.context)this.forget(key)
-      if (this.layers.size >= 2) throw new Error('M70 QA supports two wet layers at once; dry a layer first')
+      this.assertSourceAvailable(target)
       const make = () => new AccumulationBuffer(this.host.gl, this.host.size, this.host.size)
       layer = {target, scratch:new RibbonStrokeScratch(this.host.pool, profile.ink, profile.normalizeDeposit),
         gesture:'',timestamp,boundary,raw:make(),next:make(),goal:make(),

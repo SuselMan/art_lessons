@@ -246,3 +246,23 @@ it('finishes only accepted Dry layers and preserves unrelated wet material', () 
     expect(changed).toHaveBeenCalledTimes(1)
   } finally { controller.destroy(); vi.unstubAllGlobals() }
 })
+
+it('preflights capacity without mutating real sources, excluding only empty prewarm', () => {
+  const {controller,target:a}=wetController(1)
+  const b={} as ILayerBuffer,c={} as ILayerBuffer
+  const profile={ink:{},normalizeDeposit:false} as Parameters<typeof controller.source>[2]
+  try{
+    const warm=controller.source(b,'prewarm',profile,1)
+    expect(()=>controller.assertSourceAvailable(c)).not.toThrow()
+    expect(warm.scratch.destroy).not.toHaveBeenCalled()
+    controller.source(b,'real-b',profile,1)
+    const before=controller.state
+    expect(()=>controller.assertSourceAvailable(a)).not.toThrow()
+    expect(()=>controller.assertSourceAvailable(c)).toThrow('two wet layers')
+    expect(controller.state).toEqual(before)
+    controller.dry(a);controller.finishDrying()
+    expect(()=>controller.assertSourceAvailable(c)).not.toThrow()
+    controller.source(c,'real-c',profile,1)
+    expect(controller.has(b)).toBe(true);expect(controller.has(c)).toBe(true)
+  }finally{controller.destroy();vi.unstubAllGlobals()}
+})
