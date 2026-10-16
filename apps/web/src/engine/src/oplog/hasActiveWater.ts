@@ -1,4 +1,4 @@
-import type { Operation } from '@grafetto/shared'
+import { operationLayerIds, type Operation } from '@grafetto/shared'
 import { WET_DRY_MS } from '../paper/paperWetness'
 import { watercolorMixFromPreset } from '../presets/watercolorPresets'
 
@@ -7,7 +7,7 @@ import { watercolorMixFromPreset } from '../presets/watercolorPresets'
 export function hasActiveWater(ops: readonly Operation[], layerId: string, now: number): boolean {
   let active = false
   for (const op of ops) {
-    if ((op.type === 'paper_dry' && (!op.layerId || op.layerId === layerId)) || (op.type === 'layer_clear' && op.layerId === layerId)) {
+    if ((op.type === 'paper_dry' && (!op.layerId || op.layerId === layerId)) || (op.type === 'layer_clear' && op.layerId === layerId) || (op.type === 'layer_visibility' && !op.visible && !!layerId && operationLayerIds(op).includes(layerId))) {
       active = false
     } else if (op.type === 'stroke' && op.layerId === layerId && op.tool === 'watercolor'
       && watercolorMixFromPreset(op.preset).water > 0
@@ -28,6 +28,7 @@ export function wetReplayOperationIds(ops: readonly Operation[]): Set<string> {
       else layers.clear()
     }
     else if (op.type === 'layer_clear') layers.delete(op.layerId)
+    else if (op.type === 'layer_visibility' && !op.visible) for (const id of operationLayerIds(op)) layers.delete(id)
     else if (op.type === 'stroke' && op.tool === 'watercolor') {
       let ids = layers.get(op.layerId)
       if (!ids) { ids = new Set(); layers.set(op.layerId, ids) }

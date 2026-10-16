@@ -72,3 +72,12 @@ it('only cuts foreign-water history at dry boundaries for the requested layer', 
   entries[1].state = 'undone'
   expect(foreignWaterSourceStart(entries, undefined, 'L')).toBe(0)
 })
+
+it('hide is an ordered dry boundary for its selected layers only', () => {
+  const hide: Operation = {id: 'hide', type: 'layer_visibility', layerIds: ['L'], visible: false, userId: 'u', timestamp: 0}
+  const entries = [entry(stroke('a')), entry(hide), entry(stroke('b'))]
+  expect(foreignWaterSourceStart(entries, undefined, 'L')).toBe(2)
+  expect(foreignWaterSourceStart(entries, undefined, 'B')).toBe(0)
+  entries[1].state = 'undone'
+  expect(foreignWaterSourceStart(entries, undefined, 'L')).toBe(0)
+})

@@ -1,4 +1,4 @@
-import type { Dab } from '@grafetto/shared'
+import { operationLayerIds, type Dab } from '@grafetto/shared'
 import type { LogEntry } from '../oplog/OperationLog'
 
 // #680: recorded wet contacts locate a preceding puddle; geometry comes from
@@ -71,7 +71,7 @@ export function foreignWaterSourceStart(
   for (let i = 0; i < entries.length; i++) {
     const { op, state } = entries[i]
     if (gestureId && op.type === 'stroke' && op.strokeId === gestureId) break
-    if (state === 'done' && ((op.type === 'paper_dry' && (!op.layerId || op.layerId === layerId)) || (op.type === 'layer_clear' && op.layerId === layerId))) start = i + 1
+    if (state === 'done' && ((op.type === 'paper_dry' && (!op.layerId || op.layerId === layerId)) || (op.type === 'layer_clear' && op.layerId === layerId) || (op.type === 'layer_visibility' && !op.visible && !!layerId && operationLayerIds(op).includes(layerId)))) start = i + 1
   }
   return start
 }

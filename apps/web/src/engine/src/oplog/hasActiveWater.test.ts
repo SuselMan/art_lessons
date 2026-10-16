@@ -100,3 +100,13 @@ describe('network snapshot active water gate', () => {
     expect(wetReplayOperationIds(log.doneOperations())).toEqual(new Set(['b']))
   })
 })
+
+it('hide dries only selected layers and showing does not undo its dry boundary', () => {
+  const a = {...water(), id: 'a'}, b = {...water('B'), id: 'b'}
+  const hide: Operation = {type: 'layer_visibility', id: 'hide', userId: 'A', timestamp: now, layerIds: ['L'], visible: false}
+  const show: Operation = {...hide, id: 'show', visible: true}
+  expect(hasActiveWater([a,b,hide,show], 'L', now)).toBe(false)
+  expect(hasActiveWater([a,b,hide,show], 'B', now)).toBe(true)
+  expect(wetReplayOperationIds([a,b,hide,show])).toEqual(new Set(['b']))
+  expect(wetReplayOperationIds([a,b,show])).toEqual(new Set(['a','b']))
+})
