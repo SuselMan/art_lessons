@@ -1,3 +1,4 @@
+import {puddleDimensions, type PuddleSize} from './PuddleDimensions'
 import {createBackgroundMix} from './BackgroundMix'
 import {createContrastPhase} from './ContrastPhase'
 import { AccumulationBuffer } from '../../buffers/AccumulationBuffer'
@@ -12,7 +13,7 @@ import type {WatercolorPasses} from '../../raster/WatercolorPasses'
 import {APPROVED_M70_PARAMETERS, type ReadPuddleParameters} from './PuddleParameters'
 
 /** Explicit GPU ownership: the caller cancels the previous revision before a new one.
- * Currently a single square material tile; room-wide tiling is not implemented here. */
+ * Currently a single rectangular material tile; room-wide tiling is not implemented here. */
 export interface PuddleTargetHost {
   gl: WebGLRenderingContext
   settlePlan: WatercolorSettlePlan
@@ -34,27 +35,28 @@ export type NativePuddleTargetOptions = {
 /** One isolated invocation of the existing v4 solver over the whole raw wash.
  * The layer tile is only an identity key; no operation writes live scratch/RGB.
  * One native operation may contain several draws. No fixed-iteration claim. */
-export function createNativePuddleTarget(host: PuddleTargetHost, size: number, options: NativePuddleTargetOptions = {}) {
+export function createNativePuddleTarget(host: PuddleTargetHost, size: PuddleSize, options: NativePuddleTargetOptions = {}) {
+  const {width, height} = puddleDimensions(size)
   const gl: WebGLRenderingContext = host.gl
   const owner: WatercolorSettlePlan = host.settlePlan
   const prepare = options.prepare ?? owner.prepare
   const pool = host.pool
   const readParameters = options.readParameters ?? (() => APPROVED_M70_PARAMETERS)
-  const contrast=createContrastPhase(gl, readParameters)
+  const contrast=createContrastPhase(gl, readParameters, size)
   let initialWater:AccumulationBuffer|null=null,capturedWater:AccumulationBuffer|null=null
   const guardProgram=createProgram(gl,'attribute vec2 pos;varying vec2 uv;void main(){uv=pos*.5+.5;gl_Position=vec4(pos,0.,1.);}','precision highp float;varying vec2 uv;uniform sampler2D raw,result,water;void main(){float wet=smoothstep(0.,.03,texture2D(water,uv).a*4.);gl_FragColor=mix(texture2D(raw,uv),texture2D(result,uv),wet);}')
-  function guardDryPixels(dst:AccumulationBuffer,raw:AccumulationBuffer){if(!initialWater)throw Error('M55 requires raw fluid');const temp=pool.acquire(size,size);try{temp.beginReplaceDraw();gl.disable(gl.SCISSOR_TEST);gl.useProgram(guardProgram);gl.bindBuffer(gl.ARRAY_BUFFER,alignQuad);const pos=gl.getAttribLocation(guardProgram,'pos');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);for(const [unit,name,b]of [[0,'raw',raw],[1,'result',dst],[2,'water',initialWater]]as const){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,b.texture);gl.uniform1i(gl.getUniformLocation(guardProgram,name),unit)}gl.drawArrays(gl.TRIANGLES,0,6);temp.endDraw();gl.activeTexture(gl.TEXTURE0);temp.copyTo(dst)}finally{pool.release(temp)}}
+  function guardDryPixels(dst:AccumulationBuffer,raw:AccumulationBuffer){if(!initialWater)throw Error('M55 requires raw fluid');const temp=pool.acquire(width,height);try{temp.beginReplaceDraw();gl.disable(gl.SCISSOR_TEST);gl.useProgram(guardProgram);gl.bindBuffer(gl.ARRAY_BUFFER,alignQuad);const pos=gl.getAttribLocation(guardProgram,'pos');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);for(const [unit,name,b]of [[0,'raw',raw],[1,'result',dst],[2,'water',initialWater]]as const){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,b.texture);gl.uniform1i(gl.getUniformLocation(guardProgram,name),unit)}gl.drawArrays(gl.TRIANGLES,0,6);temp.endDraw();gl.activeTexture(gl.TEXTURE0);temp.copyTo(dst)}finally{pool.release(temp)}}
   const alignProgram=createProgram(gl,'attribute vec2 pos;varying vec2 uv;void main(){uv=pos*.5+.5;gl_Position=vec4(pos,0.,1.);}','precision highp float;varying vec2 uv;uniform sampler2D p,c;void main(){vec4 v=texture2D(p,uv);v.b=min(texture2D(c,uv).a,v.a);gl_FragColor=v;}')
   const alignQuad=gl.createBuffer()!;gl.bindBuffer(gl.ARRAY_BUFFER,alignQuad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)
   const background=createBackgroundMix(gl,size,readParameters,options.portableNoise??false)
   let post:Array<()=>void>=[],postAt=0
   let initialP:AccumulationBuffer|null=null,initialC:AccumulationBuffer|null=null
   const out = {
-    p: new AccumulationBuffer(gl, size, size, 'nearest'),
-    c: new AccumulationBuffer(gl, size, size, 'nearest'),
-    coverage: new AccumulationBuffer(gl, size, size, 'nearest'),
+    p: new AccumulationBuffer(gl, width, height, 'nearest'),
+    c: new AccumulationBuffer(gl, width, height, 'nearest'),
+    coverage: new AccumulationBuffer(gl, width, height, 'nearest'),
   }
-  const contour=new AccumulationBuffer(gl,size,size,'nearest')
+  const contour=new AccumulationBuffer(gl,width,height,'nearest')
   const state = { epoch: 0, iterations: 0, done: true, total: 0, revision: 0 }
   let scratch: RibbonStrokeScratch | null = null
   let job: NativeJob | null = null
@@ -85,7 +87,7 @@ export function createNativePuddleTarget(host: PuddleTargetHost, size: number, o
       host.invalidateFrontPaths()
       const sourceEntry = source.peek(tile.buffer), ctx = source.finishContext
       if (!sourceEntry?.inkLoad || !ctx) throw new Error('Native puddle target needs raw wash and finish context')
-      if (tile.buffer.width !== size || tile.buffer.height !== size) throw new Error('Native puddle target supports one full-page tile')
+      if (tile.buffer.width !== width || tile.buffer.height !== height) throw new Error('Native puddle target supports one full-page tile')
       if (host.hasActiveSettle()) throw new Error('Native puddle target requires exclusive settle-field ownership')
       state.epoch = epoch; state.iterations = 0; state.total = 0; state.done = false
       scratch = new RibbonStrokeScratch(pool, true, true)
@@ -102,23 +104,23 @@ export function createNativePuddleTarget(host: PuddleTargetHost, size: number, o
         host.passes.pigmentColor(entry.inkColor!, entry.inkLoad!, pigmentAbsorption(paint.split(',').map(Number) as [number, number, number]))
       }
       // Raw optical mass is authoritative; live P.b and C.a can differ after channel fitting.
-      const aligned=pool.acquire(size,size)
+      const aligned=pool.acquire(width,height)
       try{aligned.beginReplaceDraw();gl.disable(gl.SCISSOR_TEST);gl.useProgram(alignProgram);gl.bindBuffer(gl.ARRAY_BUFFER,alignQuad);const pos=gl.getAttribLocation(alignProgram,'pos');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);for(const [unit,name,buffer]of [[0,'p',entry.inkLoad!],[1,'c',entry.inkColor!]]as const){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,buffer.texture);gl.uniform1i(gl.getUniformLocation(alignProgram,name),unit)}gl.drawArrays(gl.TRIANGLES,0,6);aligned.endDraw();gl.activeTexture(gl.TEXTURE0);aligned.copyTo(entry.inkLoad!)}finally{pool.release(aligned)}
       // Local background and positive concentration/composition excess,
       // extracted from the complete initial wash, never the previous goal.
       initialWater=sourceEntry.solventLoad??sourceEntry.foreignSolventLoad??null
-      if(sourceEntry.solventLoad&&sourceEntry.foreignSolventLoad){capturedWater=pool.acquire(size,size);host.passes.fieldOp(capturedWater,sourceEntry.solventLoad,sourceEntry.foreignSolventLoad,1,1);initialWater=capturedWater}
+      if(sourceEntry.solventLoad&&sourceEntry.foreignSolventLoad){capturedWater=pool.acquire(width,height);host.passes.fieldOp(capturedWater,sourceEntry.solventLoad,sourceEntry.foreignSolventLoad,1,1);initialWater=capturedWater}
       if(!initialWater)throw Error('M55 requires captured local fluid')
-      entry.inkSettled=pool.acquire(size,size)
-      entry.colorSettled=pool.acquire(size,size)
+      entry.inkSettled=pool.acquire(width,height)
+      entry.colorSettled=pool.acquire(width,height)
       contrast.prepare(entry.inkLoad!,entry.inkColor!,initialWater,true,entry.inkSettled!,entry.colorSettled!)
       initialP=sourceEntry.inkLoad;initialC=sourceEntry.inkColor
       background.capture(entry.inkLoad!,entry.inkSettled!,entry.coverage)
       for (const name of ['solventLoad', 'foreignSolventLoad'] as const) {
         const src = sourceEntry[name]
-        if (src) { const copy: AccumulationBuffer = pool.acquire(size, size); src.copyTo(copy); entry[name] = copy }
+        if (src) { const copy: AccumulationBuffer = pool.acquire(width, height); src.copyTo(copy); entry[name] = copy }
       }
-      const bounds = { minX: tile.originX, minY: tile.originY, maxX: tile.originX + size, maxY: tile.originY + size }
+      const bounds = { minX: tile.originX, minY: tile.originY, maxX: tile.originX + width, maxY: tile.originY + height }
       clone.gesture = source.gesture
       for (const paint of source.paints) clone.paints.add(paint)
       const metadata = source.captureFinishMetadata()
@@ -191,7 +193,7 @@ export function createNativePuddleTarget(host: PuddleTargetHost, size: number, o
         dryQuad = gl.createBuffer()!
         gl.bindBuffer(gl.ARRAY_BUFFER, dryQuad)
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]), gl.STATIC_DRAW)
-        dryCoverage = new AccumulationBuffer(gl, size, size, 'nearest')
+        dryCoverage = new AccumulationBuffer(gl, width, height, 'nearest')
       }
       dryCoverage!.beginReplaceDraw(); gl.disable(gl.SCISSOR_TEST); gl.useProgram(dryProgram)
       gl.bindBuffer(gl.ARRAY_BUFFER, dryQuad)

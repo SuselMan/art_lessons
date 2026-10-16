@@ -1,3 +1,4 @@
+import {puddleDimensions,type PuddleSize} from './PuddleDimensions'
 import {WATERCOLOR_WET_DRY_MS, type Dab} from '@grafetto/shared'
 import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
 import type {ILayerBuffer, PaintTarget} from '../../buffers/ILayerBuffer'
@@ -39,7 +40,7 @@ export class MaterialSourceBusy extends Error {
 }
 export class MaterialHistoryNotReady extends MaterialSourceBusy {}
 export interface PuddleRoomHost extends PuddleTargetHost {
-  size: number
+  size: PuddleSize
   cpuByteBudget?: number
   materialReady?(target: ILayerBuffer): boolean
   rehydrate?(target: ILayerBuffer, beforeRecordedOpId?: string): CpuScratchSnapshot
@@ -54,7 +55,7 @@ export interface PuddleRoomHost extends PuddleTargetHost {
 /** QA room adapter. Canonical source is shared by every author on a layer.
  * Presentation clocks never modify it. One cancellable solver owns the shared
  * field; dirty revisions replace each other rather than queueing stroke jobs.
- * Deliberately limited to one square tile until the atlas implementation lands.
+ * Deliberately limited to one full-page tile until the atlas implementation lands.
  */
 export class PuddleRoomController {
   private readonly parked = new Map<ILayerBuffer, ParkedLayer>()
@@ -67,9 +68,11 @@ export class PuddleRoomController {
   private readonly closing = new Set<ILayerBuffer>()
   private cancellations = 0
   private computations = 0
+  private readonly dimensions: {width:number;height:number}
   private readonly host: PuddleRoomHost
   constructor(host: PuddleRoomHost) {
     this.host=host
+    this.dimensions=puddleDimensions(host.size)
     this.residency=new MaterialResidency(2, host.cpuByteBudget)
     const plan=host.settlePlan,prepare=plan.prepare
     this.solver = createNativePuddleTarget(host, host.size, {portableNoise:true,prepare:(...args)=>{
@@ -145,12 +148,13 @@ export class PuddleRoomController {
     this.ensureSlot(target)
     const snapshot=this.residency.take(target) ?? this.host.rehydrate?.(target,beforeRecordedOpId)
     if(!snapshot)throw new Error('M70 evicted material requires journal reconstruction')
+    if(snapshot.tiles.length!==1 || snapshot.tiles[0].originX || snapshot.tiles[0].originY || snapshot.tiles[0].width!==this.dimensions.width || snapshot.tiles[0].height!==this.dimensions.height)throw new Error('M70 material snapshot dimensions differ from page')
     const scratch=RibbonStrokeScratch.restoreCpu(this.host.pool,snapshot,target)
     const allocated:AccumulationBuffer[]=[]
     let presentation:Presentation|undefined
     let layer:Layer
     try {
-      const make=()=>{const buffer=new AccumulationBuffer(this.host.gl,this.host.size,this.host.size);allocated.push(buffer);return buffer}
+      const make=()=>{const buffer=new AccumulationBuffer(this.host.gl,this.dimensions.width,this.dimensions.height);allocated.push(buffer);return buffer}
       presentation=createPuddlePresentation(this.host.gl,this.host.size,{smoothArrival:true})
       layer={...old,scratch,raw:make(),next:make(),goal:make(),presentation,
         dirty:true,goalReady:false,active:false,started:0,after:0,presentationDirty:true}
@@ -189,7 +193,7 @@ export class PuddleRoomController {
       // Only the engine's explicit prewarm placeholder is disposable here.
       for(const [key,old]of this.layers)if(old.gesture==='prewarm' && !old.context)this.forget(key)
       this.ensureSlot(target)
-      const make = () => new AccumulationBuffer(this.host.gl, this.host.size, this.host.size)
+      const make = () => new AccumulationBuffer(this.host.gl, this.dimensions.width, this.dimensions.height)
       layer = {target, scratch:new RibbonStrokeScratch(this.host.pool, profile.ink, profile.normalizeDeposit),
         gesture:'',timestamp,boundary,raw:make(),next:make(),goal:make(),
         presentation:createPuddlePresentation(this.host.gl,this.host.size,{smoothArrival:true}),
@@ -230,8 +234,8 @@ export class PuddleRoomController {
     const tile = context.target.allResident().find(t => !!scratch.peek(t.buffer)?.inkColor)
     if (!tile) return
     if (context.target.allResident().length !== 1 || tile.originX || tile.originY ||
-      tile.buffer.width !== this.host.size || tile.buffer.height !== this.host.size) {
-      throw new Error('M70 QA requires one square page tile')
+      tile.buffer.width !== this.dimensions.width || tile.buffer.height !== this.dimensions.height) {
+      throw new Error('M70 QA requires one full-page tile')
     }
     const entry = scratch.peek(tile.buffer)!
     if (!entry.inkLoad || !entry.inkColor) return

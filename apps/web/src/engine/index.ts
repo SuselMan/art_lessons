@@ -1648,11 +1648,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _m70GeometrySupported(): boolean {
     const page=this._paper.pageSize(),tile=this._tileSize()
     return !this._infinite && [page.w,page.h,tile.w,tile.h].every(Number.isFinite)
-      && page.w>0 && page.h>0 && page.w===page.h && page.w<=1024
-      && tile.w>0 && tile.h>0 && tile.w===tile.h && tile.w<=1024
+      && [page.w,page.h,tile.w,tile.h].every(n=>Number.isSafeInteger(n) && n>0 && n<=1024)
+      && page.w===tile.w && page.h===tile.h
   }
   private _puddleFor(): PuddleRoomController {
-    if (!this._m70GeometrySupported()) throw new Error('M70 QA needs a square page up to 1024px')
+    if (!this._m70GeometrySupported()) throw new Error('M70 QA needs one bounded page tile up to 1024px per side')
     if (this._puddle) return this._puddle
     const {w,h}=this._tileSize()
     const bounds={minX:0,minY:0,maxX:w,maxY:h}
@@ -1661,7 +1661,7 @@ export class PencilEngine implements PencilEngineAPI {
     this.diagnosticWatercolorLiftSteps=4
     this.diagnosticNativeFieldMinimum=1024
     return this._puddle=new PuddleRoomController({
-      gl:this.gl, size:w, settlePlan:this._settlePlan, pool:this._ribbonScratchPool, passes:this._watercolorPasses,
+      gl:this.gl, size:{width:w,height:h}, settlePlan:this._settlePlan, pool:this._ribbonScratchPool, passes:this._watercolorPasses,
       invalidateFrontPaths:()=>this._watercolorPasses.invalidateFrontPaths(),
       hasActiveSettle:()=>!!this._settle,
       drawing:()=>!!this._strokeLayerId || this._rebuildJobs.size > 0,
@@ -6343,7 +6343,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     const m70Stroke=this._opts.tool==='watercolor' && this._watercolorModel==='m70-r2-v1'
     // Reject before allocating gesture state: subsequent MOVE/UP must be no-ops.
-    if(m70Stroke && !this._m70GeometrySupported())throw new Error('M70 QA needs a square page up to 1024px')
+    if(m70Stroke && !this._m70GeometrySupported())throw new Error('M70 QA needs one bounded page tile up to 1024px per side')
     const eraseIds=this._opts.tool==='eraser'
       ? [...new Set([layerId,...this._eraseThroughIds.filter(id=>this._layers.has(id))])] : []
     // Cross-layer erasing is atomic with respect to missing material history:

@@ -16,23 +16,23 @@ vi.mock('./PuddlePresentation',()=>({createPuddlePresentation:()=>({invalidate()
 import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
 import {RibbonScratchPool} from '../../buffers/RibbonScratchPool'
 import {PuddleRoomController, MaterialSourceBusy, type PuddleRoomHost} from './PuddleRoomController'
-function fixture(budget=1024*1024){
+function fixture(budget=1024*1024,width=4,height=4){
  vi.stubGlobal('requestAnimationFrame',()=>1);vi.stubGlobal('cancelAnimationFrame',()=>{})
  const pool=new RibbonScratchPool({} as WebGLRenderingContext)
  const rehydrate=vi.fn()
- const controller=new PuddleRoomController({gl:{},size:4,pool,cpuByteBudget:budget,settlePlan:{prepare(){}},rehydrate,
+ const controller=new PuddleRoomController({gl:{},size:{width,height},pool,cpuByteBudget:budget,settlePlan:{prepare(){}},rehydrate,
   render:((scratch,tile,_ctx,output)=>scratch.peek(tile.buffer)!.inkLoad!.copyTo(output)) as PuddleRoomHost['render'],changed(){},released(){},drawing:()=>false,display(){}} as unknown as PuddleRoomHost)
  const profile={ink:true,normalizeDeposit:true} as Parameters<typeof controller.source>[2]
  const targets=Array.from({length:8},()=>{
-   const buffer=new AccumulationBuffer({} as WebGLRenderingContext,4,4),tile={originX:0,originY:0,buffer}
+   const buffer=new AccumulationBuffer({} as WebGLRenderingContext,width,height),tile={originX:0,originY:0,buffer}
    return {allResident:()=>[tile],resolveForPaint:()=>[tile]} as unknown as ILayerBuffer
  })
  function draw(i:number){
   const result=controller.source(targets[i],`g${i}`,profile,1,'',{pin:true})
   const tile=targets[i].allResident()[0],entry=result.scratch.getOrCreate(tile.buffer)
-  entry.inkLoad??=pool.acquire(4,4);entry.inkColor??=pool.acquire(4,4)
-  entry.inkLoad.restorePixelsRect(4,4,new Uint8Array(64).fill(i+10))
-  result.scratch.noteFinish({target:targets[i],bounds:{minX:0,minY:0,maxX:4,maxY:4},fieldSeed:[0,0]} as Parameters<typeof result.scratch.noteFinish>[0])
+  entry.inkLoad??=pool.acquire(width,height);entry.inkColor??=pool.acquire(width,height)
+  entry.inkLoad.restorePixelsRect(width,height,new Uint8Array(width*height*4).fill(i+10))
+  result.scratch.noteFinish({target:targets[i],bounds:{minX:0,minY:0,maxX:width,maxY:height},fieldSeed:[0,0]} as Parameters<typeof result.scratch.noteFinish>[0])
   controller.finish(result.scratch);result.release()
   return result
  }
@@ -71,4 +71,22 @@ it('CPU eviction preserves marker and requests strict incoming-operation prefix 
  expect(rehydrate).toHaveBeenLastCalledWith(targets[0],'incoming')
  expect(restored.scratch.peek(targets[0].allResident()[0].buffer)!.inkLoad!.readPixels()).toEqual(new Uint8Array(64).fill(10))
  controller.destroy();pool.trimFree();vi.unstubAllGlobals()
+})
+
+for(const [width,height]of [[512,768],[768,512]])it(`preserves rectangular ${width}x${height} source through parking, dry-baseline erasure and layer Dry`,()=>{
+ const {controller,pool,profile,targets,draw}=fixture(64*1024*1024,width,height)
+ try{draw(0);draw(1);draw(2)
+  expect(controller.state.parkedLayers).toBe(1)
+  const restored=controller.source(targets[0],'g0',profile,2)
+  const entry=restored.scratch.peek(targets[0].allResident()[0].buffer)!
+  const ink=entry.inkLoad!.readPixels()
+  expect(ink.length).toBe(width*height*4)
+  expect(ink.every(value=>value===10)).toBe(true)
+  expect([entry.original.width,entry.original.height]).toEqual([width,height])
+  expect(controller.eraseDryBase(targets[0],base=>base.clear(),2)).toBe(true)
+  expect(entry.inkLoad!.readPixels().every((value,index)=>value===ink[index])).toBe(true)
+  controller.dry(targets[0]);controller.finishDrying()
+  expect(controller.has(targets[0])).toBe(false)
+  expect(controller.has(targets[1])).toBe(true)
+ }finally{controller.destroy();pool.trimFree();expect(pool.bytes.live).toBe(0);vi.unstubAllGlobals()}
 })
