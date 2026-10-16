@@ -421,10 +421,19 @@ export class SnapshotIO {
 
   historyRepairPending(layerId: string): boolean { return this.historyRepairs.has(layerId) }
 
-  invalidateCoveredHistory(layerIds: readonly string[], targetId: string): void {
+  invalidateCoveredHistory(layerIds: readonly string[], targetId: string, mutation?: {serverSeq: number; historical: boolean}): void {
     for (const layerId of layerIds) {
       const snapshot = this.ctx.checkpoints().all().find(cp => cp.layerId === layerId && cp.fromSnapshot && cp.covered?.has(targetId))
       if (!snapshot || snapshot.coveredSeq === undefined) continue
+      if (mutation && mutation.serverSeq<=snapshot.coveredSeq) {
+        // Hydration can reveal an old control after its target. The snapshot
+        // already contains it; fail closed if any newer/unknown control could
+        // also have changed dependent water under that same apparent state.
+        const uncertain=mutation.historical && this.ctx.log().entries.some(entry=>
+          (entry.op.type==='operation_undo' || entry.op.type==='operation_redo' || entry.op.type==='operation_revoke')
+          && (entry.pending || entry.serverSeq===undefined || entry.serverSeq>snapshot.coveredSeq!))
+        if(!uncertain)continue
+      }
       this.historyRepairs.set(layerId, snapshot.coveredSeq)
       this.ctx.ledger.markDirty(layerId)
       this.ctx.ledger.refusePublishing(layerId)
