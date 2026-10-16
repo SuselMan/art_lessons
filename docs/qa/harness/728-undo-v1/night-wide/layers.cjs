@@ -65,14 +65,36 @@ let browser;const contexts=[];
   report.stages=[];report.loads=[];report.timingsScope='Wall clock includes CDP, two clients, shader/solver work; not isolated performance measurement';
   const liveCheck=async(name,id)=>{await idle();const captures=[];for(const p of pages){const data=await p.evaluate(async id=>{const e=__engine,target=e._layers.get(id);if(!target)throw Error('Layer absent '+id);e._puddle?.close(target);const codec=await import('/src/engine/src/oplog/snapshotCodec.ts');const tiles=target.allResident().map(t=>({originX:t.originX,originY:t.originY,width:t.buffer.width,height:t.buffer.height,pixels:t.buffer.readPixels()})).filter(t=>{for(let i=3;i<t.pixels.length;i+=4)if(t.pixels[i])return true;return false}).sort((a,b)=>a.originY-b.originY||a.originX-b.originX);const actual=codec.encodeLayerTiles(tiles);const oracle=e.bakeLayerByFullReplay(id)??codec.encodeLayerTiles([]);let changed=0,max=0;for(let i=0;i<Math.max(actual.length,oracle.length);i++){const d=Math.abs((actual[i]??0)-(oracle[i]??0));if(d)changed++;max=Math.max(max,d)}const hash=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))).map(x=>x.toString(16).padStart(2,'0')).join('');return{actualHash:await hash(actual),oracleHash:await hash(oracle),actualBytes:actual.length,oracleBytes:oracle.length,changedBytes:changed,maxDiff:max,glError:e.gl.getError()}},id);captures.push(data);report.lastLiveCapture={name,layer:id,captures:[...captures]};assert.equal(data.glError,0);assert.equal(data.changedBytes,0,name+' actual live target differs from full replay')}assert.equal(captures[0].actualHash,captures[1].actualHash,name+' participant divergence');report.cases.push({name,layer:id,captures});console.log('LIVE',name,captures[0].actualHash);return captures[0].actualHash};
   if(selected.has('guard-third-wet')||selected.has('guard-geometry'))await stage('unsupported-watercolor-recovery',async()=>{
-    const previous=[];const snapshot=async id=>a.evaluate(async id=>{const e=__engine,t=e._layers.get(id);const tiles=e._puddle?.canonicalTiles(t)??t.allResident();const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b))).map(x=>x.toString(16).padStart(2,'0')).join('');return Promise.all(tiles.map(async t=>({originX:t.originX,originY:t.originY,hash:await hash(t.buffer.readPixels())})))},id);
-    if(selected.has('guard-third-wet'))for(let i=0;i<2;i++){const id=await layer('night-guard-preserved-'+i);await stroke(a,{x:150+i*70,y:180});previous.push({id,pixels:await snapshot(id)})}else{const id=await layer('night-guard-preserved-pencil');await stroke(a,{tool:'pencil',x:150,y:180});previous.push({id,pixels:await snapshot(id)})}
-    const id=await layer('night-guard-rejected');report.guard={beforeOperations:await a.evaluate(()=>__engine.getOperations().length),preservedLayers:previous.map(x=>x.id)};
-    try{await stroke(a,{x:Number(env.QA_GUARD_X||220),y:220});report.guard.watercolorAccepted=true}catch(e){report.guard.watercolorAccepted=false;report.guard.rejection=e.message}
-    report.guard.afterAttempt=await a.evaluate(()=>({queue:__engine._opQueue.length,locked:__engine._locked,stroke:__engine._strokeId,glError:__engine.gl.getError(),operations:__engine.getOperations().length,sockets:window.__qaRoomSockets.map(s=>s.readyState),puddle:__engine._puddle?.state}));
-    report.guard.preserved=[];for(const prev of previous){const after=await snapshot(prev.id);report.guard.preserved.push({id:prev.id,unchanged:JSON.stringify(after)===JSON.stringify(prev.pixels)})}
+    const previous=[];
+    const snapshot=async(p,id)=>p.evaluate(async id=>{const e=__engine,t=e._layers.get(id);const tiles=e._puddle?.canonicalTiles(t)??t.allResident();const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b))).map(x=>x.toString(16).padStart(2,'0')).join('');return Promise.all(tiles.map(async t=>({originX:t.originX,originY:t.originY,hash:await hash(t.buffer.readPixels())})))},id);
+    if(selected.has('guard-third-wet'))for(let i=0;i<2;i++){const id=await layer('night-guard-preserved-'+i);await stroke(a,{x:150+i*70,y:180});previous.push({id,pixels:await Promise.all(pages.map(p=>snapshot(p,id)))})}
+    else{const id=await layer('night-guard-preserved-pencil');await stroke(a,{tool:'pencil',x:150,y:180});previous.push({id,pixels:await Promise.all(pages.map(p=>snapshot(p,id)))})}
+    for(const prev of previous)await activate(prev.id);
+    const ordinaryStarted=Date.now();await a.waitForTimeout(250);
+    const id=await layer('night-guard-rejected');
+    const state=()=>a.evaluate(()=>({queue:__engine._opQueue.length,locked:__engine._locked,stroke:__engine._strokeId,glError:__engine.gl.getError(),operations:__engine.getOperations().map(o=>({id:o.id,type:o.type,layerId:o.layerId})),sockets:window.__qaRoomSockets.map(s=>s.readyState),puddle:__engine._puddle?.state}));
+    report.guard={ordinaryTimerWindowMs:Date.now()-ordinaryStarted,ordinaryErrors:[...report.errors],beforeAttempt:await state(),preservedLayers:previous.map(x=>x.id)};
+    const x=Number(env.QA_GUARD_X||220);
+    try{await stroke(a,{x,y:220});report.guard.watercolorAccepted=true}catch(e){report.guard.watercolorAccepted=false;report.guard.rejection=e.message}
+    report.guard.afterAttempt=await state();
+    if(!report.guard.watercolorAccepted){
+      // Each browser input callback is independent: a thrown DOWN must not
+      // stop the following physical MOVEs and UP from reaching the engine.
+      report.guard.continuation=await a.evaluate(x=>{const e=__engine,errors=[];let t=2000;const at=i=>({x:(x+i*8)*.5,y:110,pressure:.8,tiltX:0,tiltY:0,speed:.4,pointerType:'pen',timeStamp:t+=16});for(let i=1;i<=20;i++)try{e._onMove(at(i))}catch(err){errors.push({phase:'move',index:i,message:err.message})}try{e._onEnd(at(20))}catch(err){errors.push({phase:'up',message:err.message})}return{errors,strokeAfterUp:e._strokeId}},x);
+      await a.waitForTimeout(250);try{await idle()}catch(error){report.guard.idleFailure=error.message}
+    }
+    report.guard.afterContinuation=await state();
+    report.guard.journalUnchanged=JSON.stringify(report.guard.beforeAttempt.operations)===JSON.stringify(report.guard.afterContinuation.operations);
+    report.guard.preserved=[];
+    for(const prev of previous){const after=await Promise.all(pages.map(p=>snapshot(p,prev.id)));report.guard.preserved.push({id:prev.id,unchanged:JSON.stringify(after)===JSON.stringify(prev.pixels),before:prev.pixels,after})}
+    report.guard.rejectedLayer=await a.evaluate(id=>{const target=__engine._layers.get(id);return target?target.allResident().map(t=>{const pixels=t.buffer.readPixels();let nontransparent=0;for(let i=3;i<pixels.length;i+=4)if(pixels[i])nontransparent++;return{x:t.originX,y:t.originY,width:t.buffer.width,height:t.buffer.height,nontransparent}}):null},id);
     try{await stroke(a,{tool:'pencil',x:150,y:180});report.guard.pencilAfterWorks=true}catch(e){report.guard.pencilAfterWorks=false;report.guard.pencilFailure=e.message}
-    report.guard.errors=[...report.errors];assert.ok(report.guard.preserved.every(x=>x.unchanged),'Rejected watercolor changed existing wet material');assert.ok(report.guard.pencilAfterWorks,'Pencil failed after unsupported watercolor');assert.equal(report.guard.afterAttempt.glError,0);report.cases.push({name:'guard-recovery',...report.guard});
+    report.guard.errors=[...report.errors];report.cases.push({name:'guard-recovery',...report.guard});
+    assert.ok(report.guard.preserved.every(x=>x.unchanged),'Rejected watercolor changed existing material');
+    assert.ok(report.guard.journalUnchanged,'Rejected DOWN/MOVEs/UP changed operation journal');
+    assert.equal(report.guard.afterContinuation.stroke,null,'Rejected physical gesture left active stroke after UP');
+    assert.ok(report.guard.pencilAfterWorks,'Pencil failed after unsupported watercolor');assert.equal(report.guard.idleFailure,undefined,'Rejected gesture left pending engine work');assert.equal(report.guard.afterContinuation.glError,0);
+    assert.deepEqual(report.guard.ordinaryErrors,[],'Ordinary actions triggered unsupported watercolor before its actual use');
   });
   for(const wet of [true,false])if(selected.has('duplicate-'+(wet?'wet':'dry')))await stage('duplicate-'+(wet?'wet':'dry'),async()=>{const src=await layer('night-duplicate-source-'+wet);await stroke(a);if(!wet)await terminalDry(src);const id='qa-'+crypto.randomUUID();await append(a,{type:'layer_duplicate',layerId:id,sourceId:src,name:'night-copy',sourceOpacity:1,sourceVisible:true,parentId:null,index:0});await liveCheck('duplicate-'+(wet?'wet':'dry'),id);await terminalDry(src,id)});
 
