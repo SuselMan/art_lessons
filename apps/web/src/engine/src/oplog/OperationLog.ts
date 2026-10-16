@@ -568,7 +568,8 @@ export class OperationLog {
       controlled.add(target.id)
       if (op.type !== 'operation_revoke' && target.type === 'stroke' && target.strokeId) {
         for (const { op: other } of this._entries) if (other.type === 'stroke'
-          && other.userId === target.userId && other.strokeId === target.strokeId) controlled.add(other.id)
+          && other.userId === target.userId && other.strokeId === target.strokeId
+          && (other.seq ?? 0) < (op.seq ?? 0)) controlled.add(other.id)
       }
     }
     const scratch = new OperationLog()

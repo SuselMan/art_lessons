@@ -180,3 +180,16 @@ it('ignores a future teacher revoke at the copy cut', () => {
   expect(log.layerPixelOps('L')).toEqual([])
   expect(log.layerPixelOps('L', cut).map(op => op.id)).toEqual(['a'])
 })
+
+it('does not attribute a later chunk resolved state to an earlier gesture control', () => {
+  const log = new OperationLog()
+  log.append(stroke('first', 'A', 1, 'gesture'), {}, false)
+  apply(log, control('early-undo', 'operation_undo', 2, 'first'))
+  log.append(stroke('later', 'A', 3, 'gesture'), {}, false)
+  // A partial historical import can know this resolved state while its later
+  // control is outside the available window. The old control predates it.
+  log.applyUndo('later', 'A')
+  const cut = log.entries.at(-1)!.op.seq! + 1
+  expect(log.entries.at(-1)!.state).toBe('undone')
+  expect(log.layerPixelOps('L', cut)).toEqual([])
+})
