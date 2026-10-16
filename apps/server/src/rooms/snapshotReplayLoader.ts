@@ -35,6 +35,7 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
       return { snapshots: [], coverage: new Map(), historyLayers: new Set(), unresolvedTargets: new Set(), index: null, operations: [...byId.values()], historicalIds: new Set(), watermark }
     }
     const queried = new Set<string>()
+    const queriedGestures = new Set<string>()
     // Targets may have left resident RAM at snapshot upload/cold load. Resolve
     // only referenced ids, not the room's heavy covered stroke population.
     const resolveHistoryTargets = async (): Promise<void> => {
@@ -51,10 +52,36 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
           && ((op.seq ?? 0) > stored.seq || !candidates.length || (op.seq ?? 0) > Math.min(...candidates.map(s => s.seq)))) {
           visit(op, new Set())
         }
-        if (!missing.size) return
-        for (const id of missing) queried.add(id)
-        const targets = await prisma.operation.findMany({ where: { roomId, id: { in: [...missing] } }, select: { data: true } })
-        for (const { data } of targets) { const op = data as Operation; byId.set(op.id, op) }
+        if (missing.size) {
+          for (const id of missing) queried.add(id)
+          const targets = await prisma.operation.findMany({ where: { roomId, id: { in: [...missing] } }, select: { data: true } })
+          for (const { data } of targets) { const op = data as Operation; byId.set(op.id, op) }
+          continue
+        }
+        const gestures: { userId: string; strokeId: string }[] = []
+        for (const change of byId.values()) {
+          if (change.type === 'operation_revoke' || !HISTORY_TYPES.includes(change.type) || !('targetOpId' in change)
+            || ((change.seq ?? 0) <= stored.seq && candidates.length
+              && (change.seq ?? 0) <= Math.min(...candidates.map(s => s.seq)))) continue
+          let target = byId.get(change.targetOpId)
+          const seen = new Set<string>()
+          while (target && HISTORY_TYPES.includes(target.type) && 'targetOpId' in target && !seen.has(target.id)) {
+            seen.add(target.id); target = byId.get(target.targetOpId)
+          }
+          if (target?.type !== 'stroke' || !target.strokeId) continue
+          const key = JSON.stringify([target.userId, target.strokeId])
+          if (queriedGestures.has(key)) continue
+          queriedGestures.add(key)
+          gestures.push({ userId: target.userId, strokeId: target.strokeId })
+        }
+        if (!gestures.length) return
+        // Fetch only referenced gestures. Old siblings may be absent from RAM
+        // even when the target itself is in the live tail after the snapshot.
+        const siblings = await prisma.operation.findMany({ where: {
+          roomId, type: 'stroke', seq: { lte: watermark },
+          OR: gestures.map(({ userId, strokeId }) => ({ userId, data: { path: ['strokeId'], equals: strokeId } })),
+        }, select: { data: true } })
+        for (const { data } of siblings) { const op = data as Operation; byId.set(op.id, op) }
       }
     }
     await resolveHistoryTargets()

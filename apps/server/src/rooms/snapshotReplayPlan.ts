@@ -70,22 +70,31 @@ export function planSnapshotReplay(
       // Restoring its structure still requires its original pixels.
       for (const id of pixelLayers(target)) before(id, target.seq ?? 0)
     }
-    // Legacy dry markers applied to every layer. Their undo must invalidate
-    // every baked candidate, not silently keep the old dry boundary.
-    const affected = target.type === 'paper_dry' && !target.layerId
-      ? [...new Set([...candidates.map(s => s.layerId), ...(liveLayers ?? [])])]
-      : pixelLayers(target)
-    for (const layerId of affected) {
-      // A mutation already represented in a candidate is not a reason to
-      // reject it. Equality matters: undo5 is in snapshot5; redo6 is not.
-      if (candidates.some(s => s.layerId === layerId
-        && (target.seq ?? 0) <= s.seq && s.seq < (change.seq ?? 0))) {
-        if (target.type === 'paper_dry' || (target.type === 'layer_visibility' && !target.visible)) {
-          // Pixels before Dry cannot recover the still-wet source which an
-          // undone boundary reconnects to later strokes. Replay that layer.
-          historyLayers.add(layerId)
+    // Undo/redo expand to every already-existing chunk of a gesture,
+    // including cross-layer erases. A later target may follow a snapshot that
+    // already contains an earlier sibling; testing only target.seq misses it.
+    const targets = change.type !== 'operation_revoke' && target.type === 'stroke' && target.strokeId
+      ? operations.filter(op => op.type === 'stroke' && op.userId === target.userId
+        && op.strokeId === target.strokeId && (op.seq ?? 0) < (change.seq ?? Infinity))
+      : [target]
+    for (const materialTarget of targets) {
+      // Legacy dry markers applied to every layer. Their undo must invalidate
+      // every baked candidate, not silently keep the old dry boundary.
+      const affected = materialTarget.type === 'paper_dry' && !materialTarget.layerId
+        ? [...new Set([...candidates.map(s => s.layerId), ...(liveLayers ?? [])])]
+        : pixelLayers(materialTarget)
+      for (const layerId of affected) {
+        // A mutation already represented in a candidate is not a reason to
+        // reject it. Equality matters: undo5 is in snapshot5; redo6 is not.
+        if (candidates.some(s => s.layerId === layerId
+          && (materialTarget.seq ?? 0) <= s.seq && s.seq < (change.seq ?? 0))) {
+          if (materialTarget.type === 'paper_dry' || (materialTarget.type === 'layer_visibility' && !materialTarget.visible)) {
+            // Pixels before Dry cannot recover the still-wet source which an
+            // undone boundary reconnects to later strokes. Replay that layer.
+            historyLayers.add(layerId)
+          }
+          before(layerId, materialTarget.seq ?? 0)
         }
-        before(layerId, target.seq ?? 0)
       }
     }
   }

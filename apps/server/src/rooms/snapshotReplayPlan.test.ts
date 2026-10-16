@@ -88,3 +88,32 @@ it('undo hide reloads the original wet source instead of using a pre-hide pixel 
   expect(p.historyLayers).toEqual(new Set(['L']))
   expect(p.replayStructure).toBe(true)
 })
+
+it('invalidates a snapshot containing an earlier chunk when undo targets a later chunk of the same gesture',()=>{
+ const a={...stroke('first',1),strokeId:'long-gesture'} as Operation
+ const b={...stroke('last',3),strokeId:'long-gesture'} as Operation
+ const dry:Operation={id:'dry',type:'paper_dry',layerId:'L',userId:'A',timestamp:2,seq:2}
+ const p=planSnapshotReplay([snapshot(2),snapshot(2,'safe')],[a,dry,b,change('undo',4,'last')])
+ expect(p.coverage.has('L')).toBe(false)
+ expect(p.historyLayers.has('L')).toBe(true)
+ expect(p.coverage.get('safe')).toBe(2)
+})
+
+it('expands cross-layer chunks but excludes another author and future chunks',()=>{
+ const chunks=[{...stroke('first',1,'L'),strokeId:'G'},{...stroke('last',3,'tail'),strokeId:'G'},
+ {...stroke('stranger',1,'other'),strokeId:'G',userId:'B'},{...stroke('future',5,'future'),strokeId:'G'}] as Operation[]
+ const p=planSnapshotReplay([snapshot(2,'L'),snapshot(2,'other'),snapshot(5,'future')],[...chunks,change('u',4,'last')])
+ expect(p.coverage.has('L')).toBe(false)
+ expect(p.coverage.get('other')).toBe(2)
+ expect(p.coverage.get('future')).toBe(5)
+})
+it('a revoke removes just its named chunk, matching the client state machine',()=>{
+ const chunks=[{...stroke('first',1),strokeId:'G'},{...stroke('last',3),strokeId:'G'}] as Operation[]
+ const p=planSnapshotReplay([snapshot(2)],[...chunks,change('revoke',4,'last','operation_revoke')])
+ expect(p.coverage.get('L')).toBe(2)
+})
+it('retains a snapshot before the earliest affected sibling, including on redo',()=>{
+ const chunks=[{...stroke('first',2),strokeId:'G'},{...stroke('last',4),strokeId:'G'}] as Operation[]
+ const p=planSnapshotReplay([snapshot(3),snapshot(1)],[...chunks,change('undo',5,'last'),change('redo',6,'last','operation_redo')])
+ expect(p.coverage.get('L')).toBe(1)
+})

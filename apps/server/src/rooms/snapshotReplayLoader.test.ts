@@ -176,3 +176,25 @@ it('accepts a merge/copy source created after the snapshot during structural rec
   expect(p.historyLayers).toContain('N')
   expect(p.operations.map(op=>op.id)).toContain(later.id)
 })
+
+it('loads old gesture siblings when Undo targets a tail chunk after the snapshot',async()=>{
+ const first={...stroke('first',1),strokeId:'gesture-G'} as Operation
+ const last={...stroke('last',3),strokeId:'gesture-G'} as Operation
+ const dry:Operation={id:'dry',type:'paper_dry',layerId:'L',userId:'A',timestamp:2,seq:2}
+ const control:Operation={id:'undo',type:'operation_undo',targetOpId:'last',userId:'A',timestamp:4,seq:4}
+ const original=[first,dry,last,control]
+ mocks.rooms.set('room',{nextSeq:5,operations:[last,control],aliveIds:new Set(['L','safe'])})
+ mocks.state.mockResolvedValue({seq:2,state:{items:{L:{},safe:{}}}})
+ mocks.snapshots.mockResolvedValue([{layerId:'L',seq:2,hash:'bad-first-chunk'},{layerId:'safe',seq:2,hash:'safe'}])
+ mocks.operations.mockImplementation(async({where})=>{
+  if(where.type==='stroke')return [first,last].map(data=>({data}))
+  if(where.id)return original.filter(op=>where.id.in.includes(op.id)).map(data=>({data}))
+  return original.map(data=>({data}))
+ })
+ const plan=await prepareSnapshotReplay('room')
+ expect(plan.coverage.has('L')).toBe(false)
+ expect(plan.coverage.get('safe')).toBe(2)
+ expect(plan.historicalIds.has('first')).toBe(true)
+ expect(plan.operations.map(op=>op.id)).toEqual(original.map(op=>op.id))
+ expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({type:'stroke',OR:[{userId:'A',data:{path:['strokeId'],equals:'gesture-G'}}]})}))
+})
