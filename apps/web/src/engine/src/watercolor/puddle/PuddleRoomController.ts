@@ -272,6 +272,10 @@ export class PuddleRoomController {
     }
     this.request()
   }
+  /** Finish accepted Dry boundaries before new input, preserving other wet layers. */
+  finishDrying(): void {
+    for (const target of [...this.closing]) this.close(target)
+  }
   /** Explicit recorded boundary. Replays and manual Dry use the same goal.
    * This first QA adapter drains the outstanding goal synchronously here. */
   close(target?: ILayerBuffer): void {

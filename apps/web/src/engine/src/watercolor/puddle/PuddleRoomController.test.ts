@@ -213,3 +213,36 @@ it('evicts only an explicit empty prewarm to make room for real sources', () => 
     expect(controller.state.layers).toBe(2)
   } finally { controller.destroy(); vi.unstubAllGlobals() }
 })
+
+
+it('finishes only accepted Dry layers and preserves unrelated wet material', () => {
+  const {controller, target: a, changed} = wetController(1)
+  const b = {} as ILayerBuffer
+  const profile = {ink: {}, normalizeDeposit: false} as Parameters<typeof controller.source>[2]
+  const second = controller.source(b, 'real-b', profile, 1)
+  const tile = {originX: 0, originY: 0, buffer: {width: 16, height: 16}}
+  const entry = {original: {copyTo: vi.fn()}, inkLoad: {}, inkColor: {}, coverage: {}}
+  Object.defineProperty(second.scratch, 'finishContext', {value: {target: {allResident: () => [tile]}}})
+  vi.mocked(second.scratch.peek).mockReturnValue(entry as unknown as ReturnType<typeof second.scratch.peek>)
+  controller.accept(second.scratch)
+  controller.canonicalTiles(a)
+  controller.canonicalTiles(b)
+  const before = controller.state.computations
+  changed.mockClear()
+  try {
+    controller.dry(a)
+    expect(controller.state.drying).toBe(true)
+    controller.finishDrying()
+    expect(controller.has(a)).toBe(false)
+    expect(controller.has(b)).toBe(true)
+    expect(second.scratch.destroy).not.toHaveBeenCalled()
+    expect(controller.state.revisions[0].ready).toBe(true)
+    expect(controller.state.computations).toBe(before)
+    expect(controller.state.drying).toBe(false)
+    expect(changed).toHaveBeenCalledExactlyOnceWith(a)
+    // Repeating the input handoff does not close an unrelated source.
+    controller.finishDrying()
+    expect(controller.has(b)).toBe(true)
+    expect(changed).toHaveBeenCalledTimes(1)
+  } finally { controller.destroy(); vi.unstubAllGlobals() }
+})
