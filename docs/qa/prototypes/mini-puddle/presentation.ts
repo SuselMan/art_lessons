@@ -181,6 +181,7 @@ export function createPuddlePresentation(gl: WebGLRenderingContext, size: number
   for (const buffer of buffers) buffer.clear()
   return {
     get state() { return { epoch: state.epoch, progress: state.progress } },
+    invalidate(epoch: number) {if(state.accept(epoch)){state.progress=0;state.hasTarget=false}},
     reset(rgba: AccumulationBuffer, epoch: number) {
       if (!state.accept(epoch)) return
       validate(rgba)

@@ -65,6 +65,9 @@ export function createNativePuddleTarget(engine: any, size: number, options: Nat
     resetFromScratch(source: RibbonStrokeScratch, tile: PaintTarget, epoch: number) {
       if (destroyed) throw new Error('Native puddle target destroyed')
       cancel()
+      // Cached front paths depend on coverage contents, not just field identity.
+      // A cancelled prefix can otherwise be reused by the next wash revision.
+      engine._watercolorPasses._frontPaths?.invalidate()
       const sourceEntry = source.peek(tile.buffer), ctx = source.finishContext
       if (!sourceEntry?.inkLoad || !ctx) throw new Error('Native puddle target needs raw wash and finish context')
       if (tile.buffer.width !== size || tile.buffer.height !== size) throw new Error('Native puddle target supports one full-page tile')
