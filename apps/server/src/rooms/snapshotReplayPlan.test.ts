@@ -80,3 +80,11 @@ describe('undoable dry snapshot selection', () => {
     expect(p.historyLayers).toEqual(new Set(['L', 'other']))
   })
 })
+
+it('undo hide reloads the original wet source instead of using a pre-hide pixel blob', () => {
+  const hide: Operation = {id: 'hide', type: 'layer_visibility', layerIds: ['L'], visible: false, userId: 'A', timestamp: 3, seq: 3}
+  const p = planSnapshotReplay([snapshot(5), snapshot(2), snapshot(5, 'other')], [hide, change('u', 6, hide.id)], undefined, 5)
+  expect(p.snapshots).toEqual([snapshot(5, 'other')])
+  expect(p.historyLayers).toEqual(new Set(['L']))
+  expect(p.replayStructure).toBe(true)
+})

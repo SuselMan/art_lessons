@@ -1,4 +1,4 @@
-import type { Operation } from '@grafetto/shared'
+import { operationLayerIds, type Operation } from '@grafetto/shared'
 
 /** Stored pixels are immutable, but their usability changes when later history
  * mutations alter an operation baked into them. This is a per-join selection;
@@ -25,6 +25,7 @@ const isHistoryChange = (op: Operation): op is Extract<Operation, {
 function pixelLayers(op: Operation): string[] {
   if (op.type === 'layer_transform') return op.transforms.map(t => t.layerId)
   if (op.type === 'layer_delete') return op.layerIds
+  if (op.type === 'layer_visibility') return operationLayerIds(op)
   if ('layerId' in op && typeof op.layerId === 'string') return [op.layerId]
   return []
 }
@@ -79,7 +80,7 @@ export function planSnapshotReplay(
       // reject it. Equality matters: undo5 is in snapshot5; redo6 is not.
       if (candidates.some(s => s.layerId === layerId
         && (target.seq ?? 0) <= s.seq && s.seq < (change.seq ?? 0))) {
-        if (target.type === 'paper_dry') {
+        if (target.type === 'paper_dry' || (target.type === 'layer_visibility' && !target.visible)) {
           // Pixels before Dry cannot recover the still-wet source which an
           // undone boundary reconnects to later strokes. Replay that layer.
           historyLayers.add(layerId)
