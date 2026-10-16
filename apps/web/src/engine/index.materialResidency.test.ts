@@ -264,3 +264,22 @@ it('structural Undo cancels only the unrecorded physical tail before deleting it
   expect(engine.getOperations().filter(op=>op.type==='stroke')).toHaveLength(count)
  }finally{engine.destroy()}
 })
+
+it('a remote Undo on a different layer clears its pixels immediately while the M70 input source remains leased',async()=>{
+ const {engine}=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32},{width:32,height:32})
+ await paperReady(engine)
+ for(const id of ['held','other'])engine.appendOperation(makeLayerAdd('B',id),'remote')
+ engine.appendOperation({...fillStroke('B','other',10,10,4),id:'other-stroke'},'remote')
+ engine.setActiveLayer('held');engine.setTool('watercolor');engine.setPencil('normal:80:60:PB29:round')
+ const state=engine as unknown as {_puddleStrokeRelease:unknown;_puddleRebuildAtPenUp:Set<string>}
+ try{
+  expect(readTilePixels(engine,'other',0,0,32,32)!.some(v=>v>0)).toBe(true)
+  simulateStrokeStart(engine,10,10)
+  expect(()=>engine.appendOperation({id:'undo-other',type:'operation_undo',userId:'B',targetOpId:'other-stroke',timestamp:Date.now()},'remote')).not.toThrow()
+  const after=readTilePixels(engine,'other',0,0,32,32)
+  expect(after===null || after.every(v=>v===0)).toBe(true)
+  expect(state._puddleStrokeRelease).toBeTruthy()
+  expect(state._puddleRebuildAtPenUp.has('other')).toBe(false)
+  simulateStrokeEnd(engine,15,10)
+ }finally{engine.destroy()}
+})
