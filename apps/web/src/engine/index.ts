@@ -2909,6 +2909,7 @@ export class PencilEngine implements PencilEngineAPI {
       return
     }
     this._flushOpQueue()
+    if(this._opQueue.length){this._opQueue.push({op,source});this._scheduleOpDrain();return}
     this._appendOperationNow(op, source)
   }
 
@@ -2950,7 +2951,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(this._puddle?.state.drying){this._scheduleOpDrain();return}
     if (this._wcAsyncFinish && this._wcCanonical.pending && !this._contextLost && !this.gl.isContextLost()) { this._scheduleOpDrain(); return }
     while (this._opQueue.length) {
-      if(this._m70SourceBusy(this._opQueue[0].op)){this._scheduleOpDrain();break}
+      if(this._m70DestructiveDuringInput(this._opQueue[0].op) || this._m70SourceBusy(this._opQueue[0].op)){this._scheduleOpDrain();break}
       const { op, source } = this._opQueue.shift()!
       this._appendOperationNow(op, source)
       this._onQueuedOperationApplied?.(op)
