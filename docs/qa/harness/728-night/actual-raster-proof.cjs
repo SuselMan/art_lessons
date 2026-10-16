@@ -3,8 +3,8 @@ async function actualRasterProof(page,layerId){
  return page.evaluate(async layerId=>{
   const e=__engine,target=e._layers.get(layerId);if(!target)throw Error('Missing layer');
   if(e._puddle?.has(target))throw Error('Full physical proof requires a recorded dry boundary');
-  const gl=e.gl,binding=gl.getParameter(gl.FRAMEBUFFER_BINDING);let physical;
-  try{physical=target.allResident().map(t=>({x:t.originX,y:t.originY,w:t.buffer.width,h:t.buffer.height,bytes:t.buffer.readPixels()}))}finally{gl.bindFramebuffer(gl.FRAMEBUFFER,binding)}
+  const gl=e.gl,split=gl.READ_FRAMEBUFFER!==undefined,binding=gl.getParameter(gl.FRAMEBUFFER_BINDING),readBinding=split?gl.getParameter(gl.READ_FRAMEBUFFER_BINDING):binding;let physical;
+  try{physical=target.allResident().map(t=>({x:t.originX,y:t.originY,w:t.buffer.width,h:t.buffer.height,bytes:t.buffer.readPixels()}))}finally{gl.bindFramebuffer(gl.FRAMEBUFFER,binding);if(split)gl.bindFramebuffer(gl.READ_FRAMEBUFFER,readBinding)}
   const live=e.bakeNetworkSnapshot(layerId),oracle=e.bakeLayerByFullReplay(layerId);if(!live||!oracle)throw Error('Missing export/oracle');
   const hash=async a=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',a)),v=>v.toString(16).padStart(2,'0')).join('');
   let targetChanged=0,physicalChanged=0,max=0,nonzeroAlpha=0;for(let k=0;k<Math.max(live.length,oracle.length);k++)if(live[k]!==oracle[k])targetChanged++;
