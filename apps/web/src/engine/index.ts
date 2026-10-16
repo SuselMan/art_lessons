@@ -6123,8 +6123,25 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   absorbHistoricalOperations(pageOps: Operation[]): void {
+    const placement = new Map(this._log.entries.map(entry => [entry.op.id,
+      {pending: entry.pending, serverSeq: entry.serverSeq, seq: entry.op.seq}]))
     const changed = this._snapshotIO.absorbHistorical(pageOps)
     for (const op of changed) this._applyHistoryChange(op, this._historicalMutationCause(op), true)
+    // Backfill can acknowledge or reorder held operations without changing
+    // their done state. Replay with the newly marked snapshot coverage rather
+    // than treating the placement update as a destructive history control.
+    const metadataChanged = this._log.entries.some(entry => {
+      const before = placement.get(entry.op.id)
+      return before && (before.pending !== entry.pending || before.serverSeq !== entry.serverSeq)
+    })
+    const layers = new Set<string>()
+    for (const entry of metadataChanged ? this._log.entries : []) {
+      const before = placement.get(entry.op.id)
+      if (before && (before.pending !== entry.pending || before.serverSeq !== entry.serverSeq || before.seq !== entry.op.seq)) {
+        for (const id of pixelWriteLayerIds(entry.op)) layers.add(id)
+      }
+    }
+    for (const id of layers) this._rebuildLayerOrDefer(id)
     this._resolveSnapshotHistoryRepairs()
   }
 
