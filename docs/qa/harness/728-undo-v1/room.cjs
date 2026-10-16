@@ -50,7 +50,7 @@ let browser;const contexts=[];
   const material=async(p,id)=>p.evaluate(id=>__engine._log.layerPixelOps(id).filter(o=>o.type==='stroke').map(o=>({id:o.id,tool:o.tool,water:o.tool==='watercolor'?Number(o.preset.split(':')[1]):0,pigment:o.tool==='watercolor'?Number(o.preset.split(':')[2]):null})),id);
   const pixels=async(p,id)=>p.evaluate(id=>{const data=__engine.bakeLayerByFullReplay(id);return data?Array.from(data):null},id);
   const hash=bytes=>crypto.createHash('sha256').update(Buffer.from(bytes||[])).digest('hex');
-  const check=async(name,id)=>{await idle();const left=await pixels(a,id),right=await pixels(b,id);assert.deepEqual(left,right,name+' target divergence');const data={name,layer:id,targetHash:hash(left),bytes:left?.length??0,material:await material(a,id)};report.cases.push(data);return left};
+  const check=async(name,id)=>{await idle();const left=await pixels(a,id),right=await pixels(b,id);assert.deepEqual(left,right,name+' target divergence');const data={name,layer:id,targetHash:hash(left),bytes:left?.length??0,material:await material(a,id)};report.cases.push(data);console.log('CHECKPOINT',name,data.targetHash);return left};
   const expectMix=(entries,ids,pigment)=>{for(const id of ids){const op=entries.find(o=>o.id===id);if(pigment===null)assert.equal(op,undefined,'Stroke should be removed');else{assert.ok(op,'Retained source missing');assert.equal(op.pigment,pigment);assert.ok(op.water>0)}}};
   // Dependent colored gesture: undo retains all water, redo restores exact target.
   let id=await layer('overlap-retention');const aa=await stroke(a);await stroke(b,{x:300,y:240,vertical:true});const before=await check('overlap-before',id);
@@ -76,7 +76,12 @@ let browser;const contexts=[];
   const expected=await pixels(a,dryLayer);await b.reload();await b.waitForFunction(()=>window.__engine&&!__engine._locked);await b.evaluate(()=>__engine.paperReady());await sync(a);assert.deepEqual(await pixels(b,dryLayer),expected,'Rejoin target mismatch');
   for(const p of pages)assert.equal(await p.evaluate(()=>__engine.gl.getError()),0);
   assert.deepEqual(report.errors,[]);report.pass=true;
-})().catch(error=>{report.pass=false;report.failure=error.stack;process.exitCode=1}).finally(async()=>{
+})().catch(async error=>{report.pass=false;report.failure=error.stack;process.exitCode=1;
+  for(const [i,c]of contexts.entries())for(const p of c.pages())try{
+    await p.screenshot({path:env.QA_OUTPUT+'/failure-'+i+'.png',timeout:10000});
+    report['diagnostic'+i]=await p.evaluate(()=>({url:location.href,text:document.body.innerText.slice(0,2000),engine:window.__engine?{locked:__engine._locked,queue:__engine._opQueue.length,pendingRebuilds:[...__engine._pendingRebuilds],jobs:__engine._rebuildJobs.size,puddle:__engine._puddle?.state,operations:__engine.getOperations().map(o=>({id:o.id,type:o.type,layerId:o.layerId}))}:null}));
+  }catch(diag){report['diagnosticError'+i]=diag.message}
+}).finally(async()=>{
   for(const c of contexts)await c.close();if(browser)await browser.close();
   fs.writeFileSync(env.QA_OUTPUT+'/report.json',JSON.stringify(report,null,2));console.log(JSON.stringify({pass:report.pass,cases:report.cases.length,failure:report.failure}));
 });
