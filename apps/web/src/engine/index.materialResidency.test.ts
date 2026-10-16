@@ -283,3 +283,42 @@ it('a remote Undo on a different layer clears its pixels immediately while the M
   simulateStrokeEnd(engine,15,10)
  }finally{engine.destroy()}
 })
+
+it('reconnect display suspension cannot force a queued remote clear through a held material lease',async()=>{
+ const {engine}=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32},{width:32,height:32})
+ await paperReady(engine);engine.appendOperation(makeLayerAdd('B','L'),'remote')
+ engine.setActiveLayer('L');engine.setTool('watercolor');engine.setPencil('normal:80:60:PB29:round')
+ const state=engine as unknown as {_opQueue:unknown[];_puddleStrokeRelease:unknown;_flushOpQueue():void}
+ try{
+  simulateStrokeStart(engine,10,10)
+  engine.appendOperation({id:'reconnect-clear',type:'layer_clear',userId:'B',layerId:'L',timestamp:Date.now(),seq:2},'remote')
+  expect(state._opQueue).toHaveLength(1)
+  expect(()=>engine.suspendDisplay()).not.toThrow()
+  expect(state._opQueue).toHaveLength(1)
+  expect(state._puddleStrokeRelease).toBeTruthy()
+  engine.resumeDisplay()
+  simulateStrokeEnd(engine,15,10);state._flushOpQueue()
+  expect(state._opQueue).toHaveLength(0)
+  expect(engine.getOperations().some(op=>op.id==='reconnect-clear')).toBe(true)
+ }finally{engine.destroy()}
+})
+
+
+for(const source of ['local','remote'] as const)it(`a ${source} marker cannot overtake the blocked queue head during reconnect suspension`,async()=>{
+ const applied:string[]=[]
+ const {engine}=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32,onQueuedOperationApplied:op=>applied.push(op.id)},{width:32,height:32})
+ await paperReady(engine);engine.appendOperation(makeLayerAdd('B','L'),'remote')
+ engine.setActiveLayer('L');engine.setTool('watercolor');engine.setPencil('normal:80:60:PB29:round')
+ const state=engine as unknown as {_opQueue:unknown[];_flushOpQueue():void;_log:OperationLog}
+ try{
+  simulateStrokeStart(engine,10,10)
+  engine.appendOperation({id:'clear-head',type:'layer_clear',userId:'B',layerId:'L',timestamp:Date.now(),seq:2},'remote')
+  engine.suspendDisplay()
+  engine.appendOperation({...makeLayerAdd(source==='local'?'A':'B','marker'),id:'marker-op'},source)
+  expect(state._opQueue).toHaveLength(2)
+  expect(state._log.entries.some(entry=>entry.op.id==='marker-op')).toBe(false)
+  engine.resumeDisplay();simulateStrokeEnd(engine,15,10);state._flushOpQueue()
+  expect(applied).toEqual(['clear-head','marker-op'])
+  expect(engine.getOperations().some(op=>op.id==='marker-op')).toBe(true)
+ }finally{engine.destroy()}
+})
