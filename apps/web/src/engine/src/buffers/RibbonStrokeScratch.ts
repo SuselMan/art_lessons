@@ -700,6 +700,70 @@ export class RibbonStrokeScratch {
     return { ...this._scalars(), tiles }
   }
 
+  /** Read an idle material source directly into RAM, with no temporary GPU
+   * textures. Callers must also hold an operation-boundary lease: a generator
+   * paused between draws can retain buffer references even before finish. */
+  captureRestingCpu(originOf: (tile: AccumulationBuffer) => {originX: number; originY: number} | null): CpuScratchSnapshot | null {
+    if(this._materialGesture!==null && this._materialGesture!==this.gesture
+      || this.diffusePending || this.pendingComposite.size || this.trackRunningSource || this.runningSourceCommands.length)return null
+    for(const entry of this._tiles.values())if(entry.coverageFilm || entry.strokeInk || entry.inkBase
+      || entry.strokeColor || entry.colorBase || entry.strokeSolvent || entry.solventBase)return null
+    const tiles:CpuScratchSnapshot['tiles']=[]
+    let bytes=0
+    for(const [tile,entry]of this._tiles){
+      const at=originOf(tile)
+      if(!at)return null
+      const bufs:CpuScratchSnapshot['tiles'][number]['bufs']={}
+      for(const name of SPILL_TILE_BUFFERS){
+        const buffer=entry[name]
+        if(!buffer)continue
+        const pixels=buffer.readPixels()
+        bytes+=pixels.byteLength
+        bufs[name]={width:buffer.width,height:buffer.height,pixels}
+      }
+      tiles.push({...at,width:tile.width,height:tile.height,bufs})
+    }
+    return {...this._scalars(),tiles,bytes,materialGesture:this._materialGesture,pigmentInputsKnownZero:this.pigmentInputsKnownZero}
+  }
+
+  /** Rebind exact byte material and metadata to its current root tile. */
+  static restoreCpu(pool:RibbonScratchPool,snapshot:CpuScratchSnapshot,target:ILayerBuffer):RibbonStrokeScratch {
+    for(const saved of snapshot.tiles){
+      if(!saved.bufs.original || !saved.bufs.coverage)throw new Error('CPU material snapshot lacks original or coverage')
+      for(const data of Object.values(saved.bufs))if(data && (data.width!==saved.width || data.height!==saved.height
+        || data.pixels.byteLength!==data.width*data.height*4))throw new Error('CPU material snapshot has invalid buffer dimensions')
+    }
+    const scratch=new RibbonStrokeScratch(pool,snapshot.needsInk,snapshot.needsColor)
+    scratch._applyScalars(snapshot,target)
+    scratch._materialGesture=snapshot.materialGesture
+    scratch.pigmentInputsKnownZero=snapshot.pigmentInputsKnownZero
+    const pending=new Set<AccumulationBuffer>()
+    try{
+      for(const saved of snapshot.tiles){
+        const tile=target.resolveForPaint({minX:saved.originX,minY:saved.originY,
+          maxX:saved.originX+saved.width,maxY:saved.originY+saved.height})
+          .find(t=>t.originX===saved.originX && t.originY===saved.originY)?.buffer
+        if(!tile)throw new Error('CPU material snapshot target tile is unavailable')
+        const take=(name:typeof SPILL_TILE_BUFFERS[number]):AccumulationBuffer|null=>{
+          const data=saved.bufs[name]
+          if(!data)return null
+          const buffer=pool.acquire(data.width,data.height)
+          pending.add(buffer)
+          buffer.restorePixelsRect(data.width,data.height,data.pixels)
+          return buffer
+        }
+        scratch._tiles.set(tile,{
+          original:take('original')!,coverage:take('coverage')!,inkLoad:take('inkLoad'),inkSettled:take('inkSettled'),
+          inkColor:take('inkColor'),colorSettled:take('colorSettled'),inkDry:take('inkDry'),colorDry:take('colorDry'),
+          solventLoad:take('solventLoad'),foreignSolventLoad:take('foreignSolventLoad'),
+          strokeInk:null,inkBase:null,strokeColor:null,colorBase:null,filmGesture:-1,
+        })
+        pending.clear()
+      }
+      return scratch
+    }catch(error){for(const buffer of pending)pool.release(buffer);scratch.destroy();throw error}
+  }
+
   /** Every number the next operation of this wash reads - see snapshot. */
   private _scalars(): ScratchScalars {
     return {
@@ -976,4 +1040,15 @@ export interface SpilledScratch extends ScratchScalars {
   dispose(): void
   takeBuffer(buffer: AccumulationBuffer): void
   releaseBuffer(buffer: AccumulationBuffer): void
+}
+
+
+/** GPU-independent resting wash. Ownership of these arrays is transferred to
+ * the logical source cache, whose byte budget must account for `bytes`. */
+export interface CpuScratchSnapshot extends ScratchScalars {
+  materialGesture: number | null
+  pigmentInputsKnownZero: boolean
+  bytes: number
+  tiles: Array<{originX: number; originY: number; width: number; height: number;
+    bufs: Partial<Record<typeof SPILL_TILE_BUFFERS[number], {width: number; height: number; pixels: Uint8Array}>>}>
 }
