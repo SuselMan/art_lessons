@@ -1,0 +1,197 @@
+{
+  "source": "c8a9d09c30e10592fdb5ccad32f783839b089657",
+  "enabled": false,
+  "scope": "Open wet Undo prototype cost; actual trusted pen event + natural screen-cache ROI; no forced presentation",
+  "errors": [],
+  "identity": [
+    {
+      "page": {
+        "w": 1024,
+        "h": 1024
+      },
+      "DPR": 1.5,
+      "touch": 1,
+      "budget": "Infinity",
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "prototypeField": true
+    },
+    {
+      "page": {
+        "w": 1024,
+        "h": 1024
+      },
+      "DPR": 1.5,
+      "touch": 1,
+      "budget": "Infinity",
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "prototypeField": true
+    }
+  ],
+  "spec": {
+    "prefix": 100,
+    "authors": 2,
+    "blue": [
+      0.1,
+      0.25,
+      0.8
+    ],
+    "size": 32,
+    "water": 0.95,
+    "pigment": 0.34,
+    "moves": 4,
+    "deltaX": 4,
+    "lastRed": {
+      "x": 650,
+      "y": 650
+    },
+    "newGesture": {
+      "input": "trusted CDP pen",
+      "moves": 4,
+      "deltaXCSS": 3,
+      "force": 0.75
+    },
+    "DPR": 1.5,
+    "hasTouch": true
+  },
+  "specSHA": "3ed3d1d2171ab7297a8156e038a6ecab20652224844fc29f63e61c0cc7aa9407",
+  "before": {
+    "point": {
+      "x": 650.8046874999974,
+      "y": 525.804687499998
+    },
+    "before": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 7,
+      "computations": 8,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 101,
+          "ready": true,
+          "active": true
+        }
+      ]
+    }
+  },
+  "metrics": {
+    "before": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 7,
+      "computations": 8,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 101,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "downAt": 28476.39999985695,
+    "downCPU": 7.799999952316284,
+    "afterDown": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 7,
+      "computations": 8,
+      "pending": true,
+      "revisions": [
+        {
+          "epoch": 102,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "firstDownVisible": {
+      "ms": 36.10000014305115,
+      "changed": 184,
+      "readCPU": 14.400000095367432
+    },
+    "undoBefore": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 7,
+      "computations": 9,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 102,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "undoAt": 30222.299999952316,
+    "undoCPU": 24.899999856948853,
+    "firstUndoVisible": {
+      "ms": 80.70000004768372,
+      "changed": 162,
+      "readCPU": 12.400000095367432
+    },
+    "after": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 7,
+      "computations": 10,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 100,
+          "ready": true,
+          "active": true
+        }
+      ]
+    }
+  },
+  "goal": {
+    "readMs": 17,
+    "bytes": 4194304,
+    "canonicalHash": "878157abb3c83dbc5b5857691824285d3fbe08ac8d4d1398a9bbfd655fb4dc5d",
+    "oracleHash": "878157abb3c83dbc5b5857691824285d3fbe08ac8d4d1398a9bbfd655fb4dc5d",
+    "changed": 0,
+    "max": 0,
+    "glError": 0
+  },
+  "pass": true,
+  "actualOperationsSHA": "425eb0dffccaabb6eb47c4a14431711ebaa04b090c4412c7bfffc230896f8441",
+  "acceptedOperationCount": 102,
+  "comparisonLimit": "Same pointer SPEC, distinct random stroke identities and per-device timing; exact equality checked against each own replay"
+}
