@@ -16,7 +16,7 @@ def sha(path):
 
 
 def publish(work, base, source, version, model='front8-detail-flow-v3'):
-    if model not in ('front8-detail-flow-v3', 'front8-detail-flow-v4'):
+    if model not in ('front8-detail-flow-v3', 'front8-detail-flow-v4', 'm70-r2-v1'):
         raise ValueError('Unsupported gallery model')
     archive = json.loads((work / 'archive-source.json').read_text())
     preview = 'gallery-' + version
@@ -39,6 +39,12 @@ def publish(work, base, source, version, model='front8-detail-flow-v3'):
         if report['inputSha'] != sha(work / 'input' / ('ops_' + sid + '.json')):
             raise ValueError('Input changed on sheet ' + sid)
         im = Image.open(image).convert('RGBA')
+        if model == 'm70-r2-v1':
+            expected_scale = 1024 / max(sheet['board']['roomPx'])
+            if im.size != (1024, 1024) or abs(report.get('scale', 0) - expected_scale) > 1e-9:
+                raise ValueError('Wrong M70 preview scale')
+            width, height = sheet['board']['roomPx']
+            im = im.crop((0, 0, 1024, round(height * expected_scale))).resize((width, height), Image.Resampling.LANCZOS)
         if list(im.size) != sheet['board']['roomPx']:
             raise ValueError('Wrong sheet dimensions ' + sid)
         white = Image.new('RGBA', im.size, 'white')
@@ -66,11 +72,11 @@ def publish(work, base, source, version, model='front8-detail-flow-v3'):
         raise ValueError(f'Incomplete gallery: {len(rows)} sheets / {len(files)} crops')
     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
     entry = {'id': version, 'commit': source, 'date': now[:10], 'rendered': now,
-             'subject': ('v4 — вариант Г: плотное начало, прозрачнее хвост; текущий Grafetto QA' if model.endswith('v4') else 'v3 — ускоренная цветовая плёнка; текущий Grafetto QA'),
-             'scope': f'Сохранённые журналы пересчитаны {model}; AMD hardware; не замер отзывчивости Samsung.'}
+             'subject': ('М70 R2 — выбранные настройки; предпросмотр 1024px' if model == 'm70-r2-v1' else 'v4 — вариант Г: плотное начало, прозрачнее хвост; текущий Grafetto QA' if model.endswith('v4') else 'v3 — ускоренная цветовая плёнка; текущий Grafetto QA'),
+             'scope': (f'М70 R2; AMD hardware; лист уменьшен до 1024px, затем кадры увеличены для сравнения. Цвета и дозировки архивные, параметры эффекта утверждены 16.10. Не точный replay исходного разрешения и не замер скорости.' if model == 'm70-r2-v1' else f'Сохранённые журналы пересчитаны {model}; AMD hardware; не замер отзывчивости Samsung.')}
     manifest = {'source': source, 'version': version, 'model': model,
                 'count': len(files), 'reports': reports, 'files': files,
-                'replayPolicy': '400ms per operation; versioned watercolor presets; no image imports; ordered Dry and canonical idle'}
+                'replayPolicy': ('M70: spatial scale 1024/max(page); archive stroke timestamps >=2026-10-06 UTC; 20ms per operation; preserved colours/doses; versioned presets; no images; ordered Dry; full idle' if model == 'm70-r2-v1' else '400ms per operation; versioned watercolor presets; no image imports; ordered Dry and canonical idle')}
     (stage / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
     # Build all assets before locking publication. Preserve the existing overlay verbatim in backup.
     with (base / 'update.lock').open('a') as update, (base / 'data/comments.lock').open('a') as comments:

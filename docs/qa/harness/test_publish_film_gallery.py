@@ -59,6 +59,24 @@ class PublicationSafety(unittest.TestCase):
             overlay = json.loads((base / 'data/rendered.json').read_text())
             self.assertIn('вариант Г', overlay['versions'][-1]['subject'])
 
+    def test_m70_requires_declared_scale_and_preserves_old_assets(self):
+        with tempfile.TemporaryDirectory() as folder:
+            work, base, old = self.fixture(Path(folder))
+            archive = json.loads((work / 'archive-source.json').read_text())
+            for sheet in archive['sheets']:
+                sheet['board']['roomPx'] = [2048, 1024]
+            (work / 'archive-source.json').write_text(json.dumps(archive))
+            for report in (work / 'output').glob('*.json'):
+                value = json.loads(report.read_text())
+                value.update(model='m70-r2-v1', scale=.5)
+                report.write_text(json.dumps(value))
+                Image.new('RGBA', (1024, 1024), (10, 50, 90, 120)).save(report.with_suffix('.png'))
+            publisher.publish(work, base, 'm70-source', 'm70-preview', 'm70-r2-v1')
+            overlay = json.loads((base / 'data/rendered.json').read_text())
+            self.assertIn('1024px', overlay['versions'][-1]['subject'])
+            self.assertEqual(overlay['sheets'][0], old['sheets'][0])
+            self.assertEqual((base / 'previews/old.jpg').read_bytes(), b'old immutable image')
+
     def test_gpu_failure_cannot_publish_partial_version(self):
         with tempfile.TemporaryDirectory() as folder:
             work, base, old = self.fixture(Path(folder))
