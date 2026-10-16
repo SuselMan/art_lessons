@@ -1,0 +1,136 @@
+{
+  "vega": {
+    "source": "ce68a405",
+    "variant": {
+      "mode": "highp-samplers",
+      "patched": 56
+    },
+    "programs": [
+      {
+        "id": 0,
+        "shaders": [
+          {
+            "type": 35633,
+            "length": 2509,
+            "sha": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb"
+          },
+          {
+            "type": 35632,
+            "length": 147254,
+            "sha": "42b92073cef7d8f9fc5643205118d386e25f3c516651b2d505b9bc8b62d21221"
+          }
+        ]
+      },
+      {
+        "id": 1,
+        "shaders": [
+          {
+            "type": 35633,
+            "length": 2509,
+            "sha": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb"
+          },
+          {
+            "type": 35632,
+            "length": 147254,
+            "sha": "5089bb05f297b339e0d213e6f7233ba42c896a28568f08542a445d7c230b47dc"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "shaders": [
+          {
+            "type": 35633,
+            "length": 2210,
+            "sha": "af53354739edbe61a9d1c65323669e0762bea9d6b8e39a6c6c0c65e1fc5fd36a"
+          },
+          {
+            "type": 35632,
+            "length": 18154,
+            "sha": "916405844d1d1f2acfefbe6ff1e6e5aca6c2353a490f70cda5db95fe8a921e82"
+          }
+        ]
+      }
+    ],
+    "firstDraw": {
+      "afterSHA": "ae8dcb5d76b660a9d34dfaec6331e75df7e0e72cfc6b1a1d5ae195144d25a8c6",
+      "sums": [
+        69749,
+        0,
+        139609,
+        139609
+      ]
+    },
+    "all32BeforeAfterIdenticalToBaseline": true,
+    "rawGoalIdenticalToBaseline": true,
+    "targetIdenticalToBaseline": true,
+    "target": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc"
+  },
+  "surface": {
+    "source": "ce68a405",
+    "variant": {
+      "mode": "highp-samplers",
+      "patched": 56
+    },
+    "programs": [
+      {
+        "id": 0,
+        "shaders": [
+          {
+            "type": 35633,
+            "length": 2509,
+            "sha": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb"
+          },
+          {
+            "type": 35632,
+            "length": 147254,
+            "sha": "42b92073cef7d8f9fc5643205118d386e25f3c516651b2d505b9bc8b62d21221"
+          }
+        ]
+      },
+      {
+        "id": 1,
+        "shaders": [
+          {
+            "type": 35633,
+            "length": 2509,
+            "sha": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb"
+          },
+          {
+            "type": 35632,
+            "length": 147254,
+            "sha": "5089bb05f297b339e0d213e6f7233ba42c896a28568f08542a445d7c230b47dc"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "shaders": [
+          {
+            "type": 35633,
+            "length": 2210,
+            "sha": "af53354739edbe61a9d1c65323669e0762bea9d6b8e39a6c6c0c65e1fc5fd36a"
+          },
+          {
+            "type": 35632,
+            "length": 18154,
+            "sha": "916405844d1d1f2acfefbe6ff1e6e5aca6c2353a490f70cda5db95fe8a921e82"
+          }
+        ]
+      }
+    ],
+    "firstDraw": {
+      "afterSHA": "77bf78bdbdb64a2b80193f2feb3b52c943bcda311cc65fa72a5a5d51eca3e7f0",
+      "sums": [
+        69776,
+        0,
+        139617,
+        139617
+      ]
+    },
+    "all32BeforeAfterIdenticalToBaseline": true,
+    "rawGoalIdenticalToBaseline": true,
+    "targetIdenticalToBaseline": true,
+    "target": "2d5bebe503d733ede35a380a3e109b4a004a716d925a729c2d2045412cad501a"
+  }
+}

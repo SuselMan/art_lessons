@@ -30,3 +30,12 @@ uniforms. `evidence.json` — первыйdraw полностью, shaderSHA и3
 Полные временные target binaries/fixture cleanup принадлежат qa_cases в
 зарегистрированном cache728-online-adversarial-20261017; собственных GPUcontexts
 у dry_contract нет. Источник программы: harness748-deposition-*.cjs.
+
+Highp sampler гипотеза проверена и **отрицательная** для этого входа:
+дваfreshcontexts, shaderSourcehook доengineconstructor,56programspatched наGPU.
+Firstfragment действительно изменился147227→147254bytes, новыйSHA42b92073…,
+но **все32before/after draws, raw/goal и drytarget накаждомGPU осталисьточно
+baseline**. Это не поздняя подмена и не повод повторятьтотже samplercase.
+Гипотеза не принимается как причина/productionfix. Детали:
+`highp-sampler-negative.json`. Дальнейшая изоляция: per-draw scalarvaryings→uniforms,
+затем analyticlocalUVизgl_FragCoord на этомисходном zero-angleinput.
