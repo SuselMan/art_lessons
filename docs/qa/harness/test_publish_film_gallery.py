@@ -77,6 +77,20 @@ class PublicationSafety(unittest.TestCase):
             self.assertEqual(overlay['sheets'][0], old['sheets'][0])
             self.assertEqual((base / 'previews/old.jpg').read_bytes(), b'old immutable image')
 
+    def test_m70_native_scale_has_distinct_label(self):
+        with tempfile.TemporaryDirectory() as folder:
+            work, base, _ = self.fixture(Path(folder))
+            for report in (work / 'output').glob('*.json'):
+                value = json.loads(report.read_text())
+                sheet = int(report.stem.replace('sheet', ''))
+                value.update(model='m70-r2-v1', scale=1, renderMode='native-samples',
+                             nativeSamples=8 if sheet <= 8 else 7)
+                report.write_text(json.dumps(value))
+            publisher.publish(work, base, 'native-source', 'm70-native', 'm70-r2-v1')
+            overlay = json.loads((base / 'data/rendered.json').read_text())
+            self.assertIn('исходный масштаб', overlay['versions'][-1]['subject'])
+            self.assertNotIn('предпросмотр', overlay['versions'][-1]['subject'])
+
     def test_gpu_failure_cannot_publish_partial_version(self):
         with tempfile.TemporaryDirectory() as folder:
             work, base, old = self.fixture(Path(folder))

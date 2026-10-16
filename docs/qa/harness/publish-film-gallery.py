@@ -39,7 +39,10 @@ def publish(work, base, source, version, model='front8-detail-flow-v3'):
         if report['inputSha'] != sha(work / 'input' / ('ops_' + sid + '.json')):
             raise ValueError('Input changed on sheet ' + sid)
         im = Image.open(image).convert('RGBA')
-        if model == 'm70-r2-v1':
+        if model == 'm70-r2-v1' and report.get('renderMode') == 'native-samples':
+            if report.get('scale') != 1 or report.get('nativeSamples') != len([st for st in sheet['strokes'] if str(st['n']) in sheet['board']['slots']]):
+                raise ValueError('Incomplete native-scale samples')
+        elif model == 'm70-r2-v1':
             expected_scale = 1024 / max(sheet['board']['roomPx'])
             if im.size != (1024, 1024) or abs(report.get('scale', 0) - expected_scale) > 1e-9:
                 raise ValueError('Wrong M70 preview scale')
@@ -70,13 +73,16 @@ def publish(work, base, source, version, model='front8-detail-flow-v3'):
         reports.append({'sheet': sid, **report})
     if len(rows) != 11 or len(files) != 85:
         raise ValueError(f'Incomplete gallery: {len(rows)} sheets / {len(files)} crops')
+    native = model == 'm70-r2-v1' and all(r.get('renderMode') == 'native-samples' for r in reports)
+    if native and any(r.get('scale') != 1 for r in reports):
+        raise ValueError('Mixed native scales')
     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
     entry = {'id': version, 'commit': source, 'date': now[:10], 'rendered': now,
-             'subject': ('М70 R2 — выбранные настройки; предпросмотр 1024px' if model == 'm70-r2-v1' else 'v4 — вариант Г: плотное начало, прозрачнее хвост; текущий Grafetto QA' if model.endswith('v4') else 'v3 — ускоренная цветовая плёнка; текущий Grafetto QA'),
-             'scope': (f'М70 R2; AMD hardware; лист уменьшен до 1024px, затем кадры увеличены для сравнения. Цвета и дозировки архивные, параметры эффекта утверждены 16.10. Не точный replay исходного разрешения и не замер скорости.' if model == 'm70-r2-v1' else f'Сохранённые журналы пересчитаны {model}; AMD hardware; не замер отзывчивости Samsung.')}
+             'subject': ('М70 R2 — исходный масштаб, выбранные настройки' if native else 'М70 R2 — выбранные настройки; предпросмотр 1024px' if model == 'm70-r2-v1' else 'v4 — вариант Г: плотное начало, прозрачнее хвост; текущий Grafetto QA' if model.endswith('v4') else 'v3 — ускоренная цветовая плёнка; текущий Grafetto QA'),
+             'scope': ('Исходный масштаб кисти и полей; каждый образец с пересекающимися мазками рассчитан отдельно в окне1024px, без уменьшения; архивные цвета и дозировки. Параметры эффекта утверждены16.10.' if native else f'М70 R2; AMD hardware; лист уменьшен до 1024px, затем кадры увеличены для сравнения. Цвета и дозировки архивные, параметры эффекта утверждены 16.10. Не точный replay исходного разрешения и не замер скорости.' if model == 'm70-r2-v1' else f'Сохранённые журналы пересчитаны {model}; AMD hardware; не замер отзывчивости Samsung.')}
     manifest = {'source': source, 'version': version, 'model': model,
                 'count': len(files), 'reports': reports, 'files': files,
-                'replayPolicy': ('M70: spatial scale 1024/max(page); archive stroke timestamps >=2026-10-06 UTC; 20ms per operation; preserved colours/doses; versioned presets; no images; ordered Dry; full idle' if model == 'm70-r2-v1' else '400ms per operation; versioned watercolor presets; no image imports; ordered Dry and canonical idle')}
+                'replayPolicy': ('M70: native scale1; translation only; overlapping samples grouped; per-sample1024 window; preserved archive doses; ordered Dry; full idle' if native else 'M70: spatial scale 1024/max(page); archive stroke timestamps >=2026-10-06 UTC; 20ms per operation; preserved colours/doses; versioned presets; no images; ordered Dry; full idle' if model == 'm70-r2-v1' else '400ms per operation; versioned watercolor presets; no image imports; ordered Dry and canonical idle')}
     (stage / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
     # Build all assets before locking publication. Preserve the existing overlay verbatim in backup.
     with (base / 'update.lock').open('a') as update, (base / 'data/comments.lock').open('a') as comments:
