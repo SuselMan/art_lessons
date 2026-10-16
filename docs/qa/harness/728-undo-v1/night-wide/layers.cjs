@@ -72,8 +72,8 @@ let browser;const contexts=[];
     for(const prev of previous)await activate(prev.id);
     const ordinaryStarted=Date.now();await a.waitForTimeout(250);
     const id=await layer('night-guard-rejected');
-    const state=()=>a.evaluate(()=>({queue:__engine._opQueue.length,locked:__engine._locked,stroke:__engine._strokeId,glError:__engine.gl.getError(),operations:__engine.getOperations().map(o=>({id:o.id,type:o.type,layerId:o.layerId})),sockets:window.__qaRoomSockets.map(s=>s.readyState),puddle:__engine._puddle?.state}));
-    report.guard={ordinaryTimerWindowMs:Date.now()-ordinaryStarted,ordinaryErrors:[...report.errors],beforeAttempt:await state(),preservedLayers:previous.map(x=>x.id)};
+    const state=()=>a.evaluate(()=>({queue:__engine._opQueue.length,locked:__engine._locked,stroke:__engine._strokeId,strokeLayer:__engine._strokeLayerId,glError:__engine.gl.getError(),operations:__engine.getOperations().map(o=>({id:o.id,type:o.type,layerId:o.layerId})),sockets:window.__qaRoomSockets.map(s=>s.readyState),puddle:__engine._puddle?.state}));
+    report.guard={ordinaryTimerWindowMs:Date.now()-ordinaryStarted,ordinaryErrors:[...report.errors],beforeAttempt:await state(),preservedLayers:previous.map(x=>x.id),failedTargetBefore:await Promise.all(pages.map(p=>snapshot(p,id)))};
     const x=Number(env.QA_GUARD_X||220);
     try{await stroke(a,{x,y:220});report.guard.watercolorAccepted=true}catch(e){report.guard.watercolorAccepted=false;report.guard.rejection=e.message}
     report.guard.afterAttempt=await state();
@@ -83,7 +83,7 @@ let browser;const contexts=[];
       report.guard.continuation=await a.evaluate(x=>{const e=__engine,errors=[];let t=2000;const at=i=>({x:(x+i*8)*.5,y:110,pressure:.8,tiltX:0,tiltY:0,speed:.4,pointerType:'pen',timeStamp:t+=16});for(let i=1;i<=20;i++)try{e._onMove(at(i))}catch(err){errors.push({phase:'move',index:i,message:err.message})}try{e._onEnd(at(20))}catch(err){errors.push({phase:'up',message:err.message})}return{errors,strokeAfterUp:e._strokeId}},x);
       await a.waitForTimeout(250);try{await idle()}catch(error){report.guard.idleFailure=error.message}
     }
-    report.guard.afterContinuation=await state();
+    report.guard.afterContinuation=await state();try{report.guard.failedTargetAfter=await Promise.all(pages.map(p=>snapshot(p,id)));report.guard.failedTargetUnchanged=JSON.stringify(report.guard.failedTargetBefore)===JSON.stringify(report.guard.failedTargetAfter)}catch(error){report.guard.failedTargetSnapshotError=error.message}
     report.guard.journalUnchanged=JSON.stringify(report.guard.beforeAttempt.operations)===JSON.stringify(report.guard.afterContinuation.operations);
     report.guard.preserved=[];
     for(const prev of previous){const after=await Promise.all(pages.map(p=>snapshot(p,prev.id)));report.guard.preserved.push({id:prev.id,unchanged:JSON.stringify(after)===JSON.stringify(prev.pixels),before:prev.pixels,after})}
