@@ -3,6 +3,7 @@ import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
 import { WatercolorPresentationRaster } from './src/watercolor/WatercolorPresentationRaster'
 import { hasActiveWater, wetReplayOperationIds } from './src/oplog/hasActiveWater'
+import { isM70WatercolorStroke } from './src/oplog/watercolorUndo'
 import { LayerCompositor, type CompositeItem, type WashReveal } from './src/raster/LayerCompositor'
 export type { CompositeItem } from './src/raster/LayerCompositor'
 import { pureWaterLayerProof } from './src/watercolor/pureWaterLayerProof'
@@ -2979,7 +2980,9 @@ export class PencilEngine implements PencilEngineAPI {
       case 'layer_visibility':
         if(!op.visible) for(const id of operationLayerIds(op)){
           const target=this._layers.get(id)
-          if(target)this._puddle?.close(target)
+          if(target && this._puddle && this._strokeLayerId===id){
+            this._dryAtPenUp=true;this._puddleRebuildAtPenUp.add(id)
+          }else if(target)this._puddle?.close(target)
           this._paperWet.forgetLayer(id)
         }
         break
@@ -3035,7 +3038,7 @@ export class PencilEngine implements PencilEngineAPI {
             this._paintOpOverFrames(buf, op, dabs) // (§17.72)
           } else {
             const standing = dabs.length
-              ? this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spread, op.timestamp)
+              ? this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spread, op.timestamp, op)
               : undefined
             // (#536) The same dabs, and the same slice: whatever the live stream
             // already delivered has already wet the paper here.
@@ -4309,12 +4312,16 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }
     this._noteSnapshotHistoryMutation(op)
-    const changedLayers=this._log.gestureLayerIds(op)
+    const changedLayers=op.type==='layer_visibility' ? operationLayerIds(op) : this._log.gestureLayerIds(op)
     for(const cp of [...this._checkpoints.all()]) {
-      if(!cp.fromSnapshot && changedLayers.includes(cp.layerId))this._checkpoints.remove(cp)
+      if(!cp.fromSnapshot && changedLayers.includes(cp.layerId)
+        && (op.type==='paper_dry' || op.type==='layer_visibility' || this._log.entries.some(e=>isM70WatercolorStroke(e.op) && e.op.layerId===cp.layerId)))this._checkpoints.remove(cp)
     }
     if (this._contextLost || this.gl.isContextLost()) return
     switch (op.type) {
+      case 'layer_visibility':
+        for(const id of operationLayerIds(op)){this._paperWet.forgetLayer(id);this._rebuildLayerOrDefer(id)}
+        break
       case 'paper_dry':
         for(const id of op.layerId ? [op.layerId] : this._layers.keys()) {
           this._paperWet.forgetLayer(id)
@@ -4654,7 +4661,7 @@ export class PencilEngine implements PencilEngineAPI {
         opId: op.id, dabs,
         work: this._ribbonDabsWork(
           job.fresh, dabs, op.tool, op.preset, op.color, undefined, undefined, op.strokeId, op.washId, op.wet,
-          mottleSeedFromStrokeId(op.strokeId), true, REBUILD_BAND_PIECE_TRIS,
+          mottleSeedFromStrokeId(op.strokeId), true, REBUILD_BAND_PIECE_TRIS, op,
         ),
       }
     }
@@ -4714,7 +4721,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _paintOpOverFrames(buf: ILayerBuffer, op: StrokeOperation, dabs: Dab[]): void {
     const work = this._ribbonDabsWork(
       buf, dabs, op.tool, op.preset, op.color, undefined, undefined, op.strokeId, op.washId, op.wet,
-      mottleSeedFromStrokeId(op.strokeId), true, REBUILD_BAND_PIECE_TRIS,
+      mottleSeedFromStrokeId(op.strokeId), true, REBUILD_BAND_PIECE_TRIS, op,
     )
     const land = (): void => {
       let r = work.next()
@@ -4953,7 +4960,7 @@ export class PencilEngine implements PencilEngineAPI {
         // Decoded once and shared: this is the hot path of every layer rebuild,
         // and strokeDabs unpacks the whole packed array each time it is called.
         const dabs = strokeDabs(op)
-        const standing = this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spreadSettle, op.timestamp)
+        const standing = this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spreadSettle, op.timestamp, op)
         this._puddleReplayBoundary(buf,layerId,op)
         // (#536) Replaying the log restores the water too, for the handful of
         // strokes young enough to still be wet. That is what makes undo behave:
@@ -5764,7 +5771,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _noteSnapshotHistoryMutation(op: Operation): void {
-    this._snapshotIO.invalidateCoveredHistory(op.type==='paper_dry' && !op.layerId ? [...this._layers.keys()] : this._log.gestureLayerIds(op), op.id)
+    this._snapshotIO.invalidateCoveredHistory(op.type==='paper_dry' && !op.layerId ? [...this._layers.keys()] : op.type==='layer_visibility' ? operationLayerIds(op) : this._log.gestureLayerIds(op), op.id)
     this._resolveSnapshotHistoryRepairs()
     if (this.pendingSnapshotHistoryRepairs().length) queueMicrotask(() => {
       if (!this._destroyed) this._onSnapshotHistoryRepairNeeded?.()
@@ -6565,11 +6572,11 @@ export class PencilEngine implements PencilEngineAPI {
       this._retireAsyncScratch(this._ribbonStrokeScratch ?? undefined)
     }
     this._ribbonStrokeScratch = null
-    if (this._dryAtPenUp) {
+    if (this._dryAtPenUp && !this._puddleRebuildAtPenUp.size) {
       const dryTarget=this._puddleDryAtPenUp ? this._layers.get(this._puddleDryAtPenUp) : undefined
       if(!this._puddleDryAtPenUp || dryTarget)this._puddle?.dry(dryTarget)
-      this._puddleDryAtPenUp=null
     }
+    this._puddleDryAtPenUp=null
     this._dryAtPenUp = false
     // Discard the speculative preview entirely once the real stroke has
     // ended — the final _display() below must show only real content.
@@ -6665,6 +6672,11 @@ export class PencilEngine implements PencilEngineAPI {
     // since the first dab — see PaperWetness._pending on why those are two
     // different questions.
     this._paperWet.commitPending(performance.now())
+    for(const id of this._puddleRebuildAtPenUp){
+      this._paperWet.forgetLayer(id)
+      this._rebuildLayerOrDefer(id)
+    }
+    this._puddleRebuildAtPenUp.clear()
     // The paper is now wetter than it was, and nothing else will ask for a
     // frame until the next stroke — so this is where watching it dry starts.
     if (this._paperWet.peak(performance.now()) > 0.01) this._scheduleDryingRepaint()
@@ -7250,6 +7262,7 @@ export class PencilEngine implements PencilEngineAPI {
      *  spread over frames. Never for a history batch or a rebuild. */
     spreadSettle = false,
     logicalAt = Date.now(),
+    recordedOp?: StrokeOperation,
   ): ReadonlyMap<Dab, number> | undefined {
     if (!dabs.length) return undefined
     if (!(target instanceof AccumulationBuffer) && tool==='eraser' && this._puddle?.eraseDryBase(target,base=>this._stamps.paint(base,dabs,tool,presetName,color),logicalAt)) return undefined
@@ -7286,7 +7299,7 @@ export class PencilEngine implements PencilEngineAPI {
       // Native input and decoded operations must enter CPU geometry at the
       // same codec precision. Keep the recorded dabs and standing keys intact.
       const canonical = dabs.map(codecDab)
-      const standing = this._paintRibbonDabs(target, canonical, tool, presetName, color, ribbonScratch, prevDab ? codecDab(prevDab) : undefined, strokeId, washId, wetProfile, strokeSeed, spreadSettle)
+      const standing = this._paintRibbonDabs(target, canonical, tool, presetName, color, ribbonScratch, prevDab ? codecDab(prevDab) : undefined, strokeId, washId, wetProfile, strokeSeed, spreadSettle, recordedOp)
       if (!standing) return undefined
       const originalKeys = new Map(standing)
       for (let i = 0; i < canonical.length; i++) {
@@ -7296,7 +7309,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
       return originalKeys
     }
-    if (isRibbonTool(tool)) return this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle)
+    if (isRibbonTool(tool)) return this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle, recordedOp)
     // Everything else is a stamp tool — pencil, eraser, liner, charcoal.
     this._stamps.paint(target, dabs, tool, presetName, color)
     return undefined
@@ -7334,8 +7347,9 @@ export class PencilEngine implements PencilEngineAPI {
     wetProfile?: string,
     strokeSeed?: [number, number],
     spreadSettle = false,
+    recordedOp?: StrokeOperation,
   ): ReadonlyMap<Dab, number> | undefined {
-    const work = this._ribbonDabsWork(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle, 0)
+    const work = this._ribbonDabsWork(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle, 0, recordedOp)
     let r = work.next()
     while (!r.done) r = work.next()
     return r.value
@@ -7359,6 +7373,7 @@ export class PencilEngine implements PencilEngineAPI {
     strokeSeed: [number, number] | undefined,
     spreadSettle: boolean,
     pieceTris: number,
+    recordedOp?: StrokeOperation,
   ): Generator<number, ReadonlyMap<Dab, number> | undefined, void> {
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) have no resolveForPaint() (only a real ILayerBuffer
@@ -7380,8 +7395,8 @@ export class PencilEngine implements PencilEngineAPI {
     const initialProfile = ribbonProfileFor(tool, presetName, wetAt(wetProfile, 0))
     const puddle=initialProfile.materialModel==='m70-r2-v1' ? this._puddleFor() : null
     if (!puddle) this._puddle?.close(target)
-    const recordedIndex=strokeId ? this._log.entries.findIndex(e=>e.op.type==='stroke' && e.op.strokeId===strokeId) : -1
-    const recorded=recordedIndex>=0?this._log.entries[recordedIndex].op:undefined
+    const recordedIndex=recordedOp ? this._log.entries.findIndex(e=>e.op.id===recordedOp.id) : strokeId ? this._log.entries.findIndex(e=>e.op.type==='stroke' && e.op.strokeId===strokeId) : -1
+    const recorded=recordedOp ?? (recordedIndex>=0?this._log.entries[recordedIndex].op:undefined)
     const puddleLayerId=recorded && 'layerId' in recorded ? recorded.layerId : [...this._layers].find(([,b])=>b===target)?.[0]
     const boundary=this._log.entries.slice(0,recordedIndex<0?undefined:recordedIndex).filter(e=>e.state==='done' && (e.op.type==='paper_dry' && (!e.op.layerId || e.op.layerId===puddleLayerId) || e.op.type==='layer_visibility' && !e.op.visible && !!puddleLayerId && operationLayerIds(e.op).includes(puddleLayerId))).at(-1)?.op.id??''
     const chunk = ribbonScratch ? null : puddle ? puddle.source(target,strokeId??washId??'m70-replay',initialProfile,recorded?.timestamp??Date.now(),boundary)
@@ -7871,7 +7886,13 @@ export class PencilEngine implements PencilEngineAPI {
 
   watercolorDryAll(ordered = false, acceptedTicket?: number, layerId?: string): void {
     if (this._puddle) {
-      if (this._strokeLayerId && (!layerId || layerId===this._strokeLayerId)) { this._dryAtPenUp=true;this._puddleDryAtPenUp=layerId??null;return }
+      if (this._strokeLayerId && (!layerId || layerId===this._strokeLayerId)) {
+        this._dryAtPenUp=true;this._puddleDryAtPenUp=layerId??null
+        for(const id of layerId ? [layerId] : this._layers.keys())this._puddleRebuildAtPenUp.add(id)
+        if(layerId)this._paperWet.forgetLayer(layerId);else this._paperWet.clear()
+        this._wetTexAt=0
+        return
+      }
       if(!layerId || this._layers.has(layerId))this._puddle.dry(layerId ? this._layers.get(layerId) : undefined)
     }
     const ticket = acceptedTicket ?? (ordered || !this._wcDryWorkScheduler ? undefined : this._startDryWorkClock())
@@ -8039,6 +8060,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** (§17.48) A paper_dry arrived mid-stroke: close the wash at pen-up. */
   private _dryAtPenUp = false
   private _puddleDryAtPenUp: string | null = null
+  private readonly _puddleRebuildAtPenUp = new Set<string>()
   private _startSettle(scratch: RibbonStrokeScratch, ops: Array<() => void>, complete: () => void, lifecycle?: WatercolorSettleLifecycle, gesture = scratch.gesture): void {
     const releaseDryTicket = (): void => {
       // A drawing continuation can start the solver for this same scratch.
