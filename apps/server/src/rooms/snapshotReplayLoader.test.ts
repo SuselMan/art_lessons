@@ -132,3 +132,30 @@ it('resolves an old meta target chain referenced by a new redo', async () => {
   expect(p.unresolvedTargets.size).toBe(0)
   expect(p.operations.map(op=>op.id)).toContain('colour3')
 })
+
+describe('structural dependencies discovered after pixel-history expansion', () => {
+  const dry: Operation = {id:'dry3',type:'paper_dry',layerId:'layer-1',seq:3,timestamp:3,userId:'A'}
+  const undoDry: Operation = {id:'undoDry6',type:'operation_undo',targetOpId:'dry3',seq:6,timestamp:6,userId:'A'}
+  const del: Operation = {id:'delete4',type:'layer_delete',layerIds:['S'],seq:4,timestamp:4,userId:'A'}
+  const undoDel: Operation = {id:'undoDel7',type:'operation_undo',targetOpId:'delete4',seq:7,timestamp:7,userId:'A'}
+  const add: Operation = {id:'add1',type:'layer_add',layerId:'S',name:'S',seq:1,timestamp:1,userId:'A'}
+  function configure(hasOriginalBase: boolean) {
+    const all=[...(hasOriginalBase?[add]:[]),dry,del,undoDry,undoDel]
+    mocks.rooms.set('room',{nextSeq:8,operations:[dry,undoDry],aliveIds:new Set(['layer-1','background','S'])})
+    mocks.state.mockResolvedValue({seq:5,state:{items:{'layer-1':{},background:{}}}})
+    mocks.snapshots.mockResolvedValue([{layerId:'layer-1',seq:5,hash:'layer'}, {layerId:'background',seq:5,hash:'background'}])
+    mocks.operations.mockImplementation(async({where})=>(where.id?all.filter(op=>where.id.in.includes(op.id)):all).map(data=>({data})))
+  }
+  it('loads and validates the structural prefix even when the initial plan was pixel-only',async()=>{
+    configure(true)
+    const p=await prepareSnapshotReplay('room')
+    expect(p.replayStructure).toBe(true)
+    expect(p.historyLayers).toContain('S')
+    expect(p.historicalIds).toContain(add.id)
+    expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({seq:{lte:7},type:{in:expect.arrayContaining(['layer_add','layer_delete'])}})}))
+  })
+  it('refuses a missing structural base discovered only by that expanded history',async()=>{
+    configure(false)
+    await expect(prepareSnapshotReplay('room')).rejects.toThrow('structural base cannot be reconstructed')
+  })
+})

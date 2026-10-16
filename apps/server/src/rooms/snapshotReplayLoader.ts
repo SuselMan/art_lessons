@@ -59,27 +59,30 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
     }
     await resolveHistoryTargets()
     let plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
-    if (plan.replayStructure) {
-      const prefix = await prisma.operation.findMany({
-        where: { roomId, type: { in: [...HISTORY_TYPES, ...STRUCTURE_TYPES] }, seq: { lte: watermark } },
-        orderBy: { seq: 'asc' }, select: { data: true },
-      })
-      for (const { data } of prefix) { const op = data as Operation; byId.set(op.id, op) }
-      await resolveHistoryTargets()
-      // Legacy snapshot-only roots have no recoverable original structural
-      // base. Never guess that base from currently alive layers.
-      const created = new Set(IMPLICIT_LAYER_IDS)
-      for (const op of [...byId.values()].filter(op => (op.seq ?? 0) <= stored.seq)) if (op.type === 'layer_add' || op.type === 'layer_merge' || op.type === 'layer_duplicate') created.add(op.layerId)
-      else if (op.type === 'folder_add') created.add(op.layerId)
-      if ([...(live ?? []), ...plan.historyLayers].some(id => !created.has(id))) {
-        throw new Error('Snapshot structural base cannot be reconstructed')
-      }
-      plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
-    }
     const loadedLayers = new Set<string>()
-    const historicalIds = new Set<string>(plan.replayStructure
-      ? [...byId.values()].filter(op => (op.seq ?? 0) <= stored.seq).map(op => op.id) : [])
+    const historicalIds = new Set<string>()
+    let loadedStructure = false
     while (true) {
+      if (plan.replayStructure && !loadedStructure) {
+        loadedStructure = true
+        const prefix = await prisma.operation.findMany({
+          where: { roomId, type: { in: [...HISTORY_TYPES, ...STRUCTURE_TYPES] }, seq: { lte: watermark } },
+          orderBy: { seq: 'asc' }, select: { data: true },
+        })
+        for (const { data } of prefix) { const op = data as Operation; byId.set(op.id, op) }
+        await resolveHistoryTargets()
+        // Legacy snapshot-only roots have no recoverable original structural
+        // base. Never guess that base from currently alive layers.
+        const created = new Set(IMPLICIT_LAYER_IDS)
+        for (const op of [...byId.values()].filter(op => (op.seq ?? 0) <= stored.seq)) if (op.type === 'layer_add' || op.type === 'layer_merge' || op.type === 'layer_duplicate') created.add(op.layerId)
+        else if (op.type === 'folder_add') created.add(op.layerId)
+        if ([...(live ?? []), ...plan.historyLayers].some(id => !created.has(id))) {
+          throw new Error('Snapshot structural base cannot be reconstructed')
+        }
+        for (const op of byId.values()) if ((op.seq ?? 0) <= stored.seq) historicalIds.add(op.id)
+        plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
+      }
+
       const needed = new Set(plan.historyLayers)
       for (const row of candidates) if (plan.coverage.get(row.layerId) !== Math.max(...candidates.filter(s => s.layerId === row.layerId).map(s => s.seq))) needed.add(row.layerId)
       const next = [...needed].filter(id => !loadedLayers.has(id))
