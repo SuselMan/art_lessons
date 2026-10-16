@@ -1,0 +1,113 @@
+{
+  "renderers": [
+    "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  ],
+  "layers": [
+    {
+      "name": "overlap-retention",
+      "equal": true,
+      "bytes": [
+        0,
+        0
+      ],
+      "diff": {
+        "changed": 0,
+        "max": 0,
+        "over1": 0,
+        "over4": 0,
+        "over16": 0,
+        "mean": 0
+      }
+    },
+    {
+      "name": "pure-water-release",
+      "equal": true,
+      "bytes": [
+        0,
+        0
+      ],
+      "diff": {
+        "changed": 0,
+        "max": 0,
+        "over1": 0,
+        "over4": 0,
+        "over16": 0,
+        "mean": 0
+      }
+    },
+    {
+      "name": "disjoint",
+      "equal": false,
+      "bytes": [
+        1048596,
+        1048596
+      ],
+      "diff": {
+        "changed": 5740,
+        "max": 16,
+        "over1": 2971,
+        "over4": 372,
+        "over16": 0,
+        "mean": 0.011369705200195312
+      }
+    },
+    {
+      "name": "bridge",
+      "equal": false,
+      "bytes": [
+        1048596,
+        1048596
+      ],
+      "diff": {
+        "changed": 7785,
+        "max": 37,
+        "over1": 4441,
+        "over4": 455,
+        "over16": 12,
+        "mean": 0.015822410583496094
+      }
+    },
+    {
+      "name": "other-wet-layer",
+      "equal": false,
+      "bytes": [
+        1048596,
+        1048596
+      ],
+      "diff": {
+        "changed": 3210,
+        "max": 17,
+        "over1": 1656,
+        "over4": 220,
+        "over16": 1,
+        "mean": 0.006356239318847656
+      }
+    },
+    {
+      "name": "dry-and-eraser",
+      "equal": false,
+      "bytes": [
+        1048596,
+        1048596
+      ],
+      "diff": {
+        "changed": 1671,
+        "max": 10,
+        "over1": 284,
+        "over4": 22,
+        "over16": 0,
+        "mean": 0.0020732879638671875
+      }
+    }
+  ],
+  "equal": false,
+  "rawCleanup": "Encoded target .bin removed after compact metrics and bridge-crossgpu-diff.png saved",
+  "imagePanels": [
+    "Vega/AMD",
+    "Surface/Intel",
+    "Absolute RGB difference x12"
+  ],
+  "sourceCommitAtArchive": "c07e38d07e7bb1dab8f1af5279d3c4d0bcb87c70",
+  "scope": "Same saved QA history replayed on AMD/OpenGL and Intel/D3D11; captured before hydration state restoration fix. This is not a final acceptance pass."
+}
