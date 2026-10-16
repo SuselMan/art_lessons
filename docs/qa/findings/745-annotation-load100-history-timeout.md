@@ -38,3 +38,10 @@ restored SnapshotLedger.isCovered(layerId,serverSeq); все meta обязаны
 coverage; иначе FAIL. Functional load также требует nonempty фактических пикселей,
 реальный annotationMode и пустые pending queues/repairs. Full-replay неполного
 лога не используется как oracle. Cached ReviewImage overlay остаётся непроверен.
+
+Аппаратное подтверждение false positive: runtime1e521993, повтор actualannotations
+и compactannotations PASS2. Все5missingstrokes позитивно покрыты ledger107 и
+имеют restoredSnapshotCheckpoint; по54283nontransparentpixels в обоих режимах,
+annotationMode=true при engineReady/firstDraw, GL0. Evidence:
+temp/device-runs/745-final5-annotation100-coverage/loading-report.json + PNG.
+Комната и auth удалены после проверки, compact proofs сохранены.
