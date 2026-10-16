@@ -84,3 +84,15 @@ closes both in `finally`. Prefix commit must be acknowledged before Dry;
 presentation idle is awaited only after pen-up. The pixel check reads actual
 live layer tiles before invoking the independent full-replay oracle. It does
 not add a final Dry operation which could mask an incorrect boundary.
+
+Cold rejoin probes now use `history-ready.cjs`: fetch the complete small fixture
+history through its normal API, wait for **all IDs including meta operations** in
+`_log.entries`, and wait for snapshot repairs/rebuilds. `roomContentReady` and
+engine idle alone do not cover the background history walk. Causal states and
+effective operations are asserted separately against the unchanged live peer,
+so readiness never waits for a desired answer and hides a restoration bug.
+
+`scoped-dry.cjs` checks another layer's drying against freshly renewed wetness,
+records the actual water→eraser age (must be below 120 seconds), then checks
+hide→show drying, erasing and undo eraser. Its cold rejoin also compares history,
+effective material and live bytes captured before the full-replay oracle.

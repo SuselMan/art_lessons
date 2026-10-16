@@ -6,6 +6,7 @@ const {chromium}=require('@playwright/test');
 const fs=require('node:fs');
 const crypto=require('node:crypto');
 const assert=require('node:assert/strict');
+const {historyReady,journal,comparable}=require('./history-ready.cjs');
 const env=process.env;
 for(const name of ['QA_ENTRY_URL','QA_BASE_URL','QA_ROOM','QA_OUTPUT','QA_HOST_STATE'])
   if(!env[name])throw Error('Missing '+name);
@@ -55,11 +56,11 @@ let browser;const contexts=[];
   const id=await layer('isolated-disjoint-dry');
   const aa=await stroke(a,{x:160,y:160});await stroke(b,{x:650,y:650});await undo(a);expectMix(await material(a,id),aa,null);
   const before=await check('disjoint-before-dry',id);fs.writeFileSync(env.QA_OUTPUT+'/before.bin',Buffer.from(before||[]));
-  await append(a,{type:'paper_dry',layerId:id});const after=await check('disjoint-after-dry',id);fs.writeFileSync(env.QA_OUTPUT+'/after.bin',Buffer.from(after||[]));assert.deepEqual(after,before,'Dry changed target on same GPU');
-  await a.reload();await a.waitForFunction(()=>window.__engine&&!__engine._locked||document.querySelector('form input[type="text"]'));
+  await append(a,{type:'paper_dry',layerId:id});const actualAfter=await a.evaluate(id=>{const data=__engine.bakeNetworkSnapshot(id);return data?Array.from(data):null},id);const after=await check('disjoint-after-dry',id);fs.writeFileSync(env.QA_OUTPUT+'/after.bin',Buffer.from(after||[]));report.liveAfterDryHash=hash(actualAfter);fs.writeFileSync(env.QA_OUTPUT+'/after.live.bin',Buffer.from(actualAfter||[]));assert.deepEqual(actualAfter,after,'Fresh live dry differs from target');assert.deepEqual(after,before,'Dry changed target on same GPU');
+  const expectedJournal=await journal(b);report.beforeRejoinJournal=expectedJournal;await a.reload();await a.waitForFunction(()=>window.__engine&&!__engine._locked||document.querySelector('form input[type="text"]'));
   if(await a.locator('form input[type="text"]').count()){await a.locator('form input[type="text"]').first().fill('Disjoint rejoin QA');await a.locator('form button[type="submit"]').click()}
-  await a.waitForFunction(()=>window.__engine&&!__engine._locked);await a.evaluate(()=>__engine.paperReady());await sync(b);
-  const rejoin=await check('disjoint-after-rejoin',id);fs.writeFileSync(env.QA_OUTPUT+'/rejoin.bin',Buffer.from(rejoin||[]));assert.deepEqual(rejoin,before,'Rejoin changed target on same GPU');
+  await a.waitForFunction(()=>window.__engine&&!__engine._locked);await a.evaluate(()=>__engine.paperReady());await sync(b);const history=await historyReady(a,env.QA_BASE_URL,env.QA_ROOM);report.authoritativeHistory=history.operations;report.afterRejoinJournal=history.journal;assert.deepEqual(comparable(history.journal),comparable(expectedJournal),'Cold rejoin changed causal states or effective operations');
+  const liveRejoin=await a.evaluate(id=>{const data=__engine.bakeNetworkSnapshot(id);return data?Array.from(data):null},id);const rejoin=await check('disjoint-after-rejoin',id);fs.writeFileSync(env.QA_OUTPUT+'/rejoin.bin',Buffer.from(rejoin||[]));assert.deepEqual(rejoin,before,'Rejoin changed target on same GPU');report.liveAfterRejoinHash=hash(liveRejoin);assert.deepEqual(liveRejoin,rejoin,'Cold live dry differs from target');
   assert.deepEqual(report.errors,[]);report.pass=true;
 })().catch(async error=>{report.pass=false;report.failure=error.stack;process.exitCode=1;
   for(const [i,c]of contexts.entries())for(const p of c.pages())try{
