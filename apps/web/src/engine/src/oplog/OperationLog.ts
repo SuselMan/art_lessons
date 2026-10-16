@@ -1,6 +1,7 @@
 // Append-only operation log — the source of truth for canvas content (ADR 002).
 // Undo/redo never rewrites history: entries flip between three states and
-// replay simply skips everything that is not `done`.
+// Ordinary replay skips everything that is not `done`; M70 additionally
+// derives water-only projections for protected undone gestures.
 //
 //   done   — applied, visible on canvas
 //   undone — reverted by its author, eligible for redo
@@ -13,6 +14,8 @@ import type {
   AreaPasteOperation, AreaFillOperation, ShapeOperation, LayerFilterOperation,
 } from '@grafetto/shared'
 import { operationLayerIds } from '@grafetto/shared'
+
+import { effectiveWatercolorOperations } from './watercolorUndo'
 
 export type OperationState = 'done' | 'undone' | 'gone'
 
@@ -78,24 +81,6 @@ export function pixelReadLayerIds(op: Operation): string[] {
   return []
 }
 
-/** Every PixelOperation but layer_transform targets exactly one layer via its
- *  own `layerId`. layer_transform (#120) is the one exception — a single
- *  operation can bake a matrix into several layers at once (see its
- *  docstring in packages/shared), so membership has to check its
- *  `transforms` array instead of a single field.
- *
- *  (#449) `layer_duplicate` names two layers but belongs to exactly one
- *  history: the copy's, via `layerId`. Its `sourceId` is read, not written —
- *  the source is not changed by being copied. Counting it under `sourceId` as
- *  well would put it in `layerPixelOps(sourceId)`, so any later rebuild of the
- *  source would replay the duplicate into the source's own buffer and paint the
- *  layer onto itself. */
-function pixelOpTargetsLayer(op: PixelOperation, layerId: string): boolean {
-  return op.type === 'layer_transform'
-    ? op.transforms.some(t => t.layerId === layerId)
-    : op.layerId === layerId
-}
-
 /** Continuous opacity-slider input arrives as a burst of operations; collapse
  *  the burst into one log entry so a single Ctrl+Z reverts the whole slide.
  *
@@ -118,10 +103,8 @@ function coalesces(prev: Operation, next: Operation): boolean {
  *  undo/redo candidate scans (#103): without this, a second Ctrl+Z would
  *  find the operation_undo entry the first Ctrl+Z just appended and try to
  *  "undo the undo" instead of reaching further back into real content. */
-//  (#536, §17.48) `paper_dry` rides along: it is not undoable (there is no
-//  "wet it again"), so a Ctrl+Z must reach past it to the stroke before, and
-//  pressing it is not "doing something new" that should cost the redo stack.
-const META_OP_TYPES = new Set<Operation['type']>(['operation_revoke', 'operation_undo', 'operation_redo', 'paper_dry'])
+// Drying is an ordinary undoable material boundary in watercolor v1.
+const META_OP_TYPES = new Set<Operation['type']>(['operation_revoke', 'operation_undo', 'operation_redo'])
 
 /** (#537) The log holds two regions, in this order:
  *
@@ -146,6 +129,8 @@ const META_OP_TYPES = new Set<Operation['type']>(['operation_revoke', 'operation
 export class OperationLog {
   private _entries: LogEntry[] = []
   private _revision = 0
+  private _watercolorViewRevision = -1
+  private _watercolorView: Operation[] = []
 
   /** Changes whenever journal order or entry state may change. */
   get revision(): number { return this._revision }
@@ -508,18 +493,33 @@ export class OperationLog {
     return out
   }
 
-  /** `done` pixel operations targeting the given layer, optionally only those
-   *  ordered strictly before `beforeSeq` (used to reconstruct a merge source
-   *  as it was at merge time). */
-  layerPixelOps(layerId: string, beforeSeq?: number): PixelOperation[] {
-    const out: PixelOperation[] = []
-    for (const e of this._entries) {
-      if (e.state !== 'done') continue
-      const { op } = e
-      if (!isPixelOperation(op) || !pixelOpTargetsLayer(op, layerId)) continue
-      if (beforeSeq !== undefined && (op.seq ?? 0) >= beforeSeq) continue
-      out.push(op)
+  /** Replay view including water-only projections of protected undone M70 gestures. */
+  watercolorEffectiveOperations(): Operation[] {
+    if (this._watercolorViewRevision !== this._revision) {
+      this._watercolorView = effectiveWatercolorOperations(this._entries)
+      this._watercolorViewRevision = this._revision
     }
-    return out
+    return this._watercolorView
+  }
+
+  /** Every PixelOperation but layer_transform targets exactly one layer via its
+   *  own `layerId`. layer_transform (#120) is the one exception — a single
+   *  operation can bake a matrix into several layers at once (see its
+   *  docstring in packages/shared), so membership has to check its
+   *  `transforms` array instead of a single field.
+   *
+   *  (#449) `layer_duplicate` names two layers but belongs to exactly one
+   *  history: the copy's, via `layerId`. Its `sourceId` is read, not written —
+   *  the source is not changed by being copied. Counting it under `sourceId` as
+   *  well would put it in `layerPixelOps(sourceId)`, so any later rebuild of the
+   *  source would replay the duplicate into the source's own buffer and paint the
+   *  layer onto itself. */
+  /** Effective replay pixel operations, including protected water-only M70
+   *  projections. beforeSeq resolves a historical prefix for merge sources. */
+  layerPixelOps(layerId: string, beforeSeq?: number): PixelOperation[] {
+    const operations = beforeSeq === undefined ? this.watercolorEffectiveOperations()
+      : effectiveWatercolorOperations(this._entries.filter(e => (e.op.seq ?? 0) < beforeSeq))
+    return operations.filter((op): op is PixelOperation => isPixelOperation(op)
+      && (op.type === 'layer_transform' ? op.transforms.some(t => t.layerId === layerId) : op.layerId === layerId))
   }
 }
