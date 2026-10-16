@@ -1,0 +1,174 @@
+{
+  "source": "af5d7cea",
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "gpuBudget": "314572800",
+    "scratchHolding": false,
+    "touch": 5,
+    "deviceMemory": 4,
+    "DPR": 2.125,
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)"
+  },
+  "cases": [
+    {
+      "name": "water-observer-before-up",
+      "changedChannels": 2028,
+      "max": 27,
+      "meanRGB": [
+        228.18934911242604,
+        228.18934911242604,
+        228.18934911242604
+      ]
+    },
+    {
+      "name": "water-cancel-no-ghost",
+      "changedChannels": 0,
+      "max": 0,
+      "meanRGB": [
+        246.02514792899407,
+        246.02514792899407,
+        246.02514792899407
+      ]
+    },
+    {
+      "name": "pigment-observer-before-up",
+      "changedChannels": 2028,
+      "max": 138,
+      "meanRGB": [
+        143.74112426035504,
+        168.8639053254438,
+        225.22041420118344
+      ]
+    },
+    {
+      "name": "rejected-final-online-author-no-ghost",
+      "ack": {
+        "ok": false,
+        "reason": "room_frozen"
+      },
+      "changedChannels": 0,
+      "max": 0,
+      "meanRGB": [
+        246.02514792899407,
+        246.02514792899407,
+        246.02514792899407
+      ]
+    }
+  ],
+  "errors": [],
+  "waterDiagnostic": {
+    "waterPixels": {
+      "changedChannels": 2028,
+      "max": 27,
+      "meanRGB": [
+        228.18934911242604,
+        228.18934911242604,
+        228.18934911242604
+      ]
+    },
+    "roi": {
+      "x": 247.95814823763314,
+      "y": 438.86288288948026
+    },
+    "author": {
+      "held": "f2p-Bb-ily",
+      "queue": 0,
+      "journal": [
+        {
+          "id": "5d2af0aa-9e14-4662-bfa4-da48b8e526b7",
+          "type": "layer_add",
+          "state": "done"
+        }
+      ]
+    },
+    "state": {
+      "visibility": "visible",
+      "sameEngine": true,
+      "previewEvents": [
+        {
+          "key": "append",
+          "strokeId": "f2p-Bb-ily",
+          "dabs": 1,
+          "streams": 1,
+          "at": 23579.399999976158
+        },
+        {
+          "key": "append",
+          "strokeId": "f2p-Bb-ily",
+          "dabs": 4,
+          "streams": 1,
+          "at": 23660.299999952316
+        }
+      ],
+      "peerLive": [
+        {
+          "peerId": "f7fd51a0-873b-4874-a0d1-c7597489fbfb",
+          "strokeId": "f2p-Bb-ily",
+          "ended": false,
+          "desynced": false,
+          "liveOffset": 5
+        }
+      ],
+      "viewport": {
+        "w": 824,
+        "h": 1149
+      },
+      "order": [
+        {
+          "id": "background",
+          "opacity": 1
+        },
+        {
+          "id": "layer-1",
+          "opacity": 1
+        },
+        {
+          "id": "qa-samsung-online-8fb59e5e-3305-42ca-bec9-543fbbbec72b",
+          "opacity": 1
+        }
+      ],
+      "active": "layer-1",
+      "streams": [
+        {
+          "layerId": "qa-samsung-online-8fb59e5e-3305-42ca-bec9-543fbbbec72b",
+          "received": 5,
+          "dabs": 5,
+          "first": {
+            "x": 120,
+            "y": 160,
+            "pressure": 0.75,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 56.157020568847656,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 0
+          },
+          "last": {
+            "x": 199.1999969482422,
+            "y": 160,
+            "pressure": 0.75,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 77.99586486816406,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 17.399999618530273
+          },
+          "buf": true
+        }
+      ],
+      "error": 0
+    }
+  },
+  "scope": "Four preview assertions valid PASS; later combined shape harness blocked awaiting still-held peer; separate fresh Samsung shape proof PASS",
+  "previewAssertionsPassed": true
+}

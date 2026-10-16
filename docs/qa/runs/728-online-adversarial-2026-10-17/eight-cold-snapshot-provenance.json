@@ -1,0 +1,119 @@
+{
+  "source": "af5d7cea",
+  "classification": "Cold AMD received exact Intel snapshot bytes; native AMD replay difference is existing cross-GPU #748, not lost747 material",
+  "snapshotIndexSeq": 26,
+  "layers": [
+    {
+      "layerId": "qa-eight-43af1ce0-ba50-493a-b2f1-10a2cc76adda",
+      "seq": 26,
+      "snapshotDecodedHash": "43507aa0e9309ac9fbe861bba88c6ef13cf4a46d92281bfde1a130ad6ccaf337",
+      "coldPhysicalHash": "43507aa0e9309ac9fbe861bba88c6ef13cf4a46d92281bfde1a130ad6ccaf337",
+      "exactReceivedSnapshot": true,
+      "matchesPreColdActors": [
+        1
+      ],
+      "preColdAMDHash": "a6c3b0690b5f13eae3d2603d9a0c4738a178cefc595933bbcda227e8f2a77d01",
+      "preColdIntelHash": "43507aa0e9309ac9fbe861bba88c6ef13cf4a46d92281bfde1a130ad6ccaf337",
+      "gzipBytes": 8493,
+      "rawBytes": 1048596
+    },
+    {
+      "layerId": "qa-eight-5fd54183-9fd6-4fdc-8579-32967b9b6017",
+      "seq": 25,
+      "snapshotDecodedHash": "5bfec7cdd566a40554bf43a2ea25c002158ae0dc0952ec827eea396b40b7c755",
+      "coldPhysicalHash": "5bfec7cdd566a40554bf43a2ea25c002158ae0dc0952ec827eea396b40b7c755",
+      "exactReceivedSnapshot": true,
+      "matchesPreColdActors": [
+        1
+      ],
+      "preColdAMDHash": "ddb156d630fba689c3292008a8c82b0adfa24a86c961e63ab1e9f9f842a7d86a",
+      "preColdIntelHash": "5bfec7cdd566a40554bf43a2ea25c002158ae0dc0952ec827eea396b40b7c755",
+      "gzipBytes": 8927,
+      "rawBytes": 1048596
+    },
+    {
+      "layerId": "qa-eight-6c217495-f9da-4dc1-b3fd-1b6bb6df06e8",
+      "seq": 24,
+      "snapshotDecodedHash": "09ffd9409c86f4fdfbda7a9fc286d94034e2b6e4096d0b087c950beba2ba96ab",
+      "coldPhysicalHash": "09ffd9409c86f4fdfbda7a9fc286d94034e2b6e4096d0b087c950beba2ba96ab",
+      "exactReceivedSnapshot": true,
+      "matchesPreColdActors": [
+        1
+      ],
+      "preColdAMDHash": "b9b5f3d528d186dfdde99e1274318ba55e86bc809fdbea47b3a367d67929ab12",
+      "preColdIntelHash": "09ffd9409c86f4fdfbda7a9fc286d94034e2b6e4096d0b087c950beba2ba96ab",
+      "gzipBytes": 8935,
+      "rawBytes": 1048596
+    },
+    {
+      "layerId": "qa-eight-31c7cfe1-7310-4881-a523-5bea77adcc73",
+      "seq": 23,
+      "snapshotDecodedHash": "8b7780c1180b7910ee98fbddd7e8e126ea60cde3976b2de35b2ca136c87786ef",
+      "coldPhysicalHash": "8b7780c1180b7910ee98fbddd7e8e126ea60cde3976b2de35b2ca136c87786ef",
+      "exactReceivedSnapshot": true,
+      "matchesPreColdActors": [
+        1
+      ],
+      "preColdAMDHash": "112761d70762652fee4f7b0421646789505628a2961f64b2b6d46841f2465b16",
+      "preColdIntelHash": "8b7780c1180b7910ee98fbddd7e8e126ea60cde3976b2de35b2ca136c87786ef",
+      "gzipBytes": 8931,
+      "rawBytes": 1048596
+    },
+    {
+      "layerId": "qa-eight-e92237bd-083b-4443-b930-e656814079f6",
+      "seq": 22,
+      "snapshotDecodedHash": "fa42c6ae0fb41d07a36ece8deedc111eb92f9e8692dbfe5cffd124463d805aea",
+      "coldPhysicalHash": "fa42c6ae0fb41d07a36ece8deedc111eb92f9e8692dbfe5cffd124463d805aea",
+      "exactReceivedSnapshot": true,
+      "matchesPreColdActors": [
+        1
+      ],
+      "preColdAMDHash": "070322446ef0a15e06a6c9a04e69c0d3137cb133e5d8f5c0a879f38db59b1de1",
+      "preColdIntelHash": "fa42c6ae0fb41d07a36ece8deedc111eb92f9e8692dbfe5cffd124463d805aea",
+      "gzipBytes": 8728,
+      "rawBytes": 1048596
+    },
+    {
+      "layerId": "qa-race-67004bab-c832-455a-9085-a5a5b7a9fa79",
+      "seq": 21,
+      "snapshotDecodedHash": "9cc309c0350ecee09532358dccb482c1bd79a6ffea68e7a3827b736075bc72f8",
+      "coldPhysicalHash": "9cc309c0350ecee09532358dccb482c1bd79a6ffea68e7a3827b736075bc72f8",
+      "exactReceivedSnapshot": true,
+      "matchesPreColdActors": [
+        1
+      ],
+      "preColdAMDHash": "df6f388de48539be1d9d3f821348195966b9b601de8dd60274a2a3f152ad52b7",
+      "preColdIntelHash": "9cc309c0350ecee09532358dccb482c1bd79a6ffea68e7a3827b736075bc72f8",
+      "gzipBytes": 9085,
+      "rawBytes": 1048596
+    },
+    {
+      "layerId": "qa-race-cfaed341-d68c-41b7-aa61-b4de48f703a7",
+      "seq": 21,
+      "snapshotDecodedHash": "71dd8edae903982016cfca940a56f689dfa6e7f6c3204e525c76a8e9c770acac",
+      "coldPhysicalHash": "71dd8edae903982016cfca940a56f689dfa6e7f6c3204e525c76a8e9c770acac",
+      "exactReceivedSnapshot": true,
+      "matchesPreColdActors": [
+        1
+      ],
+      "preColdAMDHash": "ba87db7002c519200591906e5331235c28f83e73579d24c8b09308d1cf9c709f",
+      "preColdIntelHash": "71dd8edae903982016cfca940a56f689dfa6e7f6c3204e525c76a8e9c770acac",
+      "gzipBytes": 7106,
+      "rawBytes": 1048596
+    },
+    {
+      "layerId": "qa-race-495c25d5-c59d-4e0f-97ae-ebc68fbdc153",
+      "seq": 21,
+      "snapshotDecodedHash": "aa07e5f42896adcb0dc4baf2824139f1a1450539cd5cda8165529cc166d518d3",
+      "coldPhysicalHash": "aa07e5f42896adcb0dc4baf2824139f1a1450539cd5cda8165529cc166d518d3",
+      "exactReceivedSnapshot": true,
+      "matchesPreColdActors": [
+        1
+      ],
+      "preColdAMDHash": "414b8b1a7abe7be904abb8e1afb1ea61e52ef9c39eacbf0fb270d47a8daa1152",
+      "preColdIntelHash": "aa07e5f42896adcb0dc4baf2824139f1a1450539cd5cda8165529cc166d518d3",
+      "gzipBytes": 7320,
+      "rawBytes": 1048596
+    }
+  ]
+}
