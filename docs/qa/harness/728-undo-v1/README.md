@@ -1,7 +1,7 @@
 # Focused undo-v1 room QA
 
 `room.cjs` checks the agreed 16 October water/pigment rules on a **new empty,
-disposable 1024×1024 room**, with two independent identities. It never reuses an
+disposable 512×512 room**, with two independent identities. It never reuses an
 open browser tab or clears existing content. `prepare.cjs` creates that fixture
 using the normal `/api/me` and Socket `create_room` interfaces and saves private
 owner storage state outside Git. This directory contains no credentials.

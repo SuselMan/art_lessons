@@ -16,7 +16,7 @@ if(!dir||fs.existsSync(dir))throw Error('QA_FIXTURE_OUTPUT must be a new private
   socket=io(backend,{transports:['websocket'],extraHeaders:{Cookie:cookie},reconnection:false});
   await new Promise((resolve,reject)=>{socket.once('connect',resolve);socket.once('connect_error',reject)});
   const roomId='qa-undo-v1-'+crypto.randomUUID();
-  const room={id:roomId,name:'Disposable undo-v1 QA',paper:'fine',paperColor:'#fdfdfc',infinite:false,canvasWidth:1024,canvasHeight:1024,hasPassword:false,accessMode:'anyone_with_link',ownerId:identity.userId,createdAt:new Date().toISOString()};
+  const room={id:roomId,name:'Disposable undo-v1 QA',paper:'fine',paperColor:'#fdfdfc',infinite:false,canvasWidth:512,canvasHeight:512,hasPassword:false,accessMode:'anyone_with_link',ownerId:identity.userId,createdAt:new Date().toISOString()};
   await new Promise((resolve,reject)=>socket.timeout(15000).emit('create_room',{room,name:'Undo v1 QA owner',accessMode:'anyone_with_link',lastKnownSeq:0},(err,ack)=>err?reject(err):ack?.ok?resolve(ack):reject(Error('Create rejected '+JSON.stringify(ack)))));
   fs.writeFileSync(dir+'/host-state.json',JSON.stringify(state),{mode:0o600});
   fs.writeFileSync(dir+'/fixture.json',JSON.stringify({room:roomId,backend,created:new Date().toISOString(),disposable:true},null,2));

@@ -40,9 +40,9 @@ let browser;const contexts=[];
   const append=async(p,draft)=>{const id=await p.evaluate(draft=>{const op={...draft,id:crypto.randomUUID(),userId:__roomStore.getState().userId,timestamp:Date.now()};__engine.appendOperation(op);return op.id},draft);await sync(p);return id};
   const layer=async(name)=>{const id='qa-'+crypto.randomUUID();await append(a,{type:'layer_add',layerId:id,name});for(const p of pages)await p.evaluate(id=>__engine.setActiveLayer(id),id);return id};
   const stroke=async(p,{pigment=.65,x=220,y=300,vertical=false,tool='watercolor'}={})=>{
-    await p.evaluate(({pigment,tool})=>{const s=__roomStore.getState();s.setTool(tool);for(const[k,v]of Object.entries({size:90,water:1,pigment,pressureResponse:'normal',nib:'round',color:[.15,.35,.8]}))s.setToolSetting(tool,k,v)}, {pigment,tool});
+    await p.evaluate(({pigment,tool})=>{const s=__roomStore.getState();s.setTool(tool);for(const[k,v]of Object.entries({size:45,water:1,pigment,pressureResponse:'normal',nib:'round',color:[.15,.35,.8]}))s.setToolSetting(tool,k,v)}, {pigment,tool});
     await p.waitForFunction(tool=>__engine._opts.tool===tool,tool);
-    const ids=await p.evaluate(({x,y,vertical})=>{const e=__engine,previous=new Set(e.getOperations().map(o=>o.id));let t=1000;const ev=i=>({x:x+(vertical?0:i*8),y:y+(vertical?i*8:0),pressure:.8,tiltX:0,tiltY:0,speed:.4,pointerType:'pen',timeStamp:t+=16});e._onStart(ev(0));if(e._dwellTimer){clearInterval(e._dwellTimer);e._dwellTimer=null}if(!e._strokeId)throw Error('Stroke refused');for(let i=1;i<=20;i++)e._onMove(ev(i));e._onEnd(ev(20));return e.getOperations().filter(o=>o.type==='stroke'&&!previous.has(o.id)).map(o=>o.id)}, {x,y,vertical});
+    const ids=await p.evaluate(({x,y,vertical})=>{const e=__engine,previous=new Set(e.getOperations().map(o=>o.id));let t=1000;const ev=i=>({x:(x+(vertical?0:i*8))*.5,y:(y+(vertical?i*8:0))*.5,pressure:.8,tiltX:0,tiltY:0,speed:.4,pointerType:'pen',timeStamp:t+=16});e._onStart(ev(0));if(e._dwellTimer){clearInterval(e._dwellTimer);e._dwellTimer=null}if(!e._strokeId)throw Error('Stroke refused');for(let i=1;i<=20;i++)e._onMove(ev(i));e._onEnd(ev(20));return e.getOperations().filter(o=>o.type==='stroke'&&!previous.has(o.id)).map(o=>o.id)}, {x,y,vertical});
     assert.ok(ids.length,'Stroke committed');await sync(p);return ids;
   };
   const undo=async(p)=>{const id=await p.evaluate(()=>{const op=__engine.undo();if(!op)throw Error('Undo refused');return op.id});await sync(p);return id};
@@ -82,6 +82,6 @@ let browser;const contexts=[];
     report['diagnostic'+i]=await p.evaluate(()=>({url:location.href,text:document.body.innerText.slice(0,2000),engine:window.__engine?{locked:__engine._locked,queue:__engine._opQueue.length,pendingRebuilds:[...__engine._pendingRebuilds],jobs:__engine._rebuildJobs.size,puddle:__engine._puddle?.state,operations:__engine.getOperations().map(o=>({id:o.id,type:o.type,layerId:o.layerId}))}:null}));
   }catch(diag){report['diagnosticError'+i]=diag.message}
 }).finally(async()=>{
-  for(const c of contexts)await c.close();if(browser)await browser.close();
+  await Promise.allSettled(contexts.map(c=>c.close()));if(browser)await browser.close().catch(()=>{});
   fs.writeFileSync(env.QA_OUTPUT+'/report.json',JSON.stringify(report,null,2));console.log(JSON.stringify({pass:report.pass,cases:report.cases.length,failure:report.failure}));
 });
