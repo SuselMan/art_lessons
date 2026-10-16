@@ -2475,6 +2475,8 @@ export class PencilEngine implements PencilEngineAPI {
       replayInto: (buf, id, ops) => this._replayInto(buf, id, ops),
       compositeTextures: (items, fbo, w, h) => this._compositeTextures(items, fbo, w, h),
       takeCheckpoint: id => this._takeCheckpoint(id),
+      canonicalTiles: source => this._puddle?.canonicalTiles(source) ?? source.allResident(),
+      releaseReplaySource: source => this._puddle?.forget(source),
       invalidateSplitCache: () => this._invalidateSplitCache(),
       displayIfNotSuspended: () => this._displayIfNotSuspended(),
     })
