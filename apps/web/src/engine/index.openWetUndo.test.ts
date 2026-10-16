@@ -123,3 +123,21 @@ it('a whole physical gesture split into multiple chunks restores the state befor
   expect(engine.getOperations().filter(op=>op.type==='stroke' && op.userId==='A')).toHaveLength(0)
  }finally{engine.destroy()}
 })
+it('a fast Undo stays ready through its server ACK and subsequent animation frames',async()=>{
+ const {engine,state}=await setup(true)
+ try{
+  draw(engine)
+  const own=engine.getOperations().find(op=>op.type==='stroke' && op.userId==='A')!
+  engine.confirmOperation(own.id,3)
+  state._puddle.canonicalTiles(state._layers.get('L')!)
+  const before=state._puddle.state.computations
+  engine.undo()
+  const undo=engine.getOperations().find(op=>op.type==='operation_undo')!
+  engine.confirmOperation(undo.id,4)
+  const controller=state._puddle as unknown as {frame(at:number):void}
+  controller.frame(performance.now()+16)
+  controller.frame(performance.now()+32)
+  expect(state._puddle.state.undoHits).toBe(1)
+  expect(state._puddle.state.computations).toBe(before)
+ }finally{engine.destroy()}
+})
