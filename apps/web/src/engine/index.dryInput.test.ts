@@ -2,7 +2,7 @@ import { expect, it, vi } from 'vitest'
 import { createTestEngine, makeLayerAdd, paperReady, simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd } from './testing/engineTestUtils'
 
 async function setup() {
-  const {engine} = createTestEngine({userId: 'artist', tool: 'pencil'}, {width: 64, height: 64})
+  const {engine} = createTestEngine({userId: 'artist'}, {width: 64, height: 64})
   await paperReady(engine)
   engine.appendOperation(makeLayerAdd('artist', 'paint'), 'remote')
   engine.setActiveLayer('paint')
