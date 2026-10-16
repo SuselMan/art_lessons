@@ -1527,7 +1527,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _onLiveStrokeDabs?: (packet: PeerLivePacket) => void
   private _onLiveStrokeEnd?: (strokeId: string, cancelled?: boolean) => void
   private _liveDabQueue: Dab[] = []
-  private _liveLastEmitAt = 0
+  private _liveLastEmitAt = -Infinity
+  private _liveEmitTimer: ReturnType<typeof setTimeout> | null = null
   private _livePacketSeq = 0
 
   // Debug instrumentation (#91 device investigation) — all no-ops unless
@@ -4265,6 +4266,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   destroy(): void {
+    this._cancelLiveDabFlush()
     this._puddle?.destroy(); this._puddle=null
     this._continuationGpuFence?.release()
     this._continuationGpuFence = null
@@ -5281,6 +5283,7 @@ export class PencilEngine implements PencilEngineAPI {
   // there) stalling the GPU pipeline long enough to trip a mobile browser's
   // watchdog, especially with several full-size layer textures resident.
   private _handleContextLost = (e: Event): void => {
+    this._cancelLiveDabFlush()
     this._continuationGpuFence?.forget()
     e.preventDefault()
     this._puddle?.destroy(); this._puddle=null
@@ -6387,12 +6390,13 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokeId=puddleGesture??nanoid(10)
     this._wcAsyncLocalStroke = this._wcAsyncFinish && this._strokeTool !== 'watercolor' ? this._strokeId : null
     if (this._wcAsyncLocalStroke) this._wcAsyncLocalTools.set(this._wcAsyncLocalStroke, { layers: new Map(), ended: false, queued: 0 })
-    // (#429) `_liveLastEmitAt = 0` on purpose, not `performance.now()`: it
+    // (#429) No preceding emit: the first packet goes out immediately. It
     // makes the first packet of a gesture go out with the first dabs painted
     // rather than one interval later, so a peer sees the stroke begin as
     // early as the channel allows. Only the packets after it are paced.
+    this._cancelLiveDabFlush()
     this._liveDabQueue = []
-    this._liveLastEmitAt = 0
+    this._liveLastEmitAt = -Infinity
     this._livePacketSeq = 0
     // #251: this._strokePreset isn't assigned until the next line — pass the
     // raw incoming preset (this._opts.pencilType) directly so a marker
@@ -6809,6 +6813,7 @@ export class PencilEngine implements PencilEngineAPI {
     // twice would buy nothing and cost a packet at the busiest moment of the
     // gesture. Peers paint the streamed prefix, the operation paints the tail
     // — see _claimLivePaintedDabs.
+    this._cancelLiveDabFlush()
     if (this._strokeId) this._onLiveStrokeEnd?.(this._strokeId)
     this._liveDabQueue = []
     // Only now: the operation built just above still needed it, and _onEnd
@@ -7140,29 +7145,29 @@ export class PencilEngine implements PencilEngineAPI {
     this._scheduleDisplay()
   }
 
-  /** Flushes the in-progress stroke's accumulated dabs as a complete
-   *  StrokeOperation without ending the stroke itself — same Operation
-   *  shape _onEnd's own dispatch builds, just none of _onEnd's stroke
-   *  teardown (_strokeLayerId/_previewBuf/_tipBuf/_display() are all still
-   *  legitimately mid-stroke and untouched here; the pointer is still
-   *  down, painting continues into the same buffer right after this
-   *  returns). See STROKE_DAB_CHUNK_LIMIT's own comment for why this
-   *  exists. Guarded by `_strokeDabs.length` the same way _onEnd's own
-   *  dispatch is — never called with nothing to flush. */
-  /** (#429) Sends the dabs queued since the last packet, if enough time has
-   *  passed. Called from every path that paints a dab of a local stroke, so
-   *  the queue drains on drawing activity rather than on a timer — a stroke
-   *  that is not moving has nothing to send, and one that stops for good ends
-   *  via _onEnd, so no interval needs to exist for this.
-   *
-   *  Sends nothing when there is no handler wired (every non-room use of the
-   *  engine: tests, the lesson-replay player, the paper-bake harness), which
-   *  is also why none of them pay for the queue. */
+  private _cancelLiveDabFlush(): void {
+    if (this._liveEmitTimer !== null) clearTimeout(this._liveEmitTimer)
+    this._liveEmitTimer = null
+  }
+
+  /** (#429/#764) Pace live packets while moving, but also deliver a paused
+   * pen's already-painted tail at the next interval. There is at most one
+   * timer per gesture; an empty queue and non-network engines own none. */
   private _emitLiveDabsIfDue(): void {
-    if (!this._onLiveStrokeDabs || !this._strokeId || !this._strokeLayerId) return
+    if (this._destroyed || this._contextLost || !this._onLiveStrokeDabs || !this._strokeId || !this._strokeLayerId) return
     if (!this._liveDabQueue.length) return
     const now = performance.now()
-    if (now - this._liveLastEmitAt < LIVE_STROKE_EMIT_INTERVAL_MS) return
+    const remaining = LIVE_STROKE_EMIT_INTERVAL_MS - (now - this._liveLastEmitAt)
+    if (remaining > 0) {
+      // A paused pen produces no more pointer events. Its already-painted
+      // tail still owes peers the next live packet (#764).
+      if (this._liveEmitTimer === null) this._liveEmitTimer = setTimeout(() => {
+        this._liveEmitTimer = null
+        this._emitLiveDabsIfDue()
+      }, Math.ceil(remaining))
+      return
+    }
+    this._cancelLiveDabFlush()
     this._liveLastEmitAt = now
     // (#520) One packet per layer this gesture paints into, all carrying the
     // *same* packetSeq. The counter advances once per round, not once per
@@ -8889,6 +8894,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const id of [...this._wcAsyncLocalTools.keys()]) this._releaseAsyncLocalTool(id, lost)
     if (this._wcAsyncLocalStroke) {
       const endedStroke = this._strokeId
+      this._cancelLiveDabFlush()
       this._wcAsyncLocalStroke = null
       this._strokeLayerId = null; this._strokeId = null; this._strokeDabs = []
       // Only the unrecorded tail is discarded. Confirmed chunks remain in
