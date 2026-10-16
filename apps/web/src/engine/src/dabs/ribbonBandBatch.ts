@@ -16,11 +16,17 @@ export function buildRibbonBandBatch(
   fillEveryPose = false,
   returnViews = false,
   reusePoses = false,
+  exactCapacity = false,
 ): Float32Array[] {
   const chain = prevDab ? [prevDab, ...dabs] : dabs
   if (chain.length < 2) return inkFor.map(() => new Float32Array(0))
 
-  let capacity = Math.max(1, chain.length - 1) * (12 + OUTLINE_SEGMENTS * 9) * 11
+  const geometry = exactCapacity ? chain.map(d => nibGeometry(d, sizeMultiplier, shape, cornerFraction)) : null
+  const subdivisions = geometry ? geometry.slice(0, -1).map((g, i) => poseSubdivisions(g, geometry[i + 1])) : null
+  let capacity = exactCapacity ? subdivisions!.reduce((n, steps, i) => {
+    if (Math.hypot(chain[i + 1].x - chain[i].x, chain[i + 1].y - chain[i].y) < 1e-6) return n
+    return n + (steps * 12 + (fillEveryPose ? steps : Math.max(0, steps - 1)) * OUTLINE_SEGMENTS * 9) * 11
+  }, 0) : Math.max(1, chain.length - 1) * (12 + OUTLINE_SEGMENTS * 9) * 11
   let outputs = inkFor.map(() => new Float32Array(capacity))
   let written = 0
   const reserve = (required: number): void => {
@@ -101,9 +107,9 @@ export function buildRibbonBandBatch(
         puddle: got.puddle ?? 1, pigmentPool: got.pigmentPool ?? 0.5 }
     })
 
-    const g0 = nibGeometry(d0, sizeMultiplier, shape, cornerFraction)
-    const g1 = nibGeometry(d1, sizeMultiplier, shape, cornerFraction)
-    const steps = poseSubdivisions(g0, g1)
+    const g0 = geometry?.[i] ?? nibGeometry(d0, sizeMultiplier, shape, cornerFraction)
+    const g1 = geometry?.[i + 1] ?? nibGeometry(d1, sizeMultiplier, shape, cornerFraction)
+    const steps = subdivisions?.[i] ?? poseSubdivisions(g0, g1)
     let priorPose = d0
     let priorGeometry = g0
 

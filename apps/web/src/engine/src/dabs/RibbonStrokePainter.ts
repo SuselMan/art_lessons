@@ -86,6 +86,7 @@ export class RibbonStrokePainter {
   /** QA: immutable used-prefix views avoid the final geometry copy. */
   diagnosticBandViews = false
   diagnosticReuseBandPoses = false
+  diagnosticBandExactCapacity = false
   /** Diagnostic scheduling only: account for source copies in sliced work. */
   diagnosticSourceCopySlices = false
   /** Solver uniforms use the radius recoverable from the recorded dabs. */
@@ -914,7 +915,7 @@ export class RibbonStrokePainter {
           inkFor,
           (d0, d1, travel) => ({ ...inkFor(d0, d1, travel), paperWet: wetOf(d1) }),
           (_d0, d1) => ({ ink: (waterByDab.get(d1) ?? 0) / 4, water: 1, paperWet: 0, strength: 0, puddle: 0, pigmentPool: 0 }),
-        ], film, this.diagnosticBandViews, this.diagnosticReuseBandPoses)
+        ], film, this.diagnosticBandViews, this.diagnosticReuseBandPoses, this.diagnosticBandExactCapacity)
       : null
     const bands = bandBatch?.[0] ?? (profile.stampsOnly ? EMPTY_BANDS : buildRibbonBands(
       drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, inkFor, film,

@@ -12,8 +12,8 @@ const materials: RibbonBandMaterialFor[] = [
   (_a, d) => ({ ink: d.pressure * .193 / 4, water: 1, paperWet: 0, strength: 0, puddle: 0, pigmentPool: 0 }),
 ]
 function exact(dabs: Dab[], previous: Dab | undefined, shape: NibShape, film: boolean, scale: number) {
-  for (const views of [false, true]) for (const reuse of [false, true]) {
-  const actual = buildRibbonBandBatch(dabs, scale, previous, shape, .23, .71, materials, film, views, reuse)
+  for (const views of [false, true]) for (const reuse of [false, true]) for (const exactCapacity of [false, true]) {
+  const actual = buildRibbonBandBatch(dabs, scale, previous, shape, .23, .71, materials, film, views, reuse, exactCapacity)
   expect(actual.length).toBe(3)
   for (let i = 0; i < materials.length; i++) {
     const baseline = buildRibbonBands(dabs, scale, previous, shape, .23, .71, materials[i], film)

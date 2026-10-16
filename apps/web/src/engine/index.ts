@@ -1643,6 +1643,10 @@ export class PencilEngine implements PencilEngineAPI {
   private _reviewInputPriority = false
   private _reviewProgressivePresentation = false
   private _wetRect: [number, number, number, number] = [0, 0, -1, -1]
+  /** QA-only display raster cap; canonical PaperWet and pigment are unchanged. */
+  diagnosticWetOverlayCap = 160
+  diagnosticWatercolorLiftSteps = 8
+  diagnosticNativeFieldMinimum = 1536
   private _wetTexAt = 0
   private _wetOverlayWorkspace: WetOverlayWorkspace | null = null
   /** Texels of the wetness map, so the display pass can read its slope. */
@@ -6448,7 +6452,7 @@ export class PencilEngine implements PencilEngineAPI {
       // purpose: the repeats copy the already-tapered last dab, so the pool
       // sits at the tip's real width instead of re-widening it.
       applyWatercolorPooling(dabs, e.speed, ribbonProfileFor('watercolor', this._strokePreset).waterLevel)
-      appendWatercolorLift(dabs, this._strokeChunkTail ? [this._strokeChunkTail, ...this._strokeDabs] : this._strokeDabs)
+      appendWatercolorLift(dabs, this._strokeChunkTail ? [this._strokeChunkTail, ...this._strokeDabs] : this._strokeDabs, this._watercolorReview ? Math.max(4, Math.min(8, Math.floor(this.diagnosticWatercolorLiftSteps) || 8)) : 8)
     }
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
     if (this._ribbonStrokeScratch && !this._wcAsyncLocalStroke) this._finishRibbonStroke(this._ribbonStrokeScratch, true)
@@ -8193,7 +8197,8 @@ export class PencilEngine implements PencilEngineAPI {
     // it lands first, before the field is cleared or replaced under it.
     if (this._settle) this._completeSettle()
     // v2 changes the recorded field extent, not the cell scale or old models.
-    const minimum = compact === 'tight' && scale === 2 ? WC_FIELD_PX / 3 : (compact || this._settlePlan.diagnosticCoarseTransport) && scale === 2 ? WC_FIELD_PX / 2 : WC_FIELD_PX
+    const nativeMinimum = this._watercolorReview ? Math.max(256, Math.min(WC_FIELD_PX, Math.floor(this.diagnosticNativeFieldMinimum) || WC_FIELD_PX)) : WC_FIELD_PX
+    const minimum = compact === 'tight' && scale === 2 ? WC_FIELD_PX / 3 : (compact || this._settlePlan.diagnosticCoarseTransport) && scale === 2 ? WC_FIELD_PX / 2 : nativeMinimum
     const need = (n: number): number => Math.max(minimum, Math.ceil(n / 256) * 256)
     const W = need(w), H = need(h)
     // (#536, ADR 011 §17.49) EXACTLY this settle's size, never a larger field
@@ -9173,7 +9178,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (!bounds.length) { this._wetRect = [0, 0, -1, -1]; return }
     const b = { minCx: Math.min(...bounds.map(b => b.minCx)), minCy: Math.min(...bounds.map(b => b.minCy)),
       maxCx: Math.max(...bounds.map(b => b.maxCx)), maxCy: Math.max(...bounds.map(b => b.maxCy)) }
-    const CAP = 160
+    const CAP = this._watercolorReview ? Math.max(16, Math.min(160, Math.floor(this.diagnosticWetOverlayCap) || 160)) : 160
     const cols = b.maxCx - b.minCx + 1
     const rows = b.maxCy - b.minCy + 1
     const step = Math.max(1, Math.ceil(Math.max(cols, rows) / CAP))

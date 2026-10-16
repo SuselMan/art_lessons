@@ -5,7 +5,7 @@ import type { Dab } from '@grafetto/shared'
  *  already painted; carry the tip a short distance along its incoming direction.
  *  Ignore sub-pixel jitter during the pause before lift. A tap has no direction
  *  to drag along and remains a pool. */
-export function appendWatercolorLift(pending: Dab[], recorded: readonly Dab[]): void {
+export function appendWatercolorLift(pending: Dab[], recorded: readonly Dab[], steps = 8): void {
   const last = pending.at(-1) ?? recorded.at(-1)
   if (!last) return
   const points = [...recorded, ...pending]
@@ -28,10 +28,10 @@ export function appendWatercolorLift(pending: Dab[], recorded: readonly Dab[]): 
   // the sparse hairs. Width still falls, so no full-size oval is attached.
   // A lift separates bundles immediately, even if hardware pressure stays high.
   // The final zero-contact dab makes this a complete lift in the stored log.
-  for (let i = 1; i <= 8; i++) {
-    const u = i / 8
+  for (let i = 1; i <= steps; i++) {
+    const u = i / steps
     pending.push({ ...last, size: size * (1 - 0.55 * u), x: last.x + dx / length * travel * u,
       y: last.y + dy / length * travel * u, pressure: Math.min(last.pressure, 0.055) * (1 - u),
-      t: last.t + i * 2 })
+      t: last.t + u * 16 })
   }
 }
