@@ -20,3 +20,13 @@ Evidence: temp/device-runs/745-final3-load100/loading-report.json, normal.png.
 Own fixture retained: qa-undo-v1-7d6c3a43-37f9-46a3-8435-e889c346bafa.
 Auth private, not committed. Hardware contexts closed. Follow-up should inspect
 actual historyIDs and pending flags before assigning product severity.
+
+Уточнение после повторной диагностики (runtime2f52616d): фактически log102,
+нехватающие5strokes inputseq2..6; все repair/jobs/queue/puddle.pending пусты.
+Обычный backfill намеренно ограничен100ops (`HISTORY_BACKFILL_DEPTH`), а снимок
+достигаетseq107. Backend API сохраняет107ops, room_state содержит6tailmeta,
+индекс слоя покрываетseq107. Поэтому strict raw-ID gate слишком строг для
+этой комнаты: timeout пока не доказывает дефект продукта. Новый loading gate
+требует присутствие каждого op либо **для stroke** позитивное подтверждение
+restored SnapshotLedger.isCovered(layerId,serverSeq); все meta обязаны быть
+в журнале. Следующий аппаратный повтор сохранит ledger и omittedCoveredIDs.
