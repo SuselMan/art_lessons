@@ -37,15 +37,27 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
     const queried = new Set<string>()
     // Targets may have left resident RAM at snapshot upload/cold load. Resolve
     // only referenced ids, not the room's heavy covered stroke population.
-    while (true) {
-      const missing = [...byId.values()].filter(op => HISTORY_TYPES.includes(op.type)
-        && ((op.seq ?? 0) > stored.seq || !candidates.length || (op.seq ?? 0) > Math.min(...candidates.map(s => s.seq))))
-        .flatMap(op => 'targetOpId' in op && !byId.has(op.targetOpId) && !queried.has(op.targetOpId) ? [op.targetOpId] : [])
-      if (!missing.length) break
-      for (const id of missing) queried.add(id)
-      const targets = await prisma.operation.findMany({ where: { roomId, id: { in: missing } }, select: { data: true } })
-      for (const { data } of targets) { const op = data as Operation; byId.set(op.id, op) }
+    const resolveHistoryTargets = async (): Promise<void> => {
+      while (true) {
+        const missing = new Set<string>()
+        const visit = (op: Operation, seen: Set<string>): void => {
+          if (!HISTORY_TYPES.includes(op.type) || !('targetOpId' in op) || seen.has(op.id)) return
+          seen.add(op.id)
+          const target = byId.get(op.targetOpId)
+          if (target) visit(target, seen)
+          else if (!queried.has(op.targetOpId)) missing.add(op.targetOpId)
+        }
+        for (const op of byId.values()) if (HISTORY_TYPES.includes(op.type)
+          && ((op.seq ?? 0) > stored.seq || !candidates.length || (op.seq ?? 0) > Math.min(...candidates.map(s => s.seq)))) {
+          visit(op, new Set())
+        }
+        if (!missing.size) return
+        for (const id of missing) queried.add(id)
+        const targets = await prisma.operation.findMany({ where: { roomId, id: { in: [...missing] } }, select: { data: true } })
+        for (const { data } of targets) { const op = data as Operation; byId.set(op.id, op) }
+      }
     }
+    await resolveHistoryTargets()
     let plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
     if (plan.replayStructure) {
       const prefix = await prisma.operation.findMany({
@@ -53,6 +65,7 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
         orderBy: { seq: 'asc' }, select: { data: true },
       })
       for (const { data } of prefix) { const op = data as Operation; byId.set(op.id, op) }
+      await resolveHistoryTargets()
       // Legacy snapshot-only roots have no recoverable original structural
       // base. Never guess that base from currently alive layers.
       const created = new Set(IMPLICIT_LAYER_IDS)
@@ -81,6 +94,9 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
         byId.set(op.id, op)
         if ((op.seq ?? 0) <= (stored?.seq ?? 0)) historicalIds.add(op.id)
       }
+      // A layer-history query also includes room-wide undo/redo records.
+      // Their targets may belong to another layer not loaded by that query.
+      await resolveHistoryTargets()
       plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
     }
     if (plan.unresolvedTargets.size) throw new Error('Unresolved snapshot history dependency')

@@ -101,3 +101,34 @@ it('refuses an unknown snapshot-only structural base instead of manufacturing la
   mocks.operations.mockResolvedValue([{data:del},{data:u}])
   await expect(prepareSnapshotReplay('room')).rejects.toThrow('structural base cannot be reconstructed')
 })
+
+it('resolves newly discovered foreign-layer undo targets after loading dry history', async () => {
+  const dry: Operation = {id: 'dry3', type: 'paper_dry', layerId: 'L', seq: 3, timestamp: 3, userId: 'A'}
+  const undoDry: Operation = {id: 'undoDry6', type: 'operation_undo', targetOpId: dry.id, seq: 6, timestamp: 6, userId: 'A'}
+  const foreign = {...stroke('foreign4', 4), layerId: 'safe'}
+  const undoForeign: Operation = {id: 'undoForeign7', type: 'operation_undo', targetOpId: foreign.id, seq: 7, timestamp: 7, userId: 'A'}
+  const all = [stroke('first', 1), dry, foreign, undoDry, undoForeign]
+  mocks.rooms.set('room', {nextSeq: 8, operations: [dry, undoDry], aliveIds: new Set(['L','safe'])})
+  mocks.operations.mockImplementation(async ({where}) => {
+    if(where.id) return all.filter(op => where.id.in.includes(op.id)).map(data => ({data}))
+    const wanted = where.OR?.[0]?.layerId?.in ?? []
+    return all.filter(op => ('layerId' in op && wanted.includes(op.layerId))
+      || op.type === 'paper_dry' || op.type === 'operation_undo').map(data => ({data}))
+  })
+  const p = await prepareSnapshotReplay('room')
+  expect(p.unresolvedTargets.size).toBe(0)
+  expect(p.historyLayers).toEqual(new Set(['L','safe']))
+  expect(p.operations.map(op=>op.id)).toContain(foreign.id)
+  expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({where:{roomId:'room', id:{in:[foreign.id]}}}))
+})
+
+it('resolves an old meta target chain referenced by a new redo', async () => {
+  const oldUndo: Operation = {id:'oldUndo4', type:'operation_undo', targetOpId:'colour3', seq:4, timestamp:4, userId:'A'}
+  const newRedo: Operation = {id:'newRedo6', type:'operation_redo', targetOpId:oldUndo.id, seq:6, timestamp:6, userId:'A'}
+  const all = [stroke('colour3',3),oldUndo,newRedo]
+  mocks.rooms.set('room', {nextSeq:7,operations:[newRedo],aliveIds:new Set(['L','safe'])})
+  mocks.operations.mockImplementation(async ({where}) => (where.id?all.filter(op=>where.id.in.includes(op.id)):all).map(data=>({data})))
+  const p=await prepareSnapshotReplay('room')
+  expect(p.unresolvedTargets.size).toBe(0)
+  expect(p.operations.map(op=>op.id)).toContain('colour3')
+})
