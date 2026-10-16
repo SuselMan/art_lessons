@@ -76,7 +76,12 @@ export class StructuralOps {
     // back from the snapshot, and `mergeLive` would replace that
     // buffer with a freshly composited one, discarding them.
     if (this.ctx.ledger.isCovered(op.layerId, op.seq)) this.mergeStructuralOnly(op)
-    else this.mergeLive(op)
+    else {
+      // Coverage uses the wire/server seq above. Historical replay uses the
+      // journal's local order, including a just-appended pending local op.
+      const recorded = this.ctx.log().entries.find(entry => entry.op.id === op.id)?.op
+      this.mergeLive(recorded?.type === 'layer_merge' ? recorded : op)
+    }
   }
 
   /** A duplicate arriving through appendOperation. */
@@ -87,7 +92,10 @@ export class StructuralOps {
     // it discards whatever was painted on the copy after the duplicate, and
     // the source itself has moved on since.
     if (this.ctx.ledger.isCovered(op.layerId, op.seq)) this.duplicateStructuralOnly(op)
-    else this.duplicateLive(op)
+    else {
+      const recorded = this.ctx.log().entries.find(entry => entry.op.id === op.id)?.op
+      this.duplicateLive(recorded?.type === 'layer_duplicate' ? recorded : op)
+    }
   }
 
   /** Replays a merge: rebuilds each source as it was just before the merge

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { LayerDuplicateOperation, LayerMergeOperation } from '@grafetto/shared'
+import type { LayerDuplicateOperation, LayerMergeOperation, Operation } from '@grafetto/shared'
 import type { ILayerBuffer, PaintTarget } from '../buffers/ILayerBuffer'
 import { StructuralOps, type StructuralOpsContext } from './structuralOps'
 
@@ -12,13 +12,14 @@ function setup() {
   const layers=new Map([['S',buffer('S')],['T',buffer('T')]])
   let temp=0
   const composite=vi.fn()
-  const ctx={ledger:{isCovered:()=>false,markDirty:vi.fn()},log:()=>({layerPixelOps:()=>[]}),
+  const log={entries:[] as Array<{op:Operation;state:'done'}>,layerPixelOps:vi.fn(()=>[])}
+  const ctx={ledger:{isCovered:()=>false,markDirty:vi.fn()},log:()=>log,
     layer:(id:string)=>layers.get(id),hasLayer:(id:string)=>layers.has(id),setLayer:(id:string,b:ILayerBuffer)=>layers.set(id,b),
     makeLayerBuffer:(id?:string)=>buffer(id??'temp'+(++temp)),createBuffer:vi.fn(),destroyBuffer:(id:string)=>layers.delete(id),
     replayInto:vi.fn(),canonicalTiles:(source:ILayerBuffer)=>[{...source.allResident()[0],buffer:{...source.allResident()[0].buffer,texture:'canonical-target'}}],
     releaseReplaySource:()=>events.push('release'),compositeTextures:composite,takeCheckpoint:vi.fn(),invalidateSplitCache:vi.fn(),displayIfNotSuspended:vi.fn(),
   } as unknown as StructuralOpsContext
-  return{ops:new StructuralOps(ctx),ctx,events,layers,composite,buffer}
+  return{ops:new StructuralOps(ctx),ctx,events,layers,composite,buffer,log}
 }
 
 describe('structural material reads',()=>{
@@ -81,6 +82,37 @@ describe('provisional source order',()=>{
   it('keeps the canonical live fast path when both sources are already ordered',()=>{
     const {ops,ctx}=setup();ctx.sourceNeedsReplay=()=>false
     ops.execDuplicate(duplicate);ops.execMerge(merge)
+    expect(ctx.replayInto).not.toHaveBeenCalled()
+  })
+})
+
+describe('wire seq versus local structural cutoff',()=>{
+  it('uses the recorded local position for a pending merge with no wire seq',()=>{
+    const {ops,ctx,log}=setup();ctx.sourceNeedsReplay=()=>true
+    log.entries.push({op:{...merge,seq:4},state:'done'})
+    ops.execMerge(merge)
+    expect(ctx.replayInto).toHaveBeenCalledWith(expect.anything(),'S',[],4)
+    expect(ctx.replayInto).toHaveBeenLastCalledWith(expect.anything(),'T',[],4)
+  })
+  it('uses the recorded local position for a pending duplicate with no wire seq',()=>{
+    const {ops,ctx,log}=setup();ctx.sourceNeedsReplay=()=>true
+    log.entries.push({op:{...duplicate,seq:3},state:'done'})
+    ops.execDuplicate(duplicate)
+    expect(ctx.replayInto).toHaveBeenCalledExactlyOnceWith(expect.anything(),'S',[],3)
+  })
+  it('checks snapshot coverage at server seq but replays at the recorded local cutoff',()=>{
+    const {ops,ctx,log}=setup();ctx.sourceNeedsReplay=()=>true
+    const covered=vi.spyOn(ctx.ledger,'isCovered')
+    log.entries.push({op:{...duplicate,seq:3},state:'done'})
+    ops.execDuplicate({...duplicate,seq:50})
+    expect(covered).toHaveBeenCalledExactlyOnceWith('D',50)
+    expect(ctx.replayInto).toHaveBeenCalledExactlyOnceWith(expect.anything(),'S',[],3)
+  })
+  it('retains a covered merge snapshot without replay even when its source needs ordering',()=>{
+    const {ops,ctx,log}=setup();ctx.sourceNeedsReplay=()=>true
+    log.entries.push({op:{...merge,seq:4},state:'done'})
+    vi.spyOn(ctx.ledger,'isCovered').mockReturnValue(true)
+    ops.execMerge({...merge,seq:50})
     expect(ctx.replayInto).not.toHaveBeenCalled()
   })
 })
