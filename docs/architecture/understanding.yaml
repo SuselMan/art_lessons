@@ -260,6 +260,17 @@ topics:
     title: Акварель
     adr: [011-watercolor]
 
+  - id: watercolor-residency
+    issue: 763
+    level: 3
+    parent: layers-and-tiles
+    title: Мокрый материал и ограниченный GPU-кеш слоёв
+    why: >-
+      Вытеснение GPU-текстур не является сушкой; источник воды и канонический
+      материал сохраняются по журналу независимо от размещения буферов.
+      Незавершённый генератор нельзя парковать как неактивный источник.
+    modules: [apps/web/src/engine/src/buffers, apps/web/src/engine/src/oplog, apps/web/src/engine]
+
   - id: boards-and-class
     level: 3
     parent: rooms-in-memory
