@@ -6318,14 +6318,28 @@ export class PencilEngine implements PencilEngineAPI {
     const m70Stroke=this._opts.tool==='watercolor' && this._watercolorModel==='m70-r2-v1'
     // Reject before allocating gesture state: subsequent MOVE/UP must be no-ops.
     if(m70Stroke && !this._m70GeometrySupported())throw new Error('M70 QA needs a square page up to 1024px')
+    const eraseIds=this._opts.tool==='eraser'
+      ? [...new Set([layerId,...this._eraseThroughIds.filter(id=>this._layers.has(id))])] : []
+    // Cross-layer erasing is atomic with respect to missing material history:
+    // validate every destination before the first ordinary dry pixel is erased.
+    for(const id of eraseIds){
+      if(this.isSnapshotHistoryRepairPending(id))return
+      try{this._puddle?.assertMaterialReady(this._layers.get(id)!)}catch(error){
+        if(!(error instanceof MaterialHistoryNotReady))throw error
+        this._snapshotIO.requireMaterialHistory(id)
+        this._onSnapshotHistoryRepairNeeded?.()
+        return
+      }
+    }
     // An accepted Dry must land before this stroke, rather than dropping DOWN.
     // Only closing layers are committed; peer operations remain queued.
     this._puddle?.finishDrying()
-    if(m70Stroke && this._puddle){
-      const target=this._layers.get(layerId)!
+    const materialIds=m70Stroke ? [layerId] : eraseIds.filter(id=>this._puddle?.has(this._layers.get(id)!))
+    for(const materialId of materialIds)if(this._puddle){
+      const target=this._layers.get(materialId)!
       try { this._puddle.assertSourceAvailable(target) }
       catch(error){
-        if(error instanceof MaterialHistoryNotReady){this._snapshotIO.requireMaterialHistory(layerId);this._onSnapshotHistoryRepairNeeded?.();return}
+        if(error instanceof MaterialHistoryNotReady){this._snapshotIO.requireMaterialHistory(materialId);this._onSnapshotHistoryRepairNeeded?.();return}
         if(!(error instanceof MaterialSourceBusy))throw error
         // Explicit cancellation closes the suspended generator before any texture
         // goes away. Its journal is replayed after the local gesture finishes.
