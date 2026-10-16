@@ -70,3 +70,23 @@ it('includes layer-transform material in the proof, not only layerId operations'
   apply(log,undo('transform'))
   expect(closed.canonicalValid()).toBe(false)
 })
+
+it('rejects three-author dependency changes on either side of a dry boundary',()=>{
+  const log=new OperationLog()
+  apply(log,stroke('water','A'));apply(log,stroke('blue','B'));apply(log,stroke('yellow','C'));apply(log,dry)
+  const colored=proof(log)!
+  apply(log,undo('water','A'))
+  expect(colored.canonicalValid()).toBe(false)
+  const effective=()=>log.watercolorEffectiveOperations().filter((op):op is StrokeOperation=>op.type==='stroke')
+  expect(effective().find(op=>op.id==='water')?.preset.split(':')[2]).toBe('0')
+  const retained=proof(log)!
+  apply(log,stroke('after-dry','C'))
+  expect(retained.canonicalValid()).toBe(true)
+  apply(log,undo('blue','B'))
+  expect(retained.canonicalValid()).toBe(false)
+  // C's earlier contribution still protects A's historical water.
+  expect(effective().some(op=>op.id==='water')).toBe(true)
+  apply(log,undo('yellow','C'))
+  // C's new post-dry stroke cannot adopt water lost in the old epoch.
+  expect(effective().some(op=>op.id==='water')).toBe(false)
+})
