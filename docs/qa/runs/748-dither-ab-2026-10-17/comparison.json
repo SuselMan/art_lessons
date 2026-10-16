@@ -1,0 +1,169 @@
+{
+  "source": "1e521993",
+  "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+  "all8CasePass": true,
+  "sameDeviceRepeatAndABExact": true,
+  "rawGoalABSamePerDevice": true,
+  "crossGPU": [
+    {
+      "mode": "default",
+      "byteLength": 1048596,
+      "changedChannels": 2909,
+      "max": 14,
+      "over4": 137,
+      "over16": 0,
+      "alphaChanged": 934,
+      "exact": false,
+      "amdHash": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+      "intelHash": "2d5bebe503d733ede35a380a3e109b4a004a716d925a729c2d2045412cad501a"
+    },
+    {
+      "mode": "off",
+      "byteLength": 1048596,
+      "changedChannels": 2909,
+      "max": 14,
+      "over4": 137,
+      "over16": 0,
+      "alphaChanged": 934,
+      "exact": false,
+      "amdHash": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+      "intelHash": "2d5bebe503d733ede35a380a3e109b4a004a716d925a729c2d2045412cad501a"
+    }
+  ],
+  "crossGPURawAndGoal": [
+    {
+      "group": "raw",
+      "plane": "P",
+      "exact": false,
+      "amdHash": "576936f5e98fdbbd60f242209d588790daacdfb2364a32bf7b7addfe918b0075",
+      "intelHash": "69c9fd93afffd1b5a3816b8d8ee9bb668409a3cbc7efe26d43484d25b5bf0eab",
+      "sumAMD": [
+        602689,
+        602689,
+        430479,
+        602689
+      ],
+      "sumIntel": [
+        602819,
+        602819,
+        430634,
+        602819
+      ]
+    },
+    {
+      "group": "raw",
+      "plane": "C",
+      "exact": false,
+      "amdHash": "8b45312a7a4e4abad4e547b694a9e67c9293e4be407ddf218cb228cabf36ded0",
+      "intelHash": "172b87acabfd7d7e75166943a57f72461b3594166e0330c1dd628e0b54893692",
+      "sumAMD": [
+        204175,
+        112968,
+        24152,
+        430479
+      ],
+      "sumIntel": [
+        204268,
+        113012,
+        24157,
+        430634
+      ]
+    },
+    {
+      "group": "raw",
+      "plane": "coverage",
+      "exact": false,
+      "amdHash": "8a1a0d0020355f1af7564ecda66b42d7dda456bdb6a2629622424863a2fdea61",
+      "intelHash": "74e2cf664d0344b05586c7719d04f7273f711281528f60f995c63a2c5242aca7",
+      "sumAMD": [
+        500416,
+        34036,
+        1000958,
+        1000958
+      ],
+      "sumIntel": [
+        500614,
+        34093,
+        1000995,
+        1000995
+      ]
+    },
+    {
+      "group": "raw",
+      "plane": "solvent",
+      "exact": false,
+      "amdHash": "d712fc93e612fe7c418bffe4aec2194c49c8f1d721f2044949c00ac9e64fc951",
+      "intelHash": "5d6f5afe42675302f4b44b1c0c970e20299a6565d4e9754f049316d78947bcb0",
+      "sumAMD": [
+        238118,
+        0,
+        0,
+        238118
+      ],
+      "sumIntel": [
+        238125,
+        0,
+        0,
+        238125
+      ]
+    },
+    {
+      "group": "goal",
+      "plane": "p",
+      "exact": false,
+      "amdHash": "a246bc26e5a0d7fc54a3ae9a9d1706638a35eac50a97f89e8532c695c4489a59",
+      "intelHash": "4ecab540d5c75beed659d2c45584a7b38da7a316cf7ee34a3bf78f4141b0020a",
+      "sumAMD": [
+        576960,
+        576960,
+        413616,
+        576960
+      ],
+      "sumIntel": [
+        579143,
+        579143,
+        415258,
+        579143
+      ]
+    },
+    {
+      "group": "goal",
+      "plane": "c",
+      "exact": false,
+      "amdHash": "1d93695bbc6810d3a361e5c77a3f879fbb457f1e7cb1f038d91c2a56661f61bd",
+      "intelHash": "3f65746a433875f67cf15c4a6c33b6c50c0c51958d140eb527403a8ca1824ff4",
+      "sumAMD": [
+        193946,
+        107783,
+        19340,
+        413616
+      ],
+      "sumIntel": [
+        194699,
+        107992,
+        19379,
+        415258
+      ]
+    },
+    {
+      "group": "goal",
+      "plane": "coverage",
+      "exact": false,
+      "amdHash": "a482fa194b75f80694d25ed74bee10edb95a5944c2ee81bb2ed42c1e27b4d107",
+      "intelHash": "f9bcea5b75a15bc790826478ef4c180ae2fc7a5c60e2c25d038b22210a458ff6",
+      "sumAMD": [
+        500416,
+        34036,
+        0,
+        1000958
+      ],
+      "sumIntel": [
+        500614,
+        34093,
+        0,
+        1000995
+      ]
+    }
+  ],
+  "result": "DITHER off has zero effect in either GPU on this input, including raw/goal planes; original crossGPU divergence remains. Not a fix; no approvedsolver changes."
+}

@@ -1,0 +1,722 @@
+{
+  "source": "1e521993",
+  "device": "surface",
+  "cases": [
+    {
+      "source": "1e521993",
+      "mode": "default",
+      "repeat": 1,
+      "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+      "scope": "Canonical dry live target after exact five remote recorded ops; no replay oracle, no network echo",
+      "errors": [],
+      "identity": {
+        "model": "m70-r2-v1",
+        "page": {
+          "w": 512,
+          "h": 512
+        },
+        "DPR": 1.0000000298023224,
+        "gpuBudget": "Infinity",
+        "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "dither": true,
+        "earlyContexts": [
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": true
+          },
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": true
+          },
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": true
+          },
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": true
+          }
+        ],
+        "initialOperations": 0
+      },
+      "raw": {
+        "available": true,
+        "raw": {
+          "P": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "69c9fd93afffd1b5a3816b8d8ee9bb668409a3cbc7efe26d43484d25b5bf0eab",
+            "nonzero": 16315,
+            "sum": [
+              602819,
+              602819,
+              430634,
+              602819
+            ]
+          },
+          "C": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "172b87acabfd7d7e75166943a57f72461b3594166e0330c1dd628e0b54893692",
+            "nonzero": 16247,
+            "sum": [
+              204268,
+              113012,
+              24157,
+              430634
+            ]
+          },
+          "coverage": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "74e2cf664d0344b05586c7719d04f7273f711281528f60f995c63a2c5242aca7",
+            "nonzero": 13713,
+            "sum": [
+              500614,
+              34093,
+              1000995,
+              1000995
+            ]
+          },
+          "solvent": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "5d6f5afe42675302f4b44b1c0c970e20299a6565d4e9754f049316d78947bcb0",
+            "nonzero": 8164,
+            "sum": [
+              238125,
+              0,
+              0,
+              238125
+            ]
+          },
+          "foreignSolvent": null
+        },
+        "goal": {
+          "p": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "4ecab540d5c75beed659d2c45584a7b38da7a316cf7ee34a3bf78f4141b0020a",
+            "nonzero": 16331,
+            "sum": [
+              579143,
+              579143,
+              415258,
+              579143
+            ]
+          },
+          "c": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "3f65746a433875f67cf15c4a6c33b6c50c0c51958d140eb527403a8ca1824ff4",
+            "nonzero": 16293,
+            "sum": [
+              194699,
+              107992,
+              19379,
+              415258
+            ]
+          },
+          "coverage": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "f9bcea5b75a15bc790826478ef4c180ae2fc7a5c60e2c25d038b22210a458ff6",
+            "nonzero": 9607,
+            "sum": [
+              500614,
+              34093,
+              0,
+              1000995
+            ]
+          }
+        },
+        "glError": 0,
+        "glErrorAfter": 0
+      },
+      "target": {
+        "length": 1048596,
+        "hash": "2d5bebe503d733ede35a380a3e109b4a004a716d925a729c2d2045412cad501a",
+        "dither": true,
+        "glError": 0,
+        "journal": [
+          {
+            "id": "ef5c3073-e28f-440f-8f97-bb76ae0a4c5b",
+            "type": "layer_add",
+            "state": "done"
+          },
+          {
+            "id": "iS6idSqAMt",
+            "type": "stroke",
+            "state": "gone",
+            "goneReason": "branch"
+          },
+          {
+            "id": "GCVQWfoOpu",
+            "type": "stroke",
+            "state": "done"
+          },
+          {
+            "id": "QnUxLiRc8c",
+            "type": "operation_undo",
+            "state": "done"
+          },
+          {
+            "id": "8de683fb-8e34-47bc-aa6d-024bb99390af",
+            "type": "paper_dry",
+            "state": "done"
+          }
+        ]
+      },
+      "pass": true
+    },
+    {
+      "source": "1e521993",
+      "mode": "default",
+      "repeat": 2,
+      "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+      "scope": "Canonical dry live target after exact five remote recorded ops; no replay oracle, no network echo",
+      "errors": [],
+      "identity": {
+        "model": "m70-r2-v1",
+        "page": {
+          "w": 512,
+          "h": 512
+        },
+        "DPR": 1.0000000298023224,
+        "gpuBudget": "Infinity",
+        "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "dither": true,
+        "earlyContexts": [
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": true
+          },
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": true
+          },
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": true
+          },
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": true
+          }
+        ],
+        "initialOperations": 0
+      },
+      "raw": {
+        "available": true,
+        "raw": {
+          "P": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "69c9fd93afffd1b5a3816b8d8ee9bb668409a3cbc7efe26d43484d25b5bf0eab",
+            "nonzero": 16315,
+            "sum": [
+              602819,
+              602819,
+              430634,
+              602819
+            ]
+          },
+          "C": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "172b87acabfd7d7e75166943a57f72461b3594166e0330c1dd628e0b54893692",
+            "nonzero": 16247,
+            "sum": [
+              204268,
+              113012,
+              24157,
+              430634
+            ]
+          },
+          "coverage": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "74e2cf664d0344b05586c7719d04f7273f711281528f60f995c63a2c5242aca7",
+            "nonzero": 13713,
+            "sum": [
+              500614,
+              34093,
+              1000995,
+              1000995
+            ]
+          },
+          "solvent": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "5d6f5afe42675302f4b44b1c0c970e20299a6565d4e9754f049316d78947bcb0",
+            "nonzero": 8164,
+            "sum": [
+              238125,
+              0,
+              0,
+              238125
+            ]
+          },
+          "foreignSolvent": null
+        },
+        "goal": {
+          "p": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "4ecab540d5c75beed659d2c45584a7b38da7a316cf7ee34a3bf78f4141b0020a",
+            "nonzero": 16331,
+            "sum": [
+              579143,
+              579143,
+              415258,
+              579143
+            ]
+          },
+          "c": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "3f65746a433875f67cf15c4a6c33b6c50c0c51958d140eb527403a8ca1824ff4",
+            "nonzero": 16293,
+            "sum": [
+              194699,
+              107992,
+              19379,
+              415258
+            ]
+          },
+          "coverage": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "f9bcea5b75a15bc790826478ef4c180ae2fc7a5c60e2c25d038b22210a458ff6",
+            "nonzero": 9607,
+            "sum": [
+              500614,
+              34093,
+              0,
+              1000995
+            ]
+          }
+        },
+        "glError": 0,
+        "glErrorAfter": 0
+      },
+      "target": {
+        "length": 1048596,
+        "hash": "2d5bebe503d733ede35a380a3e109b4a004a716d925a729c2d2045412cad501a",
+        "dither": true,
+        "glError": 0,
+        "journal": [
+          {
+            "id": "ef5c3073-e28f-440f-8f97-bb76ae0a4c5b",
+            "type": "layer_add",
+            "state": "done"
+          },
+          {
+            "id": "iS6idSqAMt",
+            "type": "stroke",
+            "state": "gone",
+            "goneReason": "branch"
+          },
+          {
+            "id": "GCVQWfoOpu",
+            "type": "stroke",
+            "state": "done"
+          },
+          {
+            "id": "QnUxLiRc8c",
+            "type": "operation_undo",
+            "state": "done"
+          },
+          {
+            "id": "8de683fb-8e34-47bc-aa6d-024bb99390af",
+            "type": "paper_dry",
+            "state": "done"
+          }
+        ]
+      },
+      "pass": true
+    },
+    {
+      "source": "1e521993",
+      "mode": "off",
+      "repeat": 1,
+      "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+      "scope": "Canonical dry live target after exact five remote recorded ops; no replay oracle, no network echo",
+      "errors": [],
+      "identity": {
+        "model": "m70-r2-v1",
+        "page": {
+          "w": 512,
+          "h": 512
+        },
+        "DPR": 1.0000000298023224,
+        "gpuBudget": "Infinity",
+        "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "dither": false,
+        "earlyContexts": [
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": false
+          },
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": false
+          },
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": false
+          },
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": false
+          }
+        ],
+        "initialOperations": 0
+      },
+      "raw": {
+        "available": true,
+        "raw": {
+          "P": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "69c9fd93afffd1b5a3816b8d8ee9bb668409a3cbc7efe26d43484d25b5bf0eab",
+            "nonzero": 16315,
+            "sum": [
+              602819,
+              602819,
+              430634,
+              602819
+            ]
+          },
+          "C": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "172b87acabfd7d7e75166943a57f72461b3594166e0330c1dd628e0b54893692",
+            "nonzero": 16247,
+            "sum": [
+              204268,
+              113012,
+              24157,
+              430634
+            ]
+          },
+          "coverage": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "74e2cf664d0344b05586c7719d04f7273f711281528f60f995c63a2c5242aca7",
+            "nonzero": 13713,
+            "sum": [
+              500614,
+              34093,
+              1000995,
+              1000995
+            ]
+          },
+          "solvent": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "5d6f5afe42675302f4b44b1c0c970e20299a6565d4e9754f049316d78947bcb0",
+            "nonzero": 8164,
+            "sum": [
+              238125,
+              0,
+              0,
+              238125
+            ]
+          },
+          "foreignSolvent": null
+        },
+        "goal": {
+          "p": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "4ecab540d5c75beed659d2c45584a7b38da7a316cf7ee34a3bf78f4141b0020a",
+            "nonzero": 16331,
+            "sum": [
+              579143,
+              579143,
+              415258,
+              579143
+            ]
+          },
+          "c": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "3f65746a433875f67cf15c4a6c33b6c50c0c51958d140eb527403a8ca1824ff4",
+            "nonzero": 16293,
+            "sum": [
+              194699,
+              107992,
+              19379,
+              415258
+            ]
+          },
+          "coverage": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "f9bcea5b75a15bc790826478ef4c180ae2fc7a5c60e2c25d038b22210a458ff6",
+            "nonzero": 9607,
+            "sum": [
+              500614,
+              34093,
+              0,
+              1000995
+            ]
+          }
+        },
+        "glError": 0,
+        "glErrorAfter": 0
+      },
+      "target": {
+        "length": 1048596,
+        "hash": "2d5bebe503d733ede35a380a3e109b4a004a716d925a729c2d2045412cad501a",
+        "dither": false,
+        "glError": 0,
+        "journal": [
+          {
+            "id": "ef5c3073-e28f-440f-8f97-bb76ae0a4c5b",
+            "type": "layer_add",
+            "state": "done"
+          },
+          {
+            "id": "iS6idSqAMt",
+            "type": "stroke",
+            "state": "gone",
+            "goneReason": "branch"
+          },
+          {
+            "id": "GCVQWfoOpu",
+            "type": "stroke",
+            "state": "done"
+          },
+          {
+            "id": "QnUxLiRc8c",
+            "type": "operation_undo",
+            "state": "done"
+          },
+          {
+            "id": "8de683fb-8e34-47bc-aa6d-024bb99390af",
+            "type": "paper_dry",
+            "state": "done"
+          }
+        ]
+      },
+      "pass": true
+    },
+    {
+      "source": "1e521993",
+      "mode": "off",
+      "repeat": 2,
+      "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+      "scope": "Canonical dry live target after exact five remote recorded ops; no replay oracle, no network echo",
+      "errors": [],
+      "identity": {
+        "model": "m70-r2-v1",
+        "page": {
+          "w": 512,
+          "h": 512
+        },
+        "DPR": 1.0000000298023224,
+        "gpuBudget": "Infinity",
+        "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "dither": false,
+        "earlyContexts": [
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": false
+          },
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": false
+          },
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": false
+          },
+          {
+            "kind": "webgl",
+            "before": true,
+            "after": false
+          }
+        ],
+        "initialOperations": 0
+      },
+      "raw": {
+        "available": true,
+        "raw": {
+          "P": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "69c9fd93afffd1b5a3816b8d8ee9bb668409a3cbc7efe26d43484d25b5bf0eab",
+            "nonzero": 16315,
+            "sum": [
+              602819,
+              602819,
+              430634,
+              602819
+            ]
+          },
+          "C": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "172b87acabfd7d7e75166943a57f72461b3594166e0330c1dd628e0b54893692",
+            "nonzero": 16247,
+            "sum": [
+              204268,
+              113012,
+              24157,
+              430634
+            ]
+          },
+          "coverage": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "74e2cf664d0344b05586c7719d04f7273f711281528f60f995c63a2c5242aca7",
+            "nonzero": 13713,
+            "sum": [
+              500614,
+              34093,
+              1000995,
+              1000995
+            ]
+          },
+          "solvent": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "5d6f5afe42675302f4b44b1c0c970e20299a6565d4e9754f049316d78947bcb0",
+            "nonzero": 8164,
+            "sum": [
+              238125,
+              0,
+              0,
+              238125
+            ]
+          },
+          "foreignSolvent": null
+        },
+        "goal": {
+          "p": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "4ecab540d5c75beed659d2c45584a7b38da7a316cf7ee34a3bf78f4141b0020a",
+            "nonzero": 16331,
+            "sum": [
+              579143,
+              579143,
+              415258,
+              579143
+            ]
+          },
+          "c": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "3f65746a433875f67cf15c4a6c33b6c50c0c51958d140eb527403a8ca1824ff4",
+            "nonzero": 16293,
+            "sum": [
+              194699,
+              107992,
+              19379,
+              415258
+            ]
+          },
+          "coverage": {
+            "width": 512,
+            "height": 512,
+            "bytes": 1048576,
+            "hash": "f9bcea5b75a15bc790826478ef4c180ae2fc7a5c60e2c25d038b22210a458ff6",
+            "nonzero": 9607,
+            "sum": [
+              500614,
+              34093,
+              0,
+              1000995
+            ]
+          }
+        },
+        "glError": 0,
+        "glErrorAfter": 0
+      },
+      "target": {
+        "length": 1048596,
+        "hash": "2d5bebe503d733ede35a380a3e109b4a004a716d925a729c2d2045412cad501a",
+        "dither": false,
+        "glError": 0,
+        "journal": [
+          {
+            "id": "ef5c3073-e28f-440f-8f97-bb76ae0a4c5b",
+            "type": "layer_add",
+            "state": "done"
+          },
+          {
+            "id": "iS6idSqAMt",
+            "type": "stroke",
+            "state": "gone",
+            "goneReason": "branch"
+          },
+          {
+            "id": "GCVQWfoOpu",
+            "type": "stroke",
+            "state": "done"
+          },
+          {
+            "id": "QnUxLiRc8c",
+            "type": "operation_undo",
+            "state": "done"
+          },
+          {
+            "id": "8de683fb-8e34-47bc-aa6d-024bb99390af",
+            "type": "paper_dry",
+            "state": "done"
+          }
+        ]
+      },
+      "pass": true
+    }
+  ],
+  "sameDeviceRepeatExact": true,
+  "defaultVersusOffExact": true,
+  "rawAndGoalAllFourExact": true,
+  "scopeLimit": "Single original five-operation512fine input. No latency measurement or application source change."
+}
