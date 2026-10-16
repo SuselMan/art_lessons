@@ -38,7 +38,7 @@ let browser;const contexts=[];
   const idle=async()=>{for(const p of pages)await p.waitForFunction(()=>{const e=__engine;return !e._locked&&!e._contextLost&&!e._pendingRebuilds.size&&!e._rebuildJobs.size&&!e._opQueue.length&&!e._puddle?.state.pending&&!e._wcCanonical.pending&&!e._settle})};
   const sync=async(p)=>{const id=await p.evaluate(()=>__engine.getOperations().at(-1)?.id);for(const peer of pages)await peer.waitForFunction(id=>__engine.getOperations().some(o=>o.id===id),id);await idle();return id};
   const append=async(p,draft)=>{const id=await p.evaluate(draft=>{const op={...draft,id:crypto.randomUUID(),userId:__roomStore.getState().userId,timestamp:Date.now()};__engine.appendOperation(op);return op.id},draft);await sync(p);return id};
-  const layer=async(name)=>{const id='qa-'+crypto.randomUUID();await append(a,{type:'layer_add',layerId:id,name});for(const p of pages)await p.evaluate(id=>__engine.setActiveLayer(id),id);return id};
+  const layer=async(name)=>{const id='qa-'+crypto.randomUUID();await append(a,{type:'layer_add',layerId:id,name});for(const p of pages)await p.evaluate(id=>{const s=__roomStore.getState();s.setLayerStateLocal(prev=>({...prev,activeId:id}));__engine.setActiveLayer(id)},id);return id};
   const stroke=async(p,{pigment=.65,x=220,y=300,vertical=false,tool='watercolor'}={})=>{
     await p.evaluate(({pigment,tool})=>{const s=__roomStore.getState();s.setTool(tool);for(const[k,v]of Object.entries({size:45,water:1,pigment,pressureResponse:'normal',nib:'round',color:[.15,.35,.8]}))s.setToolSetting(tool,k,v)}, {pigment,tool});
     await p.waitForFunction(tool=>__engine._opts.tool===tool,tool);
@@ -70,7 +70,7 @@ let browser;const contexts=[];
   await stroke(b,{tool:'eraser',x:220,y:300});assert.notDeepEqual(await check('eraser-removes-dry',dryLayer),wet,'Eraser failed on dry pigment');
   await append(a,{type:'operation_undo',targetOpId:dry});assert.deepEqual(await check('undo-dry-restores-wet-under-eraser',dryLayer),wet);
   await append(a,{type:'operation_redo',targetOpId:dry});await check('redo-dry-reapplies-eraser',dryLayer);
-  for(const p of pages)await p.evaluate(id=>__engine.setActiveLayer(id),wetLayer);
+  for(const p of pages)await p.evaluate(id=>{const s=__roomStore.getState();s.setLayerStateLocal(prev=>({...prev,activeId:id}));__engine.setActiveLayer(id)},wetLayer);
   const otherWet=await check('other-layer-before-eraser',wetLayer);await stroke(b,{tool:'eraser'});assert.deepEqual(await check('other-layer-still-wet',wetLayer),otherWet,'Dry affected unrelated layer');
   // Rejoin independently recomputes the final fixture without local-only state.
   const expected=await pixels(a,dryLayer);await b.reload();await b.waitForFunction(()=>window.__engine&&!__engine._locked);await b.evaluate(()=>__engine.paperReady());await sync(a);assert.deepEqual(await pixels(b,dryLayer),expected,'Rejoin target mismatch');
