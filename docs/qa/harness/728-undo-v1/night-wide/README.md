@@ -32,3 +32,15 @@
 Все contexts закрываются в finally; созданную комнату удалять штатным
 `../cleanup.cjs` только с точным marker ID и owner-state. Приватные host-state
 удалять после последней проверки. Не удалять чужие комнаты/данные.
+
+Загрузка100×8: `run-case.py --case load100 --script loading.cjs --load-strokes100
+--load-dabs8 --dry-every20 --cdp <own hardware CDP> --output <own evidence dir>`
+(аргументы чисел передавать с пробелом). prepare-load.cjs создаёт и наполняет
+новую комнату через штатные socket operations, сервер сам назначает порядок.
+Seed728745,8dabs/мазок, каждый preset явно wc@m70-r2-v1; dry-every0 означает
+одну мокрую порцию,20 — послойные границы каждые20мазков. InputSHA записывается.
+
+Loading report отдельно измеряет navigation→engine-ready, full-history-complete
+и первый кадр после display с содержимым (дваrAF; прокси compositor, не датчик
+экрана). Снимок каждого режима подтверждает видимый результат. Измерения
+проводятся последовательно, без headless/GPUзамены. Только свежие комнаты.

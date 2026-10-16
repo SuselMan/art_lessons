@@ -3,6 +3,7 @@ const {chromium}=require('@playwright/test');const fs=require('node:fs');
 const assert=require('node:assert/strict');const {historyReady}=require('../history-ready.cjs');
 const env=process.env;for(const key of ['QA_CDP','QA_ENTRY_URL','QA_BASE_URL','QA_ROOM','QA_OUTPUT','QA_HOST_STATE'])if(!env[key])throw Error('Missing '+key);if(env.QA_DISPOSABLE_ROOM!==env.QA_ROOM)throw Error('Explicit disposable fixture required');
 fs.mkdirSync(env.QA_OUTPUT,{recursive:true});const report={scope:'Navigation readiness and full history, 100-stroke deterministic input by default',firstVisibleMeaning:'Two rAF after engine display issued with nonempty watercolor tile; compositor presentation proxy, not physical screen sensor',cases:[],errors:[]};let browser,context;
+if(env.QA_LOAD_INPUT_PATH){const input=JSON.parse(fs.readFileSync(env.QA_LOAD_INPUT_PATH));report.input={seed:input.seed,count:input.count,dabsPerStroke:input.dabsPerStroke,dryEvery:input.dryEvery,inputHash:input.inputHash}}
 (async()=>{browser=await chromium.connectOverCDP(env.QA_CDP);
  for(const [mode,viewport]of [['normal',{width:1100,height:850}],['compact-annotations',{width:390,height:844}]]){
   context=await browser.newContext({storageState:env.QA_HOST_STATE,viewport});const page=await context.newPage();page.setDefaultTimeout(180000);page.on('pageerror',e=>report.errors.push({mode,message:e.message}));await context.request.get(env.QA_ENTRY_URL);
