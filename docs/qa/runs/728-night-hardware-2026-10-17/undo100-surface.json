@@ -129,5 +129,38 @@
     "Only 100 tiny strokes onSurfaceIntel, isolated red lastownmark.",
     "Small external500ms stateobserver installed for additional puddle counters."
   ],
-  "contextCaveat": "Surface own Playwright context defaults deviceScaleFactor1/hasTouchfalse; user Surface DPR1.5/touch10. Both budgetInfinity because deviceMemory8. Native GPU retained; raster load not exact user viewport."
+  "contextCaveat": "Surface own Playwright context defaults deviceScaleFactor1/hasTouchfalse; user Surface DPR1.5/touch10. Both budgetInfinity because deviceMemory8. Native GPU retained; raster load not exact user viewport.",
+  "inputSpec": {
+    "canvas": 1024,
+    "count": 100,
+    "authors": 2,
+    "tool": "watercolor",
+    "water": 0.95,
+    "pigment": 0.34,
+    "size": 32,
+    "pressure": 0.75,
+    "moves": 4,
+    "deltaX": 4,
+    "blue": [
+      0.1,
+      0.25,
+      0.8
+    ],
+    "red": [
+      0.9,
+      0.05,
+      0.05
+    ],
+    "blueX": "480+(i%5)*5",
+    "blueY": "490+(i%3)*5",
+    "lastA": {
+      "x": 650,
+      "y": 650
+    },
+    "yield": "every3marks"
+  },
+  "inputSpecSHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
+  "actualInputSHA": "b8e6a72aa7b261eacce9bd0cfd313aab18c03540505441cb99b59435163dc1ab",
+  "actualInputSHANote": "SHA256 JSON of canonical server stroke operations sorted by seq; includes generated IDs/timestamps.",
+  "actualInputCount": 100
 }

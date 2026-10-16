@@ -1,0 +1,186 @@
+{
+  "strokes": 100,
+  "errors": [],
+  "scope": "100 tiny strokes, isolated last red A mark; live screen cache8x8 read each RAF up to2s; no display/replay forced",
+  "identity": {
+    "model": "m70-r2-v1",
+    "gpuBudget": "Infinity",
+    "scratchHolding": false,
+    "touch": 10,
+    "deviceMemory": 8,
+    "DPR": 1.0000000298023224,
+    "page": {
+      "w": 1024,
+      "h": 1024
+    },
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "inputSpec": {
+    "canvas": 1024,
+    "count": 100,
+    "authors": 2,
+    "tool": "watercolor",
+    "water": 0.95,
+    "pigment": 0.34,
+    "size": 32,
+    "pressure": 0.75,
+    "moves": 4,
+    "deltaX": 4,
+    "blue": [
+      0.1,
+      0.25,
+      0.8
+    ],
+    "red": [
+      0.9,
+      0.05,
+      0.05
+    ],
+    "blueX": "480+(i%5)*5",
+    "blueY": "490+(i%3)*5",
+    "lastA": {
+      "x": 650,
+      "y": 650
+    },
+    "yield": "every3marks"
+  },
+  "inputSpecSHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
+  "seedWallMs": 7390,
+  "actualInputSHA": "374975da72e9e3cc5cd3a14408c85734513021c5ac9e7c471d7b23e7005a195c",
+  "baselineRGB": [
+    234.3515625,
+    105.4765625,
+    102.86328125
+  ],
+  "firstObservedActualChange": {
+    "requestAfterTriggerMs": 2083,
+    "completeAfterTriggerMs": 2592,
+    "changedChannels": 713,
+    "max": 193,
+    "meanRGB": [
+      245.91796875,
+      245.91796875,
+      245.91796875
+    ]
+  },
+  "settledWallMs": 3485,
+  "target": {
+    "liveLength": 4194324,
+    "targetLength": 4194324,
+    "changedChannels": 0,
+    "liveHash": "082c1157896b1d7ec227a6108db1a547b6307bb807cfc05375056dea6369aa63",
+    "targetHash": "082c1157896b1d7ec227a6108db1a547b6307bb807cfc05375056dea6369aa63",
+    "liveMatchesTarget": true
+  },
+  "pass": false,
+  "source": "e86db307",
+  "actors": [
+    {
+      "undoCPU": 22.200000047683716,
+      "readyDisplay": null,
+      "glErrors": [],
+      "cacheROI": {
+        "x": 650.8046905042156,
+        "y": 525.8046905042153,
+        "width": 8,
+        "height": 8
+      },
+      "cacheBaselineNonzero": true,
+      "pixelReadCount": 49,
+      "beforePuddle": {
+        "layers": 0,
+        "drying": false,
+        "cancellations": 4,
+        "computations": 8,
+        "pending": false,
+        "revisions": []
+      },
+      "firstFramePuddle": {
+        "layers": 0,
+        "drying": false,
+        "cancellations": 4,
+        "computations": 8,
+        "pending": false,
+        "revisions": []
+      },
+      "swapMs": 1931.5,
+      "lastState": {
+        "pending": 0,
+        "jobs": 0,
+        "queue": 0,
+        "puddle": {
+          "layers": 0,
+          "drying": false,
+          "cancellations": 4,
+          "computations": 9,
+          "pending": false,
+          "revisions": []
+        }
+      },
+      "preset": "normal:95:34:PB29:round",
+      "readyPuddle": {
+        "layers": 0,
+        "drying": false,
+        "cancellations": 4,
+        "computations": 9,
+        "pending": false,
+        "revisions": []
+      },
+      "arrivalMs": 0.599853515625,
+      "ackMs": 200.699951171875,
+      "rafSamples": 131
+    },
+    {
+      "undoCPU": null,
+      "readyDisplay": null,
+      "glErrors": [],
+      "cacheROI": {
+        "x": 650.8046905042156,
+        "y": 525.8046905042153,
+        "width": 8,
+        "height": 8
+      },
+      "cacheBaselineNonzero": true,
+      "pixelReadCount": 0,
+      "lastState": {
+        "pending": 0,
+        "jobs": 0,
+        "queue": 0,
+        "puddle": {
+          "layers": 0,
+          "drying": false,
+          "cancellations": 1,
+          "computations": 6,
+          "pending": false,
+          "revisions": []
+        }
+      },
+      "preset": "normal:95:34:PB29:round",
+      "readyPuddle": {
+        "layers": 0,
+        "drying": false,
+        "cancellations": 1,
+        "computations": 6,
+        "pending": false,
+        "revisions": []
+      },
+      "arrivalMs": 183.89990234375,
+      "ackMs": 183.89990234375,
+      "rafSamples": 183
+    }
+  ],
+  "interpretation": "Final live target equals full replay exactly. Screen-cache first-change readback did not detect a change within2s; compositor later confirms redmark removal. Swap1931.5ms; no claim of earliest physical visibility.",
+  "comparison": {
+    "baselineSource": "8680f05f",
+    "baselineUndoCPU": 22.1,
+    "baselineSwapMs": 2187.1,
+    "currentUndoCPU": 22.2,
+    "currentSwapMs": 1931.5,
+    "baselineGoalComputationsDelta": 3,
+    "baselineGoalCancellationsDelta": 2,
+    "currentGoalComputationsDelta": 1,
+    "currentGoalCancellationsDelta": 0,
+    "singleRunCaveat": true
+  },
+  "contextCaveat": "Same Surface Playwright context DPR1 as baseline, userSurfaceDPR1.5; GPUbudgetInfinity both."
+}

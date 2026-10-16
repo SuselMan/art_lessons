@@ -1,0 +1,64 @@
+{
+  "source": "e86db307",
+  "scope": "Samsung trusted pen, actual compositorROI; isolatedcontext syntheticowner, defaultprofile untouched",
+  "cases": [],
+  "errors": [],
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "gpuBudget": "314572800",
+    "scratchHolding": false,
+    "touch": 5,
+    "deviceMemory": 4,
+    "DPR": 2.125,
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "page": {
+      "w": 1024,
+      "h": 1024
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)"
+  },
+  "long": {
+    "sentMoves": 473,
+    "wallMs": 66705,
+    "held": {
+      "stroke": "x_9-Vfwoq4",
+      "localDabs": 18,
+      "chunkCount": 2,
+      "totalDabs": 1620,
+      "puddle": {
+        "layers": 1,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 0,
+        "pending": true,
+        "revisions": [
+          {
+            "epoch": 2,
+            "ready": false,
+            "active": false
+          }
+        ]
+      }
+    },
+    "actualDiff": {
+      "changedChannels": 2028,
+      "max": 207,
+      "meanRGB": [
+        64.84763313609467,
+        102.25147928994083,
+        215.1346153846154
+      ]
+    },
+    "upActualDiff": {
+      "changedChannels": 2028,
+      "max": 207,
+      "meanRGB": [
+        64.84763313609467,
+        102.26627218934911,
+        215.14201183431953
+      ]
+    }
+  },
+  "pass": true
+}

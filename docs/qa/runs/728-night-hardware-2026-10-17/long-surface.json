@@ -1,0 +1,80 @@
+{
+  "source": "e86db307",
+  "scope": "Trusted long held stroke,1620dabs,2networkchunks; actual12CSSpxROI at first dab. No forced display/replay.",
+  "pass": true,
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "gpuBudget": "Infinity",
+    "touch": 1,
+    "deviceMemory": 8,
+    "DPR": 1.5,
+    "preset": "normal:95:34:PB29:round",
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "visibility": "visible",
+    "timeOrigin": 1792185906255.5
+  },
+  "held": {
+    "strokeId": "bLyWCaiBC6",
+    "localDabs": 18,
+    "chunkCount": 2,
+    "totalDabs": 1620,
+    "pendingCompositeSize": 0,
+    "asyncLocalStroke": null,
+    "puddle": {
+      "layers": 1,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 0,
+      "pending": true,
+      "revisions": [
+        {
+          "epoch": 2,
+          "ready": false,
+          "active": false
+        }
+      ]
+    }
+  },
+  "pixels": {
+    "beforeVsHeld": {
+      "changedChannels": 972,
+      "max": 214,
+      "over4": 972
+    },
+    "heldVsUp": {
+      "changedChannels": 706,
+      "max": 7,
+      "over4": 38
+    },
+    "beforeVsUp": {
+      "changedChannels": 972,
+      "max": 211,
+      "over4": 972
+    },
+    "beforeStats": {
+      "meanChroma": 0,
+      "coloredPixels": 0,
+      "greyPixels": 74
+    },
+    "heldStats": {
+      "meanChroma": 156.15740740740742,
+      "coloredPixels": 324,
+      "greyPixels": 0
+    },
+    "upStats": {
+      "meanChroma": 155.6851851851852,
+      "coloredPixels": 324,
+      "greyPixels": 0
+    }
+  },
+  "input": {
+    "sentMoves": 472,
+    "rafSamples": 4145,
+    "rafMedianMs": 16.69999999999709,
+    "rafP95Ms": 16.90000000000873,
+    "rafMaxMs": 66.5
+  },
+  "errors": [],
+  "limitation": "Surface hasTouch emulation reports1 (user10); memory8 means sameInfinityGPUbudget, DPR1.5 matchesuser. ROI at firstdab demonstrates persistentheldpaint, not a full-image target comparison."
+}
