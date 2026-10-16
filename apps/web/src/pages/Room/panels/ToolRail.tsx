@@ -78,7 +78,7 @@ export function ToolRail({
   const annotateEraserActive = tool === 'annotateEraser'
 
   return (
-    <aside className={clsx(styles.toolbar, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
+    <aside data-canvas-fit-edge="left" data-canvas-fit-hidden={uiHidden} className={clsx(styles.toolbar, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
 
       {/* (#542) The colour, pinned. It sits above the tool buttons and
           outside the schema-driven column to the right, which is the whole
