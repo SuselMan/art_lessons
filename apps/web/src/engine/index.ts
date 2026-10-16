@@ -5400,6 +5400,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._continuationGpuFence?.forget()
     e.preventDefault()
     this._contextLost = true
+    if(this._dwellTimer){clearInterval(this._dwellTimer);this._dwellTimer=null}
+    this._dwellCfg=null
     this._puddleStrokeRelease?.();this._puddleStrokeRelease=null
     if(this._strokeId)this._onLiveStrokeEnd?.(this._strokeId,true)
     this._strokeId=null;this._strokeLayerId=null;this._strokeDabs=[];this._liveDabQueue=[]
