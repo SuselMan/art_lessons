@@ -47,7 +47,7 @@ export interface StructuralOpsContext {
   destroyBuffer(id: string): void
   /** Rebuilds `layerId`'s pixels from `ops` into `buf` — the engine's
    *  _replayInto, which comes back here for a nested merge or duplicate. */
-  replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[]): void
+  replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[], beforeSeq?: number): void
   compositeTextures(
     items: Array<{ texture: WebGLTexture; opacity: number }>,
     targetFbo: WebGLFramebuffer, targetW: number, targetH: number,
@@ -96,7 +96,7 @@ export class StructuralOps {
     for (const src of op.sources) {
       const temp = this.ctx.makeLayerBuffer()
       try {
-        this.ctx.replayInto(temp, src.id, this.ctx.log().layerPixelOps(src.id, op.seq))
+        this.ctx.replayInto(temp, src.id, this.ctx.log().layerPixelOps(src.id, op.seq), op.seq)
         this.compositeLayerInto(temp, buf, src.opacity)
       } finally {
         try { this.ctx.releaseReplaySource?.(temp) } finally { temp.destroy() }
@@ -118,7 +118,7 @@ export class StructuralOps {
     buf.clear()
     const temp = this.ctx.makeLayerBuffer()
     try {
-      this.ctx.replayInto(temp, op.sourceId, this.ctx.log().layerPixelOps(op.sourceId, op.seq))
+      this.ctx.replayInto(temp, op.sourceId, this.ctx.log().layerPixelOps(op.sourceId, op.seq), op.seq)
       this.compositeLayerInto(temp, buf, 1)
     } finally {
       try { this.ctx.releaseReplaySource?.(temp) } finally { temp.destroy() }

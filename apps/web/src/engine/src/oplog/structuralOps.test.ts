@@ -51,3 +51,12 @@ describe('structural material reads',()=>{
     expect(events).toEqual(['release','destroy:temp1'])
   })
 })
+
+it('forwards the structural cutoff to both duplicate and merge source replay',()=>{
+  const {ops,ctx,buffer}=setup()
+  ops.replayDuplicateInto(buffer('out'),{...duplicate,seq:7})
+  expect(ctx.replayInto).toHaveBeenLastCalledWith(expect.anything(),'S',[],7)
+  ops.replayMergeInto(buffer('out'),{...merge,seq:9})
+  expect(ctx.replayInto).toHaveBeenCalledWith(expect.anything(),'S',[],9)
+  expect(ctx.replayInto).toHaveBeenLastCalledWith(expect.anything(),'T',[],9)
+})
