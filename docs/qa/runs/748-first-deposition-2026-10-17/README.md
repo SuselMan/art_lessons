@@ -48,3 +48,11 @@ worldY85.5 имеет alpha255 наобоихGPU, но R175/176. Поэтому 
 не ограничено растушёвкой/SDFкраем. Следующий isolatedpixel-uv диагностирует
 интерполяцию localUV; RGBA8rounding пока остаётся отдельной гипотезой.
 Компактные данные: `uniform-scalars-negative.json`.
+
+Pixel-UV также не даёт exact-сходимости: runtimeb5d29e7c, actual source
+patch подтверждён. Firstdraw41pixels/57channels max1,23pixels на plateau.
+AMDfinal остался9d3aa5ec…, Intelfinal изменился наee4110b4…. Это показывает
+влияние вычисления координат, но не является исправлением. Productshader
+не меняется. Детали `pixel-uv-negative.json`. Intelraw экспортирован
+оператором в registeredprivatecache для отдельного equal-source solverpair;
+этот последующий тест ещё не выполнен на момент записи.

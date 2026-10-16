@@ -1,0 +1,648 @@
+{
+  "source": "b5d29e7c",
+  "variant": "pixel-uv",
+  "gpus": {
+    "vega": {
+      "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+      "variant": {
+        "mode": "pixel-uv",
+        "patched": 3
+      },
+      "target": {
+        "length": 1048596,
+        "hash": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+        "dither": true,
+        "glError": 0,
+        "journal": [
+          {
+            "id": "ef5c3073-e28f-440f-8f97-bb76ae0a4c5b",
+            "type": "layer_add",
+            "state": "done"
+          },
+          {
+            "id": "iS6idSqAMt",
+            "type": "stroke",
+            "state": "gone",
+            "goneReason": "branch"
+          },
+          {
+            "id": "GCVQWfoOpu",
+            "type": "stroke",
+            "state": "done"
+          },
+          {
+            "id": "QnUxLiRc8c",
+            "type": "operation_undo",
+            "state": "done"
+          },
+          {
+            "id": "8de683fb-8e34-47bc-aa6d-024bb99390af",
+            "type": "paper_dry",
+            "state": "done"
+          }
+        ]
+      },
+      "firstDraw": {
+        "program": 0,
+        "beforeSHA": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "afterSHA": "edc0e7859c029285acbd61713cc4de357b9f4d5ef2527c7202fb02497fb9db21",
+        "sums": [
+          69749,
+          0,
+          139601,
+          139601
+        ]
+      }
+    },
+    "surface": {
+      "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+      "variant": {
+        "mode": "pixel-uv",
+        "patched": 3
+      },
+      "target": {
+        "length": 1048596,
+        "hash": "ee4110b448d8403522b9488a412801a0b2a271cb64b0d41be29e52b9dcaf6123",
+        "dither": true,
+        "glError": 0,
+        "journal": [
+          {
+            "id": "ef5c3073-e28f-440f-8f97-bb76ae0a4c5b",
+            "type": "layer_add",
+            "state": "done"
+          },
+          {
+            "id": "iS6idSqAMt",
+            "type": "stroke",
+            "state": "gone",
+            "goneReason": "branch"
+          },
+          {
+            "id": "GCVQWfoOpu",
+            "type": "stroke",
+            "state": "done"
+          },
+          {
+            "id": "QnUxLiRc8c",
+            "type": "operation_undo",
+            "state": "done"
+          },
+          {
+            "id": "8de683fb-8e34-47bc-aa6d-024bb99390af",
+            "type": "paper_dry",
+            "state": "done"
+          }
+        ]
+      },
+      "firstDraw": {
+        "program": 0,
+        "beforeSHA": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "afterSHA": "ff034ef3e386b3607c5d3231e7eacf8423c98ea6c08b8f3668efdb813af65f47",
+        "sums": [
+          69774,
+          0,
+          139617,
+          139617
+        ]
+      }
+    }
+  },
+  "firstDrawDiff": {
+    "width": 512,
+    "height": 512,
+    "bytes": 1048576,
+    "channelsChanged": 57,
+    "pixelsChanged": 41,
+    "maxDiff": 1,
+    "channels": [
+      25,
+      0,
+      16,
+      16
+    ],
+    "insideNominalCoveragePlateau": 23,
+    "outsideNominalCoveragePlateau": 18,
+    "examples": [
+      {
+        "world": [
+          79.5,
+          92.5
+        ],
+        "distance": 12.509996003196806,
+        "inNominalPlateau": false,
+        "left": [
+          179,
+          0,
+          192,
+          192
+        ],
+        "right": [
+          179,
+          0,
+          193,
+          193
+        ],
+        "deltas": [
+          0,
+          0,
+          -1,
+          -1
+        ]
+      },
+      {
+        "world": [
+          80.5,
+          92.5
+        ],
+        "distance": 12.509996003196806,
+        "inNominalPlateau": false,
+        "left": [
+          179,
+          0,
+          192,
+          192
+        ],
+        "right": [
+          179,
+          0,
+          193,
+          193
+        ],
+        "deltas": [
+          0,
+          0,
+          -1,
+          -1
+        ]
+      },
+      {
+        "world": [
+          73.5,
+          91.5
+        ],
+        "distance": 13.209844813622906,
+        "inNominalPlateau": false,
+        "left": [
+          111,
+          0,
+          124,
+          124
+        ],
+        "right": [
+          111,
+          0,
+          125,
+          125
+        ],
+        "deltas": [
+          0,
+          0,
+          -1,
+          -1
+        ]
+      },
+      {
+        "world": [
+          86.5,
+          91.5
+        ],
+        "distance": 13.209844813622906,
+        "inNominalPlateau": false,
+        "left": [
+          111,
+          0,
+          124,
+          124
+        ],
+        "right": [
+          111,
+          0,
+          125,
+          125
+        ],
+        "deltas": [
+          0,
+          0,
+          -1,
+          -1
+        ]
+      },
+      {
+        "world": [
+          68.5,
+          86.5
+        ],
+        "distance": 13.209844813622906,
+        "inNominalPlateau": false,
+        "left": [
+          90,
+          0,
+          124,
+          124
+        ],
+        "right": [
+          90,
+          0,
+          125,
+          125
+        ],
+        "deltas": [
+          0,
+          0,
+          -1,
+          -1
+        ]
+      },
+      {
+        "world": [
+          91.5,
+          86.5
+        ],
+        "distance": 13.209844813622906,
+        "inNominalPlateau": false,
+        "left": [
+          90,
+          0,
+          124,
+          124
+        ],
+        "right": [
+          90,
+          0,
+          125,
+          125
+        ],
+        "deltas": [
+          0,
+          0,
+          -1,
+          -1
+        ]
+      },
+      {
+        "world": [
+          69.5,
+          85.5
+        ],
+        "distance": 11.853269591129697,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          70.5,
+          85.5
+        ],
+        "distance": 10.977249200050075,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          71.5,
+          85.5
+        ],
+        "distance": 10.124228365658293,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          72.5,
+          85.5
+        ],
+        "distance": 9.300537618869136,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          73.5,
+          85.5
+        ],
+        "distance": 8.514693182963201,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          74.5,
+          85.5
+        ],
+        "distance": 7.778174593052023,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          75.5,
+          85.5
+        ],
+        "distance": 7.1063352017759485,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          76.5,
+          85.5
+        ],
+        "distance": 6.519202405202649,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          77.5,
+          85.5
+        ],
+        "distance": 6.041522986797285,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          78.5,
+          85.5
+        ],
+        "distance": 5.70087712549569,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          79.5,
+          85.5
+        ],
+        "distance": 5.522680508593631,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          80.5,
+          85.5
+        ],
+        "distance": 5.522680508593631,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          81.5,
+          85.5
+        ],
+        "distance": 5.70087712549569,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          82.5,
+          85.5
+        ],
+        "distance": 6.041522986797285,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      }
+    ]
+  }
+}
