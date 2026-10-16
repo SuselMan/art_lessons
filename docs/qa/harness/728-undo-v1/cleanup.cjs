@@ -1,0 +1,5 @@
+// Delete ONLY one explicitly marked fixture created by prepare.cjs, via owner API.
+const fs=require('node:fs');const {request}=require('@playwright/test');
+const dir=process.env.QA_FIXTURE_OUTPUT;if(!dir)throw Error('QA_FIXTURE_OUTPUT required');
+const fixture=JSON.parse(fs.readFileSync(dir+'/fixture.json'));if(!fixture.disposable||!fixture.room.startsWith('qa-undo-v1-')||process.env.QA_DELETE_DISPOSABLE_ROOM!==fixture.room)throw Error('Explicit own disposable fixture ID required');
+(async()=>{const api=await request.newContext({storageState:dir+'/host-state.json'});try{const result=await api.delete((fixture.backend||'http://localhost:4558')+'/api/rooms/'+fixture.room);if(!result.ok()&&result.status()!==404)throw Error('Owner DELETE HTTP '+result.status());fs.writeFileSync(dir+'/deleted.json',JSON.stringify({room:fixture.room,status:result.status(),deletedAt:new Date().toISOString()},null,2));console.log(JSON.stringify({room:fixture.room,deleted:true}));}finally{await api.dispose()}})().catch(e=>{console.error(e);process.exitCode=1});

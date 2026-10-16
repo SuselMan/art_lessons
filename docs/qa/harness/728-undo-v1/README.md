@@ -62,3 +62,16 @@ against the exact same fixture and compare targets by `id`; retain differing byt
 only when investigating a mismatch. This script does not draw, dry, undo or clear.
 The main runner also saves final dry screenshots and compares live snapshot pixels
 to full-replay target on both last layers, beyond comparing replay with replay.
+
+`run-private-fixture.py --fixture <private-folder> --cdp <url> --output <folder>`
+loads the local private service URL and rewrites fixture cookies to the QA host
+without exposing values. `--script no-ghost.cjs` selects the focused regression.
+`--dry-live` with capture is an explicitly **mutating** check on the disposable
+fixture: append layer drying, await confirmation, then compare each live snapshot
+with full replay and save both hashes. Without that flag capture stays read-only.
+
+`cleanup.cjs` deletes only a `prepare.cjs` fixture using its owner's normal API.
+Set `QA_FIXTURE_OUTPUT` and `QA_DELETE_DISPOSABLE_ROOM` to the exact own fixture ID.
+Run after contexts close and after evidence is saved; it never enumerates or
+bulk-deletes arbitrary rooms. Private auth stays outside Git; remove it manually
+when no more rejoin checks are needed.
