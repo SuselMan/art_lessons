@@ -1,0 +1,192 @@
+{
+  "source": "8680f05f",
+  "scope": "Samsung trusted pen, actual compositorROI; isolatedcontext syntheticowner, defaultprofile untouched",
+  "cases": [],
+  "errors": [],
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "gpuBudget": "314572800",
+    "scratchHolding": false,
+    "touch": 5,
+    "deviceMemory": 4,
+    "DPR": 2.125,
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "page": {
+      "w": 1024,
+      "h": 1024
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)"
+  },
+  "undo": {
+    "beforePuddle": {
+      "layers": 1,
+      "drying": false,
+      "cancellations": 2,
+      "computations": 3,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 11,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "start": 8731.400000095367,
+    "CPU": 12.599999904632568,
+    "swapMs": 194.79999995231628,
+    "afterPuddle": {
+      "layers": 1,
+      "drying": false,
+      "cancellations": 2,
+      "computations": 4,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 9,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "entries": [
+      {
+        "id": "9-fvP68eQo",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "ezQ7hhGoEB",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "W6ubUoHzoy",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "GTbsEXhugc",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "oYi5EF9Zs4",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "TQm6eGZ1ot",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "votEsF5yDn",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "zTOiSlTRxI",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "eslsvO5ldv",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "xwnEGgKTPj",
+        "type": "stroke",
+        "state": "undone"
+      },
+      {
+        "id": "qWVbd9cAO6",
+        "type": "operation_undo",
+        "state": "done",
+        "targetOpId": "xwnEGgKTPj"
+      }
+    ],
+    "actualDiff": {
+      "changedChannels": 2025,
+      "max": 217,
+      "meanRGB": [
+        245.74112426035504,
+        245.74112426035504,
+        245.74112426035504
+      ]
+    },
+    "rejoinEntries": [
+      {
+        "id": "9-fvP68eQo",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "ezQ7hhGoEB",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "W6ubUoHzoy",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "GTbsEXhugc",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "oYi5EF9Zs4",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "TQm6eGZ1ot",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "votEsF5yDn",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "zTOiSlTRxI",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "eslsvO5ldv",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "xwnEGgKTPj",
+        "type": "stroke",
+        "state": "undone"
+      },
+      {
+        "id": "qWVbd9cAO6",
+        "type": "operation_undo",
+        "state": "done",
+        "targetOpId": "xwnEGgKTPj"
+      }
+    ],
+    "rejoinActualDiff": {
+      "changedChannels": 0,
+      "max": 0,
+      "meanRGB": [
+        245.74112426035504,
+        245.74112426035504,
+        245.74112426035504
+      ]
+    },
+    "rejoinStatesEqual": true,
+    "ownLastUndone": true
+  },
+  "pass": true,
+  "harnessNote": "Initial own join form React input/submit batching race repaired before engine creation; no undo measurement affected. Harness now waits2RAF before submitting."
+}

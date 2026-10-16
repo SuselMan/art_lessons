@@ -1,0 +1,222 @@
+{
+  "source": "9df0f12c",
+  "issue": 743,
+  "result": "not-reproduced-in-tested-inputs",
+  "scope": "Trusted short pen input; actual compositor ROI, no forced display/replay",
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "preset": "normal:95:34:PB29:round",
+    "size": 90,
+    "page": {
+      "w": 1024,
+      "h": 1024
+    },
+    "camera": {
+      "wx": 512,
+      "wy": 512,
+      "zoom": 0.7304687717696652,
+      "angle": 0
+    },
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "errors": [],
+  "cases": [
+    {
+      "name": "low-pressure",
+      "pressure": 0.2,
+      "point": {
+        "x": 453.57812212640545,
+        "y": 372.40624843258513,
+        "sx": 0.7304687717696672,
+        "sy": 0
+      },
+      "alreadyWetAgeMs": null,
+      "stages": [
+        {
+          "name": "down",
+          "changedChannels": 432,
+          "max": 191,
+          "meanChroma": 146.95138888888889,
+          "captureWallMs": 421,
+          "dabs": 1,
+          "strokeActive": true,
+          "dwellTimer": false
+        },
+        {
+          "name": "move1",
+          "changedChannels": 432,
+          "max": 191,
+          "meanChroma": 146.95138888888889,
+          "captureWallMs": 393,
+          "dabs": 1,
+          "strokeActive": true,
+          "dwellTimer": false
+        },
+        {
+          "name": "move2",
+          "changedChannels": 432,
+          "max": 191,
+          "meanChroma": 145.51388888888889,
+          "captureWallMs": 475,
+          "dabs": 1,
+          "strokeActive": true,
+          "dwellTimer": false
+        },
+        {
+          "name": "move6",
+          "changedChannels": 432,
+          "max": 221,
+          "meanChroma": 129.93055555555554,
+          "captureWallMs": 366,
+          "dabs": 2,
+          "strokeActive": true,
+          "dwellTimer": false
+        },
+        {
+          "name": "up",
+          "changedChannels": 431,
+          "max": 230,
+          "meanChroma": 130.40277777777777,
+          "captureWallMs": 409,
+          "dabs": 0,
+          "strokeActive": false,
+          "dwellTimer": false
+        }
+      ]
+    },
+    {
+      "name": "high-pressure",
+      "pressure": 0.75,
+      "point": {
+        "x": 585.0625010449456,
+        "y": 372.40624843258513,
+        "sx": 0.7304687717696672,
+        "sy": 0
+      },
+      "alreadyWetAgeMs": null,
+      "stages": [
+        {
+          "name": "down",
+          "changedChannels": 432,
+          "max": 187,
+          "meanChroma": 131.29166666666666,
+          "captureWallMs": 380,
+          "dabs": 1,
+          "strokeActive": true,
+          "dwellTimer": false
+        },
+        {
+          "name": "move1",
+          "changedChannels": 432,
+          "max": 187,
+          "meanChroma": 131.29166666666666,
+          "captureWallMs": 347,
+          "dabs": 1,
+          "strokeActive": true,
+          "dwellTimer": false
+        },
+        {
+          "name": "move2",
+          "changedChannels": 432,
+          "max": 187,
+          "meanChroma": 131.29166666666666,
+          "captureWallMs": 340,
+          "dabs": 1,
+          "strokeActive": true,
+          "dwellTimer": false
+        },
+        {
+          "name": "move6",
+          "changedChannels": 432,
+          "max": 206,
+          "meanChroma": 144.69444444444446,
+          "captureWallMs": 365,
+          "dabs": 2,
+          "strokeActive": true,
+          "dwellTimer": false
+        },
+        {
+          "name": "up",
+          "changedChannels": 432,
+          "max": 213,
+          "meanChroma": 146.23611111111111,
+          "captureWallMs": 339,
+          "dabs": 0,
+          "strokeActive": false,
+          "dwellTimer": false
+        }
+      ]
+    },
+    {
+      "name": "already-wet-red",
+      "pressure": 0.75,
+      "point": {
+        "x": 585.0625010449456,
+        "y": 372.40624843258513,
+        "sx": 0.7304687717696672,
+        "sy": 0
+      },
+      "alreadyWetAgeMs": 430,
+      "stages": [
+        {
+          "name": "down",
+          "changedChannels": 419,
+          "max": 79,
+          "meanChroma": 69.04861111111111,
+          "captureWallMs": 471,
+          "dabs": 1,
+          "strokeActive": true,
+          "dwellTimer": false
+        },
+        {
+          "name": "move1",
+          "changedChannels": 419,
+          "max": 79,
+          "meanChroma": 69.04861111111111,
+          "captureWallMs": 364,
+          "dabs": 1,
+          "strokeActive": true,
+          "dwellTimer": false
+        },
+        {
+          "name": "move2",
+          "changedChannels": 419,
+          "max": 79,
+          "meanChroma": 69.04861111111111,
+          "captureWallMs": 438,
+          "dabs": 1,
+          "strokeActive": true,
+          "dwellTimer": false
+        },
+        {
+          "name": "move6",
+          "changedChannels": 430,
+          "max": 101,
+          "meanChroma": 43.8125,
+          "captureWallMs": 328,
+          "dabs": 2,
+          "strokeActive": true,
+          "dwellTimer": false
+        },
+        {
+          "name": "up",
+          "changedChannels": 430,
+          "max": 136,
+          "meanChroma": 36.15972222222222,
+          "captureWallMs": 462,
+          "dabs": 0,
+          "strokeActive": false,
+          "dwellTimer": false
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Actual compositor 12x12 ROI at first dab; trusted native pen route; no replay oracle.",
+    "Readback and transport add delay; this does not measure earliest presentation time.",
+    "Water/pigment95/34 size90;1024 canvas; low/high pressure and already-wet red tested.",
+    "User complaint remains open; pending-rebuild input and Samsung not yet tested."
+  ],
+  "contextCaveat": "Surface own Playwright context defaults deviceScaleFactor1/hasTouchfalse; user Surface DPR1.5/touch10. Both budgetInfinity because deviceMemory8. Native GPU retained; raster load not exact user viewport."
+}

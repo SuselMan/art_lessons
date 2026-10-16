@@ -1,0 +1,157 @@
+{
+  "strokes": 30,
+  "errors": [],
+  "scope": "GPU tiny strokes, 2 authors, stable dry baseline; no replay oracle in timings",
+  "identity": {
+    "model": "m70-r2-v1",
+    "page": {
+      "w": 1024,
+      "h": 1024
+    },
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "seedWallMs": 5378,
+  "baselineRGB": [
+    56.765625,
+    38.296875,
+    47.31640625
+  ],
+  "firstObservedActualChange": {
+    "requestAfterTriggerMs": 420,
+    "completeAfterTriggerMs": 719,
+    "changedChannels": 653,
+    "max": 22,
+    "meanRGB": [
+      44,
+      43.1796875,
+      39.59375
+    ]
+  },
+  "heldDuringUndo": {
+    "strokeId": "7Bekmt6N_7",
+    "pending": 0,
+    "jobs": 1,
+    "puddle": {
+      "layers": 1,
+      "drying": false,
+      "cancellations": 3,
+      "computations": 5,
+      "pending": true,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "meanRGB": [
+      44,
+      43.1796875,
+      39.59375
+    ]
+  },
+  "settledWallMs": 3909,
+  "pass": true,
+  "source": "8680f05f",
+  "actors": [
+    {
+      "undoCPU": 15.799999952316284,
+      "newInputCPU": 26.299999952316284,
+      "injectBefore": {
+        "jobs": 1,
+        "pending": 0,
+        "queue": 0,
+        "puddle": {
+          "layers": 0,
+          "drying": false,
+          "cancellations": 3,
+          "computations": 5,
+          "pending": false,
+          "revisions": []
+        }
+      },
+      "injectAfter": {
+        "jobs": 1,
+        "pending": 0,
+        "queue": 0,
+        "puddle": {
+          "layers": 1,
+          "drying": false,
+          "cancellations": 3,
+          "computations": 5,
+          "pending": true,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": false,
+              "active": false
+            }
+          ]
+        }
+      },
+      "meta": true,
+      "injectedStrokeAccepted": true,
+      "arrivalMs": 7.60009765625,
+      "ackMs": 157.7001953125,
+      "readyDisplayMs": 2808.400146484375,
+      "lastState": {
+        "pending": 0,
+        "jobs": 0,
+        "queue": 0,
+        "puddle": {
+          "layers": 1,
+          "drying": false,
+          "cancellations": 21,
+          "computations": 26,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": true,
+              "active": true
+            }
+          ]
+        }
+      },
+      "preset": "normal:95:34:PB29:round",
+      "rafSamples": 173
+    },
+    {
+      "undoCPU": null,
+      "meta": true,
+      "injectedStrokeAccepted": false,
+      "arrivalMs": 141.0,
+      "ackMs": 141.0,
+      "readyDisplayMs": 570.5,
+      "lastState": {
+        "pending": 0,
+        "jobs": 0,
+        "queue": 0,
+        "puddle": {
+          "layers": 1,
+          "drying": false,
+          "cancellations": 1,
+          "computations": 5,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": true,
+              "active": true
+            }
+          ]
+        }
+      },
+      "preset": "normal:95:34:PB29:round",
+      "rafSamples": 198
+    }
+  ],
+  "limitations": [
+    "Pending-input diagnostic uses direct engine callback in same JS task after native Control+Z, before deferred rebuild.",
+    "Ready-displayA includes intentionally held stroke and release; not undo-only elapsed time.",
+    "Actual compositor first observed change bounded by CDP screenshot request/completion.",
+    "30 tiny strokes; does not establish 100/800-op scaling."
+  ],
+  "contextCaveat": "Surface own Playwright context defaults deviceScaleFactor1/hasTouchfalse; user Surface DPR1.5/touch10. Both budgetInfinity because deviceMemory8. Native GPU retained; raster load not exact user viewport."
+}

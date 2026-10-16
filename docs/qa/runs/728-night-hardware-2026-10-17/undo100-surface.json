@@ -1,0 +1,133 @@
+{
+  "strokes": 100,
+  "errors": [],
+  "scope": "100 tiny strokes, isolated last red A mark; live screen cache8x8 read each RAF up to2s; no display/replay forced",
+  "identity": {
+    "model": "m70-r2-v1",
+    "page": {
+      "w": 1024,
+      "h": 1024
+    },
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "seedWallMs": 7092,
+  "baselineRGB": [
+    235.11328125,
+    109.35546875,
+    106.96875
+  ],
+  "firstObservedActualChange": {
+    "requestAfterTriggerMs": 2105,
+    "completeAfterTriggerMs": 2571,
+    "changedChannels": 713,
+    "max": 187,
+    "meanRGB": [
+      245.91796875,
+      245.91796875,
+      245.91796875
+    ]
+  },
+  "settledWallMs": 3570,
+  "pass": false,
+  "source": "8680f05f",
+  "actors": [
+    {
+      "undoCPU": 22.100000143051147,
+      "readyDisplay": null,
+      "glErrors": [],
+      "cacheROI": {
+        "x": 650.8046905042156,
+        "y": 525.8046905042153,
+        "width": 8,
+        "height": 8
+      },
+      "cacheBaselineNonzero": true,
+      "pixelReadCount": 57,
+      "swapMs": 2187.100000143051,
+      "lastState": {
+        "pending": 0,
+        "jobs": 0,
+        "queue": 0,
+        "puddle": {
+          "layers": 0,
+          "drying": false,
+          "cancellations": 4,
+          "computations": 10,
+          "pending": false,
+          "revisions": []
+        }
+      },
+      "preset": "normal:95:34:PB29:round",
+      "arrivalMs": 1.300048828125,
+      "ackMs": 201.300048828125,
+      "rafSamples": 143
+    },
+    {
+      "undoCPU": null,
+      "readyDisplay": null,
+      "glErrors": [],
+      "cacheROI": {
+        "x": 650.8046905042156,
+        "y": 525.8046905042153,
+        "width": 8,
+        "height": 8
+      },
+      "cacheBaselineNonzero": true,
+      "pixelReadCount": 0,
+      "lastState": {
+        "pending": 0,
+        "jobs": 0,
+        "queue": 0,
+        "puddle": {
+          "layers": 0,
+          "drying": false,
+          "cancellations": 3,
+          "computations": 6,
+          "pending": false,
+          "revisions": []
+        }
+      },
+      "preset": "normal:95:34:PB29:round",
+      "arrivalMs": 167.800048828125,
+      "ackMs": 167.800048828125,
+      "rafSamples": 189
+    }
+  ],
+  "puddleDiagnostic": {
+    "installedAt": 33229.09999990463,
+    "before": {
+      "layers": 0,
+      "drying": false,
+      "cancellations": 2,
+      "computations": 7,
+      "pending": false,
+      "revisions": []
+    },
+    "undoAlreadyStarted": false,
+    "start": 41408.799999952316,
+    "firstFrame": {
+      "layers": 0,
+      "drying": false,
+      "cancellations": 2,
+      "computations": 7,
+      "pending": false,
+      "revisions": []
+    },
+    "ready": {
+      "layers": 0,
+      "drying": false,
+      "cancellations": 4,
+      "computations": 10,
+      "pending": false,
+      "revisions": []
+    },
+    "readyAt": 43596.5
+  },
+  "interpretation": "2s framebuffer observation timed out before swap at2187ms; semantic removal confirmed by compositorROI; not a semantic failure.",
+  "limitations": [
+    "Screen cache readback upperbound; no forced display/compose/replay.",
+    "Only 100 tiny strokes onSurfaceIntel, isolated red lastownmark.",
+    "Small external500ms stateobserver installed for additional puddle counters."
+  ],
+  "contextCaveat": "Surface own Playwright context defaults deviceScaleFactor1/hasTouchfalse; user Surface DPR1.5/touch10. Both budgetInfinity because deviceMemory8. Native GPU retained; raster load not exact user viewport."
+}

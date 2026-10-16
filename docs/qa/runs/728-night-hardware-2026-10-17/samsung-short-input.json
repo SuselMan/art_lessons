@@ -1,0 +1,148 @@
+{
+  "source": "8680f05f",
+  "scope": "Samsung trusted pen, actual compositorROI; isolatedcontext syntheticowner, defaultprofile untouched",
+  "cases": [
+    {
+      "name": "pure-water",
+      "stages": [
+        {
+          "name": "down",
+          "changedChannels": 2028,
+          "max": 14,
+          "meanRGB": [
+            236.14201183431953,
+            236.14201183431953,
+            236.14201183431953
+          ],
+          "diagnostic": {
+            "stroke": "8zxVNnk0Qy",
+            "dabs": 1,
+            "preset": "normal:100:0:PB29:round",
+            "dwell": false,
+            "puddle": {
+              "layers": 1,
+              "drying": false,
+              "cancellations": 0,
+              "computations": 0,
+              "pending": true,
+              "revisions": [
+                {
+                  "epoch": 2,
+                  "ready": false,
+                  "active": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "move6",
+          "changedChannels": 2028,
+          "max": 14,
+          "meanRGB": [
+            236.14201183431953,
+            236.14201183431953,
+            236.14201183431953
+          ],
+          "diagnostic": {
+            "stroke": "8zxVNnk0Qy",
+            "dabs": 2,
+            "preset": "normal:100:0:PB29:round",
+            "dwell": false,
+            "puddle": {
+              "layers": 1,
+              "drying": false,
+              "cancellations": 0,
+              "computations": 0,
+              "pending": true,
+              "revisions": [
+                {
+                  "epoch": 2,
+                  "ready": false,
+                  "active": false
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "default-pigment",
+      "stages": [
+        {
+          "name": "down",
+          "changedChannels": 2028,
+          "max": 187,
+          "meanRGB": [
+            101.68639053254438,
+            139.1612426035503,
+            225.45118343195267
+          ],
+          "diagnostic": {
+            "stroke": "FCKSXwC1nY",
+            "dabs": 1,
+            "preset": "normal:95:34:PB29:round",
+            "dwell": false,
+            "puddle": {
+              "layers": 1,
+              "drying": false,
+              "cancellations": 0,
+              "computations": 1,
+              "pending": true,
+              "revisions": [
+                {
+                  "epoch": 3,
+                  "ready": false,
+                  "active": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "move6",
+          "changedChannels": 2028,
+          "max": 204,
+          "meanRGB": [
+            71.69526627218934,
+            107.31213017751479,
+            215.6508875739645
+          ],
+          "diagnostic": {
+            "stroke": "FCKSXwC1nY",
+            "dabs": 2,
+            "preset": "normal:95:34:PB29:round",
+            "dwell": false,
+            "puddle": {
+              "layers": 1,
+              "drying": false,
+              "cancellations": 0,
+              "computations": 1,
+              "pending": true,
+              "revisions": [
+                {
+                  "epoch": 3,
+                  "ready": false,
+                  "active": false
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "page": {
+      "w": 1024,
+      "h": 1024
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)"
+  },
+  "pass": true,
+  "context": "Isolated raw Chrome browsercontext on physical Samsung;12CSSpx screenshots26physicalpx. Budget identity captured in next undo10 probe."
+}

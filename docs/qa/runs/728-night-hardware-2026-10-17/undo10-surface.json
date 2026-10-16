@@ -1,0 +1,91 @@
+{
+  "strokes": 10,
+  "errors": [],
+  "scope": "GPU tiny strokes, 2 authors, stable dry baseline; no replay oracle in timings",
+  "identity": {
+    "model": "m70-r2-v1",
+    "page": {
+      "w": 1024,
+      "h": 1024
+    },
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "seedWallMs": 1762,
+  "baselineRGB": [
+    78.1640625,
+    52.57421875,
+    67.703125
+  ],
+  "firstObservedActualChange": {
+    "requestAfterTriggerMs": 356,
+    "completeAfterTriggerMs": 953,
+    "changedChannels": 508,
+    "max": 14,
+    "meanRGB": [
+      82.84765625,
+      52.50390625,
+      65.8671875
+    ]
+  },
+  "settledWallMs": 1833,
+  "pass": true,
+  "source": "8680f05f",
+  "actors": [
+    {
+      "undoCPU": 9.700000047683716,
+      "meta": true,
+      "arrivalMs": 0.5,
+      "ackMs": 183.800048828125,
+      "readyDisplayMs": 283.39990234375,
+      "lastState": {
+        "pending": 0,
+        "jobs": 0,
+        "queue": 0,
+        "puddle": {
+          "layers": 1,
+          "drying": false,
+          "cancellations": 2,
+          "computations": 4,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": false,
+              "active": false
+            }
+          ]
+        }
+      },
+      "preset": "normal:95:34:PB29:round",
+      "rafSamples": 81
+    },
+    {
+      "undoCPU": null,
+      "meta": true,
+      "arrivalMs": 183.89990234375,
+      "ackMs": 183.89990234375,
+      "readyDisplayMs": 574.599853515625,
+      "lastState": {
+        "pending": 0,
+        "jobs": 0,
+        "queue": 0,
+        "puddle": {
+          "layers": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 3,
+          "pending": false,
+          "revisions": []
+        }
+      },
+      "preset": "normal:95:34:PB29:round",
+      "rafSamples": 83
+    }
+  ],
+  "limitations": [
+    "Ready display is engine presentation candidate, not physical compositor timestamp.",
+    "Actual first observed ROI change is bounded by CDP screenshot request/completion; wall settled includes remote probes.",
+    "10 tiny strokes; does not establish 100/800-op scaling."
+  ],
+  "contextCaveat": "Surface own Playwright context defaults deviceScaleFactor1/hasTouchfalse; user Surface DPR1.5/touch10. Both budgetInfinity because deviceMemory8. Native GPU retained; raster load not exact user viewport."
+}

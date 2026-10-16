@@ -1,0 +1,16 @@
+# Аппаратные проверки 17 октября
+
+На `8680f05f` проверены Surface Intel и Samsung Adreno650. На Surface ранняя проверка короткого пера выполнена на `9df0f12c`. Это целевые проверки видимости мокрого мазка и задержки undo; межустройственный детерминизм здесь не проверяется.
+
+- `short-input-baseline.json`: Surface, DOWN/1/2/6MOVE при pressure0.2/0.75 и новый красный штрих по мокрому синему. Пигмент виден уже при DOWN. Dwell-таймер не активен.
+- `samsung-short-input.json`: чистая вода и пигмент95/34 видны при DOWN и удержании пера; actual compositorROI. #743 в этих сценариях не воспроизведён и остаётся открытым.
+- `undo10-surface.json`: CPU9.7ms, подтверждение184ms, кандидат локального display283ms, у второго участника575ms. Screenshot даёт отдельную верхнюю границу с задержкой транспорта.
+- `undo30-pending-surface.json`: CPU15.8ms; новый held-мазок принимается при активном rebuild job. Это диагностический engine callback после nativeCtrl+Z. Время локальной готовности включает намеренное удержание пера.
+- `undo100-surface.json`: CPU22.1ms, подтверждение201ms, замена слоя2187ms. Наблюдение screenCache8×8 за первые2s истекло до замены; compositor затем подтверждает удаление красного мазка. За undo появились3 вычисления цели и2 отмены. Поле pass=false относится к лимиту наблюдения2s.
+- `samsung-undo10.json`: реальный finiteGPUbudget300MiB, CPU12.6ms, замена слоя195ms. Холодный перезаход сохраняет11 состояний журнала и байты actualROI после удаления красного мазка.
+
+Surface использовал отдельные Playwright contexts с DPR1/hasTouch=false; пользовательская страница имеет DPR1.5/touch10. GPUbudget в обоих случаях Infinity из-за deviceMemory8. Samsung использовал rawCDP isolated browsercontext, сохранив реальные touch5/DPR2.125/deviceMemory4 и budget300MiB. Cookies основной Android-сессии не менялись.
+
+Ни один снимок actual не получен через экспорт/replay oracle или принудительный display. Чтение screenCache сохраняет framebuffer bindings, проверяет GLerrors и добавляет наблюдательную стоимость. Физическое появление пикселей ограничивается compositor screenshot, а не timestamp JS.
+
+Временные профили и disposable-комнаты пока сохранены для повторной проверки оптимизации. Их точные владельцы и PID зарегистрированы приватно в `temp/device-runs/728-night-hardware-20261016b/resources.json`.
