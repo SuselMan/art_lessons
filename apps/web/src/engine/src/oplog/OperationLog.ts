@@ -22,6 +22,8 @@ export type OperationState = 'done' | 'undone' | 'gone'
 export interface LogEntry {
   op: Operation
   state: OperationState
+  /** Original operations reconstruct this distinction during history hydration. */
+  goneReason?: 'branch' | 'revoke'
   /** (#537) This client's own operation, applied optimistically and not yet
    *  confirmed by the server. Pending entries always form the log's tail —
    *  see OperationLog's own doc comment on the two regions. */
@@ -188,7 +190,7 @@ export class OperationLog {
     this._revision++
     if (!META_OP_TYPES.has(op.type)) {
       for (const e of this._entries) {
-        if (e.state === 'undone' && e.op.userId === op.userId) e.state = 'gone'
+        if (e.state === 'undone' && e.op.userId === op.userId) { e.state = 'gone'; e.goneReason = 'branch' }
       }
     }
 
@@ -428,12 +430,13 @@ export class OperationLog {
   revoke(targetOpId: string): Operation | null {
     this._revision++
     for (const e of this._entries) {
-      if (e.op.id === targetOpId && e.state !== 'gone') {
+      if (e.op.id === targetOpId && (e.state !== 'gone' || e.goneReason === 'branch')) {
         // Only a still-`done` entry was ever counted (an `undone` one
         // already wasn't) — revoking that one is the only case that changes
         // the count.
         if (e.state === 'done') this._bumpPixelOpCount(e.op, -1)
         e.state = 'gone'
+        e.goneReason = 'revoke'
         return e.op
       }
     }

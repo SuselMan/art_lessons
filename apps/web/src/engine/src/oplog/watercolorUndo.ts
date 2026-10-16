@@ -9,10 +9,9 @@ export const WATERCOLOR_UNDO_DRY_MS = 120_000
 
 type Point = { x: number; y: number }
 type Capsule = { a: Point; b: Point; r: number }
-type Gesture = {
-  first: number; last: number; user: string; layer: string; epoch: number
-  active: boolean; water: boolean; chunks: StrokeOperation[]; footprint: Capsule[]
-}
+type Bounds = { left: number; top: number; right: number; bottom: number }
+type WetNode = { op: StrokeOperation; group: string; index: number; active: boolean; water: boolean; footprint: Capsule[]; bounds: Bounds }
+
 
 const q = (value: number): number => Math.round(value * 256) / 256
 const cross = (a: Point, b: Point, p: Point): number => (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
@@ -55,9 +54,25 @@ function footprint(dabs: Dab[]): Capsule[] {
   return out
 }
 
-function intersects(a: Gesture, b: Gesture): boolean {
-  return a.layer === b.layer && a.epoch === b.epoch
-    && a.footprint.some(x => b.footprint.some(y => touches(x, y)))
+function boundsOf(shapes: Capsule[]): Bounds {
+  const out = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity }
+  for (const { a, b, r } of shapes) {
+    out.left = Math.min(out.left, a.x - r, b.x - r); out.right = Math.max(out.right, a.x + r, b.x + r)
+    out.top = Math.min(out.top, a.y - r, b.y - r); out.bottom = Math.max(out.bottom, a.y + r, b.y + r)
+  }
+  return out
+}
+
+function overlap(a: Bounds, b: Bounds): boolean {
+  return a.left <= b.right && b.left <= a.right && a.top <= b.bottom && b.top <= a.bottom
+}
+
+function intersects(a: WetNode, b: WetNode): boolean {
+  return overlap(a.bounds, b.bounds) && a.footprint.some(x => b.footprint.some(y => touches(x, y)))
+}
+
+function isRemovedWaterCandidate(entry: LogEntry): boolean {
+  return entry.state === 'undone' || (entry.state === 'gone' && entry.goneReason === 'branch')
 }
 
 export function isM70WatercolorStroke(op: Operation): op is StrokeOperation {
@@ -78,70 +93,111 @@ export function waterOnlyStroke(op: StrokeOperation): StrokeOperation {
   return projection
 }
 
-/** A derived view; original operations and their done/undone states never
- * change. Undoable drying boundaries are read only when currently done.
- * Revoked/gone entries disappear completely. Water-only projections cannot
- * themselves protect other undone gestures: protection needs a later active
- * foreign contribution in the same historical wet component. */
+/** A derived material view, never a mutation of the original journal.
+ * Protection is historical, but connectivity and inactivity are local to each
+ * wet component. Gone redo branches retain protected water; revocation does not. */
 export function effectiveWatercolorOperations(
   entries: readonly LogEntry[], options: { dryAfterMs?: number } = {},
 ): Operation[] {
-  if (!entries.some(({ op, state }) => state === 'undone' && isM70WatercolorStroke(op)
-    && watercolorMixFromPreset(op.preset).water > 0)) return entries.filter(e => e.state === 'done').map(e => e.op)
+  const candidateLayers = new Set<string>()
+  for (const entry of entries) {
+    if (isRemovedWaterCandidate(entry) && isM70WatercolorStroke(entry.op)
+      && watercolorMixFromPreset(entry.op.preset).water > 0) candidateLayers.add(entry.op.layerId)
+  }
+  if (!candidateLayers.size) return entries.filter(e => e.state === 'done').map(e => e.op)
   const dryAfter = options.dryAfterMs ?? WATERCOLOR_UNDO_DRY_MS
-  const epochs = new Map<string, number>(), lastAt = new Map<string, number>()
-  const gestures = new Map<string, Gesture>()
-  let globalEpoch = 0
-  const bump = (layer: string) => { epochs.set(layer, (epochs.get(layer) ?? globalEpoch) + 1); lastAt.delete(layer) }
-  for (let i = 0; i < entries.length; i++) {
-    const { op, state } = entries[i]
-    if (state === 'gone') continue
-    if (state === 'done' && op.type === 'paper_dry') {
-      if ('layerId' in op && typeof op.layerId === 'string') bump(op.layerId)
-      else { globalEpoch++; for (const layer of epochs.keys()) bump(layer); lastAt.clear() }
-    }
-    if (state === 'done' && (op.type === 'layer_clear' || op.type === 'layer_delete')) {
-      for (const layer of operationLayerIds(op)) bump(layer)
-    }
-    if (!isM70WatercolorStroke(op)) continue
-    const key = JSON.stringify([op.userId, op.layerId, op.strokeId ?? op.id])
-    const existing = gestures.get(key)
-    if (existing) {
-      existing.last = i; existing.active ||= state === 'done'; existing.chunks.push(op)
-      lastAt.set(op.layerId, op.timestamp)
-      continue
-    }
-    const previous = lastAt.get(op.layerId)
-    if (previous !== undefined && op.timestamp - previous > dryAfter) bump(op.layerId)
-    if (!epochs.has(op.layerId)) epochs.set(op.layerId, globalEpoch)
-    lastAt.set(op.layerId, op.timestamp)
-    gestures.set(key, { first: i, last: i, user: op.userId, layer: op.layerId,
-      epoch: epochs.get(op.layerId)!, active: state === 'done', water: watercolorMixFromPreset(op.preset).water > 0,
-      chunks: [op], footprint: [] })
+  const nodes = new Map<string, WetNode>(), candidateGroups = new Set<string>()
+  for (let index = 0; index < entries.length; index++) {
+    const entry = entries[index], op = entry.op
+    if (!isM70WatercolorStroke(op) || !candidateLayers.has(op.layerId)
+      || (entry.state !== 'done' && !isRemovedWaterCandidate(entry))) continue
+    const group = JSON.stringify([op.userId, op.layerId, op.strokeId ?? op.id])
+    const shapes = footprint(strokeDabs(op))
+    const node: WetNode = { op, group, index, active: entry.state === 'done',
+      water: watercolorMixFromPreset(op.preset).water > 0, footprint: shapes, bounds: boundsOf(shapes) }
+    nodes.set(op.id, node)
+    if (!node.active && node.water) candidateGroups.add(group)
   }
-  const all = [...gestures.values()]
-  for (const g of all) g.footprint = footprint(g.chunks.flatMap(strokeDabs))
-  let wet = all.filter(g => g.water)
-  // Remove unsupported water and rebuild connectivity until stable. An
-  // already-cancelled bridge must not keep two otherwise separate pools
-  // connected merely because the original history contained it.
+  let retained = candidateGroups
   for (;;) {
-    const parent = wet.map((_, i) => i)
+    const wet: WetNode[] = [], parent: number[] = [], lastAt: number[] = []
+    const open = new Map<string, Set<number>>()
+    const members = new Map<number, number[]>(), componentBounds = new Map<number, Bounds>()
+    const consumers: { component: number; node: WetNode }[] = []
     const root = (i: number): number => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i] } return i }
-    for (let i = 0; i < wet.length; i++) for (let j = 0; j < i; j++) {
-      if (intersects(wet[i], wet[j])) parent[root(i)] = root(j)
+    const close = (layer: string) => open.delete(layer)
+    for (const entry of entries) {
+      const op = entry.op
+      if (entry.state === 'done') {
+        if (op.type === 'paper_dry') {
+          if (op.layerId) close(op.layerId); else open.clear()
+        } else if (op.type === 'layer_clear' || op.type === 'layer_delete'
+          || (op.type === 'layer_visibility' && !op.visible)) {
+          for (const layer of operationLayerIds(op)) close(layer)
+        }
+      }
+      const node = nodes.get(op.id)
+      if (!node || (!node.active && !retained.has(node.group))) continue
+      const active = open.get(node.op.layerId) ?? new Set<number>()
+      open.set(node.op.layerId, active)
+      const roots = new Set([...active].map(root)); active.clear()
+      for (const id of roots) if (op.timestamp - lastAt[id] <= dryAfter) active.add(id)
+      // Components are broad-phase filtered through their member AABBs; old
+      // dry periods are never scanned or accidentally revived by a distant dab.
+      const hit = new Set<number>()
+      for (const component of active) {
+        if (overlap(node.bounds, componentBounds.get(component)!)
+          && members.get(component)!.some(i => intersects(node, wet[i]))) hit.add(component)
+      }
+      if (!node.water) {
+        if (node.active) for (const component of hit) {
+          consumers.push({ component, node }); lastAt[component] = Math.max(lastAt[component], op.timestamp)
+        }
+        continue
+      }
+      const id = wet.length; wet.push(node); parent.push(id); lastAt.push(op.timestamp)
+      // Union by member count: a long running pool does not copy its entire
+      // membership on each new dab/chunk.
+      let base = id
+      for (const component of hit) if ((members.get(component)?.length ?? 0) > (members.get(base)?.length ?? 0)) base = component
+      const mergedMembers = members.get(base) ?? [], mergedBounds = { ...(componentBounds.get(base) ?? node.bounds) }
+      mergedMembers.push(id); parent[id] = base
+      lastAt[base] = Math.max(lastAt[base], op.timestamp)
+      mergedBounds.left = Math.min(mergedBounds.left, node.bounds.left); mergedBounds.right = Math.max(mergedBounds.right, node.bounds.right)
+      mergedBounds.top = Math.min(mergedBounds.top, node.bounds.top); mergedBounds.bottom = Math.max(mergedBounds.bottom, node.bounds.bottom)
+      for (const component of hit) {
+        active.delete(component)
+        if (component === base) continue
+        for (const member of members.get(component)!) mergedMembers.push(member)
+        const oldBounds = componentBounds.get(component)!
+        mergedBounds.left = Math.min(mergedBounds.left, oldBounds.left); mergedBounds.right = Math.max(mergedBounds.right, oldBounds.right)
+        mergedBounds.top = Math.min(mergedBounds.top, oldBounds.top); mergedBounds.bottom = Math.max(mergedBounds.bottom, oldBounds.bottom)
+        parent[component] = base; lastAt[base] = Math.max(lastAt[base], lastAt[component])
+        members.delete(component); componentBounds.delete(component)
+      }
+      members.set(base, mergedMembers); componentBounds.set(base, mergedBounds)
+      active.add(base)
     }
-    const retained = wet.filter((g, i) => {
-      if (g.active) return true
-      const component = wet.filter((_, j) => root(i) === root(j))
-      return all.some(other => other.active && other.user !== g.user && other.first > g.first
-        && (other.water ? component.includes(other) : component.some(member => intersects(member, other))))
-    })
-    if (retained.length === wet.length) break
-    wet = retained
+    // Latest active contribution per author and historical component. This
+    // replaces the previous per-candidate full component/author scans.
+    const latest = new Map<number, Map<string, number>>()
+    const record = (component: number, node: WetNode) => {
+      const id = root(component), authors = latest.get(id) ?? new Map<string, number>()
+      authors.set(node.op.userId, Math.max(authors.get(node.op.userId) ?? -1, node.index)); latest.set(id, authors)
+    }
+    for (let i = 0; i < wet.length; i++) if (wet[i].active) record(i, wet[i])
+    for (const consumer of consumers) record(consumer.component, consumer.node)
+    const supported = new Set<string>()
+    for (let i = 0; i < wet.length; i++) {
+      const node = wet[i]
+      if (!node.active && [...(latest.get(root(i)) ?? [])].some(([author, index]) => author !== node.op.userId && index > node.index)) {
+        supported.add(node.group)
+      }
+    }
+    if (supported.size === retained.size) break
+    retained = supported
   }
-  const keep = new Set(wet.filter(g => !g.active).flatMap(g => g.chunks.map(chunk => chunk.id)))
-  return entries.flatMap(({ op, state }) => state === 'done' ? [op]
-    : state === 'undone' && op.type === 'stroke' && keep.has(op.id) ? [waterOnlyStroke(op)] : [])
+  return entries.flatMap(entry => entry.state === 'done' ? [entry.op]
+    : isRemovedWaterCandidate(entry) && entry.op.type === 'stroke' && retained.has(nodes.get(entry.op.id)?.group ?? '')
+      ? [waterOnlyStroke(entry.op)] : [])
 }
-
