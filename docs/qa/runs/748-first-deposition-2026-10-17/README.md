@@ -39,3 +39,12 @@ baseline**. Это не поздняя подмена и не повод пов�
 Гипотеза не принимается как причина/productionfix. Детали:
 `highp-sampler-negative.json`. Дальнейшая изоляция: per-draw scalarvaryings→uniforms,
 затем analyticlocalUVизgl_FragCoord на этомисходном zero-angleinput.
+
+Uniform-scalars также отрицательный: runtime659852ef, обаGPU32draw SHA
+точно baseline, исходник специализированного nib действительно изменён.
+Firstdraw readback:35pixels/43channels отличаются на1byte;23pixels
+лежат внутри nominal coverage plateau. В частности целая строка при
+worldY85.5 имеет alpha255 наобоихGPU, но R175/176. Поэтому отличие
+не ограничено растушёвкой/SDFкраем. Следующий isolatedpixel-uv диагностирует
+интерполяцию localUV; RGBA8rounding пока остаётся отдельной гипотезой.
+Компактные данные: `uniform-scalars-negative.json`.

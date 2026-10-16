@@ -1,0 +1,628 @@
+{
+  "source": "659852ef",
+  "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+  "gpus": {
+    "vega": {
+      "variant": {
+        "mode": "uniform-scalars",
+        "patched": 3
+      },
+      "target": {
+        "length": 1048596,
+        "hash": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+        "dither": true,
+        "glError": 0,
+        "journal": [
+          {
+            "id": "ef5c3073-e28f-440f-8f97-bb76ae0a4c5b",
+            "type": "layer_add",
+            "state": "done"
+          },
+          {
+            "id": "iS6idSqAMt",
+            "type": "stroke",
+            "state": "gone",
+            "goneReason": "branch"
+          },
+          {
+            "id": "GCVQWfoOpu",
+            "type": "stroke",
+            "state": "done"
+          },
+          {
+            "id": "QnUxLiRc8c",
+            "type": "operation_undo",
+            "state": "done"
+          },
+          {
+            "id": "8de683fb-8e34-47bc-aa6d-024bb99390af",
+            "type": "paper_dry",
+            "state": "done"
+          }
+        ]
+      },
+      "all32BuffersExactBaseline": true,
+      "firstProgram": 0
+    },
+    "surface": {
+      "variant": {
+        "mode": "uniform-scalars",
+        "patched": 3
+      },
+      "target": {
+        "length": 1048596,
+        "hash": "2d5bebe503d733ede35a380a3e109b4a004a716d925a729c2d2045412cad501a",
+        "dither": true,
+        "glError": 0,
+        "journal": [
+          {
+            "id": "ef5c3073-e28f-440f-8f97-bb76ae0a4c5b",
+            "type": "layer_add",
+            "state": "done"
+          },
+          {
+            "id": "iS6idSqAMt",
+            "type": "stroke",
+            "state": "gone",
+            "goneReason": "branch"
+          },
+          {
+            "id": "GCVQWfoOpu",
+            "type": "stroke",
+            "state": "done"
+          },
+          {
+            "id": "QnUxLiRc8c",
+            "type": "operation_undo",
+            "state": "done"
+          },
+          {
+            "id": "8de683fb-8e34-47bc-aa6d-024bb99390af",
+            "type": "paper_dry",
+            "state": "done"
+          }
+        ]
+      },
+      "all32BuffersExactBaseline": true,
+      "firstProgram": 0
+    }
+  },
+  "firstDrawExactDiff": {
+    "width": 512,
+    "height": 512,
+    "bytes": 1048576,
+    "channelsChanged": 43,
+    "pixelsChanged": 35,
+    "maxDiff": 1,
+    "channels": [
+      27,
+      0,
+      8,
+      8
+    ],
+    "insideNominalCoveragePlateau": 23,
+    "outsideNominalCoveragePlateau": 12,
+    "examples": [
+      {
+        "world": [
+          73.5,
+          91.5
+        ],
+        "distance": 13.209844813622906,
+        "inNominalPlateau": false,
+        "left": [
+          111,
+          0,
+          124,
+          124
+        ],
+        "right": [
+          111,
+          0,
+          125,
+          125
+        ],
+        "deltas": [
+          0,
+          0,
+          -1,
+          -1
+        ]
+      },
+      {
+        "world": [
+          86.5,
+          91.5
+        ],
+        "distance": 13.209844813622906,
+        "inNominalPlateau": false,
+        "left": [
+          111,
+          0,
+          124,
+          124
+        ],
+        "right": [
+          111,
+          0,
+          125,
+          125
+        ],
+        "deltas": [
+          0,
+          0,
+          -1,
+          -1
+        ]
+      },
+      {
+        "world": [
+          71.5,
+          89.5
+        ],
+        "distance": 12.747548783981962,
+        "inNominalPlateau": false,
+        "left": [
+          139,
+          0,
+          169,
+          169
+        ],
+        "right": [
+          140,
+          0,
+          169,
+          169
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          88.5,
+          89.5
+        ],
+        "distance": 12.747548783981962,
+        "inNominalPlateau": false,
+        "left": [
+          139,
+          0,
+          169,
+          169
+        ],
+        "right": [
+          140,
+          0,
+          169,
+          169
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          68.5,
+          86.5
+        ],
+        "distance": 13.209844813622906,
+        "inNominalPlateau": false,
+        "left": [
+          90,
+          0,
+          124,
+          124
+        ],
+        "right": [
+          90,
+          0,
+          125,
+          125
+        ],
+        "deltas": [
+          0,
+          0,
+          -1,
+          -1
+        ]
+      },
+      {
+        "world": [
+          91.5,
+          86.5
+        ],
+        "distance": 13.209844813622906,
+        "inNominalPlateau": false,
+        "left": [
+          90,
+          0,
+          124,
+          124
+        ],
+        "right": [
+          90,
+          0,
+          125,
+          125
+        ],
+        "deltas": [
+          0,
+          0,
+          -1,
+          -1
+        ]
+      },
+      {
+        "world": [
+          69.5,
+          85.5
+        ],
+        "distance": 11.853269591129697,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          70.5,
+          85.5
+        ],
+        "distance": 10.977249200050075,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          71.5,
+          85.5
+        ],
+        "distance": 10.124228365658293,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          72.5,
+          85.5
+        ],
+        "distance": 9.300537618869136,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          73.5,
+          85.5
+        ],
+        "distance": 8.514693182963201,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          74.5,
+          85.5
+        ],
+        "distance": 7.778174593052023,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          75.5,
+          85.5
+        ],
+        "distance": 7.1063352017759485,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          76.5,
+          85.5
+        ],
+        "distance": 6.519202405202649,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          77.5,
+          85.5
+        ],
+        "distance": 6.041522986797285,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          78.5,
+          85.5
+        ],
+        "distance": 5.70087712549569,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          79.5,
+          85.5
+        ],
+        "distance": 5.522680508593631,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          80.5,
+          85.5
+        ],
+        "distance": 5.522680508593631,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          81.5,
+          85.5
+        ],
+        "distance": 5.70087712549569,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "world": [
+          82.5,
+          85.5
+        ],
+        "distance": 6.041522986797285,
+        "inNominalPlateau": true,
+        "left": [
+          175,
+          0,
+          255,
+          255
+        ],
+        "right": [
+          176,
+          0,
+          255,
+          255
+        ],
+        "deltas": [
+          -1,
+          0,
+          0,
+          0
+        ]
+      }
+    ]
+  }
+}
