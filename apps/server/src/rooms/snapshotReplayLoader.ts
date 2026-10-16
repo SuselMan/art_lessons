@@ -71,16 +71,25 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
         })
         for (const { data } of prefix) { const op = data as Operation; byId.set(op.id, op) }
         await resolveHistoryTargets()
+        for (const op of byId.values()) if ((op.seq ?? 0) <= stored.seq) historicalIds.add(op.id)
+        plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
+      }
+      if (plan.replayStructure) {
         // Legacy snapshot-only roots have no recoverable original structural
         // base. Never guess that base from currently alive layers.
         const created = new Set(IMPLICIT_LAYER_IDS)
         for (const op of [...byId.values()].filter(op => (op.seq ?? 0) <= stored.seq)) if (op.type === 'layer_add' || op.type === 'layer_merge' || op.type === 'layer_duplicate') created.add(op.layerId)
         else if (op.type === 'folder_add') created.add(op.layerId)
-        if ([...(live ?? []), ...plan.historyLayers].some(id => !created.has(id))) {
+        // A post-snapshot merge/copy can require a source born in the tail.
+        // That source is recoverable from its recorded creation; it is not
+        // an unexplained root of the old uploaded structural tree.
+        const createdLater = new Set([...byId.values()].filter(op => (op.seq ?? 0) > stored.seq
+          && (op.type === 'layer_add' || op.type === 'folder_add' || op.type === 'layer_merge' || op.type === 'layer_duplicate'))
+          .flatMap(op => 'layerId' in op && op.layerId ? [op.layerId] : []))
+        if ([...(live ?? [])].some(id => !created.has(id))
+          || [...plan.historyLayers].some(id => !created.has(id) && !createdLater.has(id))) {
           throw new Error('Snapshot structural base cannot be reconstructed')
         }
-        for (const op of byId.values()) if ((op.seq ?? 0) <= stored.seq) historicalIds.add(op.id)
-        plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
       }
 
       const needed = new Set(plan.historyLayers)

@@ -159,3 +159,20 @@ describe('structural dependencies discovered after pixel-history expansion', () 
     await expect(prepareSnapshotReplay('room')).rejects.toThrow('structural base cannot be reconstructed')
   })
 })
+
+it('accepts a merge/copy source created after the snapshot during structural recovery',async()=>{
+  const add: Operation={id:'addS1',type:'layer_add',layerId:'S',name:'S',seq:1,timestamp:1,userId:'A'}
+  const del: Operation={id:'deleteS3',type:'layer_delete',layerIds:['S'],seq:3,timestamp:3,userId:'A'}
+  const undoDel: Operation={id:'undoDelete6',type:'operation_undo',targetOpId:del.id,seq:6,timestamp:6,userId:'A'}
+  const later: Operation={id:'newN7',type:'layer_add',layerId:'N',name:'N',seq:7,timestamp:7,userId:'A'}
+  const copy: Operation={id:'copyN8',type:'layer_duplicate',layerId:'D',sourceId:'N',name:'D',sourceOpacity:1,sourceVisible:true,parentId:null,index:0,seq:8,timestamp:8,userId:'A'}
+  const all=[add,del,undoDel,later,copy]
+  mocks.rooms.set('room',{nextSeq:9,operations:[undoDel,later,copy],aliveIds:new Set(['layer-1','background','S','N','D'])})
+  mocks.state.mockResolvedValue({seq:5,state:{items:{'layer-1':{},background:{}}}})
+  mocks.snapshots.mockResolvedValue([{layerId:'background',seq:5,hash:'background'}])
+  mocks.operations.mockImplementation(async({where})=>(where.id?all.filter(op=>where.id.in.includes(op.id)):where.type?all.filter(op=>(op.seq??0)<=where.seq.lte):all).map(data=>({data})))
+  const p=await prepareSnapshotReplay('room')
+  expect(p.replayStructure).toBe(true)
+  expect(p.historyLayers).toContain('N')
+  expect(p.operations.map(op=>op.id)).toContain(later.id)
+})
