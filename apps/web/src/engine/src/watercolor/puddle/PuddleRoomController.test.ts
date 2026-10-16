@@ -12,7 +12,7 @@ vi.mock('../../buffers/RibbonStrokeScratch', () => ({ RibbonStrokeScratch: class
   destroy = vi.fn()
   peek = vi.fn()
 } }))
-vi.mock('./PuddleTarget', () => ({ createNativePuddleTarget: () => ({ cancel: vi.fn(), destroy: vi.fn(), resetFromScratch: vi.fn(), state: {done: true}, dry: vi.fn(), buffers: () => ({p: {}, c: {}, coverage: {}}) }) }))
+vi.mock('./PuddleTarget', () => ({ createNativePuddleTarget: () => ({ cancel: vi.fn(), destroy: vi.fn(), resetFromScratch: vi.fn(), step: vi.fn(), state: {done: true}, dry: vi.fn(), buffers: () => ({p: {}, c: {}, coverage: {}}) }) }))
 vi.mock('./PuddlePresentation', () => ({ createPuddlePresentation: () => ({ invalidate: vi.fn(), destroy: vi.fn(), reset: vi.fn(), setTarget: vi.fn(), acceptInput: vi.fn(), tick: vi.fn(() => ({copyTo: vi.fn()})) }) }))
 
 // No raster assertions: exercise layer lifecycle ownership, the part which
@@ -68,13 +68,13 @@ it('erases the dry baseline while retaining wet material buffers for target reco
   vi.unstubAllGlobals()
 })
 
-function wetController(timestamp: number) {
+function wetController(timestamp: number, drawing = () => false) {
   vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
   vi.stubGlobal('cancelAnimationFrame', vi.fn())
   const render = vi.fn(), changed = vi.fn()
   const controller = new PuddleRoomController({
     gl: {}, pool: {}, size: 16, settlePlan: {prepare: vi.fn()},
-    released: vi.fn(), changed, render,
+    released: vi.fn(), changed, render, drawing, display: vi.fn(),
   } as unknown as PuddleRoomHost)
   const target = {} as ILayerBuffer
   const profile = {ink: {}, normalizeDeposit: false} as Parameters<typeof controller.source>[2]
@@ -127,4 +127,40 @@ it('exposes the calculated target without overwriting shown pixels or releasing 
   expect(canonical[0].buffer.copyTo).not.toHaveBeenCalled()
   expect(controller.canonicalTiles(target)[0].buffer).toBe(canonical[0].buffer)
   controller.destroy();vi.unstubAllGlobals()
+})
+
+
+it('defers all target work while replay is busy, then computes only the final source', () => {
+  let busy = true
+  const {controller, target} = wetController(1, () => busy)
+  const solver = (controller as unknown as {solver: {step: ReturnType<typeof vi.fn>}}).solver
+  const frame = () => {
+    const callback = vi.mocked(requestAnimationFrame).mock.calls.at(-1)![0]
+    callback(performance.now() + 1000)
+  }
+  try {
+    // Several replay slices may update the material before the next idle frame.
+    controller.dry(target)
+    frame(); frame()
+    expect(controller.state.computations).toBe(0)
+    expect(solver.step).not.toHaveBeenCalled()
+    expect(controller.state.cancellations).toBe(0)
+    expect(vi.mocked(requestAnimationFrame).mock.calls.length).toBeGreaterThan(2)
+    busy = false
+    frame()
+    expect(controller.state.computations).toBe(1)
+    expect(solver.step).toHaveBeenCalledTimes(1)
+    expect(controller.state.revisions[0].ready).toBe(true)
+  } finally { controller.destroy(); vi.unstubAllGlobals() }
+})
+
+it('still closes a recorded dry boundary synchronously while replay is busy', () => {
+  const {controller, target, changed} = wetController(1, () => true)
+  changed.mockClear()
+  try {
+    controller.close(target)
+    expect(controller.state.computations).toBe(1)
+    expect(controller.has(target)).toBe(false)
+    expect(changed).toHaveBeenCalledTimes(1)
+  } finally { controller.destroy(); vi.unstubAllGlobals() }
 })

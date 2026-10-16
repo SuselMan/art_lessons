@@ -1653,7 +1653,7 @@ export class PencilEngine implements PencilEngineAPI {
       gl:this.gl, size:w, settlePlan:this._settlePlan, pool:this._ribbonScratchPool, passes:this._watercolorPasses,
       invalidateFrontPaths:()=>this._watercolorPasses.invalidateFrontPaths(),
       hasActiveSettle:()=>!!this._settle,
-      drawing:()=>!!this._strokeLayerId,
+      drawing:()=>!!this._strokeLayerId || this._rebuildJobs.size > 0,
       render:(scratch,tile,ctx,output,material)=>{
         const entry=scratch.peek(tile.buffer)
         if (!entry) return
