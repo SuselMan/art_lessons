@@ -1,4 +1,4 @@
-import type {Dab} from '@grafetto/shared'
+import {WATERCOLOR_WET_DRY_MS, type Dab} from '@grafetto/shared'
 import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
 import type {ILayerBuffer, PaintTarget} from '../../buffers/ILayerBuffer'
 import {RibbonStrokeScratch} from '../../buffers/RibbonStrokeScratch'
@@ -77,7 +77,7 @@ export class PuddleRoomController {
   source(target: ILayerBuffer, gesture: string, profile: RibbonProfile, timestamp: number, boundary=''): {scratch: RibbonStrokeScratch; prevDab?: Dab} {
     let layer = this.layers.get(target)
     // Logical operation time, never animation progress, closes a dried wash.
-    if (layer && (boundary!==layer.boundary || timestamp > layer.timestamp + 120000)) { this.close(target); layer = undefined }
+    if (layer && (boundary!==layer.boundary || timestamp >= layer.timestamp + WATERCOLOR_WET_DRY_MS)) { this.close(target); layer = undefined }
     if (!layer) {
       if (this.layers.size >= 2) throw new Error('M70 QA supports two wet layers at once; dry a layer first')
       const make = () => new AccumulationBuffer(this.host.gl, this.host.size, this.host.size)
@@ -202,9 +202,21 @@ export class PuddleRoomController {
     layer.presentation.tick(0,{dry:false}).copyTo(layer.tile.buffer)
     this.host.changed(layer.target)
   }
+  /** Materialize natural drying on the operation timeline, independently of
+   * whether presentation has completed on this particular device. */
+  closeIfDry(target: ILayerBuffer, logicalAt: number): boolean {
+    const layer = this.layers.get(target)
+    if (!layer || !Number.isFinite(logicalAt)
+      || logicalAt < layer.timestamp + WATERCOLOR_WET_DRY_MS) return false
+    this.close(target)
+    return true
+  }
   /** Mutate only the dry substrate. Wet deposits remain the canonical source;
    * presentation pixels are never fed back into either material buffer. */
-  eraseDryBase(target: ILayerBuffer, paint: (base: AccumulationBuffer) => void): boolean {
+  eraseDryBase(target: ILayerBuffer, paint: (base: AccumulationBuffer) => void, logicalAt?: number): boolean {
+    // Never use Date.now here: historical replay must retain water until the
+    // next recorded action actually crosses the layer's expiry boundary.
+    if (logicalAt !== undefined) this.closeIfDry(target, logicalAt)
     const layer = this.layers.get(target)
     if (!layer?.tile || !layer.context) return false
     const entry = layer.scratch.peek(layer.tile.buffer)
