@@ -30,3 +30,11 @@ actual historyIDs and pending flags before assigning product severity.
 требует присутствие каждого op либо **для stroke** позитивное подтверждение
 restored SnapshotLedger.isCovered(layerId,serverSeq); все meta обязаны быть
 в журнале. Следующий аппаратный повтор сохранит ledger и omittedCoveredIDs.
+
+Квалификация #756: **ложное срабатывание QA gate**, а не подтверждённая потеря
+данных. Намеренный100-op undo/backfill window не должен превращаться в полный
+запрос истории ради теста. Для каждого пропущенного stroke gate дополнительно
+требует `CheckpointStore.hasSnapshotFor(layerId)` вместе с restored ledger
+coverage; иначе FAIL. Functional load также требует nonempty фактических пикселей,
+реальный annotationMode и пустые pending queues/repairs. Full-replay неполного
+лога не используется как oracle. Cached ReviewImage overlay остаётся непроверен.
