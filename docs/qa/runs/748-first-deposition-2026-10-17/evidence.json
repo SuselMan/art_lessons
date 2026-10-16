@@ -1,0 +1,1094 @@
+{
+  "amd": {
+    "source": "ce68a405",
+    "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+    "target": {
+      "length": 1048596,
+      "hash": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+      "dither": true,
+      "glError": 0,
+      "journal": [
+        {
+          "id": "ef5c3073-e28f-440f-8f97-bb76ae0a4c5b",
+          "type": "layer_add",
+          "state": "done"
+        },
+        {
+          "id": "iS6idSqAMt",
+          "type": "stroke",
+          "state": "gone",
+          "goneReason": "branch"
+        },
+        {
+          "id": "GCVQWfoOpu",
+          "type": "stroke",
+          "state": "done"
+        },
+        {
+          "id": "QnUxLiRc8c",
+          "type": "operation_undo",
+          "state": "done"
+        },
+        {
+          "id": "8de683fb-8e34-47bc-aa6d-024bb99390af",
+          "type": "paper_dry",
+          "state": "done"
+        }
+      ]
+    },
+    "identity": {
+      "version": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+      "shadingLanguage": "WebGL GLSL ES 1.0 (OpenGL ES GLSL ES 1.0 Chromium)",
+      "precision": {
+        "VERTEX_SHADER:HIGH_FLOAT": {
+          "precision": 23,
+          "min": 127,
+          "max": 127
+        },
+        "VERTEX_SHADER:MEDIUM_FLOAT": {
+          "precision": 10,
+          "min": 15,
+          "max": 15
+        },
+        "VERTEX_SHADER:LOW_FLOAT": {
+          "precision": 10,
+          "min": 15,
+          "max": 15
+        },
+        "FRAGMENT_SHADER:HIGH_FLOAT": {
+          "precision": 23,
+          "min": 127,
+          "max": 127
+        },
+        "FRAGMENT_SHADER:MEDIUM_FLOAT": {
+          "precision": 10,
+          "min": 15,
+          "max": 15
+        },
+        "FRAGMENT_SHADER:LOW_FLOAT": {
+          "precision": 10,
+          "min": 15,
+          "max": 15
+        }
+      },
+      "specializedWatercolorNib": true
+    },
+    "programs": [
+      {
+        "id": 0,
+        "shaders": [
+          {
+            "type": 35633,
+            "length": 2509,
+            "sha": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb"
+          },
+          {
+            "type": 35632,
+            "length": 147227,
+            "sha": "9277fd378538ca6af022a892907c3a9bb68ffef5ce5eb50fa5a5ad0704d45ac3"
+          }
+        ]
+      },
+      {
+        "id": 1,
+        "shaders": [
+          {
+            "type": 35633,
+            "length": 2509,
+            "sha": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb"
+          },
+          {
+            "type": 35632,
+            "length": 147227,
+            "sha": "1d8375fb31c0e08f12ffb2676fc7a2727025de0e76e30f588a244c554eb4a535"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "shaders": [
+          {
+            "type": 35633,
+            "length": 2210,
+            "sha": "af53354739edbe61a9d1c65323669e0762bea9d6b8e39a6c6c0c65e1fc5fd36a"
+          },
+          {
+            "type": 35632,
+            "length": 18127,
+            "sha": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa"
+          }
+        ]
+      }
+    ],
+    "firstDraw": {
+      "index": 0,
+      "kind": "nib",
+      "dest": {
+        "width": 512,
+        "height": 512
+      },
+      "tile": {
+        "x": 0,
+        "y": 0
+      },
+      "args": {
+        "dab": {
+          "x": 80,
+          "y": 80,
+          "pressure": 0.800000011920929,
+          "tiltX": 0,
+          "tiltY": 0,
+          "size": 29.20254135131836,
+          "aspectRatio": 1,
+          "angle": 0,
+          "opacity": 0.9900000095367432,
+          "t": 0
+        },
+        "preset": {
+          "opacity": 0.99,
+          "hardness": 0.88,
+          "sizeMultiplier": 1
+        },
+        "profile": {
+          "stampsOnly": false,
+          "coverageInkMode": 6,
+          "stampFlow": null,
+          "nibShape": "ellipse",
+          "cornerFraction": 0,
+          "aaPx": 3,
+          "ink": true,
+          "inkEdgeFalloff": 0,
+          "compositeInkMode": 9,
+          "curvatureTolerancePx": 0.15,
+          "minHalfWidthPx": 0.75,
+          "paperRim": 0,
+          "wetEdgeRadiusPx": 0,
+          "spreadPx": 3,
+          "saturateInk": 0.2,
+          "normalizeDeposit": true,
+          "thinNibInkRefPx": 0,
+          "waterDepletion": true,
+          "materialModel": "m70-r2-v1",
+          "waterLevel": 1,
+          "pigmentLevel": 0.65,
+          "pigmentStrength": 0.65,
+          "bristleCombs": 4,
+          "bristleInk": 0,
+          "spreadOfRadius": 2.52,
+          "cloud": 0.19,
+          "edgeSoft": 0.4,
+          "edgeWander": 0.42,
+          "tideLo": 0.24,
+          "tideHi": 0.6,
+          "strokeDir": [
+            1,
+            0
+          ],
+          "dryContact": 0,
+          "granulation": 0.10381250000000002,
+          "pigmentOpacity": 0.1,
+          "depositPerRadius": 0.21525,
+          "stampInkShare": 0.82,
+          "wetEdge": 0,
+          "migrate": 0,
+          "migrateOfRadius": 0.55,
+          "migrateLo": 0.34,
+          "migrateHi": 0.85,
+          "diagnosticReadFluid": true
+        },
+        "mode": 6,
+        "opacity": 0,
+        "ownTarget": true,
+        "inkWater": 1,
+        "acrossLocal": [
+          0,
+          1
+        ],
+        "paperWet": 0,
+        "inkStrength": 1,
+        "mottleSeed": [
+          0,
+          0
+        ],
+        "clipTo": false,
+        "bristleCombs": 6.428571337723835,
+        "bristleInk": 0,
+        "depthTau": null,
+        "puddle": 0.8125823466102441,
+        "poolBlot": 0
+      },
+      "draw": [
+        4,
+        0,
+        6
+      ],
+      "program": 0,
+      "uniforms": {
+        "u_dabCenter": [
+          80,
+          80
+        ],
+        "u_dabRadius": 14.60127067565918,
+        "u_angle": 0,
+        "u_aspectRatio": 1,
+        "u_resolution": [
+          512,
+          512
+        ],
+        "u_pressure": 0.800000011920929,
+        "u_tiltX": {
+          "unavailable": true,
+          "type": 5126,
+          "size": 1
+        },
+        "u_tiltY": {
+          "unavailable": true,
+          "type": 5126,
+          "size": 1
+        },
+        "u_opacity": {
+          "unavailable": true,
+          "type": 5126,
+          "size": 1
+        },
+        "u_wickPx": 0,
+        "u_wickCap": 0,
+        "u_paperOrigin": [
+          0,
+          0
+        ],
+        "u_aaPx": 3,
+        "u_nibShape": 0,
+        "u_nibCorner": 0,
+        "u_acrossLocal": [
+          0,
+          1
+        ],
+        "u_paperWet": 0,
+        "u_washWater": 1,
+        "u_puddle": 0.8125823736190796,
+        "u_poolBlot": 0,
+        "u_waterRetain": 1,
+        "u_bristleCombs": 6.4285712242126465,
+        "u_inkWater": 1,
+        "u_wcNoiseTex": 7
+      },
+      "state": {
+        "BLEND": true,
+        "BLEND_SRC_RGB": 1,
+        "BLEND_DST_RGB": 771,
+        "BLEND_SRC_ALPHA": 1,
+        "BLEND_DST_ALPHA": 771,
+        "BLEND_EQUATION_RGB": 32774,
+        "BLEND_EQUATION_ALPHA": 32774,
+        "BLEND_COLOR": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "COLOR_WRITEMASK": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "VIEWPORT": [
+          0,
+          0,
+          512,
+          512
+        ],
+        "SCISSOR_TEST": false,
+        "SCISSOR_BOX": [
+          0,
+          0,
+          300,
+          150
+        ],
+        "DITHER": true,
+        "SAMPLE_COVERAGE": false,
+        "SAMPLE_ALPHA_TO_COVERAGE": false,
+        "SUBPIXEL_BITS": 4
+      },
+      "glBefore": 0,
+      "glAfter": 0,
+      "changed": 2030,
+      "nonzero": 2030,
+      "sums": [
+        69749,
+        0,
+        139609,
+        139609
+      ],
+      "beforeSHA": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+      "afterSHA": "ae8dcb5d76b660a9d34dfaec6331e75df7e0e72cfc6b1a1d5ae195144d25a8c6"
+    },
+    "drawSHASequence": [
+      {
+        "index": 0,
+        "kind": "nib",
+        "mode": 6,
+        "beforeSHA": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "afterSHA": "ae8dcb5d76b660a9d34dfaec6331e75df7e0e72cfc6b1a1d5ae195144d25a8c6"
+      },
+      {
+        "index": 1,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "afterSHA": "f0286f4480f18cda09f981d704ce7d129a68962545e4ceff1031e8488b0da89d"
+      },
+      {
+        "index": 2,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "f0286f4480f18cda09f981d704ce7d129a68962545e4ceff1031e8488b0da89d",
+        "afterSHA": "f0286f4480f18cda09f981d704ce7d129a68962545e4ceff1031e8488b0da89d"
+      },
+      {
+        "index": 3,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "afterSHA": "d34af259e5226113629b9e0d4aa3e9be7524ff3a0db50719613b3abaaa6281e9"
+      },
+      {
+        "index": 4,
+        "kind": "nib",
+        "mode": 6,
+        "beforeSHA": "ae8dcb5d76b660a9d34dfaec6331e75df7e0e72cfc6b1a1d5ae195144d25a8c6",
+        "afterSHA": "0149caa5899df71fd04123c6286f1e559ed570d4e21763ed3030b3d7360dab7d"
+      },
+      {
+        "index": 5,
+        "kind": "bands",
+        "mode": "coverage",
+        "beforeSHA": "0149caa5899df71fd04123c6286f1e559ed570d4e21763ed3030b3d7360dab7d",
+        "afterSHA": "9e226809198d793a82763e20f7ba0d9f73940a7055627f71ab1f9ffc3f96e8b8"
+      },
+      {
+        "index": 6,
+        "kind": "bands",
+        "mode": "coverage",
+        "beforeSHA": "9e226809198d793a82763e20f7ba0d9f73940a7055627f71ab1f9ffc3f96e8b8",
+        "afterSHA": "9feea3732eb8068a1a769928e60d4eb31ddb489d4003414cccaeaa208cfc9539"
+      },
+      {
+        "index": 7,
+        "kind": "bands",
+        "mode": "coverage",
+        "beforeSHA": "9feea3732eb8068a1a769928e60d4eb31ddb489d4003414cccaeaa208cfc9539",
+        "afterSHA": "8816751d6ffcc8ceddf31dba8b6ff9080357ed4a79ef7b80b4e9aef9b93e9737"
+      },
+      {
+        "index": 8,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "f0286f4480f18cda09f981d704ce7d129a68962545e4ceff1031e8488b0da89d",
+        "afterSHA": "37d00e1ad6dc92417ac2cbdcf612137d96d5fc15c2cbc12a8fba2dcdb2e729e6"
+      },
+      {
+        "index": 9,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "37d00e1ad6dc92417ac2cbdcf612137d96d5fc15c2cbc12a8fba2dcdb2e729e6",
+        "afterSHA": "e2603ea3bdaa9ab596835037d9faefcb8c5703ba66dff54584c6ab10e2c03504"
+      },
+      {
+        "index": 10,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "e2603ea3bdaa9ab596835037d9faefcb8c5703ba66dff54584c6ab10e2c03504",
+        "afterSHA": "38542c9304b650500deba911aa84dab3eb8392841a6cd7dd679fa4e6e3d7c185"
+      },
+      {
+        "index": 11,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "38542c9304b650500deba911aa84dab3eb8392841a6cd7dd679fa4e6e3d7c185",
+        "afterSHA": "3d60f69b8fa5d9be7006bdbbf74d69ea1f935e08a95e8393b9c8fb89ad239ef7"
+      },
+      {
+        "index": 12,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "d34af259e5226113629b9e0d4aa3e9be7524ff3a0db50719613b3abaaa6281e9",
+        "afterSHA": "853ffece628b59564e5ae501ca36ecffd238b8ce1c5170ccaccf2de0fd7bb285"
+      },
+      {
+        "index": 13,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "853ffece628b59564e5ae501ca36ecffd238b8ce1c5170ccaccf2de0fd7bb285",
+        "afterSHA": "832f73ccd05353eb0ea6c38d5e1f7473f7d11d2eb0f5cf37b05cb088c4b3b2e9"
+      },
+      {
+        "index": 14,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "832f73ccd05353eb0ea6c38d5e1f7473f7d11d2eb0f5cf37b05cb088c4b3b2e9",
+        "afterSHA": "9c0b261df03e87049eeefbb802120a9c1196e32e02f3e3efb10069716acdb2d1"
+      },
+      {
+        "index": 15,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "9c0b261df03e87049eeefbb802120a9c1196e32e02f3e3efb10069716acdb2d1",
+        "afterSHA": "d8a1b3b8552542f9025b8aeac668d62d834b9dc71113948db92cd6bf2010cf6d"
+      },
+      {
+        "index": 16,
+        "kind": "nib",
+        "mode": 6,
+        "beforeSHA": "8816751d6ffcc8ceddf31dba8b6ff9080357ed4a79ef7b80b4e9aef9b93e9737",
+        "afterSHA": "18319045229bd734b64300b5fd62a549a3d9f9235a4cfe4dd39d33d7ff8c759c"
+      },
+      {
+        "index": 17,
+        "kind": "bands",
+        "mode": "coverage",
+        "beforeSHA": "18319045229bd734b64300b5fd62a549a3d9f9235a4cfe4dd39d33d7ff8c759c",
+        "afterSHA": "99fc4f31c92e8fb61764a9b4fba07bdd1125f655c03862735a8649e12040a41a"
+      },
+      {
+        "index": 18,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "3d60f69b8fa5d9be7006bdbbf74d69ea1f935e08a95e8393b9c8fb89ad239ef7",
+        "afterSHA": "fe421d7717b68ddd256ed7f03b3617f1079ab8b46ae678bd9b17a990b6f365bb"
+      },
+      {
+        "index": 19,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "fe421d7717b68ddd256ed7f03b3617f1079ab8b46ae678bd9b17a990b6f365bb",
+        "afterSHA": "d87bffcdc75ce2254b0391c1370bab5a1d5b2ddff71adae05844ddfe72b82be3"
+      },
+      {
+        "index": 20,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "d8a1b3b8552542f9025b8aeac668d62d834b9dc71113948db92cd6bf2010cf6d",
+        "afterSHA": "63ce5752ef87f1f2e25af7550f38296317fb68327c2f4657d63321d9fdde1e6f"
+      },
+      {
+        "index": 21,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "63ce5752ef87f1f2e25af7550f38296317fb68327c2f4657d63321d9fdde1e6f",
+        "afterSHA": "33be12d948f87e9c1f0d8061daa4993a94d2e8c7981f3ed9c1fe29e828a41106"
+      },
+      {
+        "index": 22,
+        "kind": "nib",
+        "mode": 6,
+        "beforeSHA": "99fc4f31c92e8fb61764a9b4fba07bdd1125f655c03862735a8649e12040a41a",
+        "afterSHA": "9b664c75125989ef09ee581523144eac040b05dc5d81a4778e9e1693cdccf665"
+      },
+      {
+        "index": 23,
+        "kind": "bands",
+        "mode": "coverage",
+        "beforeSHA": "9b664c75125989ef09ee581523144eac040b05dc5d81a4778e9e1693cdccf665",
+        "afterSHA": "49ff2c1ca593b902d92903a3697175fb65d8fc86afebe541c1ab2e642612cc86"
+      },
+      {
+        "index": 24,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "d87bffcdc75ce2254b0391c1370bab5a1d5b2ddff71adae05844ddfe72b82be3",
+        "afterSHA": "8d84b98c8c5683da9e84b36e536b89977021b326d532071239225c765e5cbfc8"
+      },
+      {
+        "index": 25,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "8d84b98c8c5683da9e84b36e536b89977021b326d532071239225c765e5cbfc8",
+        "afterSHA": "ca7d246c5df9345fdc0aaab760d3d737fa5f27429ae9d3aa43877862a83a13a0"
+      },
+      {
+        "index": 26,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "33be12d948f87e9c1f0d8061daa4993a94d2e8c7981f3ed9c1fe29e828a41106",
+        "afterSHA": "18e725d81e54d9371c7e44f1241c2c920a3444cb2ce7e49ef33e52a67883ee01"
+      },
+      {
+        "index": 27,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "18e725d81e54d9371c7e44f1241c2c920a3444cb2ce7e49ef33e52a67883ee01",
+        "afterSHA": "211a3cffbaccf47b33f2e3cc19135816e44d45227749223d96d09d9bcd3b883d"
+      },
+      {
+        "index": 28,
+        "kind": "nib",
+        "mode": 6,
+        "beforeSHA": "49ff2c1ca593b902d92903a3697175fb65d8fc86afebe541c1ab2e642612cc86",
+        "afterSHA": "6114ae9b3f31a985488198a6c4168caeea057a42f6eea5f0f8bd3116e80d6dbd"
+      },
+      {
+        "index": 29,
+        "kind": "bands",
+        "mode": "coverage",
+        "beforeSHA": "6114ae9b3f31a985488198a6c4168caeea057a42f6eea5f0f8bd3116e80d6dbd",
+        "afterSHA": "1ab5ec408f510e264e936b6eee0d30421e486b70e2f952ee9bee90b7dd6c7bc1"
+      },
+      {
+        "index": 30,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "ca7d246c5df9345fdc0aaab760d3d737fa5f27429ae9d3aa43877862a83a13a0",
+        "afterSHA": "183bf41cb09754e6283698829933e1ff08c175f400a932a1699ade8e607b6d52"
+      },
+      {
+        "index": 31,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "183bf41cb09754e6283698829933e1ff08c175f400a932a1699ade8e607b6d52",
+        "afterSHA": "e67c17f3b3c1ae0fd6c86704693bd019038a21c6c1b9c4bc3acda2a111f2bca9"
+      }
+    ]
+  },
+  "intel": {
+    "source": "05929ef0",
+    "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+    "target": {
+      "length": 1048596,
+      "hash": "2d5bebe503d733ede35a380a3e109b4a004a716d925a729c2d2045412cad501a",
+      "dither": true,
+      "glError": 0,
+      "journal": [
+        {
+          "id": "ef5c3073-e28f-440f-8f97-bb76ae0a4c5b",
+          "type": "layer_add",
+          "state": "done"
+        },
+        {
+          "id": "iS6idSqAMt",
+          "type": "stroke",
+          "state": "gone",
+          "goneReason": "branch"
+        },
+        {
+          "id": "GCVQWfoOpu",
+          "type": "stroke",
+          "state": "done"
+        },
+        {
+          "id": "QnUxLiRc8c",
+          "type": "operation_undo",
+          "state": "done"
+        },
+        {
+          "id": "8de683fb-8e34-47bc-aa6d-024bb99390af",
+          "type": "paper_dry",
+          "state": "done"
+        }
+      ]
+    },
+    "identity": {
+      "version": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+      "shadingLanguage": "WebGL GLSL ES 1.0 (OpenGL ES GLSL ES 1.0 Chromium)",
+      "precision": {
+        "VERTEX_SHADER:HIGH_FLOAT": {
+          "precision": 23,
+          "min": 127,
+          "max": 127
+        },
+        "VERTEX_SHADER:MEDIUM_FLOAT": {
+          "precision": 23,
+          "min": 127,
+          "max": 127
+        },
+        "VERTEX_SHADER:LOW_FLOAT": {
+          "precision": 23,
+          "min": 127,
+          "max": 127
+        },
+        "FRAGMENT_SHADER:HIGH_FLOAT": {
+          "precision": 23,
+          "min": 127,
+          "max": 127
+        },
+        "FRAGMENT_SHADER:MEDIUM_FLOAT": {
+          "precision": 23,
+          "min": 127,
+          "max": 127
+        },
+        "FRAGMENT_SHADER:LOW_FLOAT": {
+          "precision": 23,
+          "min": 127,
+          "max": 127
+        }
+      },
+      "specializedWatercolorNib": true
+    },
+    "programs": [
+      {
+        "id": 0,
+        "shaders": [
+          {
+            "type": 35633,
+            "length": 2509,
+            "sha": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb"
+          },
+          {
+            "type": 35632,
+            "length": 147227,
+            "sha": "9277fd378538ca6af022a892907c3a9bb68ffef5ce5eb50fa5a5ad0704d45ac3"
+          }
+        ]
+      },
+      {
+        "id": 1,
+        "shaders": [
+          {
+            "type": 35633,
+            "length": 2509,
+            "sha": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb"
+          },
+          {
+            "type": 35632,
+            "length": 147227,
+            "sha": "1d8375fb31c0e08f12ffb2676fc7a2727025de0e76e30f588a244c554eb4a535"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "shaders": [
+          {
+            "type": 35633,
+            "length": 2210,
+            "sha": "af53354739edbe61a9d1c65323669e0762bea9d6b8e39a6c6c0c65e1fc5fd36a"
+          },
+          {
+            "type": 35632,
+            "length": 18127,
+            "sha": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa"
+          }
+        ]
+      }
+    ],
+    "firstDraw": {
+      "index": 0,
+      "kind": "nib",
+      "dest": {
+        "width": 512,
+        "height": 512
+      },
+      "tile": {
+        "x": 0,
+        "y": 0
+      },
+      "args": {
+        "dab": {
+          "x": 80,
+          "y": 80,
+          "pressure": 0.800000011920929,
+          "tiltX": 0,
+          "tiltY": 0,
+          "size": 29.20254135131836,
+          "aspectRatio": 1,
+          "angle": 0,
+          "opacity": 0.9900000095367432,
+          "t": 0
+        },
+        "preset": {
+          "opacity": 0.99,
+          "hardness": 0.88,
+          "sizeMultiplier": 1
+        },
+        "profile": {
+          "stampsOnly": false,
+          "coverageInkMode": 6,
+          "stampFlow": null,
+          "nibShape": "ellipse",
+          "cornerFraction": 0,
+          "aaPx": 3,
+          "ink": true,
+          "inkEdgeFalloff": 0,
+          "compositeInkMode": 9,
+          "curvatureTolerancePx": 0.15,
+          "minHalfWidthPx": 0.75,
+          "paperRim": 0,
+          "wetEdgeRadiusPx": 0,
+          "spreadPx": 3,
+          "saturateInk": 0.2,
+          "normalizeDeposit": true,
+          "thinNibInkRefPx": 0,
+          "waterDepletion": true,
+          "materialModel": "m70-r2-v1",
+          "waterLevel": 1,
+          "pigmentLevel": 0.65,
+          "pigmentStrength": 0.65,
+          "bristleCombs": 4,
+          "bristleInk": 0,
+          "spreadOfRadius": 2.52,
+          "cloud": 0.19,
+          "edgeSoft": 0.4,
+          "edgeWander": 0.42,
+          "tideLo": 0.24,
+          "tideHi": 0.6,
+          "strokeDir": [
+            1,
+            0
+          ],
+          "dryContact": 0,
+          "granulation": 0.10381250000000002,
+          "pigmentOpacity": 0.1,
+          "depositPerRadius": 0.21525,
+          "stampInkShare": 0.82,
+          "wetEdge": 0,
+          "migrate": 0,
+          "migrateOfRadius": 0.55,
+          "migrateLo": 0.34,
+          "migrateHi": 0.85,
+          "diagnosticReadFluid": true
+        },
+        "mode": 6,
+        "opacity": 0,
+        "ownTarget": true,
+        "inkWater": 1,
+        "acrossLocal": [
+          0,
+          1
+        ],
+        "paperWet": 0,
+        "inkStrength": 1,
+        "mottleSeed": [
+          0,
+          0
+        ],
+        "clipTo": false,
+        "bristleCombs": 6.428571337723835,
+        "bristleInk": 0,
+        "depthTau": null,
+        "puddle": 0.8125823466102441,
+        "poolBlot": 0
+      },
+      "draw": [
+        4,
+        0,
+        6
+      ],
+      "program": 0,
+      "uniforms": {
+        "u_dabCenter": [
+          80,
+          80
+        ],
+        "u_dabRadius": 14.60127067565918,
+        "u_angle": 0,
+        "u_aspectRatio": 1,
+        "u_resolution": [
+          512,
+          512
+        ],
+        "u_pressure": 0.800000011920929,
+        "u_tiltX": 0,
+        "u_tiltY": 0,
+        "u_opacity": 0,
+        "u_wickPx": 0,
+        "u_wickCap": 0,
+        "u_paperOrigin": [
+          0,
+          0
+        ],
+        "u_aaPx": 3,
+        "u_nibShape": 0,
+        "u_nibCorner": 0,
+        "u_acrossLocal": [
+          0,
+          1
+        ],
+        "u_paperWet": 0,
+        "u_washWater": 1,
+        "u_puddle": 0.8125823736190796,
+        "u_poolBlot": 0,
+        "u_waterRetain": 1,
+        "u_bristleCombs": 6.4285712242126465,
+        "u_inkWater": 1,
+        "u_wcNoiseTex": 7
+      },
+      "state": {
+        "BLEND": true,
+        "BLEND_SRC_RGB": 1,
+        "BLEND_DST_RGB": 771,
+        "BLEND_SRC_ALPHA": 1,
+        "BLEND_DST_ALPHA": 771,
+        "BLEND_EQUATION_RGB": 32774,
+        "BLEND_EQUATION_ALPHA": 32774,
+        "BLEND_COLOR": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "COLOR_WRITEMASK": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "VIEWPORT": [
+          0,
+          0,
+          512,
+          512
+        ],
+        "SCISSOR_TEST": false,
+        "SCISSOR_BOX": [
+          0,
+          0,
+          300,
+          150
+        ],
+        "DITHER": true,
+        "SAMPLE_COVERAGE": false,
+        "SAMPLE_ALPHA_TO_COVERAGE": false,
+        "SUBPIXEL_BITS": 4
+      },
+      "glBefore": 0,
+      "glAfter": 0,
+      "changed": 2030,
+      "nonzero": 2030,
+      "sums": [
+        69776,
+        0,
+        139617,
+        139617
+      ],
+      "beforeSHA": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+      "afterSHA": "77bf78bdbdb64a2b80193f2feb3b52c943bcda311cc65fa72a5a5d51eca3e7f0"
+    },
+    "drawSHASequence": [
+      {
+        "index": 0,
+        "kind": "nib",
+        "mode": 6,
+        "beforeSHA": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "afterSHA": "77bf78bdbdb64a2b80193f2feb3b52c943bcda311cc65fa72a5a5d51eca3e7f0"
+      },
+      {
+        "index": 1,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "afterSHA": "f0286f4480f18cda09f981d704ce7d129a68962545e4ceff1031e8488b0da89d"
+      },
+      {
+        "index": 2,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "f0286f4480f18cda09f981d704ce7d129a68962545e4ceff1031e8488b0da89d",
+        "afterSHA": "f0286f4480f18cda09f981d704ce7d129a68962545e4ceff1031e8488b0da89d"
+      },
+      {
+        "index": 3,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "afterSHA": "dedc0f8c3c6105d1f392ab41dd09632a52b9f874803607e945cf1fcc5b10970d"
+      },
+      {
+        "index": 4,
+        "kind": "nib",
+        "mode": 6,
+        "beforeSHA": "77bf78bdbdb64a2b80193f2feb3b52c943bcda311cc65fa72a5a5d51eca3e7f0",
+        "afterSHA": "8868b1de026ba6f2a4a14ce885e3bf026c162d3363b2ca2917a364ae3c84f6fc"
+      },
+      {
+        "index": 5,
+        "kind": "bands",
+        "mode": "coverage",
+        "beforeSHA": "8868b1de026ba6f2a4a14ce885e3bf026c162d3363b2ca2917a364ae3c84f6fc",
+        "afterSHA": "7dc6ae3fb3bddd6bdba64bdfe884c494867dad52debb810595628986f7186730"
+      },
+      {
+        "index": 6,
+        "kind": "bands",
+        "mode": "coverage",
+        "beforeSHA": "7dc6ae3fb3bddd6bdba64bdfe884c494867dad52debb810595628986f7186730",
+        "afterSHA": "d987d39d3b245fbf04c35edd9b2abb4e963dcdd73b6500a4fa02d2c31643eca8"
+      },
+      {
+        "index": 7,
+        "kind": "bands",
+        "mode": "coverage",
+        "beforeSHA": "d987d39d3b245fbf04c35edd9b2abb4e963dcdd73b6500a4fa02d2c31643eca8",
+        "afterSHA": "4860badf4aab41e9559ca1eae80faf7feaf789c2ed4ab4acdd70e7d5ad593f0c"
+      },
+      {
+        "index": 8,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "f0286f4480f18cda09f981d704ce7d129a68962545e4ceff1031e8488b0da89d",
+        "afterSHA": "660939537b4d4ba309fec6a2db5b82a596f1c8f65575a0529fdf9a75a5063fbf"
+      },
+      {
+        "index": 9,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "660939537b4d4ba309fec6a2db5b82a596f1c8f65575a0529fdf9a75a5063fbf",
+        "afterSHA": "d95b36f47692e898b437d549a22d5e1043e818d88c0c04f60cc849ea4e9c042f"
+      },
+      {
+        "index": 10,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "d95b36f47692e898b437d549a22d5e1043e818d88c0c04f60cc849ea4e9c042f",
+        "afterSHA": "1be2e31649f7ab9e2a4d7902903d5c90efa8233365b8022f276d0ec387b4e6fa"
+      },
+      {
+        "index": 11,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "1be2e31649f7ab9e2a4d7902903d5c90efa8233365b8022f276d0ec387b4e6fa",
+        "afterSHA": "0bceb21601b6f24b89aa7b504b338ae42e15eaf2d3429aacdb09d89d95013959"
+      },
+      {
+        "index": 12,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "dedc0f8c3c6105d1f392ab41dd09632a52b9f874803607e945cf1fcc5b10970d",
+        "afterSHA": "d89c4718867c1f6507a5d0fd4840bb77a4fd2d5eb46d938b991d9eb40b1e8046"
+      },
+      {
+        "index": 13,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "d89c4718867c1f6507a5d0fd4840bb77a4fd2d5eb46d938b991d9eb40b1e8046",
+        "afterSHA": "cf76ca46dc560946d45be4f4a1196f7326a2b3097ada98257211ade1e7d3ae63"
+      },
+      {
+        "index": 14,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "cf76ca46dc560946d45be4f4a1196f7326a2b3097ada98257211ade1e7d3ae63",
+        "afterSHA": "b0483a7fe0b6d242c51d7e94dd1d7094c6ce8aa7955f4503684bb4131cc9bacf"
+      },
+      {
+        "index": 15,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "b0483a7fe0b6d242c51d7e94dd1d7094c6ce8aa7955f4503684bb4131cc9bacf",
+        "afterSHA": "8dbca163d5c4fa5088f85847712d6d0c85760935b5502d687f8ac9556cf73b82"
+      },
+      {
+        "index": 16,
+        "kind": "nib",
+        "mode": 6,
+        "beforeSHA": "4860badf4aab41e9559ca1eae80faf7feaf789c2ed4ab4acdd70e7d5ad593f0c",
+        "afterSHA": "3efc1b242c50f0800d8ea7720a782987ddcca5d95f4174a3d76960b18875965e"
+      },
+      {
+        "index": 17,
+        "kind": "bands",
+        "mode": "coverage",
+        "beforeSHA": "3efc1b242c50f0800d8ea7720a782987ddcca5d95f4174a3d76960b18875965e",
+        "afterSHA": "6924585b8744d06059d9cbc50b731fd5935c143ff557aab4b3b66ca4301aabd2"
+      },
+      {
+        "index": 18,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "0bceb21601b6f24b89aa7b504b338ae42e15eaf2d3429aacdb09d89d95013959",
+        "afterSHA": "b6d2d5f17c7f254704f2d1a3d055086a1f77801553f8a089f51b8a97902ad84e"
+      },
+      {
+        "index": 19,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "b6d2d5f17c7f254704f2d1a3d055086a1f77801553f8a089f51b8a97902ad84e",
+        "afterSHA": "a3c69941e72d3f19f744b9456b0b0b858ff5295881b1cb98f716000eb26c8db5"
+      },
+      {
+        "index": 20,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "8dbca163d5c4fa5088f85847712d6d0c85760935b5502d687f8ac9556cf73b82",
+        "afterSHA": "14d73d439b1de2136903d5c7c27979ac11338abff0a42bfa01cc4615e083b54f"
+      },
+      {
+        "index": 21,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "14d73d439b1de2136903d5c7c27979ac11338abff0a42bfa01cc4615e083b54f",
+        "afterSHA": "78792fd247a1035f525c52f5bdce69abd5fd6cbf483061600b330599277375de"
+      },
+      {
+        "index": 22,
+        "kind": "nib",
+        "mode": 6,
+        "beforeSHA": "6924585b8744d06059d9cbc50b731fd5935c143ff557aab4b3b66ca4301aabd2",
+        "afterSHA": "8d5c57a720e3b57fb99b40720cd32d75372e486841f9ad7c8349da128b7a90ed"
+      },
+      {
+        "index": 23,
+        "kind": "bands",
+        "mode": "coverage",
+        "beforeSHA": "8d5c57a720e3b57fb99b40720cd32d75372e486841f9ad7c8349da128b7a90ed",
+        "afterSHA": "334ec60009a4016dae3502036fd651a4e1f2ad3795254d8c49fac59e706aea97"
+      },
+      {
+        "index": 24,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "a3c69941e72d3f19f744b9456b0b0b858ff5295881b1cb98f716000eb26c8db5",
+        "afterSHA": "880b3955081b1c8dfbff68edcab8215ed662e4bf89103c385656617513b1252a"
+      },
+      {
+        "index": 25,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "880b3955081b1c8dfbff68edcab8215ed662e4bf89103c385656617513b1252a",
+        "afterSHA": "fcccb1341a20866244e51188fb8a6ea61a43aa88353873c465ebd7004bd30b37"
+      },
+      {
+        "index": 26,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "78792fd247a1035f525c52f5bdce69abd5fd6cbf483061600b330599277375de",
+        "afterSHA": "72367c65753947aea9a1a334d76184e3659be69be119084f8d70844b099028d4"
+      },
+      {
+        "index": 27,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "72367c65753947aea9a1a334d76184e3659be69be119084f8d70844b099028d4",
+        "afterSHA": "e5e90a2a8817395841b372ce96bdd1ab230062bfc5500d51782773b8e57dee57"
+      },
+      {
+        "index": 28,
+        "kind": "nib",
+        "mode": 6,
+        "beforeSHA": "334ec60009a4016dae3502036fd651a4e1f2ad3795254d8c49fac59e706aea97",
+        "afterSHA": "483e4d16a6da1e2c70ee9b037428f75837670400fa5dd04b8714d4e19afb0308"
+      },
+      {
+        "index": 29,
+        "kind": "bands",
+        "mode": "coverage",
+        "beforeSHA": "483e4d16a6da1e2c70ee9b037428f75837670400fa5dd04b8714d4e19afb0308",
+        "afterSHA": "44857d61f9aded27826b3daceb60adb4ce9e0dc33f945563f2145f61f0db4c05"
+      },
+      {
+        "index": 30,
+        "kind": "nib",
+        "mode": 7,
+        "beforeSHA": "fcccb1341a20866244e51188fb8a6ea61a43aa88353873c465ebd7004bd30b37",
+        "afterSHA": "6d410ce6f5feb6f27ee694ee0d2f7e80ae3f878c75921ad066506254d66d2d89"
+      },
+      {
+        "index": 31,
+        "kind": "bands",
+        "mode": "ink-max",
+        "beforeSHA": "6d410ce6f5feb6f27ee694ee0d2f7e80ae3f878c75921ad066506254d66d2d89",
+        "afterSHA": "99cfdbd41774287fe809554348fbcbc510b361baa1d44fd57aeca6fbb00ee070"
+      }
+    ]
+  }
+}

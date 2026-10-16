@@ -1,0 +1,120 @@
+{
+  "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+  "left": {
+    "version": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+    "shadingLanguage": "WebGL GLSL ES 1.0 (OpenGL ES GLSL ES 1.0 Chromium)",
+    "precision": {
+      "VERTEX_SHADER:HIGH_FLOAT": {
+        "precision": 23,
+        "min": 127,
+        "max": 127
+      },
+      "VERTEX_SHADER:MEDIUM_FLOAT": {
+        "precision": 10,
+        "min": 15,
+        "max": 15
+      },
+      "VERTEX_SHADER:LOW_FLOAT": {
+        "precision": 10,
+        "min": 15,
+        "max": 15
+      },
+      "FRAGMENT_SHADER:HIGH_FLOAT": {
+        "precision": 23,
+        "min": 127,
+        "max": 127
+      },
+      "FRAGMENT_SHADER:MEDIUM_FLOAT": {
+        "precision": 10,
+        "min": 15,
+        "max": 15
+      },
+      "FRAGMENT_SHADER:LOW_FLOAT": {
+        "precision": 10,
+        "min": 15,
+        "max": 15
+      }
+    },
+    "specializedWatercolorNib": true
+  },
+  "right": {
+    "version": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+    "shadingLanguage": "WebGL GLSL ES 1.0 (OpenGL ES GLSL ES 1.0 Chromium)",
+    "precision": {
+      "VERTEX_SHADER:HIGH_FLOAT": {
+        "precision": 23,
+        "min": 127,
+        "max": 127
+      },
+      "VERTEX_SHADER:MEDIUM_FLOAT": {
+        "precision": 23,
+        "min": 127,
+        "max": 127
+      },
+      "VERTEX_SHADER:LOW_FLOAT": {
+        "precision": 23,
+        "min": 127,
+        "max": 127
+      },
+      "FRAGMENT_SHADER:HIGH_FLOAT": {
+        "precision": 23,
+        "min": 127,
+        "max": 127
+      },
+      "FRAGMENT_SHADER:MEDIUM_FLOAT": {
+        "precision": 23,
+        "min": 127,
+        "max": 127
+      },
+      "FRAGMENT_SHADER:LOW_FLOAT": {
+        "precision": 23,
+        "min": 127,
+        "max": 127
+      }
+    },
+    "specializedWatercolorNib": true
+  },
+  "leftTarget": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+  "rightTarget": "2d5bebe503d733ede35a380a3e109b4a004a716d925a729c2d2045412cad501a",
+  "drawsCompared": 32,
+  "programSourcesEqual": true,
+  "unavailableUniforms": {
+    "left": [
+      "u_tiltX",
+      "u_tiltY",
+      "u_opacity"
+    ],
+    "right": []
+  },
+  "firstInputDifference": null,
+  "firstStateDifference": null,
+  "firstBufferDifference": {
+    "index": 0,
+    "kind": "nib",
+    "mode": 6,
+    "beforeEqual": true,
+    "afterEqual": false,
+    "left": {
+      "before": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+      "after": "ae8dcb5d76b660a9d34dfaec6331e75df7e0e72cfc6b1a1d5ae195144d25a8c6",
+      "sums": [
+        69749,
+        0,
+        139609,
+        139609
+      ],
+      "changed": 2030
+    },
+    "right": {
+      "before": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+      "after": "77bf78bdbdb64a2b80193f2feb3b52c943bcda311cc65fa72a5a5d51eca3e7f0",
+      "sums": [
+        69776,
+        0,
+        139617,
+        139617
+      ],
+      "changed": 2030
+    }
+  }
+}
