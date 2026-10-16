@@ -20,7 +20,7 @@
 // destroyed in the call that made it, so there is no initGL or forget().
 
 import type { LayerDuplicateOperation, LayerMergeOperation } from '@grafetto/shared'
-import type { ILayerBuffer } from '../buffers/ILayerBuffer'
+import type { ILayerBuffer, PaintTarget } from '../buffers/ILayerBuffer'
 import type { WorldRect } from '../buffers/tileMath'
 import type { OperationLog, PixelOperation } from './OperationLog'
 import type { SnapshotLedger } from './snapshotLedger'
@@ -33,6 +33,10 @@ export interface StructuralOpsContext {
   readonly ledger: SnapshotLedger
   log(): OperationLog
   layer(id: string): ILayerBuffer | undefined
+  /** Optional material view: wet sources expose their target, not morph pixels. */
+  canonicalTiles?(source: ILayerBuffer): readonly PaintTarget[]
+  /** Release material ownership before destroying a temporary replay source. */
+  releaseReplaySource?(source: ILayerBuffer): void
   hasLayer(id: string): boolean
   setLayer(id: string, buf: ILayerBuffer): void
   /** A layer buffer: persistent with an id, a throwaway scratch without —
@@ -91,9 +95,12 @@ export class StructuralOps {
     buf.clear()
     for (const src of op.sources) {
       const temp = this.ctx.makeLayerBuffer()
-      this.ctx.replayInto(temp, src.id, this.ctx.log().layerPixelOps(src.id, op.seq))
-      this.compositeLayerInto(temp, buf, src.opacity)
-      temp.destroy()
+      try {
+        this.ctx.replayInto(temp, src.id, this.ctx.log().layerPixelOps(src.id, op.seq))
+        this.compositeLayerInto(temp, buf, src.opacity)
+      } finally {
+        try { this.ctx.releaseReplaySource?.(temp) } finally { temp.destroy() }
+      }
     }
   }
 
@@ -110,9 +117,12 @@ export class StructuralOps {
   replayDuplicateInto(buf: ILayerBuffer, op: LayerDuplicateOperation): void {
     buf.clear()
     const temp = this.ctx.makeLayerBuffer()
-    this.ctx.replayInto(temp, op.sourceId, this.ctx.log().layerPixelOps(op.sourceId, op.seq))
-    this.compositeLayerInto(temp, buf, 1)
-    temp.destroy()
+    try {
+      this.ctx.replayInto(temp, op.sourceId, this.ctx.log().layerPixelOps(op.sourceId, op.seq))
+      this.compositeLayerInto(temp, buf, 1)
+    } finally {
+      try { this.ctx.releaseReplaySource?.(temp) } finally { temp.destroy() }
+    }
   }
 
   /** Composites every buffer `source` currently holds into the
@@ -126,7 +136,7 @@ export class StructuralOps {
    *  origin, so tile boundaries always line up — no cross-tile blending
    *  needed here, unlike a transform bake). */
   private compositeLayerInto(source: ILayerBuffer, dest: ILayerBuffer, opacity: number): void {
-    for (const src of source.allResident()) {
+    for (const src of this.ctx.canonicalTiles?.(source) ?? source.allResident()) {
       const rect: WorldRect = {
         minX: src.originX, minY: src.originY,
         maxX: src.originX + src.buffer.width, maxY: src.originY + src.buffer.height,

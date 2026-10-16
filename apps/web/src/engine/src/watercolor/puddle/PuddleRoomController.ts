@@ -71,6 +71,23 @@ export class PuddleRoomController {
       revisions: [...this.layers.values()].map(l => ({epoch:l.epoch, ready:l.goalReady, active:l.active}))}
   }
   has(target: ILayerBuffer): boolean { return this.layers.has(target) }
+  /** Read material, never presentation. Structural copies are rare and may
+   * synchronously finish the current goal; the original water stays active. */
+  canonicalTiles(target: ILayerBuffer): readonly PaintTarget[] {
+    const layer = this.layers.get(target)
+    if (!layer?.tile || !layer.context) return target.allResident()
+    if (!layer.goalReady || layer.dirty) {
+      this.cancelCurrent()
+      this.start(layer)
+      while (!this.solver.state.done) this.solver.step(16)
+      this.complete(layer)
+    }
+    const tile = layer.tile
+    return [{ ...tile, buffer: layer.goal, contentRect: {
+      minX: tile.originX, minY: tile.originY,
+      maxX: tile.originX + layer.goal.width, maxY: tile.originY + layer.goal.height,
+    } }]
+  }
   owns(scratch: RibbonStrokeScratch): boolean {
     return [...this.layers.values()].some(l => l.scratch === scratch)
   }

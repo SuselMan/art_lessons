@@ -115,3 +115,16 @@ it('pure-water/empty source can close with no rendered goal and leaves other lay
   controller.destroy()
   vi.unstubAllGlobals()
 })
+
+it('exposes the calculated target without overwriting shown pixels or releasing source water', () => {
+  const {controller,target}=wetController(1)
+  const canonical=controller.canonicalTiles(target)
+  expect(canonical).toHaveLength(1)
+  expect(controller.has(target)).toBe(true)
+  expect(controller.state.drying).toBe(false)
+  expect(controller.state.revisions[0].ready).toBe(true)
+  // Reading the target texture does not copy it over the displayed layer.
+  expect(canonical[0].buffer.copyTo).not.toHaveBeenCalled()
+  expect(controller.canonicalTiles(target)[0].buffer).toBe(canonical[0].buffer)
+  controller.destroy();vi.unstubAllGlobals()
+})
