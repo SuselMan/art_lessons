@@ -421,6 +421,16 @@ export class SnapshotIO {
 
   historyRepairPending(layerId: string): boolean { return this.historyRepairs.has(layerId) }
 
+  /** A material-cache miss may not replace an unavailable baked prefix with
+   * transparent pixels. Reuse the existing history repair/backfill contract. */
+  requireMaterialHistory(layerId: string): void {
+    const snapshot=this.ctx.checkpoints().all().find(cp=>cp.layerId===layerId && cp.fromSnapshot)
+    if(snapshot?.coveredSeq===undefined)return
+    this.historyRepairs.set(layerId,snapshot.coveredSeq)
+    this.ctx.ledger.markDirty(layerId)
+    this.ctx.ledger.refusePublishing(layerId)
+  }
+
   invalidateCoveredHistory(layerIds: readonly string[], targetId: string, mutation?: {serverSeq: number; historical: boolean}): void {
     for (const layerId of layerIds) {
       const snapshot = this.ctx.checkpoints().all().find(cp => cp.layerId === layerId && cp.fromSnapshot && cp.covered?.has(targetId))

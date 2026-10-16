@@ -7,6 +7,7 @@ vi.mock('../../buffers/AccumulationBuffer', () => ({ AccumulationBuffer: class {
   destroy = vi.fn()
 } }))
 vi.mock('../../buffers/RibbonStrokeScratch', () => ({ RibbonStrokeScratch: class {
+  canCaptureRestingCpu = vi.fn(() => false)
   releaseFilm = vi.fn()
   beginStroke = vi.fn()
   destroy = vi.fn()
@@ -185,7 +186,7 @@ it('keeps two unfinished real sources alive across interleaved replay slices', (
     expect(first.scratch.destroy).not.toHaveBeenCalled()
     expect(second.scratch.destroy).not.toHaveBeenCalled()
     expect(released).not.toHaveBeenCalled()
-    expect(() => controller.source(third, 'real-c', profile, 1)).toThrow('two wet layers')
+    expect(() => controller.source(third, 'real-c', profile, 1)).toThrow('sources are executing')
     expect(controller.has(a)).toBe(true)
     expect(controller.has(b)).toBe(true)
   } finally { controller.destroy(); vi.unstubAllGlobals() }
@@ -258,7 +259,7 @@ it('preflights capacity without mutating real sources, excluding only empty prew
     controller.source(b,'real-b',profile,1)
     const before=controller.state
     expect(()=>controller.assertSourceAvailable(a)).not.toThrow()
-    expect(()=>controller.assertSourceAvailable(c)).toThrow('two wet layers')
+    expect(()=>controller.assertSourceAvailable(c)).toThrow('sources are executing')
     expect(controller.state).toEqual(before)
     controller.dry(a);controller.finishDrying()
     expect(()=>controller.assertSourceAvailable(c)).not.toThrow()
