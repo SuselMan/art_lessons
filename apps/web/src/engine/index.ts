@@ -4539,6 +4539,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  and why _takeCheckpoint refuses to run against a layer with a rebuild
    *  still pending. */
   private _rebuildLayerOrDefer(layerId: string): void {
+    if(this._puddleStrokeRelease && this._strokeLayerId===layerId){this._puddleRebuildAtPenUp.add(layerId);return}
     if (this._snapshotIO.historyRepairPending(layerId)) return
     if (this._displaySuspendDepth === 0) { this._rebuildLayer(layerId); return }
     this._pendingRebuilds.add(layerId)
@@ -6102,6 +6103,22 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _destroyBuffer(id: string): void {
+    if(this._puddleStrokeRelease && this._strokeLayerId===id){
+      // A confirmed structural change removed the physical destination. Its
+      // unrecorded tail cannot be authored after that fixed server boundary.
+      const strokeId=this._strokeId
+      this._puddleStrokeRelease();this._puddleStrokeRelease=null
+      if(this._dwellTimer){clearInterval(this._dwellTimer);this._dwellTimer=null}
+      this._dwellCfg=null
+      if(this._ribbonStrokeScratch)this._ribbonStrokeScratch.pendingComposite.clear()
+      this._liveComposite=null
+      this._ribbonStrokeScratch=null
+      this._strokeId=null;this._strokeLayerId=null;this._strokeExtraLayerIds=[];this._strokeDabs=[]
+      this._strokeChunkTail=undefined;this._strokeChunkBox=null;this._liveDabQueue=[]
+      this._paperWet.dropPending()
+      this._puddleRebuildAtPenUp.delete(id)
+      if(strokeId)this._onLiveStrokeEnd?.(strokeId,true)
+    }
     this._wcJoinedRecoveryLayers.delete(id)
     if (!this._wcJoinedRecoveryLayers.size) this._wcJoinedDeferredError = null
     this._cancelledPeerLayers.delete(id)
