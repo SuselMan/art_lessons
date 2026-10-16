@@ -10,7 +10,7 @@ describe('recorded watercolor material version', () => {
       expect(watercolorWashSignature(preset, [1, 0, 0])).toBe('wc')
     }
   })
-  for (const model of ['front8-v1', 'front8-fine-v1', 'front8-fine-large-v1', 'front8-detail-v1', 'front8-detail-flow-v1', 'front8-detail-flow-v2', 'front8-detail-flow-v3', 'front8-detail-flow-v4'] as const) it(`persists ${model} without changing recorded brush and pigment settings`, () => {
+  for (const model of ['front8-v1', 'front8-fine-v1', 'front8-fine-large-v1', 'front8-detail-v1', 'front8-detail-flow-v1', 'front8-detail-flow-v2', 'front8-detail-flow-v3', 'front8-detail-flow-v4', 'm70-r2-v1'] as const) it(`persists ${model} without changing recorded brush and pigment settings`, () => {
     const legacy = watercolorPresetString('soft', { water: .7, pigment: .4 }, 'PY35', 'round')
     const next = withWatercolorModel(legacy, model)
     expect(next).toBe(legacy + ':wc@' + model)

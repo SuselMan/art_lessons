@@ -88,7 +88,7 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
     // ordinary picker like every other tool's, and every stroke records the
     // default paint's behavioural numbers. A stroke recorded with another
     // code still replays with it.
-    undefined,
+    import.meta.env.DEV && new URLSearchParams(window.location.search).get('qaModel')==='m70-r2-v1' ? 'PB29' : undefined,
     isWatercolorNib(watercolorNib) ? watercolorNib : undefined,
   )
 

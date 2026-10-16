@@ -150,7 +150,7 @@ export class WatercolorSettlePlan {
     const metadata = finishMetadata ?? scratch
     const skipPuddleMix = import.meta.env.DEV && this.diagnosticSkipPuddleMix
     const materialModel = (finishMetadata?.finish ?? scratch.finishContext)?.profile.materialModel
-    const tightField = materialModel === 'front8-detail-flow-v2' || materialModel === 'front8-detail-flow-v3' || materialModel === 'front8-detail-flow-v4'
+    const tightField = materialModel === 'front8-detail-flow-v2' || materialModel === 'front8-detail-flow-v3' || (materialModel === 'front8-detail-flow-v4' || materialModel === 'm70-r2-v1')
     const detailFlow = tightField || materialModel === 'front8-detail-flow-v1'
     const detailMaterial = detailFlow || materialModel === 'front8-detail-v1'
     const preserveBrush = detailMaterial && ((import.meta.env.DEV && this.diagnosticPreserveBrushField) || metadata.brushTravel.some(d => Math.hypot(d.dx, d.dy) >= 0.01))

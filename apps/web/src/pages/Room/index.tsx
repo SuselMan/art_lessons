@@ -18,7 +18,7 @@ import { SettingsPanel } from '../../components/SettingsPanel'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { exposeEngineForDev } from './diagnostics/devEngineHandle'
 import { joinedTouchQaEnabled } from './diagnostics/joinedTouchQa'
-import { watercolorModelQaOptions } from './diagnostics/watercolorModelQa'
+import { watercolorModelQaOptions, applyM70QaDefaults } from './diagnostics/watercolorModelQa'
 import { joinedFinishDeferredQaEnabled } from './diagnostics/joinedFinishDeferredQa'
 import {
   eraseThroughTargets, isLayerLocked,
@@ -998,6 +998,7 @@ function RoomEditor() {
       ...engineDevOptions,
     })
     engineRef.current = engine
+    applyM70QaDefaults(location.search)
     exposeEngineForDev(engine)
     // Tells every engine-sync effect below that there is now an engine to sync
     // to — see engineEpoch's own comment for what silently did not happen

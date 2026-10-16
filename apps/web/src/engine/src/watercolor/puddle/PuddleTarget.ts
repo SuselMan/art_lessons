@@ -26,6 +26,7 @@ type NativeJob = NonNullable<ReturnType<WatercolorSettlePlan['prepare']>>
 export type NativePuddleTargetOptions = {
   /** Capture BEFORE controller replaces prepare. Unbound or bound are accepted. */
   prepare?: WatercolorSettlePlan['prepare']
+  portableNoise?: boolean
   readParameters?: ReadPuddleParameters
   fullResolution?: boolean
 }
@@ -45,7 +46,7 @@ export function createNativePuddleTarget(host: PuddleTargetHost, size: number, o
   function guardDryPixels(dst:AccumulationBuffer,raw:AccumulationBuffer){if(!initialWater)throw Error('M55 requires raw fluid');const temp=pool.acquire(size,size);try{temp.beginReplaceDraw();gl.disable(gl.SCISSOR_TEST);gl.useProgram(guardProgram);gl.bindBuffer(gl.ARRAY_BUFFER,alignQuad);const pos=gl.getAttribLocation(guardProgram,'pos');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);for(const [unit,name,b]of [[0,'raw',raw],[1,'result',dst],[2,'water',initialWater]]as const){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,b.texture);gl.uniform1i(gl.getUniformLocation(guardProgram,name),unit)}gl.drawArrays(gl.TRIANGLES,0,6);temp.endDraw();gl.activeTexture(gl.TEXTURE0);temp.copyTo(dst)}finally{pool.release(temp)}}
   const alignProgram=createProgram(gl,'attribute vec2 pos;varying vec2 uv;void main(){uv=pos*.5+.5;gl_Position=vec4(pos,0.,1.);}','precision highp float;varying vec2 uv;uniform sampler2D p,c;void main(){vec4 v=texture2D(p,uv);v.b=min(texture2D(c,uv).a,v.a);gl_FragColor=v;}')
   const alignQuad=gl.createBuffer()!;gl.bindBuffer(gl.ARRAY_BUFFER,alignQuad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)
-  const background=createBackgroundMix(gl,size,readParameters)
+  const background=createBackgroundMix(gl,size,readParameters,options.portableNoise??false)
   let post:Array<()=>void>=[],postAt=0
   let initialP:AccumulationBuffer|null=null,initialC:AccumulationBuffer|null=null
   const out = {

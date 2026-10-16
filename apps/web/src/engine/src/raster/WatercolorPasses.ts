@@ -12,6 +12,7 @@ export type { WatercolorPassField, WatercolorPassesContext } from './WatercolorP
 /** Watercolor field GPU primitives. Scheduling and working textures stay with
  * the engine. Separate init stages preserve the existing GL call order. */
 export class WatercolorPasses {
+  invalidateFrontPaths(): void { this._frontPaths?.invalidate() }
   private _frontPaths: ReturnType<typeof createWatercolorFrontPaths> | null = null
   private readonly ctx: WatercolorPassesContext
   private _materialReconstruction: WatercolorMaterialReconstruction | null = null

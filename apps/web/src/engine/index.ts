@@ -1,3 +1,4 @@
+import {PuddleRoomController} from './src/watercolor/puddle/PuddleRoomController'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
 import { WatercolorPresentationRaster } from './src/watercolor/WatercolorPresentationRaster'
@@ -254,7 +255,7 @@ export interface PencilEngineOptions {
   /** Optional GPU-completion pacing during an accepted Dry, not a material version. */
   dryGpuFenceBatch?: 4 | 8
   /** Model stamped into new watercolor presets; replay follows the recorded marker. */
-  watercolorModel?: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1' | 'front8-detail-flow-v2' | 'front8-detail-flow-v3' | 'front8-detail-flow-v4'
+  watercolorModel?: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1' | 'front8-detail-flow-v2' | 'front8-detail-flow-v3' | 'front8-detail-flow-v4' | 'm70-r2-v1'
   /** DEV review: reserve GPU continuations for pen-up intervals. */
   reviewInputPriority?: boolean
   /** DEV diagnostic: expose intermediate physical reveal before canonical completion. */
@@ -1637,7 +1638,35 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetTex: WebGLTexture | null = null
   private _wetTexSize: [number, number] = [0, 0]
   private _watercolorReview = false
-  private _watercolorModel: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1' | 'front8-detail-flow-v2' | 'front8-detail-flow-v3' | 'front8-detail-flow-v4' = 'legacy'
+  private _puddle: PuddleRoomController | null = null
+  private _puddleFor(): PuddleRoomController {
+    if (this._puddle) return this._puddle
+    const {w,h}=this._tileSize()
+    if (this._infinite || w!==h || w>1024) throw new Error('M70 QA needs a square page up to 1024px')
+    const bounds={minX:0,minY:0,maxX:w,maxY:h}
+    this._ribbonPasses.diagnosticPigmentBlot=.45
+    this._ribbonPainter.diagnosticBandBatch=true
+    this.diagnosticWatercolorLiftSteps=4
+    this.diagnosticNativeFieldMinimum=1024
+    return this._puddle=new PuddleRoomController({
+      gl:this.gl, size:w, settlePlan:this._settlePlan, pool:this._ribbonScratchPool, passes:this._watercolorPasses,
+      invalidateFrontPaths:()=>this._watercolorPasses.invalidateFrontPaths(),
+      hasActiveSettle:()=>!!this._settle,
+      drawing:()=>!!this._strokeLayerId,
+      render:(scratch,tile,ctx,output,material)=>{
+        const entry=scratch.peek(tile.buffer)
+        if (!entry) return
+        const sc=scratch.compositeScalars(()=>({spreadPx:0,inkSmoothPx:0,water:0,migratePx:0,fieldSeed:[0,0],bristleRadiusPx:0}))
+        output.clear()
+        this._drawRibbonCompositeRect({...tile,buffer:output},bounds,ctx.preset,ctx.profile,entry.original,
+          material.coverage,material.p,material.c,ctx.color,ctx.opacity,ctx.fieldSeed,0,sc.water,sc.migratePx,0,scratch.noteDirection(0,0),sc.bristleRadiusPx)
+      },
+      changed:target=>{target.resolveExistingForPaint(bounds);target.markContentPainted(bounds);this._paperPartialOK=false;this._paperCacheKey='';this._invalidateSplitCache()},
+      display:()=>this._displayIfNotSuspended(),
+      released:scratch=>{if(this._wash?.scratch===scratch){this._wash=null;this._washId=null}},
+    })
+  }
+  private _watercolorModel: 'legacy' | 'front8-v1' | 'front8-fine-v1' | 'front8-fine-large-v1' | 'front8-detail-v1' | 'front8-detail-flow-v1' | 'front8-detail-flow-v2' | 'front8-detail-flow-v3' | 'front8-detail-flow-v4' | 'm70-r2-v1' = 'legacy'
   private _wcDryWorkScheduler: WatercolorWorkScheduler | null = null
   private readonly _wcDryTickets = new Map<string, number>()
   private _reviewInputPriority = false
@@ -1750,7 +1779,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _evictChunk(key: string, keep: boolean): void { this._ribbonCache.evictChunk(key, keep) }
   private _cancelSpillJob(): void { this._ribbonCache.cancelSpillJob() }
   private _startSpill(key: string): void { this._ribbonCache.startSpill(key) }
-  private _forgetWashesOf(target: ILayerBuffer): void { this._ribbonCache.forgetWashesOf(target) }
+  private _forgetWashesOf(target: ILayerBuffer): void { this._puddle?.forget(target); this._ribbonCache.forgetWashesOf(target) }
 
 
   // (#494) Smudge and the mixer brush — their programs, scratch pool, per-user
@@ -2264,7 +2293,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._watercolorModel = options.watercolorModel ?? 'legacy'
     this._wcJoinedTouch = options.joinedTouch ?? false
     this._watercolorReview = import.meta.env.DEV && options.watercolorReview === true
-    this._ribbonPasses.specializedWatercolorNib = this._watercolorReview && (this._watercolorModel === 'front8-detail-flow-v2' || this._watercolorModel === 'front8-detail-flow-v3' || this._watercolorModel === 'front8-detail-flow-v4')
+    this._ribbonPasses.specializedWatercolorNib = this._watercolorReview && (this._watercolorModel === 'front8-detail-flow-v2' || this._watercolorModel === 'front8-detail-flow-v3' || this._watercolorModel === 'front8-detail-flow-v4' || this._watercolorModel === 'm70-r2-v1')
     this._reviewInputPriority = this._watercolorReview && options.reviewInputPriority === true
     this._reviewProgressivePresentation = this._reviewInputPriority && options.reviewProgressivePresentation === true
     this._settleQueue.diagnosticInputPriority = this._reviewInputPriority
@@ -2608,6 +2637,14 @@ export class PencilEngine implements PencilEngineAPI {
   setActiveLayer(id: string): void {
     if (id !== this._activeId) this._clearWash()
     this._activeId = id
+    if (this._watercolorModel==='m70-r2-v1') setTimeout(()=>{
+      if(this._destroyed || this._contextLost || this._activeId!==id)return
+      const target=this._layers.get(id)
+      if(target && (!this._puddle || this._puddle.state.layers<2) && !this._puddle?.has(target)) {
+        const profile=ribbonProfileFor('watercolor',withWatercolorModel(this._opts.pencilType,'m70-r2-v1'))
+        this._puddleFor().source(target,'prewarm',profile,Date.now(),this._log.entries.filter(e=>e.state==='done' && e.op.type==='paper_dry').at(-1)?.op.id??'')
+      }
+    },50)
     // #122: moves the below/above split point itself.
     this._invalidateSplitCache()
   }
@@ -2783,6 +2820,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _opDrainRaf = 0
 
   private _shouldQueue(op: Operation, source: OperationSource): boolean {
+    if(this._puddle?.state.drying) return true
     if ([...pixelWriteLayerIds(op), ...pixelReadLayerIds(op)].some(id => this.isSnapshotHistoryRepairPending(id))) return false
     if (source !== 'remote' || this._displaySuspendDepth !== 0 || this._destroyed || this._contextLost) return false
     if (typeof requestAnimationFrame !== 'function') return false
@@ -2799,6 +2837,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** (§17.58) Applies every queued operation now, in order. */
   private _flushOpQueue(): void {
+    if(this._puddle?.state.drying){this._scheduleOpDrain();return}
     if (this._wcAsyncFinish && this._wcCanonical.pending && !this._contextLost && !this.gl.isContextLost()) { this._scheduleOpDrain(); return }
     while (this._opQueue.length) {
       const { op, source } = this._opQueue.shift()!
@@ -2816,7 +2855,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (!this._opQueue.length || this._destroyed) return
       // Not under this user's own pen either: a peer's operation lands in
       // 30-280 ms on the iPad, and the stroke in hand would stutter by it.
-      if (!this._settle && !this._strokeLayerId && !(this._wcAsyncFinish && this._wcCanonical.pending)) {
+      if (!this._puddle?.state.drying && !this._settle && !this._strokeLayerId && !(this._wcAsyncFinish && this._wcCanonical.pending)) {
         const { op, source } = this._opQueue.shift()!
         this._appendOperationNow(op, source)
         this._onQueuedOperationApplied?.(op)
@@ -2914,6 +2953,7 @@ export class PencilEngine implements PencilEngineAPI {
           break
         }
         if (clearBuf) {
+          this._puddle?.forget(clearBuf)
           clearBuf.clear()
           this._snapshots.markDirty(op.layerId)
           // #122: a remote layer_clear (or this client's own, via clear())
@@ -4141,6 +4181,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   destroy(): void {
+    this._puddle?.destroy(); this._puddle=null
     this._continuationGpuFence?.release()
     this._continuationGpuFence = null
     this._opQueue = [] // (§17.58)
@@ -4572,6 +4613,18 @@ export class PencilEngine implements PencilEngineAPI {
    *  order (see _ribbonDabsWork), so the picture is the one-shot's to the bit;
    *  only the time is spread. Each batch is waited out on the GPU before the
    *  clock is read, and sizes the next. */
+  private _puddleReplayBoundary(target: ILayerBuffer, layerId: string, op: StrokeOperation): void {
+    if (!this._puddle?.has(target)) return
+    const entries=this._log.entries,index=entries.findIndex(e=>e.op.id===op.id)
+    if(index<0)return
+    for(let i=index+1;i<entries.length;i++) {
+      if(entries[i].state!=='done')continue
+      const next=entries[i].op
+      if(next.type==='paper_dry'){this._puddle.close(target);return}
+      if(next.type==='stroke' && next.layerId===layerId)return
+    }
+  }
+
   private _replayStrokeSlice(job: RebuildJob, op: StrokeOperation): boolean {
     let p = job.part
     if (!p || p.opId !== op.id) {
@@ -4589,6 +4642,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (!r.done && r.value === -1) r = p.work.next() // the finish, in this step
     if (!r.done) return false
     this._wetFromForeignStroke(job.layerId, op.tool, op.preset, p.dabs, op.timestamp, r.value, op.id)
+    this._puddleReplayBoundary(job.fresh,job.layerId,op)
     job.part = null
     return true
   }
@@ -4858,6 +4912,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  still being painted live by SmudgePainter.paint and must not have its imprint
    *  reset under it by, say, a peer's undo arriving mid-stroke. */
   private _dropCarriedGestureState(buf: ILayerBuffer): void {
+    this._puddle?.forget(buf)
     if (this._settle) this._completeSettle() // (§17.52) before the scratch goes
     for (const [key, chunk] of this._replayRibbonChunks) {
       if (chunk.target !== buf) continue
@@ -4879,6 +4934,7 @@ export class PencilEngine implements PencilEngineAPI {
         // and strokeDabs unpacks the whole packed array each time it is called.
         const dabs = strokeDabs(op)
         const standing = this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spreadSettle)
+        this._puddleReplayBoundary(buf,layerId,op)
         // (#536) Replaying the log restores the water too, for the handful of
         // strokes young enough to still be wet. That is what makes undo behave:
         // undo drops the layer's whole field (PaperWetness.forgetLayer, which
@@ -4889,6 +4945,7 @@ export class PencilEngine implements PencilEngineAPI {
         break
       }
       case 'layer_clear':
+        this._puddle?.forget(buf)
         buf.clear()
         break
       case 'layer_merge':
@@ -5106,6 +5163,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextLost = (e: Event): void => {
     this._continuationGpuFence?.forget()
     e.preventDefault()
+    this._puddle?.destroy(); this._puddle=null
     this._contextLost = true
     this._wcDryWorkScheduler?.stop()
     this._wcDryTickets.clear()
@@ -5485,6 +5543,8 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _takeCheckpoint(layerId: string): void {
+    const layer=this._layers.get(layerId)
+    if(layer && this._puddle?.has(layer))return
     if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._wcJoinedTouchLease === this._settle) return
     if (this.isSnapshotHistoryRepairPending(layerId)) return
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
@@ -5581,6 +5641,8 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** SnapshotIO's first bake gate — pure, see SnapshotIOContext.quiet. */
   private _snapshotQuiet(layerId: string): boolean {
+    const puddleLayer=this._layers.get(layerId)
+    if(puddleLayer && this._puddle?.has(puddleLayer)) return false
     if (this.isSnapshotHistoryRepairPending(layerId) || this._wcJoinedDeferred || this._wcJoinedRecoveryLayers.has(layerId)) return false
     // A canonical request may be between solver steps, with no _settle yet.
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return false
@@ -5978,7 +6040,7 @@ export class PencilEngine implements PencilEngineAPI {
     // at all (rather than trying to special-case the paint path) means
     // there is nothing to later "fix up" — matches how `_locked` already
     // blocks drawing for a different reason, just orthogonal to it.
-    if (this._locked || this._wcAsyncFinish && this._wcAsyncError !== null || !this._paper.loaded || this._contextLost || this.gl.isContextLost()) {
+    if (this._puddle?.state.drying || this._locked || this._wcAsyncFinish && this._wcAsyncError !== null || !this._paper.loaded || this._contextLost || this.gl.isContextLost()) {
       // (#517) Both refusals below are correct and both are silent, which is
       // indistinguishable from the input layer having dropped the stroke —
       // and telling those two apart is the whole question in the iPad report.
@@ -6024,6 +6086,7 @@ export class PencilEngine implements PencilEngineAPI {
         || touchNow - openTouch.endedAt <= WASH_RECENT_MS)
     if (joinedTouch) this._wcJoinedTouchLease = oldJob
     else if (oldJob && !this._wcAsyncFinish) this._completeSettle()
+    const puddleGesture=this._watercolorModel==='m70-r2-v1'?nanoid(10):null
     this._strokeLayerId = layerId
     this._strokeTool    = this._opts.tool
     // (#520) The eraser's cross-layer mode, resolved once here for the whole
@@ -6102,7 +6165,12 @@ export class PencilEngine implements PencilEngineAPI {
       // parityzz). The replay settles each operation before the next one
       // paints; the author has to as well.
       if (this._settle && !this._wcAsyncFinish && !(joinedTouch && joins && this._wcJoinedTouchLease === this._settle)) this._completeSettle()
-      if (joins && open) {
+      if (this._strokeTool==='watercolor' && this._watercolorModel==='m70-r2-v1') {
+        const target=this._layers.get(layerId)!
+        this._ribbonStrokeScratch=this._puddleFor().source(target,puddleGesture!,profile,Date.now(),this._log.entries.filter(e=>e.state==='done' && e.op.type==='paper_dry').at(-1)?.op.id??'').scratch
+        this._washId='m70:'+layerId
+        this._wash={id:this._washId,layerId,signature:washSignature,endedAt:Infinity,scratch:this._ribbonStrokeScratch}
+      } else if (joins && open) {
         this._washId = open.id
         this._ribbonStrokeScratch = open.scratch
       } else {
@@ -6117,14 +6185,14 @@ export class PencilEngine implements PencilEngineAPI {
       // (§17.55/§17.56) Before this stroke paints, and before its scratch
       // starts a new gesture: a join carries the wash as it stood.
       this._checkpointBeforeWash(layerId, this._washId!, this._userId, Date.now())
-      this._ribbonStrokeScratch.beginStroke()
+      if (this._watercolorModel!=='m70-r2-v1') this._ribbonStrokeScratch.beginStroke()
     } else {
       this._washId = null
       this._retireAsyncScratch(this._wash?.scratch)
       this._wash = null
       this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
     }
-    this._strokeId = nanoid(10)
+    this._strokeId=puddleGesture??nanoid(10)
     this._wcAsyncLocalStroke = this._wcAsyncFinish && this._strokeTool !== 'watercolor' ? this._strokeId : null
     if (this._wcAsyncLocalStroke) this._wcAsyncLocalTools.set(this._wcAsyncLocalStroke, { layers: new Map(), ended: false, queued: 0 })
     // (#429) `_liveLastEmitAt = 0` on purpose, not `performance.now()`: it
@@ -6466,6 +6534,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._retireAsyncScratch(this._ribbonStrokeScratch ?? undefined)
     }
     this._ribbonStrokeScratch = null
+    if (this._dryAtPenUp) this._puddle?.dry()
     this._dryAtPenUp = false
     // Discard the speculative preview entirely once the real stroke has
     // ended — the final _display() below must show only real content.
@@ -7147,6 +7216,7 @@ export class PencilEngine implements PencilEngineAPI {
     spreadSettle = false,
   ): ReadonlyMap<Dab, number> | undefined {
     if (!dabs.length) return undefined
+    if (tool!=='watercolor' && !(target instanceof AccumulationBuffer)) this._puddle?.close(target)
     // Logical input remains immediate. Only isolated display copies may change
     // before the preceding canonical solver has landed.
     if (!strokeId && this._wcAsyncLocalStroke && tool !== 'watercolor') {
@@ -7271,10 +7341,17 @@ export class PencilEngine implements PencilEngineAPI {
     // batches slice their own digits, and the batch that decides the gesture's
     // cached scalars and its final recomposite is the first one.
     const initialProfile = ribbonProfileFor(tool, presetName, wetAt(wetProfile, 0))
-    const chunk = ribbonScratch ? null : this._replayChunkScratch(target, strokeId, washId, dabs, initialProfile)
+    const puddle=initialProfile.materialModel==='m70-r2-v1' ? this._puddleFor() : null
+    if (!puddle) this._puddle?.close(target)
+    const recordedIndex=strokeId ? this._log.entries.findIndex(e=>e.op.type==='stroke' && e.op.strokeId===strokeId) : -1
+    const recorded=recordedIndex>=0?this._log.entries[recordedIndex].op:undefined
+    const boundary=this._log.entries.slice(0,recordedIndex<0?undefined:recordedIndex).filter(e=>e.state==='done' && e.op.type==='paper_dry').at(-1)?.op.id??''
+    const chunk = ribbonScratch ? null : puddle ? puddle.source(target,strokeId??washId??'m70-replay',initialProfile,recorded?.timestamp??Date.now(),boundary)
+      : this._replayChunkScratch(target, strokeId, washId, dabs, initialProfile)
     const scratch = ribbonScratch ?? chunk?.scratch ?? new RibbonStrokeScratch(this._ribbonScratchPool, initialProfile.ink, initialProfile.normalizeDeposit)
     const profile = ribbonProfileFor(tool, presetName, scratch.finishContext?.landedWet ?? wetAt(wetProfile, 0))
-    if (profile.normalizeDeposit && wetPeak(wetProfile) > 0 && scratch.foreignSources === null) {
+    if (puddle) { scratch.foreignSources=[];puddle.beforePaint(scratch) }
+    if (!puddle && profile.normalizeDeposit && wetPeak(wetProfile) > 0 && scratch.foreignSources === null) {
       // A prior wet region is geometry, not another pigment accumulation.
       // Keep wash ids intact; the recorded contacts alone permit entry into it.
       const entries = this._log.entries
@@ -7340,6 +7417,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     // What this batch left standing, for the caller to feed the wetness field
     // — its own copy, since a throwaway scratch is destroyed on the next line.
+    puddle?.previous(scratch,dabs.at(-1))
     const standing = scratch.standing.size ? new Map(scratch.standing) : undefined
     // The cached one belongs to the gesture, not to this call — it is released
     // when a different gesture arrives, or with the engine.
@@ -7754,6 +7832,10 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   watercolorDryAll(ordered = false, acceptedTicket?: number): void {
+    if (this._puddle) {
+      if (this._strokeLayerId) { this._dryAtPenUp=true;return }
+      this._puddle.dry()
+    }
     const ticket = acceptedTicket ?? (ordered || !this._wcDryWorkScheduler ? undefined : this._startDryWorkClock())
     if (this._wcAsyncFinish && this._wcCanonical.pending) for (const scratch of this._wcAsyncOwners.keys()) this._wcAsyncDryTo.set(scratch, scratch.gesture)
     if ((this._wcExpeditedDry || this._watercolorReview && this._wcMaterialPresentation) && this._wcAsyncFinish && this._settle) {
@@ -7910,6 +7992,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     scratch.pendingComposite.clear()
     this._liveComposite = null
+    if(lc.profile.materialModel==='m70-r2-v1') this._puddleFor().accept(scratch)
   }
   /** (§17.46) The adaptive settle tick's clock - see _tickSettle. */
   /** (§17.49) See setUnpaintedInBatch. */
@@ -8255,7 +8338,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
   private _retireAsyncScratch(scratch: RibbonStrokeScratch | undefined): void {
-    if (scratch && !this._wcAsyncOwners.has(scratch)) scratch.destroy()
+    if (scratch && !this._puddle?.owns(scratch) && !this._wcAsyncOwners.has(scratch)) scratch.destroy()
   }
   private _asyncLocalPreviewTiles(): ReadonlyMap<string, readonly { buffer: AccumulationBuffer; originX: number; originY: number }[]> {
     const result = new Map<string, readonly { buffer: AccumulationBuffer; originX: number; originY: number }[]>()
@@ -8624,6 +8707,11 @@ export class PencilEngine implements PencilEngineAPI {
     /** Owned logical boundary, used only by the opt-in canonical FIFO. */
     owned?: RibbonCanonicalFinish,
   ): void {
+    if (scratch.finishContext?.profile.materialModel==='m70-r2-v1') {
+      if (this._liveComposite?.scratch===scratch) this._flushLiveComposite()
+      this._puddleFor().finish(scratch)
+      return
+    }
     if (this._wcAsyncFinish && !owned && scratch === this._ribbonStrokeScratch) {
       const finish = scratch.captureCanonicalFinish()
       if (!finish) return
@@ -9552,6 +9640,7 @@ export class PencilEngine implements PencilEngineAPI {
     const perfT0 = performance.now()
     // (#536, §17.22) The live watercolor gesture's composite, once per visible frame.
     this._flushLiveComposite(true)
+    this._puddle?.presentAll()
     if (this._washReveals.size) this._sweepReveals(perfT0)
     // (§17.46) One decision per frame: the live stroke's rect alone, or all.
     const partialWorld = this._takePaperPartial()

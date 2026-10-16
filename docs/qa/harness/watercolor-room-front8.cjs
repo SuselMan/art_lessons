@@ -1,5 +1,6 @@
 const fs = require('fs');
 const expectedModel = process.env.QA_WATERCOLOR_MODEL || 'front8-v1';
+const roomQuery=expectedModel==='m70-r2-v1'?'?qaModel=m70-r2-v1':'';
 const { chromium } = require('@playwright/test');
 const out = process.env.QA_OUTPUT;
 const base = process.env.QA_BASE_URL;
@@ -14,15 +15,15 @@ fs.mkdirSync(out, { recursive: true });
         const pc = await b.newContext({ viewport: { width: 1100, height: 900 } }), peer = await pc.newPage();
         for (const p of [host, peer])
             p.on('pageerror', e => { errors.push(e.message); console.log('ERROR', e.message); });
-        await host.goto(base + '/room/' + room);
-        await host.waitForFunction(() => window.__engine || document.querySelector('form input[type="text"]'), null, { timeout: 60000 });
+        await host.goto(base + '/room/' + room + roomQuery);
+        await host.waitForFunction(() => window.__engine && !__engine._locked || document.querySelector('form input[type="text"]'), null, { timeout: 60000 });
         if (await host.locator('form input[type="text"]').count()) {
             await host.locator('form input[type="text"]').first().fill('QA host');
             await host.locator('form button[type="submit"]').click();
         }
         await pc.request.get(entry.url);
-        await peer.goto(base + '/room/' + room);
-        await peer.waitForFunction(() => window.__engine || document.querySelector('form input[type="text"]'), null, { timeout: 60000 });
+        await peer.goto(base + '/room/' + room + roomQuery);
+        await peer.waitForFunction(() => window.__engine && !__engine._locked || document.querySelector('form input[type="text"]'), null, { timeout: 60000 });
         if (await peer.locator('form input[type="text"]').count()) {
             await peer.locator('form input[type="text"]').first().fill('QA peer');
             await peer.locator('form button[type="submit"]').click();
@@ -35,7 +36,7 @@ fs.mkdirSync(out, { recursive: true });
         }
         console.log('both ready');
         const identity = await host.evaluate(() => ({ model: __engine._watercolorModel, async: __engine._wcAsyncFinish, scheduler: !!__engine._wcDryWorkScheduler, operations: __engine.getOperations().filter(o => o.type === 'stroke').length }));
-        if (identity.model !== expectedModel || !identity.scheduler || identity.operations)
+        if (identity.model !== expectedModel || (expectedModel!=='m70-r2-v1' && !identity.scheduler) || identity.operations)
             throw Error('Wrong model or nonempty fixture room ' + JSON.stringify(identity));
         await host.evaluate(() => {
             const s = __roomStore.getState();
@@ -58,10 +59,10 @@ fs.mkdirSync(out, { recursive: true });
         };
         await stroke(0);
         await stroke(1);
-        await host.getByRole('button', { name: /dry everything|высушить всё/i }).click();
+        await host.getByRole('button', { name: /dry everything|высушить всё/i }).click({timeout:180000});
         console.log('two strokes and Dry accepted');
         const idle = async (p) => {
-            await p.waitForFunction(() => { const e = __engine; return !e._locked && !e._settle && !e._wcCanonical.pending && !e._rebuildJobs.size && !e._opQueue.length; }, null, { timeout: 180000 });
+            await p.waitForFunction(() => { const e = __engine; return !e._locked && !e._contextLost && e._paper.loaded && !e._pendingRebuilds.size && !e._settle && !e._wcCanonical.pending && !e._rebuildJobs.size && !e._opQueue.length && !e._puddle?.state.pending; }, null, { timeout: 180000 });
             await p.evaluate(() => {
                 __engine._sweepReveals(performance.now() + 100000);
                 __engine._display();
@@ -90,11 +91,11 @@ fs.mkdirSync(out, { recursive: true });
             }
         } return { differentChannels: n, maxDelta: max, residentTiles: [a.length, c.length] }; };
         const head = await host.evaluate(() => __engine.getOperations().at(-1)?.id);
-        await peer.waitForFunction(id => __engine.getOperations().some(o => o.id === id), head, { timeout: 60000 });
+        try { await peer.waitForFunction(id => __engine.getOperations().some(o => o.id === id), head, { timeout: 60000 }); } catch(error) {for(const [name,p] of [['host',host],['peer',peer]])console.log('HEAD_DIAGNOSTIC',name,await p.evaluate(()=>({ops:__engine.getOperations().map(o=>({id:o.id,type:o.type})),queue:__engine._opQueue.length,puddle:__engine._puddle?.state})));throw error}
         await idle(peer);
         const baseline = await read(host), peerDiff = diff(baseline, await read(peer));
         console.log('peer', peerDiff);
-        const result = { room, scope: 'Full Grafetto QA room; two Chromium SwiftShader contexts, standard fields. Not hardware', identity, ops, peerDiff, front: await host.evaluate(() => __engine._watercolorPasses._frontPaths?.stats), scheduler: await host.evaluate(() => __engine._wcDryWorkScheduler.stats), errors };
+        const result = { room, scope: 'Full Grafetto QA room; two Chromium SwiftShader contexts, standard fields. Not hardware', identity, ops, peerDiff, front: await host.evaluate(() => __engine._watercolorPasses._frontPaths?.stats), scheduler: await host.evaluate(() => __engine._wcDryWorkScheduler?.stats??null), errors };
         await host.screenshot({ path: out + '/room-painted.png' });
         const undoId = await host.evaluate(() => { __engine.undo(); return __engine.getOperations().filter(o => o.type === 'operation_undo').at(-1)?.id; });
         if (!undoId) throw Error('Undo was not accepted');
@@ -111,7 +112,7 @@ fs.mkdirSync(out, { recursive: true });
         result.redoPeerDiff = diff(await read(host), await read(peer));
         console.log('history', result.undoDiff, result.redoDiff, result.redoPeerDiff);
         await host.reload();
-        await host.waitForFunction(() => window.__engine || document.querySelector('form input[type="text"]'), null, { timeout: 60000 });
+        await host.waitForFunction(() => window.__engine && !__engine._locked || document.querySelector('form input[type="text"]'), null, { timeout: 60000 });
         if (await host.locator('form input[type="text"]').count()) {
             await host.locator('form input[type="text"]').first().fill('QA host');
             await host.locator('form button[type="submit"]').click();
