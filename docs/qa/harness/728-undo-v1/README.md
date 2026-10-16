@@ -75,3 +75,12 @@ Set `QA_FIXTURE_OUTPUT` and `QA_DELETE_DISPOSABLE_ROOM` to the exact own fixture
 Run after contexts close and after evidence is saved; it never enumerates or
 bulk-deletes arbitrary rooms. Private auth stays outside Git; remove it manually
 when no more rejoin checks are needed.
+
+`midstroke.cjs` checks one real local pen gesture split by a peer's layer Dry,
+then another local gesture before recording its own operation. It requires a
+fresh disposable fixture and the same private environment as `room.cjs`.
+Run sequentially after other device QA: it owns two independent contexts and
+closes both in `finally`. Prefix commit must be acknowledged before Dry;
+presentation idle is awaited only after pen-up. The pixel check reads actual
+live layer tiles before invoking the independent full-replay oracle. It does
+not add a final Dry operation which could mask an incorrect boundary.
