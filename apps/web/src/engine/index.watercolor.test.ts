@@ -1107,7 +1107,7 @@ describe('water laid by someone else wets this paper too (#536)', () => {
     expect(lastStroke(engine).washId).not.toBe(first.washId)
   })
 
-  it('undo reaches past a paper_dry to the stroke before it (§17.48)', async () => {
+  it('undo removes Dry before the preceding stroke', async () => {
     const engine = setupLayer(96, 96)
     await paperReady(engine)
     engine.setActiveLayer('L')
@@ -1117,6 +1117,7 @@ describe('water laid by someone else wets this paper too (#536)', () => {
     simulateStroke(engine, [{ x: 8, y: 48 }, { x: 28, y: 48 }, { x: 56, y: 48 }])
     const stroke = lastStroke(engine)
     engine.appendOperation({ id: 'dry-3', type: 'paper_dry', userId: 'user-a', timestamp: Date.now() })
+    expect(engine.undo()?.id).toBe('dry-3')
     expect(engine.undo()?.id).toBe(stroke.id)
   })
 
