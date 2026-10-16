@@ -36,6 +36,7 @@ import { StructuralOps } from './src/oplog/structuralOps'
 import { BlitPasses } from './src/raster/blitPasses'
 import { AreaOps, asImportRecord, type AreaImage, type AreaFillRequest, type AreaFillRaster } from './src/raster/AreaOps'
 import { LayerPreviews } from './src/raster/layerPreviews'
+import { WatercolorLivePreview } from './src/raster/WatercolorLivePreview'
 import { frameEdgeX, frameEdgeY, type CameraFrame } from './src/raster/cameraFrame'
 import { Camera, translateDabs } from './src/raster/Camera'
 import { ImageImport } from './src/raster/ImageImport'
@@ -1832,6 +1833,14 @@ export class PencilEngine implements PencilEngineAPI {
   // stroke at a time, and a packet carrying a new strokeId retires the old
   // entry.
   private _peerLiveStrokes = new Map<string, PeerLiveStroke>()
+  private _watercolorLivePreview: WatercolorLivePreview | null = null
+  private _liveWatercolorPreview(): WatercolorLivePreview {
+    return this._watercolorLivePreview ??= new WatercolorLivePreview({
+      gl: this.gl, width: () => this.canvas.width, height: () => this.canvas.height,
+      origin: () => this._cameraCenteredOrigin(),
+      paint: (buf, dabs, preset, color, origin) => this._stamps.paint(buf, this._translateDabs(dabs, origin), 'watercolor', preset, color),
+    })
+  }
   private _cancelledPeerStreams = new Set<string>()
   /** (#536, §17.12) LAYER_COMPOSITE_FRAG's twin for a tile still converging on
    *  a settled wash — see WashReveal. */
@@ -2364,6 +2373,7 @@ export class PencilEngine implements PencilEngineAPI {
     layers: () => this._layers,
     previews: () => this._previews,
     transientPreviews: () => this._asyncLocalPreviewTiles(),
+    liveOverlays: () => this._watercolorLivePreview?.tiles(),
     materialPresentations: () => this._materialPresentationLayers(),
     reveals: () => this._washReveals,
     drawReveal: (...args) => this._drawTileReveal(...args),
@@ -3036,6 +3046,7 @@ export class PencilEngine implements PencilEngineAPI {
         this._structural.execDuplicate(op) // (#449)
         break
       case 'stroke': {
+        if (op.tool === 'watercolor' && op.strokeId) this._liveWatercolorPreview().confirm(op.userId, op.strokeId, op.layerId, strokeDabs(op).length)
         this._retireWashesOf(op) // (§17.57)
         // (#536, §17.49; #728) Not needed for this history batch's final
         // pixels: logged (above), not painted - see setUnpaintedInBatch.
@@ -3825,6 +3836,7 @@ export class PencilEngine implements PencilEngineAPI {
     const { gl, canvas } = this
     if (canvas.width === width && canvas.height === height) return
     this._clearAsyncPresentations(this._contextLost || gl.isContextLost())
+    this._watercolorLivePreview?.clear(this._contextLost || gl.isContextLost())
     canvas.width = width
     canvas.height = height
     // (#155 follow-up) A genuine layout event — Camera.canvasRect's cache is
@@ -3967,7 +3979,12 @@ export class PencilEngine implements PencilEngineAPI {
     // the Surface's GPU reset under it - and a picture settled in
     // packet-sized steps that no reload reproduces. Nothing painted, nothing
     // claimed: the operation paints all of its dabs when it arrives.
-    if (packet.tool === 'watercolor') { live.liveOffset += packet.dabs.length; return }
+    if (packet.tool === 'watercolor') {
+      this._liveWatercolorPreview().append(peerId, packet)
+      live.liveOffset += packet.dabs.length
+      this._scheduleDisplay()
+      return
+    }
     // (§17.52) Other tools paint into the layer now: a spread settle lands first.
     if (this._settle) this._completeSettle()
 
@@ -4010,6 +4027,9 @@ export class PencilEngine implements PencilEngineAPI {
   /** See PencilEngineAPI's doc comment. */
   endPeerLiveStroke(peerId: string, strokeId?: string, cancelled = false): number {
     if (cancelled && !strokeId) return 0
+    // A normal UP precedes the durable operation: keep its transient film
+    // until the recorded prefix arrives. Cancellation/leave has no such debt.
+    if (cancelled || !strokeId) this._watercolorLivePreview?.cancel(peerId, strokeId)
     if (cancelled && strokeId) {
       // Socket.io preserves packet/end order. Also reject already queued or
       // repeated packets for recent cancellations; held FIFO closures are
@@ -4076,6 +4096,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   resetPeerLiveStrokes(): void {
+    this._watercolorLivePreview?.clear(this._contextLost || this.gl.isContextLost())
     for (const held of this._wcAsyncPeerStreams.values()) {
       held.cancelled = true
       if (held.buf && !this._contextLost && !this.gl.isContextLost()) held.buf.destroy()
@@ -4092,6 +4113,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (live.paintedTotal > live.committedOffset) this._unsettledLayers.add(live.layerId)
     }
     this._peerLiveStrokes.clear()
+    this._watercolorLivePreview?.clear(this._contextLost || this.gl.isContextLost())
     this._cancelledPeerStreams.clear()
     // (#537) Nothing foreign is unrecorded now, so its settle can proceed.
     this._settleLayers()
@@ -4305,6 +4327,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._peerPreviews.clear()
     this._peerLiveStrokes.clear()
+    this._watercolorLivePreview?.clear(this._contextLost || this.gl.isContextLost())
     this._cancelledPeerStreams.clear()
     this._previews.clear()
     this._checkpoints.clear()
@@ -4997,6 +5020,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation, spreadSettle = false): void {
     switch (op.type) {
       case 'stroke': {
+        if (op.tool === 'watercolor' && op.strokeId) this._liveWatercolorPreview().confirm(op.userId, op.strokeId, op.layerId, strokeDabs(op).length)
         this._retireWashesOf(op) // (§17.57)
         // Smudge (#416): nothing to seed — see appendOperation's own stroke
         // case for why replay/undo/redo is deterministic from the op's own
@@ -5237,6 +5261,7 @@ export class PencilEngine implements PencilEngineAPI {
     e.preventDefault()
     this._puddle?.destroy(); this._puddle=null
     this._contextLost = true
+    this._watercolorLivePreview?.clear(true)
     this._wcDryWorkScheduler?.stop()
     this._wcDryTickets.clear()
     // Packed checkpoint pixels survive loss; carried wash snapshots are GL
@@ -5327,6 +5352,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._peerPreviews.clear()
     this._peerLiveStrokes.clear()
+    this._watercolorLivePreview?.clear(this._contextLost || this.gl.isContextLost())
     this._cancelledPeerStreams.clear()
     this._previews.forget() // handles dead too; a mid-drag gizmo just loses its live preview
     // (#381) _syncBuffersToLog below replays every live layer from the log

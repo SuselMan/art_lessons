@@ -68,3 +68,21 @@ it('shows a complete paper preview when the camera includes margins outside the 
   expect(draw).toHaveBeenCalledExactlyOnceWith(frame, 'material', 0, 0, 100, 100, 1, {}, 300, 300)
   expect(resolve).not.toHaveBeenCalled()
 })
+
+it('draws live ink after its own layer at the same stack position and excludes it from canonical export', () => {
+  const ctx = {
+    previews: () => ({ tiles: new Map(), areaLayers: new Set() }),
+    materialPresentations: () => new Map([['paint', { completeLayer: true, originX: 0, originY: 0, worldWidth: 100, worldHeight: 100,
+      buffer: { width: 100, height: 100, texture: 'material', setMipSampling: vi.fn() } }]]),
+    liveOverlays: () => new Map([['paint', [{originX:0,originY:0,buffer:{width:100,height:100,texture:'live'}}]]]),
+    layers: () => new Map([['paint', {resolveVisible:()=>[]}]]),
+  } as unknown as LayerCompositorContext
+  const compositor=new LayerCompositor(ctx),draw=vi.fn()
+  compositor.drawTileComposite=draw
+  const frame=exactFrame({x:0,y:0,width:100,height:100})
+  compositor.drawCompositeItem(frame,'paint',0.35,{} as WebGLFramebuffer,100,100)
+  expect(draw.mock.calls.map(call=>[call[1],call[6]])).toEqual([['material',0.35],['live',0.35]])
+  draw.mockClear()
+  compositor.drawCompositeItem(frame,'paint',0.35,{} as WebGLFramebuffer,100,100,false)
+  expect(draw).not.toHaveBeenCalled()
+})

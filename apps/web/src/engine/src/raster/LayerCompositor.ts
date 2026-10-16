@@ -51,6 +51,7 @@ export interface LayerCompositorContext {
   layers(): ReadonlyMap<string, ILayerBuffer>
   previews(): LayerPreviews
   materialPresentations?(): ReadonlyMap<string, LayerMaterialPresentation>
+  liveOverlays?(): ReadonlyMap<string, readonly PreviewTile[]> | undefined
   transientPreviews?(): ReadonlyMap<string, readonly PreviewTile[]>
   reveals(): ReadonlyMap<AccumulationBuffer, WashReveal>
   drawReveal(frame: CameraFrame, reveal: WashReveal, texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number, opacity: number, targetFbo: WebGLFramebuffer, targetW: number, targetH: number, minifying: boolean): void
@@ -129,6 +130,18 @@ export class LayerCompositor {
    *  tile) composite correctly instead of only ever showing one tile's
    *  worth. */
   drawCompositeItem(
+    frame: CameraFrame, id: string, opacity: number, targetFbo: WebGLFramebuffer,
+    targetW: number, targetH: number, includeWashReveal = true,
+  ): void {
+    this.drawCompositeBase(frame, id, opacity, targetFbo, targetW, targetH, includeWashReveal)
+    if (!includeWashReveal) return
+    for (const tile of this.ctx.liveOverlays?.()?.get(id) ?? []) {
+      this.drawTileComposite(frame, tile.buffer.texture, tile.originX, tile.originY,
+        tile.buffer.width, tile.buffer.height, opacity, targetFbo, targetW, targetH)
+    }
+  }
+
+  private drawCompositeBase(
     frame: CameraFrame, id: string, opacity: number, targetFbo: WebGLFramebuffer,
     targetW: number, targetH: number,
     includeWashReveal = true,
@@ -480,14 +493,14 @@ export class LayerCompositor {
     const activeItem  = idx === -1 ? null  : items[idx]
     const aboveItems  = idx === -1 ? []    : items.slice(idx + 1)
     // (§17.46) The split caches are rebuilt (in full) before any scissor.
-    if (this.ctx.previews().tiles.size === 0 && !this.ctx.transientPreviews?.().size && !this.ctx.materialPresentations?.().size) this.rebuildSplitCacheIfDirty(frame, belowItems, aboveItems, targetW, targetH)
+    if (this.ctx.previews().tiles.size === 0 && !this.ctx.transientPreviews?.().size && !this.ctx.liveOverlays?.()?.size && !this.ctx.materialPresentations?.().size) this.rebuildSplitCacheIfDirty(frame, belowItems, aboveItems, targetW, targetH)
     // (§17.46) A frame whose only change is the live stroke reassembles only
     // its rect (unrotated camera: the assembly is then the screen, padded):
     // clearing and redrawing the whole assembly - the caches and every
     // resident tile of the active layer - was the second-dearest thing in a
     // big stroke's frame on the tablet.
     let scissored = false
-    if (partialWorld && frame.angle === 0 && this.ctx.previews().tiles.size === 0 && !this.ctx.transientPreviews?.().size && !this.ctx.materialPresentations?.().size) {
+    if (partialWorld && frame.angle === 0 && this.ctx.previews().tiles.size === 0 && !this.ctx.transientPreviews?.().size && !this.ctx.liveOverlays?.()?.size && !this.ctx.materialPresentations?.().size) {
       const pad = 8
       const x0 = Math.max(0, frameEdgeX(frame, partialWorld.minX) - pad)
       const x1 = Math.min(targetW, frameEdgeX(frame, partialWorld.maxX) + pad)
@@ -501,7 +514,7 @@ export class LayerCompositor {
     }
     this.ctx.assembly().clear()
 
-    if (this.ctx.previews().tiles.size > 0 || this.ctx.transientPreviews?.().size || this.ctx.materialPresentations?.().size) {
+    if (this.ctx.previews().tiles.size > 0 || this.ctx.liveOverlays?.()?.size || this.ctx.transientPreviews?.().size || this.ctx.materialPresentations?.().size) {
       for (const { id, opacity } of items) this.drawCompositeItem(frame, id, opacity, buildFbo, targetW, targetH)
       return
     }
