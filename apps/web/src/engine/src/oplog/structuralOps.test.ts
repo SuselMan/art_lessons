@@ -60,3 +60,27 @@ it('forwards the structural cutoff to both duplicate and merge source replay',()
   expect(ctx.replayInto).toHaveBeenCalledWith(expect.anything(),'S',[],9)
   expect(ctx.replayInto).toHaveBeenLastCalledWith(expect.anything(),'T',[],9)
 })
+
+describe('provisional source order',()=>{
+  it('replays the historical prefix for a live duplicate whose source is unsettled',()=>{
+    const {ops,ctx,layers,events}=setup();ctx.sourceNeedsReplay=id=>id==='S'
+    const original=layers.get('S')
+    ops.execDuplicate({...duplicate,seq:7})
+    expect(ctx.replayInto).toHaveBeenCalledExactlyOnceWith(expect.anything(),'S',[],7)
+    expect(events).toEqual(['release','destroy:temp1'])
+    expect(layers.get('S')).toBe(original)
+  })
+  it('replays every merge source when even one source needs ordered recovery',()=>{
+    const {ops,ctx,layers}=setup();ctx.sourceNeedsReplay=id=>id==='T'
+    ops.execMerge({...merge,seq:9})
+    expect(ctx.replayInto).toHaveBeenCalledTimes(2)
+    expect(ctx.replayInto).toHaveBeenCalledWith(expect.anything(),'S',[],9)
+    expect(ctx.replayInto).toHaveBeenCalledWith(expect.anything(),'T',[],9)
+    expect([...layers.keys()]).toEqual(['M'])
+  })
+  it('keeps the canonical live fast path when both sources are already ordered',()=>{
+    const {ops,ctx}=setup();ctx.sourceNeedsReplay=()=>false
+    ops.execDuplicate(duplicate);ops.execMerge(merge)
+    expect(ctx.replayInto).not.toHaveBeenCalled()
+  })
+})

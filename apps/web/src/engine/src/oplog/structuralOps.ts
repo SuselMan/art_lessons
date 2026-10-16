@@ -35,6 +35,9 @@ export interface StructuralOpsContext {
   layer(id: string): ILayerBuffer | undefined
   /** Optional material view: wet sources expose their target, not morph pixels. */
   canonicalTiles?(source: ILayerBuffer): readonly PaintTarget[]
+  /** A live source may still be in optimistic order. Read its recorded
+   * historical prefix instead of baking that provisional material. */
+  sourceNeedsReplay?(layerId: string): boolean
   /** Release material ownership before destroying a temporary replay source. */
   releaseReplaySource?(source: ILayerBuffer): void
   hasLayer(id: string): boolean
@@ -186,7 +189,9 @@ export class StructuralOps {
     ctx.invalidateSplitCache()
     const target = ctx.makeLayerBuffer(op.layerId)
     target.clear()
-    for (const s of op.sources) {
+    if (op.sources.some(s => ctx.sourceNeedsReplay?.(s.id))) {
+      this.replayMergeInto(target, op)
+    } else for (const s of op.sources) {
       const buf = ctx.layer(s.id)
       if (buf) this.compositeLayerInto(buf, target, s.opacity)
     }
@@ -233,7 +238,8 @@ export class StructuralOps {
     const source = ctx.layer(op.sourceId)
     // Opacity 1 — see replayDuplicateInto for why the source's own opacity
     // must not be baked into the pixels here.
-    if (source) this.compositeLayerInto(source, target, 1)
+    if (ctx.sourceNeedsReplay?.(op.sourceId)) this.replayDuplicateInto(target, op)
+    else if (source) this.compositeLayerInto(source, target, 1)
     ctx.setLayer(op.layerId, target)
     ctx.ledger.markDirty(op.layerId)
     ctx.takeCheckpoint(op.layerId)
