@@ -107,15 +107,18 @@ const MORPH = HEADER + `
     vec2 move=(texture2D(u_flow,v_uv).rg-0.5)*64.0;
     // Encoded zero is 128/255, not exactly 0.5. Suppress subpixel bias.
     move*=step(vec2(0.3),abs(move));
-    float cell=grain(v_uv/u_texel/3.0);
     float mobile=smoothstep(0.005,0.12,max(wet,max(own.a,goal.a)));
-    float localClock=0.55+0.9*cell;
     vec2 from=clamp(v_uv+move*u_texel*u_travel*mobile,vec2(0.0),vec2(1.0));
     vec4 carried=texture2D(u_current,from);
-    // Residual appears as distinct irregular fronts, biased toward already
-    // painted material. Spatial correspondence moves existing texture first.
+    // Spatial correspondence carries existing texture first. R2 removes the
+    // independent 3px arrival cells; old controllers retain legacy arrival.
+    #ifdef SMOOTH_ARRIVAL
+    float residual=u_progress;
+    #else
+    float cell=grain(v_uv/u_texel/3.0);
     float arrival=smoothstep(cell*0.62,cell*0.62+0.26,u_progress+max(own.a,goal.a)*0.16);
     float residual=clamp(u_progress+(arrival-u_progress)*sin(3.14159265*u_progress)*0.35,0.0,1.0);
+    #endif
     vec4 result=mix(carried,goal,residual);
     // No global final snap: only individual pixels already within one byte
     // may land exactly. Large mismatches continue travelling/correcting.
@@ -128,7 +131,7 @@ const MORPH = HEADER + `
   }
 `
 
-export function createPuddlePresentation(gl: WebGLRenderingContext, size: number | { width: number; height: number }) {
+export function createPuddlePresentation(gl: WebGLRenderingContext, size: number | { width: number; height: number }, options: {smoothArrival?:boolean} = {}) {
   const width = typeof size === 'number' ? size : size.width
   const height = typeof size === 'number' ? size : size.height
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) throw new Error('Invalid presentation size')
@@ -150,7 +153,7 @@ export function createPuddlePresentation(gl: WebGLRenderingContext, size: number
     return { program, position: gl.getAttribLocation(program, 'a_position'), uniforms: getUniforms(gl, program,
       ['u_current', 'u_target', 'u_extra', 'u_after', 'u_flow', 'u_texel', 'u_advance', 'u_travel', 'u_progress']) }
   }
-  const copy = make(COPY), feature = make(FEATURE), match = make(FLOW), input = make(INPUT), morph = make(MORPH)
+  const copy = make(COPY), feature = make(FEATURE), match = make(FLOW), input = make(INPUT), morph = make((options.smoothArrival?'#define SMOOTH_ARRIVAL\n':'')+MORPH)
   const programs = [copy, feature, match, input, morph]
   type Program = typeof copy
   function validate(buffer: AccumulationBuffer) {

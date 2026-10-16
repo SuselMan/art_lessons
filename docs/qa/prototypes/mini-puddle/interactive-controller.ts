@@ -99,10 +99,11 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
   },
   setLive(value:boolean){
    if(value===live)return;cancelGoal();liveActive=false;drying=false;showEffect=wantEffect=false;live=value;clock=0;lastAt=0;
-   if(live){presentation??=createPuddlePresentation(gl,size);presentation.reset(raw,epoch);regions.show(false);scheduleLiveGoal();engine._display();onStatus('Живое рисование · можно рисовать')}
+   if(live){presentation??=createPuddlePresentation(gl,size,{smoothArrival:true});presentation.reset(raw,epoch);regions.show(false);scheduleLiveGoal();engine._display();onStatus('Живое рисование · можно рисовать')}
    else{presentation?.destroy();presentation=null;maskDirty=true;regions.show(true);engine._display();request();onStatus('Исходные штрихи · контуры')}
   },
   dry(){if(live){if(!locate()||liveFinished)return;drying=true;goalAfter=0;lastAt=performance.now();request();return true}return this.toggleEffect()},
+  diagnosticMorphAt(progress:number){if(!live||!goalReady||!presentation)throw Error('Need a ready live goal');presentation.tick(1,{dry:false,progress:Math.max(0,Math.min(1,progress))});engine._display();return (gl.canvas as HTMLCanvasElement).toDataURL('image/png')},
   diagnosticMaskReadback:()=>regions.readback(),
   diagnosticGoalReadback(){const b=target.buffers();return{p:b.p.readPixels(),c:b.c.readPixels(),coverage:b.coverage.readPixels()}},
   diagnosticRawReadback(){const f=locate();return f?{p:f.entry.inkLoad.readPixels(),c:f.entry.inkColor.readPixels(),coverage:f.entry.coverage.readPixels()}:null},
