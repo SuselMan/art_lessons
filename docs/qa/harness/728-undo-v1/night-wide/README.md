@@ -15,13 +15,13 @@
   и чужой вклад, возвращает сеть в finally, ждёт подтверждений и сравнивает журнал.
   Wi-Fi/SSH устройства не меняются.
 - Concurrent запускает реальный локальный pen pipeline двух авторов одновременно.
-- Load ждёт полный журнал (включая meta), проверяет его против живого участника,
-  затем реальные пиксели и oracle. Два viewport: обычный1100×850 и компактный
-  аннотационный390×844. Это не утверждение о loading без WebGL: оба используют
-  текущий Room, переключается UI annotationMode. Отдельный review-only маршрут
-  этим сценарием не покрыт.
-- Времена — wall clock, включают две страницы, CDP, GPU и загрузку. Не выдавать
-  за отдельный бенчмарк рисования.
+- `loading.cjs` проверяет настоящий URL-вход `&preview` в режим аннотаций:
+  normal1100×850, annotations1100×850, compact-annotations390×844.
+  `QA_LOAD_MODES=annotations,compact-annotations` ограничивает повтор;
+  `QA_DPR=1.5 QA_HAS_TOUCH=1` задаёт профиль устройства. Первые кадры и
+  engineReady сохраняют фактический annotationMode. Старый `layers.cjs load`
+  проверяет только rejoin маленькой fixture с последующим переключением UI,
+  поэтому не заменяет проверку входа в режиме аннотаций.
 
 `prepare-wide.cjs` создаёт новую комнату как старый prepare.cjs, дополнительно
 учитывая `QA_CANVAS_WIDTH`, `QA_CANVAS_HEIGHT`, `QA_INFINITE=1`. По умолчанию512².
@@ -49,3 +49,23 @@ Loading report отдельно измеряет navigation→UI-ready (штат
 Оригинал пересчитывается, но копия должна соответствовать материалу на её
 исторической границе. Actual копии читается до oracle, затем проверяется cold
 rejoin с полным журналом. Этот сценарий отличается от обычного wet duplicate.
+
+
+`merge-fallback` (#752/#754) принудительно помечает source unsettled только в QA,
+проверяет historical replay при двух live wet sources и actual undo restore.
+`QA_MERGE_DIAGNOSTICS=1` сохраняет checkpoint.best/start, sourceops и rawtile hashes
+до merge и после undo ДО запуска oracle. Обычный `merge` проверяется отдельно.
+
+`reconnect` сравнивает actual target сразу после восстановления сети;
+`reconnect-dry` добавляет записанную paper_dry перед сравнением и отвечает только
+за окончательный сухой результат. Их результаты не взаимозаменяемы.
+
+`background-dry` сначала измеряет document.hidden и RAF progress; если фактическая
+пауза RAF недоступна, честно использует CDP lifecycle frozen. Это проверка queue
+convergence после возобновления, не доказательство OS sleep. Новый ввод peer
+после dry ждёт собственного drying=false; исходная потеря ввода до этой точки
+зафиксирована отдельно и не закрывается успехом этого сценария.
+
+`guard-third-wet` и `guard-geometry` проверяют сохранность соседнего материала и
+pencil recovery после unsupported M70. Геометрия задаётся QA_CANVAS_WIDTH/HEIGHT,
+QA_INFINITE; для1536² QA_GUARD_X=2030 пересекает границу1024worldpx.
