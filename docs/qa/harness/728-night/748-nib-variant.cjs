@@ -5,7 +5,7 @@ module.exports=function installNibVariant(mode){
  window.__qaNibVariant={mode,patched:0};if(mode==='baseline')return;
  const patch=prototype=>{if(!prototype)return;const source=prototype.shaderSource;prototype.shaderSource=function(shader,text){
   if(mode==='highp-samplers'&&text.includes('sampler2D')){
-   let inserted=false;text=text.replace(/precision\s+(?:lowp|mediump|highp)\s+float\s*;/g,statement=>{inserted=true;return statement+'\nprecision highp sampler2D;'});
+   let inserted=false;text=text.replace(/precision\s+(?:lowp|mediump|highp)\s+float\s*;/,statement=>{inserted=true;return statement+'\nprecision highp sampler2D;'});
    if(!inserted)text='precision highp sampler2D;\n'+text;
    window.__qaNibVariant.patched++;
   }
