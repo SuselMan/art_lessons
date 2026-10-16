@@ -455,7 +455,13 @@ export class OperationLog {
     const held = new Map(this._entries.map(entry => [entry.op.id, entry]))
     const page = new Map(pageOps.map(op => [op.id, op]))
     const added = [...page.values()].filter(op => !held.has(op.id))
-    if (!added.length) return []
+    // A history page can contain only held IDs while supplying their missing
+    // authoritative server ordering (or confirming a pending operation).
+    const metadataChanged = [...page.values()].some(op => {
+      const previous = held.get(op.id)
+      return previous && op.seq !== undefined && (previous.serverSeq !== op.seq || previous.pending)
+    })
+    if (!added.length && !metadataChanged) return []
     const incoming: LogEntry[] = added.map(op => ({ op, state: 'done', serverSeq: op.seq }))
     for (const entry of this._entries) {
       const authoritative = page.get(entry.op.id)

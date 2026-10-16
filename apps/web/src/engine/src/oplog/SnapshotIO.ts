@@ -387,20 +387,14 @@ export class SnapshotIO {
     const log = this.ctx.log()
     const previous = new Map(log.entries.map(entry => [entry.op.id, { state: entry.state, goneReason: entry.goneReason }]))
     const ops = log.absorbHistorical(pageOps)
-    if (ops.length === 0) return []
+    // Metadata-only pages can confirm held IDs and complete a missing prefix.
+    // Coverage uses original page seqs even when no journal IDs were admitted.
+    this.ctx.checkpoints().markCovered(pageOps.filter(op => op.seq !== undefined))
     const changed = log.entries.filter(entry => {
       const before = previous.get(entry.op.id)
       return before && (before.state !== entry.state || before.goneReason !== entry.goneReason)
     }).map(entry => entry.op)
     this._historicalEntryCount += ops.length
-    // (#479) These operations are now in the log, and a restored layer's
-    // pinned checkpoint already holds the pixels of whichever of them predate
-    // its snapshot — record them so a later rebuild skips rather than repaints
-    // them. Read from `ops` rather than the log because only these copies
-    // still carry the server's seq: `OperationLog.append` renumbers entries to
-    // their array index (see SnapshotLedger.isCovered's own comment), so once they
-    // are in, "is this older than the snapshot?" is no longer answerable.
-    this.ctx.checkpoints().markCovered(ops)
     // (#398) Nothing is painted here — but an undo/redo later rebuilds a
     // layer from exactly these operations, and that rebuild is synchronous.
     // Decoding in the background now is what lets it find the image ready;
