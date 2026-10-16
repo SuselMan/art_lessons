@@ -8,7 +8,13 @@ export class WatercolorFootprintIndex {
   private readonly oversized: number[] = []
   private readonly all: number[] = []
 
-  constructor(private readonly cellSize = 128, private readonly maxCells = 256) {}
+  private readonly cellSize: number
+  private readonly maxCells: number
+
+  constructor(cellSize = 128, maxCells = 256) {
+    this.cellSize = cellSize
+    this.maxCells = maxCells
+  }
 
   private range(bounds: FootprintBounds): { x0: number; y0: number; x1: number; y1: number } | null {
     if (![bounds.left, bounds.top, bounds.right, bounds.bottom].every(Number.isFinite)

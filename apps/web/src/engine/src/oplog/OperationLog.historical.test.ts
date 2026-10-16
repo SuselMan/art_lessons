@@ -100,3 +100,83 @@ it('resolves layer drying undo/redo when the drying operation arrives later', ()
   expect(log.undoTarget('A')?.id).toBe('dry')
   expect(log.pixelOpDoneCount('L')).toBe(0)
 })
+
+describe('pixel history at a structural copy cut', () => {
+  it('keeps paint before future undo and dry branching redo', () => {
+    const log = new OperationLog()
+    apply(log, stroke('a'))
+    const cut = log.entries[0].op.seq! + 1
+    apply(log, control('undo', 'operation_undo', 3))
+    apply(log, { id: 'dry', type: 'paper_dry', userId: 'A', timestamp: 4, layerId: 'L' })
+    expect(log.entries[0].state).toBe('gone')
+    expect(log.layerPixelOps('L')).toEqual([])
+    expect(log.layerPixelOps('L', cut).map(op => op.id)).toEqual(['a'])
+  })
+  it('keeps an undone prefix when later redo restores paint', () => {
+    const log = new OperationLog()
+    apply(log, stroke('a')); apply(log, control('undo', 'operation_undo', 3))
+    const cut = log.entries.at(-1)!.op.seq! + 1
+    apply(log, control('redo', 'operation_redo', 4))
+    expect(log.layerPixelOps('L').map(op => op.id)).toEqual(['a'])
+    expect(log.layerPixelOps('L', cut)).toEqual([])
+  })
+  it('preserves historical dry state despite future undo of that dry', () => {
+    const log = new OperationLog()
+    apply(log, { id: 'dry', type: 'paper_dry', userId: 'A', timestamp: 1, layerId: 'L' })
+    const cut = log.entries[0].op.seq! + 1
+    apply(log, control('undo', 'operation_undo', 3, 'dry'))
+    expect(log.entries[0].state).toBe('undone')
+    expect(log.historicalPrefix(cut).entries[0].state).toBe('done')
+  })
+  it('does not import future protected water into earlier copy', () => {
+    const log = new OperationLog()
+    const wet = (id: string, userId: string): StrokeOperation => ({ ...stroke(id, userId),
+      tool: 'watercolor', washId: 'm70:L', preset: 'normal:80:60:PB29:round:wc@m70-r2-v1',
+      dabs: [{ x: 0, y: 0, size: 10, aspectRatio: 1, angle: 0, opacity: 1, pressure: 1,
+        tiltX: 0, tiltY: 0, t: 0 }] })
+    apply(log, wet('a', 'A'))
+    const cut = log.entries[0].op.seq! + 1
+    apply(log, wet('b', 'B')); apply(log, control('undo', 'operation_undo', 3))
+    expect((log.layerPixelOps('L')[0] as StrokeOperation).preset.split(':')[2]).toBe('0')
+    const historical = log.layerPixelOps('L', cut) as StrokeOperation[]
+    expect(historical.map(op => op.id)).toEqual(['a'])
+    expect(historical[0].preset.split(':')[2]).toBe('60')
+  })
+  it('recognizes future controls on another gesture chunk', () => {
+    const log = new OperationLog()
+    log.append(stroke('a', 'A', 1, 'gesture'), {}, false)
+    log.append(stroke('a2', 'A', 2, 'gesture'), {}, false)
+    const cut = log.entries.at(-1)!.op.seq! + 1
+    apply(log, control('undo', 'operation_undo', 3, 'a2'))
+    expect(log.layerPixelOps('L', cut).map(op => op.id)).toEqual(['a', 'a2'])
+  })
+  it('preserves manual resolved states without original controls', () => {
+    const log = new OperationLog()
+    apply(log, stroke('a'))
+    const cut = log.entries[0].op.seq! + 1
+    log.applyUndo('a', 'A')
+    expect(log.layerPixelOps('L', cut)).toEqual([])
+  })
+})
+
+it('invalidates cached prefixes after state and original control changes', () => {
+  const log = new OperationLog()
+  apply(log, stroke('a'))
+  const cut = log.entries[0].op.seq! + 1
+  const first = log.historicalPrefix(cut)
+  expect(log.historicalPrefix(cut)).toBe(first)
+  log.applyUndo('a', 'A')
+  expect(log.historicalPrefix(cut)).not.toBe(first)
+  expect(log.layerPixelOps('L', cut)).toEqual([])
+  apply(log, control('undo', 'operation_undo', 3))
+  expect(log.layerPixelOps('L', cut).map(op => op.id)).toEqual(['a'])
+})
+
+it('ignores a future teacher revoke at the copy cut', () => {
+  const log = new OperationLog()
+  apply(log, stroke('a'))
+  const cut = log.entries[0].op.seq! + 1
+  apply(log, control('revoke', 'operation_revoke', 3, 'a', 'teacher'))
+  expect(log.layerPixelOps('L')).toEqual([])
+  expect(log.layerPixelOps('L', cut).map(op => op.id)).toEqual(['a'])
+})

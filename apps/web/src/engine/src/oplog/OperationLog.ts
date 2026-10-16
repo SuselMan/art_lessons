@@ -133,6 +133,8 @@ export class OperationLog {
   private _revision = 0
   private _watercolorViewRevision = -1
   private _watercolorView: Operation[] = []
+  private _historicalPrefixRevision = -1
+  private readonly _historicalPrefixes = new Map<number, OperationLog>()
 
   /** Changes whenever journal order or entry state may change. */
   get revision(): number { return this._revision }
@@ -545,6 +547,56 @@ export class OperationLog {
     return this._watercolorView
   }
 
+  /** Read-only historical replay context, including controls and dry boundaries.
+   * Returned contexts are cached until this journal changes; callers must not mutate them. */
+  historicalPrefix(beforeSeq: number): OperationLog {
+    if (this._historicalPrefixRevision !== this._revision) {
+      this._historicalPrefixes.clear()
+      this._historicalPrefixRevision = this._revision
+    }
+    const cached = this._historicalPrefixes.get(beforeSeq)
+    if (cached) return cached
+    const originals = new Map(this._entries.map(entry => [entry.op.id, entry]))
+    const controlled = new Set<string>()
+    // A control after the requested cut must suppress final-state fallback,
+    // without changing the state at the cut itself.
+    for (const { op } of this._entries) {
+      if (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke') continue
+      const target = originals.get(op.targetOpId)?.op
+      if (!target || (target.seq ?? 0) >= (op.seq ?? 0)
+        || (op.type !== 'operation_revoke' && target.userId !== op.userId)) continue
+      controlled.add(target.id)
+      if (op.type !== 'operation_revoke' && target.type === 'stroke' && target.strokeId) {
+        for (const { op: other } of this._entries) if (other.type === 'stroke'
+          && other.userId === target.userId && other.strokeId === target.strokeId) controlled.add(other.id)
+      }
+    }
+    const scratch = new OperationLog()
+    for (const entry of this._entries) {
+      const op = entry.op
+      if ((op.seq ?? 0) >= beforeSeq) continue
+      scratch.append(op, entry.pending ? { pending: true } : { serverSeq: entry.serverSeq }, false)
+      if (op.type === 'operation_undo') scratch.applyUndo(op.targetOpId, op.userId)
+      else if (op.type === 'operation_redo') scratch.applyRedo(op.targetOpId, op.userId)
+      else if (op.type === 'operation_revoke') scratch.revoke(op.targetOpId)
+    }
+    for (const entry of scratch._entries) {
+      const previous = originals.get(entry.op.id)!
+      // Legacy callers can provide resolved states without original controls.
+      // Preserve only that information; never import a known future control.
+      if (previous.state !== 'done' && !controlled.has(entry.op.id)) {
+        entry.state = previous.state
+        entry.goneReason = previous.goneReason
+      }
+    }
+    scratch._pixelOpDoneCount.clear()
+    for (const entry of scratch._entries) if (entry.state === 'done') scratch._bumpPixelOpCount(entry.op, 1)
+    // Bound retained prefix copies in rooms with many structural operations.
+    if (this._historicalPrefixes.size >= 4) this._historicalPrefixes.delete(this._historicalPrefixes.keys().next().value!)
+    this._historicalPrefixes.set(beforeSeq, scratch)
+    return scratch
+  }
+
   /** Every PixelOperation but layer_transform targets exactly one layer via its
    *  own `layerId`. layer_transform (#120) is the one exception — a single
    *  operation can bake a matrix into several layers at once (see its
@@ -561,7 +613,7 @@ export class OperationLog {
    *  projections. beforeSeq resolves a historical prefix for merge sources. */
   layerPixelOps(layerId: string, beforeSeq?: number): PixelOperation[] {
     const operations = beforeSeq === undefined ? this.watercolorEffectiveOperations()
-      : effectiveWatercolorOperations(this._entries.filter(e => (e.op.seq ?? 0) < beforeSeq))
+      : this.historicalPrefix(beforeSeq).watercolorEffectiveOperations()
     return operations.filter((op): op is PixelOperation => isPixelOperation(op)
       && (op.type === 'layer_transform' ? op.transforms.some(t => t.layerId === layerId) : op.layerId === layerId))
   }
