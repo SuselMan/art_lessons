@@ -1,0 +1,92 @@
+{
+  "source": "0c83ca99",
+  "scope": "Samsung native isolated context100x8 room load; mode active from URL, no drawing mutations",
+  "cases": [
+    {
+      "mode": "normal",
+      "engineReadyMs": 10669,
+      "historyCompleteMs": 11672,
+      "readyMs": 9942,
+      "openMeasurement": {
+        "outcome": "ready",
+        "totalMs": 2526,
+        "stages": {
+          "join": 455,
+          "paper": 164,
+          "snapshot": 0,
+          "replay": 1907
+        },
+        "reached": "replay",
+        "facts": {
+          "tailOperations": 102,
+          "latestSeq": 0,
+          "snapshotSeq": null,
+          "restoredFromSnapshot": false,
+          "layers": 3
+        }
+      },
+      "identity": {
+        "gpuBudget": "314572800",
+        "touch": 5,
+        "deviceMemory": 4,
+        "DPR": 2.125,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "mode": false,
+        "annotations": 1,
+        "glError": 0,
+        "firstDrawIssued": 9595.699999928474,
+        "annotationModeAtFirstDraw": false,
+        "firstVisibleRaf": 10509.099999904633
+      },
+      "historyCount": 102
+    },
+    {
+      "mode": "normal-warm-reload",
+      "sameContext": true,
+      "joinFormShown": true,
+      "engineReadyMs": 11167,
+      "historyCompleteMs": 11834,
+      "readyMs": 10534,
+      "openMeasurement": {
+        "outcome": "ready",
+        "totalMs": 2606,
+        "stages": {
+          "join": 509,
+          "paper": 159,
+          "snapshot": 0,
+          "replay": 1938
+        },
+        "reached": "replay",
+        "facts": {
+          "tailOperations": 102,
+          "latestSeq": 0,
+          "snapshotSeq": null,
+          "restoredFromSnapshot": false,
+          "layers": 3
+        }
+      },
+      "firstDrawIssued": 10124.700000047684,
+      "annotationModeAtFirstDraw": false,
+      "firstVisibleRaf": 11051.700000047684,
+      "annotationMode": false,
+      "annotationCount": 1,
+      "glError": 0,
+      "DPR": 2.125,
+      "touch": 5,
+      "gpuBudget": "314572800",
+      "historyCount": 102
+    }
+  ],
+  "errors": [],
+  "input": {
+    "count": 100,
+    "dabsPerStroke": 8,
+    "inputHash": "c29e6d7455a454fbc53a45f68e8b340f42d20ff5efd0a179831b45dd13f444fb"
+  },
+  "pass": true,
+  "limitations": [
+    "Vite development server; controllerURL time includes modulefetch/form/transport unseparated, not productionload.",
+    "Join gate appears on everymount bydesign; internalRoomOpen begins on join submission.",
+    "Firstcontent+2RAF is a proxy, not physicalpresentation."
+  ]
+}

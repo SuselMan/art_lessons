@@ -1,0 +1,101 @@
+{
+  "scope": "Navigation readiness and full history, 100-stroke deterministic input by default",
+  "firstVisibleMeaning": "Two rAF after engine display issued with nonempty watercolor tile; compositor presentation proxy, not physical screen sensor",
+  "cases": [
+    {
+      "mode": false,
+      "viewport": {
+        "width": 1100,
+        "height": 850
+      },
+      "annotationAtEngineReady": false,
+      "readyMs": 13099,
+      "engineReadyMs": 13713,
+      "historyCompleteMs": 14226,
+      "openMeasurement": {
+        "outcome": "ready",
+        "totalMs": 1131,
+        "stages": {
+          "join": 377,
+          "paper": 204,
+          "snapshot": 0,
+          "replay": 551
+        },
+        "reached": "replay",
+        "facts": {
+          "tailOperations": 102,
+          "latestSeq": 0,
+          "snapshotSeq": null,
+          "restoredFromSnapshot": false,
+          "layers": 3
+        }
+      },
+      "firstDrawIssuedMs": 12950.299999952316,
+      "annotationModeAtFirstDraw": false,
+      "firstVisibleRafMs": 13290.699999809265,
+      "glError": 0,
+      "gpu": {
+        "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "maxTextureSize": 16384,
+        "contextLost": false
+      },
+      "annotationCount": 1,
+      "operationCount": 102,
+      "devicePixelRatio": 1.5,
+      "maxTouchPoints": 1,
+      "authoritativeOperations": 102,
+      "modeName": "normal-cold-initial"
+    },
+    {
+      "mode": "normal-warm-reload",
+      "sameContext": true,
+      "joinFormShown": true,
+      "engineReadyMs": 11418,
+      "historyCompleteMs": 11888,
+      "readyMs": 10876,
+      "openMeasurement": {
+        "outcome": "ready",
+        "totalMs": 920,
+        "stages": {
+          "join": 278,
+          "paper": 94,
+          "snapshot": 0,
+          "replay": 549
+        },
+        "reached": "replay",
+        "facts": {
+          "tailOperations": 102,
+          "latestSeq": 0,
+          "snapshotSeq": null,
+          "restoredFromSnapshot": false,
+          "layers": 3
+        }
+      },
+      "firstDrawIssued": 10744.400000095367,
+      "annotationModeAtFirstDraw": false,
+      "firstVisibleRaf": 11011.400000095367,
+      "annotationMode": false,
+      "annotationCount": 1,
+      "glError": 0,
+      "DPR": 1.5,
+      "touch": 1,
+      "gpuBudget": "Infinity",
+      "authoritativeOperations": 102
+    }
+  ],
+  "errors": [],
+  "input": {
+    "seed": 728745,
+    "count": 100,
+    "dabsPerStroke": 8,
+    "dryEvery": 0,
+    "inputHash": "c29e6d7455a454fbc53a45f68e8b340f42d20ff5efd0a179831b45dd13f444fb"
+  },
+  "pass": true,
+  "source": "0c83ca99",
+  "limitations": [
+    "Vite development server; controllerURL time includes modulefetch/form/transport unseparated, not productionload.",
+    "Join gate appears on everymount bydesign; internalRoomOpen begins on join submission.",
+    "Firstcontent+2RAF is a proxy, not physicalpresentation."
+  ]
+}

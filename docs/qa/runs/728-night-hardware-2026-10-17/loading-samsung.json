@@ -1,0 +1,133 @@
+{
+  "source": "0c83ca99",
+  "scope": "Samsung native isolated context100x8 room load; mode active from URL, no drawing mutations",
+  "cases": [
+    {
+      "mode": "normal",
+      "engineReadyMs": 10920,
+      "historyCompleteMs": 11743,
+      "readyMs": 10123,
+      "openMeasurement": {
+        "outcome": "ready",
+        "totalMs": 2397,
+        "stages": {
+          "join": 408,
+          "paper": 162,
+          "snapshot": 0,
+          "replay": 1827
+        },
+        "reached": "replay",
+        "facts": {
+          "tailOperations": 102,
+          "latestSeq": 0,
+          "snapshotSeq": null,
+          "restoredFromSnapshot": false,
+          "layers": 3
+        }
+      },
+      "identity": {
+        "gpuBudget": "314572800",
+        "touch": 5,
+        "deviceMemory": 4,
+        "DPR": 2.125,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "mode": false,
+        "annotations": 1,
+        "glError": 0,
+        "firstDrawIssued": 9619.700000047684,
+        "annotationModeAtFirstDraw": false,
+        "firstVisibleRaf": 10677.700000047684
+      },
+      "historyCount": 102
+    },
+    {
+      "mode": "annotations",
+      "engineReadyMs": 11805,
+      "historyCompleteMs": 12660,
+      "readyMs": 11295,
+      "openMeasurement": {
+        "outcome": "ready",
+        "totalMs": 2592,
+        "stages": {
+          "join": 528,
+          "paper": 148,
+          "snapshot": 0,
+          "replay": 1917
+        },
+        "reached": "replay",
+        "facts": {
+          "tailOperations": 102,
+          "latestSeq": 0,
+          "snapshotSeq": null,
+          "restoredFromSnapshot": false,
+          "layers": 3
+        }
+      },
+      "identity": {
+        "gpuBudget": "314572800",
+        "touch": 5,
+        "deviceMemory": 4,
+        "DPR": 2.125,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "mode": true,
+        "annotations": 1,
+        "glError": 0,
+        "firstDrawIssued": 10723.399999976158,
+        "annotationModeAtFirstDraw": true,
+        "firstVisibleRaf": 11694.899999976158
+      },
+      "historyCount": 102
+    },
+    {
+      "mode": "compact-annotations",
+      "engineReadyMs": 10862,
+      "historyCompleteMs": 11443,
+      "readyMs": 10282,
+      "openMeasurement": {
+        "outcome": "ready",
+        "totalMs": 2220,
+        "stages": {
+          "join": 404,
+          "paper": 125,
+          "snapshot": 0,
+          "replay": 1692
+        },
+        "reached": "replay",
+        "facts": {
+          "tailOperations": 102,
+          "latestSeq": 0,
+          "snapshotSeq": null,
+          "restoredFromSnapshot": false,
+          "layers": 3
+        }
+      },
+      "identity": {
+        "gpuBudget": "314572800",
+        "touch": 5,
+        "deviceMemory": 4,
+        "DPR": 2.125,
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "mode": true,
+        "annotations": 1,
+        "glError": 0,
+        "firstDrawIssued": 9657.599999904633,
+        "annotationModeAtFirstDraw": true,
+        "firstVisibleRaf": 10745.5
+      },
+      "historyCount": 102
+    }
+  ],
+  "errors": [],
+  "input": {
+    "count": 100,
+    "dabsPerStroke": 8,
+    "inputHash": "c29e6d7455a454fbc53a45f68e8b340f42d20ff5efd0a179831b45dd13f444fb"
+  },
+  "pass": true,
+  "limitations": [
+    "Development Vite/HMR server; whole URL time includes module fetch, join form, controller transport and readiness polling; overhead unseparated.",
+    "Internal room-open measurement measures join/paper/replay stages separately.",
+    "No published export: review image fast path not tested.",
+    "First visible is first issued content draw followed by2RAF, not physical presentation sensor."
+  ]
+}

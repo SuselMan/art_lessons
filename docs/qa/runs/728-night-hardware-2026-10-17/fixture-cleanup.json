@@ -1,0 +1,72 @@
+{
+  "source": "0c83ca99",
+  "rooms": [
+    {
+      "room": "qa-undo-v1-7878737f-0565-450d-8941-ed096c7978a6",
+      "ownerApiStatus": 200,
+      "privateAuthDirectoryRemoved": true
+    },
+    {
+      "room": "qa-undo-v1-c094e54f-27cd-4a09-910e-ace37fbbf718",
+      "ownerApiStatus": 200,
+      "privateAuthDirectoryRemoved": true
+    },
+    {
+      "room": "qa-undo-v1-a912567c-5998-472c-835d-6573ab149766",
+      "ownerApiStatus": 200,
+      "privateAuthDirectoryRemoved": true
+    },
+    {
+      "room": "qa-undo-v1-fcaea084-4c25-437a-932b-9367bc1c88f3",
+      "ownerApiStatus": 200,
+      "privateAuthDirectoryRemoved": true
+    },
+    {
+      "room": "qa-undo-v1-a6348558-1991-47bd-8ad0-95136c27d3fb",
+      "ownerApiStatus": 200,
+      "privateAuthDirectoryRemoved": true
+    },
+    {
+      "room": "qa-undo-v1-9cd6d44b-4bf4-4897-b450-4645523838b0",
+      "ownerApiStatus": 200,
+      "privateAuthDirectoryRemoved": true
+    },
+    {
+      "room": "qa-undo-v1-66c86daa-1224-4376-85a3-41e4352be679",
+      "ownerApiStatus": 200,
+      "privateAuthDirectoryRemoved": true
+    },
+    {
+      "room": "qa-undo-v1-a69a3fa7-0b4e-4a12-9cf6-17ee63e6707a",
+      "ownerApiStatus": 200,
+      "privateAuthDirectoryRemoved": true
+    },
+    {
+      "room": "qa-undo-v1-8affb56c-1642-43ef-b99e-90b16d37d0a5",
+      "ownerApiStatus": 200,
+      "privateAuthDirectoryRemoved": true
+    },
+    {
+      "room": "qa-undo-v1-5c0c005b-8ddd-405b-b90d-cf319777ec61",
+      "ownerApiStatus": 200,
+      "privateAuthDirectoryRemoved": true
+    },
+    {
+      "room": "qa-undo-v1-012b1e39-b883-4443-9e2c-d6b4a499dea9",
+      "ownerApiStatus": 200,
+      "privateAuthDirectoryRemoved": true
+    },
+    {
+      "room": "qa-undo-v1-4fa8f503-2668-42c3-8cfa-318d3e4c1889",
+      "ownerApiStatus": 200,
+      "privateAuthDirectoryRemoved": true
+    },
+    {
+      "room": "qa-undo-v1-fe6367d8-6d92-4c57-a45b-1dfa4ff4d623",
+      "ownerApiStatus": 200,
+      "privateAuthDirectoryRemoved": true
+    }
+  ],
+  "ownOnly": true,
+  "profiles": "Surface own browser/profile removedverified and19334forwardstopped; Samsung isolatedcontextsdisposed andown19335ADBforwardremoved; Vega ownbrowser/profile/19333forward intentionallyretained for agentdry ongoingQA"
+}

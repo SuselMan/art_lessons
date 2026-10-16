@@ -1,0 +1,154 @@
+{
+  "scope": "Navigation readiness and full history, 100-stroke deterministic input by default",
+  "firstVisibleMeaning": "Two rAF after engine display issued with nonempty watercolor tile; compositor presentation proxy, not physical screen sensor",
+  "cases": [
+    {
+      "mode": false,
+      "viewport": {
+        "width": 1100,
+        "height": 850
+      },
+      "annotationAtEngineReady": false,
+      "readyMs": 12594,
+      "engineReadyMs": 13750,
+      "historyCompleteMs": 14320,
+      "openMeasurement": {
+        "outcome": "ready",
+        "totalMs": 1923,
+        "stages": {
+          "join": 544,
+          "paper": 228,
+          "snapshot": 0,
+          "replay": 1151
+        },
+        "reached": "replay",
+        "facts": {
+          "tailOperations": 102,
+          "latestSeq": 0,
+          "snapshotSeq": null,
+          "restoredFromSnapshot": false,
+          "layers": 3
+        }
+      },
+      "firstDrawIssuedMs": 12399.800000190735,
+      "annotationModeAtFirstDraw": false,
+      "firstVisibleRafMs": 13156.400000095367,
+      "glError": 0,
+      "gpu": {
+        "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "maxTextureSize": 16384,
+        "contextLost": false
+      },
+      "annotationCount": 1,
+      "operationCount": 102,
+      "devicePixelRatio": 1.5,
+      "maxTouchPoints": 1,
+      "authoritativeOperations": 102,
+      "modeName": "normal"
+    },
+    {
+      "mode": true,
+      "viewport": {
+        "width": 1100,
+        "height": 850
+      },
+      "annotationAtEngineReady": true,
+      "readyMs": 11184,
+      "engineReadyMs": 11923,
+      "historyCompleteMs": 12493,
+      "openMeasurement": {
+        "outcome": "ready",
+        "totalMs": 1057,
+        "stages": {
+          "join": 404,
+          "paper": 119,
+          "snapshot": 0,
+          "replay": 535
+        },
+        "reached": "replay",
+        "facts": {
+          "tailOperations": 102,
+          "latestSeq": 0,
+          "snapshotSeq": null,
+          "restoredFromSnapshot": false,
+          "layers": 3
+        }
+      },
+      "firstDrawIssuedMs": 11073.899999856949,
+      "annotationModeAtFirstDraw": true,
+      "firstVisibleRafMs": 11415.299999952316,
+      "glError": 0,
+      "gpu": {
+        "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "maxTextureSize": 16384,
+        "contextLost": false
+      },
+      "annotationCount": 1,
+      "operationCount": 102,
+      "devicePixelRatio": 1.5,
+      "maxTouchPoints": 1,
+      "authoritativeOperations": 102,
+      "modeName": "annotations"
+    },
+    {
+      "mode": true,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "annotationAtEngineReady": true,
+      "readyMs": 11829,
+      "engineReadyMs": 12396,
+      "historyCompleteMs": 12923,
+      "openMeasurement": {
+        "outcome": "ready",
+        "totalMs": 1085,
+        "stages": {
+          "join": 436,
+          "paper": 126,
+          "snapshot": 0,
+          "replay": 524
+        },
+        "reached": "replay",
+        "facts": {
+          "tailOperations": 102,
+          "latestSeq": 0,
+          "snapshotSeq": null,
+          "restoredFromSnapshot": false,
+          "layers": 3
+        }
+      },
+      "firstDrawIssuedMs": 11739.5,
+      "annotationModeAtFirstDraw": true,
+      "firstVisibleRafMs": 11989.300000190735,
+      "glError": 0,
+      "gpu": {
+        "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "maxTextureSize": 16384,
+        "contextLost": false
+      },
+      "annotationCount": 1,
+      "operationCount": 102,
+      "devicePixelRatio": 1.5,
+      "maxTouchPoints": 1,
+      "authoritativeOperations": 102,
+      "modeName": "compact-annotations"
+    }
+  ],
+  "errors": [],
+  "input": {
+    "seed": 728745,
+    "count": 100,
+    "dabsPerStroke": 8,
+    "dryEvery": 0,
+    "inputHash": "c29e6d7455a454fbc53a45f68e8b340f42d20ff5efd0a179831b45dd13f444fb"
+  },
+  "pass": true,
+  "source": "0c83ca99",
+  "limitations": [
+    "Development Vite/HMR server; whole URL time includes module fetch, join form, controller transport and readiness polling; overhead unseparated.",
+    "Internal room-open measurement measures join/paper/replay stages separately.",
+    "No published export: review image fast path not tested.",
+    "First visible is first issued content draw followed by2RAF, not physical presentation sensor."
+  ]
+}
