@@ -84,7 +84,7 @@ function wetController(timestamp: number, drawing = () => false) {
   Object.defineProperty(scratch, 'finishContext', {value: {target: {allResident: () => [tile]}}})
   vi.mocked(scratch.peek).mockReturnValue(entry as unknown as ReturnType<typeof scratch.peek>)
   controller.accept(scratch)
-  return {controller, target, changed}
+  return {controller, target, changed, scratch, profile}
 }
 
 it('keeps old replay wet before logical expiry and commits it exactly at expiry before erasing', () => {
@@ -265,4 +265,43 @@ it('preflights capacity without mutating real sources, excluding only empty prew
     controller.source(c,'real-c',profile,1)
     expect(controller.has(b)).toBe(true);expect(controller.has(c)).toBe(true)
   }finally{controller.destroy();vi.unstubAllGlobals()}
+})
+
+
+it('finding: legacy v1 live DOWN and recorded UP disagree when the new gesture crosses expiry', () => {
+  vi.useFakeTimers(); vi.setSystemTime(1000000)
+  const live=wetController(Date.now()), replay=wetController(Date.now())
+  try {
+    vi.setSystemTime(1119000)
+    const liveNext=live.controller.source(live.target,'next',live.profile,Date.now())
+    vi.setSystemTime(1121000)
+    const replayNext=replay.controller.source(replay.target,'next',replay.profile,Date.now())
+    expect(liveNext.scratch).toBe(live.scratch)
+    expect(replayNext.scratch).not.toBe(replay.scratch)
+    expect(replay.scratch.destroy).toHaveBeenCalledTimes(1)
+  } finally {live.controller.destroy();replay.controller.destroy();vi.unstubAllGlobals();vi.useRealTimers()}
+})
+
+it('finding: legacy v1 live DOWN and previous recorded UP can choose the opposite branch', () => {
+  vi.useFakeTimers(); vi.setSystemTime(1000000)
+  const live=wetController(Date.now())
+  vi.setSystemTime(1010000)
+  const replay=wetController(Date.now())
+  try {
+    vi.setSystemTime(1125000)
+    const liveNext=live.controller.source(live.target,'next',live.profile,Date.now())
+    vi.setSystemTime(1126000)
+    const replayNext=replay.controller.source(replay.target,'next',replay.profile,Date.now())
+    expect(liveNext.scratch).not.toBe(live.scratch)
+    expect(replayNext.scratch).toBe(replay.scratch)
+  } finally {live.controller.destroy();replay.controller.destroy();vi.unstubAllGlobals();vi.useRealTimers()}
+})
+
+it('finding: legacy v1 splits one physical gesture after a 120-second chunk gap', () => {
+  const {controller,target,scratch,profile}=wetController(1000000)
+  try {
+    const chunk=controller.source(target,'a',profile,1180000)
+    expect(chunk.scratch).not.toBe(scratch)
+    expect(scratch.destroy).toHaveBeenCalledTimes(1)
+  } finally {controller.destroy();vi.unstubAllGlobals()}
 })
