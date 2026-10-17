@@ -50,6 +50,8 @@ export interface PuddleRoomHost extends PuddleTargetHost {
   materialReady?(target: ILayerBuffer): boolean
   rehydrate?(target: ILayerBuffer, beforeRecordedOpId?: string): CpuScratchSnapshot
   drawing(): boolean
+  /** Synchronous material reads/barriers must acquire the shared field first. */
+  finishLegacySettle?(): void
   /** Hidden replay changes material only until its target becomes visible. */
   deferPresentation?(target: ILayerBuffer): boolean
   render(scratch: RibbonStrokeScratch, tile: PaintTarget, context: Context,
@@ -104,6 +106,7 @@ export class PuddleRoomController {
   /** Read material, never presentation. Structural copies are rare and may
    * synchronously finish the current goal; the original water stays active. */
   canonicalTiles(target: ILayerBuffer): readonly PaintTarget[] {
+    this.host.finishLegacySettle?.()
     const layer = this.layers.get(target)
     if (!layer?.tile || !layer.context) return target.allResident()
     if (!layer.goalReady || layer.dirty) {
@@ -472,6 +475,7 @@ export class PuddleRoomController {
   /** Explicit recorded boundary. Replays and manual Dry use the same goal.
    * This first QA adapter drains the outstanding goal synchronously here. */
   close(target?: ILayerBuffer): void {
+    this.host.finishLegacySettle?.()
     this.cancelCurrent()
     for(const key of [...this.parked.keys()])if(!target || key===target)this.forget(key)
     for (const layer of [...this.layers.values()]) {

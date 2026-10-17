@@ -1687,7 +1687,8 @@ export class PencilEngine implements PencilEngineAPI {
       gl:this.gl, size:{width:w,height:h}, settlePlan:this._settlePlan, pool:this._ribbonScratchPool, passes:this._watercolorPasses,
       invalidateFrontPaths:()=>this._watercolorPasses.invalidateFrontPaths(),
       hasActiveSettle:()=>!!this._settle,
-      drawing:()=>!!this._strokeLayerId || this._rebuildJobs.size > 0,
+      finishLegacySettle:()=>this._completeSettle(),
+      drawing:()=>!!this._strokeLayerId || !!this._settle || this._rebuildJobs.size > 0,
       deferPresentation:target=>this._hiddenM70Replay.has(target),
       render:(scratch,tile,ctx,output,material)=>{
         const entry=scratch.peek(tile.buffer)
