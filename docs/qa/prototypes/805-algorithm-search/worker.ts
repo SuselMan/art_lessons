@@ -1,3 +1,4 @@
+import {definitions as macro3GL} from './alternatives/macro3-index'
 import {transportMetrics} from './transport-metrics'
 import {definitions as macro2GL} from './alternatives/macro2-index'
 import {definitions as macroGL} from './alternatives/macro-index'
@@ -9,7 +10,7 @@ import {createFixture,fixtureInfo,fixtureIds,type FixtureId} from './fixtures'
 import {definitions as alternatives} from './alternatives'
 import {reference} from './reference'
 import type {AlgorithmConfig,AlgorithmInput,GLResult} from './protocol'
-const definitions=[reference,...alternatives,...macroGL,...macro2GL,...backendGL]
+const definitions=[reference,...alternatives,...macroGL,...macro2GL,...macro3GL,...backendGL]
 let busy=false
 const send=(r:unknown)=>self.postMessage(r)
 const digest=async(bytes:Uint8Array)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes as Uint8Array<ArrayBuffer>)),b=>b.toString(16).padStart(2,'0')).join('')
@@ -40,9 +41,9 @@ async function runGL(algorithm:string,input:AlgorithmInput,config:AlgorithmConfi
  const canvas=new OffscreenCanvas(input.size,input.size),gl=canvas.getContext('webgl',{alpha:true,premultipliedAlpha:true,antialias:false,preserveDrawingBuffer:true})!;if(!gl)throw Error('WebGL1 unavailable');gl.disable(gl.DITHER)
  const renderer=gl.getExtension('WEBGL_debug_renderer_info'),hardware=renderer?gl.getParameter(renderer.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER),createStart=performance.now();let candidate:ReturnType<typeof definition.create>|null=null
  try{candidate=definition.create(gl,input.size,config);const createMs=performance.now()-createStart,samples=[];let output:Uint8Array|null=null;const hashes:string[]=[]
-  for(let n=0;n<repeats;n++){const start=performance.now();candidate.upload(input);const uploaded=performance.now();const result=candidate.run();const submitted=performance.now();read(gl,result);const ready=performance.now();samples.push({uploadJsMs:uploaded-start,submitJsMs:submitted-uploaded,runToDependentMs:ready-uploaded,totalReadyMs:ready-start})
-   // Full readback/hashing is deliberately outside the timed interval.
-   output=read(gl,result,true);hashes.push(await digest(output))
+  for(let n=0;n<repeats;n++){const start=performance.now();candidate.upload(input);const uploaded=performance.now();const result=candidate.run();const submitted=performance.now();read(gl,result);const ready=performance.now()
+   // The existing full read is measured separately; hashing remains outside both intervals.
+   const fullReadStart=performance.now();output=read(gl,result,true);const fullReady=performance.now();samples.push({uploadJsMs:uploaded-start,submitJsMs:submitted-uploaded,runToDependentMs:ready-uploaded,totalReadyMs:ready-start,fullReadbackJsMs:fullReady-fullReadStart,totalToFullReadbackMs:fullReady-start});hashes.push(await digest(output))
   }
   // GL fixtures' first byte is y=0, written directly into bottom row. Their
   // output readback has the same numerical row order, so keep it top-left
@@ -58,7 +59,7 @@ async function runGPU(algorithm:string,input:AlgorithmInput,config:AlgorithmConf
  const registry=await webgpuModule,definition=registry.definitions.find((x:any)=>x.id===algorithm);if(!definition)throw Error('Unknown WebGPU algorithm')
  const gpu=(self.navigator as any).gpu;if(!gpu)throw Error('WebGPU unavailable');const adapter=await gpu.requestAdapter();if(!adapter)throw Error('WebGPU adapter unavailable');if(profileGPU&&!adapter.features.has('timestamp-query'))throw Error('GPU timestamp queries unavailable');const device=await adapter.requestDevice(profileGPU?{requiredFeatures:['timestamp-query']}:{});let candidate:any=null;let profiler:ReturnType<typeof createPassProfiler>|null=null
  try{const errors:string[]=[];device.addEventListener('uncapturederror',(e:any)=>errors.push(String(e.error.message)));const startCreate=performance.now();candidate=await definition.create(device,input.size,config);const createMs=performance.now()-startCreate,samples=[],hashes:string[]=[];profiler=profileGPU?createPassProfiler(device):null;let output:Uint8Array|null=null
-  for(let n=0;n<repeats;n++){const start=performance.now();await candidate.upload(input);const uploaded=performance.now();if(profiler)profiler.run(()=>candidate.run());else candidate.run();const submitted=performance.now();await device.queue.onSubmittedWorkDone();const ready=performance.now();const gpuPassMs=profiler?await profiler.read():undefined;samples.push({uploadJsMs:uploaded-start,submitJsMs:submitted-uploaded,runToDependentMs:ready-uploaded,totalReadyMs:ready-start,...(gpuPassMs===undefined?{}:{gpuPassMs})});output=await candidate.readback();hashes.push(await digest(output!));if(errors.length)throw Error(errors.join('\n'))}
+  for(let n=0;n<repeats;n++){const start=performance.now();await candidate.upload(input);const uploaded=performance.now();if(profiler)profiler.run(()=>candidate.run());else candidate.run();const submitted=performance.now();await device.queue.onSubmittedWorkDone();const ready=performance.now();const fullReadStart=performance.now();output=await candidate.readback();const fullReady=performance.now();const gpuPassMs=profiler?await profiler.read():undefined;samples.push({uploadJsMs:uploaded-start,submitJsMs:submitted-uploaded,runToDependentMs:ready-uploaded,totalReadyMs:ready-start,fullReadbackJsMs:fullReady-fullReadStart,totalToFullReadbackMs:fullReady-start,...(gpuPassMs===undefined?{}:{gpuPassMs})});hashes.push(await digest(output!));if(errors.length)throw Error(errors.join('\n'))}
   return{backend:'webgpu',profileGPU,hardware:{vendor:adapter.info?.vendor??'',architecture:adapter.info?.architecture??'',device:adapter.info?.device??'',description:adapter.info?.description??''},createMs,samples,hashes,repeatExact:hashes.every(x=>x===hashes[0]),metadata:candidate.metadata??{},metrics:metrics(input,output!),output:output!,orientation:'fixture-row-order'}
  }finally{try{profiler?.destroy();candidate?.destroy()}finally{device.destroy()}}
 }

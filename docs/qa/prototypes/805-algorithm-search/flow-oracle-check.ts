@@ -13,3 +13,8 @@ assert(base.initialMixedPixels===0&&base.mixedCarrierFraction===0&&base.blueCros
 const wall=createFlowFixture('flow-dry-barrier'),leak=wall.rgba.slice();leak.set([10,0,0,10],(512*1024+512)*4)
 assert(flowMetrics('flow-dry-barrier',wall,leak)!.changedDryPixels===1,'Dry leak must be detected')
 console.log(JSON.stringify({passed:5,scope:'Functional metric oracle; not solver approval'}))
+const thin=createFlowFixture('flow-one-pixel-wall'),legal=new Uint8Array(thin.rgba.length);legal.set([10,0,0,10],(512*1024+512)*4)
+assert(flowMetrics('flow-one-pixel-wall',thin,legal)!.blueCrossFraction===0,'Left column512 is before wall513')
+legal.set([10,0,0,10],(512*1024+514)*4)
+assert(flowMetrics('flow-one-pixel-wall',thin,legal)!.blueCrossFraction>0,'Column514 is beyond wall513')
+console.log(JSON.stringify({barrierBoundaryChecks:2}))
