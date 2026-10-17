@@ -1,0 +1,17 @@
+module.exports=()=>{globalThis.__qa748Mode11Precision=async(gl,passes,deps,options={})=>{
+ const highp=options.highpSamplers===true,round=options.roundRGBA===true;if(!highp&&!round)throw Error('No mode11 variant');
+ deps=deps||Object.assign({},await import('/src/engine/src/raster/utils.ts'),await import('/src/engine/src/raster/shaders.ts'));
+ const keys=['_fieldOpHighProg','_fieldOpHighUni','_fieldOpHighPosLoc'],descriptors=Object.fromEntries(keys.map(k=>[k,Object.getOwnPropertyDescriptor(passes,k)])),original=passes.fieldOp,methodDescriptor=Object.getOwnPropertyDescriptor(passes,'fieldOp');
+ if(keys.some(k=>!descriptors[k])||!gl.isProgram(passes._fieldOpHighProg))throw Error('High program unavailable');
+ const fragment=deps.WC_FIELD_OP_HIGH_FRAG,vertex=deps.DISPLAY_VERT,attached=gl.getAttachedShaders(passes._fieldOpHighProg)||[];
+ if(!attached.some(s=>gl.getShaderParameter(s,gl.SHADER_TYPE)===gl.FRAGMENT_SHADER&&gl.getShaderSource(s)===fragment)||!attached.some(s=>gl.getShaderParameter(s,gl.SHADER_TYPE)===gl.VERTEX_SHADER&&gl.getShaderSource(s)===vertex))throw Error('Actual high shader mismatch');
+ const anchor='gl_FragColor = vec4(r, a.a > 0.002 ? a.g : 0.0, standing, max(a.a, inside));',anchorCount=fragment.split(anchor).length-1,pattern=/\buniform\s+sampler2D\b/g,samplerCount=[...fragment.matchAll(pattern)].length;
+ if(anchorCount!==1||!samplerCount)throw Error('Mode11 anchor not unique');let patched=highp?fragment.replace(pattern,'uniform highp sampler2D'):fragment;
+ if(round)patched=patched.replace(anchor,'gl_FragColor = floor(vec4(r, a.a > 0.002 ? a.g : 0.0, standing, max(a.a, inside)) * 255.0 + 0.5) / 255.0;');
+ const hash=async s=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))),v=>v.toString(16).padStart(2,'0')).join('');
+ const meta={highpSamplers:highp,roundRGBA:round,anchorCount,samplerCount,originalSHA:await hash(fragment),patchedSHA:await hash(patched),uniformKeys:Object.keys(passes._fieldOpHighUni),selectedCalls:0,otherCalls:0,restoration:{}};let program,uni,pos,restored=false,executing=false;
+ try{program=deps.createProgram(gl,vertex,patched);uni=deps.getUniforms(gl,program,meta.uniformKeys);pos=gl.getAttribLocation(program,'a_position');if(pos<0)throw Error('Missing position')}catch(e){if(program)gl.deleteProgram(program);throw e}
+ const exact=()=>keys.every(k=>Object.getOwnPropertyDescriptor(passes,k)?.value===descriptors[k].value);
+ const wrapped=function(...args){if(executing)throw Error('Mode11 reentrant dispatch');if(args[3]!==11||args[5]?.discreteGrid!==true){meta.otherCalls++;return original.apply(this,args)}if(this!==passes||executing||!exact())throw Error('Mode11 override ownership');executing=true;meta.selectedCalls++;try{passes[keys[0]]=program;passes[keys[1]]=uni;passes[keys[2]]=pos;return original.apply(this,args)}finally{for(const k of keys)Object.defineProperty(passes,k,descriptors[k]);if(gl.getParameter(gl.CURRENT_PROGRAM)===program)gl.useProgram(descriptors[keys[0]].value);executing=false}};
+ passes.fieldOp=wrapped;return{summary:()=>meta,restore(){if(restored)return;if(executing)throw Error('Mode11 executing');restored=true;meta.restoration.wrapperExact=passes.fieldOp===wrapped;if(methodDescriptor)Object.defineProperty(passes,'fieldOp',methodDescriptor);else delete passes.fieldOp;meta.restoration.propertiesExact=exact();gl.deleteProgram(program);meta.restoration.deletedOwnedProgram=!gl.isProgram(program);if(!meta.restoration.wrapperExact||!meta.restoration.propertiesExact)throw Error('Mode11 restoration ownership')}};
+}}
