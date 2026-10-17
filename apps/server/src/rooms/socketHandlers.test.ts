@@ -542,3 +542,157 @@ it.each([
   expect(await left).toBe('student')
   expect(getParticipant(lessonId, 'student')).toBeUndefined()
 })
+
+it('#783 disconnect during replay never seats a ghost socket', async () => {
+  const { lessonId, teacher } = await classroom()
+  let release!: (value: null) => void
+  let entered!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const late = client('late-user')
+  const heard: unknown[] = []
+  teacher.on('peer_joined', participant => heard.push(participant))
+  late.emit('join_room', { roomId: lessonId, name: 'Late' }, () => {})
+  await reached
+  const serverSocket = io.sockets.sockets.get(late.id!)!
+  const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+  late.close()
+  await disconnected
+  release(null)
+  await new Promise(resolve => setTimeout(resolve, 30))
+  expect(getParticipant(lessonId, 'late-user')).toBeUndefined()
+  expect(heard).toEqual([])
+})
+
+it('#783 an older delayed join never replaces the latest completed board intent', async () => {
+  const { lessonId, boardId, student } = await classroom()
+  let release!: (value: null) => void
+  let entered!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const older = new Promise(resolve => student.emit('join_room', { roomId: lessonId, name: 'Alice' }, resolve))
+  await reached
+  await join(student, boardId, 'Alice')
+  expect(getParticipant(lessonId, 'student')?.boardId).toBe(boardId)
+  release(null)
+  expect(await older).toEqual({ ok: false, error: 'server_busy' })
+  expect(getParticipant(lessonId, 'student')?.boardId).toBe(boardId)
+})
+
+it.each([false, true])('#783 cold cancelled join cleanup preserves another pending join=%s', async cojoin => {
+  const roomId = fresh('cold-pending')
+  rows.set(roomId, row(roomId))
+  const { ensureRoomLoaded } = await import('./roomLoader.js')
+  await ensureRoomLoaded(roomId)
+  const releases: ((value: null) => void)[] = []
+  let reached!: () => void
+  const entered = new Promise<void>(resolve => { reached = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementation(() => new Promise<null>(resolve => {
+    releases.push(resolve)
+    if (releases.length === (cojoin ? 2 : 1)) reached()
+  }))
+  const cancelled = client('cancelled-user')
+  cancelled.emit('join_room', { roomId, name: 'Cancelled' }, () => {})
+  let other: Client | undefined
+  let otherJoin: Promise<void> | undefined
+  if (cojoin) {
+    // Start the second only after the first reached replay, for stable order.
+    await vi.waitFor(() => expect(releases).toHaveLength(1))
+    other = client('other-user')
+    otherJoin = join(other, roomId, 'Other')
+  }
+  await entered
+  const serverSocket = io.sockets.sockets.get(cancelled.id!)!
+  const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+  cancelled.close()
+  await disconnected
+  releases[0](null)
+  await new Promise(resolve => setTimeout(resolve, 20))
+  expect(getParticipant(roomId, 'cancelled-user')).toBeUndefined()
+  expect(isRoomResident(roomId)).toBe(cojoin)
+  if (cojoin) {
+    releases[1](null)
+    await otherJoin
+    expect(getParticipant(roomId, 'other-user')).toBeDefined()
+  }
+})
+
+it('#783 disconnect during create cold load never seats a ghost owner', async () => {
+  const roomId = fresh('create-disconnected')
+  let release!: (value: null) => void
+  let entered!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.room.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const creator = client('creator')
+  creator.emit('create_room', { room: { id: roomId, name: roomId, paper: 'coarse', infinite: false, canvasWidth: 1240, canvasHeight: 1754 }, name: 'Creator' }, () => {})
+  await reached
+  const serverSocket = io.sockets.sockets.get(creator.id!)!
+  const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+  creator.close()
+  await disconnected
+  release(null)
+  await new Promise(resolve => setTimeout(resolve, 20))
+  expect(getParticipant(roomId, 'creator')).toBeUndefined()
+  expect(isRoomResident(roomId)).toBe(false)
+})
+
+it('#783 a newer create intent supersedes an older pending join', async () => {
+  const { lessonId } = await classroom()
+  let release!: (value: null) => void
+  let entered!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const creator = client('new-creator')
+  const older = new Promise(resolve => creator.emit('join_room', { roomId: lessonId, name: 'Creator' }, resolve))
+  await reached
+  const createdId = fresh('new-create-intent')
+  await createLesson(creator, createdId)
+  release(null)
+  expect(await older).toEqual({ ok: false, error: 'server_busy' })
+  expect(getParticipant(lessonId, 'new-creator')).toBeUndefined()
+  expect(getParticipant(createdId, 'new-creator')?.role).toBe('owner')
+})
+
+it('#783 a newer join intent supersedes an older pending create', async () => {
+  const { lessonId } = await classroom()
+  let release!: (value: null) => void
+  let entered!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.room.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const creator = client('late-creator')
+  const createdId = fresh('obsolete-create')
+  const older = new Promise(resolve => creator.emit('create_room', { room: { id: createdId, name: createdId, paper: 'coarse', infinite: false, canvasWidth: 1240, canvasHeight: 1754 }, name: 'Creator' }, resolve))
+  await reached
+  await join(creator, lessonId, 'Creator')
+  release(null)
+  expect(await older).toEqual({ ok: false, error: 'server_busy' })
+  expect(getParticipant(lessonId, 'late-creator')?.role).toBe('member')
+  expect(getParticipant(createdId, 'late-creator')).toBeUndefined()
+})
+
+it.each(['load', 'access'] as const)('#783 disconnect during %s await stops before seating and cleans unused residency', async stage => {
+  const roomId = stage === 'access' ? (await classroom()).lessonId : fresh('cold-load-disconnect')
+  const stored = row(roomId)
+  if (stage === 'load') rows.set(roomId, stored)
+  let entered!: () => void
+  let release!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  if (stage === 'load') {
+    mockPrisma.room.findUnique.mockImplementationOnce(() => { entered(); return new Promise<Row>(resolve => { release = () => resolve(stored) }) })
+  } else {
+    mockPrisma.roomBlock.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = () => resolve(null) }) })
+  }
+  const late = client('early-disconnect')
+  late.emit('join_room', { roomId, name: 'Late' }, () => {})
+  await reached
+  const serverSocket = io.sockets.sockets.get(late.id!)!
+  const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+  late.close()
+  await disconnected
+  release()
+  await new Promise(resolve => setTimeout(resolve, 20))
+  expect(getParticipant(roomId, 'early-disconnect')).toBeUndefined()
+  expect(isRoomResident(roomId)).toBe(stage === 'access')
+  const { getRoomBacklog } = await import('./roomStats.js')
+  expect(getRoomBacklog(roomId)?.participants ?? 0).toBe(stage === 'access' ? 2 : 0)
+})
