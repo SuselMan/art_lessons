@@ -236,6 +236,7 @@ export class AccumulationBuffer {
    *  as LINEAR. */
   private readonly _baseFilter: 'linear' | 'nearest'
   private _pointSampling = false
+  get pointSampling(): boolean { return this._pointSampling }
 
   /** (#507) Forces exact-texel sampling for the next draw, and back again.
    *

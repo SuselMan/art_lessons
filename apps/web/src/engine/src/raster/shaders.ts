@@ -3153,6 +3153,21 @@ export const WC_FIELD_OP_FRAG = `
    *  record (u_k) reach as far as the water did. */
   uniform vec2 u_dir;
   uniform sampler2D u_d;
+  // QA candidate: explicit bilinear in local pixel space, sampler u_d NEAREST.
+  uniform float u_mode6DiscreteGrid;
+  uniform vec2 u_mode6Resolution;
+  uniform vec2 u_mode6DirPx;
+  float wcMode6CostOffset(vec2 offsetPx) {
+    vec2 base = floor(offsetPx);
+    vec2 weight = fract(offsetPx);
+    vec2 centre = gl_FragCoord.xy + base;
+    float a = texture2D(u_d, centre / u_mode6Resolution).r;
+    float b = texture2D(u_d, (centre + vec2(1.0, 0.0)) / u_mode6Resolution).r;
+    float c = texture2D(u_d, (centre + vec2(0.0, 1.0)) / u_mode6Resolution).r;
+    float d = texture2D(u_d, (centre + vec2(1.0, 1.0)) / u_mode6Resolution).r;
+    return mix(mix(a, b, weight.x), mix(c, d, weight.x), weight.y);
+  }
+
   uniform sampler2D u_e;
   uniform sampler2D u_path;
   uniform float u_pathEnabled;
@@ -3635,7 +3650,9 @@ ${WC_FIELD_FIT}
       // total changing: a line of stoppage with structure behind it, which
       // is what the photographs have, rather than a uniform dark strip.
       vec4 inward = texture2D(u_c, v_uv);
-      float costOut = texture2D(u_d, v_uv).r;
+      float costOut;
+      if (u_mode6DiscreteGrid > 0.5) costOut = texture2D(u_d, gl_FragCoord.xy / u_mode6Resolution).r;
+      else costOut = texture2D(u_d, v_uv).r;
       float costIn = inward.r;
       float inside = 1.0 - smoothstep(u_band.x, u_band.x + u_size.x, costOut);
       // The line sits on the second ring in from the front, not the first:
@@ -3692,8 +3709,13 @@ ${WC_FIELD_FIT}
       float ring = 0.0;
       for (int k = 0; k < 8; k++) {
         float ang = float(k) * 0.7853982;
-        vec2 o = vec2(cos(ang), sin(ang)) * WC_TIDE_RING_TX * u_dir;
-        ring += 1.0 - smoothstep(u_band.x, u_band.x + u_size.x, texture2D(u_d, v_uv + o).r);
+        if (u_mode6DiscreteGrid > 0.5) {
+          vec2 offsetPx = vec2(cos(ang), sin(ang)) * WC_TIDE_RING_TX * u_mode6DirPx;
+          ring += 1.0 - smoothstep(u_band.x, u_band.x + u_size.x, wcMode6CostOffset(offsetPx));
+        } else {
+          vec2 o = vec2(cos(ang), sin(ang)) * WC_TIDE_RING_TX * u_dir;
+          ring += 1.0 - smoothstep(u_band.x, u_band.x + u_size.x, texture2D(u_d, v_uv + o).r);
+        }
       }
       float convexW = mix(WC_TIDE_SIDE, 1.0, smoothstep(0.5, 0.25, ring / 8.0));
       // The bloom's band (.r): the wash's paint the drop pushed lands here,

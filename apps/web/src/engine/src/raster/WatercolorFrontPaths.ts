@@ -75,18 +75,21 @@ export function createWatercolorFrontPaths(ctx: WatercolorPassesContext, origina
     const stats = { buildDraws: 0, jumpDraws: 0, nativeDraws: 0, cacheBuilds: 0, extraBytes: 0 };
     const bind = (unit: number, texture: WebGLTexture, u: Uniforms, name: string) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, texture); gl.uniform1i(u[name], unit); };
     function common(program: WebGLProgram, u: Uniforms, args: FrontArgs) { const [field, x0, y0, dryCost, src, , max, climb, floor, stride = 1, scale = 1, foreign = null] = args; const { w, h } = ctx.paperWorldSize(); gl.useProgram(program); ctx.stamps().bindNoise(u.u_wcNoiseTex); gl.bindBuffer(gl.ARRAY_BUFFER, ctx.screenBuf()); const pos = gl.getAttribLocation(program, 'a_position'); gl.enableVertexAttribArray(pos); gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0); bind(0, src.texture, u, 'u_cost'); bind(1, ctx.paperTex(), u, 'u_paperHeightMap'); bind(2, field.coverage.texture, u, 'u_film'); bind(3, foreign ?? ctx.paperTex(), u, 'u_foreignFilm'); gl.uniform1f(u.u_foreignWet, foreign ? 1 : 0); gl.uniform2f(u.u_resolution, field.w, field.h); gl.uniform2f(u.u_paperOrigin, x0 / scale, -(y0 / scale + field.h)); gl.uniform2f(u.u_paperTexSize, w / scale, h / scale); gl.uniform2f(u.u_paperScale, ctx.paperScale(), ctx.paperScale()); gl.uniform1f(u.u_climb, climb); gl.uniform1f(u.u_floor, floor); gl.uniform1f(u.u_costMax, max); gl.uniform1f(u.u_dryCost, dryCost); gl.uniform1f(u.u_stride, stride); }
-    function draw(dst: AccumulationBuffer, program: WebGLProgram, u: Uniforms, args: FrontArgs) { const dithered = program === build && gl.isEnabled(gl.DITHER); if (program === build)
-        gl.disable(gl.DITHER); dst.beginReplaceDraw(); common(program, u, args); return () => { try {
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
+    function draw(dst: AccumulationBuffer, program: WebGLProgram, u: Uniforms, args: FrontArgs, setup: () => void) {
+        const dithered = program === build && gl.isEnabled(gl.DITHER);
+        if (program === build) gl.disable(gl.DITHER);
+        let begun = false;
+        try {
+            dst.beginReplaceDraw(); begun = true;
+            common(program, u, args); setup(); gl.drawArrays(gl.TRIANGLES, 0, 6);
+        } finally {
+            try { if (begun) dst.endDraw(); } finally {
+                if (dithered) gl.enable(gl.DITHER);
+                if (program === jump) ctx.stamps().bindNoise(null);
+                gl.activeTexture(gl.TEXTURE0);
+            }
+        }
     }
-    finally {
-        dst.endDraw();
-        if (dithered)
-            gl.enable(gl.DITHER);
-        if (program === jump)
-            ctx.stamps().bindNoise(null);
-        gl.activeTexture(gl.TEXTURE0);
-    } }; }
     function ensure(field: WatercolorPassField) { if (buffers[0]?.width === field.w && buffers[0]?.height === field.h)
         return; for (const b of buffers)
         b.destroy(); scratch?.destroy(); buffers = Array.from({ length: 4 }, () => new AccumulationBuffer(gl, field.w, field.h, 'nearest')); scratch = new AccumulationBuffer(gl, field.w, field.h, 'nearest'); stats.extraBytes = field.w * field.h * 4 * 5; cached = null; }
@@ -106,19 +109,19 @@ export function createWatercolorFrontPaths(ctx: WatercolorPassesContext, origina
         if (!cached || key.some((v, i) => v !== cached![i])) {
             stats.cacheBuilds++;
             for (let pair = 0; pair < 4; pair++) {
-                const finish = draw(buffers[pair]!, build, bu, args);
+                draw(buffers[pair]!, build, bu, args, () => {
                 gl.uniform2fv(bu.u_directionA, directions[pair]![0]!);
                 gl.uniform2fv(bu.u_directionB, directions[pair]![1]!);
                 gl.uniform1f(bu.u_buildStride, 0);
-                finish();
+                });
                 stats.buildDraws++;
                 for (let length = 1; length < stride; length *= 2) {
-                    const next = draw(scratch!, build, bu, args);
+                    draw(scratch!, build, bu, args, () => {
                     bind(0, buffers[pair]!.texture, bu, 'u_cost');
                     gl.uniform2fv(bu.u_directionA, directions[pair]![0]!);
                     gl.uniform2fv(bu.u_directionB, directions[pair]![1]!);
                     gl.uniform1f(bu.u_buildStride, length);
-                    next();
+                    });
                     stats.buildDraws++;
                     const old = buffers[pair]!;
                     buffers[pair] = scratch!;
@@ -127,10 +130,10 @@ export function createWatercolorFrontPaths(ctx: WatercolorPassesContext, origina
             }
             cached = key;
         }
-        const finish = draw(dst, jump, ju, args);
+        draw(dst, jump, ju, args, () => {
         for (let i = 0; i < 4; i++)
             bind(4 + i, buffers[i]!.texture, ju, 'u_edges' + i);
-        finish();
+        });
         stats.jumpDraws++;
     };
     return { step, stats, forget() { disposed = true; buffers = []; scratch = null; cached = null; }, invalidate() { cached = null; }, dispose() { if (disposed)

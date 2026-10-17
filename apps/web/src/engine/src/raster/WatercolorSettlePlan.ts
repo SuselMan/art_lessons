@@ -238,6 +238,7 @@ export class WatercolorSettlePlan {
     const w = x1 - x0, h = y1 - y0
     if (w <= 0 || h <= 0) return null
     scratch.noteStorageBounds({ minX: x0, minY: y0, maxX: x1, maxY: y1 })
+    if (approvedM70 && S !== 1) throw new Error('M70 discrete grid requires S1')
     const field = this.ctx.fieldFor(w / S, h / S, S, tightField ? 'tight' : front8, approvedM70 ? 1024 : undefined)
     const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
     // (§17.44) At half resolution what goes home is the SETTLED wash at full
@@ -455,7 +456,7 @@ export class WatercolorSettlePlan {
           if (entry.solventLoad && entry.foreignSolventLoad) {
             const temp = this.ctx.pool().acquire(tile.buffer.width, tile.buffer.height)
             try {
-              this.ctx.passes().fieldOp(temp, entry.solventLoad, entry.foreignSolventLoad, 1, 1)
+              materialFieldOp(temp, entry.solventLoad, entry.foreignSolventLoad, 1, 1)
               toField(temp, tile, ox0, oy0, ox1, oy1, solvent)
             } finally { this.ctx.pool().release(temp) }
           } else toField((entry.solventLoad ?? entry.foreignSolventLoad)!, tile, ox0, oy0, ox1, oy1, solvent)
@@ -477,10 +478,13 @@ export class WatercolorSettlePlan {
     // them. Only capture is immediate; transport still runs over frames.
     ops.push(() => { for (const capture of captureInputs) capture() })
 
-    const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void =>
-      this.ctx.passes().fieldOp(out, a, b, mode, k)
+    const materialFieldOp = (...args: Parameters<WatercolorPasses['fieldOp']>): void => {
+      const [out, a, b, mode, k, opts] = args
+      this.ctx.passes().fieldOp(out, a, b, mode, k, approvedM70 ? { ...opts, discreteGrid: true } : opts)
+    }
+    const fieldOp = materialFieldOp
     const diffuseStep = (src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean, gate: AccumulationBuffer = field.coverage, density: AccumulationBuffer = src): void => {
-      this.ctx.passes().diffuseStep(field, x0, y0, S, paperTexW, paperTexH, src, dst, radius, knight, gate, density, solvent)
+      this.ctx.passes().diffuseStep(field, x0, y0, S, paperTexW, paperTexH, src, dst, radius, knight, gate, density, solvent, approvedM70)
     }
     // (§17.23) The operation's footprint — where its own deposit lies, which
     // is the mobile field before anything moves — and the dome over it: the
@@ -545,7 +549,7 @@ export class WatercolorSettlePlan {
     // a cell, the run on dry paper is two cells whatever the budget.
     const dryCost = Math.max(WC_FRONT_DRY_COST, budgetPx * (detailMaterial ? S : 1) * WC_FRONT_DRY_SHARE)
     const frontStep = (src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb = WC_FRONT_CLIMB, floor = WC_FRONT_FLOOR, stride = 1): void =>
-      this.ctx.passes().waterFrontStep(field, x0, y0, dryCost, src, dst, max, climb, floor, stride, S, foreignTexture)
+      this.ctx.passes().waterFrontStep(field, x0, y0, dryCost, src, dst, max, climb, floor, stride, S, foreignTexture, approvedM70)
     // The front as entries of `ops`, a few relaxation steps per entry so no
     // frame runs the whole field thirty times: the outward cost from the
     // footprint into `pressure`, the inward cost from past-the-budget into
@@ -560,11 +564,11 @@ export class WatercolorSettlePlan {
           const last = i + chunk.length >= list.length
           ops.push(frontStepOp(() => {
             for (const st of chunk) { frontStep(pp.src, pp.dst, max, climb, floor, st); const t = pp.src; pp.src = pp.dst; pp.dst = t }
-            if (last && pp.src !== home) this.ctx.passes().fieldOp(home, pp.src, pp.src, 1, 0)
+            if (last && pp.src !== home) materialFieldOp(home, pp.src, pp.src, 1, 0)
           }))
         }
       }
-      ops.push(() => { this.ctx.passes().fieldOp(field.pressure, mobile, field.coverage, 10, 0.003, { band: [1 / costMax, standing], size: [(budgetPx - 1) / costMax, 0] }); pp.src = field.pressure; pp.dst = tmp })
+      ops.push(() => { materialFieldOp(field.pressure, mobile, field.coverage, 10, 0.003, { band: [1 / costMax, standing], size: [(budgetPx - 1) / costMax, 0] }); pp.src = field.pressure; pp.dst = tmp })
       // (§17.44) Jumps, then unit passes - see WC_WATER_FRONT_FRAG's u_stride.
       // (§17.44) Unit passes: the dyadic jumps (watercolorFrontStrides) were
       // six times cheaper and measurably wrong - a jump sums the climb along
@@ -578,12 +582,12 @@ export class WatercolorSettlePlan {
         // Mode 11 reads outward pressure/coverage only. Inward mask, band and
         // gathered rim feed pigment operators; none remains under full zero proof.
         ops.push(() => {
-          this.ctx.passes().fieldOp(tmp, field.coverage, field.coverage, 11, standing, { d: field.pressure, band: [budgetPx / costMax, 0], size: [1 / costMax, 1] })
-          this.ctx.passes().fieldOp(field.coverage, tmp, tmp, 1, 0)
+          materialFieldOp(tmp, field.coverage, field.coverage, 11, standing, { d: field.pressure, band: [budgetPx / costMax, 0], size: [1 / costMax, 1] })
+          materialFieldOp(field.coverage, tmp, tmp, 1, 0)
         })
         return
       }
-      ops.push(() => { this.ctx.passes().fieldOp(field.mask, field.pressure, field.pressure, 12, budgetPx / costMax, { d: field.band }); pp.src = field.mask; pp.dst = tmp })
+      ops.push(() => { materialFieldOp(field.mask, field.pressure, field.pressure, 12, budgetPx / costMax, { d: field.band }); pp.src = field.mask; pp.dst = tmp })
       // Inward over a gentler relief: the band's inner edge follows the
       // valleys a few cells in (the photo's streaks pointing into the light
       // centre), not a third of the way to the middle.
@@ -595,13 +599,13 @@ export class WatercolorSettlePlan {
       run(2, costMaxIn, field.mask, 0, 1)
       run(inSteps - 2, costMaxIn, field.mask, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN)
       ops.push(() => {
-        this.ctx.passes().fieldOp(tmp, field.coverage, field.coverage, 11, standing, { d: field.pressure, band: [budgetPx / costMax, 0], size: [1 / costMax, 1] })
-        this.ctx.passes().fieldOp(field.coverage, tmp, tmp, 1, 0)
-        this.ctx.passes().fieldOp(field.band, field.pressure, field.coverage, 6, merge, { c: field.mask, d: field.pressure, band: [budgetPx / costMax, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn], origin: [standing, damp], dir: [1, 1], tau: [watercolorDwellWater(dwellMs), 0, 0], world: [x0 / S, -(y0 / S + field.h), S] })
-        this.ctx.passes().fieldOp(tmp, field.band, field.band, 5, 0, { dir: gather[0] })
+        materialFieldOp(tmp, field.coverage, field.coverage, 11, standing, { d: field.pressure, band: [budgetPx / costMax, 0], size: [1 / costMax, 1] })
+        materialFieldOp(field.coverage, tmp, tmp, 1, 0)
+        materialFieldOp(field.band, field.pressure, field.coverage, 6, merge, { c: field.mask, d: field.pressure, band: [budgetPx / costMax, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn], origin: [standing, damp], dir: [1, 1], tau: [watercolorDwellWater(dwellMs), 0, 0], world: [x0 / S, -(y0 / S + field.h), S] })
+        materialFieldOp(tmp, field.band, field.band, 5, 0, { dir: gather[0] })
         let gs = tmp, gd = field.mask
-        for (let i = 1; i < gather.length; i++) { this.ctx.passes().fieldOp(gd, gs, gs, 5, 0, { dir: gather[i] }); const t = gs; gs = gd; gd = t }
-        if (gs !== field.mask) this.ctx.passes().fieldOp(field.mask, gs, gs, 1, 0)
+        for (let i = 1; i < gather.length; i++) { materialFieldOp(gd, gs, gs, 5, 0, { dir: gather[i] }); const t = gs; gs = gd; gd = t }
+        if (gs !== field.mask) materialFieldOp(field.mask, gs, gs, 1, 0)
       })
     }
     // (§17.23) The rim: `share` of `paint` inside the footprint goes to the
@@ -612,13 +616,13 @@ export class WatercolorSettlePlan {
       // the mark's own paint over the whole domain (band .g). A uniform lift
       // left a hard-edged hole the size of the drop's footprint - Ilya's
       // "слишком резко обеляет лужу в месте касания".
-      this.ctx.passes().fieldOp(t1, paint, paint, tide ? 7 : 9, share, { d: field.band })
+      materialFieldOp(t1, paint, paint, tide ? 7 : 9, share, { d: field.band })
       let gs = t1, gd = t2
-      for (let i = 0; i < gather.length; i++) { this.ctx.passes().fieldOp(gd, gs, gs, 5, 0, { dir: gather[i] }); const t = gs; gs = gd; gd = t }
+      for (let i = 0; i < gather.length; i++) { materialFieldOp(gd, gs, gs, 5, 0, { dir: gather[i] }); const t = gs; gs = gd; gd = t }
       // The gathered paint is in gs; the sum lands in t2, so the other is
       // its scratch.
-      if (gs === t2) { this.ctx.passes().fieldOp(t1, gs, gs, 1, 0); gs = t1 }
-      this.ctx.passes().fieldOp(t2, paint, gs, tide ? 14 : 8, share, { c: field.mask, d: field.band })
+      if (gs === t2) { materialFieldOp(t1, gs, gs, 1, 0); gs = t1 }
+      materialFieldOp(t2, paint, gs, tide ? 14 : 8, share, { c: field.mask, d: field.band })
     }
     // One record: c = mobile share of (laid − settled); b = laid − c, the part
     // that stays put (settled paint plus the fixed share of the new); the
@@ -657,7 +661,7 @@ export class WatercolorSettlePlan {
     const streakCombs = Math.max(1.5, Math.min(50, radiusPx / WATERCOLOR_BRISTLE_BUNDLE_PX))
     const poolStreaks = (paint: AccumulationBuffer, free: AccumulationBuffer): void => {
       if (!(WC_POOL_STREAK > 0)) return
-      this.ctx.passes().fieldOp(free, paint, paint, 1, 1, { c: field.coverage, world: [x0 / S, -(y0 / S + field.h), S], size: [streakCombs, 0], origin: [WC_POOL_STREAK, 0], dir: [1, 1] })
+      materialFieldOp(free, paint, paint, 1, 1, { c: field.coverage, world: [x0 / S, -(y0 / S + field.h), S], size: [streakCombs, 0], origin: [WC_POOL_STREAK, 0], dir: [1, 1] })
       fieldOp(paint, free, free, 1, 0)
     }
     // Presentation copies only: never write the intermediate state into the
@@ -758,7 +762,7 @@ export class WatercolorSettlePlan {
         // Where earlier marks' SETTLED deposit lies, before b is overwritten
         // with the fixed part - kept in `band` until the front reads it: the
         // puddle this mark's water may have joined.
-        if (first) this.ctx.passes().fieldOp(field.band, b, b, 4, 0.002)
+        if (first) materialFieldOp(field.band, b, b, 4, 0.002)
         fieldOp(b, a, c, 1, -1)
         // The colour record's split, by the same gate.
         if (colour && first) {
@@ -827,8 +831,8 @@ export class WatercolorSettlePlan {
           ops.push(frontStepOp(() => {
             for (const p of plan) {
               const opts = { path: p.path, pathPacked: packedPaths, d: field.pressure, e: plateauPhase ? solvent! : undefined, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, effectiveWet] as [number, number], size: [WC_CARRY_POW, costMax] as [number, number], tau: [WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, plateauPhase ? 1 : 0] as [number, number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number], additiveZeroFaces }
-              if (p.csrc && p.cdst) this.ctx.passes().fieldOp(p.cdst, p.csrc, b, 16, WC_CARRY_RATE, { ...opts, c: p.src })
-              this.ctx.passes().fieldOp(p.dst, p.src, b, 15, WC_CARRY_RATE, opts)
+              if (p.csrc && p.cdst) materialFieldOp(p.cdst, p.csrc, b, 16, WC_CARRY_RATE, { ...opts, c: p.src })
+              materialFieldOp(p.dst, p.src, b, 15, WC_CARRY_RATE, opts)
             }
             const last = plan[plan.length - 1]
             if (!splitQuanta || (i + n) % 4 === 0 || i + n === carry.length) present(last.dst, b, last.cdst, colour?.b)
@@ -851,21 +855,21 @@ export class WatercolorSettlePlan {
       const remobFloor = groupDry ? 1 : WC_REMOB_DOME
       if (first && merge > 0) ops.push(() => {
         if (colour) {
-          this.ctx.passes().fieldOp(a, colour.c, colour.b, 18, merge, {
+          materialFieldOp(a, colour.c, colour.b, 18, merge, {
             d: field.band,
             c,
             e: b,
             origin: [remobFloor, 1],
           })
-          this.ctx.passes().fieldOp(spare, colour.b, colour.c, 3, 0, { c: a })
+          materialFieldOp(spare, colour.b, colour.c, 3, 0, { c: a })
           fieldOp(colour.c, a, a, 1, 0)
           fieldOp(colour.b, spare, spare, 1, 0)
         }
-        this.ctx.passes().fieldOp(a, c, b, 18, merge, {
+        materialFieldOp(a, c, b, 18, merge, {
           d: field.band,
           origin: [remobFloor, 0],
         })
-        this.ctx.passes().fieldOp(spare, b, c, 3, 0, { c: a })
+        materialFieldOp(spare, b, c, 3, 0, { c: a })
         fieldOp(c, a, a, 1, 0)
         fieldOp(b, spare, spare, 1, 0)
       })
@@ -917,7 +921,7 @@ export class WatercolorSettlePlan {
             // Reuse them for fixed-slice sums, then copy back; no histories
             // or extra field-sized textures are needed.
             const addSlice = (fixed: AccumulationBuffer, mobile: AccumulationBuffer, tmp: AccumulationBuffer): void => {
-              if (k >= fibreFrom) this.ctx.passes().fieldOp(tmp, fixed, mobile, 1, w.slices[k], { world, d: field.band, dir: [1, 1], ...(gradientFibres ? { gradientFibres: true } : {}) })
+              if (k >= fibreFrom) materialFieldOp(tmp, fixed, mobile, 1, w.slices[k], { world, d: field.band, dir: [1, 1], ...(gradientFibres ? { gradientFibres: true } : {}) })
               else fieldOp(tmp, fixed, mobile, 1, w.slices[k])
               fieldOp(fixed, tmp, tmp, 1, 0)
             }
@@ -925,7 +929,7 @@ export class WatercolorSettlePlan {
             addSlice(colour.b, paired.src, paired.dst)
             return
           }
-          if (k >= fibreFrom) this.ctx.passes().fieldOp(acc.free, acc.fixed, st.src, 1, w.slices[k], { world, d: field.band, dir: [1, 1], ...(gradientFibres ? { gradientFibres: true } : {}) })
+          if (k >= fibreFrom) materialFieldOp(acc.free, acc.fixed, st.src, 1, w.slices[k], { world, d: field.band, dir: [1, 1], ...(gradientFibres ? { gradientFibres: true } : {}) })
           else fieldOp(acc.free, acc.fixed, st.src, 1, w.slices[k])
           const t = acc.fixed; acc.fixed = acc.free; acc.free = t
         }
@@ -1014,7 +1018,7 @@ export class WatercolorSettlePlan {
       // becomes COST even with zero P; it must not become a pigment result.
       ops.push(() => {
         fieldOp(field.c, field.a, field.b, 0, mobileShare)
-        this.ctx.passes().fieldOp(field.band, field.b, field.b, 4, 0.002)
+        materialFieldOp(field.band, field.b, field.b, 4, 0.002)
         fieldOp(field.b, field.a, field.c, 1, -1)
       })
       frontOps(field.c, field.a, skipZeroPigmentRim)
@@ -1185,7 +1189,7 @@ export class WatercolorSettlePlan {
       const dc = metadata.dryCtx
       this.groupTideOps(
         ops, field, x0, y0, Math.max(radiusPx, dc?.radiusPx ?? 0) / S, Math.max(standing, dc?.standing ?? 0), metadata.paints,
-        dep.out, colour ? col.out : null, dryDep, dryCol, [field.b, field.cb, field.pressure], S, pureWater, skipZeroPigmentRim,
+        dep.out, colour ? col.out : null, dryDep, dryCol, [field.b, field.cb, field.pressure], S, pureWater, skipZeroPigmentRim, approvedM70,
       )
       dry = { dep: dryDep, col: dryCol }
     }
@@ -1235,7 +1239,7 @@ export class WatercolorSettlePlan {
         if (S === 1) {
           const sx = ox0 - x0, sy = field.h - (oy1 - y0)
           entry.coverage.copyRegionInto(field.mask, tx, ty, sx, sy, tw, th)
-          this.ctx.passes().fieldOp(field.band, field.coverage, field.mask, 20, 0)
+          materialFieldOp(field.band, field.coverage, field.mask, 20, 0)
           field.band.copyRegionInto(entry.coverage, sx, sy, tx, ty, tw, th)
         } else {
           const tmp = this.ctx.pool().acquire(tile.buffer.width, tile.buffer.height)
@@ -1250,7 +1254,7 @@ export class WatercolorSettlePlan {
         // are not the same quantity, and a change between them came back as
         // a paler, washed-out mark.
         const rebuildColour = (to: AccumulationBuffer, from: AccumulationBuffer): void =>
-          this.ctx.passes().fieldOp(to, from, from, 2, 1, { c: from, d: from, tau: singleTau, scissor: [tx, ty, tw, th] })
+          materialFieldOp(to, from, from, 2, 1, { c: from, d: from, tau: singleTau, scissor: [tx, ty, tw, th] })
         if (settledColor) {
           if (S > 1 && !colour) rebuildColour(settledColor, settledInk)
           else fromColorField(col.out, ca0, tile, ox0, oy0, ox1, oy1, settledColor, snap?.color ?? settledColor, settledInk)
@@ -1258,8 +1262,8 @@ export class WatercolorSettlePlan {
         }
         if (runningFilm) {
           const rect: [number, number, number, number] = [tx, ty, tw, th]
-          this.ctx.passes().fieldOp(entry.inkLoad, entry.inkBase!, entry.strokeInk!, 1, 1, { scissor: rect })
-          if (entry.inkColor && entry.colorBase && entry.strokeColor) this.ctx.passes().fieldOp(entry.inkColor, entry.colorBase, entry.strokeColor, 1, 1, { scissor: rect })
+          materialFieldOp(entry.inkLoad, entry.inkBase!, entry.strokeInk!, 1, 1, { scissor: rect })
+          if (entry.inkColor && entry.colorBase && entry.strokeColor) materialFieldOp(entry.inkColor, entry.colorBase, entry.strokeColor, 1, 1, { scissor: rect })
         }
         if (dry) {
           // (§17.43) First the settled wet state over the whole of this
@@ -1365,7 +1369,13 @@ export class WatercolorSettlePlan {
     zeroPigment = false,
     /** Captured zero proof and opt-in: pigment-only tide geometry is dead. */
     skipZeroPigmentRim = false,
+    discreteGrid = false,
   ): void {
+    if (discreteGrid && scale !== 1) throw new Error('M70 group grid requires S1')
+    const materialFieldOp = (...args: Parameters<WatercolorPasses['fieldOp']>): void => {
+      const [out, a, b, mode, k, opts] = args
+      this.ctx.passes().fieldOp(out, a, b, mode, k, discreteGrid ? { ...opts, discreteGrid: true } : opts)
+    }
     if (zeroPigment && skipZeroPigmentRim) {
       ops.push(() => { outDep.clear(); outCol.clear() })
       return
@@ -1382,8 +1392,8 @@ export class WatercolorSettlePlan {
     // a continuous line. `band` is the relaxation's ping-pong partner until
     // it is written.
     ops.push(() => {
-      this.ctx.passes().fieldOp(field.mask, field.coverage, field.coverage, 19, 0.002, { dir: [1, 0] })
-      this.ctx.passes().fieldOp(field.pressure, field.coverage, field.coverage, 19, 0.002)
+      materialFieldOp(field.mask, field.coverage, field.coverage, 19, 0.002, { dir: [1, 0] })
+      materialFieldOp(field.pressure, field.coverage, field.coverage, 19, 0.002)
     })
     const pp = { src: field.mask, dst: field.band }
     for (let i = 0; i < inSteps; i += 4) {
@@ -1391,10 +1401,10 @@ export class WatercolorSettlePlan {
       ops.push(() => {
         for (let j = 0; j < n; j++) {
           const flat = i + j < 2
-          this.ctx.passes().waterFrontStep(field, x0, y0, WC_FRONT_DRY_COST, pp.src, pp.dst, costMaxIn, flat ? 0 : WC_FRONT_CLIMB_IN, flat ? 1 : WC_FRONT_FLOOR_IN, 1, scale)
+          this.ctx.passes().waterFrontStep(field, x0, y0, WC_FRONT_DRY_COST, pp.src, pp.dst, costMaxIn, flat ? 0 : WC_FRONT_CLIMB_IN, flat ? 1 : WC_FRONT_FLOOR_IN, 1, scale, null, discreteGrid)
           const t = pp.src; pp.src = pp.dst; pp.dst = t
         }
-        if (i + n >= inSteps && pp.src !== field.mask) this.ctx.passes().fieldOp(field.mask, pp.src, pp.src, 1, 0)
+        if (i + n >= inSteps && pp.src !== field.mask) materialFieldOp(field.mask, pp.src, pp.src, 1, 0)
       })
     }
     const gather: Array<[number, number]> = []
@@ -1404,11 +1414,11 @@ export class WatercolorSettlePlan {
     const blurTo = (out: AccumulationBuffer, from: AccumulationBuffer, tmpA: AccumulationBuffer, tmpB: AccumulationBuffer): void => {
       let gs = from, gd = tmpA
       for (let i = 0; i < gather.length; i++) {
-        this.ctx.passes().fieldOp(gd, gs, gs, 5, 0, { dir: gather[i] })
+        materialFieldOp(gd, gs, gs, 5, 0, { dir: gather[i] })
         const next = gd === tmpA ? tmpB : tmpA
         gs = gd; gd = next
       }
-      if (gs !== out) this.ctx.passes().fieldOp(out, gs, gs, 1, 0)
+      if (gs !== out) materialFieldOp(out, gs, gs, 1, 0)
     }
     const tideWater = Math.min(1, standing / WC_TIDE_STANDING_FULL)
     const share = watercolorRimShare(WC_TIDE_RIM, radiusPx, width) * tideWater
@@ -1419,7 +1429,7 @@ export class WatercolorSettlePlan {
       // 0), no "earlier mark" (the seed's .b is empty), the stood record
       // from the coverage against the wash's wettest standing level. Then
       // the band gathered by the rim's kernel, into `mask`.
-      this.ctx.passes().fieldOp(field.band, field.pressure, field.coverage, 6, 0, {
+      materialFieldOp(field.band, field.pressure, field.coverage, 6, 0, {
         c: field.mask, d: field.pressure, band: [0.5, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn],
         origin: [standing, 0], dir: [1, 1], tau: [0, 0, 0], world: [x0 / scale, -(y0 / scale + field.h), scale],
       })
@@ -1435,9 +1445,9 @@ export class WatercolorSettlePlan {
     // union) gathered onto the band (mode 14) - the deposit and, with two
     // paints or more, the colour record by the same fractions.
     const tide = (paint: AccumulationBuffer, out: AccumulationBuffer): void => {
-      this.ctx.passes().fieldOp(t1, paint, paint, 7, share, { d: field.band })
+      materialFieldOp(t1, paint, paint, 7, share, { d: field.band })
       blurTo(t2, t1, t2, t3)
-      this.ctx.passes().fieldOp(out, paint, t2, 14, share, { c: field.mask, d: field.band })
+      materialFieldOp(out, paint, t2, 14, share, { c: field.mask, d: field.band })
     }
     ops.push(() => tide(dep, outDep))
     if (col) {
@@ -1445,7 +1455,7 @@ export class WatercolorSettlePlan {
     } else {
       const only = [...paints][0]
       const tau = only ? pigmentAbsorption(only.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
-      ops.push(() => this.ctx.passes().fieldOp(outCol, outDep, outDep, 2, 1, { c: outDep, d: outDep, tau: [tau[0], tau[1], tau[2]] }))
+      ops.push(() => materialFieldOp(outCol, outDep, outDep, 2, 1, { c: outDep, d: outDep, tau: [tau[0], tau[1], tau[2]] }))
     }
   }
 

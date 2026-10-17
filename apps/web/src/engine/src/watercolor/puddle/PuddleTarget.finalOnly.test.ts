@@ -20,7 +20,7 @@ function fixture(finalOnly?:boolean,consumePreparedSource=false){
  const preset='normal:95:34:PB29:round:wc@m70-r2-v1'
  source.paints.add('.1,.3,.8');source.paints.add('.9,.8,.1')
  source.noteFinish({target,preset,profile:ribbonProfileFor('watercolor',preset)!,color:[.1,.3,.8],opacity:1,
-  bounds:{minX:0,minY:0,maxX:3,maxY:3},fieldSeed:[0,0],landedWet:0,wetPeak:1,radiusPx:40,dwellMs:0} as Parameters<typeof source.noteFinish>[0])
+  bounds:{minX:0,minY:0,maxX:3,maxY:3},fieldSeed:[0,0],landedWet:0,wetPeak:1,radiusPx:40,dwellMs:0} as unknown as Parameters<typeof source.noteFinish>[0])
  const trace:string[]=[],previewCalls=vi.fn(),disposed=vi.fn(),finished=vi.fn()
  const implementation:PuddleTargetHost['settlePlan']['prepare']=(...args)=>{
   const clone=args[0],paint=args[1][0],preview=args[10],current=clone.peek(paint.buffer)!
@@ -34,7 +34,7 @@ function fixture(finalOnly?:boolean,consumePreparedSource=false){
   invalidateFrontPaths:vi.fn(),hasActiveSettle:()=>false} as unknown as PuddleTargetHost
  const options={deferFinalMix:true,
   contrast:{prepare(p:AccumulationBuffer,c:AccumulationBuffer,_w:AccumulationBuffer,_v:boolean,rp:AccumulationBuffer,rc:AccumulationBuffer){p.copyTo(rp);c.copyTo(rc)},destroy(){}},
-  background:{capture(){},ops:()=>[],destroy(){}}} as NativePuddleTargetOptions
+  background:{capture(){},ops:()=>[],destroy(){}}} as unknown as NativePuddleTargetOptions
  if(finalOnly!==undefined)options.finalOnly=finalOnly
  options.consumePreparedSource=consumePreparedSource
  const solver=createNativePuddleTarget(host,3,options)

@@ -1,3 +1,4 @@
+import { withDiscreteGrid } from './discreteGridSampling'
 import { WatercolorMaterialReconstruction } from './WatercolorMaterialReconstruction'
 import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_ADD_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_BRUSH_JUMP_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
@@ -89,7 +90,16 @@ export class WatercolorPasses {
    *  pixels) limits the write to a rect, everything outside it untouched. */
   fieldOp(
     out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number,
-    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number]; gradientFibres?: boolean; path?: AccumulationBuffer; pathPacked?: boolean; additiveZeroFaces?: boolean } = {},
+    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number]; gradientFibres?: boolean; path?: AccumulationBuffer; pathPacked?: boolean; additiveZeroFaces?: boolean; discreteGrid?: boolean } = {},
+  ): void {
+    if (!opts.discreteGrid) return this.fieldOpDraw(out, a, b, mode, k, opts)
+    return withDiscreteGrid(out, [a, b, ...(opts.c ? [opts.c] : []), ...(opts.d ? [opts.d] : []), ...(opts.e ? [opts.e] : []), ...(opts.path ? [opts.path] : [])],
+      () => this.fieldOpDraw(out, a, b, mode, k, opts), opts.world?.[2] ?? 1, opts.dir)
+  }
+
+  private fieldOpDraw(
+    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number,
+    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number]; gradientFibres?: boolean; path?: AccumulationBuffer; pathPacked?: boolean; additiveZeroFaces?: boolean; discreteGrid?: boolean } = {},
   ): void {
     if (mode === 1 && !((opts.world?.[2] ?? 0) > 0)) {
       this.plainAdd(out, a, b, k, opts.scissor)
@@ -97,6 +107,7 @@ export class WatercolorPasses {
     }
     const { gl } = this
     out.beginReplaceDraw()
+    try {
     if (opts.scissor) {
       gl.enable(gl.SCISSOR_TEST)
       gl.scissor(opts.scissor[0], opts.scissor[1], opts.scissor[2], opts.scissor[3])
@@ -141,14 +152,20 @@ export class WatercolorPasses {
     gl.uniform1f(u.u_k, k)
     gl.uniform1f(u.u_mode, mode)
     gl.uniform2f(u.u_dir, opts.dir ? opts.dir[0] / out.width : 0, opts.dir ? opts.dir[1] / out.height : 0)
+    if (mode === 6) {
+      gl.uniform1f(u.u_mode6DiscreteGrid, opts.discreteGrid ? 1 : 0)
+      gl.uniform2f(u.u_mode6Resolution, out.width, out.height)
+      gl.uniform2f(u.u_mode6DirPx, opts.dir ? opts.dir[0] : 0, opts.dir ? opts.dir[1] : 0)
+    }
     gl.uniform2f(u.u_origin, opts.origin ? opts.origin[0] : 0, opts.origin ? opts.origin[1] : 0)
     gl.uniform2f(u.u_size, opts.size ? opts.size[0] : out.width, opts.size ? opts.size[1] : out.height)
     gl.uniform2f(u.u_band, opts.band ? opts.band[0] : 0, opts.band ? opts.band[1] : 0)
     gl.uniform3fv(u.u_tau, opts.tau ?? [0, 0, 0])
     gl.uniform3fv(u.u_world, opts.world ?? [0, 0, 0])
     gl.drawArrays(gl.TRIANGLES, 0, 6)
-    if (opts.scissor) gl.disable(gl.SCISSOR_TEST)
-    out.endDraw()
+    } finally {
+      try { if (opts.scissor) gl.disable(gl.SCISSOR_TEST) } finally { out.endDraw() }
+    }
   }
 
   /** No new textures: the owner supplies two otherwise unused single-paint C fields. */
@@ -182,6 +199,18 @@ export class WatercolorPasses {
     field: WatercolorPassField, x0: number, y0: number, dryCost: number,
     src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb: number, floor: number, stride = 1,
     /** (§17.44) World px per field cell. */
+    scale = 1, foreignWater: WebGLTexture | null = null, discreteGrid = false,
+  ): void {
+    const draw = () => this.waterFrontStepDraw(field, x0, y0, dryCost, src, dst, max, climb, floor, stride, scale, foreignWater)
+    if (!discreteGrid) return draw()
+    if (field.w !== dst.width || field.h !== dst.height) throw new Error('M70 front field grid mismatch')
+    return withDiscreteGrid(dst, [src, field.coverage], draw, scale, [stride])
+  }
+
+  private waterFrontStepDraw(
+    field: WatercolorPassField, x0: number, y0: number, dryCost: number,
+    src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb: number, floor: number, stride = 1,
+    /** (§17.44) World px per field cell. */
     scale = 1, foreignWater: WebGLTexture | null = null,
   ): void {
     if (stride === 4 || stride === 8) {
@@ -201,6 +230,7 @@ export class WatercolorPasses {
     const { gl } = this
     const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
     dst.beginReplaceDraw()
+    try {
     gl.useProgram(this._waterFrontProg)
     this.ctx.stamps().bindNoise(this._waterFrontUni.u_wcNoiseTex)
     const u = this._waterFrontUni
@@ -231,7 +261,7 @@ export class WatercolorPasses {
     gl.uniform1f(u.u_costMax, max)
     gl.uniform1f(u.u_stride, stride)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
-    dst.endDraw()
+    } finally { dst.endDraw() }
   }
 
   /** (#536, §17.44) One WC_RESAMPLE_FRAG draw into `dst` over the GL rect
@@ -279,9 +309,24 @@ export class WatercolorPasses {
     // Preserve the settle caller signature; these records no longer gate diffusion.
     _density: AccumulationBuffer = src,
     _solvent: AccumulationBuffer | null = null,
+    discreteGrid = false,
+  ): void {
+    const draw = () => this.diffuseStepDraw(field, x0, y0, S, paperTexW, paperTexH, src, dst, radius, knight, gate, _density, _solvent)
+    if (!discreteGrid) return draw()
+    if (field.w !== dst.width || field.h !== dst.height) throw new Error('M70 diffuse field grid mismatch')
+    return withDiscreteGrid(dst, [src, gate], draw, S)
+  }
+
+  private diffuseStepDraw(
+    field: WatercolorPassField, x0: number, y0: number, S: number, paperTexW: number, paperTexH: number,
+    src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean, gate: AccumulationBuffer,
+    // Preserve the settle caller signature; these records no longer gate diffusion.
+    _density: AccumulationBuffer = src,
+    _solvent: AccumulationBuffer | null = null,
   ): void {
     const { gl } = this
     dst.beginReplaceDraw()
+    try {
     gl.useProgram(this._diffuseProg)
     const u = this._diffuseUni
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
@@ -309,7 +354,7 @@ export class WatercolorPasses {
     gl.uniform1f(u.u_radius, Math.max(1, Math.round(radius / S)))
     gl.uniform1f(u.u_stencil, knight ? 1 : 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
-    dst.endDraw()
+    } finally { dst.endDraw() }
   }
 
   /** One chronological wet brush contact. Both records read the unchanged
@@ -399,6 +444,7 @@ export class WatercolorPasses {
     }
     const { program, uniforms: u, position } = this._plainAdd
     out.beginReplaceDraw()
+    try {
     if (scissor) { gl.enable(gl.SCISSOR_TEST); gl.scissor(...scissor) }
     gl.useProgram(program)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
@@ -412,9 +458,9 @@ export class WatercolorPasses {
     gl.uniform1i(u.u_b, 1)
     gl.uniform1f(u.u_k, k)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
-    if (scissor) gl.disable(gl.SCISSOR_TEST)
-    out.endDraw()
-    gl.activeTexture(gl.TEXTURE0)
+    } finally {
+      try { if (scissor) gl.disable(gl.SCISSOR_TEST) } finally { out.endDraw(); gl.activeTexture(gl.TEXTURE0) }
+    }
   }
 
   private releasePlainAdd(): void {
@@ -506,7 +552,7 @@ export class WatercolorPasses {
 
   initFieldUniforms(): void {
     const { gl } = this
-    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
+    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world', 'u_mode6Resolution', 'u_mode6DirPx', 'u_mode6DiscreteGrid'])
     this._fieldOpHighUni = getUniforms(gl, this._fieldOpHighProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world'])
     this._fieldOpCarryUni = getUniforms(gl, this._fieldOpCarryProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world', 'u_path', 'u_pathEnabled'])
     this._fieldOpCarryColourUni = getUniforms(gl, this._fieldOpCarryColourProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world', 'u_path', 'u_pathEnabled'])
