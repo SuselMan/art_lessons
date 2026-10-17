@@ -1,0 +1,40 @@
+{
+  "status": "SKIP",
+  "source": "e8e1f005",
+  "immutableBodyCommit": "a3cf0155",
+  "immutableBodySHA256": "60e9f1e545fd706422f127c8e07c7b0fd61be8da88085f14d2407ba8f9b64795",
+  "attemptedCase": {
+    "A": 50,
+    "B": 50,
+    "endpointCount": 1,
+    "browserAuthorsIntended": 2,
+    "stageReached": "Playwright connectOverCDP initialization, before browser.newContext/identity/prefix",
+    "failure": "browserType.connectOverCDP: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - <ws preparing> retrieving websocket url from http://127.0.0.1:19335\u001b[22m\n\u001b[2m  - <ws connecting> ws://127.0.0.1:19335/devtools/browser\u001b[22m\n\u001b[2m  - <ws connected> ws://127.0.0.1:19335/devtools/browser\u001b[22m\n\n    at chromium.connectOverCDP (/home/suselman/projects/pencil-agents/744-hidden-replay/docs/qa/harness/728-night/samsung-prefix-bounded.cjs:5:22)\n    at /home/suselman/projects/pencil-agents/744-hidden-replay/docs/qa/harness/728-night/prefix-trace-a3cf0155.cjs:4:49\n    at Object.<anonymous> (/home/suselman/projects/pencil-agents/744-hidden-replay/docs/qa/harness/728-night/prefix-trace-a3cf0155.cjs:9:3)\n    at Object.<anonymous> (/home/suselman/projects/pencil-agents/744-hidden-replay/docs/qa/harness/728-night/samsung-prefix-bounded.cjs:23:1)"
+  },
+  "controlCase": {
+    "A": 50,
+    "B": 0,
+    "status": "SKIP_NOT_ATTEMPTED",
+    "reason": "Same Android Playwright initialization prerequisite failed; no redundant connect timeout repeated"
+  },
+  "flagsRequested": {
+    "openWetUndoCache": false,
+    "hiddenReplay": false,
+    "prefixOnly": true,
+    "settleTrace": true
+  },
+  "runtimeFlagsObserved": null,
+  "prefixRasterComparisons": 0,
+  "rawCdpChromeResponds": true,
+  "cleanup": {
+    "ownerFixtureDelete": 200,
+    "privateAuthRemoved": true,
+    "ownBrowserContextsCreated": 0,
+    "remainingOwnRoomTargets": 0,
+    "ownedLocalForwardPid": 4046021,
+    "ownedLocalForwardClosed": true,
+    "remoteAdb9235Untouched": true,
+    "userChromeStillResponding": true,
+    "rawCache": "registered; guarded finish pending"
+  }
+}
