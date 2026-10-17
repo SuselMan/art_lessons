@@ -1,0 +1,56 @@
+{
+  "checkedAt": "2026-10-17T18:47:48+03:00",
+  "task": "747/748 own Lanpad resource hygiene, no GPU",
+  "skills": [
+    "home-device-access",
+    "grafetto-device-testing"
+  ],
+  "local": {
+    "sshForward": {
+      "recordedPID": 182926,
+      "port": 19346,
+      "process": "absent",
+      "listener": "absent",
+      "matchingForwardCommand": "absent",
+      "action": "none needed"
+    },
+    "oldCache": {
+      "path": "~/.cache/codex-qa/747-lanpad-20261017",
+      "exists": false,
+      "registryEntry": false,
+      "action": "none; already absent before audit",
+      "removalCause": "not verified"
+    },
+    "retainedResources": [
+      "puddle-747-active-20261017 (current fixtures/auth/proofs; untouched)",
+      "mini-stand-build (foreign/current; untouched)",
+      "Git compact proofs/source fixtures (untouched)"
+    ]
+  },
+  "remote": {
+    "device": "lanpad-pc",
+    "cachedSSH": "No route to host",
+    "chrome": {
+      "recordedPID": 8364,
+      "expectedProfile": "C:\\Windows\\Temp\\grafetto747-lanpad-20261017",
+      "currentPIDCommandLineVerified": false,
+      "status": "UNKNOWN; not stopped"
+    },
+    "keepawake": {
+      "recordedPID": 4720,
+      "recordedExpiryLocal": "2026-10-17 16:35",
+      "currentPIDCommandLineVerified": false,
+      "status": "UNKNOWN; not stopped"
+    },
+    "action": "no remote stop/delete, no wake; cannot establish PID/profile ownership on inaccessible host"
+  },
+  "safety": {
+    "gpuRun": false,
+    "appChanges": false,
+    "gitCommit": false,
+    "routerOrProjectorChanges": false,
+    "foreignBrowserChanges": false,
+    "cacheDeletedByThisAudit": false
+  },
+  "remaining": "Remote Chrome/profile/keepawake need later cached SSH availability and exact PID+cmdline/profile verification before cleanup; do not reuse stale PIDs blindly."
+}
