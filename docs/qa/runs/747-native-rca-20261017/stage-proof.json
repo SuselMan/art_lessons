@@ -1,0 +1,4193 @@
+{
+  "qualification": "Same Samsung GPU sequential QA comparisons. Corrected reference uses QA-only sampler scopes and temporary explicit mode6 bilinear shader; this is NOT proof that the previously approved material target is unchanged. GPU timing uses synchronous standalone draining and is not Room UI latency.",
+  "reports": [
+    {
+      "case": "nonzero-window-reference",
+      "sourceBase": "e680cd1ab27450a35c7c8cc87fa2b1dfa5a3e0d0",
+      "sourceLabel": "windowReference-inspection-frozen",
+      "fixtureMode": "connected-strip",
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "size": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "options": {
+        "pointFront": null,
+        "pointField": null,
+        "pointDiffuse": null,
+        "manualMode6": null,
+        "nativeFrontBypass": null
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 10396,
+          "max": 65,
+          "first": [
+            {
+              "byte": 1414154,
+              "channel": 2,
+              "a": 13,
+              "b": 12
+            },
+            {
+              "byte": 1414155,
+              "channel": 3,
+              "a": 13,
+              "b": 12
+            },
+            {
+              "byte": 1414162,
+              "channel": 2,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414163,
+              "channel": 3,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414166,
+              "channel": 2,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414167,
+              "channel": 3,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414174,
+              "channel": 2,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "byte": 1414175,
+              "channel": 3,
+              "a": 16,
+              "b": 15
+            }
+          ],
+          "actualHash": "32410fc0add84ffb6e63fc0379c32fcb53f60f29aeca6fbde8460444b3963610",
+          "referenceHash": "60d72af18c35d1e2ad7296bcabfe78646d71c75733db20e6c5848b9c85d37522"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 20380,
+          "max": 99,
+          "first": [
+            {
+              "byte": 2656,
+              "channel": 0,
+              "a": 97,
+              "b": 121
+            },
+            {
+              "byte": 289196,
+              "channel": 0,
+              "a": 8,
+              "b": 0
+            },
+            {
+              "byte": 354796,
+              "channel": 0,
+              "a": 25,
+              "b": 0
+            },
+            {
+              "byte": 1414155,
+              "channel": 3,
+              "a": 13,
+              "b": 12
+            },
+            {
+              "byte": 1414163,
+              "channel": 3,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414167,
+              "channel": 3,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414175,
+              "channel": 3,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "byte": 1422270,
+              "channel": 2,
+              "a": 10,
+              "b": 9
+            }
+          ],
+          "actualHash": "95a53b05aace743ade27b8b3944691bb1597b5d4580f2bb854a165dd8adc08d3",
+          "referenceHash": "6a0951bd085349288985f4c700c3f35d7ff975f5780168de9641ea4cd9023da6"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 174,
+          "max": 1,
+          "first": [
+            {
+              "byte": 24170,
+              "channel": 2,
+              "a": 22,
+              "b": 21
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 22,
+              "b": 21
+            },
+            {
+              "byte": 24194,
+              "channel": 2,
+              "a": 36,
+              "b": 35
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 36,
+              "b": 35
+            },
+            {
+              "byte": 25918,
+              "channel": 2,
+              "a": 39,
+              "b": 38
+            },
+            {
+              "byte": 25919,
+              "channel": 3,
+              "a": 39,
+              "b": 38
+            },
+            {
+              "byte": 25926,
+              "channel": 2,
+              "a": 37,
+              "b": 36
+            },
+            {
+              "byte": 25927,
+              "channel": 3,
+              "a": 37,
+              "b": 36
+            }
+          ],
+          "actualHash": "bf8911d79a6ee2c049df97c600f3e2a53762df032348ce26b046ecfdbd02606c",
+          "referenceHash": "2f75e57e78cd71801a2136cad057dcdecc8769613a706748624ebb4499f5ca5b"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 178,
+          "max": 1,
+          "first": [
+            {
+              "byte": 24170,
+              "channel": 2,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "byte": 24186,
+              "channel": 2,
+              "a": 33,
+              "b": 32
+            },
+            {
+              "byte": 24187,
+              "channel": 3,
+              "a": 33,
+              "b": 32
+            },
+            {
+              "byte": 24194,
+              "channel": 2,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 25918,
+              "channel": 2,
+              "a": 39,
+              "b": 38
+            },
+            {
+              "byte": 25919,
+              "channel": 3,
+              "a": 39,
+              "b": 38
+            }
+          ],
+          "actualHash": "02f85d19d65dd71f54ad0d7cb1b8c487853d37970d21cdfbe4354961cc6f2af4",
+          "referenceHash": "31165471a5392de6ce97aaabf9b2980b7229fff0dc8a2616df6fbeb74952e1dd"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 357,
+          "max": 9,
+          "first": [
+            {
+              "byte": 4404,
+              "channel": 0,
+              "a": 7,
+              "b": 5
+            },
+            {
+              "byte": 5436,
+              "channel": 0,
+              "a": 6,
+              "b": 0
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 22,
+              "b": 21
+            },
+            {
+              "byte": 24178,
+              "channel": 2,
+              "a": 19,
+              "b": 18
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 36,
+              "b": 35
+            },
+            {
+              "byte": 24896,
+              "channel": 0,
+              "a": 63,
+              "b": 62
+            },
+            {
+              "byte": 24916,
+              "channel": 0,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 25210,
+              "channel": 2,
+              "a": 25,
+              "b": 24
+            }
+          ],
+          "actualHash": "1a5ad7d3776c800bb3c00ef3931e933dae6fac6792ce6f6abe60b99aa42c787a",
+          "referenceHash": "518643ca95f15844b63e3aad2eb3fd9c1849fdb1bc5176b245a4a6ba5af041ae"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 369,
+          "max": 9,
+          "first": [
+            {
+              "byte": 4404,
+              "channel": 0,
+              "a": 44,
+              "b": 43
+            },
+            {
+              "byte": 5436,
+              "channel": 0,
+              "a": 6,
+              "b": 0
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "byte": 24178,
+              "channel": 2,
+              "a": 19,
+              "b": 18
+            },
+            {
+              "byte": 24187,
+              "channel": 3,
+              "a": 33,
+              "b": 32
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 24896,
+              "channel": 0,
+              "a": 63,
+              "b": 62
+            },
+            {
+              "byte": 24916,
+              "channel": 0,
+              "a": 34,
+              "b": 33
+            }
+          ],
+          "actualHash": "9b3fa49c7d0e30d5cfab1bb74ecbf9c9a314568044924e7be8a45a934af1f4c2",
+          "referenceHash": "0e95f64784a82a274da73200febaccb6903426d2fb158457c4d600cdf849d10f"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 10272,
+          "max": 15,
+          "first": [
+            {
+              "x": 1271,
+              "y": 173,
+              "channel": 2,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "x": 1271,
+              "y": 173,
+              "channel": 3,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "x": 1294,
+              "y": 174,
+              "channel": 2,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "x": 1294,
+              "y": 174,
+              "channel": 3,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "x": 1274,
+              "y": 177,
+              "channel": 2,
+              "a": 21,
+              "b": 20
+            },
+            {
+              "x": 1274,
+              "y": 177,
+              "channel": 3,
+              "a": 21,
+              "b": 20
+            },
+            {
+              "x": 1286,
+              "y": 177,
+              "channel": 2,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "x": 1286,
+              "y": 177,
+              "channel": 3,
+              "a": 24,
+              "b": 23
+            }
+          ],
+          "actualHash": "be8ebabfdad61b22c5de85a753023c6bb4d1e040f5224c6b4201b64d238a2cf2",
+          "referenceHash": "a89bb7be65f952524b7b6b517cd7125a05e543f5a2f4d9f96843d5d8f7087745"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 20006,
+          "max": 29,
+          "first": [
+            {
+              "x": 664,
+              "y": 0,
+              "channel": 0,
+              "a": 72,
+              "b": 74
+            },
+            {
+              "x": 622,
+              "y": 25,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 623,
+              "y": 26,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 624,
+              "y": 27,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 625,
+              "y": 28,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 615,
+              "y": 29,
+              "channel": 0,
+              "a": 40,
+              "b": 39
+            },
+            {
+              "x": 617,
+              "y": 29,
+              "channel": 0,
+              "a": 49,
+              "b": 48
+            },
+            {
+              "x": 624,
+              "y": 29,
+              "channel": 0,
+              "a": 50,
+              "b": 49
+            }
+          ],
+          "actualHash": "5194658454db94c6e532e4b93ef9d8b492e162ec8a46c25e49ab60fff017745d",
+          "referenceHash": "9abc6ec86af496b5b971105ca17851f7f3cb692ded00c17a03cc452d3a4d9b8e"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "timing": {
+        "reference": {
+          "ms": 928.0999999046326,
+          "steps": 23,
+          "gl": 0
+        },
+        "actual": {
+          "ms": 3539,
+          "steps": 25,
+          "gl": 0
+        }
+      },
+      "errors": [],
+      "lost": false,
+      "windowReferences": [
+        {
+          "rect": {
+            "x": 0,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          }
+        },
+        {
+          "rect": {
+            "x": 128,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          }
+        },
+        {
+          "rect": {
+            "x": 384,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          }
+        },
+        {
+          "rect": {
+            "x": 512,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          }
+        }
+      ],
+      "firstOwningWindowDiff": null
+    },
+    {
+      "case": "nonzero-fragcoord",
+      "sourceBase": "e680cd1ab27450a35c7c8cc87fa2b1dfa5a3e0d0",
+      "sourceLabel": "e680cd1a-dirty-fragcoord-experiment",
+      "fixtureMode": "connected-strip",
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "size": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "options": {
+        "pointFront": null,
+        "pointField": null,
+        "pointDiffuse": null,
+        "manualMode6": null,
+        "nativeFrontBypass": null
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 10396,
+          "max": 65,
+          "first": [
+            {
+              "byte": 1414154,
+              "channel": 2,
+              "a": 13,
+              "b": 12
+            },
+            {
+              "byte": 1414155,
+              "channel": 3,
+              "a": 13,
+              "b": 12
+            },
+            {
+              "byte": 1414162,
+              "channel": 2,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414163,
+              "channel": 3,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414166,
+              "channel": 2,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414167,
+              "channel": 3,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414174,
+              "channel": 2,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "byte": 1414175,
+              "channel": 3,
+              "a": 16,
+              "b": 15
+            }
+          ],
+          "actualHash": "32410fc0add84ffb6e63fc0379c32fcb53f60f29aeca6fbde8460444b3963610",
+          "referenceHash": "60d72af18c35d1e2ad7296bcabfe78646d71c75733db20e6c5848b9c85d37522"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 20380,
+          "max": 99,
+          "first": [
+            {
+              "byte": 2656,
+              "channel": 0,
+              "a": 97,
+              "b": 121
+            },
+            {
+              "byte": 289196,
+              "channel": 0,
+              "a": 8,
+              "b": 0
+            },
+            {
+              "byte": 354796,
+              "channel": 0,
+              "a": 25,
+              "b": 0
+            },
+            {
+              "byte": 1414155,
+              "channel": 3,
+              "a": 13,
+              "b": 12
+            },
+            {
+              "byte": 1414163,
+              "channel": 3,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414167,
+              "channel": 3,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414175,
+              "channel": 3,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "byte": 1422270,
+              "channel": 2,
+              "a": 10,
+              "b": 9
+            }
+          ],
+          "actualHash": "95a53b05aace743ade27b8b3944691bb1597b5d4580f2bb854a165dd8adc08d3",
+          "referenceHash": "6a0951bd085349288985f4c700c3f35d7ff975f5780168de9641ea4cd9023da6"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 174,
+          "max": 1,
+          "first": [
+            {
+              "byte": 24170,
+              "channel": 2,
+              "a": 22,
+              "b": 21
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 22,
+              "b": 21
+            },
+            {
+              "byte": 24194,
+              "channel": 2,
+              "a": 36,
+              "b": 35
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 36,
+              "b": 35
+            },
+            {
+              "byte": 25918,
+              "channel": 2,
+              "a": 39,
+              "b": 38
+            },
+            {
+              "byte": 25919,
+              "channel": 3,
+              "a": 39,
+              "b": 38
+            },
+            {
+              "byte": 25926,
+              "channel": 2,
+              "a": 37,
+              "b": 36
+            },
+            {
+              "byte": 25927,
+              "channel": 3,
+              "a": 37,
+              "b": 36
+            }
+          ],
+          "actualHash": "bf8911d79a6ee2c049df97c600f3e2a53762df032348ce26b046ecfdbd02606c",
+          "referenceHash": "2f75e57e78cd71801a2136cad057dcdecc8769613a706748624ebb4499f5ca5b"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 178,
+          "max": 1,
+          "first": [
+            {
+              "byte": 24170,
+              "channel": 2,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "byte": 24186,
+              "channel": 2,
+              "a": 33,
+              "b": 32
+            },
+            {
+              "byte": 24187,
+              "channel": 3,
+              "a": 33,
+              "b": 32
+            },
+            {
+              "byte": 24194,
+              "channel": 2,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 25918,
+              "channel": 2,
+              "a": 39,
+              "b": 38
+            },
+            {
+              "byte": 25919,
+              "channel": 3,
+              "a": 39,
+              "b": 38
+            }
+          ],
+          "actualHash": "02f85d19d65dd71f54ad0d7cb1b8c487853d37970d21cdfbe4354961cc6f2af4",
+          "referenceHash": "31165471a5392de6ce97aaabf9b2980b7229fff0dc8a2616df6fbeb74952e1dd"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 357,
+          "max": 9,
+          "first": [
+            {
+              "byte": 4404,
+              "channel": 0,
+              "a": 7,
+              "b": 5
+            },
+            {
+              "byte": 5436,
+              "channel": 0,
+              "a": 6,
+              "b": 0
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 22,
+              "b": 21
+            },
+            {
+              "byte": 24178,
+              "channel": 2,
+              "a": 19,
+              "b": 18
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 36,
+              "b": 35
+            },
+            {
+              "byte": 24896,
+              "channel": 0,
+              "a": 63,
+              "b": 62
+            },
+            {
+              "byte": 24916,
+              "channel": 0,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 25210,
+              "channel": 2,
+              "a": 25,
+              "b": 24
+            }
+          ],
+          "actualHash": "1a5ad7d3776c800bb3c00ef3931e933dae6fac6792ce6f6abe60b99aa42c787a",
+          "referenceHash": "518643ca95f15844b63e3aad2eb3fd9c1849fdb1bc5176b245a4a6ba5af041ae"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 369,
+          "max": 9,
+          "first": [
+            {
+              "byte": 4404,
+              "channel": 0,
+              "a": 44,
+              "b": 43
+            },
+            {
+              "byte": 5436,
+              "channel": 0,
+              "a": 6,
+              "b": 0
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "byte": 24178,
+              "channel": 2,
+              "a": 19,
+              "b": 18
+            },
+            {
+              "byte": 24187,
+              "channel": 3,
+              "a": 33,
+              "b": 32
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 24896,
+              "channel": 0,
+              "a": 63,
+              "b": 62
+            },
+            {
+              "byte": 24916,
+              "channel": 0,
+              "a": 34,
+              "b": 33
+            }
+          ],
+          "actualHash": "9b3fa49c7d0e30d5cfab1bb74ecbf9c9a314568044924e7be8a45a934af1f4c2",
+          "referenceHash": "0e95f64784a82a274da73200febaccb6903426d2fb158457c4d600cdf849d10f"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 10272,
+          "max": 15,
+          "first": [
+            {
+              "x": 1271,
+              "y": 173,
+              "channel": 2,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "x": 1271,
+              "y": 173,
+              "channel": 3,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "x": 1294,
+              "y": 174,
+              "channel": 2,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "x": 1294,
+              "y": 174,
+              "channel": 3,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "x": 1274,
+              "y": 177,
+              "channel": 2,
+              "a": 21,
+              "b": 20
+            },
+            {
+              "x": 1274,
+              "y": 177,
+              "channel": 3,
+              "a": 21,
+              "b": 20
+            },
+            {
+              "x": 1286,
+              "y": 177,
+              "channel": 2,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "x": 1286,
+              "y": 177,
+              "channel": 3,
+              "a": 24,
+              "b": 23
+            }
+          ],
+          "actualHash": "be8ebabfdad61b22c5de85a753023c6bb4d1e040f5224c6b4201b64d238a2cf2",
+          "referenceHash": "a89bb7be65f952524b7b6b517cd7125a05e543f5a2f4d9f96843d5d8f7087745"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 20006,
+          "max": 29,
+          "first": [
+            {
+              "x": 664,
+              "y": 0,
+              "channel": 0,
+              "a": 72,
+              "b": 74
+            },
+            {
+              "x": 622,
+              "y": 25,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 623,
+              "y": 26,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 624,
+              "y": 27,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 625,
+              "y": 28,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 615,
+              "y": 29,
+              "channel": 0,
+              "a": 40,
+              "b": 39
+            },
+            {
+              "x": 617,
+              "y": 29,
+              "channel": 0,
+              "a": 49,
+              "b": 48
+            },
+            {
+              "x": 624,
+              "y": 29,
+              "channel": 0,
+              "a": 50,
+              "b": 49
+            }
+          ],
+          "actualHash": "5194658454db94c6e532e4b93ef9d8b492e162ec8a46c25e49ab60fff017745d",
+          "referenceHash": "9abc6ec86af496b5b971105ca17851f7f3cb692ded00c17a03cc452d3a4d9b8e"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "timing": {
+        "reference": {
+          "ms": 977.8000001907349,
+          "steps": 23,
+          "gl": 0
+        },
+        "actual": {
+          "ms": 3511.2999999523163,
+          "steps": 25,
+          "gl": 0
+        }
+      },
+      "errors": [
+        "Error: Target container is not a DOM element.\n    at exports.createRoot (http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/react-dom_client.js?v=3fd95082:14395:44)\n    at http://127.0.0.1:15484/src/main.tsx?t=1792220343930:141:2\n    at <anonymous>"
+      ],
+      "lost": false,
+      "windowReferences": [
+        {
+          "rect": {
+            "x": 0,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          }
+        },
+        {
+          "rect": {
+            "x": 128,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          }
+        },
+        {
+          "rect": {
+            "x": 384,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          }
+        },
+        {
+          "rect": {
+            "x": 512,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": []
+          }
+        }
+      ],
+      "firstOwningWindowDiff": null,
+      "servedSource": {
+        "shaders.ts": {
+          "servedSHA256": "77c5d7f4ddd351e32ef7f2103aa5d39f5b5d561e97b1774698f5417d7bd3757b",
+          "servedBytes": 805920,
+          "glFragCoordCount": 29,
+          "diskSHA256": "c72dd96aa7857af5776e558e89ccbef992f2ec213cbe293f54c9c9bd990fd68d"
+        },
+        "WatercolorFrontPaths.ts": {
+          "servedSHA256": "bc7f913d079dc31aaf78659eb997c52597eed278e06cd884a89c97dfd0c90d45",
+          "servedBytes": 27390,
+          "glFragCoordCount": 2,
+          "diskSHA256": "024b5b3399dfac01945e704ed4d55b12d057fd0e1949d3b4de0781a2f6e3cc4d"
+        }
+      }
+    },
+    {
+      "case": "nonzero-native-front",
+      "sourceBase": "e680cd1ab27450a35c7c8cc87fa2b1dfa5a3e0d0",
+      "sourceLabel": "e680cd1a-original-kernels-native-front-bypass",
+      "fixtureMode": "connected-strip",
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "size": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "options": {
+        "pointFront": null,
+        "pointField": null,
+        "pointDiffuse": null,
+        "manualMode6": null,
+        "nativeFrontBypass": true
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 10402,
+          "max": 65,
+          "first": [
+            {
+              "byte": 1414154,
+              "channel": 2,
+              "a": 13,
+              "b": 12
+            },
+            {
+              "byte": 1414155,
+              "channel": 3,
+              "a": 13,
+              "b": 12
+            },
+            {
+              "byte": 1414162,
+              "channel": 2,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414163,
+              "channel": 3,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414166,
+              "channel": 2,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414167,
+              "channel": 3,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414174,
+              "channel": 2,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "byte": 1414175,
+              "channel": 3,
+              "a": 16,
+              "b": 15
+            }
+          ],
+          "actualHash": "e10059433b507f4ae2182b55fde59ce407004c50e39856f6083311a6b8b7497a",
+          "referenceHash": "17339940a71cc04a0af2b1efc1e83c9d183b64db22713920276469f5ac44cf04"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 20361,
+          "max": 99,
+          "first": [
+            {
+              "byte": 2656,
+              "channel": 0,
+              "a": 97,
+              "b": 121
+            },
+            {
+              "byte": 289196,
+              "channel": 0,
+              "a": 8,
+              "b": 0
+            },
+            {
+              "byte": 354796,
+              "channel": 0,
+              "a": 25,
+              "b": 0
+            },
+            {
+              "byte": 1414155,
+              "channel": 3,
+              "a": 13,
+              "b": 12
+            },
+            {
+              "byte": 1414163,
+              "channel": 3,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414167,
+              "channel": 3,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414175,
+              "channel": 3,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "byte": 1422270,
+              "channel": 2,
+              "a": 10,
+              "b": 9
+            }
+          ],
+          "actualHash": "b5a5d10226699383ba9bdcdc1959fb5111e3bf1dc316588168c26cc69967c3fd",
+          "referenceHash": "ee52ed8f91e032a35a7f331a3bee9a13fecc51c3fafba9f2634a35bdb6be9ffc"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 172,
+          "max": 1,
+          "first": [
+            {
+              "byte": 24170,
+              "channel": 2,
+              "a": 22,
+              "b": 21
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 22,
+              "b": 21
+            },
+            {
+              "byte": 24194,
+              "channel": 2,
+              "a": 36,
+              "b": 35
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 36,
+              "b": 35
+            },
+            {
+              "byte": 25918,
+              "channel": 2,
+              "a": 39,
+              "b": 38
+            },
+            {
+              "byte": 25919,
+              "channel": 3,
+              "a": 39,
+              "b": 38
+            },
+            {
+              "byte": 25926,
+              "channel": 2,
+              "a": 37,
+              "b": 36
+            },
+            {
+              "byte": 25927,
+              "channel": 3,
+              "a": 37,
+              "b": 36
+            }
+          ],
+          "actualHash": "b71575e63a51ba86a326f661523e19bf00108c13b3aa888d693565f52a5ec6dc",
+          "referenceHash": "767b86c62399956aeb32dc808b11484ab3d5d6a970f1fa7af6fe22cee9d61eb4"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 174,
+          "max": 1,
+          "first": [
+            {
+              "byte": 24170,
+              "channel": 2,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "byte": 24186,
+              "channel": 2,
+              "a": 33,
+              "b": 32
+            },
+            {
+              "byte": 24187,
+              "channel": 3,
+              "a": 33,
+              "b": 32
+            },
+            {
+              "byte": 24194,
+              "channel": 2,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 25918,
+              "channel": 2,
+              "a": 39,
+              "b": 38
+            },
+            {
+              "byte": 25919,
+              "channel": 3,
+              "a": 39,
+              "b": 38
+            }
+          ],
+          "actualHash": "954ad58b2bc4655922d5b7e2c4e1f973dfe477f78d830c2628a4c39c475648db",
+          "referenceHash": "fa8337de2a3852cc5ed108d46416ad608fde5ba4c55b5449663b6b6a6fd1279a"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 355,
+          "max": 9,
+          "first": [
+            {
+              "byte": 4404,
+              "channel": 0,
+              "a": 7,
+              "b": 5
+            },
+            {
+              "byte": 5436,
+              "channel": 0,
+              "a": 6,
+              "b": 0
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 22,
+              "b": 21
+            },
+            {
+              "byte": 24178,
+              "channel": 2,
+              "a": 19,
+              "b": 18
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 36,
+              "b": 35
+            },
+            {
+              "byte": 24896,
+              "channel": 0,
+              "a": 63,
+              "b": 62
+            },
+            {
+              "byte": 24916,
+              "channel": 0,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 25210,
+              "channel": 2,
+              "a": 25,
+              "b": 24
+            }
+          ],
+          "actualHash": "ffefc18c3dd991221c9f121b2d21ff730a41f64b59d50603e9c0a9a9fac00589",
+          "referenceHash": "c7e17c4fc18e27fd53a92f998a542bd6626bf46c0c51f44a8f6bb68a8d1ae6d3"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 369,
+          "max": 9,
+          "first": [
+            {
+              "byte": 4404,
+              "channel": 0,
+              "a": 44,
+              "b": 43
+            },
+            {
+              "byte": 5436,
+              "channel": 0,
+              "a": 6,
+              "b": 0
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "byte": 24178,
+              "channel": 2,
+              "a": 19,
+              "b": 18
+            },
+            {
+              "byte": 24187,
+              "channel": 3,
+              "a": 33,
+              "b": 32
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 24896,
+              "channel": 0,
+              "a": 63,
+              "b": 62
+            },
+            {
+              "byte": 24916,
+              "channel": 0,
+              "a": 34,
+              "b": 33
+            }
+          ],
+          "actualHash": "9a2c3d83fd0b56ff763f95ecdc7a0e3e214ff2073279db0ab8c8725e73144774",
+          "referenceHash": "f3c93b45a4383305b9fd6eef6775923807f7e46115cd48b189bd758fd943dde0"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 9980,
+          "max": 15,
+          "first": [
+            {
+              "x": 1271,
+              "y": 173,
+              "channel": 2,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "x": 1271,
+              "y": 173,
+              "channel": 3,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "x": 1294,
+              "y": 174,
+              "channel": 2,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "x": 1294,
+              "y": 174,
+              "channel": 3,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "x": 1274,
+              "y": 177,
+              "channel": 2,
+              "a": 21,
+              "b": 20
+            },
+            {
+              "x": 1274,
+              "y": 177,
+              "channel": 3,
+              "a": 21,
+              "b": 20
+            },
+            {
+              "x": 1286,
+              "y": 177,
+              "channel": 2,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "x": 1286,
+              "y": 177,
+              "channel": 3,
+              "a": 24,
+              "b": 23
+            }
+          ],
+          "actualHash": "fdc26eca9edafc1847aead95665f12d0e86a43e5d76680a3f33cab1abc9c5d3e",
+          "referenceHash": "cedb5faa984c06b1866c98e687c31cb2b2abfcc58e42fcd53f7ca9fb30f1dc53"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 20001,
+          "max": 29,
+          "first": [
+            {
+              "x": 664,
+              "y": 0,
+              "channel": 0,
+              "a": 72,
+              "b": 74
+            },
+            {
+              "x": 622,
+              "y": 25,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 623,
+              "y": 26,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 624,
+              "y": 27,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 625,
+              "y": 28,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 615,
+              "y": 29,
+              "channel": 0,
+              "a": 40,
+              "b": 39
+            },
+            {
+              "x": 617,
+              "y": 29,
+              "channel": 0,
+              "a": 49,
+              "b": 48
+            },
+            {
+              "x": 624,
+              "y": 29,
+              "channel": 0,
+              "a": 50,
+              "b": 49
+            }
+          ],
+          "actualHash": "15eb690a711081764d6529f4695fca9f5691a2899f7a3522a5b7e59c3cbd4714",
+          "referenceHash": "e91e56e9f4f9ee9cbcf23cb55b07bad195b9ccd8fd07db47bb4e0a33dab2c060"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "timing": {
+        "reference": {
+          "ms": 1868.6000001430511,
+          "steps": 25,
+          "gl": 0
+        },
+        "actual": {
+          "ms": 7709.599999904633,
+          "steps": 26,
+          "gl": 0
+        }
+      },
+      "errors": [],
+      "lost": false,
+      "windowReferences": [
+        {
+          "rect": {
+            "x": 0,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 128,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 384,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 512,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        }
+      ],
+      "firstOwningWindowDiff": null
+    },
+    {
+      "case": "nonzero-point-front",
+      "sourceBase": "e680cd1ab27450a35c7c8cc87fa2b1dfa5a3e0d0",
+      "sourceLabel": "e680cd1a-original-kernels-point-front",
+      "fixtureMode": "connected-strip",
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "size": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "options": {
+        "pointFront": true,
+        "pointField": null,
+        "pointDiffuse": null,
+        "manualMode6": null,
+        "nativeFrontBypass": false
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 8362,
+          "max": 30,
+          "first": [
+            {
+              "byte": 1414154,
+              "channel": 2,
+              "a": 13,
+              "b": 12
+            },
+            {
+              "byte": 1414155,
+              "channel": 3,
+              "a": 13,
+              "b": 12
+            },
+            {
+              "byte": 1414166,
+              "channel": 2,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414167,
+              "channel": 3,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414174,
+              "channel": 2,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "byte": 1414175,
+              "channel": 3,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "byte": 1422402,
+              "channel": 2,
+              "a": 14,
+              "b": 13
+            },
+            {
+              "byte": 1422403,
+              "channel": 3,
+              "a": 14,
+              "b": 13
+            }
+          ],
+          "actualHash": "7490fed2680f5ee0e91f68de9628b98180cc5dc7cd3f29da5fbf6e8ac477484f",
+          "referenceHash": "088a2dba055b7e4124fb6faad80318200d7eafe6ebb780e1af35aa46fe82a660"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 16820,
+          "max": 51,
+          "first": [
+            {
+              "byte": 2656,
+              "channel": 0,
+              "a": 97,
+              "b": 121
+            },
+            {
+              "byte": 289196,
+              "channel": 0,
+              "a": 8,
+              "b": 0
+            },
+            {
+              "byte": 354796,
+              "channel": 0,
+              "a": 25,
+              "b": 0
+            },
+            {
+              "byte": 1414155,
+              "channel": 3,
+              "a": 13,
+              "b": 12
+            },
+            {
+              "byte": 1414167,
+              "channel": 3,
+              "a": 18,
+              "b": 19
+            },
+            {
+              "byte": 1414175,
+              "channel": 3,
+              "a": 16,
+              "b": 15
+            },
+            {
+              "byte": 1422270,
+              "channel": 2,
+              "a": 10,
+              "b": 9
+            },
+            {
+              "byte": 1422358,
+              "channel": 2,
+              "a": 12,
+              "b": 11
+            }
+          ],
+          "actualHash": "1a0d45b7651cb462ec3731426290325cd52c35f535cf48704927e1941f5ab55e",
+          "referenceHash": "288b46513fd41386f97911b6f9e6223f1c30c4238a67b5280d6afe3a4a821dea"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 144,
+          "max": 1,
+          "first": [
+            {
+              "byte": 24170,
+              "channel": 2,
+              "a": 22,
+              "b": 21
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 22,
+              "b": 21
+            },
+            {
+              "byte": 24194,
+              "channel": 2,
+              "a": 36,
+              "b": 35
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 36,
+              "b": 35
+            },
+            {
+              "byte": 26218,
+              "channel": 2,
+              "a": 33,
+              "b": 32
+            },
+            {
+              "byte": 26219,
+              "channel": 3,
+              "a": 33,
+              "b": 32
+            },
+            {
+              "byte": 26382,
+              "channel": 2,
+              "a": 15,
+              "b": 14
+            },
+            {
+              "byte": 26383,
+              "channel": 3,
+              "a": 15,
+              "b": 14
+            }
+          ],
+          "actualHash": "cc9674d2c5bc80f2e99b44beae31dd56c6f18866eceaa0bb0acc2351a043fc33",
+          "referenceHash": "e1df0982f5f35e4f70a2447a50a58c05462e6ae3883c11b998490ec1b04aec1d"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 146,
+          "max": 1,
+          "first": [
+            {
+              "byte": 24170,
+              "channel": 2,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "byte": 24186,
+              "channel": 2,
+              "a": 33,
+              "b": 32
+            },
+            {
+              "byte": 24187,
+              "channel": 3,
+              "a": 33,
+              "b": 32
+            },
+            {
+              "byte": 24194,
+              "channel": 2,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 26090,
+              "channel": 2,
+              "a": 30,
+              "b": 31
+            },
+            {
+              "byte": 26091,
+              "channel": 3,
+              "a": 30,
+              "b": 31
+            }
+          ],
+          "actualHash": "e22bab4fe87aa2b7ec0a192f1fa7eb3c0cc3f74ddda7fc17c77c45b07c749e7d",
+          "referenceHash": "cf00af05cc44f874879b0686893a1fb82167a2d1e01c03be84abd8d9d0009a16"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 297,
+          "max": 9,
+          "first": [
+            {
+              "byte": 4404,
+              "channel": 0,
+              "a": 7,
+              "b": 5
+            },
+            {
+              "byte": 5436,
+              "channel": 0,
+              "a": 6,
+              "b": 0
+            },
+            {
+              "byte": 23185,
+              "channel": 1,
+              "a": 3,
+              "b": 4
+            },
+            {
+              "byte": 24168,
+              "channel": 0,
+              "a": 23,
+              "b": 24
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 22,
+              "b": 21
+            },
+            {
+              "byte": 24178,
+              "channel": 2,
+              "a": 19,
+              "b": 18
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 36,
+              "b": 35
+            },
+            {
+              "byte": 24876,
+              "channel": 0,
+              "a": 28,
+              "b": 29
+            }
+          ],
+          "actualHash": "392897eebb6f08ac2549d159cbd35b3ed1388097f7ffa0a3ed5b32b1303c363a",
+          "referenceHash": "53d3415d6a61e1a19f4bccbdf4d49fc036ff0062e4f7a2ec940e89353a8f6616"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 305,
+          "max": 9,
+          "first": [
+            {
+              "byte": 4404,
+              "channel": 0,
+              "a": 44,
+              "b": 43
+            },
+            {
+              "byte": 5436,
+              "channel": 0,
+              "a": 6,
+              "b": 0
+            },
+            {
+              "byte": 23185,
+              "channel": 1,
+              "a": 3,
+              "b": 4
+            },
+            {
+              "byte": 24171,
+              "channel": 3,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "byte": 24178,
+              "channel": 2,
+              "a": 19,
+              "b": 18
+            },
+            {
+              "byte": 24187,
+              "channel": 3,
+              "a": 33,
+              "b": 32
+            },
+            {
+              "byte": 24195,
+              "channel": 3,
+              "a": 34,
+              "b": 33
+            },
+            {
+              "byte": 24876,
+              "channel": 0,
+              "a": 28,
+              "b": 29
+            }
+          ],
+          "actualHash": "cc5b95d5b141c66e10541ddcc2389bf7e81a9c7f5e5e08bf46ec0eec402c044c",
+          "referenceHash": "d5e3e7dcc4bc70c44ffd85b6b5982d4c3e2d903ebfba4f468f54b87eb03c50fc"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 8158,
+          "max": 14,
+          "first": [
+            {
+              "x": 1274,
+              "y": 177,
+              "channel": 2,
+              "a": 21,
+              "b": 20
+            },
+            {
+              "x": 1274,
+              "y": 177,
+              "channel": 3,
+              "a": 21,
+              "b": 20
+            },
+            {
+              "x": 1286,
+              "y": 177,
+              "channel": 2,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "x": 1286,
+              "y": 177,
+              "channel": 3,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "x": 1287,
+              "y": 177,
+              "channel": 2,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "x": 1287,
+              "y": 177,
+              "channel": 3,
+              "a": 24,
+              "b": 23
+            },
+            {
+              "x": 1294,
+              "y": 177,
+              "channel": 2,
+              "a": 23,
+              "b": 24
+            },
+            {
+              "x": 1294,
+              "y": 177,
+              "channel": 3,
+              "a": 23,
+              "b": 24
+            }
+          ],
+          "actualHash": "2f95e02816074f381ae5732b0b14dfc06d81d1ebacefcdeb9fc890ddc57327e7",
+          "referenceHash": "b57ed405f5a6114e337cfc24d201eafd22500b68151e52112939050df52db063"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 16543,
+          "max": 29,
+          "first": [
+            {
+              "x": 664,
+              "y": 0,
+              "channel": 0,
+              "a": 72,
+              "b": 74
+            },
+            {
+              "x": 622,
+              "y": 25,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 623,
+              "y": 26,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 624,
+              "y": 27,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 625,
+              "y": 28,
+              "channel": 0,
+              "a": 55,
+              "b": 54
+            },
+            {
+              "x": 615,
+              "y": 29,
+              "channel": 0,
+              "a": 40,
+              "b": 39
+            },
+            {
+              "x": 617,
+              "y": 29,
+              "channel": 0,
+              "a": 49,
+              "b": 48
+            },
+            {
+              "x": 624,
+              "y": 29,
+              "channel": 0,
+              "a": 50,
+              "b": 49
+            }
+          ],
+          "actualHash": "94eb2c018c3c90ceafb7608279c89514ac30dafbc272666243924335a80d34df",
+          "referenceHash": "7938b2fc569c908810200a03968be34b1d93909b49050bfa655031ba442c6fc8"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "timing": {
+        "reference": {
+          "ms": 1983.7000000476837,
+          "steps": 25,
+          "gl": 0
+        },
+        "actual": {
+          "ms": 7507.599999904633,
+          "steps": 26,
+          "gl": 0
+        }
+      },
+      "errors": [],
+      "lost": false,
+      "windowReferences": [
+        {
+          "rect": {
+            "x": 0,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 128,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 384,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 512,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        }
+      ],
+      "firstOwningWindowDiff": null
+    },
+    {
+      "case": "nonzero-point-field",
+      "sourceBase": "e680cd1ab27450a35c7c8cc87fa2b1dfa5a3e0d0",
+      "sourceLabel": "e680cd1a-point-front-field-except-mode6d",
+      "fixtureMode": "connected-strip",
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "size": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "options": {
+        "pointFront": true,
+        "pointField": true,
+        "pointDiffuse": null,
+        "manualMode6": null,
+        "nativeFrontBypass": false
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0",
+          "referenceHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 1,
+          "max": 1,
+          "first": [
+            {
+              "byte": 2389241,
+              "channel": 1,
+              "a": 28,
+              "b": 27
+            }
+          ],
+          "actualHash": "719f040cbfc888abbf9206fb1173d9748c5b90d13a323c814bb4d86775782d8a",
+          "referenceHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6",
+          "referenceHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4",
+          "referenceHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9",
+          "referenceHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70",
+          "referenceHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3",
+          "referenceHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256",
+          "referenceHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "timing": {
+        "reference": {
+          "ms": 2780.899999856949,
+          "steps": 26,
+          "gl": 0
+        },
+        "actual": {
+          "ms": 8815.400000095367,
+          "steps": 27,
+          "gl": 0
+        }
+      },
+      "errors": [],
+      "lost": false,
+      "windowReferences": [
+        {
+          "rect": {
+            "x": 0,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 128,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 384,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 512,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        }
+      ],
+      "firstOwningWindowDiff": null
+    },
+    {
+      "case": "nonzero-point-fragcoord",
+      "sourceBase": "e680cd1ab27450a35c7c8cc87fa2b1dfa5a3e0d0",
+      "sourceLabel": "e680cd1a-point-front-field-fragcoord",
+      "fixtureMode": "connected-strip",
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "size": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "options": {
+        "pointFront": true,
+        "pointField": true,
+        "pointDiffuse": null,
+        "manualMode6": null,
+        "nativeFrontBypass": false
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0",
+          "referenceHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 1,
+          "max": 1,
+          "first": [
+            {
+              "byte": 2389241,
+              "channel": 1,
+              "a": 28,
+              "b": 27
+            }
+          ],
+          "actualHash": "719f040cbfc888abbf9206fb1173d9748c5b90d13a323c814bb4d86775782d8a",
+          "referenceHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6",
+          "referenceHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4",
+          "referenceHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9",
+          "referenceHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70",
+          "referenceHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3",
+          "referenceHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256",
+          "referenceHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "timing": {
+        "reference": {
+          "ms": 1731,
+          "steps": 25,
+          "gl": 0
+        },
+        "actual": {
+          "ms": 6771.299999952316,
+          "steps": 26,
+          "gl": 0
+        }
+      },
+      "errors": [],
+      "lost": false,
+      "windowReferences": [
+        {
+          "rect": {
+            "x": 0,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 128,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 384,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 512,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        }
+      ],
+      "firstOwningWindowDiff": null,
+      "servedSource": {
+        "shaders.ts": {
+          "servedSHA256": "44f728c3694ebfc3fdd78bd879939965aa2e0766cd902724ab2f031e51808165",
+          "glFragCoordCount": 29,
+          "diskSHA256": "a7c2e5bf5e2ffca3ed77fd6655a900fdf6eb3170cf1a8c87870658a2b0a03613"
+        },
+        "WatercolorFrontPaths.ts": {
+          "servedSHA256": "7ccd4e8259632200ce62429c7c4bc53db39657556a9645d2d63cea101cc69be7",
+          "glFragCoordCount": 2,
+          "diskSHA256": "024b5b3399dfac01945e704ed4d55b12d057fd0e1949d3b4de0781a2f6e3cc4d"
+        }
+      }
+    },
+    {
+      "case": "nonzero-point-diffuse",
+      "sourceBase": "e680cd1ab27450a35c7c8cc87fa2b1dfa5a3e0d0",
+      "sourceLabel": "e680cd1a-point-integer-inputs",
+      "fixtureMode": "connected-strip",
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "size": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "options": {
+        "pointFront": true,
+        "pointField": true,
+        "pointDiffuse": true,
+        "manualMode6": null,
+        "nativeFrontBypass": false
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0",
+          "referenceHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 1,
+          "max": 1,
+          "first": [
+            {
+              "byte": 2389241,
+              "channel": 1,
+              "a": 28,
+              "b": 27
+            }
+          ],
+          "actualHash": "719f040cbfc888abbf9206fb1173d9748c5b90d13a323c814bb4d86775782d8a",
+          "referenceHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6",
+          "referenceHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4",
+          "referenceHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9",
+          "referenceHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70",
+          "referenceHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3",
+          "referenceHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256",
+          "referenceHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "timing": {
+        "reference": {
+          "ms": 2291.7999999523163,
+          "steps": 25,
+          "gl": 0
+        },
+        "actual": {
+          "ms": 10301.899999856949,
+          "steps": 27,
+          "gl": 0
+        }
+      },
+      "errors": [],
+      "lost": false,
+      "windowReferences": [
+        {
+          "rect": {
+            "x": 0,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 128,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 384,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 512,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        }
+      ],
+      "firstOwningWindowDiff": null
+    },
+    {
+      "case": "nonzero-singleton-trace",
+      "sourceBase": "e680cd1ab27450a35c7c8cc87fa2b1dfa5a3e0d0",
+      "sourceLabel": "e680cd1a-point-integer-singletonROI",
+      "fixtureMode": "connected-strip",
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "size": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "options": {
+        "pointFront": true,
+        "pointField": true,
+        "pointDiffuse": true,
+        "manualMode6": null,
+        "nativeFrontBypass": false
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0",
+          "referenceHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 1,
+          "max": 1,
+          "first": [
+            {
+              "byte": 2389241,
+              "channel": 1,
+              "a": 28,
+              "b": 27
+            }
+          ],
+          "actualHash": "719f040cbfc888abbf9206fb1173d9748c5b90d13a323c814bb4d86775782d8a",
+          "referenceHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6",
+          "referenceHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4",
+          "referenceHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9",
+          "referenceHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70",
+          "referenceHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3",
+          "referenceHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256",
+          "referenceHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "timing": {
+        "reference": {
+          "ms": 2576.9000000953674,
+          "steps": 25,
+          "gl": 0
+        },
+        "actual": {
+          "ms": 9460.799999952316,
+          "steps": 27,
+          "gl": 0
+        }
+      },
+      "errors": [],
+      "lost": false,
+      "windowReferences": [
+        {
+          "rect": {
+            "x": 0,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 128,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 384,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 512,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        }
+      ],
+      "firstOwningWindowDiff": {
+        "window": 512,
+        "ordinal": 46,
+        "method": "fieldOp",
+        "mode": 6,
+        "x": 1326,
+        "changed": 7,
+        "max": 1,
+        "first": [
+          {
+            "byte": 603,
+            "a": 136,
+            "b": 135
+          },
+          {
+            "byte": 1359,
+            "a": 122,
+            "b": 121
+          },
+          {
+            "byte": 2115,
+            "a": 6,
+            "b": 5
+          },
+          {
+            "byte": 2487,
+            "a": 84,
+            "b": 83
+          }
+        ]
+      }
+    },
+    {
+      "case": "nonzero-manual-mode6",
+      "sourceBase": "e680cd1ab27450a35c7c8cc87fa2b1dfa5a3e0d0",
+      "sourceLabel": "e680cd1a-explicit-mode6-qa-point",
+      "fixtureMode": "connected-strip",
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "size": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "options": {
+        "pointFront": true,
+        "pointField": true,
+        "pointDiffuse": true,
+        "manualMode6": true,
+        "nativeFrontBypass": false
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0",
+          "referenceHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386",
+          "referenceHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6",
+          "referenceHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4",
+          "referenceHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9",
+          "referenceHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70",
+          "referenceHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3",
+          "referenceHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256",
+          "referenceHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "timing": {
+        "reference": {
+          "ms": 2005.5,
+          "steps": 25,
+          "gl": 0
+        },
+        "actual": {
+          "ms": 7734.399999856949,
+          "steps": 26,
+          "gl": 0
+        }
+      },
+      "errors": [],
+      "lost": false,
+      "windowReferences": [
+        {
+          "rect": {
+            "x": 0,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 128,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 384,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 512,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        }
+      ],
+      "firstOwningWindowDiff": null,
+      "servedSource": {
+        "shaders.ts": {
+          "servedSHA256": "2e7d3513ab5c9c21feef460c70c8c3674074e1bc180b75db1f1bf64f1ca24dd7",
+          "wcMode6CostOffset": 2,
+          "diskSHA256": "2509616b397a26c9b089e81dbf178208abb2a3c12b68b22bc60911584033873c"
+        },
+        "WatercolorPasses.ts": {
+          "servedSHA256": "6370bfbf68e13b4cb923f2a24a4d36cb11e9aea5d8dee77a5b156ea781d927a6",
+          "wcMode6CostOffset": 0,
+          "diskSHA256": "0b814f45cdd1b2bed31a11e5b8fe837affb9e7a7b68c5fe74bfb1a4cb9bc7843"
+        }
+      }
+    },
+    {
+      "case": "compact-manual-mode6",
+      "sourceBase": "e680cd1ab27450a35c7c8cc87fa2b1dfa5a3e0d0",
+      "sourceLabel": "e680cd1a-explicit-mode6-qa-point-compact",
+      "fixtureMode": "compact-single-pool",
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "size": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "inputHashes": {
+        "p": "4878344c60ac3888c9513370994f5d1d09477feebecac29e4ca33dc5b95ea53e",
+        "c": "254437fcdf1c452af05e87937690a82ca314d1ec18fd6b874a92ea4b4c2e5af7",
+        "coverage": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2",
+        "water": "c2ec028c4fadb0e897c6558a7610474b740b02a7beb7d47ebfb0ef73d4f6eeae"
+      },
+      "options": {
+        "pointFront": true,
+        "pointField": true,
+        "pointDiffuse": true,
+        "manualMode6": true,
+        "nativeFrontBypass": false
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "394c5c9aee9515d38026f35912f0ba480ec2feec78ea4e435b8a783b481c2600",
+          "referenceHash": "394c5c9aee9515d38026f35912f0ba480ec2feec78ea4e435b8a783b481c2600"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "76f0cc9e98358e53468d3d612580887a6825f9b64a60e0464f83fd74e1cf6fcb",
+          "referenceHash": "76f0cc9e98358e53468d3d612580887a6825f9b64a60e0464f83fd74e1cf6fcb"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "4475ff19b01b21eda16e977ce18bcb040e6355e954cbf0f054efc7d6a77e3367",
+          "referenceHash": "4475ff19b01b21eda16e977ce18bcb040e6355e954cbf0f054efc7d6a77e3367"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "c95e80591debfede0ac0d5db0ee4ef7dd5d42d644793088135f62e0e75ec11de",
+          "referenceHash": "c95e80591debfede0ac0d5db0ee4ef7dd5d42d644793088135f62e0e75ec11de"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2",
+          "referenceHash": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "09abac1571922c71fd517bdb1d092ad904e09042d746a3089d88ee6c20268915",
+          "referenceHash": "09abac1571922c71fd517bdb1d092ad904e09042d746a3089d88ee6c20268915"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "38140f9609cedd0c7fb00abd2a5e5dc6ee8aa54fa8ee46fc78a300803e379dba",
+          "referenceHash": "38140f9609cedd0c7fb00abd2a5e5dc6ee8aa54fa8ee46fc78a300803e379dba"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "38140f9609cedd0c7fb00abd2a5e5dc6ee8aa54fa8ee46fc78a300803e379dba",
+          "referenceHash": "38140f9609cedd0c7fb00abd2a5e5dc6ee8aa54fa8ee46fc78a300803e379dba"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "f8b438eb524dd4653a3971044c0695aa35b3b77322376df3f1765481af59f9ae",
+          "referenceHash": "f8b438eb524dd4653a3971044c0695aa35b3b77322376df3f1765481af59f9ae"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "f8b438eb524dd4653a3971044c0695aa35b3b77322376df3f1765481af59f9ae",
+          "referenceHash": "f8b438eb524dd4653a3971044c0695aa35b3b77322376df3f1765481af59f9ae"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1e28f458c691fcaeb9e392ce812f6ed0a651572753b05bb25ce23c4bc6245868",
+          "referenceHash": "1e28f458c691fcaeb9e392ce812f6ed0a651572753b05bb25ce23c4bc6245868"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "453cea54249b9ceb7caaacccd6bc36acbd37828dd8528d04fa0f64557f3fb956",
+          "referenceHash": "453cea54249b9ceb7caaacccd6bc36acbd37828dd8528d04fa0f64557f3fb956"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "b166be41b9904ad4cb36540f94e82a76c61e8e4078dea9e45db46830fa156954",
+          "referenceHash": "b166be41b9904ad4cb36540f94e82a76c61e8e4078dea9e45db46830fa156954"
+        }
+      },
+      "timing": {
+        "reference": {
+          "ms": 2245.5,
+          "steps": 25,
+          "gl": 0
+        },
+        "actual": {
+          "ms": 8076.099999904633,
+          "steps": 26,
+          "gl": 0
+        }
+      },
+      "errors": [],
+      "lost": false,
+      "windowReferences": [
+        {
+          "rect": {
+            "x": 0,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 128,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 384,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        },
+        {
+          "rect": {
+            "x": 512,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "P": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          },
+          "C": {
+            "compared": 3145728,
+            "changed": 0,
+            "max": 0,
+            "first": [],
+            "outsideNonzero": 0,
+            "outsideMax": 0
+          }
+        }
+      ],
+      "firstOwningWindowDiff": null
+    }
+  ]
+}

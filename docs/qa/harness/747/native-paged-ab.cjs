@@ -7,7 +7,7 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chr
  const result=await page.evaluate(async()=>{
   const [{PencilEngine},{AccumulationBuffer},{RibbonStrokeScratch},{ribbonProfileFor},{createNativePuddleTarget},{createPagedPuddleTarget},{createContrastPhase},{createBackgroundMix},{APPROVED_M70_PARAMETERS}]=await Promise.all([
    import('/src/engine/index.ts'),import('/src/engine/src/buffers/AccumulationBuffer.ts'),import('/src/engine/src/buffers/RibbonStrokeScratch.ts'),import('/src/engine/src/dabs/ribbonProfile.ts'),import('/src/engine/src/watercolor/puddle/PuddleTarget.ts'),import('/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts'),import('/src/engine/src/watercolor/puddle/ContrastPhase.ts'),import('/src/engine/src/watercolor/puddle/BackgroundMix.ts'),import('/src/engine/src/watercolor/puddle/PuddleParameters.ts')]);
-  const canvas=document.createElement('canvas');canvas.width=64;canvas.height=64;document.body.replaceChildren(canvas);
+  const canvas=document.createElement('canvas');canvas.width=64;canvas.height=64;document.body.append(canvas);
   const e=new PencilEngine(canvas,{paper:'flat',pageWidth:1536,pageHeight:1536,watercolorModel:'m70-r2-v1',watercolorReview:true});await e.paperReady();
   const gl=e.gl,ext=gl.getExtension('WEBGL_debug_renderer_info'),renderer=ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):null;
   if(!renderer||/swiftshader|llvmpipe/i.test(renderer))throw Error('Native GPU required: '+renderer);
@@ -22,6 +22,8 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chr
   const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),v=>v.toString(16).padStart(2,'0')).join('');
   const inputHashes={};for(const[k,v]of Object.entries(planes))inputHashes[k]=await hash(v);
   const host={gl,settlePlan:e._settlePlan,pool:e._ribbonScratchPool,passes:e._watercolorPasses,invalidateFrontPaths:()=>e._watercolorPasses.invalidateFrontPaths(),hasActiveSettle:()=>!!e._settle};
+  const qaScopes={pointFront:!!globalThis.__qa747PointFront,pointField:!!globalThis.__qa747PointField,pointDiffuse:!!globalThis.__qa747PointDiffuse,manualMode6:!!globalThis.__qa747ManualMode6};
+  for(const method of ['waterFrontStep','fieldOp','diffuseStep']){const original=host.passes[method];host.passes[method]=function(...args){const selected=method==='waterFrontStep'&&qaScopes.pointFront?[args[4]]:method==='fieldOp'&&qaScopes.pointField?[args[1],args[2],args[5]?.c,args[5]?.d,args[5]?.e].filter(b=>!(args[3]===6&&!qaScopes.manualMode6&&b===args[5]?.d)):method==='diffuseStep'&&qaScopes.pointDiffuse?[args[6],args[10],args[11],args[12]].filter(b=>b&&b.width===args[0].w&&b.height===args[0].h):[];const previous=[];try{for(const b of new Set(selected.filter(Boolean))){previous.push([b,b._pointSampling]);b.setPointSampling(true)}return original.apply(this,args)}finally{for(const[b,was]of previous)b.setPointSampling(was)}}}
   const make=(w,h,f='nearest')=>new AccumulationBuffer(gl,w,h,f),preset='normal:95:34:PB29:round:wc@m70-r2-v1';
   async function solve(paged){
    const key=host.pool.acquire(size,size);key.clear();const source=new RibbonStrokeScratch(host.pool,true,true),entry=source.getOrCreate(key);
@@ -54,7 +56,7 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chr
    const reference=await solve(false),actual=await solve(true),diffs={};
    for(const name of ['p','c','coverage']){const a=actual.out[name],b=reference.out[name];let changed=0,max=0;const first=[];for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);if(d){changed++;if(first.length<8)first.push({x:Math.floor(i/4)%size,y:Math.floor(i/4/size),channel:i%4,a:a[i],b:b[i]})}max=Math.max(max,d)}diffs[name]={changed,max,first,actualHash:await hash(a),referenceHash:await hash(b)}}
    const stageDiffs={};for(const name of Object.keys(reference.stages)){const a=actual.stages[name],b=reference.stages[name];if(!a||a.length!==b.length)throw Error('Stage length mismatch '+name);let changed=0,max=0;for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);if(d)changed++;max=Math.max(max,d)}stageDiffs[name]={changed,max,actualHash:await hash(a),referenceHash:await hash(b)}}
-   return{stageDiffs,renderer,size,sourceLocation:location.origin,inputHashes,reference:{ms:reference.ms,steps:reference.steps,gl:reference.gl},actual:{ms:actual.ms,steps:actual.steps,gl:actual.gl},diffs,lost:gl.isContextLost(),sequential:true};
+   return{qaScopes,stageDiffs,renderer,size,sourceLocation:location.origin,inputHashes,reference:{ms:reference.ms,steps:reference.steps,gl:reference.gl},actual:{ms:actual.ms,steps:actual.steps,gl:actual.gl},diffs,lost:gl.isContextLost(),sequential:true};
   }finally{e.destroy()}
  });
  const report={source:process.env.QA_SOURCE,...result,errors};fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));

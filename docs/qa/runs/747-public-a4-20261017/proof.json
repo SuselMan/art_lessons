@@ -1,0 +1,778 @@
+{
+  "sourceHead": "8e9dd9801daac44dcfa242bf0d46bb74d2578013",
+  "qualification": "Two distinct runs: real trusted-pointer draw through1024 seams and far corner; continuation opens the SAME accepted history, checks actual page-clipped pixels BEFORE replay, Dry/UndoDry/RedoDry. Operator intentionally stopped after redo due~58s delays. Not a complete A4 suite and no A3/A2 claim.",
+  "pointerRun": {
+    "source": "pool-fork-dirty-paper-linked",
+    "geometry": {
+      "width": 1240,
+      "height": 1754
+    },
+    "cases": [
+      {
+        "name": "room-native-ready"
+      },
+      {
+        "name": "trusted-pen-crosses-both1024-seams",
+        "ops": [
+          {
+            "id": "DYAmq5Fic9",
+            "seq": 2,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "pending": false
+          }
+        ],
+        "screen": [
+          {
+            "x": 426.07266064804617,
+            "y": 629.8516753831453,
+            "onCanvas": true
+          },
+          {
+            "x": 431.7431295578386,
+            "y": 635.5224432374771,
+            "onCanvas": true
+          },
+          {
+            "x": 437.413598467631,
+            "y": 641.1932110918087,
+            "onCanvas": true
+          },
+          {
+            "x": 443.0840673774234,
+            "y": 646.8639789461404,
+            "onCanvas": true
+          },
+          {
+            "x": 448.75453628721584,
+            "y": 652.5347468004721,
+            "onCanvas": true
+          }
+        ]
+      },
+      {
+        "name": "actual-physical-first-after-UP-cache120MiB",
+        "physical": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "2a73d36800abdb62884c2136f82614675feb9dc838699b0fd41646b4288706aa",
+            "alpha": 2034
+          },
+          {
+            "x": 1024,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "c5a0e48cf120338fd98a0ed90905ce00f976b58b498f8f62826f18120220f53f",
+            "alpha": 300
+          },
+          {
+            "x": 0,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "9d800f5aeff85ac275341d57209685257b0f2c682af9e2ca0aee70a635841b0b",
+            "alpha": 291
+          },
+          {
+            "x": 1024,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "8df06f92514c5b00ea61b7250edec054330d99019f1b16e3890d3cb2142368cf",
+            "alpha": 1564
+          }
+        ],
+        "puddle": "PagedPuddleRoomController",
+        "state": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 1,
+          "residentLayers": 1,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 1,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 2,
+              "ready": true,
+              "active": true
+            }
+          ]
+        },
+        "cache": {
+          "resident": 123557168,
+          "budget": 125829120
+        },
+        "gl": 0,
+        "lost": false
+      },
+      {
+        "name": "trusted-pen-far-right-bottom",
+        "ops": [
+          {
+            "id": "la3mqxDrQe",
+            "seq": 3,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "pending": false
+          }
+        ],
+        "screen": [
+          {
+            "x": 478.5244980636261,
+            "y": 828.0450118920376,
+            "onCanvas": true
+          },
+          {
+            "x": 482.7773497459704,
+            "y": 832.2980877827863,
+            "onCanvas": true
+          },
+          {
+            "x": 487.0302014283147,
+            "y": 836.551163673535,
+            "onCanvas": true
+          }
+        ]
+      },
+      {
+        "name": "actual-physical-first-after-edge-UP",
+        "physical": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "74944bfea11cc1f19b7ae44261b5a16dde62e13ea12ecfbcbde66d9a039b4619",
+            "alpha": 2034
+          },
+          {
+            "x": 1024,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "60b6e66372d39e11527f18b9948c446e305c3bc53308971d2ae2f12c10026a9d",
+            "alpha": 300
+          },
+          {
+            "x": 0,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "53216238dddace860d29856613a826c9535b468cf539bc7a95e612b08daf4571",
+            "alpha": 291
+          },
+          {
+            "x": 1024,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "18e5c474e16a917c3ae32ac7df186a619dc288d83669bf49795596764c932c14",
+            "alpha": 3448
+          }
+        ],
+        "puddle": "PagedPuddleRoomController",
+        "state": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 1,
+          "residentLayers": 1,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 2,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 3,
+              "ready": true,
+              "active": true
+            }
+          ]
+        },
+        "cache": {
+          "resident": 123557168,
+          "budget": 125829120
+        },
+        "gl": 0,
+        "lost": false
+      },
+      {
+        "name": "actual-physical-first-after-Dry",
+        "physical": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "7d85fd4402ca9fb1e3cdcb6d9e1b0b8415c26b53287f534eb596233614e1bef7",
+            "alpha": 2028
+          },
+          {
+            "x": 1024,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "5321e41c51ba1d11bb97e9026c5a30080cf958f10a50c218648ef6899ccf598e",
+            "alpha": 300
+          },
+          {
+            "x": 0,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "f7cd51fd421d6633195f908f167e021d7984f9f95ba1ecd8cba06e6d2c45e974",
+            "alpha": 291
+          },
+          {
+            "x": 1024,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "bbf31e3cf40153993585ecd82ae953149972f2001094226c1944c629bdb59a0d",
+            "alpha": 3431
+          }
+        ],
+        "puddle": "PagedPuddleRoomController",
+        "state": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 0,
+          "residentLayers": 0,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 2,
+          "pending": false,
+          "revisions": []
+        },
+        "cache": null,
+        "gl": 0,
+        "lost": false
+      }
+    ],
+    "errors": [],
+    "identity": {
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 1240,
+        "h": 1754
+      },
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "user": "0ae2ccff-b15e-4424-b5dd-1477c51b560b",
+      "viewport": {
+        "width": 824,
+        "height": 1149,
+        "DPR": 2.125
+      }
+    },
+    "layer": "qa747-1792219311448",
+    "pass": false,
+    "failure": "Error: Error: Actual/oracle tile identity mismatch\n    at <anonymous>:10:228\n    at <anonymous>:13:4\n    at Object.evaluate (/home/suselman/projects/pencil-agents/747-single-rect/docs/qa/harness/747/room-public-android.cjs:7:258)\n    at async /home/suselman/projects/pencil-agents/747-single-rect/docs/qa/harness/747/room-public-android.cjs:41:89",
+    "diagnostic": {
+      "stroke": null,
+      "queue": 0,
+      "jobs": 0,
+      "pending": 0,
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 0,
+        "residentLayers": 0,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 2,
+        "pending": false,
+        "revisions": []
+      },
+      "log": [
+        {
+          "id": "c87d37f0-637e-4400-9487-5c052e58d0cc",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false,
+          "seq": 1
+        },
+        {
+          "id": "DYAmq5Fic9",
+          "type": "stroke",
+          "state": "done",
+          "pending": false,
+          "seq": 2
+        },
+        {
+          "id": "la3mqxDrQe",
+          "type": "stroke",
+          "state": "done",
+          "pending": false,
+          "seq": 3
+        },
+        {
+          "id": "e68efa5a-f30c-4d73-b4fc-ed06c295ac90",
+          "type": "paper_dry",
+          "state": "done",
+          "pending": false,
+          "seq": 4
+        }
+      ],
+      "gl": 0,
+      "lost": false
+    }
+  },
+  "continuation": {
+    "source": "8e9dd9801daac44dcfa242bf0d46bb74d2578013",
+    "geometry": {
+      "width": 1240,
+      "height": 1754
+    },
+    "cases": [
+      {
+        "name": "room-native-ready",
+        "wallAt": 1792219643444
+      },
+      {
+        "name": "actual-physical-first-after-UP-cache120MiB",
+        "wallAt": 1792219643952,
+        "physical": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "7d85fd4402ca9fb1e3cdcb6d9e1b0b8415c26b53287f534eb596233614e1bef7",
+            "alpha": 2028
+          },
+          {
+            "x": 1024,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "5321e41c51ba1d11bb97e9026c5a30080cf958f10a50c218648ef6899ccf598e",
+            "alpha": 300
+          },
+          {
+            "x": 0,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "f7cd51fd421d6633195f908f167e021d7984f9f95ba1ecd8cba06e6d2c45e974",
+            "alpha": 291
+          },
+          {
+            "x": 1024,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "bbf31e3cf40153993585ecd82ae953149972f2001094226c1944c629bdb59a0d",
+            "alpha": 3431
+          }
+        ],
+        "puddle": "PagedPuddleRoomController",
+        "state": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 1,
+          "residentLayers": 1,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 1,
+          "computations": 2,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": false,
+              "active": false
+            }
+          ]
+        },
+        "cache": null,
+        "gl": 0,
+        "lost": false
+      },
+      {
+        "name": "actual-physical-first-after-edge-UP",
+        "wallAt": 1792219644060,
+        "physical": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "7d85fd4402ca9fb1e3cdcb6d9e1b0b8415c26b53287f534eb596233614e1bef7",
+            "alpha": 2028
+          },
+          {
+            "x": 1024,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "5321e41c51ba1d11bb97e9026c5a30080cf958f10a50c218648ef6899ccf598e",
+            "alpha": 300
+          },
+          {
+            "x": 0,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "f7cd51fd421d6633195f908f167e021d7984f9f95ba1ecd8cba06e6d2c45e974",
+            "alpha": 291
+          },
+          {
+            "x": 1024,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "bbf31e3cf40153993585ecd82ae953149972f2001094226c1944c629bdb59a0d",
+            "alpha": 3431
+          }
+        ],
+        "puddle": "PagedPuddleRoomController",
+        "state": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 1,
+          "residentLayers": 1,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 1,
+          "computations": 2,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": false,
+              "active": false
+            }
+          ]
+        },
+        "cache": null,
+        "gl": 0,
+        "lost": false
+      },
+      {
+        "name": "actual-physical-first-after-Dry",
+        "wallAt": 1792219644174,
+        "physical": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "7d85fd4402ca9fb1e3cdcb6d9e1b0b8415c26b53287f534eb596233614e1bef7",
+            "alpha": 2028
+          },
+          {
+            "x": 1024,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "5321e41c51ba1d11bb97e9026c5a30080cf958f10a50c218648ef6899ccf598e",
+            "alpha": 300
+          },
+          {
+            "x": 0,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "f7cd51fd421d6633195f908f167e021d7984f9f95ba1ecd8cba06e6d2c45e974",
+            "alpha": 291
+          },
+          {
+            "x": 1024,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "bbf31e3cf40153993585ecd82ae953149972f2001094226c1944c629bdb59a0d",
+            "alpha": 3431
+          }
+        ],
+        "puddle": "PagedPuddleRoomController",
+        "state": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 1,
+          "residentLayers": 1,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 1,
+          "computations": 2,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": false,
+              "active": false
+            }
+          ]
+        },
+        "cache": null,
+        "gl": 0,
+        "lost": false
+      },
+      {
+        "name": "Dry-physical-equals-full-replay",
+        "wallAt": 1792219701906,
+        "actualCapturedBeforeOracle": true,
+        "page": {
+          "width": 1240,
+          "height": 1754
+        },
+        "physicalChanged": 0,
+        "max": 0,
+        "alpha": 6050,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "storageW": 1024,
+            "storageH": 1024,
+            "changed": 0,
+            "alpha": 2028
+          },
+          {
+            "x": 1024,
+            "y": 0,
+            "w": 216,
+            "h": 1024,
+            "storageW": 1024,
+            "storageH": 1024,
+            "changed": 0,
+            "alpha": 300
+          },
+          {
+            "x": 0,
+            "y": 1024,
+            "w": 1024,
+            "h": 730,
+            "storageW": 1024,
+            "storageH": 1024,
+            "changed": 0,
+            "alpha": 291
+          },
+          {
+            "x": 1024,
+            "y": 1024,
+            "w": 216,
+            "h": 730,
+            "storageW": 1024,
+            "storageH": 1024,
+            "changed": 0,
+            "alpha": 3431
+          }
+        ],
+        "actualHash": "18f1271ea28bb872433397ce7cbb98e3ebc90eccb4d2aeac394be207c8d19bdd",
+        "oracleHash": "18f1271ea28bb872433397ce7cbb98e3ebc90eccb4d2aeac394be207c8d19bdd",
+        "glError": 0
+      },
+      {
+        "name": "undo-Dry",
+        "wallAt": 1792219759894,
+        "physical": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "92de4d8d9774d35459eb5ad3b5745e335c628285f0cf9561cf4961ce57ec4e9d",
+            "alpha": 2034
+          },
+          {
+            "x": 1024,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "a79cc10083c267f1fa1791dc31a9e289e415a362d6378070bb67e823b094f8d4",
+            "alpha": 300
+          },
+          {
+            "x": 0,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "36e1bfb5538404a876bc2261eed940135159f872512c256ce83edae3e27a9c7b",
+            "alpha": 291
+          },
+          {
+            "x": 1024,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "4e75049f5efa8377de74348a4a32a9cd5a98f50a38dc65b585db8e162134f3ea",
+            "alpha": 3446
+          }
+        ],
+        "puddle": "PagedPuddleRoomController",
+        "state": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 1,
+          "residentLayers": 1,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 1,
+          "computations": 3,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 2,
+              "ready": true,
+              "active": true
+            }
+          ]
+        },
+        "cache": {
+          "resident": 123557168,
+          "budget": 125829120
+        },
+        "gl": 0,
+        "lost": false
+      },
+      {
+        "name": "redo-Dry",
+        "wallAt": 1792219817680,
+        "physical": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "7d85fd4402ca9fb1e3cdcb6d9e1b0b8415c26b53287f534eb596233614e1bef7",
+            "alpha": 2028
+          },
+          {
+            "x": 1024,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "5321e41c51ba1d11bb97e9026c5a30080cf958f10a50c218648ef6899ccf598e",
+            "alpha": 300
+          },
+          {
+            "x": 0,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "f7cd51fd421d6633195f908f167e021d7984f9f95ba1ecd8cba06e6d2c45e974",
+            "alpha": 291
+          },
+          {
+            "x": 1024,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024,
+            "hash": "bbf31e3cf40153993585ecd82ae953149972f2001094226c1944c629bdb59a0d",
+            "alpha": 3431
+          }
+        ],
+        "puddle": "PagedPuddleRoomController",
+        "state": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 0,
+          "residentLayers": 0,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 1,
+          "computations": 4,
+          "pending": false,
+          "revisions": []
+        },
+        "cache": null,
+        "gl": 0,
+        "lost": false
+      }
+    ],
+    "errors": [],
+    "identity": {
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 1240,
+        "h": 1754
+      },
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "user": "0ae2ccff-b15e-4424-b5dd-1477c51b560b",
+      "viewport": {
+        "width": 824,
+        "height": 1149,
+        "DPR": 2.125
+      }
+    },
+    "layer": "qa747-1792219311448"
+  },
+  "stop": {
+    "stop": "authorized performance stop after redo physical capture",
+    "redoEqualsOriginalDry": true,
+    "gl": 0,
+    "wallUndoToRedoMs": 57786,
+    "physical": [
+      {
+        "x": 0,
+        "y": 0,
+        "w": 1024,
+        "h": 1024,
+        "hash": "7d85fd4402ca9fb1e3cdcb6d9e1b0b8415c26b53287f534eb596233614e1bef7",
+        "alpha": 2028
+      },
+      {
+        "x": 1024,
+        "y": 0,
+        "w": 1024,
+        "h": 1024,
+        "hash": "5321e41c51ba1d11bb97e9026c5a30080cf958f10a50c218648ef6899ccf598e",
+        "alpha": 300
+      },
+      {
+        "x": 0,
+        "y": 1024,
+        "w": 1024,
+        "h": 1024,
+        "hash": "f7cd51fd421d6633195f908f167e021d7984f9f95ba1ecd8cba06e6d2c45e974",
+        "alpha": 291
+      },
+      {
+        "x": 1024,
+        "y": 1024,
+        "w": 1024,
+        "h": 1024,
+        "hash": "bbf31e3cf40153993585ecd82ae953149972f2001094226c1944c629bdb59a0d",
+        "alpha": 3431
+      }
+    ]
+  },
+  "paperManifestSHA": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac"
+}
