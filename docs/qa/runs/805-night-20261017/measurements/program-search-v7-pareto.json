@@ -1,0 +1,302 @@
+{
+  "qualification": "Numeric Pareto only (latency, absolute alpha-mass-proxy deviation, outside-wet pixels); not artistic approval. Distinct programs may converge to identical output on this fixture.",
+  "count": 24,
+  "uniqueOutputHashes": 16,
+  "allProgramFingerprintsUnique": true,
+  "allRepeatExact": true,
+  "invalidPremul": 0,
+  "warmRange": [
+    27.850000023841858,
+    43.85000002384186
+  ],
+  "frontier": [
+    {
+      "index": 9,
+      "id": "f4-4.2.1_t1.1.1.1_r0",
+      "passes": 10,
+      "warmMs": 27.850000023841858,
+      "coldMs": 46.30000019073486,
+      "massError": 0.00002519288032121203,
+      "outsideWet": 13114,
+      "sha": "32de5fa705ad7c538c50b661773381aac21520e5ef3e242a9f591d897f010ce0",
+      "png": "search-artistic-program-water-stroke-9.png"
+    },
+    {
+      "index": 11,
+      "id": "f4-4.2.1_t4.2.1.1_r0",
+      "passes": 10,
+      "warmMs": 36.14999985694885,
+      "coldMs": 48.10000014305115,
+      "massError": 0.000012382941174893247,
+      "outsideWet": 17538,
+      "sha": "f81593373fee7491477566b366db0e1bc97c0bad4fa0d1dab8c10034af09cdf6",
+      "png": "search-artistic-program-water-stroke-11.png"
+    }
+  ],
+  "rows": [
+    {
+      "index": 1,
+      "id": "f4-8.4.2.1.1_t1.1.1.1_r0",
+      "passes": 12,
+      "warmMs": 31.800000071525574,
+      "coldMs": 65.90000009536743,
+      "massError": 0.00003362609025936436,
+      "outsideWet": 13252,
+      "sha": "9d02488f91e4891e959a9e0b5da5d842c838d43def1f09899ef78ea15ce548e7",
+      "png": "search-artistic-program-water-stroke-1.png"
+    },
+    {
+      "index": 2,
+      "id": "f4-8.4.2.1.1_t1.1.1.1_r1",
+      "passes": 13,
+      "warmMs": 29.200000047683716,
+      "coldMs": 55.299999952316284,
+      "massError": 0.005671600557061618,
+      "outsideWet": 13323,
+      "sha": "d051a0530aa5c4854a6d469720d6fd45e27967cd7d6fd959df27e1984e4730fc",
+      "png": "search-artistic-program-water-stroke-2.png"
+    },
+    {
+      "index": 3,
+      "id": "f4-8.4.2.1.1_t4.2.1.1_r0",
+      "passes": 12,
+      "warmMs": 38.300000071525574,
+      "coldMs": 54,
+      "massError": 0.000055723235286686545,
+      "outsideWet": 17641,
+      "sha": "34f652ffb33faca73935255434f2f96d77b8b29cc12c88ce98f2e38bdf09158f",
+      "png": "search-artistic-program-water-stroke-3.png"
+    },
+    {
+      "index": 4,
+      "id": "f4-8.4.2.1.1_t4.2.1.1_r1",
+      "passes": 13,
+      "warmMs": 35.10000002384186,
+      "coldMs": 64.20000004768372,
+      "massError": 0.012875376585523624,
+      "outsideWet": 17651,
+      "sha": "afaecc8cb2d1c5febdccda3b0596ed7ebbb04a77f98be961c749f4ab03428b02",
+      "png": "search-artistic-program-water-stroke-4.png"
+    },
+    {
+      "index": 5,
+      "id": "f4-4.2.1.1_t1.1.1.1_r0",
+      "passes": 11,
+      "warmMs": 40.25,
+      "coldMs": 48.80000019073486,
+      "massError": 0.00003362609025936436,
+      "outsideWet": 13252,
+      "sha": "9d02488f91e4891e959a9e0b5da5d842c838d43def1f09899ef78ea15ce548e7",
+      "png": "search-artistic-program-water-stroke-5.png"
+    },
+    {
+      "index": 6,
+      "id": "f4-4.2.1.1_t1.1.1.1_r1",
+      "passes": 12,
+      "warmMs": 38.60000002384186,
+      "coldMs": 66.39999985694885,
+      "massError": 0.005671600557061618,
+      "outsideWet": 13323,
+      "sha": "d051a0530aa5c4854a6d469720d6fd45e27967cd7d6fd959df27e1984e4730fc",
+      "png": "search-artistic-program-water-stroke-6.png"
+    },
+    {
+      "index": 7,
+      "id": "f4-4.2.1.1_t4.2.1.1_r0",
+      "passes": 11,
+      "warmMs": 36.60000002384186,
+      "coldMs": 57.10000014305115,
+      "massError": 0.000055723235286686545,
+      "outsideWet": 17641,
+      "sha": "34f652ffb33faca73935255434f2f96d77b8b29cc12c88ce98f2e38bdf09158f",
+      "png": "search-artistic-program-water-stroke-7.png"
+    },
+    {
+      "index": 8,
+      "id": "f4-4.2.1.1_t4.2.1.1_r1",
+      "passes": 12,
+      "warmMs": 29.34999990463257,
+      "coldMs": 51.89999985694885,
+      "massError": 0.012875376585523624,
+      "outsideWet": 17651,
+      "sha": "afaecc8cb2d1c5febdccda3b0596ed7ebbb04a77f98be961c749f4ab03428b02",
+      "png": "search-artistic-program-water-stroke-8.png"
+    },
+    {
+      "index": 9,
+      "id": "f4-4.2.1_t1.1.1.1_r0",
+      "passes": 10,
+      "warmMs": 27.850000023841858,
+      "coldMs": 46.30000019073486,
+      "massError": 0.00002519288032121203,
+      "outsideWet": 13114,
+      "sha": "32de5fa705ad7c538c50b661773381aac21520e5ef3e242a9f591d897f010ce0",
+      "png": "search-artistic-program-water-stroke-9.png"
+    },
+    {
+      "index": 10,
+      "id": "f4-4.2.1_t1.1.1.1_r1",
+      "passes": 11,
+      "warmMs": 29.74999988079071,
+      "coldMs": 52,
+      "massError": 0.005666796829881582,
+      "outsideWet": 13195,
+      "sha": "b9a8babe3b095e1e7025336d39df573c0a4e10164f000e80af65878320c9c0ff",
+      "png": "search-artistic-program-water-stroke-10.png"
+    },
+    {
+      "index": 11,
+      "id": "f4-4.2.1_t4.2.1.1_r0",
+      "passes": 10,
+      "warmMs": 36.14999985694885,
+      "coldMs": 48.10000014305115,
+      "massError": 0.000012382941174893247,
+      "outsideWet": 17538,
+      "sha": "f81593373fee7491477566b366db0e1bc97c0bad4fa0d1dab8c10034af09cdf6",
+      "png": "search-artistic-program-water-stroke-11.png"
+    },
+    {
+      "index": 12,
+      "id": "f4-4.2.1_t4.2.1.1_r1",
+      "passes": 11,
+      "warmMs": 33,
+      "coldMs": 55.80000019073486,
+      "massError": 0.012866729876599647,
+      "outsideWet": 17546,
+      "sha": "e860273903b33877ce167858603414634d806f15ece6815fbebcf2e3e9bdc0f1",
+      "png": "search-artistic-program-water-stroke-12.png"
+    },
+    {
+      "index": 13,
+      "id": "f8-8.4.2.1.1_t1.1.1.1_r0",
+      "passes": 12,
+      "warmMs": 37.40000009536743,
+      "coldMs": 58.59999990463257,
+      "massError": 0.0000296763590224014,
+      "outsideWet": 13534,
+      "sha": "ec88e65b94eeef4e33be0a9b728ffb1ec80b2aa2e73d17a7fefa1e099dbcfda2",
+      "png": "search-artistic-program-water-stroke-13.png"
+    },
+    {
+      "index": 14,
+      "id": "f8-8.4.2.1.1_t1.1.1.1_r1",
+      "passes": 13,
+      "warmMs": 34.39999997615814,
+      "coldMs": 56.5,
+      "massError": 0.005795002970838459,
+      "outsideWet": 13619,
+      "sha": "a11b9f62ce00ff6ffd29c7a292eb346205dddffc9bb73fdd66a123c42b12d08b",
+      "png": "search-artistic-program-water-stroke-14.png"
+    },
+    {
+      "index": 15,
+      "id": "f8-8.4.2.1.1_t4.2.1.1_r0",
+      "passes": 12,
+      "warmMs": 34.60000002384186,
+      "coldMs": 61.09999990463257,
+      "massError": 0.0000351205831596868,
+      "outsideWet": 19348,
+      "sha": "be46ed2e86ae586d901677941b79f0bb642ec99b25977aa7d11217b83f6f2b99",
+      "png": "search-artistic-program-water-stroke-15.png"
+    },
+    {
+      "index": 16,
+      "id": "f8-8.4.2.1.1_t4.2.1.1_r1",
+      "passes": 13,
+      "warmMs": 37.60000002384186,
+      "coldMs": 57.39999985694885,
+      "massError": 0.013863022893709775,
+      "outsideWet": 19353,
+      "sha": "0740787dbc6aa777c0724461b760b6dedc27683134eb5c68635aaa6350786485",
+      "png": "search-artistic-program-water-stroke-16.png"
+    },
+    {
+      "index": 17,
+      "id": "f8-4.2.1.1_t1.1.1.1_r0",
+      "passes": 11,
+      "warmMs": 43.85000002384186,
+      "coldMs": 49.700000047683716,
+      "massError": 0.0000296763590224014,
+      "outsideWet": 13534,
+      "sha": "ec88e65b94eeef4e33be0a9b728ffb1ec80b2aa2e73d17a7fefa1e099dbcfda2",
+      "png": "search-artistic-program-water-stroke-17.png"
+    },
+    {
+      "index": 18,
+      "id": "f8-4.2.1.1_t1.1.1.1_r1",
+      "passes": 12,
+      "warmMs": 32.39999997615814,
+      "coldMs": 52.90000009536743,
+      "massError": 0.005795002970838459,
+      "outsideWet": 13619,
+      "sha": "a11b9f62ce00ff6ffd29c7a292eb346205dddffc9bb73fdd66a123c42b12d08b",
+      "png": "search-artistic-program-water-stroke-18.png"
+    },
+    {
+      "index": 19,
+      "id": "f8-4.2.1.1_t4.2.1.1_r0",
+      "passes": 11,
+      "warmMs": 28.399999976158142,
+      "coldMs": 51.19999980926514,
+      "massError": 0.0000351205831596868,
+      "outsideWet": 19348,
+      "sha": "be46ed2e86ae586d901677941b79f0bb642ec99b25977aa7d11217b83f6f2b99",
+      "png": "search-artistic-program-water-stroke-19.png"
+    },
+    {
+      "index": 20,
+      "id": "f8-4.2.1.1_t4.2.1.1_r1",
+      "passes": 12,
+      "warmMs": 33.65000009536743,
+      "coldMs": 51.60000014305115,
+      "massError": 0.013863022893709775,
+      "outsideWet": 19353,
+      "sha": "0740787dbc6aa777c0724461b760b6dedc27683134eb5c68635aaa6350786485",
+      "png": "search-artistic-program-water-stroke-20.png"
+    },
+    {
+      "index": 21,
+      "id": "f8-4.2.1_t1.1.1.1_r0",
+      "passes": 10,
+      "warmMs": 40.14999997615814,
+      "coldMs": 54,
+      "massError": 0.00003223834685184279,
+      "outsideWet": 13538,
+      "sha": "5eac96aa951c487ab8f1276e6d49b94f037a9d6567fc2c0cd0920c11eb2441be",
+      "png": "search-artistic-program-water-stroke-21.png"
+    },
+    {
+      "index": 22,
+      "id": "f8-4.2.1_t1.1.1.1_r1",
+      "passes": 11,
+      "warmMs": 30.700000047683716,
+      "coldMs": 50.80000019073486,
+      "massError": 0.00576489961384441,
+      "outsideWet": 13617,
+      "sha": "ef009502bd7ef3e8a832c168378f93abc4fec28f573d02bd9158943cf7554c58",
+      "png": "search-artistic-program-water-stroke-22.png"
+    },
+    {
+      "index": 23,
+      "id": "f8-4.2.1_t4.2.1.1_r0",
+      "passes": 10,
+      "warmMs": 37,
+      "coldMs": 57.799999952316284,
+      "massError": 0.000035654330624135255,
+      "outsideWet": 18830,
+      "sha": "6db8e11fb4ee67f757072a730e36e0cd365b8741e6f402ce1be12e64e7d04cb4",
+      "png": "search-artistic-program-water-stroke-23.png"
+    },
+    {
+      "index": 24,
+      "id": "f8-4.2.1_t4.2.1.1_r1",
+      "passes": 11,
+      "warmMs": 32.050000071525574,
+      "coldMs": 49.5,
+      "massError": 0.013564978309570597,
+      "outsideWet": 18839,
+      "sha": "2f6ef9e2139d775fd5a83920ae10b0557291bd58d7e242e1078baff02e092873",
+      "png": "search-artistic-program-water-stroke-24.png"
+    }
+  ]
+}
