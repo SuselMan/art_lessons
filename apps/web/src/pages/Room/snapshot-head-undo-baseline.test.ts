@@ -3,7 +3,7 @@ import {SNAPSHOT_SEQ_INTERVAL,type Operation} from '@grafetto/shared'
 import {createTestEngine,dab,makeStroke} from '../../engine/testing/engineTestUtils'
 import {decodeLayerTiles} from '../../engine/src/oplog/snapshotCodec'
 import {restoreRoomState,type RestoreRoomStateDeps} from './restoreRoomState'
-import {walkHistoryBackward} from './net/snapshotRestore'
+import {HISTORY_PAGE_LIMIT,walkHistoryBackward} from './net/snapshotRestore'
 import {createPendingPreviews} from './net/pendingPreviews'
 import {createReplayGate} from './replayGate'
 vi.mock('@sentry/react',()=>({captureException:vi.fn()}))
@@ -13,7 +13,7 @@ it.each([false,true])('cold restore includes head20 in Undo/Redo, already in tai
  for(const op of operations)source.appendOperation(op,'remote')
  const snapshot=source.bakeLayerByFullReplay('L');expect(snapshot).not.toBeNull();const tiles=decodeLayerTiles(snapshot!,0).tiles
  const paint=vi.spyOn(reader as unknown as {_paintDabs:(...args:unknown[])=>unknown},'_paintDabs');const queries:number[]=[];let backfill=Promise.resolve()
- const deps:RestoreRoomStateDeps={boardId:'snapshot-head',restoreFromSnapshot:async(engine)=>{engine.restoreLayerFromSnapshot('L',tiles,20);return'restored'},backfillHistory:(_room,engine,from)=>{backfill=walkHistoryBackward('snapshot-head',from,SNAPSHOT_SEQ_INTERVAL,page=>{const before=paint.mock.calls.length;engine.absorbHistoricalOperations(page);expect(paint.mock.calls.length).toBe(before)},async(_room,before,limit)=>{queries.push(before);return operations.filter(op=>op.seq!<before).slice(-limit)});return backfill},applyRemoteOp:op=>reader.appendOperation(op,'remote'),syncFromLogNow:vi.fn(),markJoinRestoreDone:vi.fn(),dispatchParticipants:vi.fn(),setRestoreFailure:vi.fn(),setRoomContentReady:vi.fn(),finishOpenTimer:vi.fn(),notifyReplayIncomplete:vi.fn(),getSnapshotUploader:()=>null,latestKnownSeqRef:{current:20},replayIncompleteRef:{current:false},pendingPreviewsRef:{current:createPendingPreviews()},openTimerRef:{current:null},replayGate:createReplayGate()}
+ const deps:RestoreRoomStateDeps={boardId:'snapshot-head',restoreFromSnapshot:async(engine)=>{engine.restoreLayerFromSnapshot('L',tiles,20);return'restored'},backfillHistory:(_room,engine,from)=>{backfill=walkHistoryBackward('snapshot-head',from,SNAPSHOT_SEQ_INTERVAL,page=>{const before=paint.mock.calls.length;engine.absorbHistoricalOperations(page);expect(paint.mock.calls.length).toBe(before)},async(_room,before,limit=HISTORY_PAGE_LIMIT)=>{queries.push(before);return operations.filter(op=>op.seq!<before).slice(-limit)});return backfill},applyRemoteOp:op=>reader.appendOperation(op,'remote'),syncFromLogNow:vi.fn(),markJoinRestoreDone:vi.fn(),dispatchParticipants:vi.fn(),setRestoreFailure:vi.fn(),setRoomContentReady:vi.fn(),finishOpenTimer:vi.fn(),notifyReplayIncomplete:vi.fn(),getSnapshotUploader:()=>null,latestKnownSeqRef:{current:20},replayIncompleteRef:{current:false},pendingPreviewsRef:{current:createPendingPreviews()},openTimerRef:{current:null},replayGate:createReplayGate()}
  try{await restoreRoomState(reader,{latestSnapshotSeq:20,tailOperations:tailHasHead?[operations[19]]:[],participants:[],palette:[],frozen:false},{mode:'join',alreadyHadSeq:0},deps);await backfill
   const ids=reader.getOperations().filter(op=>op.type==='stroke').map(op=>op.id),undo=reader.undo()
   console.log(JSON.stringify({baseline:'cold snapshot last stroke20, real engine, production backfill exclusive cursor',queries,knownStrokes:ids.length,hasHead20:ids.includes('stroke-20'),actualUndoTarget:undo?.id,expectedUndoTarget:'stroke-20'}))
