@@ -1,0 +1,80 @@
+{
+  "source": "85e83641",
+  "scope": "Two same-owner browser identities on allocated real GPU endpoints (see identity); trusted held gestures; newest socket closes while room frozen, independent observer retains older gesture; accepted older owner operation and exact own-GPU replay",
+  "cases": [
+    {
+      "name": "newest-close-keeps-older-owner-held-film",
+      "changedRGB": 432,
+      "pass": true
+    },
+    {
+      "name": "older-owner-frozen-operation-exact",
+      "proof": {
+        "layerId": "qa-same-owner-e0470be9-9838-4196-9e4b-03a434b035aa",
+        "sourceHiddenReplay": false,
+        "oracleHiddenReplay": false,
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "86509a7e6dde2f9e472a5c8453c701c0e35cfeafda586cc27484829c0eeff9ba",
+        "oracleHash": "86509a7e6dde2f9e472a5c8453c701c0e35cfeafda586cc27484829c0eeff9ba",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 820,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    },
+    {
+      "name": "older-owner-frozen-operation-exact",
+      "proof": {
+        "layerId": "qa-same-owner-e0470be9-9838-4196-9e4b-03a434b035aa",
+        "sourceHiddenReplay": false,
+        "oracleHiddenReplay": false,
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "86509a7e6dde2f9e472a5c8453c701c0e35cfeafda586cc27484829c0eeff9ba",
+        "oracleHash": "86509a7e6dde2f9e472a5c8453c701c0e35cfeafda586cc27484829c0eeff9ba",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 820,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "b51dd3cd-252d-4f44-a3fe-a0791496870f",
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "b51dd3cd-252d-4f44-a3fe-a0791496870f",
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "dd1444c2-5811-415b-b9c5-0d8334dc1b70",
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "beforeClose": [
+    {
+      "strokeId": "YoUPLwmWcq",
+      "received": 4,
+      "hasFilm": true
+    },
+    {
+      "strokeId": "D-QrRbbTL7",
+      "received": 4,
+      "hasFilm": true
+    }
+  ],
+  "pass": true,
+  "deviceScope": "Three isolated browser contexts on one physical AMD Vega GPU; Surface unreachable, not two-device proof",
+  "setupCorrection": "First attempt before any DOWN timed out on outdated Participants menu selector. Actual sidebar Open Class selector used for successful run. Same own fixture retained two unused empty layers."
+}
