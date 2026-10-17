@@ -21,9 +21,10 @@ it('does not capture an exact-history cache from physical water still awaiting a
   // The incoming accepted peer op is inserted before the pending local op,
   // after that local material was already painted. Normal join-window repair
   // remains queued; this is a real public append path, not a seeded flag.
+  engine.suspendDisplay() // Keep the actual accepted-order replay owed to this display batch.
   engine.appendOperation(wet('accepted-before-local','C',3),'remote')
   engine.confirmOperation(own.id,4)
-  expect(e._unsettledLayers.has('L')).toBe(true)
+  expect(e._unsettledLayers.has('L') || e._pendingRebuilds.has('L')).toBe(true)
   expect(e._log.entries.findIndex(x=>x.op.id==='accepted-before-local')).toBeLessThan(e._log.entries.findIndex(x=>x.op.id===own.id))
   e._puddle.canonicalTiles(e._layers.get('L')!) // Finish the physical goal, not journal repair.
   const layer=(e._puddle as unknown as {layers:Map<ILayerBuffer,{goalReady:boolean;dirty:boolean}>}).layers.get(e._layers.get('L')!)!
@@ -33,7 +34,7 @@ it('does not capture an exact-history cache from physical water still awaiting a
   simulateStrokeStart(engine,10,12)
   expect(e._strokeId).toBeTruthy()
   expect(e._puddle.state.undoCaptures).toBe(before)
-  simulateStrokeMove(engine,15,12);simulateStrokeEnd(engine,15,12)
+  simulateStrokeMove(engine,15,12);simulateStrokeEnd(engine,15,12);engine.resumeDisplay()
  }finally{engine.destroy()}
 })
 it('does not capture a source whose accepted Undo is waiting in a display-batch repair',async()=>{

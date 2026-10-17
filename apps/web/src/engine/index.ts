@@ -3473,7 +3473,11 @@ export class PencilEngine implements PencilEngineAPI {
       // the accepted wash's usual joining window.
       if (this._cancelledPeerLayers.delete(layerId) && this._wash?.layerId === layerId) this._clearWash(false)
       const wash = this._wash
-      if (wash && wash.layerId === layerId) {
+      // M70 water belongs to the controller and is reconstructed by the
+      // recorded journal. The legacy scratch joining window must not delay
+      // an owed accepted-order repair (including CPU-parked M70 material).
+      const m70Material = wash?.id === 'm70:'+layerId && this._puddle?.hasMaterial(this._layers.get(layerId)!)
+      if (wash && wash.layerId === layerId && !m70Material) {
         const openFor = WASH_JOIN_MS - (performance.now() - wash.endedAt)
         if (openFor > 0) { this._retrySettleIn(openFor + 1); continue }
       }
