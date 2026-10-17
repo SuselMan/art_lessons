@@ -1,0 +1,207 @@
+{
+  "source": "3ee37518+mode6-neutral-QA",
+  "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x000046D1) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "inputHashes": {
+    "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+    "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+    "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+    "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+  },
+  "mode6Highp": {
+    "requested": true,
+    "explicitRoundRGBA": true,
+    "neutralRimPatch": true,
+    "outputAnchorCount": 1,
+    "rimAnchorCount": 1,
+    "samplerCount": 6,
+    "originalSHA": "b53ec815e0e503925fa25ec9ac2f7105d6d79dd102a36dfa9f68953ae68c2461",
+    "patchedSHA": "62a597b0a2375bf8598be940c920f5c8861cf997f1b3b0a6c8775a1dde855722",
+    "selectedCalls": 10,
+    "otherCalls": 582,
+    "initializedBaseline": true,
+    "restoration": {
+      "wrapperExact": true,
+      "cacheExact": true,
+      "cacheDescriptorRestored": true,
+      "deletedOwnedProgram": true
+    },
+    "uniformKeys": [
+      "u_a",
+      "u_b",
+      "u_c",
+      "u_k",
+      "u_mode",
+      "u_tau",
+      "u_dir",
+      "u_d",
+      "u_origin",
+      "u_size",
+      "u_band",
+      "u_world",
+      "u_mode6Resolution",
+      "u_mode6DirPx",
+      "u_mode6DiscreteGrid"
+    ]
+  },
+  "mode11Precision": {
+    "highpSamplers": true,
+    "roundRGBA": false,
+    "anchorCount": 1,
+    "samplerCount": 6,
+    "originalSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+    "patchedSHA": "d922bcd3be045a50479c2ed875567eea74d6297b28d77b55978bc05bef03c1b1",
+    "uniformKeys": [
+      "u_a",
+      "u_b",
+      "u_c",
+      "u_k",
+      "u_mode",
+      "u_tau",
+      "u_dir",
+      "u_d",
+      "u_e",
+      "u_origin",
+      "u_size",
+      "u_band",
+      "u_world"
+    ],
+    "selectedCalls": 5,
+    "otherCalls": 587,
+    "restoration": {
+      "wrapperExact": true,
+      "propertiesExact": true,
+      "deletedOwnedProgram": true
+    }
+  },
+  "stageDiffs": {
+    "referenceP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9",
+      "referenceHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9"
+    },
+    "referenceC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2",
+      "referenceHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2"
+    },
+    "solvedP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "b981eafd04c29331d786f58bbb33ca2ef8a229646c1ff2a5ebc772abad8769f3",
+      "referenceHash": "b981eafd04c29331d786f58bbb33ca2ef8a229646c1ff2a5ebc772abad8769f3"
+    },
+    "solvedC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "dd8ef2831e80803af3281274b15676c8cc8b3caa98d187349ff818c7f4d4a6be",
+      "referenceHash": "dd8ef2831e80803af3281274b15676c8cc8b3caa98d187349ff818c7f4d4a6be"
+    },
+    "solvedCoverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+      "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+    },
+    "coarse:gate": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "7ab82cb851ef6a91c742a698cbe96cbb4741238b30167b80be1e33c3e1ead411",
+      "referenceHash": "7ab82cb851ef6a91c742a698cbe96cbb4741238b30167b80be1e33c3e1ead411"
+    },
+    "coarse:beforeP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "70d4d4184c29d1c5980bd0602f0d227c066169abec45dfb5fff2a2042e0d04c3",
+      "referenceHash": "70d4d4184c29d1c5980bd0602f0d227c066169abec45dfb5fff2a2042e0d04c3"
+    },
+    "coarse:afterP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "44d45b1828308e1630e629b4862dd6d58eeaba561813012a96164236f60abe1c",
+      "referenceHash": "44d45b1828308e1630e629b4862dd6d58eeaba561813012a96164236f60abe1c"
+    },
+    "coarse:beforeC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "11932746a2a573b25304022b60f7c805b78f0afc9da1a290a1b7f5a46419f242",
+      "referenceHash": "11932746a2a573b25304022b60f7c805b78f0afc9da1a290a1b7f5a46419f242"
+    },
+    "coarse:afterC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "3dd998c5751070d060f83be2500df59dc6f36db466761d1af9de0e47df582e89",
+      "referenceHash": "3dd998c5751070d060f83be2500df59dc6f36db466761d1af9de0e47df582e89"
+    }
+  },
+  "diffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "e5f6361d6ef7a1077d095bd947b6c9018be74a5c312dc5b151d4800c4824e5df",
+      "referenceHash": "e5f6361d6ef7a1077d095bd947b6c9018be74a5c312dc5b151d4800c4824e5df"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "68857883f0620e1b6e7dd692fada004a44e689168d2199b9db10fd99ac869e5a",
+      "referenceHash": "68857883f0620e1b6e7dd692fada004a44e689168d2199b9db10fd99ac869e5a"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+    }
+  },
+  "errors": [],
+  "lost": false,
+  "boundary": {
+    "selection": {
+      "kind": "band",
+      "ordinal": 1,
+      "maxBytes": 16777216
+    },
+    "capture": {
+      "name": "band",
+      "width": 2048,
+      "height": 1536,
+      "bytes": 12582912,
+      "filter": "nearest",
+      "pointSampling": false,
+      "sha256": "c51e4f1d235c9bb4b5025670d57c1a69a2761132019c287540b6017017b98fef"
+    },
+    "restoration": {
+      "ownershipExact": true,
+      "restored": true
+    }
+  },
+  "qualification": "QA neutral rimPatch assignment removes procedural rim path; paired equality can localize this path/compiler effects, not prove a specific hash cause. Both explicitRGBAround and highp retained; own AB exact only, no performance claim."
+}
