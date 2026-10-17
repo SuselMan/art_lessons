@@ -5,5 +5,5 @@ function load(name){let file=path.resolve(base,name);if(!file.endsWith('.ts'))fi
 const {definitions}=load('index'),definition=definitions.find(d=>d.id==='wgsl-d2q9-bgk');
 assert.deepEqual(definition.configs.slice(0,2),[{grid:256,steps:48},{grid:512,steps:48}]);
 assert.deepEqual(definition.configs.slice(2),[{grid:256,steps:16,diffusion:0.015},{grid:128,steps:24,diffusion:0.025}]);
-assert.equal(definitions.length,3);for(const c of definition.configs){assert.equal(1024%c.grid,0);assert.ok(c.steps>=1&&c.steps<=256);assert.ok((c.diffusion??0.12)>=0&&(c.diffusion??0.12)<=0.24)}
+assert.equal(definitions.length,4);for(const c of definition.configs){assert.equal(1024%c.grid,0);assert.ok(c.steps>=1&&c.steps<=256);assert.ok((c.diffusion??0.12)>=0&&(c.diffusion??0.12)<=0.24)}
 console.log('PASS: original configs preserved; two parameter experiments, no new algorithms/kernels')

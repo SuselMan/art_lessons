@@ -3,7 +3,7 @@ export const BUFFER={MAP_READ:0x0001,COPY_SRC:0x0004,COPY_DST:0x0008,UNIFORM:0x0
 /** Research-only: dense top-left rows, premultiplied RGBA8, scalar water/paper. */
 export type {AlgorithmInput as Input} from '../protocol'
 import type {AlgorithmInput as Input} from '../protocol'
-export type Output = {buffer:GPUBuffer;width:number;height:number;bytesPerRow:number}
+export type Output = {width:number;height:number;bytesPerRow:number}&({buffer:GPUBuffer;texture?:never}|{texture:GPUTexture;buffer?:never})
 export interface Candidate {
   readonly metadata:Readonly<Record<string,unknown>>
   /** Upload and GPU completion are excluded from run timing. Re-upload resets repeats. */

@@ -1,0 +1,18 @@
+{
+  "id": "wgsl-integer-diffusion-texture",
+  "status": "CPU READY; GPU not tested",
+  "files": {
+    "docs/qa/prototypes/805-algorithm-search/webgpu/contract.ts": "ab819f1fb9311952e72aab7a54cc374823b5884a1ab464bc089cdac2c78feccb",
+    "docs/qa/prototypes/805-algorithm-search/webgpu/index.ts": "28b207d1d056de14401e201a888b918196fc01d9c1c300a1c23b211ae7a40c5c",
+    "docs/qa/prototypes/805-algorithm-search/webgpu/diffusion-texture.ts": "43fe8636f940c11ef3caf80e0ae8423d2f63b68f02c87de604de6a3928dcb9ec",
+    "docs/qa/prototypes/805-algorithm-search/webgpu/cpu.test.cjs": "21525c846e0dd28cfefde6e64370d00bfdfcc391eec2b8d37f08586d8a2796a2"
+  },
+  "cpuTests": 8,
+  "arithmetic": "WGSL_DIRECT weight/mixPixel verbatim; source/destination access only",
+  "output": "GPUTexture; copyTextureToBuffer only in readback aftertiming",
+  "unchangedDefaultIds": [
+    "wgsl-integer-diffusion-direct",
+    "wgsl-integer-diffusion-tiled4",
+    "wgsl-d2q9-bgk"
+  ]
+}
