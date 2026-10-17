@@ -271,6 +271,13 @@ topics:
       Незавершённый генератор нельзя парковать как неактивный источник.
     modules: [apps/web/src/engine/src/buffers, apps/web/src/engine/src/oplog, apps/web/src/engine]
 
+  - id: watercolor-worker
+    issue: 803
+    level: 4
+    parent: watercolor
+    title: Worker, главный поток и общий GPU акварели
+    adr: [011-watercolor]
+
   - id: boards-and-class
     level: 3
     parent: rooms-in-memory
