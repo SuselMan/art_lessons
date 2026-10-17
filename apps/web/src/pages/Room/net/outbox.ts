@@ -320,7 +320,7 @@ export class Outbox {
         // has moved to another room. The entry stays persisted under its own
         // roomId and goes out again — deduped by id — when that room is next
         // opened.
-        if (this.disposed) return
+        if (this.disposed || this.canSend && !this.canSend()) return
         // (#298, #495) Some rejections aren't verdicts on the operation —
         // the socket hadn't joined yet, or the server threw while recording.
         // Treat those exactly like a timeout: back off and try again, rather
@@ -332,8 +332,14 @@ export class Outbox {
         // costs somebody a stroke.
         if (!result.ok && isTransientReject(result.reason)) throw new Error(result.reason)
         this.pending.delete(opId)
-        this.onPendingChange?.(this.pending.size, this.stalled.size)
-        this.settleIdleWaiters()
+        // Settle against this board before yielding to IndexedDB. A page turn
+        // during deletion must neither invoke the next board's refs nor lose
+        // a definitive target_gone recovery payload.
+        this.onSettled?.(entry.op, result)
+        if (!this.disposed) {
+          this.onPendingChange?.(this.pending.size, this.stalled.size)
+          this.settleIdleWaiters()
+        }
         try {
           await this.storage.delete(opId)
         } catch (err) {
@@ -341,19 +347,21 @@ export class Outbox {
           // server dedups it by id — see the class doc comment.
           console.error('outbox: could not clear persisted operation', opId, err)
         }
-        this.onSettled?.(entry.op, result)
       } catch {
         if (this.disposed) return
         entry.attempts += 1
         await this.persist(entry)
+        if (this.disposed || this.canSend && !this.canSend()) return
         if (entry.attempts >= MAX_ATTEMPTS) {
           // Stop retrying on our own — but keep it queued and persisted, so
           // the next reconnect/join gets to try again rather than the work
           // being thrown away. See MAX_ATTEMPTS.
           this.stalled.add(opId)
-          this.onPendingChange?.(this.pending.size, this.stalled.size)
           this.onStalled?.(entry.op)
-          this.settleIdleWaiters()
+          if (!this.disposed) {
+            this.onPendingChange?.(this.pending.size, this.stalled.size)
+            this.settleIdleWaiters()
+          }
           return
         }
         const delay = Math.min(INITIAL_BACKOFF_MS * 2 ** (entry.attempts - 1), MAX_BACKOFF_MS)
