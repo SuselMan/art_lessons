@@ -1,0 +1,422 @@
+{
+  "source": "509fb989",
+  "qualification": "QA-only combined5sampler highp+R outputquantization. First18 crossGPU exact and unchanged17prefix; not proof of full material determinism or product-safe retrospective change.",
+  "17": {
+    "inputExact": true,
+    "forcedExact": true,
+    "fullPlaneByteExact": true,
+    "perRGBA": {
+      "R": {
+        "changed": 0,
+        "max": 0
+      },
+      "G": {
+        "changed": 0,
+        "max": 0
+      },
+      "B": {
+        "changed": 0,
+        "max": 0
+      },
+      "A": {
+        "changed": 0,
+        "max": 0
+      }
+    },
+    "capture": {
+      "name": "outward:17",
+      "width": 2048,
+      "height": 1536,
+      "bytes": 12582912,
+      "filter": "nearest",
+      "pointSampling": false,
+      "sha256": "427a8d811c15ec60c3e6d17f1c49e0e5c417089368567a8664b0250b38201b76"
+    },
+    "highpMetadata": {
+      "requested": true,
+      "highpSamplers": true,
+      "roundR": true,
+      "outputAnchorCount": 1,
+      "samplerCount": 5,
+      "samplersChanged": 5,
+      "originalFragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+      "patchedFragmentSHA": "5900eb7dd26ef19861155bda96eb551b2137dceaa544965ebdd7e31703cb6b32",
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "uniformKeys": [
+        "u_wcNoiseTex",
+        "u_cost",
+        "u_paperHeightMap",
+        "u_resolution",
+        "u_paperOrigin",
+        "u_paperTexSize",
+        "u_paperScale",
+        "u_climb",
+        "u_floor",
+        "u_costMax",
+        "u_film",
+        "u_dryCost",
+        "u_stride",
+        "u_foreignFilm",
+        "u_foreignWet"
+      ],
+      "modifiedProperties": [
+        "_waterFrontProg",
+        "_waterFrontUni",
+        "_waterFrontPosLoc"
+      ],
+      "qualification": "Only owned native water-front program replaced (optional sampler precision / R output quantization). Exported shader strings and prefix build/jump programs unchanged. QA control, not product fix.",
+      "restoration": {
+        "restored": true,
+        "ownershipExact": true,
+        "deletedOwnedProgram": true
+      }
+    },
+    "sameGPU": {
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9",
+          "referenceHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2",
+          "referenceHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1c64c974413027109374d6823d577bb99ef76c94fc9468d71db65af663a0980e",
+          "referenceHash": "1c64c974413027109374d6823d577bb99ef76c94fc9468d71db65af663a0980e"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "5b6686790e5d3904232b6ff9f2028fd35ca47c5d73b31aaadd3601b18c37bc41",
+          "referenceHash": "5b6686790e5d3904232b6ff9f2028fd35ca47c5d73b31aaadd3601b18c37bc41"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "404ae07160a07bb8400a00b19f758d697d7811a6a6f58182fa628ab843cd6745",
+          "referenceHash": "404ae07160a07bb8400a00b19f758d697d7811a6a6f58182fa628ab843cd6745"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d56edb929ca9f12a3cf9b9cb375af37057794ffb0a2278f4e817f7565b098c1d",
+          "referenceHash": "d56edb929ca9f12a3cf9b9cb375af37057794ffb0a2278f4e817f7565b098c1d"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "3bcafb3d355c7fa8e9dfe23d4a2eb562f5b08831dbbf14d2eff28bb9b86d92d3",
+          "referenceHash": "3bcafb3d355c7fa8e9dfe23d4a2eb562f5b08831dbbf14d2eff28bb9b86d92d3"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "02500fe6f3426e514f104cd484830f29408fd225db4f2267f7b74043988edfc7",
+          "referenceHash": "02500fe6f3426e514f104cd484830f29408fd225db4f2267f7b74043988edfc7"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "8756b27abb99541015b3747a85a2ab27bc02bcff7d8e29b83da95c67dd9bc99e",
+          "referenceHash": "8756b27abb99541015b3747a85a2ab27bc02bcff7d8e29b83da95c67dd9bc99e"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "0c01f3e2b716401e18245d9d3c53653556608afa5201d021943d035c070e189a",
+          "referenceHash": "0c01f3e2b716401e18245d9d3c53653556608afa5201d021943d035c070e189a"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "highFloat": {
+        "precision": 23,
+        "rangeMin": 127,
+        "rangeMax": 127
+      },
+      "dither": {
+        "requestedOff": false,
+        "initial": true,
+        "atCapture": true
+      },
+      "errors": []
+    },
+    "finalCrossGPUHashesOnly": {
+      "p": {
+        "samsung": "8756b27abb99541015b3747a85a2ab27bc02bcff7d8e29b83da95c67dd9bc99e",
+        "intel": "0ade849aac0db2a5ba7b8dbf4605f559e2f7b6a0a8feb17bf9e29397049a90c8",
+        "exact": false
+      },
+      "c": {
+        "samsung": "0c01f3e2b716401e18245d9d3c53653556608afa5201d021943d035c070e189a",
+        "intel": "d9adcc38a561d4e9e5fd5bad30ab3e41f2fa651938727f658fe99fbb8d6fb85d",
+        "exact": false
+      },
+      "coverage": {
+        "samsung": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+        "intel": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+        "exact": true
+      }
+    }
+  },
+  "18": {
+    "inputExact": true,
+    "forcedExact": true,
+    "fullPlaneByteExact": true,
+    "perRGBA": {
+      "R": {
+        "changed": 0,
+        "max": 0
+      },
+      "G": {
+        "changed": 0,
+        "max": 0
+      },
+      "B": {
+        "changed": 0,
+        "max": 0
+      },
+      "A": {
+        "changed": 0,
+        "max": 0
+      }
+    },
+    "capture": {
+      "name": "outward:18",
+      "width": 2048,
+      "height": 1536,
+      "bytes": 12582912,
+      "filter": "linear",
+      "pointSampling": false,
+      "sha256": "9fc03fba47fb6e57e13af44270541370334aac9ea26e810f8f2f94d4df65d3a7"
+    },
+    "highpMetadata": {
+      "requested": true,
+      "highpSamplers": true,
+      "roundR": true,
+      "outputAnchorCount": 1,
+      "samplerCount": 5,
+      "samplersChanged": 5,
+      "originalFragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+      "patchedFragmentSHA": "5900eb7dd26ef19861155bda96eb551b2137dceaa544965ebdd7e31703cb6b32",
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "uniformKeys": [
+        "u_wcNoiseTex",
+        "u_cost",
+        "u_paperHeightMap",
+        "u_resolution",
+        "u_paperOrigin",
+        "u_paperTexSize",
+        "u_paperScale",
+        "u_climb",
+        "u_floor",
+        "u_costMax",
+        "u_film",
+        "u_dryCost",
+        "u_stride",
+        "u_foreignFilm",
+        "u_foreignWet"
+      ],
+      "modifiedProperties": [
+        "_waterFrontProg",
+        "_waterFrontUni",
+        "_waterFrontPosLoc"
+      ],
+      "qualification": "Only owned native water-front program replaced (optional sampler precision / R output quantization). Exported shader strings and prefix build/jump programs unchanged. QA control, not product fix.",
+      "restoration": {
+        "restored": true,
+        "ownershipExact": true,
+        "deletedOwnedProgram": true
+      }
+    },
+    "sameGPU": {
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9",
+          "referenceHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2",
+          "referenceHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1c64c974413027109374d6823d577bb99ef76c94fc9468d71db65af663a0980e",
+          "referenceHash": "1c64c974413027109374d6823d577bb99ef76c94fc9468d71db65af663a0980e"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "5b6686790e5d3904232b6ff9f2028fd35ca47c5d73b31aaadd3601b18c37bc41",
+          "referenceHash": "5b6686790e5d3904232b6ff9f2028fd35ca47c5d73b31aaadd3601b18c37bc41"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "404ae07160a07bb8400a00b19f758d697d7811a6a6f58182fa628ab843cd6745",
+          "referenceHash": "404ae07160a07bb8400a00b19f758d697d7811a6a6f58182fa628ab843cd6745"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d56edb929ca9f12a3cf9b9cb375af37057794ffb0a2278f4e817f7565b098c1d",
+          "referenceHash": "d56edb929ca9f12a3cf9b9cb375af37057794ffb0a2278f4e817f7565b098c1d"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "3bcafb3d355c7fa8e9dfe23d4a2eb562f5b08831dbbf14d2eff28bb9b86d92d3",
+          "referenceHash": "3bcafb3d355c7fa8e9dfe23d4a2eb562f5b08831dbbf14d2eff28bb9b86d92d3"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "02500fe6f3426e514f104cd484830f29408fd225db4f2267f7b74043988edfc7",
+          "referenceHash": "02500fe6f3426e514f104cd484830f29408fd225db4f2267f7b74043988edfc7"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "8756b27abb99541015b3747a85a2ab27bc02bcff7d8e29b83da95c67dd9bc99e",
+          "referenceHash": "8756b27abb99541015b3747a85a2ab27bc02bcff7d8e29b83da95c67dd9bc99e"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "0c01f3e2b716401e18245d9d3c53653556608afa5201d021943d035c070e189a",
+          "referenceHash": "0c01f3e2b716401e18245d9d3c53653556608afa5201d021943d035c070e189a"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "highFloat": {
+        "precision": 23,
+        "rangeMin": 127,
+        "rangeMax": 127
+      },
+      "dither": {
+        "requestedOff": false,
+        "initial": true,
+        "atCapture": true
+      },
+      "errors": []
+    },
+    "finalCrossGPUHashesOnly": {
+      "p": {
+        "samsung": "8756b27abb99541015b3747a85a2ab27bc02bcff7d8e29b83da95c67dd9bc99e",
+        "intel": "0ade849aac0db2a5ba7b8dbf4605f559e2f7b6a0a8feb17bf9e29397049a90c8",
+        "exact": false
+      },
+      "c": {
+        "samsung": "0c01f3e2b716401e18245d9d3c53653556608afa5201d021943d035c070e189a",
+        "intel": "d9adcc38a561d4e9e5fd5bad30ab3e41f2fa651938727f658fe99fbb8d6fb85d",
+        "exact": false
+      },
+      "coverage": {
+        "samsung": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+        "intel": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+        "exact": true
+      }
+    }
+  }
+}
