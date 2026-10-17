@@ -1,0 +1,69 @@
+{
+  "runtimeFreeze": "82313a4c",
+  "head": "65528e705b78adb192f6aca727e27e9700d1118f",
+  "resolverSha256": "7d98c8d485b5356bf41142debcba4775b5b5b53c746c8f8ffde7d1c7da737efe",
+  "kind": "VPS CPU, readonly actual OperationLog; not native UI or GPU latency",
+  "fixture": "A independent pools; Dry; B consumers; UndoDry; Undo all A; repeated RedoDry then UndoDry; time last watercolorEffectiveOperations only",
+  "samples": [
+    {
+      "source": "728-watercolor-room-integration",
+      "independentPools": 240,
+      "entries": 728,
+      "samples": [
+        {
+          "ms": 355.05,
+          "waterOnly": 240
+        },
+        {
+          "ms": 260.24,
+          "waterOnly": 240
+        },
+        {
+          "ms": 255.4,
+          "waterOnly": 240
+        }
+      ]
+    },
+    {
+      "source": "728-watercolor-room-integration",
+      "independentPools": 480,
+      "entries": 1448,
+      "samples": [
+        {
+          "ms": 1178.83,
+          "waterOnly": 480
+        },
+        {
+          "ms": 1239.57,
+          "waterOnly": 480
+        },
+        {
+          "ms": 1508.9,
+          "waterOnly": 480
+        }
+      ]
+    },
+    {
+      "source": "728-watercolor-room-integration",
+      "independentPools": 960,
+      "entries": 2888,
+      "samples": [
+        {
+          "ms": 6180.27,
+          "waterOnly": 960
+        },
+        {
+          "ms": 6230.01,
+          "waterOnly": 960
+        },
+        {
+          "ms": 5951.18,
+          "waterOnly": 960
+        }
+      ]
+    }
+  ],
+  "allExpectedWaterRetained": true,
+  "concurrency": "one benchmark process, shared QA backend; native soak concurrently active; no isolated perf claim",
+  "processExited": true
+}
