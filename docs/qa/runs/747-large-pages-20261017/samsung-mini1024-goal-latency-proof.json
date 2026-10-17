@@ -1,0 +1,389 @@
+{
+  "date": "2026-10-17",
+  "device": "Samsung Galaxy Tab S7+ SM-T970 / Adreno650",
+  "actualStand": "Existing Mini5383 watercolor-native-front8?mode=morph&v=70&view=live",
+  "version": "mini-M70-morph",
+  "pageSize": [
+    1024,
+    1024
+  ],
+  "scope": "Capture trusted pointerUP before engine handler to natural goalReady && !calculating && !drawing && target.done for current epoch, stable2RAF. Host/browser response, not pure GPU. No forced finish/Dry and no waiting for120s presentation. Fresh engine/incognito context each sample. ChromeTabbedActivity foreground was activated using own ordinary bootstrap tab; initialCustomTabActivity attempts had0strokes and are excluded.",
+  "approvedPreset": "approved-m70-r2-20261016",
+  "assetProof": [
+    {
+      "asset": "/mini-assets/mini-VF3ACYIS.js",
+      "sha256": "2fed32ad961d8dd78db4f7f54a82663a016e2ec93b0f07e72b0abcd68be542af",
+      "unchanged": true
+    }
+  ],
+  "cases": [
+    {
+      "kind": "short",
+      "repeat": 1,
+      "inputSpecSHA": "53a1333904fd0a5ab298ba80a40e8cbb85f1723979a64f4483d1f872d64b39de",
+      "brushSize": 90,
+      "worldPoints": [
+        [
+          400,
+          470
+        ],
+        [
+          430,
+          485
+        ],
+        [
+          460,
+          500
+        ],
+        [
+          490,
+          515
+        ],
+        [
+          520,
+          530
+        ]
+      ],
+      "settings": {
+        "paint": "PB29",
+        "size": "90",
+        "water": "95",
+        "pigment": "34",
+        "color": "#2a3b97"
+      },
+      "captureUPToNaturalGoal2RAFMs": 783.2000000476837,
+      "panelLatencyMs": 783,
+      "panelMessage": "Цель готова за 783 мс.",
+      "animationProgressAtRead": 0.12034289852615579,
+      "targetDone": true,
+      "goalReady": true,
+      "calculating": false,
+      "drawing": false,
+      "trustedPen": true,
+      "RAF": {
+        "count": 29,
+        "max": 183.80000000000018,
+        "over50": 3
+      },
+      "GL": 0,
+      "contextLost": false,
+      "contextClosed": true,
+      "pageErrors": 0
+    },
+    {
+      "kind": "wide",
+      "repeat": 1,
+      "inputSpecSHA": "3882150e2e973a6b773641e6b0e51aff7e7dfdf14eaf42f97a30ad31fb8bddb7",
+      "brushSize": 300,
+      "worldPoints": [
+        [
+          180,
+          350
+        ],
+        [
+          290,
+          400
+        ],
+        [
+          410,
+          450
+        ],
+        [
+          530,
+          500
+        ],
+        [
+          650,
+          550
+        ],
+        [
+          770,
+          600
+        ],
+        [
+          840,
+          630
+        ]
+      ],
+      "settings": {
+        "paint": "PB29",
+        "size": "300",
+        "water": "95",
+        "pigment": "34",
+        "color": "#2a3b97"
+      },
+      "captureUPToNaturalGoal2RAFMs": 872.6999998092651,
+      "panelLatencyMs": 872.7000000476837,
+      "panelMessage": "Цель готова за 873 мс.",
+      "animationProgressAtRead": 0.1357255950487351,
+      "targetDone": true,
+      "goalReady": true,
+      "calculating": false,
+      "drawing": false,
+      "trustedPen": true,
+      "RAF": {
+        "count": 29,
+        "max": 250.69999999999982,
+        "over50": 3
+      },
+      "GL": 0,
+      "contextLost": false,
+      "contextClosed": true,
+      "pageErrors": 0
+    },
+    {
+      "kind": "short",
+      "repeat": 2,
+      "inputSpecSHA": "53a1333904fd0a5ab298ba80a40e8cbb85f1723979a64f4483d1f872d64b39de",
+      "brushSize": 90,
+      "worldPoints": [
+        [
+          400,
+          470
+        ],
+        [
+          430,
+          485
+        ],
+        [
+          460,
+          500
+        ],
+        [
+          490,
+          515
+        ],
+        [
+          520,
+          530
+        ]
+      ],
+      "settings": {
+        "paint": "PB29",
+        "size": "90",
+        "water": "95",
+        "pigment": "34",
+        "color": "#2a3b97"
+      },
+      "captureUPToNaturalGoal2RAFMs": 824.3999998569489,
+      "panelLatencyMs": 824.3000001907349,
+      "panelMessage": "Цель готова за 824 мс.",
+      "animationProgressAtRead": 0.1255168018981493,
+      "targetDone": true,
+      "goalReady": true,
+      "calculating": false,
+      "drawing": false,
+      "trustedPen": true,
+      "RAF": {
+        "count": 29,
+        "max": 217.29999999999927,
+        "over50": 2
+      },
+      "GL": 0,
+      "contextLost": false,
+      "contextClosed": true,
+      "pageErrors": 0
+    },
+    {
+      "kind": "short",
+      "repeat": 3,
+      "inputSpecSHA": "53a1333904fd0a5ab298ba80a40e8cbb85f1723979a64f4483d1f872d64b39de",
+      "brushSize": 90,
+      "worldPoints": [
+        [
+          400,
+          470
+        ],
+        [
+          430,
+          485
+        ],
+        [
+          460,
+          500
+        ],
+        [
+          490,
+          515
+        ],
+        [
+          520,
+          530
+        ]
+      ],
+      "settings": {
+        "paint": "PB29",
+        "size": "90",
+        "water": "95",
+        "pigment": "34",
+        "color": "#2a3b97"
+      },
+      "captureUPToNaturalGoal2RAFMs": 821.9000000953674,
+      "panelLatencyMs": 821.7000000476837,
+      "panelMessage": "Цель готова за 822 мс.",
+      "animationProgressAtRead": 0.12034289852615605,
+      "targetDone": true,
+      "goalReady": true,
+      "calculating": false,
+      "drawing": false,
+      "trustedPen": true,
+      "RAF": {
+        "count": 30,
+        "max": 217.30000000000018,
+        "over50": 2
+      },
+      "GL": 0,
+      "contextLost": false,
+      "contextClosed": true,
+      "pageErrors": 0
+    },
+    {
+      "kind": "wide",
+      "repeat": 2,
+      "inputSpecSHA": "3882150e2e973a6b773641e6b0e51aff7e7dfdf14eaf42f97a30ad31fb8bddb7",
+      "brushSize": 300,
+      "worldPoints": [
+        [
+          180,
+          350
+        ],
+        [
+          290,
+          400
+        ],
+        [
+          410,
+          450
+        ],
+        [
+          530,
+          500
+        ],
+        [
+          650,
+          550
+        ],
+        [
+          770,
+          600
+        ],
+        [
+          840,
+          630
+        ]
+      ],
+      "settings": {
+        "paint": "PB29",
+        "size": "300",
+        "water": "95",
+        "pigment": "34",
+        "color": "#2a3b97"
+      },
+      "captureUPToNaturalGoal2RAFMs": 824.6000001430511,
+      "panelLatencyMs": 824.4000000953674,
+      "panelMessage": "Цель готова за 824 мс.",
+      "animationProgressAtRead": 0.12548595920130437,
+      "targetDone": true,
+      "goalReady": true,
+      "calculating": false,
+      "drawing": false,
+      "trustedPen": true,
+      "RAF": {
+        "count": 29,
+        "max": 267.60000000000036,
+        "over50": 2
+      },
+      "GL": 0,
+      "contextLost": false,
+      "contextClosed": true,
+      "pageErrors": 0
+    },
+    {
+      "kind": "wide",
+      "repeat": 3,
+      "inputSpecSHA": "3882150e2e973a6b773641e6b0e51aff7e7dfdf14eaf42f97a30ad31fb8bddb7",
+      "brushSize": 300,
+      "worldPoints": [
+        [
+          180,
+          350
+        ],
+        [
+          290,
+          400
+        ],
+        [
+          410,
+          450
+        ],
+        [
+          530,
+          500
+        ],
+        [
+          650,
+          550
+        ],
+        [
+          770,
+          600
+        ],
+        [
+          840,
+          630
+        ]
+      ],
+      "settings": {
+        "paint": "PB29",
+        "size": "300",
+        "water": "95",
+        "pigment": "34",
+        "color": "#2a3b97"
+      },
+      "captureUPToNaturalGoal2RAFMs": 756.2999999523163,
+      "panelLatencyMs": 756.2000000476837,
+      "panelMessage": "Цель готова за 756 мс.",
+      "animationProgressAtRead": 0.1255476429283718,
+      "targetDone": true,
+      "goalReady": true,
+      "calculating": false,
+      "drawing": false,
+      "trustedPen": true,
+      "RAF": {
+        "count": 29,
+        "max": 250.69999999999982,
+        "over50": 2
+      },
+      "GL": 0,
+      "contextLost": false,
+      "contextClosed": true,
+      "pageErrors": 0
+    }
+  ],
+  "summary": {
+    "short": {
+      "count": 3,
+      "medianMs": 821.9000000953674,
+      "minMs": 783.2000000476837,
+      "maxMs": 824.3999998569489
+    },
+    "wide": {
+      "count": 3,
+      "medianMs": 824.6000001430511,
+      "minMs": 756.2999999523163,
+      "maxMs": 872.6999998092651
+    }
+  },
+  "UIIndependentObserverMaximumDifferenceMs": 0.20000004768371582,
+  "screenshotQualification": "Native screenshots visually inspected: actual painted line and visible bottom latency panel. Private minimum short/wide screenshots retained in registered cache until21:07.",
+  "postRunUIChange": "Root subsequently removed2unusedcatch bindings in UI-only observer; no timinglogic/modelasset changes. Measurements precede cosmeticcleanup.",
+  "cleanup": {
+    "sixMeasuredContextsClosed": true,
+    "failedPreInputContextsClosed": true,
+    "ownBootstrapTabClosedAndVerifiedAbsent": true,
+    "ownForward19336Removed": true,
+    "ownReverse15483Removed": true,
+    "remainingResources": "Existing Mini5383 and Room5384/backend remain for user review. Registered activecache until21:07;17protectedQAfixtures/auth retained, no fixture/network writes by this test."
+  },
+  "pass": true
+}
