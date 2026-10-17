@@ -1,0 +1,104 @@
+{
+  "source": "e562d496",
+  "controls": "native-front highp+round; mode11 highp samplers only (roundRGBA false); forced identical Contrast reference",
+  "samsungSHA": "e0c3e4d6168fc34d3bca93490b026d9a16eeb111023b18053923ad37f2f8e2ad",
+  "intelSHA": "e0c3e4d6168fc34d3bca93490b026d9a16eeb111023b18053923ad37f2f8e2ad",
+  "sameInputHashes": true,
+  "channels": [
+    {
+      "channel": "R",
+      "changed": 0,
+      "max": 0,
+      "signedMin": 0,
+      "signedMax": 0
+    },
+    {
+      "channel": "G",
+      "changed": 0,
+      "max": 0,
+      "signedMin": 0,
+      "signedMax": 0
+    },
+    {
+      "channel": "B",
+      "changed": 0,
+      "max": 0,
+      "signedMin": 0,
+      "signedMax": 0
+    },
+    {
+      "channel": "A",
+      "changed": 0,
+      "max": 0,
+      "signedMin": 0,
+      "signedMax": 0
+    }
+  ],
+  "mode11Precision": {
+    "highpSamplers": true,
+    "roundRGBA": false,
+    "anchorCount": 1,
+    "samplerCount": 6,
+    "originalSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+    "patchedSHA": "d922bcd3be045a50479c2ed875567eea74d6297b28d77b55978bc05bef03c1b1",
+    "uniformKeys": [
+      "u_a",
+      "u_b",
+      "u_c",
+      "u_k",
+      "u_mode",
+      "u_tau",
+      "u_dir",
+      "u_d",
+      "u_e",
+      "u_origin",
+      "u_size",
+      "u_band",
+      "u_world"
+    ],
+    "selectedCalls": 5,
+    "otherCalls": 581,
+    "restoration": {
+      "wrapperExact": true,
+      "propertiesExact": true,
+      "deletedOwnedProgram": true
+    }
+  },
+  "all10SameGPUZero": true,
+  "finalDiffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "1d52d27f7b6cd18571423a49531838385a2b20ff7cc1429347e718a6d54b95a1",
+      "referenceHash": "1d52d27f7b6cd18571423a49531838385a2b20ff7cc1429347e718a6d54b95a1"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fb94d180f4c4b2e3307e5af32dabb06ac13db37ea56a121ee41362eb1541bb9e",
+      "referenceHash": "fb94d180f4c4b2e3307e5af32dabb06ac13db37ea56a121ee41362eb1541bb9e"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+    }
+  },
+  "gl": [
+    0,
+    0
+  ],
+  "errors": [],
+  "observerRestoration": {
+    "ownershipExact": true,
+    "restored": true
+  },
+  "conclusion": "QA-only numerical control; no production shader edits and no claim of complete cross-device material parity."
+}
