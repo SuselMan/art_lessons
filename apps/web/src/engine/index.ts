@@ -3415,13 +3415,23 @@ export class PencilEngine implements PencilEngineAPI {
    *  which now sorts after the merge was baked with too much in it. */
   private _noteOvertaken(op: Operation, overtaken: readonly LogEntry[]): void {
     if (!overtaken.length) return
-    const writes = pixelWriteLayerIds(op)
+    // Dry/hide do not write raster pixels, but they close M70 material.
+    // Their accepted order relative to optimistic pigment therefore owes
+    // the same layer repair. Keep shared pixel dependency categories intact
+    // and leave layers with purely legacy water on their existing path.
+    const m70Layers = new Set(this._log.entries.flatMap(e=>e.state==='done' && isM70WatercolorStroke(e.op) ? [e.op.layerId] : []))
+    const materialWrites = (operation: Operation): string[] => {
+      if(operation.type==='paper_dry')return operation.layerId ? m70Layers.has(operation.layerId) ? [operation.layerId] : [] : [...m70Layers]
+      if(operation.type==='layer_visibility' && !operation.visible)return operationLayerIds(operation).filter(id=>m70Layers.has(id))
+      return pixelWriteLayerIds(operation)
+    }
+    const writes = materialWrites(op)
     const reads = pixelReadLayerIds(op)
     if (!writes.length && !reads.length) return
     const touched = new Set([...writes, ...reads])
     for (const e of overtaken) {
       if (e.state !== 'done') continue
-      const laterWrites = pixelWriteLayerIds(e.op)
+      const laterWrites = materialWrites(e.op)
       const laterReads = pixelReadLayerIds(e.op)
       if (laterWrites.some(id => touched.has(id))) {
         for (const id of writes) this._unsettledLayers.add(id)
