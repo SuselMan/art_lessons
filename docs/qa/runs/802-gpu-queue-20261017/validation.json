@@ -1,0 +1,25 @@
+{
+  "sourceCommit": "12d1e62c",
+  "typecheck": {
+    "exitCode": 0,
+    "scope": "apps/web/src + landing + mini-worker prototype; not server/e2e/scripts",
+    "compiler": "TypeScript6.0.3",
+    "dependencies": "compatible existing 798-wave-buffer node_modules, identical package-lock; no install/copy/symlink created",
+    "resolution": "temporary tsconfig extends this worktree app config, @grafetto/shared resolves this worktree source; external declarations explicitly point at existing dependency tree"
+  },
+  "lockfileSHA256": "eadedf101be8bece5e961f1b24bb36513fe9c3a5036360daab2978e9131b060c",
+  "oxlint": {
+    "exitCode": 0,
+    "scope": "modified TS/TSX and prototype helper",
+    "warnings": "10 pre-existing warnings in engine/index.ts; no fixes applied"
+  },
+  "canvasAdapterTests": {
+    "pass": 2,
+    "fail": 0
+  },
+  "builds": {
+    "control": "esbuild PASS",
+    "gather": "esbuild PASS",
+    "published": false
+  }
+}

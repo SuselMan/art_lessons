@@ -1,3 +1,5 @@
+import {installFrontJumpZero} from './front-jump-zero'
+import {installFrontZero} from './front-zero'
 import {installGatherSpecialization} from './gather-specialization'
 declare const __QA_GATHER_SPECIALIZE__: boolean
 import {PencilEngine} from '../../../../apps/web/src/engine/index'
@@ -35,11 +37,14 @@ export async function createMiniRuntime(source:HTMLCanvasElement|OffscreenCanvas
  emit({type:'ready',renderer:dbg?e.gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL):e.gl.getParameter(e.gl.RENDERER),budgetBytes:Number.isFinite(e._gpuBudget)?e._gpuBudget:null,flags:{model:e._watercolorModel,asyncFinish:e._wcAsyncFinish,joinedTouch:e._wcJoinedTouch,materialPresentation:e._wcMaterialPresentation},tuning:APPROVED_TUNING,glError:e.gl.getError()})
  return {handle(message:any){if(destroyed)return;if(message.type==='pointer'){if(message.event.type==='pointerdown')stepMax=0;if(message.event.type==='pointerup')activeGesture={id:message.gestureId,captureUpEpoch:message.captureUpEpoch,dequeuedUpEpoch:performance.timeOrigin+performance.now()};const dequeuedEpoch=performance.timeOrigin+performance.now();host.pointer(message.event);emit({type:'processed',eventType:message.event.type,sequence:message.sequence,inputEpoch:message.sentEpoch,dequeuedEpoch,processedEpoch:performance.timeOrigin+performance.now(),gestureId:message.gestureId})}else if(message.type==='qa-goal-hashes'||message.type==='qa-repeat-goal'){
    // Explicit prototype-only oracle. Readback/compilation is outside benchmarks.
-   let restore:(()=>void)|null=null
-   try{if(message.specializeGather&&!__QA_GATHER_SPECIALIZE__)restore=installGatherSpecialization(e._watercolorPasses)
+   let restore:(()=>void)|null=null,restoreFront:(()=>void)|null=null,restoreJump:(()=>void)|null=null
+   let frontJumpStats:{transformedShaders:number}|null=null
+   try{if(message.specializeFrontJumpZero){const jump=installFrontJumpZero(e._watercolorPasses);restoreJump=jump;frontJumpStats=jump.stats}
+    if(message.specializeFrontZero)restoreFront=installFrontZero(e._watercolorPasses)
+    if(message.specializeGather&&!__QA_GATHER_SPECIALIZE__)restore=installGatherSpecialization(e._watercolorPasses)
     const bytes=message.type==='qa-repeat-goal'?puddle.diagnosticRepeatGoal(!!message.finalOnly,message.maxOps??100000):puddle.diagnosticGoalReadback()
-    void goalHashes(bytes).then(hashes=>emit({type:'qa-goal-hashes',requestId:message.requestId,hashes})).catch(error=>emit({type:'error',message:String(error)}))
-   }finally{restore?.()}
+    void goalHashes(bytes).then(hashes=>emit({type:'qa-goal-hashes',requestId:message.requestId,hashes,frontJumpStats})).catch(error=>emit({type:'error',message:String(error)}))
+   }finally{try{restore?.()}finally{try{restoreFront?.()}finally{restoreJump?.()}}}
   }else if(message.type==='settings')apply(message.settings);else if(message.type==='dry')puddle.dry();else if(message.type==='export'){const finish=(blob:Blob|null)=>{if(!blob)throw Error('PNG export returned no data');emit({type:'png',blob})};if('convertToBlob'in source)source.convertToBlob({type:'image/png'}).then(finish).catch(error=>emit({type:'error',message:String(error)}));else source.toBlob(finish,'image/png')}},
  destroy(){destroyed=true;puddle.destroy();restoreGather?.();host.destroy();engine.destroy()}}
 }
