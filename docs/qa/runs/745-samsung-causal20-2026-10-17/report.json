@@ -1,0 +1,3226 @@
+{
+  "source": "e8e1f005",
+  "scope": "20 causal-order cycles, trusted Samsung pen A, genuine transport loss, independent SocketB fixtures, sameGPU canonical target before full accepted API replay",
+  "cases": [],
+  "errors": [],
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "gpuBudget": "314572800",
+    "scratchHolding": false,
+    "touch": 5,
+    "deviceMemory": 4,
+    "DPR": 2.125,
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "initialOperations": 0,
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "flags": {
+      "hidden": false,
+      "undoCache": false
+    }
+  },
+  "authorA": "b83dbb5e-ba4f-46b3-bee5-5107af05eaed",
+  "authorB": "09521a96-c7b7-4b6b-bdca-fe8f893ae423",
+  "cycles": [
+    {
+      "number": 0,
+      "repeat": 0,
+      "order": "B-before-A",
+      "action": "pigment",
+      "layer": "qa-causal-658c5c18-29c9-43af-8be2-355bcfe8165a",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "6QvZpAXulv",
+              "timestamp": 1792204990415,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "c6b2bdea47013675eedda9514bb2b497911a2f393a94ce6b44a0f84e1ccee319",
+            "oracleHash": "c6b2bdea47013675eedda9514bb2b497911a2f393a94ce6b44a0f84e1ccee319",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4474,
+            "physicalDecorativeDifference": 13565,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 4,
+            "inputSHA": "e7a220c42978987a987b524c9fbf8bc596be310572deb8d8dfd9ad1a5c59473b"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "6499acdb-16fe-4d41-9f30-1547f3b5cfea",
+              "timestamp": 1792204993966,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "9987e491fabb289b439c1003cd353186d899d8434b683bcd599b308bc803a0b2",
+            "oracleHash": "9987e491fabb289b439c1003cd353186d899d8434b683bcd599b308bc803a0b2",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5544,
+            "physicalDecorativeDifference": 17073,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 5,
+            "inputSHA": "a5c4d2b273ee8b02307a7402cf4e906a4a22e8d0b865a37844b55f34cbaee5f7"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "6499acdb-16fe-4d41-9f30-1547f3b5cfea",
+              "timestamp": 1792204993966,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "f4323404dacff278fb92176f779aad2b89ff8d5734e1549531bf62349b07fca4",
+            "oracleHash": "f4323404dacff278fb92176f779aad2b89ff8d5734e1549531bf62349b07fca4",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5545,
+            "physicalDecorativeDifference": 15715,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 6,
+            "inputSHA": "8c1a5f2204efce23fee6be2ef442b26b72f6425ffae70612503cb9acb0c3e6d9"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "6499acdb-16fe-4d41-9f30-1547f3b5cfea",
+              "timestamp": 1792204993966,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "9987e491fabb289b439c1003cd353186d899d8434b683bcd599b308bc803a0b2",
+            "oracleHash": "9987e491fabb289b439c1003cd353186d899d8434b683bcd599b308bc803a0b2",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5544,
+            "physicalDecorativeDifference": 16929,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 7,
+            "inputSHA": "4cc208e04f411626ee0e0b1689ce99be4bb7d25185d444f3bde143ce589a291e"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "2bqme3d1w5",
+            "strokeId": "6QvZpAXulv"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 4,
+        "B": 3
+      },
+      "pass": true
+    },
+    {
+      "number": 1,
+      "repeat": 0,
+      "order": "B-before-A",
+      "action": "layerDry",
+      "layer": "qa-causal-e72f1218-5edb-4ad4-97b9-834c6e2b5ab1",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "ViX1FRNHg3",
+              "timestamp": 1792205005801,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "4ff0189652a9c19d1bdfe51b25c6c91ca9921a1a05699296e98107b0e92817b1",
+            "oracleHash": "4ff0189652a9c19d1bdfe51b25c6c91ca9921a1a05699296e98107b0e92817b1",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2625,
+            "physicalDecorativeDifference": 6720,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 12,
+            "inputSHA": "f81188a3fc57be06666a37646eb8b753f5259fe6cac44a58031fac6eb01b1786"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "3b5414ba-78ae-46e2-86bb-2a29c5b16f85",
+              "timestamp": 1792205012832,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "ebf057f46617b36b81a53a3256c0856cec5f2c30e606fe2fada9d435275ae9b9",
+            "oracleHash": "ebf057f46617b36b81a53a3256c0856cec5f2c30e606fe2fada9d435275ae9b9",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4736,
+            "physicalDecorativeDifference": 13215,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 13,
+            "inputSHA": "cbdaf54b51562a91ae62d97d6f8baa81aba83edfab1bf622f43e07730e703b1e"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "3b5414ba-78ae-46e2-86bb-2a29c5b16f85",
+              "timestamp": 1792205012832,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "oracleHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 144,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 14,
+            "inputSHA": "cac8fa0f5933c32c52fdfb0c7c025c9e054b63277fcdb7947b77d355cd0d518a"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "3b5414ba-78ae-46e2-86bb-2a29c5b16f85",
+              "timestamp": 1792205012832,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "ebf057f46617b36b81a53a3256c0856cec5f2c30e606fe2fada9d435275ae9b9",
+            "oracleHash": "ebf057f46617b36b81a53a3256c0856cec5f2c30e606fe2fada9d435275ae9b9",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4736,
+            "physicalDecorativeDifference": 13218,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 15,
+            "inputSHA": "c0bd514c43328a3aa0adc30c10e3199d95edc37725e408fb53ff5b56e5e9591f"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "KKtxAllb2n",
+            "strokeId": "ViX1FRNHg3"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 12,
+        "B": 11
+      },
+      "pass": true
+    },
+    {
+      "number": 2,
+      "repeat": 0,
+      "order": "B-before-A",
+      "action": "globalDry",
+      "layer": "qa-causal-2d513c5f-7fb9-4b49-8ef4-b40605087ea9",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "_3_hNX_DQs",
+              "timestamp": 1792205023375,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "0ca8f6085d12e8fa17a88eb588a7bc5482b1700b137aafd06b030942181ece75",
+            "oracleHash": "0ca8f6085d12e8fa17a88eb588a7bc5482b1700b137aafd06b030942181ece75",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2626,
+            "physicalDecorativeDifference": 6809,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 20,
+            "inputSHA": "3acda2e9295e86b3774ae3ce21e552f5937432ea201d4a7ce76ccca3d8e00d22"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "e6f2c85f-c75f-467b-aac9-db5ecc3ba760",
+              "timestamp": 1792205027324,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "ee26863509a1df0790669608d2c350f0fa63557539175729cc9348f0d1fd629c",
+            "oracleHash": "ee26863509a1df0790669608d2c350f0fa63557539175729cc9348f0d1fd629c",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4748,
+            "physicalDecorativeDifference": 13344,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 21,
+            "inputSHA": "945a41a86b47e07352f7ba80484261427cd73d4cd78e2a883c5431cfa73f4109"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "e6f2c85f-c75f-467b-aac9-db5ecc3ba760",
+              "timestamp": 1792205027324,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "oracleHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 144,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 22,
+            "inputSHA": "5af50b10d5512fe8ed67f3db9d710bd18c7308bb7164552acf235eefb85602e1"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "e6f2c85f-c75f-467b-aac9-db5ecc3ba760",
+              "timestamp": 1792205027324,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "ee26863509a1df0790669608d2c350f0fa63557539175729cc9348f0d1fd629c",
+            "oracleHash": "ee26863509a1df0790669608d2c350f0fa63557539175729cc9348f0d1fd629c",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4748,
+            "physicalDecorativeDifference": 13328,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 23,
+            "inputSHA": "919ffc0e7f1146020072e66c0f2700f2260658722a909b061fa0db7fc545b2b4"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "yjuwydp8N4",
+            "strokeId": "_3_hNX_DQs"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 20,
+        "B": 19
+      },
+      "pass": true
+    },
+    {
+      "number": 3,
+      "repeat": 0,
+      "order": "B-before-A",
+      "action": "hide",
+      "layer": "qa-causal-be4bfe60-fdd9-46e0-901f-2d43aee4c35e",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "m5GyzY8kBE",
+              "timestamp": 1792205039075,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "ecd0f46b825432ea7ab9991a289cff6d5d7a0e81d69ef7b3a9b72b7404e469a2",
+            "oracleHash": "ecd0f46b825432ea7ab9991a289cff6d5d7a0e81d69ef7b3a9b72b7404e469a2",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2626,
+            "physicalDecorativeDifference": 6839,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 28,
+            "inputSHA": "377231b0e1d4219eeeec4dbb77a558ed33e3c38c8f615c2d059756ff0241e1f2"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "75940992-397e-4672-8130-5b71b80d37fd",
+              "timestamp": 1792205044235,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "d998175e7c79d52c8efd3effcfc396dbdda8bb99cdcee3db0c32a5890b37f54a",
+            "oracleHash": "d998175e7c79d52c8efd3effcfc396dbdda8bb99cdcee3db0c32a5890b37f54a",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4738,
+            "physicalDecorativeDifference": 13324,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 30,
+            "inputSHA": "470d65806c76547ecf775dc34cdf3a6b8255590c8da095d59e3fa2ac8356aa49"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "75940992-397e-4672-8130-5b71b80d37fd",
+              "timestamp": 1792205044235,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "oracleHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 144,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 31,
+            "inputSHA": "90feb867c8a714c961026ffd3a510cda3ab29f7b06c97d5bf3a30f7a22f32dae"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "75940992-397e-4672-8130-5b71b80d37fd",
+              "timestamp": 1792205044235,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "d998175e7c79d52c8efd3effcfc396dbdda8bb99cdcee3db0c32a5890b37f54a",
+            "oracleHash": "d998175e7c79d52c8efd3effcfc396dbdda8bb99cdcee3db0c32a5890b37f54a",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4738,
+            "physicalDecorativeDifference": 13294,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 32,
+            "inputSHA": "643c67265ea4f2389a76aff52e0620aae00ac6dce480ab864daf502395b0442a"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "ygHCsSEB6H",
+            "strokeId": "m5GyzY8kBE"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 28,
+        "B": 27
+      },
+      "pass": true
+    },
+    {
+      "number": 4,
+      "repeat": 0,
+      "order": "B-before-A",
+      "action": "eraser",
+      "layer": "qa-causal-ec0ba399-df7b-4d86-a64b-63c6dce15363",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "bMt9-0814o",
+              "timestamp": 1792205055127,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "dcd9b02cf680b6371234a02549f8e88ff4034b776292fd92cd03f6bebafedd29",
+            "oracleHash": "dcd9b02cf680b6371234a02549f8e88ff4034b776292fd92cd03f6bebafedd29",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 3686,
+            "physicalDecorativeDifference": 6871,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 38,
+            "inputSHA": "a75d81821cc2d46c6bd50ded1ad1fb10ae5416305b67a984e03e3841475fee13"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "454a3fe2-81df-4dea-b7dc-d08c8d56866d",
+              "timestamp": 1792205057845,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "567f03b118c6d14e622dcec59f91deacfbb61fca3da32240b8e5bd5217d69fbc",
+            "oracleHash": "567f03b118c6d14e622dcec59f91deacfbb61fca3da32240b8e5bd5217d69fbc",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5293,
+            "physicalDecorativeDifference": 13377,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 39,
+            "inputSHA": "cbb0748d595aa6323dc3d11a4b8e71d96f3d8c7e315483eb0ef684a542fd746f"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "454a3fe2-81df-4dea-b7dc-d08c8d56866d",
+              "timestamp": 1792205057845,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "643bf213d6d5bf7a6eb12c4e222635b3f08266b2d4dfa4ab72f9029e898fd37c",
+            "oracleHash": "643bf213d6d5bf7a6eb12c4e222635b3f08266b2d4dfa4ab72f9029e898fd37c",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 1684,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 40,
+            "inputSHA": "ff47c6149a71957f9caaba93c5b36cd71a1fb91157ac1291328900f030776afb"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "454a3fe2-81df-4dea-b7dc-d08c8d56866d",
+              "timestamp": 1792205057845,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "567f03b118c6d14e622dcec59f91deacfbb61fca3da32240b8e5bd5217d69fbc",
+            "oracleHash": "567f03b118c6d14e622dcec59f91deacfbb61fca3da32240b8e5bd5217d69fbc",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5293,
+            "physicalDecorativeDifference": 13380,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 41,
+            "inputSHA": "0533945bcdf89a39498262d32c5f80a79b842b0debc4ed0fe228d9bd61fe2829"
+          }
+        },
+        {
+          "name": "fresh-context-rejoin",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "454a3fe2-81df-4dea-b7dc-d08c8d56866d",
+              "timestamp": 1792205057845,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "567f03b118c6d14e622dcec59f91deacfbb61fca3da32240b8e5bd5217d69fbc",
+            "oracleHash": "567f03b118c6d14e622dcec59f91deacfbb61fca3da32240b8e5bd5217d69fbc",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5293,
+            "physicalDecorativeDifference": 13441,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 41,
+            "inputSHA": "0533945bcdf89a39498262d32c5f80a79b842b0debc4ed0fe228d9bd61fe2829"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "3g6P7hYNDQ",
+            "strokeId": "bMt9-0814o"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 38,
+        "B": 37
+      },
+      "eraser": {
+        "baseROIchanged": 11496,
+        "farDotChanged": 0,
+        "wetAStillMaterial": true,
+        "pigmentInputsKnownZero": false,
+        "wetLoadNonzero": true
+      },
+      "pass": true
+    },
+    {
+      "number": 5,
+      "repeat": 0,
+      "order": "B-after-A",
+      "action": "pigment",
+      "layer": "qa-causal-948fe6b3-3f0e-4013-9cf7-a44e2c26f966",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "69e48377-545d-4a47-9749-e737c36572ea",
+              "timestamp": 1792205085597,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "f04f54f94fd6cbac5a0a1073adc0b2315fd490cfc37487f38f529560062335e7",
+            "oracleHash": "f04f54f94fd6cbac5a0a1073adc0b2315fd490cfc37487f38f529560062335e7",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4476,
+            "physicalDecorativeDifference": 14032,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 46,
+            "inputSHA": "dbe9e7b747c4f260f1ed1c5a5ba07ee8b5b991380e28d94479d8a5c7a0011255"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "18781a2e-1847-4cab-b93b-fdfcacf323a8",
+              "timestamp": 1792205087872,
+              "epoch": 4,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "a39a0721ae87b7bd3852141ba8494abccb712f5963ee26ac7f28b1f5f8d3c351",
+            "oracleHash": "a39a0721ae87b7bd3852141ba8494abccb712f5963ee26ac7f28b1f5f8d3c351",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5546,
+            "physicalDecorativeDifference": 17287,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 47,
+            "inputSHA": "ffa0141b2dcfdd50ca618d4ff603a2deb9ce6ebb19a1f8133e42ecdd33dfb06d"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "18781a2e-1847-4cab-b93b-fdfcacf323a8",
+              "timestamp": 1792205087872,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "18390dd6703cf278198cdb4dc18bafe7004cd2f22b35d9f8493e17781c1f2b64",
+            "oracleHash": "18390dd6703cf278198cdb4dc18bafe7004cd2f22b35d9f8493e17781c1f2b64",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5545,
+            "physicalDecorativeDifference": 15744,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 48,
+            "inputSHA": "f78bd0e4986876d3940e4cb111a88718c24f024019d3f71bb5e00d05979d7038"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "18781a2e-1847-4cab-b93b-fdfcacf323a8",
+              "timestamp": 1792205087872,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "a39a0721ae87b7bd3852141ba8494abccb712f5963ee26ac7f28b1f5f8d3c351",
+            "oracleHash": "a39a0721ae87b7bd3852141ba8494abccb712f5963ee26ac7f28b1f5f8d3c351",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5546,
+            "physicalDecorativeDifference": 17281,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 49,
+            "inputSHA": "45fda260f39e8b726ca0b35c89a6251d5c3d431fcd95105bbeb09891aef0b826"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "Fku492PVJN",
+            "strokeId": "DLVXiYut-R"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 45,
+        "B": 46
+      },
+      "pass": true
+    },
+    {
+      "number": 6,
+      "repeat": 0,
+      "order": "B-after-A",
+      "action": "layerDry",
+      "layer": "qa-causal-1d285a2b-d85b-4eac-a6b1-f16a3a12c768",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": null
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "94701e59add4ac86f0350c710cf920c71792bda0dbaa7134b13deea356539794",
+            "oracleHash": "94701e59add4ac86f0350c710cf920c71792bda0dbaa7134b13deea356539794",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2625,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 54,
+            "inputSHA": "be57f2b1294bea0ec2477218538b4051f01b511043cd9a1909ef3c4a7996f6ed"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "668b7794-4fcd-4eb7-8b5a-ca917e664dc9",
+              "timestamp": 1792205103721,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "005f1c1e1af7839e04905a6f8f51ec55d96b5f8caad46b4593f1632d70eb3fc6",
+            "oracleHash": "005f1c1e1af7839e04905a6f8f51ec55d96b5f8caad46b4593f1632d70eb3fc6",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2625,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 55,
+            "inputSHA": "6dc73c8a542d7704bf8416f947dcdf336c26b89c47c26b97b6d9082de870fecc"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "668b7794-4fcd-4eb7-8b5a-ca917e664dc9",
+              "timestamp": 1792205103721,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "oracleHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 144,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 56,
+            "inputSHA": "ec6c70f336c5635e83429277eb0200241395f28db935b71861a28253c9272546"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "668b7794-4fcd-4eb7-8b5a-ca917e664dc9",
+              "timestamp": 1792205103721,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "005f1c1e1af7839e04905a6f8f51ec55d96b5f8caad46b4593f1632d70eb3fc6",
+            "oracleHash": "005f1c1e1af7839e04905a6f8f51ec55d96b5f8caad46b4593f1632d70eb3fc6",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2625,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 57,
+            "inputSHA": "a13e2cc43303a5b56d1cda84773cc2e69f71b71c0c81f61b4d9201cb6c5a86a0"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "xA6UZ1qOdO",
+            "strokeId": "68XzlhILe2"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 53,
+        "B": 54
+      },
+      "pass": true
+    },
+    {
+      "number": 7,
+      "repeat": 0,
+      "order": "B-after-A",
+      "action": "globalDry",
+      "layer": "qa-causal-0c7d3adf-403c-48ee-a1d8-ab435336f459",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": null
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "38771e4c0b224d93c345ba4f3448b596b841b8152d6f4ddd8690e6b8e5335460",
+            "oracleHash": "38771e4c0b224d93c345ba4f3448b596b841b8152d6f4ddd8690e6b8e5335460",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2626,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 62,
+            "inputSHA": "4449467860cd1fe831c85d9939020b2500961d5964a6bc6239719f4208e216a7"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "a2436213-e824-4a7e-8712-889bd8bc00a3",
+              "timestamp": 1792205120497,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "4f3809e71e81857ee0770c5eadd8f354925a4718e8c363fc806211675f46b54c",
+            "oracleHash": "4f3809e71e81857ee0770c5eadd8f354925a4718e8c363fc806211675f46b54c",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2626,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 63,
+            "inputSHA": "3cf509241245544462f96e12cba99f081b996838b87b6f23f6281fe65a49d637"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "a2436213-e824-4a7e-8712-889bd8bc00a3",
+              "timestamp": 1792205120497,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "oracleHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 144,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 64,
+            "inputSHA": "8c8c0d743d6345b60a53aed0b64785f746ab4eff712db87bd79a089f35ce1027"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "a2436213-e824-4a7e-8712-889bd8bc00a3",
+              "timestamp": 1792205120497,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "4f3809e71e81857ee0770c5eadd8f354925a4718e8c363fc806211675f46b54c",
+            "oracleHash": "4f3809e71e81857ee0770c5eadd8f354925a4718e8c363fc806211675f46b54c",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2626,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 65,
+            "inputSHA": "1bfbc229db69d27721f4dd1d9cc9f1b6c6f8d819bc5d6baa324303e222b259a9"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "9aqRu0XyS0",
+            "strokeId": "zjnbZPCnTb"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 61,
+        "B": 62
+      },
+      "pass": true
+    },
+    {
+      "number": 8,
+      "repeat": 0,
+      "order": "B-after-A",
+      "action": "hide",
+      "layer": "qa-causal-223a9b3d-c899-42e7-a571-e4ddd60dcd62",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "prewarm",
+              "timestamp": 1792205135781,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": false,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "31fd56667b372ff9a728707533328afbdca80df74a1b41f40d45ad089d72c96a",
+            "oracleHash": "31fd56667b372ff9a728707533328afbdca80df74a1b41f40d45ad089d72c96a",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2626,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 70,
+            "inputSHA": "89b208b638ec1cbfc09590588d6ba4512e554b60770e380fea02b3aae79c6d60"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "1702ca84-93de-4a7f-8ee2-570f323921fb",
+              "timestamp": 1792205137572,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "c9ec9ca45f5fb58d548aaa292e3074ba4e439e87a3c08c62ed1641a9387f287d",
+            "oracleHash": "c9ec9ca45f5fb58d548aaa292e3074ba4e439e87a3c08c62ed1641a9387f287d",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2626,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 72,
+            "inputSHA": "daaa49fde2928c7f25651c1bf08c83bfc96dad2243dd797374614f08aa6ae75f"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "1702ca84-93de-4a7f-8ee2-570f323921fb",
+              "timestamp": 1792205137572,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "oracleHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 144,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 73,
+            "inputSHA": "837bda0074875106118c8be444f636bb594457b1caedfd66d9d3c3f6649ca1c4"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "1702ca84-93de-4a7f-8ee2-570f323921fb",
+              "timestamp": 1792205137572,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "c9ec9ca45f5fb58d548aaa292e3074ba4e439e87a3c08c62ed1641a9387f287d",
+            "oracleHash": "c9ec9ca45f5fb58d548aaa292e3074ba4e439e87a3c08c62ed1641a9387f287d",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2626,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 74,
+            "inputSHA": "0610b0003f36f6d84e3e224c3b93fc3142473890f192cd3f4e73052e643f785e"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "hzQdDtnTlD",
+            "strokeId": "Rr_FYu_Vcy"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 69,
+        "B": 70
+      },
+      "pass": true
+    },
+    {
+      "number": 9,
+      "repeat": 0,
+      "order": "B-after-A",
+      "action": "eraser",
+      "layer": "qa-causal-89c1456d-4b3c-4e1b-8261-6e4844e684ac",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "ivZ5C9aMob",
+              "timestamp": 1792205150240,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "72f35e1cba59bcc90dd47dd7aba6ff28284a0b4c0cb25f00bdb533ce8bfaba7c",
+            "oracleHash": "72f35e1cba59bcc90dd47dd7aba6ff28284a0b4c0cb25f00bdb533ce8bfaba7c",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 3686,
+            "physicalDecorativeDifference": 6778,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 80,
+            "inputSHA": "a3cc0ce96ad0b2f5b66826e7c5108fbf1476d22b2056ab8e09d405462389f067"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "b2efb8b3-bf94-46ac-86ff-964a3651b3a0",
+              "timestamp": 1792205155061,
+              "epoch": 4,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "a4a73d5fdbe6c67ae166f7f74ac8095f2045d48cedcfa8b5a068ef829019c3a9",
+            "oracleHash": "a4a73d5fdbe6c67ae166f7f74ac8095f2045d48cedcfa8b5a068ef829019c3a9",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5297,
+            "physicalDecorativeDifference": 13492,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 81,
+            "inputSHA": "f346c2e668a5e0c1b662bcdea3a6f816e176720e446efeb8a6ae9043c9d9ff2d"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "b2efb8b3-bf94-46ac-86ff-964a3651b3a0",
+              "timestamp": 1792205155061,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "643bf213d6d5bf7a6eb12c4e222635b3f08266b2d4dfa4ab72f9029e898fd37c",
+            "oracleHash": "643bf213d6d5bf7a6eb12c4e222635b3f08266b2d4dfa4ab72f9029e898fd37c",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 1684,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 82,
+            "inputSHA": "727051c1e48b7e7edc924a552bad56c0dca5290a913cb311aaf45c4756950000"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "b2efb8b3-bf94-46ac-86ff-964a3651b3a0",
+              "timestamp": 1792205155061,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "a4a73d5fdbe6c67ae166f7f74ac8095f2045d48cedcfa8b5a068ef829019c3a9",
+            "oracleHash": "a4a73d5fdbe6c67ae166f7f74ac8095f2045d48cedcfa8b5a068ef829019c3a9",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5297,
+            "physicalDecorativeDifference": 13436,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 83,
+            "inputSHA": "e70ac450a3afb0a2a0f6c53eb714ff7f90687aace5eb86d656f6bee0adadf5c2"
+          }
+        },
+        {
+          "name": "fresh-context-rejoin",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "b2efb8b3-bf94-46ac-86ff-964a3651b3a0",
+              "timestamp": 1792205155061,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "a4a73d5fdbe6c67ae166f7f74ac8095f2045d48cedcfa8b5a068ef829019c3a9",
+            "oracleHash": "a4a73d5fdbe6c67ae166f7f74ac8095f2045d48cedcfa8b5a068ef829019c3a9",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5297,
+            "physicalDecorativeDifference": 13468,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 83,
+            "inputSHA": "e70ac450a3afb0a2a0f6c53eb714ff7f90687aace5eb86d656f6bee0adadf5c2"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "O_hQlfK5OP",
+            "strokeId": "ivZ5C9aMob"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 79,
+        "B": 80
+      },
+      "eraser": {
+        "baseROIchanged": 11496,
+        "farDotChanged": 0,
+        "wetAStillMaterial": true,
+        "pigmentInputsKnownZero": false,
+        "wetLoadNonzero": true
+      },
+      "pass": true
+    },
+    {
+      "number": 10,
+      "repeat": 1,
+      "order": "B-before-A",
+      "action": "pigment",
+      "layer": "qa-causal-0e0cd096-db52-44e2-9092-df418c9a09ce",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "IZO5fvNkVn",
+              "timestamp": 1792205183954,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "47fba39bccea8842e8d60e2aba722c6025858408ffb645280e3c366982ee22f6",
+            "oracleHash": "47fba39bccea8842e8d60e2aba722c6025858408ffb645280e3c366982ee22f6",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4476,
+            "physicalDecorativeDifference": 13613,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 88,
+            "inputSHA": "181d73eef7a6aba121cc90d1155de13cc2987d412c041a472ed1b5fda119d2ea"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "0c9bc7aa-889f-446b-9b26-7dc8c84c5bd2",
+              "timestamp": 1792205187830,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "7885f4e4578c67992e9e63e74daae3e22147e10fcf7d37630ac00f90e17a322f",
+            "oracleHash": "7885f4e4578c67992e9e63e74daae3e22147e10fcf7d37630ac00f90e17a322f",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5545,
+            "physicalDecorativeDifference": 17181,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 89,
+            "inputSHA": "9789051e593de3c851adf4d601a058d9650db327c5844fe0a9e9b7f006713d71"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "0c9bc7aa-889f-446b-9b26-7dc8c84c5bd2",
+              "timestamp": 1792205187830,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "0735c1e246964fa2b1b732ea4bd562b15a919e6e4b6d5b7771705fd65fa2266b",
+            "oracleHash": "0735c1e246964fa2b1b732ea4bd562b15a919e6e4b6d5b7771705fd65fa2266b",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5546,
+            "physicalDecorativeDifference": 15771,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 90,
+            "inputSHA": "f8806ac7f50a560308b43d839d61cd37f128390b88d62a2b313f8456928fabe4"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "0c9bc7aa-889f-446b-9b26-7dc8c84c5bd2",
+              "timestamp": 1792205187830,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "7885f4e4578c67992e9e63e74daae3e22147e10fcf7d37630ac00f90e17a322f",
+            "oracleHash": "7885f4e4578c67992e9e63e74daae3e22147e10fcf7d37630ac00f90e17a322f",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5545,
+            "physicalDecorativeDifference": 16985,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 91,
+            "inputSHA": "0994a0e465c2ce17ff33b9ff6c5cb81de052baec01e1993752a71427d0f251ff"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "Fj9iNmphWd",
+            "strokeId": "IZO5fvNkVn"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 88,
+        "B": 87
+      },
+      "pass": true
+    },
+    {
+      "number": 11,
+      "repeat": 1,
+      "order": "B-before-A",
+      "action": "layerDry",
+      "layer": "qa-causal-fb7732c0-4361-406f-94fa-a585b6f25d17",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "1m0li6oGu9",
+              "timestamp": 1792205200223,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "b151ee3617b4e33e9f5e2fc9fe3d6910035349a4cdeb750c8fd4cbfa642ed180",
+            "oracleHash": "b151ee3617b4e33e9f5e2fc9fe3d6910035349a4cdeb750c8fd4cbfa642ed180",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2626,
+            "physicalDecorativeDifference": 6725,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 96,
+            "inputSHA": "960126e46cf2164d352ab4db758365dedaace6743ea46ee1602494c7425df55e"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "6797a924-b796-4859-85b3-b6ba04195665",
+              "timestamp": 1792205204544,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "a1c55857dd0da057d7bf6d3f5b83c928a7ad8627e88bd7c94a0cf37f5acc5185",
+            "oracleHash": "a1c55857dd0da057d7bf6d3f5b83c928a7ad8627e88bd7c94a0cf37f5acc5185",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4747,
+            "physicalDecorativeDifference": 13300,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 97,
+            "inputSHA": "6dcd8a7550d7c529c73dba934261ea81328503e852408cca0b685f46c1f154ad"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "6797a924-b796-4859-85b3-b6ba04195665",
+              "timestamp": 1792205204544,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "oracleHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 144,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 98,
+            "inputSHA": "84d24afefed4443ad2792c44c3d3655d46d8fe865872eb6b8f0a5d333d54fbb8"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "6797a924-b796-4859-85b3-b6ba04195665",
+              "timestamp": 1792205204544,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "a1c55857dd0da057d7bf6d3f5b83c928a7ad8627e88bd7c94a0cf37f5acc5185",
+            "oracleHash": "a1c55857dd0da057d7bf6d3f5b83c928a7ad8627e88bd7c94a0cf37f5acc5185",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4747,
+            "physicalDecorativeDifference": 13219,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 99,
+            "inputSHA": "77863aa5efde9adab0d5f51f919adefe08a54d20f5d2630e387848ea873b24c3"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "ytppYbF-QJ",
+            "strokeId": "1m0li6oGu9"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 96,
+        "B": 95
+      },
+      "pass": true
+    },
+    {
+      "number": 12,
+      "repeat": 1,
+      "order": "B-before-A",
+      "action": "globalDry",
+      "layer": "qa-causal-d9c67ac5-941f-4e91-99e8-d2650da05ca9",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "sgbP-ogQLs",
+              "timestamp": 1792205215979,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "f1d6fd7dde5d5d23a78672570be9fae00a3fbcd7642ffa0834d9711e1219e99c",
+            "oracleHash": "f1d6fd7dde5d5d23a78672570be9fae00a3fbcd7642ffa0834d9711e1219e99c",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2626,
+            "physicalDecorativeDifference": 6934,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 104,
+            "inputSHA": "bc765fa156133df0e3567f6e6c5a38b4e0209ac518398810b81c66110bc7ce5b"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "a0fa6733-cf53-47f7-86d7-4f628ddab6be",
+              "timestamp": 1792205223309,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "7cc067486f4b3ba8bb41f11bcf5974cd9981099a359fea4983b13ff5d8e2f015",
+            "oracleHash": "7cc067486f4b3ba8bb41f11bcf5974cd9981099a359fea4983b13ff5d8e2f015",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4747,
+            "physicalDecorativeDifference": 13358,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 105,
+            "inputSHA": "22b8a135e1ea3defda99f73059e9c31feb377b6cbae5e487bf1246db61a1b1ce"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "a0fa6733-cf53-47f7-86d7-4f628ddab6be",
+              "timestamp": 1792205223309,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "oracleHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 144,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 106,
+            "inputSHA": "41d1a80bb6341ecb149486d2821cfce4728077a8be7ea3a07f8ef54b32764424"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "a0fa6733-cf53-47f7-86d7-4f628ddab6be",
+              "timestamp": 1792205223309,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "7cc067486f4b3ba8bb41f11bcf5974cd9981099a359fea4983b13ff5d8e2f015",
+            "oracleHash": "7cc067486f4b3ba8bb41f11bcf5974cd9981099a359fea4983b13ff5d8e2f015",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4747,
+            "physicalDecorativeDifference": 13296,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 107,
+            "inputSHA": "021c9c660f72a57c13189c1375f30fb3aaddbe59717947ed6b540f7bc51ccb6c"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "zPfOadM3_M",
+            "strokeId": "sgbP-ogQLs"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 104,
+        "B": 103
+      },
+      "pass": true
+    },
+    {
+      "number": 13,
+      "repeat": 1,
+      "order": "B-before-A",
+      "action": "hide",
+      "layer": "qa-causal-404a0a5c-8c35-4f2a-8908-26e8988a6b4c",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "VTXCBH9wJ1",
+              "timestamp": 1792205234746,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "9fcddec7c56a16e549465f7038670edb3aeaa2829f90e50384d08453af474e7e",
+            "oracleHash": "9fcddec7c56a16e549465f7038670edb3aeaa2829f90e50384d08453af474e7e",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2625,
+            "physicalDecorativeDifference": 6856,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 112,
+            "inputSHA": "965334f9ee66c1cd278431a804bf2ad96c9ce272c6f21cfe40ed80deb3d5dfb1"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "f96c3482-9a25-4e10-96be-91c79d1b324f",
+              "timestamp": 1792205238632,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "b18215a1b99c959a917d188446a3ebbe6de6a18f6ab42613a9fdb42e7cc351f0",
+            "oracleHash": "b18215a1b99c959a917d188446a3ebbe6de6a18f6ab42613a9fdb42e7cc351f0",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4728,
+            "physicalDecorativeDifference": 13317,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 114,
+            "inputSHA": "33dfd08a8199dba9737fd066b05c3b5de7a129f55172e2f292dc4427bbc814de"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "f96c3482-9a25-4e10-96be-91c79d1b324f",
+              "timestamp": 1792205238632,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "oracleHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 144,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 115,
+            "inputSHA": "9648c61ac56aa8215fac7d943e8cc8151fc23b29243a4dbbed862ab8bdb15854"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "f96c3482-9a25-4e10-96be-91c79d1b324f",
+              "timestamp": 1792205238632,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "b18215a1b99c959a917d188446a3ebbe6de6a18f6ab42613a9fdb42e7cc351f0",
+            "oracleHash": "b18215a1b99c959a917d188446a3ebbe6de6a18f6ab42613a9fdb42e7cc351f0",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4728,
+            "physicalDecorativeDifference": 13286,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 116,
+            "inputSHA": "7b58eb363cf9415f78547713a0e618763dfd702aa3c7ae730f43205b5ebf7b1a"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "e4akAhVeak",
+            "strokeId": "VTXCBH9wJ1"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 112,
+        "B": 111
+      },
+      "pass": true
+    },
+    {
+      "number": 14,
+      "repeat": 1,
+      "order": "B-before-A",
+      "action": "eraser",
+      "layer": "qa-causal-f443d4ae-bb57-47a7-b129-bdc7d21a69da",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "vGXcDXI5jD",
+              "timestamp": 1792205249693,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "eab792d4151f959eafb47d3ecbc3294de1d125928d21ddd359763810b05bd922",
+            "oracleHash": "eab792d4151f959eafb47d3ecbc3294de1d125928d21ddd359763810b05bd922",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 3686,
+            "physicalDecorativeDifference": 6749,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 122,
+            "inputSHA": "e2260c7b326834b45e680066a0bcfe56b0ff973f35f90265b9cec867cd401351"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "4e031fbd-350e-46bf-abcd-c2a46bb7776c",
+              "timestamp": 1792205254067,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "af661a6d73ae22089a1041c7809bc0d5f0c789fef4b5e38c096090115cd725ce",
+            "oracleHash": "af661a6d73ae22089a1041c7809bc0d5f0c789fef4b5e38c096090115cd725ce",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5290,
+            "physicalDecorativeDifference": 13432,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 123,
+            "inputSHA": "e6d1f1f4dc8b3aad9fb22df16c523de1566a3493099671b79beea22f2f3226f3"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "4e031fbd-350e-46bf-abcd-c2a46bb7776c",
+              "timestamp": 1792205254067,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "643bf213d6d5bf7a6eb12c4e222635b3f08266b2d4dfa4ab72f9029e898fd37c",
+            "oracleHash": "643bf213d6d5bf7a6eb12c4e222635b3f08266b2d4dfa4ab72f9029e898fd37c",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 1684,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 124,
+            "inputSHA": "420c78bfc8e7c2107cf00eb0a98251afd92b1a7e5b566cf3349e3724db6c1bc1"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "4e031fbd-350e-46bf-abcd-c2a46bb7776c",
+              "timestamp": 1792205254067,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "af661a6d73ae22089a1041c7809bc0d5f0c789fef4b5e38c096090115cd725ce",
+            "oracleHash": "af661a6d73ae22089a1041c7809bc0d5f0c789fef4b5e38c096090115cd725ce",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5290,
+            "physicalDecorativeDifference": 13373,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 125,
+            "inputSHA": "a4a73eae2b61f3fe3d46a8c8ca0c0a92b65e40e8379573b8e40d400122642c5e"
+          }
+        },
+        {
+          "name": "fresh-context-rejoin",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "4e031fbd-350e-46bf-abcd-c2a46bb7776c",
+              "timestamp": 1792205254067,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "af661a6d73ae22089a1041c7809bc0d5f0c789fef4b5e38c096090115cd725ce",
+            "oracleHash": "af661a6d73ae22089a1041c7809bc0d5f0c789fef4b5e38c096090115cd725ce",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5290,
+            "physicalDecorativeDifference": 13404,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 125,
+            "inputSHA": "a4a73eae2b61f3fe3d46a8c8ca0c0a92b65e40e8379573b8e40d400122642c5e"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "j7zW_r9URX",
+            "strokeId": "vGXcDXI5jD"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 122,
+        "B": 121
+      },
+      "eraser": {
+        "baseROIchanged": 11496,
+        "farDotChanged": 0,
+        "wetAStillMaterial": true,
+        "pigmentInputsKnownZero": false,
+        "wetLoadNonzero": true
+      },
+      "pass": true
+    },
+    {
+      "number": 15,
+      "repeat": 1,
+      "order": "B-after-A",
+      "action": "pigment",
+      "layer": "qa-causal-e5e5cefa-2f5d-4ba0-a92d-59ce836e8b0f",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "0b869878-1f82-40cb-99a4-5232b098d71a",
+              "timestamp": 1792205286938,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "1e90786f47f368f40773cbc0b252aaac02c0fcc9a7288874f8e5649205fb17f1",
+            "oracleHash": "1e90786f47f368f40773cbc0b252aaac02c0fcc9a7288874f8e5649205fb17f1",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 4476,
+            "physicalDecorativeDifference": 13775,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 130,
+            "inputSHA": "bd67dbd2b631b6dcbd773e714dc2b61858a3d69216de6a60f323b6cb307d447e"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "4a6c43f3-a08d-41bb-b124-90f3a6c3e0ad",
+              "timestamp": 1792205289349,
+              "epoch": 4,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "1a43cef0907a79d68d64a85f45dc202cd60284ca9435c4c4e5155267b1429b28",
+            "oracleHash": "1a43cef0907a79d68d64a85f45dc202cd60284ca9435c4c4e5155267b1429b28",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5546,
+            "physicalDecorativeDifference": 17058,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 131,
+            "inputSHA": "e2f7a471a6622b5e2264ae98f3447f9fc7e8c5a75122a8913b4a11becc5446b5"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "4a6c43f3-a08d-41bb-b124-90f3a6c3e0ad",
+              "timestamp": 1792205289349,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "5d760a357c9142621ebcbbc913eb29d739c669aa949e69a2ceecd4ed74e6b515",
+            "oracleHash": "5d760a357c9142621ebcbbc913eb29d739c669aa949e69a2ceecd4ed74e6b515",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5545,
+            "physicalDecorativeDifference": 15528,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 132,
+            "inputSHA": "ea9fa12a40d935d3f40b16aa81589322d995e48bbb7a390ec074519e2fd9b0eb"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "4a6c43f3-a08d-41bb-b124-90f3a6c3e0ad",
+              "timestamp": 1792205289349,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "1a43cef0907a79d68d64a85f45dc202cd60284ca9435c4c4e5155267b1429b28",
+            "oracleHash": "1a43cef0907a79d68d64a85f45dc202cd60284ca9435c4c4e5155267b1429b28",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5546,
+            "physicalDecorativeDifference": 16839,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 133,
+            "inputSHA": "b90bf2a00016e6dd43e387c23b3206603cb02d0863f491d574398d870800e063"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "lY8h_Dj8ea",
+            "strokeId": "E0gjyOt3qj"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 129,
+        "B": 130
+      },
+      "pass": true
+    },
+    {
+      "number": 16,
+      "repeat": 1,
+      "order": "B-after-A",
+      "action": "layerDry",
+      "layer": "qa-causal-f9c092ef-9d01-496d-8ce5-e730ca223aba",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": null
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "f3a8913b20cdc823205cc1a2907355ba6835f72c4215014917436f24d572596a",
+            "oracleHash": "f3a8913b20cdc823205cc1a2907355ba6835f72c4215014917436f24d572596a",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2626,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 138,
+            "inputSHA": "dd4ba38e6df678f1bb000cb07790e30c4a11db6ffcdd0e6cfe40f18825bbe2b6"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "5f5a4563-434b-452a-aee5-b5131bb0b090",
+              "timestamp": 1792205306527,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "95f943f10d6b6d8d9c2dedefdd4051fb384cbf5b769425dca28f03eab44f1b99",
+            "oracleHash": "95f943f10d6b6d8d9c2dedefdd4051fb384cbf5b769425dca28f03eab44f1b99",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2626,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 139,
+            "inputSHA": "2b0864f87186057c2611cbeb58b281473be040e96e62374c4245a0a201d91bb8"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "5f5a4563-434b-452a-aee5-b5131bb0b090",
+              "timestamp": 1792205306527,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "oracleHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 144,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 140,
+            "inputSHA": "a96c2e66a0f8b25b81682916826e5ad75f9a50ae9bcd7f8f031873410d95cf65"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "5f5a4563-434b-452a-aee5-b5131bb0b090",
+              "timestamp": 1792205306527,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "95f943f10d6b6d8d9c2dedefdd4051fb384cbf5b769425dca28f03eab44f1b99",
+            "oracleHash": "95f943f10d6b6d8d9c2dedefdd4051fb384cbf5b769425dca28f03eab44f1b99",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2626,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 141,
+            "inputSHA": "1c7ef4e9146a52ce38d23a2671baaca2ca9aaf077106fa0529b450c2f26880ea"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "vv9zFQn8pu",
+            "strokeId": "J1y49t8fle"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 137,
+        "B": 138
+      },
+      "pass": true
+    },
+    {
+      "number": 17,
+      "repeat": 1,
+      "order": "B-after-A",
+      "action": "globalDry",
+      "layer": "qa-causal-9321e9d3-bf26-4dae-9078-34380efbe9f7",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": null
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "65f48e7680ad49e7a049256a43927385b3c4f7849da80a2c4186eae48499ed02",
+            "oracleHash": "65f48e7680ad49e7a049256a43927385b3c4f7849da80a2c4186eae48499ed02",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2625,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 146,
+            "inputSHA": "9432e8a2bf21c29c3021cda560badd883a18ad4240abf67383d00844c8d932f6"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "49e677d4-56db-4dae-bd0a-07c61e2ef327",
+              "timestamp": 1792205324515,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "8e6982379f47cfbc515e5b5986ed45b4e2c44065846d5e416b57299728dca07e",
+            "oracleHash": "8e6982379f47cfbc515e5b5986ed45b4e2c44065846d5e416b57299728dca07e",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2625,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 147,
+            "inputSHA": "5ae9eed598daad74fb9dbadceddc38a40fd347e1412e3aca0be990e09e441d6a"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "49e677d4-56db-4dae-bd0a-07c61e2ef327",
+              "timestamp": 1792205324515,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "oracleHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 144,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 148,
+            "inputSHA": "d851b595904ce019e611b66108b1de45ab6c2a68e9867e817b1a2cf69ef803b7"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "49e677d4-56db-4dae-bd0a-07c61e2ef327",
+              "timestamp": 1792205324515,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "8e6982379f47cfbc515e5b5986ed45b4e2c44065846d5e416b57299728dca07e",
+            "oracleHash": "8e6982379f47cfbc515e5b5986ed45b4e2c44065846d5e416b57299728dca07e",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2625,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 149,
+            "inputSHA": "25d0006ec2d861da09d53ff0bddee4623ece2d5620f2519d5b9d75cc458fdbbc"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "kEq9KaABYn",
+            "strokeId": "j7w7YMI6Pz"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 145,
+        "B": 146
+      },
+      "pass": true
+    },
+    {
+      "number": 18,
+      "repeat": 1,
+      "order": "B-after-A",
+      "action": "hide",
+      "layer": "qa-causal-32df686b-b5ac-40da-bf76-90829acde651",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "prewarm",
+              "timestamp": 1792205340293,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": false,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "f6a7ac73c616ff606c34b1a7c88471889ef286541fe43e2cbbbdb9fceb246c1c",
+            "oracleHash": "f6a7ac73c616ff606c34b1a7c88471889ef286541fe43e2cbbbdb9fceb246c1c",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2625,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 154,
+            "inputSHA": "9761ba0b9affe4b188c95c1845551c9c00ee48f01dbb3797e7073e568292d7fa"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "204da3e5-4a68-4354-b3e5-faf9c7dd07fe",
+              "timestamp": 1792205341568,
+              "epoch": 2,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "4e071ab83aaf2c88823ff4c2d25c767578997429cd8cdcc38f3ff8f62099a00b",
+            "oracleHash": "4e071ab83aaf2c88823ff4c2d25c767578997429cd8cdcc38f3ff8f62099a00b",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2625,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 156,
+            "inputSHA": "dae31155178c4495ccd814fb3f8a1f12fb9bef5a506072754cf8de1c91c11bac"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "204da3e5-4a68-4354-b3e5-faf9c7dd07fe",
+              "timestamp": 1792205341568,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "oracleHash": "63e1ea4f189f3d56f4da2810689cc64a686c2ec07194b0e732b05c4f983c951d",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 144,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 157,
+            "inputSHA": "e78e66ce40e39dbdc2ccc7083e047a0bfd0612cd6f991f39488e8ba13c6c9e1b"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "204da3e5-4a68-4354-b3e5-faf9c7dd07fe",
+              "timestamp": 1792205341568,
+              "epoch": 1,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "4e071ab83aaf2c88823ff4c2d25c767578997429cd8cdcc38f3ff8f62099a00b",
+            "oracleHash": "4e071ab83aaf2c88823ff4c2d25c767578997429cd8cdcc38f3ff8f62099a00b",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 2625,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 158,
+            "inputSHA": "4a55a76527c70015bbd242e0ccc5be385edccc8fd1b54dee97044c18b1997ab8"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "blIUOWR2Dc",
+            "strokeId": "cPTrhUSSlb"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 153,
+        "B": 154
+      },
+      "pass": true
+    },
+    {
+      "number": 19,
+      "repeat": 1,
+      "order": "B-after-A",
+      "action": "eraser",
+      "layer": "qa-causal-d7f359b4-3117-4bb9-ad34-eeb3fa59c1bd",
+      "checks": [
+        {
+          "name": "accepted-order",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "spgxRzAZ2_",
+              "timestamp": 1792205355012,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "4c3255f7c2d35db0d7a7e7a7597faa4b2936c018bb874824a6214f725ede8a1c",
+            "oracleHash": "4c3255f7c2d35db0d7a7e7a7597faa4b2936c018bb874824a6214f725ede8a1c",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 3686,
+            "physicalDecorativeDifference": 6872,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 164,
+            "inputSHA": "46a59dc68a7e00e82bdd6b4d9f3c45a647169c2abdc26c0df5c0b11e4b55e28a"
+          }
+        },
+        {
+          "name": "next-water",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "4e455e14-0b3b-493c-8d99-c085c3d9cbba",
+              "timestamp": 1792205361074,
+              "epoch": 4,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "797bfd3d00791cd0c74a0f1abe425826153f70da731207d33e22ce44703140f5",
+            "oracleHash": "797bfd3d00791cd0c74a0f1abe425826153f70da731207d33e22ce44703140f5",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5295,
+            "physicalDecorativeDifference": 13566,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 165,
+            "inputSHA": "3448d771acf1f68fd1764fa732d2b1b11956a6d36928466be1dd0aa8ccbbe511"
+          }
+        },
+        {
+          "name": "A-undo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "4e455e14-0b3b-493c-8d99-c085c3d9cbba",
+              "timestamp": 1792205361074,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": true
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "643bf213d6d5bf7a6eb12c4e222635b3f08266b2d4dfa4ab72f9029e898fd37c",
+            "oracleHash": "643bf213d6d5bf7a6eb12c4e222635b3f08266b2d4dfa4ab72f9029e898fd37c",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 1684,
+            "physicalDecorativeDifference": 0,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 166,
+            "inputSHA": "0c4d7347afed79c174f738cd4eef38c9821565d21dd21e44d094478801e92cc9"
+          }
+        },
+        {
+          "name": "A-redo",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "4e455e14-0b3b-493c-8d99-c085c3d9cbba",
+              "timestamp": 1792205361074,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "797bfd3d00791cd0c74a0f1abe425826153f70da731207d33e22ce44703140f5",
+            "oracleHash": "797bfd3d00791cd0c74a0f1abe425826153f70da731207d33e22ce44703140f5",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5295,
+            "physicalDecorativeDifference": 13520,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 167,
+            "inputSHA": "b59ef9b86a0167df2e2144f41f1843ad324a659892ba21da3164346ff96e7dee"
+          }
+        },
+        {
+          "name": "fresh-context-rejoin",
+          "state": {
+            "unsettled": [],
+            "pending": [],
+            "jobs": 0,
+            "queue": 0,
+            "pendingAcks": 0,
+            "source": {
+              "gesture": "4e455e14-0b3b-493c-8d99-c085c3d9cbba",
+              "timestamp": 1792205361074,
+              "epoch": 3,
+              "dirty": false,
+              "goalReady": true,
+              "pigmentInputsKnownZero": false
+            }
+          },
+          "proof": {
+            "actualCanonicalCapturedBeforeOracle": true,
+            "actualPhysicalCapturedFirst": true,
+            "actualHash": "797bfd3d00791cd0c74a0f1abe425826153f70da731207d33e22ce44703140f5",
+            "oracleHash": "797bfd3d00791cd0c74a0f1abe425826153f70da731207d33e22ce44703140f5",
+            "changedChannels": 0,
+            "max": 0,
+            "actualAlphaNonzero": 5295,
+            "physicalDecorativeDifference": 13562,
+            "glError": 0,
+            "originalLogRestored": true,
+            "fullAcceptedCount": 167,
+            "inputSHA": "b59ef9b86a0167df2e2144f41f1843ad324a659892ba21da3164346ff96e7dee"
+          }
+        }
+      ],
+      "offline": {
+        "closed": true,
+        "pending": [
+          {
+            "id": "Kz179ff9u_",
+            "strokeId": "spgxRzAZ2_"
+          }
+        ],
+        "held": false
+      },
+      "acceptedOrder": {
+        "A": 163,
+        "B": 164
+      },
+      "eraser": {
+        "baseROIchanged": 11496,
+        "farDotChanged": 0,
+        "wetAStillMaterial": true,
+        "pigmentInputsKnownZero": false,
+        "wetLoadNonzero": true
+      },
+      "pass": true
+    }
+  ],
+  "pass": true,
+  "executedHarnessCommit": "92eea7e6",
+  "executedHarnessSha256": "c8a8dbfe441e524eedab454486ebd58705eface1857d67e45e75b0b8b47ed489",
+  "postValidationCommit": "e1fb5cd9",
+  "validatorSha256": "82227b67f8dee988645bad913fdee70d6a32eb1bd392fcc8df51e19a8dfc0503",
+  "battery": {
+    "before": {
+      "level": 100,
+      "ac": true,
+      "temperatureC": 40.1
+    },
+    "after": {
+      "level": 100,
+      "ac": true,
+      "temperatureC": 39.8
+    }
+  },
+  "cleanup": {
+    "ownerRoomDelete": 200,
+    "privateAuthRemoved": true,
+    "ownContextsClosed": true,
+    "nodePeerSocketClosed": true,
+    "originalTabRestored": true,
+    "ownedLocalForwardPid": 4041134,
+    "ownedLocalForwardClosed": true,
+    "sharedRemoteAdbForward9235Untouched": true,
+    "rawCache": "registered; guarded finish pending"
+  }
+}
