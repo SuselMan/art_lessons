@@ -1,0 +1,506 @@
+{
+  "source": "e50dd217",
+  "scope": "Ten real authenticated Socket.io authors, two GPU observers; author pointer path not covered",
+  "cases": [
+    {
+      "name": "cold-recorded-dry-preserves-pencil-and-watercolor-tail-0",
+      "physical": {
+        "red": 734,
+        "queue": 0,
+        "jobs": 0,
+        "puddle": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 2,
+          "residentLayers": 2,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 2,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": true,
+              "active": true
+            },
+            {
+              "epoch": 1,
+              "ready": false,
+              "active": false
+            }
+          ]
+        }
+      },
+      "journal": {
+        "entries": [
+          {
+            "id": "83dfe04a-5df9-4efa-813d-bbef54cec755",
+            "type": "layer_add",
+            "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+            "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+            "timestamp": 1792196879919,
+            "state": "done",
+            "pending": false,
+            "serverSeq": 1
+          },
+          {
+            "id": "33ff0dca-5154-44b9-8779-edd8714af00a",
+            "type": "stroke",
+            "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+            "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+            "strokeId": "before-23f66721-7fab-4d45-b763-38db0d72b563",
+            "timestamp": 1792196879921,
+            "state": "done",
+            "pending": false,
+            "serverSeq": 2
+          },
+          {
+            "id": "d720a031-594a-4da1-bb16-98085e5a4db0",
+            "type": "paper_dry",
+            "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+            "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+            "timestamp": 1792196879924,
+            "state": "done",
+            "pending": false,
+            "serverSeq": 3
+          },
+          {
+            "id": "9690007a-69b7-42eb-9cc0-1d2da799cc4d",
+            "type": "stroke",
+            "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+            "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+            "strokeId": "marker-f5605c12-523d-4ee9-9961-a7f781bf64c4",
+            "timestamp": 1792196879926,
+            "state": "done",
+            "pending": false,
+            "serverSeq": 4
+          },
+          {
+            "id": "426ebd04-ea8a-40fd-9364-7be49abf1f50",
+            "type": "stroke",
+            "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+            "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+            "strokeId": "after-60952050-e22d-488b-a200-48bbe6b66d8f",
+            "timestamp": 1792196879928,
+            "state": "done",
+            "pending": false,
+            "serverSeq": 5
+          }
+        ],
+        "effective": [
+          {
+            "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+            "operations": [
+              {
+                "id": "33ff0dca-5154-44b9-8779-edd8714af00a",
+                "seq": 1,
+                "tool": "watercolor",
+                "type": "stroke",
+                "color": [
+                  0.15,
+                  0.35,
+                  0.8
+                ],
+                "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+                "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+                "washId": "m70:qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+                "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+                "strokeId": "before-23f66721-7fab-4d45-b763-38db0d72b563",
+                "timestamp": 1792196879921,
+                "dabsPacked": "1:AADcQgAAFkMAAEA/AAAAAAAAAAAAAMhBAACAPwAAAACamRk/AAAAAAAA6EIAABZDAABAPwAAAAAAAAAAAADIQQAAgD8AAAAAmpkZPwAAgEEAAPRCAAAWQwAAQD8AAAAAAAAAAAAAyEEAAIA/AAAAAJqZGT8AAABC"
+              },
+              {
+                "id": "9690007a-69b7-42eb-9cc0-1d2da799cc4d",
+                "seq": 3,
+                "tool": "pencil",
+                "type": "stroke",
+                "color": [
+                  0.9,
+                  0.05,
+                  0.05
+                ],
+                "preset": "HB",
+                "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+                "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+                "strokeId": "marker-f5605c12-523d-4ee9-9961-a7f781bf64c4",
+                "timestamp": 1792196879926,
+                "dabsPacked": "1:AACvQwAAr0MAAEA/AAAAAAAAAAAAAABCAACAPwAAAACamRk/AAAAAAAAskMAAK9DAABAPwAAAAAAAAAAAAAAQgAAgD8AAAAAmpkZPwAAgEEAALVDAACvQwAAQD8AAAAAAAAAAAAAAEIAAIA/AAAAAJqZGT8AAABC"
+              },
+              {
+                "id": "426ebd04-ea8a-40fd-9364-7be49abf1f50",
+                "seq": 4,
+                "tool": "watercolor",
+                "type": "stroke",
+                "color": [
+                  0.15,
+                  0.7,
+                  0.25
+                ],
+                "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+                "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+                "washId": "m70:qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+                "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+                "strokeId": "after-60952050-e22d-488b-a200-48bbe6b66d8f",
+                "timestamp": 1792196879928,
+                "dabsPacked": "1:AAAqQwAANEMAAEA/AAAAAAAAAAAAAMhBAACAPwAAAACamRk/AAAAAAAAMEMAADRDAABAPwAAAAAAAAAAAADIQQAAgD8AAAAAmpkZPwAAgEEAADZDAAA0QwAAQD8AAAAAAAAAAAAAyEEAAIA/AAAAAJqZGT8AAABC"
+              }
+            ]
+          }
+        ],
+        "pendingRepairs": []
+      }
+    },
+    {
+      "name": "cold-recorded-dry-preserves-pencil-and-watercolor-tail-1",
+      "physical": {
+        "red": 735,
+        "queue": 0,
+        "jobs": 0,
+        "puddle": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 2,
+          "residentLayers": 2,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 2,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": true,
+              "active": true
+            },
+            {
+              "epoch": 1,
+              "ready": false,
+              "active": false
+            }
+          ]
+        }
+      },
+      "journal": {
+        "entries": [
+          {
+            "id": "83dfe04a-5df9-4efa-813d-bbef54cec755",
+            "type": "layer_add",
+            "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+            "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+            "timestamp": 1792196879919,
+            "state": "done",
+            "pending": false,
+            "serverSeq": 1
+          },
+          {
+            "id": "33ff0dca-5154-44b9-8779-edd8714af00a",
+            "type": "stroke",
+            "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+            "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+            "strokeId": "before-23f66721-7fab-4d45-b763-38db0d72b563",
+            "timestamp": 1792196879921,
+            "state": "done",
+            "pending": false,
+            "serverSeq": 2
+          },
+          {
+            "id": "d720a031-594a-4da1-bb16-98085e5a4db0",
+            "type": "paper_dry",
+            "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+            "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+            "timestamp": 1792196879924,
+            "state": "done",
+            "pending": false,
+            "serverSeq": 3
+          },
+          {
+            "id": "9690007a-69b7-42eb-9cc0-1d2da799cc4d",
+            "type": "stroke",
+            "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+            "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+            "strokeId": "marker-f5605c12-523d-4ee9-9961-a7f781bf64c4",
+            "timestamp": 1792196879926,
+            "state": "done",
+            "pending": false,
+            "serverSeq": 4
+          },
+          {
+            "id": "426ebd04-ea8a-40fd-9364-7be49abf1f50",
+            "type": "stroke",
+            "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+            "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+            "strokeId": "after-60952050-e22d-488b-a200-48bbe6b66d8f",
+            "timestamp": 1792196879928,
+            "state": "done",
+            "pending": false,
+            "serverSeq": 5
+          }
+        ],
+        "effective": [
+          {
+            "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+            "operations": [
+              {
+                "id": "33ff0dca-5154-44b9-8779-edd8714af00a",
+                "seq": 1,
+                "tool": "watercolor",
+                "type": "stroke",
+                "color": [
+                  0.15,
+                  0.35,
+                  0.8
+                ],
+                "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+                "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+                "washId": "m70:qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+                "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+                "strokeId": "before-23f66721-7fab-4d45-b763-38db0d72b563",
+                "timestamp": 1792196879921,
+                "dabsPacked": "1:AADcQgAAFkMAAEA/AAAAAAAAAAAAAMhBAACAPwAAAACamRk/AAAAAAAA6EIAABZDAABAPwAAAAAAAAAAAADIQQAAgD8AAAAAmpkZPwAAgEEAAPRCAAAWQwAAQD8AAAAAAAAAAAAAyEEAAIA/AAAAAJqZGT8AAABC"
+              },
+              {
+                "id": "9690007a-69b7-42eb-9cc0-1d2da799cc4d",
+                "seq": 3,
+                "tool": "pencil",
+                "type": "stroke",
+                "color": [
+                  0.9,
+                  0.05,
+                  0.05
+                ],
+                "preset": "HB",
+                "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+                "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+                "strokeId": "marker-f5605c12-523d-4ee9-9961-a7f781bf64c4",
+                "timestamp": 1792196879926,
+                "dabsPacked": "1:AACvQwAAr0MAAEA/AAAAAAAAAAAAAABCAACAPwAAAACamRk/AAAAAAAAskMAAK9DAABAPwAAAAAAAAAAAAAAQgAAgD8AAAAAmpkZPwAAgEEAALVDAACvQwAAQD8AAAAAAAAAAAAAAEIAAIA/AAAAAJqZGT8AAABC"
+              },
+              {
+                "id": "426ebd04-ea8a-40fd-9364-7be49abf1f50",
+                "seq": 4,
+                "tool": "watercolor",
+                "type": "stroke",
+                "color": [
+                  0.15,
+                  0.7,
+                  0.25
+                ],
+                "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+                "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+                "washId": "m70:qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+                "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+                "strokeId": "after-60952050-e22d-488b-a200-48bbe6b66d8f",
+                "timestamp": 1792196879928,
+                "dabsPacked": "1:AAAqQwAANEMAAEA/AAAAAAAAAAAAAMhBAACAPwAAAACamRk/AAAAAAAAMEMAADRDAABAPwAAAAAAAAAAAADIQQAAgD8AAAAAmpkZPwAAgEEAADZDAAA0QwAAQD8AAAAAAAAAAAAAyEEAAIA/AAAAAJqZGT8AAABC"
+              }
+            ]
+          }
+        ],
+        "pendingRepairs": []
+      }
+    },
+    {
+      "name": "cold-history-final-physical-equals-own-replay-0",
+      "proof": {
+        "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "6d9b5e059dc18d839b4a2759c3fbfc45c5dd1423b7ffc527c6bad57f0bd72927",
+        "oracleHash": "6d9b5e059dc18d839b4a2759c3fbfc45c5dd1423b7ffc527c6bad57f0bd72927",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 2585,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    },
+    {
+      "name": "cold-history-final-physical-equals-own-replay-1",
+      "proof": {
+        "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "ad95e2a98db07e84e64fe5f0133cd457b105f45ae75ad91c5f53294ffe5b8507",
+        "oracleHash": "ad95e2a98db07e84e64fe5f0133cd457b105f45ae75ad91c5f53294ffe5b8507",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 2585,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    }
+  ],
+  "errors": [],
+  "seed": {
+    "operations": [
+      {
+        "type": "layer_add",
+        "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+        "name": "Cold Dry tail",
+        "id": "83dfe04a-5df9-4efa-813d-bbef54cec755",
+        "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+        "timestamp": 1792196879919,
+        "seq": 1
+      },
+      {
+        "type": "stroke",
+        "strokeId": "before-23f66721-7fab-4d45-b763-38db0d72b563",
+        "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+        "tool": "watercolor",
+        "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+        "washId": "m70:qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+        "color": [
+          0.15,
+          0.35,
+          0.8
+        ],
+        "dabsPacked": "1:AADcQgAAFkMAAEA/AAAAAAAAAAAAAMhBAACAPwAAAACamRk/AAAAAAAA6EIAABZDAABAPwAAAAAAAAAAAADIQQAAgD8AAAAAmpkZPwAAgEEAAPRCAAAWQwAAQD8AAAAAAAAAAAAAyEEAAIA/AAAAAJqZGT8AAABC",
+        "id": "33ff0dca-5154-44b9-8779-edd8714af00a",
+        "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+        "timestamp": 1792196879921,
+        "seq": 2
+      },
+      {
+        "type": "paper_dry",
+        "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+        "id": "d720a031-594a-4da1-bb16-98085e5a4db0",
+        "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+        "timestamp": 1792196879924,
+        "seq": 3
+      },
+      {
+        "type": "stroke",
+        "strokeId": "marker-f5605c12-523d-4ee9-9961-a7f781bf64c4",
+        "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+        "tool": "pencil",
+        "preset": "HB",
+        "color": [
+          0.9,
+          0.05,
+          0.05
+        ],
+        "dabsPacked": "1:AACvQwAAr0MAAEA/AAAAAAAAAAAAAABCAACAPwAAAACamRk/AAAAAAAAskMAAK9DAABAPwAAAAAAAAAAAAAAQgAAgD8AAAAAmpkZPwAAgEEAALVDAACvQwAAQD8AAAAAAAAAAAAAAEIAAIA/AAAAAJqZGT8AAABC",
+        "id": "9690007a-69b7-42eb-9cc0-1d2da799cc4d",
+        "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+        "timestamp": 1792196879926,
+        "seq": 4
+      },
+      {
+        "type": "stroke",
+        "strokeId": "after-60952050-e22d-488b-a200-48bbe6b66d8f",
+        "layerId": "qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+        "tool": "watercolor",
+        "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+        "washId": "m70:qa-cold-9bd7adc8-7152-40c8-9d9d-42d73fbf20cd",
+        "color": [
+          0.15,
+          0.7,
+          0.25
+        ],
+        "dabsPacked": "1:AAAqQwAANEMAAEA/AAAAAAAAAAAAAMhBAACAPwAAAACamRk/AAAAAAAAMEMAADRDAABAPwAAAAAAAAAAAADIQQAAgD8AAAAAmpkZPwAAgEEAADZDAAA0QwAAQD8AAAAAAAAAAAAAyEEAAIA/AAAAAJqZGT8AAABC",
+        "id": "426ebd04-ea8a-40fd-9364-7be49abf1f50",
+        "userId": "5524892a-b4a4-41af-97e8-3449eceffa81",
+        "timestamp": 1792196879928,
+        "seq": 5
+      }
+    ],
+    "snapshotIndexStatus": 204,
+    "scope": "Real socket history seeded before first browser; no display suspend injection",
+    "reusedExistingOwnedRoom": true
+  },
+  "identity": [
+    {
+      "user": "d8044b5b-1ff4-4ee8-97e4-4e0fe66502b5",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "0374d149-912a-44cf-8ec9-2954286a7e32",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "actualBeforeOracle0": {
+    "red": 734,
+    "queue": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 2,
+      "residentLayers": 2,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 2,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": true,
+          "active": true
+        },
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    }
+  },
+  "actualBeforeOracle1": {
+    "red": 735,
+    "queue": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 2,
+      "residentLayers": 2,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 2,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": true,
+          "active": true
+        },
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    }
+  },
+  "pass": true,
+  "assessment": "Initial strict RGB threshold was a harness false positive on premultiplied translucent material; screenshot showed red marker. Corrected relative-chroma probe passes both GPU and final physical replay is exact. Stronger isolated dry-tail exact ROI is a separate fresh run."
+}
