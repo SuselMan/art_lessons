@@ -184,6 +184,7 @@ export class CheckpointStore {
     let spans: WashSpans | null = null
     for (const cp of this.list) {
       if (cp.layerId !== layerId) continue
+      if (unsupportedM70Carry(cp,ops)) continue
       if (cp.canonicalValid && !cp.canonicalValid() || cp.closedWashIds && !cp.canonicalValid) continue
       if (best && cp.opIds.length <= best.cp.opIds.length) continue
       if (cp.opIds.length > ops.length) continue
@@ -199,6 +200,7 @@ export class CheckpointStore {
    *  rule as best(), or -1 when the log has moved away from it (an undo, a
    *  revoke). A sliced rebuild re-checks its checkpoint with this every slice. */
   startOf(cp: Checkpoint, ops: readonly WashOp[]): number {
+    if (unsupportedM70Carry(cp,ops)) return -1
     if (cp.canonicalValid && !cp.canonicalValid() || cp.closedWashIds && !cp.canonicalValid) return -1
     let inSnapshot: Set<string> | null = null
     for (const c of this.list) {
@@ -243,7 +245,16 @@ export class CheckpointStore {
 
 /** An operation as the wash rule sees it: stroke operations of a watercolour
  *  wash carry its id. */
-export interface WashOp { id: string; washId?: string }
+export interface WashOp { id: string; washId?: string; type?: string; tool?: string; preset?: string }
+
+/** Old in-memory checkpoints may have captured M70 through the legacy wash
+ * route. That snapshot cannot seed the controller's wet source. The network
+ * snapshot floor and explicitly proved closed epochs use different contracts. */
+function unsupportedM70Carry(cp:Checkpoint,ops:readonly WashOp[]):boolean {
+  if(cp.fromSnapshot || !cp.washIds?.length)return false
+  return ops.some(op=>op.type==='stroke' && op.tool==='watercolor'
+    && op.preset?.split(':')[5]==='wc@m70-r2-v1' && !!op.washId && cp.washIds!.includes(op.washId))
+}
 
 type WashSpans = Array<[number, number, string]>
 

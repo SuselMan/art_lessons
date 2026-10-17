@@ -5689,6 +5689,10 @@ export class PencilEngine implements PencilEngineAPI {
     // one this operation joins, and any other participant's their author has
     // not left and that is young enough to be rejoined.
     const { open, lastAt } = this._openWashes(prefix, now, userId, washId)
+    // M70 water belongs to the room controller, not the legacy replay cache.
+    // A carried legacy snapshot would replay the remaining wet epoch over its
+    // own RGB prefix without restoring that controller's complete material.
+    if(open.some(id=>{const op=lastAt.get(id)?.op;return op && isM70WatercolorStroke(op)}))return
     if (open.length && since < WASH_STATE_CHECKPOINT_MIN_OPS) return
     // (§17.58) A touch device carries no washes: a whole-sheet wash is 144 MB
     // of copies, its GPU budget would drop them again, and its undo has the
@@ -5775,7 +5779,7 @@ export class PencilEngine implements PencilEngineAPI {
       const scratch = chunk && chunk.target === buf ? chunk.scratch : own
       if (!scratch || scratch.diffusePending) return fail()
       const last = lastAt.get(w)?.op
-      if (!last) return fail()
+      if (!last || isM70WatercolorStroke(last)) return fail()
       const dabs = strokeDabs(last)
       const lastDab = chunk && chunk.target === buf ? chunk.lastDab : dabs[dabs.length - 1]
       if (!lastDab) return fail()
