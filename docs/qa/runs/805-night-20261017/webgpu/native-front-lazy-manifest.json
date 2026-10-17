@@ -1,0 +1,15 @@
+{
+  "transform": "805-native-front-lazy-v1",
+  "baseShaderFile": "apps/web/src/engine/src/raster/shaders.ts",
+  "baseShaderSHA256": "900ae36d8afd512d5a68a0035ec1c84b9915ef53191fbd5e19918f2bb544deb7",
+  "files": {
+    "docs/qa/prototypes/805-algorithm-search/webgpu/native-front-lazy-source.cjs": "6cffc5ac59bcb4ffad2ec1ee10949492fa909dcaba1ac39e1a3938c406e67ef8",
+    "docs/qa/prototypes/805-algorithm-search/webgpu/native-front-lazy-source.d.cts": "505f5c485b05acc2f3d63a290c05541a3f3d22e6c9c56a80a37afbbb94980ce5",
+    "docs/qa/prototypes/805-algorithm-search/webgpu/native-front-lazy.test.cjs": "a36d544ae8a3c1ddc5dae227289fe1c545d9120c0da9ef810afc780411cf0f77"
+  },
+  "cpuTests": 4,
+  "cpuReferenceCases": 25920,
+  "status": "QA only; GPU byte equivalence/perf stillrequired; oldstand/runtime unchanged",
+  "composition": "transformFrontZeroSource(fullModule) THEN transformFrontLazyModule(fullModule); prefixjumpzero unchanged",
+  "operatorOwnedInstaller": "root adds front-lazy.ts; this change only exports source transformations"
+}
