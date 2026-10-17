@@ -1,0 +1,970 @@
+{
+  "sourceRuntime": "81eb5d04",
+  "harnessCommit": "c21cdef9",
+  "harnessSHA256": {
+    "docs/qa/harness/744/gpu-program-timer.cjs": "2a56b93229955239ea02f04e149419a02ab4675893690bc4008126d730817311",
+    "docs/qa/harness/744/reopen-seeded-room.cjs": "9baf09d8cf1424c48b7bc689f19ebc8a8eca662713d068f2e73048ec0fcaf283",
+    "docs/qa/harness/744/reopen-only.cjs": "4138476b5a939162c68a72e9c73afba1fb070fa027e7b611b75d9e232a67b033",
+    "docs/qa/harness/728-night/undo100-program-profile.cjs": "c19235c8a61437c57736d46754cbe14abdfb1e84301156289ec8f9d8bea22b0f"
+  },
+  "identity": {
+    "model": "m70-r2-v1",
+    "gpuBudget": "Infinity",
+    "scratchHolding": false,
+    "touch": 10,
+    "deviceMemory": 8,
+    "DPR": 1.0000000298023224,
+    "page": {
+      "w": 1024,
+      "h": 1024
+    },
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "glVersion": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+    "glConstructor": "WebGLRenderingContext"
+  },
+  "inputSpec": {
+    "canvas": 1024,
+    "count": 100,
+    "authors": 2,
+    "tool": "watercolor",
+    "water": 0.95,
+    "pigment": 0.34,
+    "size": 32,
+    "pressure": 0.75,
+    "moves": 4,
+    "deltaX": 4,
+    "blue": [
+      0.1,
+      0.25,
+      0.8
+    ],
+    "red": [
+      0.9,
+      0.05,
+      0.05
+    ],
+    "blueX": "480+(i%5)*5",
+    "blueY": "490+(i%3)*5",
+    "lastA": {
+      "x": 650,
+      "y": 650
+    },
+    "yield": "every3marks"
+  },
+  "inputSpecSHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
+  "actualInputSHA": "a959ad82b7d1b9ae4c1a2aacf9e059563f84d060ac1ce1c0928a368e243c847e",
+  "target": {
+    "oracleHiddenReplay": false,
+    "liveLength": 4194324,
+    "targetLength": 4194324,
+    "changedChannels": 0,
+    "liveHash": "2f09c3941621f43bc247d12185b7a368a973206b2cc39b66cced696ba3e29691",
+    "targetHash": "2f09c3941621f43bc247d12185b7a368a973206b2cc39b66cced696ba3e29691",
+    "liveMatchesTarget": true
+  },
+  "gpuProfile": {
+    "supported": true,
+    "api": "WebGL1 EXT_disjoint_timer_query",
+    "glVersion": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+    "disjoint": false,
+    "totalDraws": 8192,
+    "queries": 6964,
+    "unmeasuredDraws": 0,
+    "incompleteQueries": 0,
+    "complete": true,
+    "measuredWindowWallMs": 3492.2000000476837,
+    "queryPollWallMs": 28.299999952316284,
+    "sumMeasuredGpuMs": 849.7179409999998,
+    "programs": [
+      {
+        "shaderSHA": [
+          "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb",
+          "796b7288b6ff5d91ef699bbb3d37b9cf10194e597b684557e01264bd878581b9"
+        ],
+        "uniformDeclarations": [
+          [
+            "uniform vec2 u_dabCenter;",
+            "uniform float u_dabRadius;",
+            "uniform float u_angle;",
+            "uniform float u_aspectRatio;",
+            "uniform vec2 u_resolution;",
+            "uniform float u_pressure;",
+            "uniform float u_tiltX;",
+            "uniform float u_tiltY;",
+            "uniform float u_opacity;",
+            "uniform float u_wickPx;",
+            "uniform float u_wickCap;"
+          ],
+          [
+            "uniform sampler2D u_paperHeightMap;",
+            "uniform float u_hardness;",
+            "uniform vec2 u_paperScale;",
+            "uniform vec2 u_paperOrigin;",
+            "uniform vec2 u_paperTexSize;",
+            "uniform float u_eraseMode;",
+            "uniform vec3 u_color;",
+            "uniform int u_grainMode;",
+            "uniform float u_paperFillThreshold;",
+            "uniform float u_paperFillCap;",
+            "uniform float u_inkMode;",
+            "uniform float u_rectComposite;",
+            "uniform float u_charcoalTooth;",
+            "uniform float u_charcoalCrumble;",
+            "uniform float u_charcoalDust;",
+            "uniform float u_charcoalBroadAspect;",
+            "uniform float u_charcoalBroadGrain;",
+            "uniform float u_charcoalPressFloor;",
+            "uniform float u_charcoalPressGamma;",
+            "uniform float u_charcoalSkipFloor;",
+            "uniform float u_charcoalGateRelief;",
+            "uniform float u_charcoalGrainDepth;",
+            "uniform sampler2D u_original;",
+            "uniform sampler2D u_strokeCoverage;",
+            "uniform sampler2D u_inkLoad;",
+            "uniform sampler2D u_inkColor;",
+            "uniform float u_depthWrite;",
+            "uniform vec3 u_tau;",
+            "uniform vec2 u_resolution;",
+            "uniform float u_aaPx;",
+            "uniform float u_nibShape;",
+            "uniform float u_nibCorner;"
+          ]
+        ],
+        "draws": 793,
+        "batches": 695,
+        "completedBatches": 695,
+        "gpuMs": 296.822988,
+        "label": "DAB_FRAG",
+        "shareOfMeasuredGpuQuerySum": 0.3493194313994131
+      },
+      {
+        "shaderSHA": [
+          "0c1b6d191141c7ab7308ed294ef02365ef3f8d68b4c081fbaf77cb35a7eb4d10",
+          "6e816bb44965ea4b1102492479a01b8e49a880774a42096f75f403511068f114"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_current, u_target, u_extra;",
+            "uniform vec2 u_texel;",
+            "uniform sampler2D u_after;"
+          ]
+        ],
+        "draws": 99,
+        "batches": 99,
+        "completedBatches": 99,
+        "gpuMs": 165.464475,
+        "label": "PuddlePresentation.INPUT",
+        "shareOfMeasuredGpuQuerySum": 0.19472870586358496
+      },
+      {
+        "shaderSHA": [
+          "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb",
+          "9277fd378538ca6af022a892907c3a9bb68ffef5ce5eb50fa5a5ad0704d45ac3"
+        ],
+        "uniformDeclarations": [
+          [
+            "uniform vec2 u_dabCenter;",
+            "uniform float u_dabRadius;",
+            "uniform float u_angle;",
+            "uniform float u_aspectRatio;",
+            "uniform vec2 u_resolution;",
+            "uniform float u_pressure;",
+            "uniform float u_tiltX;",
+            "uniform float u_tiltY;",
+            "uniform float u_opacity;",
+            "uniform float u_wickPx;",
+            "uniform float u_wickCap;"
+          ],
+          [
+            "uniform sampler2D u_paperHeightMap;",
+            "uniform float u_hardness;",
+            "uniform vec2 u_paperScale;",
+            "uniform vec2 u_paperOrigin;",
+            "uniform vec2 u_paperTexSize;",
+            "uniform float u_eraseMode;",
+            "uniform vec3 u_color;",
+            "uniform int u_grainMode;",
+            "uniform float u_paperFillThreshold;",
+            "uniform float u_paperFillCap;",
+            "uniform float u_rectComposite;",
+            "uniform float u_charcoalTooth;",
+            "uniform float u_charcoalCrumble;",
+            "uniform float u_charcoalDust;",
+            "uniform float u_charcoalBroadAspect;",
+            "uniform float u_charcoalBroadGrain;",
+            "uniform float u_charcoalPressFloor;",
+            "uniform float u_charcoalPressGamma;",
+            "uniform float u_charcoalSkipFloor;",
+            "uniform float u_charcoalGateRelief;",
+            "uniform float u_charcoalGrainDepth;",
+            "uniform sampler2D u_original;",
+            "uniform sampler2D u_strokeCoverage;",
+            "uniform sampler2D u_inkLoad;",
+            "uniform sampler2D u_inkColor;",
+            "uniform vec3 u_tau;",
+            "uniform vec2 u_resolution;",
+            "uniform float u_aaPx;",
+            "uniform float u_nibShape;",
+            "uniform float u_nibCorner;",
+            "uniform vec2 u_acrossLocal;",
+            "uniform float u_paperWet;"
+          ]
+        ],
+        "draws": 693,
+        "batches": 693,
+        "completedBatches": 693,
+        "gpuMs": 68.156763,
+        "label": "DAB_FRAG native-nib mode6 depth0",
+        "shareOfMeasuredGpuQuerySum": 0.08021104381977504
+      },
+      {
+        "shaderSHA": [
+          "af53354739edbe61a9d1c65323669e0762bea9d6b8e39a6c6c0c65e1fc5fd36a",
+          "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa"
+        ],
+        "uniformDeclarations": [
+          [
+            "uniform vec2 u_resolution;"
+          ],
+          [
+            "uniform float u_aaPx;",
+            "uniform float u_mode;",
+            "uniform vec2 u_resolution;",
+            "uniform sampler2D u_availableWater;",
+            "uniform float u_useAvailableWater;",
+            "uniform float u_washWater;",
+            "uniform float u_waterRetain;",
+            "uniform float u_bristleCombs;",
+            "uniform float u_bristleInk;",
+            "uniform float u_depthWrite;",
+            "uniform vec3 u_tau;",
+            "uniform vec2 u_worldOrigin;",
+            "uniform vec2 u_mottleSeed;",
+            "uniform float u_cloudDeposit;",
+            "uniform float u_granDeposit;",
+            "uniform float u_poolBlot;",
+            "uniform sampler2D u_wcNoiseTex;"
+          ]
+        ],
+        "draws": 2178,
+        "batches": 1881,
+        "completedBatches": 1881,
+        "gpuMs": 64.03437,
+        "label": "RIBBON_FRAG",
+        "shareOfMeasuredGpuQuerySum": 0.0753595598142137
+      },
+      {
+        "shaderSHA": [
+          "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb",
+          "1d8375fb31c0e08f12ffb2676fc7a2727025de0e76e30f588a244c554eb4a535"
+        ],
+        "uniformDeclarations": [
+          [
+            "uniform vec2 u_dabCenter;",
+            "uniform float u_dabRadius;",
+            "uniform float u_angle;",
+            "uniform float u_aspectRatio;",
+            "uniform vec2 u_resolution;",
+            "uniform float u_pressure;",
+            "uniform float u_tiltX;",
+            "uniform float u_tiltY;",
+            "uniform float u_opacity;",
+            "uniform float u_wickPx;",
+            "uniform float u_wickCap;"
+          ],
+          [
+            "uniform sampler2D u_paperHeightMap;",
+            "uniform float u_hardness;",
+            "uniform vec2 u_paperScale;",
+            "uniform vec2 u_paperOrigin;",
+            "uniform vec2 u_paperTexSize;",
+            "uniform float u_eraseMode;",
+            "uniform vec3 u_color;",
+            "uniform int u_grainMode;",
+            "uniform float u_paperFillThreshold;",
+            "uniform float u_paperFillCap;",
+            "uniform float u_rectComposite;",
+            "uniform float u_charcoalTooth;",
+            "uniform float u_charcoalCrumble;",
+            "uniform float u_charcoalDust;",
+            "uniform float u_charcoalBroadAspect;",
+            "uniform float u_charcoalBroadGrain;",
+            "uniform float u_charcoalPressFloor;",
+            "uniform float u_charcoalPressGamma;",
+            "uniform float u_charcoalSkipFloor;",
+            "uniform float u_charcoalGateRelief;",
+            "uniform float u_charcoalGrainDepth;",
+            "uniform sampler2D u_original;",
+            "uniform sampler2D u_strokeCoverage;",
+            "uniform sampler2D u_inkLoad;",
+            "uniform sampler2D u_inkColor;",
+            "uniform vec3 u_tau;",
+            "uniform vec2 u_resolution;",
+            "uniform float u_aaPx;",
+            "uniform float u_nibShape;",
+            "uniform float u_nibCorner;",
+            "uniform vec2 u_acrossLocal;",
+            "uniform float u_paperWet;"
+          ]
+        ],
+        "draws": 1386,
+        "batches": 1386,
+        "completedBatches": 1386,
+        "gpuMs": 55.268882,
+        "label": "DAB_FRAG native-nib mode7 depth0",
+        "shareOfMeasuredGpuQuerySum": 0.06504379786892132
+      },
+      {
+        "shaderSHA": [
+          "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+          "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_cost;",
+            "uniform sampler2D u_paperHeightMap;",
+            "uniform vec2 u_resolution;",
+            "uniform vec2 u_paperOrigin;",
+            "uniform vec2 u_paperTexSize;",
+            "uniform vec2 u_paperScale;",
+            "uniform float u_climb;",
+            "uniform float u_floor;",
+            "uniform float u_costMax;",
+            "uniform sampler2D u_film;",
+            "uniform float u_dryCost;",
+            "uniform sampler2D u_foreignFilm;",
+            "uniform float u_foreignWet;",
+            "uniform float u_stride;",
+            "uniform sampler2D u_wcNoiseTex;"
+          ]
+        ],
+        "draws": 28,
+        "batches": 3,
+        "completedBatches": 3,
+        "gpuMs": 32.90854,
+        "label": "WC_WATER_FRONT_FRAG",
+        "shareOfMeasuredGpuQuerySum": 0.03872878094261636
+      },
+      {
+        "shaderSHA": [
+          "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+          "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_a;",
+            "uniform sampler2D u_b;",
+            "uniform float u_k;"
+          ]
+        ],
+        "draws": 2119,
+        "batches": 1407,
+        "completedBatches": 1407,
+        "gpuMs": 29.906041,
+        "label": "WC_FIELD_ADD_FRAG",
+        "shareOfMeasuredGpuQuerySum": 0.035195256633989334
+      },
+      {
+        "shaderSHA": [
+          "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+          "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_a;",
+            "uniform sampler2D u_b;",
+            "uniform float u_k;",
+            "uniform float u_mode;",
+            "uniform vec3 u_tau;",
+            "uniform sampler2D u_c;",
+            "uniform vec2 u_dir;",
+            "uniform sampler2D u_d;",
+            "uniform sampler2D u_e;",
+            "uniform sampler2D u_path;",
+            "uniform float u_pathEnabled;",
+            "uniform vec2 u_origin;",
+            "uniform vec2 u_size;",
+            "uniform vec2 u_band;",
+            "uniform vec3 u_world;"
+          ]
+        ],
+        "draws": 722,
+        "batches": 701,
+        "completedBatches": 701,
+        "gpuMs": 28.964316,
+        "label": "WC_FIELD_OP_FRAG",
+        "shareOfMeasuredGpuQuerySum": 0.03408697710432362
+      },
+      {
+        "shaderSHA": [
+          "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+          "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_ink;",
+            "uniform sampler2D u_coverage;",
+            "uniform sampler2D u_paperHeightMap;",
+            "uniform vec2 u_resolution;",
+            "uniform vec2 u_paperOrigin;",
+            "uniform vec2 u_paperTexSize;",
+            "uniform vec2 u_paperScale;",
+            "uniform float u_d;",
+            "uniform float u_b;",
+            "uniform float u_radius;",
+            "uniform float u_stencil;"
+          ]
+        ],
+        "draws": 26,
+        "batches": 8,
+        "completedBatches": 8,
+        "gpuMs": 20.603381,
+        "label": "WC_DIFFUSE_FRAG",
+        "shareOfMeasuredGpuQuerySum": 0.024247317852030624
+      },
+      {
+        "shaderSHA": [
+          "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+          "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_cost;",
+            "uniform sampler2D u_paperHeightMap;",
+            "uniform vec2 u_resolution;",
+            "uniform vec2 u_paperOrigin;",
+            "uniform vec2 u_paperTexSize;",
+            "uniform vec2 u_paperScale;",
+            "uniform float u_climb;",
+            "uniform float u_floor;",
+            "uniform float u_costMax;",
+            "uniform sampler2D u_film;",
+            "uniform float u_dryCost;",
+            "uniform sampler2D u_foreignFilm;",
+            "uniform float u_foreignWet;",
+            "uniform float u_stride;",
+            "uniform sampler2D u_wcNoiseTex;",
+            "uniform sampler2D u_edges0;",
+            "uniform sampler2D u_edges1;",
+            "uniform sampler2D u_edges2;",
+            "uniform sampler2D u_edges3;"
+          ]
+        ],
+        "draws": 17,
+        "batches": 1,
+        "completedBatches": 1,
+        "gpuMs": 17.948541,
+        "label": "unmapped",
+        "shareOfMeasuredGpuQuerySum": 0.021122939900359246
+      },
+      {
+        "shaderSHA": [
+          "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+          "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_a;",
+            "uniform sampler2D u_b;",
+            "uniform float u_k;",
+            "uniform float u_mode;",
+            "uniform vec3 u_tau;",
+            "uniform sampler2D u_c;",
+            "uniform vec2 u_dir;",
+            "uniform sampler2D u_d;",
+            "uniform sampler2D u_e;",
+            "uniform sampler2D u_path;",
+            "uniform float u_pathEnabled;",
+            "uniform vec2 u_origin;",
+            "uniform vec2 u_size;",
+            "uniform vec2 u_band;",
+            "uniform vec3 u_world;"
+          ]
+        ],
+        "draws": 14,
+        "batches": 14,
+        "completedBatches": 14,
+        "gpuMs": 11.894524,
+        "label": "WC_FIELD_OP_CARRY_FRAG",
+        "shareOfMeasuredGpuQuerySum": 0.013998202728309822
+      },
+      {
+        "shaderSHA": [
+          "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+          "e7e5b25bf6fbe2e26806f447a3d70758493da2cde66545b3fb51a7b825cda494"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_a;",
+            "uniform sampler2D u_b;",
+            "uniform float u_k;",
+            "uniform float u_mode;",
+            "uniform vec3 u_tau;",
+            "uniform sampler2D u_c;",
+            "uniform vec2 u_dir;",
+            "uniform sampler2D u_d;",
+            "uniform sampler2D u_e;",
+            "uniform sampler2D u_path;",
+            "uniform float u_pathEnabled;",
+            "uniform vec2 u_origin;",
+            "uniform vec2 u_size;",
+            "uniform vec2 u_band;",
+            "uniform vec3 u_world;"
+          ]
+        ],
+        "draws": 14,
+        "batches": 14,
+        "completedBatches": 14,
+        "gpuMs": 11.887441,
+        "label": "WC_FIELD_OP_CARRY_COLOUR_FRAG",
+        "shareOfMeasuredGpuQuerySum": 0.013989867021061291
+      },
+      {
+        "shaderSHA": [
+          "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+          "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_a;",
+            "uniform sampler2D u_b;",
+            "uniform float u_k;",
+            "uniform float u_mode;",
+            "uniform vec3 u_tau;",
+            "uniform sampler2D u_c;",
+            "uniform vec2 u_dir;",
+            "uniform sampler2D u_d;",
+            "uniform sampler2D u_e;",
+            "uniform sampler2D u_path;",
+            "uniform float u_pathEnabled;",
+            "uniform vec2 u_origin;",
+            "uniform vec2 u_size;",
+            "uniform vec2 u_band;",
+            "uniform vec3 u_world;"
+          ]
+        ],
+        "draws": 10,
+        "batches": 8,
+        "completedBatches": 8,
+        "gpuMs": 8.156402,
+        "label": "WC_FIELD_OP_HIGH_FRAG",
+        "shareOfMeasuredGpuQuerySum": 0.009598952318696542
+      },
+      {
+        "shaderSHA": [
+          "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+          "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_cost;",
+            "uniform sampler2D u_paperHeightMap;",
+            "uniform vec2 u_resolution;",
+            "uniform vec2 u_paperOrigin;",
+            "uniform vec2 u_paperTexSize;",
+            "uniform vec2 u_paperScale;",
+            "uniform float u_climb;",
+            "uniform float u_floor;",
+            "uniform float u_costMax;",
+            "uniform sampler2D u_film;",
+            "uniform float u_dryCost;",
+            "uniform sampler2D u_foreignFilm;",
+            "uniform float u_foreignWet;",
+            "uniform float u_stride;",
+            "uniform sampler2D u_wcNoiseTex;",
+            "uniform vec2 u_directionA;",
+            "uniform vec2 u_directionB;",
+            "uniform float u_buildStride;"
+          ]
+        ],
+        "draws": 16,
+        "batches": 1,
+        "completedBatches": 1,
+        "gpuMs": 6.39125,
+        "label": "unmapped",
+        "shareOfMeasuredGpuQuerySum": 0.007521613575062789
+      },
+      {
+        "shaderSHA": [
+          "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+          "40afe3aa55b3abcec35e0c1c6ac0655e2b6b99f711876651cbc992b63ed2817c"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D initial,reference,coverage;",
+            "uniform vec2 margin;"
+          ]
+        ],
+        "draws": 1,
+        "batches": 1,
+        "completedBatches": 1,
+        "gpuMs": 5.430885,
+        "label": "unmapped",
+        "shareOfMeasuredGpuQuerySum": 0.006391397354289829
+      },
+      {
+        "shaderSHA": [
+          "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+          "030409569390ca4c47cb0d421923fbaf84696bf2bfb8498b5eff4db30a80ffaf"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_accumulation;",
+            "uniform sampler2D u_paperMap;",
+            "uniform vec3 u_paperColor;",
+            "uniform vec2 u_paperScale;",
+            "uniform vec2 u_paperTexSize;",
+            "uniform vec2 u_dstSize;",
+            "uniform vec2 u_srcSize;",
+            "uniform mat3 u_matrixInv;",
+            "uniform mat3 u_screenToWorld;",
+            "uniform float u_sharpResample;",
+            "uniform vec4 u_pageRect;",
+            "uniform vec3 u_deskColor;",
+            "uniform sampler2D u_wetMap;",
+            "uniform vec4 u_wetRect;",
+            "uniform float u_wetPeak;"
+          ]
+        ],
+        "draws": 10,
+        "batches": 10,
+        "completedBatches": 10,
+        "gpuMs": 5.3351,
+        "label": "PAPER_COMPOSE_FRAG",
+        "shareOfMeasuredGpuQuerySum": 0.006278671712781926
+      },
+      {
+        "shaderSHA": [
+          "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+          "2b47ad6cc792f64f77bb98810eb2c12277ea1f1e7ea15edbea3c86746b7f3b7b"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_a;",
+            "uniform sampler2D u_b;",
+            "uniform float u_k;",
+            "uniform float u_mode;",
+            "uniform vec3 u_tau;",
+            "uniform sampler2D u_c;",
+            "uniform vec2 u_dir;",
+            "uniform sampler2D u_d;",
+            "uniform sampler2D u_e;",
+            "uniform sampler2D u_path;",
+            "uniform float u_pathEnabled;",
+            "uniform vec2 u_origin;",
+            "uniform vec2 u_size;",
+            "uniform vec2 u_band;",
+            "uniform vec3 u_world;",
+            "uniform sampler2D u_wcFibreNoiseTex;"
+          ]
+        ],
+        "draws": 8,
+        "batches": 8,
+        "completedBatches": 8,
+        "gpuMs": 4.7001,
+        "label": "unmapped",
+        "shareOfMeasuredGpuQuerySum": 0.005531364907358125
+      },
+      {
+        "shaderSHA": [
+          "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+          "847145f179bce84e0386d04f7c81246ba5f664fbaaa81a8c89ec2a64ca60eba7"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_tex;"
+          ]
+        ],
+        "draws": 10,
+        "batches": 10,
+        "completedBatches": 10,
+        "gpuMs": 4.192392,
+        "label": "SCREEN_BLIT_FRAG",
+        "shareOfMeasuredGpuQuerySum": 0.004933863106463467
+      },
+      {
+        "shaderSHA": [
+          "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+          "da9279e5e6c995725f381e6c32c24ef8407893832cb5ed0343269a09f31fa370"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_layer;",
+            "uniform float u_opacity;"
+          ]
+        ],
+        "draws": 20,
+        "batches": 10,
+        "completedBatches": 10,
+        "gpuMs": 4.080411,
+        "label": "LAYER_COMPOSITE_FRAG",
+        "shareOfMeasuredGpuQuerySum": 0.004802077022403368
+      },
+      {
+        "shaderSHA": [
+          "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+          "1d7de4576ccb2d06c811ac7b24c237ebdc962511cf1d5e7f379ef1d55c9dff95"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D source,lowBefore,lowAfter,coverage,eligible;",
+            "uniform float strength,distortion;",
+            "uniform vec2 worldSize;",
+            "uniform sampler2D noiseLattice;"
+          ]
+        ],
+        "draws": 2,
+        "batches": 1,
+        "completedBatches": 1,
+        "gpuMs": 1.732447,
+        "label": "unmapped",
+        "shareOfMeasuredGpuQuerySum": 0.0020388495010016513
+      },
+      {
+        "shaderSHA": [
+          "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+          "4d6784f542213a1f29946fa83e07454c9df5712c3c46cd0d8e6f2762706f652a"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D color,water;",
+            "uniform float volume;",
+            "uniform sampler2D pigment,background,regionKeep;",
+            "uniform float optical,massThreshold,compositionThreshold,hueThreshold,hueStrength;"
+          ]
+        ],
+        "draws": 3,
+        "batches": 1,
+        "completedBatches": 1,
+        "gpuMs": 1.571561,
+        "label": "unmapped",
+        "shareOfMeasuredGpuQuerySum": 0.0018495090243128107
+      },
+      {
+        "shaderSHA": [
+          "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+          "7566bba906185feec2c24a0db1b706c7e285a8f1e86a9b2aadd94bf2665186a9"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D raw,result,water;"
+          ]
+        ],
+        "draws": 2,
+        "batches": 1,
+        "completedBatches": 1,
+        "gpuMs": 1.122656,
+        "label": "unmapped",
+        "shareOfMeasuredGpuQuerySum": 0.0013212101873226194
+      },
+      {
+        "shaderSHA": [
+          "0c1b6d191141c7ab7308ed294ef02365ef3f8d68b4c081fbaf77cb35a7eb4d10",
+          "332b97ad6021972d42eb081b783c2a0d3c4d9a8e2b9cb7c1045d5293051cbcb0"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_current, u_target, u_extra;",
+            "uniform vec2 u_texel;"
+          ]
+        ],
+        "draws": 4,
+        "batches": 3,
+        "completedBatches": 3,
+        "gpuMs": 1.028332,
+        "label": "PuddlePresentation.COPY",
+        "shareOfMeasuredGpuQuerySum": 0.0012102039398977458
+      },
+      {
+        "shaderSHA": [
+          "45747a47e8b9ae8be7283ae5adf3f6163cedd4621f7a712dbf0867effe9d12ea",
+          "fb595b734769902964a6650c014416f7d297cee42cbf35c287385758045d5f2a"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_source;"
+          ]
+        ],
+        "draws": 1,
+        "batches": 1,
+        "completedBatches": 1,
+        "gpuMs": 0.580885,
+        "label": "unmapped",
+        "shareOfMeasuredGpuQuerySum": 0.0006836209664072518
+      },
+      {
+        "shaderSHA": [
+          "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+          "d3030c22b4921c1d419ab395fe68ae49c94a8d13d31a15339f3ec73acb499590"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D p,c;"
+          ]
+        ],
+        "draws": 1,
+        "batches": 1,
+        "completedBatches": 1,
+        "gpuMs": 0.421614,
+        "label": "unmapped",
+        "shareOfMeasuredGpuQuerySum": 0.0004961811204125206
+      },
+      {
+        "shaderSHA": [
+          "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+          "9681c26f542b28f0df04d7927fbfa890f733cbb2b848550c80ea78dea17fd403"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D color,water;",
+            "uniform float volume;",
+            "uniform vec2 stride;"
+          ]
+        ],
+        "draws": 1,
+        "batches": 1,
+        "completedBatches": 1,
+        "gpuMs": 0.298906,
+        "label": "unmapped",
+        "shareOfMeasuredGpuQuerySum": 0.0003517708472157587
+      },
+      {
+        "shaderSHA": [
+          "0c1b6d191141c7ab7308ed294ef02365ef3f8d68b4c081fbaf77cb35a7eb4d10",
+          "833f33097962aa68454c0d2fc2086c3b6e2e4b4b053223f90850b79f50504cb5"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_current, u_target, u_extra;",
+            "uniform vec2 u_texel;"
+          ]
+        ],
+        "draws": 1,
+        "batches": 1,
+        "completedBatches": 1,
+        "gpuMs": 0.257135,
+        "label": "PuddlePresentation.FLOW",
+        "shareOfMeasuredGpuQuerySum": 0.0003026121817522034
+      },
+      {
+        "shaderSHA": [
+          "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+          "bd9da0df4aed4c4631b22f61d9178d0a38b780ddb5da5ae43d3ec54ab994d137"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D source,eligible;",
+            "uniform vec2 stride;"
+          ]
+        ],
+        "draws": 8,
+        "batches": 1,
+        "completedBatches": 1,
+        "gpuMs": 0.223802,
+        "label": "unmapped",
+        "shareOfMeasuredGpuQuerySum": 0.0002633838703424529
+      },
+      {
+        "shaderSHA": [
+          "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+          "05d667d057727c861cde1a7eb8b7201a00c63ec67e288ac0081a81eeb4c960f9"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D source;",
+            "uniform vec2 texel;"
+          ]
+        ],
+        "draws": 3,
+        "batches": 1,
+        "completedBatches": 1,
+        "gpuMs": 0.222708,
+        "label": "unmapped",
+        "shareOfMeasuredGpuQuerySum": 0.00026209638428712433
+      },
+      {
+        "shaderSHA": [
+          "0c1b6d191141c7ab7308ed294ef02365ef3f8d68b4c081fbaf77cb35a7eb4d10",
+          "0e0a5dcf051c54ffb301886e682fa105a4548e3cd89cc3dfc1686cea1d5495ac"
+        ],
+        "uniformDeclarations": [
+          [],
+          [
+            "uniform sampler2D u_current, u_target, u_extra;",
+            "uniform vec2 u_texel;"
+          ]
+        ],
+        "draws": 2,
+        "batches": 2,
+        "completedBatches": 2,
+        "gpuMs": 0.111093,
+        "label": "PuddlePresentation.FEATURE",
+        "shareOfMeasuredGpuQuerySum": 0.00013074103139361633
+      }
+    ],
+    "limitations": [
+      "Diagnostic marker overhead is included; compare separately against uninstrumented Undo.",
+      "GPU query sum measures queued draw batches, not UI display latency or network ACK. Task-end closes prevent measuring inter-frame idle waits; command-submission bubbles within one task can still be included.",
+      "No shader/pixel change; no gl.finish/readPixels; current program batches may include non-draw GPU commands.",
+      "No canonical cross-device determinism claim. Max-batch truncation, disjoint or timeout makes coverage incomplete."
+    ]
+  },
+  "actor0": {
+    "undoCPU": 24.399999856948853,
+    "swapMs": 2859,
+    "ack": 31397.5,
+    "start": 31078.400000095367,
+    "arrival": 31080.9,
+    "glErrors": []
+  },
+  "firstObservedScreenshotChange": {
+    "requestAfterTriggerMs": 2303,
+    "completeAfterTriggerMs": 3193,
+    "changedChannels": 586,
+    "max": 187,
+    "meanRGB": [
+      245.88671875,
+      245.88671875,
+      245.88671875
+    ]
+  },
+  "limitations": [
+    "One instrumented trial, two author contexts on same SurfaceGPU; not improvement benchmark.",
+    "6964 timer markers add submission overhead; elapsed intervals may include GPU scheduler/CPU submission bubbles. Sum is not total frame time or unexplained CPU cost.",
+    "Only actorA engine context instrumented; peer context draws also run on same GPU.",
+    "Prior WebGL2-only probe was wrong because actual engine isWebGL1; corrected WebGL1EXT works.",
+    "Prior4096-query trial was incomplete; only this16384-cap run qualifies fullcoverage."
+  ],
+  "pass": true,
+  "cleanup": {
+    "contextsClosed": true,
+    "threeExactOwnedFixturesDeletedViaOwnerAPI": true,
+    "authDeleted": true,
+    "sharedSurfaceTunnelUntouched": true
+  }
+}
