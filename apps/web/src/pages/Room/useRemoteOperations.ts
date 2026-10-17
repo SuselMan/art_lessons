@@ -215,8 +215,9 @@ export function useRemoteOperations({
     return 'restored'
   }, [restoredLayerStateRef, engineRef])
 
-  // (#169) Walks the room's history backward from `fromSeq` (the restored
-  // snapshot's own seq) in pages, merging each into the engine's log purely
+  // (#169) Walks backward from the exclusive beforeSeq cursor `fromSeq`
+  // (positive snapshot watermark + 1, already normalized by the caller),
+  // merging each page into the engine's log purely
   // for undo/redo purposes (see absorbHistoricalOperations's own doc
   // comment — never paints). Deliberately fire-and-forget from every caller:
   // this runs fully in the background, must not block first paint, and its

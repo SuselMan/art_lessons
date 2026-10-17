@@ -1,0 +1,7 @@
+{
+ "issue":789,
+ "baseline":{"publicPath":"restoreRoomState -> walkHistoryBackward -> real engine absorbHistoricalOperations/undo","beforeSeqRequests":[20,1],"knownStrokes":19,"snapshotHeadPresent":false,"actualUndo":"stroke-19","expectedUndo":"stroke-20","normalAssertion":"FAIL"},
+ "fix":{"scope":"positive inclusive snapshot watermark to exclusive history cursor once at restoreRoomState caller","head20Cursor":21,"head0Cursor":0,"walkDepthUnchanged":500,"serverPredicateUnchanged":"seq.lt(beforeSeq)","runtimePhysicsChanged":false},
+ "checks":{"head20UndoRedo":true,"headAlreadyInTailNoDuplicateOrBackfillPaint":true,"noSnapshotNoBackfill":true,"head0NoBackfill":true,"targeted4Tests":"PASS 4.47s maxWorkers1","initialHead2PlusExistingSnapshot31Tests":"PASS 33checks 5.53s maxWorkers1","oxlint3TouchedFiles":"PASS"},
+ "limits":["CPU actual engine journal/control target proof; not hardware raster proof","Tail covered boundary absorbed as history, no repeated paint during backfill","No GPU, services, dependencies or temporary resources created"]
+}
