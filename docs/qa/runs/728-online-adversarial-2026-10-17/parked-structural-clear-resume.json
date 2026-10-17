@@ -1,0 +1,136 @@
+{
+  "source": "81eb5d04",
+  "scope": "Zero-CPU parked wet source duplicate/merge/clear with real online authors; same-GPU independent replay",
+  "cases": [
+    {
+      "name": "clear-parked-wet-source-empty",
+      "proofs": [
+        {
+          "nonzero": 0,
+          "bytes": 0,
+          "oracleEmpty": true,
+          "glError": 0
+        },
+        {
+          "nonzero": 0,
+          "bytes": 0,
+          "oracleEmpty": true,
+          "glError": 0
+        },
+        {
+          "nonzero": 0,
+          "bytes": 0,
+          "oracleEmpty": true,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "undo-clear-parked-then-continued-stroke",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-4b8e7e4c-ad1c-448a-9797-f0cfce73cfb4",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "c057bd3592cb6a6c5397302a9caaa76af67abf8560b48bc3d3964937a23e801b",
+          "oracleHash": "c057bd3592cb6a6c5397302a9caaa76af67abf8560b48bc3d3964937a23e801b",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 11636,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-4b8e7e4c-ad1c-448a-9797-f0cfce73cfb4",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "c057bd3592cb6a6c5397302a9caaa76af67abf8560b48bc3d3964937a23e801b",
+          "oracleHash": "c057bd3592cb6a6c5397302a9caaa76af67abf8560b48bc3d3964937a23e801b",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 11636,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-4b8e7e4c-ad1c-448a-9797-f0cfce73cfb4",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "c057bd3592cb6a6c5397302a9caaa76af67abf8560b48bc3d3964937a23e801b",
+          "oracleHash": "c057bd3592cb6a6c5397302a9caaa76af67abf8560b48bc3d3964937a23e801b",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 11636,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "dd14df3d-6336-4227-afb6-93d74e6908e0",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "5a228df6-0209-4991-9575-a45c3df8ebdf",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "6dceaa49-ec22-4134-b6ce-fa9fa77dfce9",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "currentProof": {
+    "name": "undo-clear-parked-then-continued-stroke",
+    "actor": 2,
+    "layerId": "qa-wet-erase-4b8e7e4c-ad1c-448a-9797-f0cfce73cfb4",
+    "sourceHiddenReplay": false,
+    "oracleHiddenReplay": false,
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "c057bd3592cb6a6c5397302a9caaa76af67abf8560b48bc3d3964937a23e801b",
+    "oracleHash": "c057bd3592cb6a6c5397302a9caaa76af67abf8560b48bc3d3964937a23e801b",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 11636,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "pass": true
+}

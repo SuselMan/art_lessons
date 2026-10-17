@@ -1,0 +1,468 @@
+{
+  "source": "81eb5d04",
+  "scope": "Native WEBGL_lose_context with recorded wet+dry underlay and unrecorded held tail; accepted journal survives",
+  "cases": [
+    {
+      "name": "three-wet-sources-forced-zero-cpu-before-context-loss",
+      "residency": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 3,
+        "residentLayers": 2,
+        "parkedLayers": 1,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 3,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          },
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          }
+        ]
+      },
+      "baseline": [
+        {
+          "layer": "qa-wet-erase-b291408b-ba60-4629-a636-626e4a235a9d",
+          "targets": [
+            {
+              "hash": "0551b3ffacaa9430bd6803652f9b0521260d8091eac3024d390ffeb04052f1fe",
+              "bytes": 1048576,
+              "material": false
+            },
+            {
+              "hash": "0551b3ffacaa9430bd6803652f9b0521260d8091eac3024d390ffeb04052f1fe",
+              "bytes": 1048576,
+              "material": false
+            },
+            {
+              "hash": "0551b3ffacaa9430bd6803652f9b0521260d8091eac3024d390ffeb04052f1fe",
+              "bytes": 1048576,
+              "material": false
+            }
+          ]
+        },
+        {
+          "layer": "qa-wet-erase-07801ab3-7967-44a0-9e0c-47f08fd9abe0",
+          "targets": [
+            {
+              "hash": "e87d52dc5f234662e66bb9c47156b7165c7bdb7241f5b9355d02221402728f7b",
+              "bytes": 1048576,
+              "material": true
+            },
+            {
+              "hash": "e87d52dc5f234662e66bb9c47156b7165c7bdb7241f5b9355d02221402728f7b",
+              "bytes": 1048576,
+              "material": true
+            },
+            {
+              "hash": "e87d52dc5f234662e66bb9c47156b7165c7bdb7241f5b9355d02221402728f7b",
+              "bytes": 1048576,
+              "material": true
+            }
+          ]
+        },
+        {
+          "layer": "qa-wet-erase-a58b698b-72ac-466d-90f4-438da38ce9ae",
+          "targets": [
+            {
+              "hash": "84e5cf87401d246a848c0b512d3974dd172e12767041aa0cf826fd47ed95e7db",
+              "bytes": 1048576,
+              "material": true
+            },
+            {
+              "hash": "84e5cf87401d246a848c0b512d3974dd172e12767041aa0cf826fd47ed95e7db",
+              "bytes": 1048576,
+              "material": true
+            },
+            {
+              "hash": "84e5cf87401d246a848c0b512d3974dd172e12767041aa0cf826fd47ed95e7db",
+              "bytes": 1048576,
+              "material": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "native-context-loss-with-three-logical-wet-sources",
+      "before": {
+        "lost": false,
+        "stroke": null,
+        "layer": null
+      },
+      "after": {
+        "lost": false,
+        "stroke": null,
+        "layer": null,
+        "puddle": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 3,
+          "residentLayers": 2,
+          "parkedLayers": 1,
+          "cpuBytes": 5242880,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 3,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": true,
+              "active": true
+            },
+            {
+              "epoch": 1,
+              "ready": true,
+              "active": true
+            }
+          ]
+        },
+        "glError": 0
+      }
+    },
+    {
+      "name": "all-three-restored-goals-exact-no-extra-operations",
+      "restored": [
+        {
+          "layer": "qa-wet-erase-b291408b-ba60-4629-a636-626e4a235a9d",
+          "targets": [
+            {
+              "hash": "0551b3ffacaa9430bd6803652f9b0521260d8091eac3024d390ffeb04052f1fe",
+              "bytes": 1048576,
+              "material": true
+            },
+            {
+              "hash": "0551b3ffacaa9430bd6803652f9b0521260d8091eac3024d390ffeb04052f1fe",
+              "bytes": 1048576,
+              "material": false
+            },
+            {
+              "hash": "0551b3ffacaa9430bd6803652f9b0521260d8091eac3024d390ffeb04052f1fe",
+              "bytes": 1048576,
+              "material": false
+            }
+          ]
+        },
+        {
+          "layer": "qa-wet-erase-07801ab3-7967-44a0-9e0c-47f08fd9abe0",
+          "targets": [
+            {
+              "hash": "e87d52dc5f234662e66bb9c47156b7165c7bdb7241f5b9355d02221402728f7b",
+              "bytes": 1048576,
+              "material": false
+            },
+            {
+              "hash": "e87d52dc5f234662e66bb9c47156b7165c7bdb7241f5b9355d02221402728f7b",
+              "bytes": 1048576,
+              "material": true
+            },
+            {
+              "hash": "e87d52dc5f234662e66bb9c47156b7165c7bdb7241f5b9355d02221402728f7b",
+              "bytes": 1048576,
+              "material": true
+            }
+          ]
+        },
+        {
+          "layer": "qa-wet-erase-a58b698b-72ac-466d-90f4-438da38ce9ae",
+          "targets": [
+            {
+              "hash": "84e5cf87401d246a848c0b512d3974dd172e12767041aa0cf826fd47ed95e7db",
+              "bytes": 1048576,
+              "material": true
+            },
+            {
+              "hash": "84e5cf87401d246a848c0b512d3974dd172e12767041aa0cf826fd47ed95e7db",
+              "bytes": 1048576,
+              "material": true
+            },
+            {
+              "hash": "84e5cf87401d246a848c0b512d3974dd172e12767041aa0cf826fd47ed95e7db",
+              "bytes": 1048576,
+              "material": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "reopened-parked-layer-continued-stroke-dry",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-b291408b-ba60-4629-a636-626e4a235a9d",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "a259a24c53f6832389d91e3d7aaac9553962131128ffc922b6a6c67a35f7bfc6",
+          "oracleHash": "a259a24c53f6832389d91e3d7aaac9553962131128ffc922b6a6c67a35f7bfc6",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 11638,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-b291408b-ba60-4629-a636-626e4a235a9d",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "a259a24c53f6832389d91e3d7aaac9553962131128ffc922b6a6c67a35f7bfc6",
+          "oracleHash": "a259a24c53f6832389d91e3d7aaac9553962131128ffc922b6a6c67a35f7bfc6",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 11638,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-b291408b-ba60-4629-a636-626e4a235a9d",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "a259a24c53f6832389d91e3d7aaac9553962131128ffc922b6a6c67a35f7bfc6",
+          "oracleHash": "a259a24c53f6832389d91e3d7aaac9553962131128ffc922b6a6c67a35f7bfc6",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 11638,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "restored-parked-layer-continued-stroke-undo",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-b291408b-ba60-4629-a636-626e4a235a9d",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "2c2ddbbe570951c635190b756298852c81013bdef7ef477a393afdb2b502ad84",
+          "oracleHash": "2c2ddbbe570951c635190b756298852c81013bdef7ef477a393afdb2b502ad84",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5818,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-b291408b-ba60-4629-a636-626e4a235a9d",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "2c2ddbbe570951c635190b756298852c81013bdef7ef477a393afdb2b502ad84",
+          "oracleHash": "2c2ddbbe570951c635190b756298852c81013bdef7ef477a393afdb2b502ad84",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5818,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-b291408b-ba60-4629-a636-626e4a235a9d",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "2c2ddbbe570951c635190b756298852c81013bdef7ef477a393afdb2b502ad84",
+          "oracleHash": "2c2ddbbe570951c635190b756298852c81013bdef7ef477a393afdb2b502ad84",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5818,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "untouched-restored-layer-qa-wet-erase-07801ab3-7967-44a0-9e0c-47f08fd9abe0",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-07801ab3-7967-44a0-9e0c-47f08fd9abe0",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "18c252c4ff42061de7082a18d8ee92fbe5a683a26d193822f572b01d43c9e629",
+          "oracleHash": "18c252c4ff42061de7082a18d8ee92fbe5a683a26d193822f572b01d43c9e629",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5818,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-07801ab3-7967-44a0-9e0c-47f08fd9abe0",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "18c252c4ff42061de7082a18d8ee92fbe5a683a26d193822f572b01d43c9e629",
+          "oracleHash": "18c252c4ff42061de7082a18d8ee92fbe5a683a26d193822f572b01d43c9e629",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5818,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-07801ab3-7967-44a0-9e0c-47f08fd9abe0",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "18c252c4ff42061de7082a18d8ee92fbe5a683a26d193822f572b01d43c9e629",
+          "oracleHash": "18c252c4ff42061de7082a18d8ee92fbe5a683a26d193822f572b01d43c9e629",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5818,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "untouched-restored-layer-qa-wet-erase-a58b698b-72ac-466d-90f4-438da38ce9ae",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-a58b698b-72ac-466d-90f4-438da38ce9ae",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "a4b3f8096f96f3ff50eada2a901e7d3e2b09213b3b1bf4e0e187f14190d96dc8",
+          "oracleHash": "a4b3f8096f96f3ff50eada2a901e7d3e2b09213b3b1bf4e0e187f14190d96dc8",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5820,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-a58b698b-72ac-466d-90f4-438da38ce9ae",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "a4b3f8096f96f3ff50eada2a901e7d3e2b09213b3b1bf4e0e187f14190d96dc8",
+          "oracleHash": "a4b3f8096f96f3ff50eada2a901e7d3e2b09213b3b1bf4e0e187f14190d96dc8",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5820,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-a58b698b-72ac-466d-90f4-438da38ce9ae",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "a4b3f8096f96f3ff50eada2a901e7d3e2b09213b3b1bf4e0e187f14190d96dc8",
+          "oracleHash": "a4b3f8096f96f3ff50eada2a901e7d3e2b09213b3b1bf4e0e187f14190d96dc8",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5820,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "45643f41-2b1a-4ffb-9c67-1e1365401fba",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "9b77815a-9fc8-4670-8dcf-ba35fc1a2794",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "20b340e9-dd2e-447f-92ab-07b170ff4055",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "currentProof": {
+    "name": "untouched-restored-layer-qa-wet-erase-a58b698b-72ac-466d-90f4-438da38ce9ae",
+    "actor": 2,
+    "layerId": "qa-wet-erase-a58b698b-72ac-466d-90f4-438da38ce9ae",
+    "sourceHiddenReplay": false,
+    "oracleHiddenReplay": false,
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "a4b3f8096f96f3ff50eada2a901e7d3e2b09213b3b1bf4e0e187f14190d96dc8",
+    "oracleHash": "a4b3f8096f96f3ff50eada2a901e7d3e2b09213b3b1bf4e0e187f14190d96dc8",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 5820,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "pass": true
+}
