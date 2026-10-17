@@ -169,13 +169,16 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
     if(nativeScope)nativeScope.run(reset);else reset()
     while(!native.state.done){if(nativeScope)nativeScope.run(()=>native!.step(4));else native.step(4);yield}
     const material=native.buffers(),readRect=committedReadRect(window.field,window.cores)
-    for(const [out,input]of [[solvedP,material.p],[solvedC,material.c],[solvedCoverage,material.coverage]] as const){
+    const planes=[[solvedP,material.p],[solvedC,material.c],[solvedCoverage,material.coverage]] as const
+    for(const [plane,[out,input]]of planes.entries()){
      const pixels=input.readPixelsRegion(readRect.x,readRect.y,readRect.width,readRect.height)
      for(const core of window.cores){
       const interior={...core,y:size.height-core.y-core.height}
       const local={x:interior.x-rect.x,y:interior.y-rect.y,width:interior.width,height:interior.height}
       out.writeRect(interior,extractMaterialTileRect(pixels,readRect.width,readRect.height,{...local,x:local.x-readRect.x,y:local.y-readRect.y}))
      }
+     // Let the outer deadline run between required GPU reads; publish only complete goals.
+     if(plane+1<planes.length)yield
     }
    }finally{try{nativeScope?.dispose()}finally{try{native?.destroy()}finally{try{windowReads?.dispose()}finally{try{windowSource.destroy()}finally{if(key&&!detachedWindowSource)host.pool.release(key)}}}}}
    yield
