@@ -1,3 +1,4 @@
+import {inheritSettleOpTags} from '../../../../../apps/web/src/engine/src/watercolor/WatercolorSettleQueue'
 export interface FieldLease {release():void}
 /** Whole-job lease, including suspended and reentrant operation continuations. */
 export function fieldJobScope(lease:FieldLease){
@@ -11,7 +12,7 @@ export function fieldJobScope(lease:FieldLease){
    const value=Reflect.get(target,key,receiver)
    if(typeof key!=='string'||!/^\d+$/.test(key)||typeof value!=='function')return value
    let wrapped=wrappers.get(value)
-   if(!wrapped){wrapped=()=>{try{return run(()=>value())}catch(error){try{job.dispose()}finally{retire()}throw error}};Object.defineProperties(wrapped,Object.getOwnPropertyDescriptors(value));wrappers.set(value,wrapped)}
+   if(!wrapped){wrapped=()=>{try{return run(()=>value())}catch(error){try{job.dispose()}finally{retire()}throw error}};Object.defineProperties(wrapped,Object.getOwnPropertyDescriptors(value));inheritSettleOpTags(value,wrapped);wrappers.set(value,wrapped)}
    return wrapped
   }})
   return {...job,ops,finish:()=>run(()=>{try{job.finish()}finally{try{job.dispose()}finally{retire()}}}),dispose:()=>{try{job.dispose()}finally{retire()}}}

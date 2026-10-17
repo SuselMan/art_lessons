@@ -37,7 +37,7 @@ Engine/index.ts and PagedPuddleRoomController are intentionally NOT changed by t
 
 ## Validation
 
-`node_modules/.bin/vitest run --config docs/qa/runs/747-large-pages-20261017/phase-candidate/vitest.config.mjs`:24CPU tests PASS. Tests cover disabled budget callbacks plus always-on common leases; ordering; deferred busy/pinned admission; readback failure after partial eviction; generation/context-loss/reentrancy; explicit family child/foreign rejection; dynamically inserted/tagged operations; reentrant cancellation and allocation/operation/finish failure; real prefix program preservation/reallocation; real Paged generator capture-once/one-defer-per-step/cancel-restart; actual Plan public wrapper/default object identity/null/build error.
+`node_modules/.bin/vitest run --config docs/qa/runs/747-large-pages-20261017/phase-candidate/vitest.config.mjs`:29CPU tests PASS. Tests cover disabled budget callbacks plus always-on common leases; ordering; deferred busy/pinned admission; readback failure after partial eviction; generation/context-loss/reentrancy; explicit family child/foreign rejection; dynamically inserted/tagged operations; reentrant cancellation and allocation/operation/finish failure; real prefix program preservation/reallocation; real Paged generator capture-once/one-defer-per-step/cancel-restart; actual Plan public wrapper/default object identity/null/build error.
 
 Strict tsc on the three standalone owner/job/residency primitives:PASS. Transpile syntax validation for every generated source:PASS. Virtual git index at7b91 applies patch with `git apply --cached --check`:PASS. Normal apply-check against current served worktree FAILS ONLY PagedPuddleTarget because root has uncommitted skip/zero work there; do not overwrite it. No PagedSource/support metadata dependency was added.
 
@@ -48,3 +48,9 @@ The complete engine adapter needs its own combined typecheck/failure tests and n
 The existing controller synchronous `while(!solver.state.done) solver.step(...)` loops MUST inspect `admissionBlocked` and exit/requeue with a bounded pending-material result; repeating these loops on persistent pins would busy-spin. Do not present an old goal as newly canonical. RCA owns this adapter follow-up. `state.executing` permits controller/engine destroy to defer its outer pool/cache/plan teardown to a microtask after the current step finishes; merely deferring solver.destroy is insufficient if the outer wrapper destroys host.pool immediately. Controller frame completion must revalidate captured layer, revision and disposal status after step, because reentrant cancellation can clear solving during the call.
 
 Core2 tests additionally cover public admission state, reentrant cancel/destroy with the family lease still held during callback, and rejected reentrant reset preserving the current source/epoch. Runtime remains untouched.
+
+## Core3 review corrections
+
+Function descriptors do NOT preserve scheduling: WatercolorSettleQueue stores contact/front classes in WeakSets and presentation tokens in a WeakMap keyed by function identity. Every lease wrapper now calls the real `inheritSettleOpTags(source,wrapped)`. Three real Queue tests compare baseline vs wrapper batch boundaries, event order and sync counts for contact/front/presentation; removing ONLY this call makes all three fail (`queue-tag-negative-proof.json`). The older own-string-property test alone was insufficient.
+
+Generation is checked after releaseTextures and context-restored budget callbacks, preventing reentrant context loss from being overwritten with idle state. Parameter-property syntax was removed and unused private helper retired for the project's erasableSyntaxOnly/noUnusedLocals settings.

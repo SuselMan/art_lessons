@@ -1,0 +1,5 @@
+{
+  "scope": "Remove ONLY inheritSettleOpTags from candidate wrapper; real Queue batching identity tests must fail",
+  "exit": 1,
+  "summary": "\n RUN  v4.1.9 /home/suselman/projects/pencil-agents/747-single-rect\n\n \u276f docs/qa/runs/747-large-pages-20261017/phase-candidate/phase.external.test.ts (29 tests | 3 failed | 26 skipped) 53ms\n   \u00d7 real Queue contact identity scheduling is unchanged by lease wrapper 41ms\n   \u00d7 real Queue front identity scheduling is unchanged by lease wrapper 4ms\n   \u00d7 real Queue presentation identity scheduling is unchanged by lease wrapper 6ms\n\n Test Files  1 failed (1)\n      Tests  3 failed | 26 skipped (29)\n   Start at  11:31:59\n   Duration  560ms (transform 243ms, setup 0ms, import 284ms, tests 53ms, environment 0ms)\n\n"
+}

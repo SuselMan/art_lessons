@@ -9,11 +9,12 @@ export class M70PhaseOwner {
  private tokens=new WeakMap<FieldLease,{generation:number;token:symbol}>()
  private transitioning=false
  private phase:'idle'|'input'|'solve'|'lost'='idle'
- constructor(private hooks:Hooks,private enabled=false){}
+ private readonly hooks:Hooks
+ private readonly enabled:boolean
+ constructor(hooks:Hooks,enabled=false){this.hooks=hooks;this.enabled=enabled}
  get state(){return {generation:this.generation,activeLeases:this.leases.size,transitioning:this.transitioning,phase:this.phase,enabled:this.enabled}}
  private transition<T>(work:()=>T):T{if(this.transitioning||this.phase==='lost')throw Error('Phase unavailable');this.transitioning=true;try{return work()}finally{this.transitioning=false}}
  private sameGeneration(g:number){if(g!==this.generation||this.phase==='lost')throw Error('Stale phase transition')}
- private quiescent(){if(this.leases.size)throw Error('Shared fields leased')}
  acquire(parent?:FieldLease):FieldLease{
   if(this.transitioning||this.phase==='lost')throw Error('Field ownership unavailable')
   return this.grant(parent)
@@ -37,7 +38,7 @@ export class M70PhaseOwner {
  beginSolveSnapshot<T>(snapshot:T):{snapshot:T;lease:FieldLease}|null{return this.beginSolve(()=>snapshot)}
  releaseIdleTextures():boolean{
   if(this.transitioning||this.phase==='lost'||this.leases.size)return false
-  return this.transition(()=>{this.hooks.releaseTextures();this.phase='idle';return true})
+  return this.transition(()=>{const g=this.generation;this.hooks.releaseTextures();this.sameGeneration(g);this.phase='idle';return true})
  }
  contextLost():void{
   this.generation++;this.leases.clear();this.phase='lost'
@@ -45,7 +46,7 @@ export class M70PhaseOwner {
  }
  contextRestored():void{
   if(this.transitioning||this.phase!=='lost')throw Error('Invalid phase restore')
-  const result=this.hooks.setBudget(120*MiB);if(!result.ok)throw Error(result.reason)
+  const g=this.generation,result=this.hooks.setBudget(120*MiB);if(g!==this.generation||this.phase!=='lost')throw Error('Stale phase restore');if(!result.ok)throw Error(result.reason)
   this.phase='idle'
  }
 }
