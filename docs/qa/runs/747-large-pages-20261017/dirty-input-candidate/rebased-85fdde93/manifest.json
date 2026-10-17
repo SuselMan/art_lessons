@@ -1,0 +1,21 @@
+{
+  "base": "85fdde93fd8da2c9ee0c51bb24de615f85b89672",
+  "files": {
+    "apps/web/src/engine/src/watercolor/puddle/PuddleInputFingerprint.ts": {
+      "base": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "candidate": "ca7402ecd424718d9cd89ae2022af9f559334b5d6b2f43e88005500a0ad1c39e"
+    },
+    "apps/web/src/engine/src/buffers/AccumulationBuffer.ts": {
+      "base": "efbf2b11e34d43ab1bc403ce0a89f064eb788f1e0db9f63d30bb8178b7cb1906",
+      "candidate": "ad7e983c06cfb6f37c0ae65c17776f7d88b1c3e8727cb2345902932ed24f5256"
+    },
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleRoomController.ts": {
+      "base": "ed200e016260889a9f26ddb1fd1efad4add5d73500a06a566e4bf5795fddac85",
+      "candidate": "61e4371133116bb1aac8d35c96326f1a2f68d7b95e64d6579f4327d93155c809"
+    },
+    "apps/web/src/engine/index.ts": {
+      "base": "4a26baed2abd1b813b81b248ee4db2afa7dbd97bef780ea6cfc308ae26257416",
+      "candidate": "2b32e7592c76f5658860066cac772fb4f8dbbf83e43e0d28686fbc28f4cea4d9"
+    }
+  }
+}

@@ -1,0 +1,181 @@
+--- /dev/null
++++ b/apps/web/src/engine/src/watercolor/puddle/PuddleInputFingerprint.ts
+@@ -0,0 +1,34 @@
++import type {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
++import type {RibbonStrokeScratch} from '../../buffers/RibbonStrokeScratch'
++const planes=['original','coverage','inkLoad','inkColor','solventLoad','foreignSolventLoad'] as const
++export type InputFingerprint=Array<{buffer:AccumulationBuffer;revision:number}|null>
++export function rawInputFingerprint(entry:Partial<Record<typeof planes[number],AccumulationBuffer|null>>):InputFingerprint|null {
++ const result:InputFingerprint=[]
++ for(const name of planes){const buffer=entry[name];if(!buffer){result.push(null);continue}
++  const revision=buffer.contentRevision
++  if(!Number.isSafeInteger(revision)||revision<0)return null
++  result.push({buffer,revision})
++ }
++ return result
++}
++export function sameInputFingerprint(a:InputFingerprint|null|undefined,b:InputFingerprint|null):boolean {
++ return !!a&&!!b&&a.length===b.length&&a.every((value,i)=>value===null?b[i]===null:!!b[i]&&value.buffer===b[i]!.buffer&&value.revision===b[i]!.revision)
++}
++function encode(value:unknown,seen:Set<object>):string|null {
++ if(value===null)return 'null'
++ if(value===undefined)return 'undefined'
++ if(typeof value==='number')return Number.isFinite(value)?Object.is(value,-0)?'-0':String(value):null
++ if(typeof value==='string'||typeof value==='boolean')return JSON.stringify(value)
++ if(typeof value!=='object'||seen.has(value))return null
++ seen.add(value)
++ try{
++  const entries=Array.isArray(value)?value.map(v=>encode(v,seen)):Object.keys(value).sort().map(k=>{const v=encode((value as Record<string,unknown>)[k],seen);return v===null?null:JSON.stringify(k)+':'+v})
++  return entries.some(v=>v===null)?null:(Array.isArray(value)?'[':'{')+entries.join(',')+(Array.isArray(value)?']':'}')
++ }finally{seen.delete(value)}
++}
++/** Exact current engine host.render inputs, excluding bounds (geometry checked separately). */
++export function m70PresentationInputSignature(scratch:RibbonStrokeScratch,context:NonNullable<RibbonStrokeScratch['finishContext']>):string|null {
++ if(context.profile.materialModel!=='m70-r2-v1'||scratch.foreignSources?.length||scratch.foreignImportedGestures.size)return null
++ const sc=scratch.compositeScalars(()=>({spreadPx:0,inkSmoothPx:0,water:0,migratePx:0,fieldSeed:[0,0],bristleRadiusPx:0}))
++ return encode({preset:context.preset,profile:context.profile,color:context.color,opacity:context.opacity,fieldSeed:context.fieldSeed,water:sc.water,migratePx:sc.migratePx,bristleRadiusPx:sc.bristleRadiusPx,direction:scratch.noteDirection(0,0),gesture:scratch.gesture},new Set())
++}
+--- a/apps/web/src/engine/src/buffers/AccumulationBuffer.ts
++++ b/apps/web/src/engine/src/buffers/AccumulationBuffer.ts
+@@ -57,6 +57,10 @@
+     this._mipCapable = isPowerOfTwo(width) && isPowerOfTwo(height)
+   }
+ 
++  private _contentRevision=0
++  get contentRevision():number{return this._contentRevision}
++  private _noteContentWrite():void{this._contentRevision=Number.isSafeInteger(this._contentRevision)&&this._contentRevision<Number.MAX_SAFE_INTEGER?this._contentRevision+1:NaN}
++
+   private _residency?: BufferResidency
+   private _resident = true
+   private _destroyed = false
+@@ -72,6 +76,7 @@
+     this._idlePoolBuffer = on
+     this._idlePoolDiscardable = on && !this._mipsAllocated
+     if (this._idlePoolDiscardable && !this._resident && !this._destroyed) {
++      this._noteContentWrite()
+       this._backing = undefined
+       this._discardedPoolContents = true
+     }
+@@ -92,6 +97,7 @@
+   _residencyEvict(): void {
+     const { gl, width, height } = this
+     if (this._idlePoolDiscardable) {
++      this._noteContentWrite()
+       this._backing = undefined
+       this._discardedPoolContents = true
+     } else if (!this._backing || this._backing instanceof Uint8Array) preserveResidencyState(gl, () => {
+@@ -145,6 +151,7 @@
+   }
+ 
+   _residencyForget(): void {
++    this._noteContentWrite()
+     this._backing = undefined
+     this._resident = false
+     this._destroyed = true
+@@ -190,7 +197,7 @@
+   }
+ 
+   get texture(): WebGLTexture { this._ensureResident(); return this._texture }
+-  get fbo(): WebGLFramebuffer { this._ensureResident(); this._backing = undefined; return this._fbo }
++  get fbo(): WebGLFramebuffer { this._ensureResident(); this._backing = undefined; this._noteContentWrite(); return this._fbo }
+ 
+   /** (#365) Whether a mip chain can legally exist for this buffer at all.
+    *  WebGL1 only allows mipmaps on power-of-two textures, and a texture whose
+@@ -225,6 +232,7 @@
+    *  frame behind the stroke drawing it. Two texParameteri calls per write
+    *  batch is nothing next to the draws around them. */
+   private _invalidateMips(): void {
++    this._noteContentWrite()
+     // Invalidate the uniform proof after hydration, before every level-zero write.
+     this._backing = undefined
+     if (!this._mipCapable || !this._mipsValid) return
+@@ -616,6 +624,7 @@
+ 
+   destroy(): void {
+     if (this._destroyed) return
++    this._noteContentWrite()
+     this._residency?.remove(this)
+     if (this._resident) {
+       this.gl.deleteTexture(this._texture)
+--- a/apps/web/src/engine/src/watercolor/puddle/PagedPuddleRoomController.ts
++++ b/apps/web/src/engine/src/watercolor/puddle/PagedPuddleRoomController.ts
+@@ -1,3 +1,4 @@
++import {rawInputFingerprint,sameInputFingerprint,type InputFingerprint} from './PuddleInputFingerprint'
+ import { presentationRegion, unionPresentationRegion, regionIsFull, renderPuddleRegion, type PresentationRegion, type PresentationBounds } from './PuddlePresentationRegion'
+ import {WATERCOLOR_WET_DRY_MS, type Dab} from '@grafetto/shared'
+ import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
+@@ -13,6 +14,7 @@
+ type Presentation = ReturnType<typeof createPuddlePresentation>
+ type Material = {p: AccumulationBuffer; c: AccumulationBuffer; coverage: AccumulationBuffer}
+ interface Layer {
++  presentationInputSignature?:string|null
+   target: ILayerBuffer
+   scratch: RibbonStrokeScratch
+   gesture: string
+@@ -33,6 +35,7 @@
+ }
+ type ParkedLayer = Pick<Layer, 'target'|'gesture'|'previous'|'timestamp'|'boundary'|'epoch'>
+ interface TileState {
++  inputFingerprint?:InputFingerprint|null
+   shownDirty: boolean
+   region: PresentationRegion
+   tile: PaintTarget
+@@ -53,6 +56,8 @@
+ export interface PagedPuddleRoomHost extends PuddleRoomHost {
+   /** After solver cancellation, before any raw mutation or CPU rehydrate. */
+   beginInput?():void
++  /** Host certifies ALL scalar/gesture inputs of render. Missing/unknown means full fallback. */
++  presentationInputSignature?(scratch:RibbonStrokeScratch,context:Context):string|null
+   /** Opt-in proof: current raw painting lies inside these world bounds and
+    * canonical output outside retained raw support equals the dry substrate.
+    * Unknown/foreign/historical inputs return null and retain whole tiles. */
+@@ -305,21 +310,26 @@
+     const proof=candidate && Object.values(candidate).every(Number.isFinite) && candidate.maxX>candidate.minX && candidate.maxY>candidate.minY ? candidate : null
+     scratch.noteRetainedInputBounds(proof)
+     const known=!!proof && !!scratch.retainedInputBounds
++    const signature=this.host.presentationInputSignature?.(scratch,context)??null
++    const unchangedGlobals=signature!==null&&signature===layer.presentationInputSignature
+     let accepted=false
+     for(const tile of context.target.allResident()) {
+       if(known && !presentationRegion(tile,proof!,0))continue
+       const entry=scratch.peek(tile.buffer)
+       if(!entry?.inkLoad || !entry.inkColor)continue
+-      const fresh=!layer.tiles.has(tile.buffer)
+-      const state=this.ensureTile(layer,tile,this.region(layer,tile,context))
++      const fingerprint=rawInputFingerprint(entry),previous=layer.tiles.get(tile.buffer),region=this.region(layer,tile,context)
++      if(!deferred&&unchangedGlobals&&previous&&sameInputFingerprint(previous.inputFingerprint,fingerprint)&&Object.keys(region).every(key=>region[key as keyof PresentationRegion]===previous.region[key as keyof PresentationRegion])){accepted=true;continue}
++      const fresh=!previous
++      const state=this.ensureTile(layer,tile,region)
+       accepted=true
+       if(fresh && !deferred){this.crop(entry.original,state.raw,state.region);state.presentation.reset(state.raw,layer.epoch)}
+       if(deferred)continue
+       this.render(layer,state,context,state.next,{p:entry.inkLoad,c:entry.inkColor,coverage:entry.coverage})
+       state.presentation.acceptInput(state.raw,state.next,layer.epoch)
+-      state.next.copyTo(state.raw);state.shownDirty=true
+-    }
+-    if(!accepted)return
++      state.next.copyTo(state.raw);state.shownDirty=true;state.inputFingerprint=fingerprint
++    }
++    if(!accepted&&!layer.tiles.size)return
++    layer.presentationInputSignature=signature
+     layer.context=context;layer.dirty=true;layer.after=performance.now()+60
+     if(deferred){layer.deferredPresentation=true;return}
+     layer.presentationDirty=true;this.present(layer)
+--- a/apps/web/src/engine/index.ts
++++ b/apps/web/src/engine/index.ts
+@@ -1,5 +1,6 @@
+ import {M70PhaseOwner} from './src/watercolor/puddle/M70PhaseOwner'
+ import type {FieldLease} from './src/watercolor/puddle/FieldJobLease'
++import {m70PresentationInputSignature} from './src/watercolor/puddle/PuddleInputFingerprint'
+ import {PagedPuddleRoomController} from './src/watercolor/puddle/PagedPuddleRoomController'
+ import {createPagedPuddleTarget} from './src/watercolor/puddle/PagedPuddleTarget'
+ import {BufferResidency} from './src/buffers/BufferResidency'
+@@ -1792,7 +1793,7 @@
+     }
+     if(!large)return this._puddle=new PuddleRoomController(host)
+     let controller:PagedPuddleRoomController
+-    try{controller=new PagedPuddleRoomController({...host,makeBuffer:make,beginInput:()=>this._beginPagedInput(cache!),
++    try{controller=new PagedPuddleRoomController({...host,makeBuffer:make,beginInput:()=>this._beginPagedInput(cache!),presentationInputSignature:m70PresentationInputSignature,
+       // RAW reachBounds includes brush/composite reads. Foreign-water donors
+       // can extend beyond it; retain whole tiles until their bounds are proven.
+       presentationBounds:(scratch,context)=>scratch.foreignSources?.length || scratch.foreignImportedGestures.size ? null : context.bounds,
