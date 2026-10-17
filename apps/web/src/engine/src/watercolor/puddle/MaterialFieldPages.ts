@@ -1,15 +1,18 @@
 /** Logical finite RGBA8 field. Rows increase in GL bottom-up Y order. No world mapping. */
 export interface MaterialRect { x: number; y: number; width: number; height: number }
 export type MaterialBoundary = 'clamp' | 'zero';
-type Page = { readonly uniform: readonly number[] } | { readonly bytes: Uint8Array };
+type Page = { readonly uniform: readonly number[]; readonly word: number } | { readonly bytes: Uint8Array };
 const integer = (n: number) => Number.isSafeInteger(n);
 function rectCheck(r: MaterialRect): void {
   if (![r.x, r.y, r.width, r.height].every(integer) || r.width < 0 || r.height < 0)
     throw new RangeError('Invalid material rectangle');
 }
 function compress(bytes: Uint8Array): Page {
-  for (let i = 4; i < bytes.length; i++) if (bytes[i] !== bytes[i % 4]) return { bytes };
-  return { uniform: Array.from(bytes.subarray(0, 4)) };
+  // Owned pages are aligned RGBA storage. Native words preserve exact byte order.
+  const words = new Uint32Array(bytes.buffer, bytes.byteOffset, bytes.length / 4);
+  const word = words[0]!;
+  for (let i = 1; i < words.length; i++) if (words[i] !== word) return { bytes };
+  return { uniform: Array.from(bytes.subarray(0, 4)), word };
 }
 export interface MaterialFieldSnapshot {
   readonly width: number; readonly height: number; readonly pageSize: number; readonly revision: number;
@@ -50,8 +53,8 @@ class ImmutableMaterialFieldSnapshot implements MaterialFieldSnapshot {
           const source = ((gy % this.pageSize) * w + gx % this.pageSize) * 4;
           const target = (y * rect.width + x) * 4;
           if ('uniform' in page || outside) {
-            const pixel = 'uniform' in page ? Uint8Array.from(page.uniform) : page.bytes.subarray(source, source + 4);
-            const value = new Uint32Array(pixel.buffer, pixel.byteOffset, 1)[0]!;
+            const value = 'uniform' in page ? page.word
+              : new Uint32Array(page.bytes.buffer, page.bytes.byteOffset + source, 1)[0]!;
             words.fill(value, target / 4, target / 4 + count);
           } else out.set(page.bytes.subarray(source, source + count * 4), target);
         }
@@ -116,7 +119,11 @@ class OwnedMaterialFieldWrite implements MaterialFieldWrite {
         const w = Math.min(f.pageSize, f.width - ox), h = Math.min(f.pageSize, f.height - oy);
         const key = py * columns + px, old = this.pages.get(key);
         const bytes = new Uint8Array(w * h * 4);
-        if (old) { if ('bytes' in old) bytes.set(old.bytes); else for (let i = 0; i < bytes.length; i++) bytes[i] = old.uniform[i % 4]!; }
+        const fullPage = rect.x <= ox && rect.y <= oy && rect.x + rect.width >= ox + w && rect.y + rect.height >= oy + h;
+        if (old && !fullPage) {
+          if ('bytes' in old) bytes.set(old.bytes);
+          else if (old.word !== 0) new Uint32Array(bytes.buffer).fill(old.word);
+        }
         for (let y = Math.max(oy, rect.y); y < Math.min(oy + h, rect.y + rect.height); y++) {
           const start = Math.max(ox, rect.x), end = Math.min(ox + w, rect.x + rect.width);
           bytes.set(data.subarray(((y - rect.y) * rect.width + start - rect.x) * 4,
