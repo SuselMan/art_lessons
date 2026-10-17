@@ -123,18 +123,9 @@ export function DebugStack({
                   StrokeDebugStats if needed again. */}
               <div>e2e latency: avg {strokeStats.avgE2eLatencyMs.toFixed(1)}ms / max {strokeStats.maxE2eLatencyMs.toFixed(1)}ms</div>
               <div>tip latency: avg {strokeStats.avgTipLatencyMs.toFixed(1)}ms / max {strokeStats.maxTipLatencyMs.toFixed(1)}ms</div>
-              {/* rAF-anchored real display latency (replaces a prior
-                  attempt at this via the browser's Event Timing API —
-                  PerformanceObserver({type:'event'}) — which never
-                  populated: the spec excludes exactly the continuous
-                  event types we cared about, pointermove/touchmove/etc,
-                  from ever generating an 'event' entry at all, so it
-                  silently reported zero samples for the entire life of
-                  that approach. See StrokeDebugStats.avgFrameLatencyMs
-                  for what this actually measures and why it's a better
-                  proxy for "did it hit the screen yet" than the two
-                  JS-only lines above. */}
-              <div>frame latency: avg {strokeStats.avgFrameLatencyMs.toFixed(1)}ms / max {strokeStats.maxFrameLatencyMs.toFixed(1)}ms</div>
+              {/* Submission timing includes the rAF wait; GPU completion
+                  and screen presentation are not measured (#804). */}
+              <div>rAF + submission: avg {strokeStats.avgFrameLatencyMs.toFixed(1)}ms / max {strokeStats.maxFrameLatencyMs.toFixed(1)}ms</div>
             </>
           ) : (
             <div>draw a stroke to see stats</div>

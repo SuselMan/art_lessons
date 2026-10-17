@@ -520,22 +520,13 @@ export interface StrokeDebugStats {
   // 0 if liveTipSegment was explicitly forced off.
   avgTipLatencyMs: number
   maxTipLatencyMs: number
-  // Real requestAnimationFrame-anchored latency: PointerEvent.timeStamp of
-  // the last move sample that fed a given _scheduleDisplay() coalesced
-  // batch → performance.now() at the top of that batch's rAF callback,
-  // right before _display() actually runs. rAF callbacks fire immediately
-  // before the browser's next paint for that frame, so this is the
-  // closest proxy to real screen latency available without a forced
-  // gl.finish()/readPixels stall — unlike avgE2eLatencyMs/avgTipLatencyMs
-  // (which only measure up to the moment JS finished *submitting* GL
-  // commands, not when the GPU/compositor actually presented anything),
-  // this also covers whatever queues up between submission and the
-  // browser's next paint. Still doesn't cover actual GPU execution time or
-  // OS-level compositor/vsync after the rAF callback returns — the true
-  // photon-to-photon number needs hardware most users can't measure with
-  // either. 0 if no move produced a coalesced display this stroke (e.g. a
-  // single-dab tap, which paints via the direct _onStart/_onEnd _display()
-  // calls this metric doesn't cover).
+  // Last pointer sample → end of the coalesced rAF display submission.
+  // Includes waiting for this callback and CPU/driver submission, but does
+  // NOT prove GPU completion or presentation. Chromium implements WebGL
+  // finish() as Flush; a small value can coexist with a large GPU backlog
+  // (#804). Actual dependency readback belongs in an isolated profiler,
+  // because a synchronous read changes scheduling. Zero for strokes with
+  // no coalesced display callback (for example a single-dab tap).
   avgFrameLatencyMs: number
   maxFrameLatencyMs: number
 }
@@ -10367,22 +10358,10 @@ export class PencilEngine implements PencilEngineAPI {
       const pendingTs = this._debug ? this._dbgPendingFrameTimestamp : null
       this._dbgPendingFrameTimestamp = null
       this._display()
-      // See StrokeDebugStats.avgFrameLatencyMs. gl.finish() — debug-only,
-      // never called otherwise (see the field's own comment on why) —
-      // blocks until every GL command _display() just queued, *and* any
-      // backlog already sitting in the GPU's command queue from earlier
-      // frames, has actually finished executing. Measuring before this call
-      // (the first version of this metric) only proved the rAF callback
-      // fired on schedule and JS kept submitting work — not that the GPU
-      // was keeping up — so it badly under-reported lag under real
-      // fill-rate pressure: confirmed on-device reading ~18ms average here
-      // while the felt lag was severe (same tablet, same room, DPR-uncapped
-      // for the test). gl.finish() itself stalls the pipeline, so debug-mode
-      // numbers run somewhat pessimistic vs. real (no-stall) production
-      // timing — an accepted tradeoff for a number that's supposed to catch
-      // exactly this kind of GPU backlog.
+      // Submission timing only; flush does not wait for GPU completion.
+      // Keep the debug metric honest across implementations (#804).
       if (this._debug && pendingTs !== null) {
-        this.gl.finish()
+        this.gl.flush()
         const frameLatency = performance.now() - pendingTs
         this._dbgFrameSum += frameLatency
         this._dbgFrameCount++
