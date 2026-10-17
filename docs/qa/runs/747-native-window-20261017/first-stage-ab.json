@@ -1,0 +1,188 @@
+{
+  "source": "ed934037-inspect",
+  "stageDiffs": {
+    "referenceP": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "fd127bebf68f93c598a6f9f58e547acc13ddce16c27ad491ca834844797a9037",
+      "referenceHash": "fd127bebf68f93c598a6f9f58e547acc13ddce16c27ad491ca834844797a9037"
+    },
+    "referenceC": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "af1359748e4659e61ea2f31bfd2a9c2b518ba8be942663c97d17c98f8884e39a",
+      "referenceHash": "af1359748e4659e61ea2f31bfd2a9c2b518ba8be942663c97d17c98f8884e39a"
+    },
+    "solvedP": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "343ba8f6e8b3789a857e12ef3b0e089169c834f38d5d6890ce8b6f82b38c4898",
+      "referenceHash": "343ba8f6e8b3789a857e12ef3b0e089169c834f38d5d6890ce8b6f82b38c4898"
+    },
+    "solvedC": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "659337df2a1287194c577b2237961606af2059afdc204fdc065cd2783c847e78",
+      "referenceHash": "659337df2a1287194c577b2237961606af2059afdc204fdc065cd2783c847e78"
+    },
+    "solvedCoverage": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214",
+      "referenceHash": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214"
+    },
+    "coarse:gate": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "2901c5ec5e67b3be424208232336f4221d45fff4175838e9edad3bcdc313e1dc",
+      "referenceHash": "2901c5ec5e67b3be424208232336f4221d45fff4175838e9edad3bcdc313e1dc"
+    },
+    "coarse:beforeP": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "c7648825570ded6c3e1d21083ee5f7c7c96ffe9e97b6ef787f8b797bdf2b3b9f",
+      "referenceHash": "c7648825570ded6c3e1d21083ee5f7c7c96ffe9e97b6ef787f8b797bdf2b3b9f"
+    },
+    "coarse:afterP": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "c7bf3ab12c098d4ce75c7b147796d368efd2cf2c5718173d05233dcccc945b40",
+      "referenceHash": "c7bf3ab12c098d4ce75c7b147796d368efd2cf2c5718173d05233dcccc945b40"
+    },
+    "coarse:beforeC": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "7f8b7550266646302031703f4fec994e4d7f05f7ac433e1b65bd451f3eb3eebe",
+      "referenceHash": "7f8b7550266646302031703f4fec994e4d7f05f7ac433e1b65bd451f3eb3eebe"
+    },
+    "coarse:afterC": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "620195f8daef965fbfe2c2e0e003bc1b28cb9eabfd6137d383e0d61b539e92e9",
+      "referenceHash": "620195f8daef965fbfe2c2e0e003bc1b28cb9eabfd6137d383e0d61b539e92e9"
+    }
+  },
+  "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+  "size": 1536,
+  "inputHashes": {
+    "p": "088d44b0a654b21c2fa37aa10bdaea9be502c587c117bb2a35aeda96bbf10c8a",
+    "c": "2c690c2d6e2cd5042c0c4d439e5bb1114b10518ff86616c261350de37b0f7d93",
+    "coverage": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214",
+    "water": "12d0114d4d8ff826948a2eb1dc51cabd4915faef81c36fe8727f9b6b0c7d373f"
+  },
+  "reference": {
+    "ms": 326.80000001192093,
+    "steps": 23,
+    "gl": 0
+  },
+  "actual": {
+    "ms": 8925,
+    "steps": 204,
+    "gl": 0
+  },
+  "diffs": {
+    "p": {
+      "changed": 2,
+      "max": 1,
+      "first": [
+        {
+          "x": 1082,
+          "y": 1017,
+          "channel": 2,
+          "a": 52,
+          "b": 53
+        },
+        {
+          "x": 1082,
+          "y": 1017,
+          "channel": 3,
+          "a": 52,
+          "b": 53
+        }
+      ],
+      "actualHash": "af35b50e468c90860c0a8d7debf6a62c765c4ac9909af46fbfd40b4f476f5dee",
+      "referenceHash": "b33aa327d2bcce2e7f10cb6b73c9e6be53f123b776a52d03fe31cd9aff3e2256"
+    },
+    "c": {
+      "changed": 11,
+      "max": 1,
+      "first": [
+        {
+          "x": 992,
+          "y": 921,
+          "channel": 2,
+          "a": 9,
+          "b": 10
+        },
+        {
+          "x": 1051,
+          "y": 930,
+          "channel": 1,
+          "a": 5,
+          "b": 6
+        },
+        {
+          "x": 1107,
+          "y": 985,
+          "channel": 2,
+          "a": 22,
+          "b": 21
+        },
+        {
+          "x": 1024,
+          "y": 988,
+          "channel": 0,
+          "a": 79,
+          "b": 78
+        },
+        {
+          "x": 1082,
+          "y": 1017,
+          "channel": 3,
+          "a": 52,
+          "b": 53
+        },
+        {
+          "x": 1073,
+          "y": 1020,
+          "channel": 1,
+          "a": 44,
+          "b": 45
+        },
+        {
+          "x": 1077,
+          "y": 1036,
+          "channel": 0,
+          "a": 38,
+          "b": 37
+        },
+        {
+          "x": 933,
+          "y": 1038,
+          "channel": 0,
+          "a": 53,
+          "b": 54
+        }
+      ],
+      "actualHash": "df787e068bfd8aaeb6e1a8977b4a3f3c1c8f94930c393f008392a548e5851a50",
+      "referenceHash": "ceac011be897fef24a0b94fb426d8a83c44e486f530f69266d74636acc58f599"
+    },
+    "coverage": {
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "691cd783f8a78c7304d5206372c6555795adb68b754aeb83caf996e7ed267563",
+      "referenceHash": "691cd783f8a78c7304d5206372c6555795adb68b754aeb83caf996e7ed267563"
+    }
+  },
+  "lost": false,
+  "sequential": true,
+  "errors": [],
+  "sourceBase": "ed93403780ef3419a79d4262cd02c65fef43253e",
+  "dirtyRuntimeSha256": {
+    "apps/web/src/engine/src/watercolor/puddle/MaterialFieldPages.ts": "d503ae11fb81cf05c8fa766a6492d01888d2b093621a4e89547e37e6682ad58e",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "becccbd787e23e3a429532587f1eb33ee6a452e4ff60a63d86972c3a2e294b11"
+  },
+  "harnessSha256": "64c86a3b9ee809f9cdb8075f394becb5cd92eee3986ea3f5823951a61006b7aa",
+  "qualification": "Synthetic immutable raw input. Sequential native AMD same-context. Every pre-background full-resolution and coarse stage exact. Final reconstruction/material differs. Not authoring or large-page proof."
+}
