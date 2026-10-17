@@ -1713,7 +1713,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(parent)return owner.acquire(parent)
     if(owner.state.executing)throw new MaterialSourceBusy()
     // Preserve the historic drain-before-clear order, but BEFORE taking a new lease.
-    this._completeSettle()
+    if(this._settle)this._completeSettle()
     this._cancelPagedFieldWork()
     if(owner.state.enabled){const admission=owner.beginSolveSnapshot(undefined);if(!admission)throw new MaterialSourceBusy();return admission.lease}
     return owner.acquire()
