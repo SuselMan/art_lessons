@@ -33,6 +33,29 @@ function stencil(radius: number) {
 function field() { const f = new MaterialFieldPages({ width, height, pageSize }); f.writeRect(full, initial()); return f; }
 function exhaust(g: Generator<unknown, number, void>) { let v = g.next(); while (!v.done) v = g.next(); return v.value; }
 describe('material phase pages', () => {
+  it('bulk reads match an independent pixel oracle through negative edges, sparse pages and clamping', () => {
+    const w=11,h=9,f=new MaterialFieldPages({width:w,height:h,pageSize:4});
+    const data=Uint8Array.from({length:w*h*4},(_,i)=>(i*73+Math.floor(i/7))%256);
+    f.writeRect({x:0,y:0,width:w,height:h},data);
+    // Include a uniform page and a missing all-zero page alongside variable pixels.
+    for(const [x,y,value]of [[0,0,19],[4,4,0]]){
+      const bytes=new Uint8Array(4*4*4).fill(value);
+      f.writeRect({x:x!,y:y!,width:4,height:4},bytes);
+      for(let row=0;row<4;row++)data.set(bytes.subarray(row*16,(row+1)*16),((y!+row)*w+x!)*4);
+    }
+    for(const boundary of ['clamp','zero'] as const)for(const rect of [
+      {x:-8,y:-7,width:30,height:27},{x:3,y:2,width:7,height:5},{x:30,y:30,width:3,height:2},
+    ]){
+      const expected=new Uint8Array(rect.width*rect.height*4);
+      for(let y=0;y<rect.height;y++)for(let x=0;x<rect.width;x++){
+        const gx=rect.x+x,gy=rect.y+y;
+        if(boundary==='zero'&&(gx<0||gy<0||gx>=w||gy>=h))continue;
+        const at=(Math.min(h-1,Math.max(0,gy))*w+Math.min(w-1,Math.max(0,gx)))*4;
+        expected.set(data.subarray(at,at+4),(y*rect.width+x)*4);
+      }
+      expect(f.snapshot().readRect(rect,boundary)).toEqual(expected);
+    }
+  });
   it('matches independent whole-field reference over sequential diagonal phases in either order, including aliasing', () => {
     const forward = field(), reverse = field(); let expected: Uint8Array = initial();
     for (const halo of [1, 3, 2, 6]) {

@@ -19,7 +19,10 @@ export function createPagedBackgroundMix(gl:WebGLRenderingContext,size:PuddleSiz
  const noiseTexture=portableNoise?createPuddleNoiseTexture(gl):null
  const eligibility=createProgram(gl,PAGED_VERTEX,`precision highp float;varying vec2 uv;uniform sampler2D initial,reference,coverage;uniform vec2 grid;void main(){float peak=0.;for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 q=(floor(uv*grid)*3.+vec2(float(x)+1.5,float(y)+1.5))/(grid*3.);float a=texture2D(initial,q).a,b=texture2D(reference,q).a;if(a>.004)peak=max(peak,clamp(1.-b/a,0.,1.));}vec4 cov=texture2D(coverage,uv);float g=(1.-smoothstep(.03,.12,peak))*cov.a*step(.002,cov.b);gl_FragColor=vec4(g);}`)
  const copy=createProgram(gl,PAGED_VERTEX,`precision highp float;varying vec2 uv;uniform sampler2D taps;uniform vec2 grid;void main(){vec2 base=floor(uv*grid)*2.;vec2 size=grid*2.;gl_FragColor=.25*(texture2D(taps,(base+vec2(1.5,1.5))/size)+texture2D(taps,(base+vec2(.5,.5))/size)+texture2D(taps,(base+vec2(1.5,.5))/size)+texture2D(taps,(base+vec2(.5,1.5))/size));}`)
- const reconstructProgram=createProgram(gl,PAGED_VERTEX,`precision highp float;varying vec2 uv;varying vec2 localUV;uniform sampler2D source,lowBefore,lowAfter,coverage,eligible;uniform float strength,distortion;uniform vec2 worldSize,windowOrigin,windowExtent;
+ // Keep the whole-sheet UV interpolation of the monolithic shader. A local
+ // rectangle interpolating origin+uv*extent changes highp rounding at pixels.
+ const reconstructVertex='attribute vec2 pos;varying vec2 uv;varying vec2 localUV;uniform vec2 worldSize,windowOrigin,windowExtent;void main(){uv=pos*.5+.5;localUV=(uv*worldSize-windowOrigin)/windowExtent;gl_Position=vec4(pos,0.,1.);}'
+ const reconstructProgram=createProgram(gl,reconstructVertex,`precision highp float;varying vec2 uv;varying vec2 localUV;uniform sampler2D source,lowBefore,lowAfter,coverage,eligible;uniform float strength,distortion;uniform vec2 worldSize,windowOrigin,windowExtent;
  ${portableNoise?'uniform sampler2D noiseLattice;float hash(vec2 p){return texture2D(noiseLattice,(p+.5)/256.).r;}':'float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}'}
  float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.)),f.x),f.y);}
  vec2 flow(vec2 p){return vec2(noise(p/36.+vec2(17.,3.)),noise(p/36.+vec2(3.,51.)))*2.-1.+.35*(vec2(noise(p/13.+vec2(81.,7.)),noise(p/13.+vec2(8.,91.)))*2.-1.);}
@@ -75,7 +78,7 @@ export function createPagedBackgroundMix(gl:WebGLRenderingContext,size:PuddleSiz
     draw.draw(reconstructProgram,out,{source,lowBefore,lowAfter,coverage,eligible:current.eligible},rect,()=>{
      gl.uniform1f(gl.getUniformLocation(reconstructProgram,'strength'),current.strength);gl.uniform1f(gl.getUniformLocation(reconstructProgram,'distortion'),current.distortion)
      if(noiseTexture){gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,noiseTexture);gl.uniform1i(gl.getUniformLocation(reconstructProgram,'noiseLattice'),5)}
-    })
+    },true)
   },
   readback(){if(!capture||!solved)throw Error('Background not prepared');return {gate:capture.eligible.readPixels(),beforeP:solved.p0.readPixels(),afterP:solved.afterP.readPixels(),beforeC:solved.c0.readPixels(),afterC:solved.afterC.readPixels()}},
   destroy(){if(solved)freeSolved(solved);if(capture)capture.eligible.destroy();solved=undefined;capture=undefined;draw.destroy();if(noiseTexture)gl.deleteTexture(noiseTexture);for(const p of [eligibility,copy,reconstructProgram,smooth])gl.deleteProgram(p)}

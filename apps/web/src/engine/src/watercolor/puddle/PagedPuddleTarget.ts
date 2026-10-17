@@ -8,13 +8,18 @@ import {extractMaterialTileRect,materialTileIntersection} from './MaterialTileCo
 import {createNativePuddleTarget,type PuddleTargetHost} from './PuddleTarget'
 import {createPagedContrastPhase,type PagedBufferFactory} from './PagedContrastPhase'
 import {createPagedBackgroundMix} from './PagedBackgroundMix'
-import {m70Windows} from './M70WindowPolicy'
+import {m70WindowGroups} from './M70WindowGroups'
 import {APPROVED_M70_PARAMETERS} from './PuddleParameters'
 
 /** The new multi-tile route has one explicit 1536-minimum material domain.
  * Windows share global phases and immutable input; only their interiors commit.
  * The 640px halo is certified separately against the approved M70 pass graph. */
-export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number;height:number},make:PagedBufferFactory){
+export interface PagedPuddleInspection {
+ reference?(rect:MaterialRect,p:AccumulationBuffer,c:AccumulationBuffer):void
+ solved?(p:MaterialFieldSnapshot,c:MaterialFieldSnapshot,coverage:MaterialFieldSnapshot):void
+ coarse?(value:ReturnType<ReturnType<typeof createPagedBackgroundMix>['readback']>):void
+}
+export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number;height:number},make:PagedBufferFactory,inspect:PagedPuddleInspection={}){
  const gl=host.gl,read=()=>APPROVED_M70_PARAMETERS
  const contrast=createPagedContrastPhase(gl,read,size,make),background=createPagedBackgroundMix(gl,size,read,true,make)
  const vertex='attribute vec2 pos;varying vec2 uv;void main(){uv=pos*.5+.5;gl_Position=vec4(pos,0.,1.);}'
@@ -48,17 +53,16 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
    const bufs=allocateMany(6,rect.width,rect.height)
    try{const [p,c,w,aligned,rp,rc]=bufs as [AccumulationBuffer,AccumulationBuffer,AccumulationBuffer,AccumulationBuffer,AccumulationBuffer,AccumulationBuffer]
     p.writePixels(raw.inkLoad.readRect(rect));c.writePixels(raw.inkColor.readRect(rect));w.writePixels(raw.water.readRect(rect));draw(align,aligned,{p,c})
-    contrast.renderReference(rect,aligned,c,w,rp,rc);referenceP.writeRect(rect,rp.readPixels())
+    contrast.renderReference(rect,aligned,c,w,rp,rc);inspect.reference?.(rect,rp,rc);referenceP.writeRect(rect,rp.readPixels())
    }finally{for(const b of bufs)b.destroy()}
    yield
   }
   background.capture({initialP:raw.inkLoad,referenceP:referenceP.snapshot(),coverage:raw.coverage});yield
   const solvedP=new MaterialFieldPages(size),solvedC=new MaterialFieldPages(size),solvedCoverage=new MaterialFieldPages(size)
   const domain={width:Math.max(1536,Math.ceil(size.width/256)*256),height:Math.max(1536,Math.ceil(size.height/256)*256)}
-  for(const window of m70Windows(size,domain,612)){
+  for(const window of m70WindowGroups(size,domain,612)){
    // Certified geometry is world top-down; material snapshots are bottom-up.
    const {x:ox,y:oy}=window.field
-   const interior={...window.core,y:size.height-window.core.y-window.core.height}
    const rect={x:ox,y:size.height-oy-1536,width:1536,height:1536}
    const key=host.pool.acquire(1536,1536),windowSource=new RibbonStrokeScratch(host.pool,true,true)
    let native:ReturnType<typeof createNativePuddleTarget>|undefined
@@ -76,13 +80,20 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
      background:{capture(){},ops:()=>[],readback:()=>background.readback(),destroy(){}}})
     native.resetFromScratch(windowSource,{buffer:key,originX:ox,originY:oy,contentRect:null},epoch)
     while(!native.state.done){native.step(4);yield}
-    const material=native.buffers(),local={x:interior.x-rect.x,y:interior.y-rect.y,width:interior.width,height:interior.height}
-    for(const [out,input]of [[solvedP,material.p],[solvedC,material.c],[solvedCoverage,material.coverage]] as const)
-     out.writeRect(interior,extractMaterialTileRect(input.readPixels(),1536,1536,local))
+    const material=native.buffers()
+    for(const [out,input]of [[solvedP,material.p],[solvedC,material.c],[solvedCoverage,material.coverage]] as const){
+     const pixels=input.readPixels()
+     for(const core of window.cores){
+      const interior={...core,y:size.height-core.y-core.height}
+      const local={x:interior.x-rect.x,y:interior.y-rect.y,width:interior.width,height:interior.height}
+      out.writeRect(interior,extractMaterialTileRect(pixels,1536,1536,local))
+     }
+    }
    }finally{try{native?.destroy()}finally{try{windowSource.destroy()}finally{host.pool.release(key)}}}
    yield
   }
-  background.prepareSolved({p:solvedP.snapshot(),c:solvedC.snapshot()});yield
+  inspect.solved?.(solvedP.snapshot(),solvedC.snapshot(),solvedCoverage.snapshot())
+  background.prepareSolved({p:solvedP.snapshot(),c:solvedC.snapshot()});inspect.coarse?.(background.readback());yield
   const finalP=new MaterialFieldPages(size),finalC=new MaterialFieldPages(size),coverage=solvedCoverage.snapshot()
   for(const interior of rects()){
    const halo=background.reconstructionHalo,rect={x:interior.x-halo,y:interior.y-halo,width:interior.width+2*halo,height:interior.height+2*halo}

@@ -31,18 +31,32 @@ class ImmutableMaterialFieldSnapshot implements MaterialFieldSnapshot {
     rectCheck(rect);
     const out = new Uint8Array(rect.width * rect.height * 4);
     const columns = Math.ceil(this.width / this.pageSize);
-    for (let y = 0; y < rect.height; y++) for (let x = 0; x < rect.width; x++) {
-      let gx = rect.x + x, gy = rect.y + y;
-      if (boundary === 'zero' && (gx < 0 || gy < 0 || gx >= this.width || gy >= this.height)) continue;
-      gx = Math.min(this.width - 1, Math.max(0, gx));
+    const words = new Uint32Array(out.buffer);
+    for (let y = 0; y < rect.height; y++) {
+      let gy = rect.y + y;
+      if (boundary === 'zero' && (gy < 0 || gy >= this.height)) continue;
       gy = Math.min(this.height - 1, Math.max(0, gy));
-      const px = Math.floor(gx / this.pageSize), py = Math.floor(gy / this.pageSize);
-      const page = this.#pages.get(py * columns + px);
-      if (!page) continue;
-      const w = Math.min(this.pageSize, this.width - px * this.pageSize);
-      const source = ((gy % this.pageSize) * w + gx % this.pageSize) * 4;
-      const target = (y * rect.width + x) * 4;
-      for (let c = 0; c < 4; c++) out[target + c] = 'uniform' in page ? page.uniform[c]! : page.bytes[source + c]!;
+      const py = Math.floor(gy / this.pageSize);
+      for (let x = 0; x < rect.width;) {
+        const worldX = rect.x + x;
+        const gx = Math.min(this.width - 1, Math.max(0, worldX));
+        const px = Math.floor(gx / this.pageSize);
+        const outside = worldX < 0 || worldX >= this.width;
+        const count = Math.min(rect.width - x, worldX < 0 ? -worldX : worldX >= this.width
+          ? rect.width - x : Math.min(this.width, (px + 1) * this.pageSize) - gx);
+        const page = this.#pages.get(py * columns + px);
+        if (page && !(outside && boundary === 'zero')) {
+          const w = Math.min(this.pageSize, this.width - px * this.pageSize);
+          const source = ((gy % this.pageSize) * w + gx % this.pageSize) * 4;
+          const target = (y * rect.width + x) * 4;
+          if ('uniform' in page || outside) {
+            const pixel = 'uniform' in page ? Uint8Array.from(page.uniform) : page.bytes.subarray(source, source + 4);
+            const value = new Uint32Array(pixel.buffer, pixel.byteOffset, 1)[0]!;
+            words.fill(value, target / 4, target / 4 + count);
+          } else out.set(page.bytes.subarray(source, source + count * 4), target);
+        }
+        x += count;
+      }
     }
     return out;
   }
