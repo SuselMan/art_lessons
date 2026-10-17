@@ -210,3 +210,16 @@ it('matches ordinary live before-UP pixels after resuming a solved hidden source
  expect(ordinary.every(value=>value===20)).toBe(true)
  expect(hidden).toEqual(ordinary)
 })
+
+it('recorded epoch reconciliation uses the timestamp of a CPU-evicted replay marker',()=>{
+ const {controller,pool,profile,targets,draw,rehydrate}=fixture(0)
+ try{
+  draw(0);const saved=controller.capture(targets[0])!
+  draw(1);draw(2)
+  expect(controller.state.parkedLayers).toBe(1)
+  expect(controller.state.cpuBytes).toBe(0)
+  rehydrate.mockReturnValueOnce(saved)
+  const source=controller.source(targets[0],'local',profile,119_001)
+  expect(source.recordTimestamp(121_001)).toBe(true)
+ }finally{controller.destroy();pool.trimFree();vi.unstubAllGlobals()}
+})

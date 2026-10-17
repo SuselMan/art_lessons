@@ -239,8 +239,13 @@ export class PuddleRoomController {
     } catch { return null } // Root display is unchanged until all restore allocations succeed.
     finally { this.undoRestoreLastMs=performance.now()-started }
   }
-  source(target: ILayerBuffer, gesture: string, profile: RibbonProfile, timestamp: number, boundary='', request?: {pin?: boolean; beforeRecordedOpId?: string}): {scratch: RibbonStrokeScratch; prevDab?: Dab; release: () => void} {
+  source(target: ILayerBuffer, gesture: string, profile: RibbonProfile, timestamp: number, boundary='', request?: {pin?: boolean; beforeRecordedOpId?: string}): {scratch: RibbonStrokeScratch; prevDab?: Dab; release: () => void; recordTimestamp: (at: number) => boolean} {
     const parked=this.parked.get(target)
+    const prior=this.layers.get(target) ?? parked
+    // Empty prewarm placeholders are not an earlier material epoch.
+    let priorAt=prior && !(prior.gesture==='prewarm' && !('context' in prior && prior.context)) ? prior.timestamp : undefined
+    let boundaryClosed=!!prior && prior.boundary!==boundary
+    let physicalClosed=priorAt!==undefined && (boundaryClosed || timestamp>=priorAt+WATERCOLOR_WET_DRY_MS)
     if(parked && (boundary!==parked.boundary || timestamp>=parked.timestamp+WATERCOLOR_WET_DRY_MS))this.close(target)
     let layer = this.layers.get(target) ?? this.awaken(target,request?.beforeRecordedOpId)
     // Logical operation time, never animation progress, closes a dried wash.
@@ -269,7 +274,18 @@ export class PuddleRoomController {
     layer.presentation.invalidate(layer.epoch)
     layer.active = false
     layer.goalReady = false
-    return {scratch:layer.scratch,prevDab:layer.previous,release:request?.pin ? this.residency.acquire(target) : () => {}}
+    return {scratch:layer.scratch,prevDab:layer.previous,release:request?.pin ? this.residency.acquire(target) : () => {},
+      recordTimestamp:at=>{
+        const recordedClosed=priorAt!==undefined && (boundaryClosed || at>=priorAt+WATERCOLOR_WET_DRY_MS)
+        const repair=recordedClosed!==physicalClosed
+        // Subsequent chunks physically continue this scratch, but their
+        // canonical epoch is measured from the previous recorded chunk.
+        priorAt=at
+        physicalClosed=false
+        boundaryClosed=false
+        if(this.layers.get(target)===layer)layer.timestamp=at
+        return repair
+      }}
   }
   previous(scratch: RibbonStrokeScratch, dab: Dab | undefined): void {
     const layer = this.find(scratch)

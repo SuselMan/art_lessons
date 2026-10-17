@@ -1651,6 +1651,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** QA prototype: capture cost on real devices must be measured before enabling. */
   diagnosticOpenWetUndoCache=false
   private _puddle: PuddleRoomController | null = null
+  private _puddleStrokeRecorded: ((at: number) => boolean) | null = null
   private _puddleStrokeRelease: (() => void) | null = null
   private _m70GeometrySupported(): boolean {
     const page=this._paper.pageSize(),tile=this._tileSize()
@@ -4358,7 +4359,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   destroy(): void {
     this._cancelLiveDabFlush()
-    this._puddleStrokeRelease?.();this._puddleStrokeRelease=null
+    this._puddleStrokeRelease?.();this._puddleStrokeRelease=null;this._puddleStrokeRecorded=null
     this._continuationGpuFence?.release()
     this._continuationGpuFence = null
     this._opQueue = [] // (§17.58)
@@ -5447,7 +5448,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._contextLost = true
     if(this._dwellTimer){clearInterval(this._dwellTimer);this._dwellTimer=null}
     this._dwellCfg=null
-    this._puddleStrokeRelease?.();this._puddleStrokeRelease=null
+    this._puddleStrokeRelease?.();this._puddleStrokeRelease=null;this._puddleStrokeRecorded=null
     if(this._strokeId)this._onLiveStrokeEnd?.(this._strokeId,true)
     this._strokeId=null;this._strokeLayerId=null;this._strokeDabs=[];this._liveDabQueue=[]
     this._ribbonPainter.releaseWaterSources(true)
@@ -6250,7 +6251,7 @@ export class PencilEngine implements PencilEngineAPI {
       // unrecorded tail cannot be authored after that fixed server boundary.
       const strokeId=this._strokeId
       this._cancelLiveDabFlush()
-      this._puddleStrokeRelease();this._puddleStrokeRelease=null
+      this._puddleStrokeRelease();this._puddleStrokeRelease=null;this._puddleStrokeRecorded=null
       if(this._dwellTimer){clearInterval(this._dwellTimer);this._dwellTimer=null}
       this._dwellCfg=null
       if(this._ribbonStrokeScratch)this._ribbonStrokeScratch.pendingComposite.clear()
@@ -6630,8 +6631,9 @@ export class PencilEngine implements PencilEngineAPI {
         const source=this._puddleFor().source(target,puddleGesture!,profile,Date.now(),this._log.entries.filter(e=>e.state==='done' && (e.op.type==='paper_dry' && (!e.op.layerId || e.op.layerId===layerId) || e.op.type==='layer_visibility' && !e.op.visible && operationLayerIds(e.op).includes(layerId))).at(-1)?.op.id??'',{pin:true})
         this._ribbonStrokeScratch=source.scratch
         this._puddleStrokeRelease=source.release
+        this._puddleStrokeRecorded=source.recordTimestamp
         } catch(error) {
-          this._puddleStrokeRelease?.();this._puddleStrokeRelease=null
+          this._puddleStrokeRelease?.();this._puddleStrokeRelease=null;this._puddleStrokeRecorded=null
           this._ribbonStrokeScratch=null
           this._strokeId=null;this._strokeLayerId=null;this._strokeDabs=[]
           if(error instanceof MaterialHistoryNotReady){this._snapshotIO.requireMaterialHistory(layerId);this._onSnapshotHistoryRepairNeeded?.();return}
@@ -7065,6 +7067,7 @@ export class PencilEngine implements PencilEngineAPI {
           // dry paper, and an all-zero profile is bytes spent saying nothing.
           ...(this._strokeWet && !isDryProfile(this._strokeWet) ? { wet: this._strokeWet } : {}),
         }
+        if(this._puddleStrokeRecorded?.(op.timestamp))this._puddleRebuildAtPenUp.add(targetId)
         this._log.append(op, { pending: true })
         if (this._wcAsyncLocalStroke) this._queueAsyncLocalToolOp(op, this._wcAsyncLocalStroke)
         // (#537) A peer's live ink still unrecorded on this layer went down
@@ -7095,7 +7098,7 @@ export class PencilEngine implements PencilEngineAPI {
     const localHeld = this._wcAsyncLocalStroke ? this._wcAsyncLocalTools.get(this._wcAsyncLocalStroke) : undefined
     if (localHeld) localHeld.ended = true
     this._wcAsyncLocalStroke = null
-    this._puddleStrokeRelease?.();this._puddleStrokeRelease=null
+    this._puddleStrokeRelease?.();this._puddleStrokeRelease=null;this._puddleStrokeRecorded=null
     this._strokeId = null
     this._strokeLayerId = null
     this._strokeExtraLayerIds = []
@@ -7520,6 +7523,7 @@ export class PencilEngine implements PencilEngineAPI {
         ...(this._washId ? { washId: this._washId } : {}),
         ...(this._strokeWet && !isDryProfile(this._strokeWet) ? { wet: this._strokeWet } : {}),
       }
+      if(this._puddleStrokeRecorded?.(op.timestamp))this._puddleRebuildAtPenUp.add(targetId)
       this._log.append(op, { pending: true })
       if (this._wcAsyncLocalStroke) this._queueAsyncLocalToolOp(op, this._wcAsyncLocalStroke)
       if (this._foreignUnrecordedInk(targetId, op)) this._unsettledLayers.add(targetId)

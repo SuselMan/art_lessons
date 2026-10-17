@@ -1,0 +1,11 @@
+# #753: legacy recorded timestamp reconciliation candidate
+
+Native Samsung proof 634282fe found canonical live material differing from complete accepted-history replay after DOWN before the 120 s epoch boundary and UP after it. Runtime 0be6e667, no prototype flags.
+
+CPU engine baseline reproduces the missing repair: accepted old watercolor, DOWN at age119s, UP at age121s records its canonical timestamp but makes zero rebuild calls. This is a lifecycle proof with MockGL, not a pixel equivalence claim.
+
+Candidate stores a transient callback alongside the active source lease. It captures the prior real material timestamp and whether source() actually closed its epoch. At each recorded local chunk, the callback evaluates the same existing120s/boundary rule with the recorded timestamp. A changed decision requests the existing deferred repair at pen-up; an unchanged decision only advances the layer logical timestamp. Later chunks use the preceding recorded chunk as their canonical time basis. Empty prewarm sources do not constitute prior material. Cleanup follows the existing lease lifetime.
+
+Eight CPU engine cases cover forward crossing, ordinary wet continuation without repair, already-expired source without repair, backward clock crossing, long first stroke over empty prewarm, previous recorded chunk refreshing expiry, a120s gap after that chunk, and a mismatch discovered at an intermediate chunk remaining owed until UP. The initial forward-crossing expectation fails without the candidate; all eight pass with it. Additional controller cases cover recorded UP advancing the next DOWN expiry, obsolete callbacks not retiming replacement sources, unchanged replay timestamps, and CPU-budget-zero parked replay marker timestamps. Focused controller/residency/midgestureDry/clock suite:42 checks in4 files PASS. Web typecheck passes.
+
+No operation format, timestamp serialization, physics, live input timing, or default flag changes. This reconciles local material with the legacy journal's UP/chunk timestamps; true last-material timing and long-hold product semantics remain OPEN. Hardware rerun of the original753 proof is required before claiming final pixel convergence. Integration runtime remains untouched pending root review.
