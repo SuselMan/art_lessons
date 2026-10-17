@@ -1,5 +1,5 @@
 import {expect,it,vi} from 'vitest'
-import {createTestEngine,makeLayerAdd,fillStroke,paperReady,simulateStrokeStart,simulateStrokeMove,simulateStrokeEnd} from './testing/engineTestUtils'
+import {createTestEngine,makeLayerAdd,fillStroke,paperReady,simulateStrokeStart,simulateStrokeMove,simulateStrokeEnd,readTilePixels,dab,makeStroke} from './testing/engineTestUtils'
 import type {PuddleRoomController} from './src/watercolor/puddle/PuddleRoomController'
 import type {ILayerBuffer} from './src/buffers/ILayerBuffer'
 import type {OperationLog} from './src/oplog/OperationLog'
@@ -15,10 +15,11 @@ interface State {
  _paperWet:PaperWetness
  _rebuildLayerOrDefer(id:string):void
 }
-async function setup(enabled:boolean,ready=true){
+async function setup(enabled:boolean,ready=true,dryBase=false){
  const {engine}=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32},{width:32,height:32})
  await paperReady(engine)
  engine.appendOperation(makeLayerAdd('B','L'),'remote')
+ if(dryBase)engine.appendOperation(fillStroke('B','L',27,27,7),'remote')
  engine.appendOperation({...fillStroke('B','L',10,10,5),id:'prior',tool:'watercolor',preset:'normal:80:60:PB29:round:wc@m70-r2-v1',strokeId:'prior',washId:'m70:L',timestamp:Date.now()},'remote')
  const state=engine as unknown as State
  if(ready)state._puddle.canonicalTiles(state._layers.get('L')!)
@@ -139,5 +140,50 @@ it('a fast Undo stays ready through its server ACK and subsequent animation fram
   controller.frame(performance.now()+32)
   expect(state._puddle.state.undoHits).toBe(1)
   expect(state._puddle.state.computations).toBe(before)
+ }finally{engine.destroy()}
+})
+
+it('fast Undo preserves foreign pencil ink that has streamed but has no journal operation yet',async()=>{
+ const {engine,state}=await setup(true)
+ try{
+  draw(engine)
+  const own=engine.getOperations().find(op=>op.type==='stroke' && op.userId==='A')!
+  engine.confirmOperation(own.id,3)
+  state._puddle.canonicalTiles(state._layers.get('L')!)
+  const before=readTilePixels(engine,'L',0,0,32,32)!.slice()
+  engine.appendPeerLiveDabs('C',{strokeId:'held-pencil',layerId:'L',tool:'pencil',preset:'HB',color:[0,0,0],packetSeq:0,dabs:[dab(27,27,{size:5,opacity:1,pressure:1})]})
+  const streamed=readTilePixels(engine,'L',0,0,32,32)!.slice()
+  expect(streamed.some((v,i)=>v!==before[i])).toBe(true)
+  const roi=(bytes:Uint8Array)=>Array.from(bytes.slice((27*32+25)*4,(27*32+30)*4))
+  engine.undo()
+  expect(roi(readTilePixels(engine,'L',0,0,32,32)!)).toEqual(roi(streamed))
+  expect(state._puddle.state.undoHits).toBe(0)
+ }finally{engine.destroy()}
+})
+
+it('fast Undo preserves foreign live erasing of the dry substrate before its operation arrives',async()=>{
+ const {engine,state}=await setup(true,true,true)
+ try{
+  draw(engine)
+  const own=engine.getOperations().find(op=>op.type==='stroke' && op.userId==='A')!
+  engine.confirmOperation(own.id,10)
+  state._puddle.canonicalTiles(state._layers.get('L')!)
+  const material=()=>state._puddle.capture(state._layers.get('L')!)!.tiles[0].bufs.original!.pixels
+  const before=material().slice()
+  engine.appendPeerLiveDabs('C',{strokeId:'held-eraser',layerId:'L',tool:'eraser',preset:'HB',color:[0,0,0],packetSeq:0,dabs:[dab(27,27,{size:9,opacity:1,pressure:1})]})
+  const streamed=material().slice()
+  expect(streamed.some((v,i)=>v!==before[i])).toBe(true)
+  const roi=(bytes:Uint8Array)=>Array.from(bytes.slice((27*32+25)*4,(27*32+30)*4))
+  engine.undo()
+  expect(roi(material())).toEqual(roi(streamed))
+  expect(state._puddle.state.undoHits).toBe(0)
+  const work=state as unknown as {_unsettledLayers:Set<string>;_wash:{endedAt:number}|null;_settleLayers():void;_rebuildJobs:Map<string,{timer:ReturnType<typeof setTimeout>}>;_stepRebuildJob(job:unknown):void}
+  expect(work._unsettledLayers.has('L')).toBe(true)
+  engine.appendOperation(makeStroke('C','L',[dab(27,27,{size:9,opacity:1,pressure:1})],{tool:'eraser',strokeId:'held-eraser',seq:12}),'remote')
+  if(work._wash)work._wash.endedAt=-Infinity // Exercise the existing settle after its joining window.
+  work._settleLayers()
+  for(let i=0;i<100 && work._rebuildJobs.size;i++)for(const job of [...work._rebuildJobs.values()]){clearTimeout(job.timer);work._stepRebuildJob(job)}
+  expect(work._unsettledLayers.has('L')).toBe(false)
+  expect(roi(material())).toEqual(roi(streamed))
  }finally{engine.destroy()}
 })

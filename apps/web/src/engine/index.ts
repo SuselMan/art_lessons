@@ -4474,6 +4474,13 @@ export class PencilEngine implements PencilEngineAPI {
     if(this.diagnosticOpenWetUndoCache && !historicalCause && !this._strokeLayerId && !this._displaySuspendDepth
       && cause?.type==='operation_undo' && cause.userId===this._userId && isM70WatercolorStroke(op)
       && !this._rebuildJobs.has(op.layerId) && !this.isSnapshotHistoryRepairPending(op.layerId)){
+      // A journal-exact prefix does not include a peer's uncommitted eraser
+      // material. Preserve that physical tail until its operation arrives;
+      // ordinary replay now would erase it just as a cached restore would.
+      if(this._hasUnrecordedInk(op.layerId)){
+        this._unsettledLayers.add(op.layerId)
+        return
+      }
       const target=this._layers.get(op.layerId)
       const restored=target ? this._puddle?.restoreUndo(target) : null
       if(restored){
