@@ -1,0 +1,106 @@
+{
+  "source": "3ee37518",
+  "controls": "front highp+round / mode11 highp-only / mode6 highp-only; forced identical Contrast reference",
+  "samsungSHA": "deae26ed2f1f300fb2e8e03afc68f33a531ac001344836149159655c920b1515",
+  "intelSHA": "76f4dd22c880d5fd07952208e52f42e99002cdefcb59ba4a7b370ed87a09da38",
+  "channels": [
+    {
+      "channel": "R",
+      "changed": 0,
+      "max": 0,
+      "signedMin": 0,
+      "signedMax": 0
+    },
+    {
+      "channel": "G",
+      "changed": 7747,
+      "max": 230,
+      "signedMin": -230,
+      "signedMax": 15
+    },
+    {
+      "channel": "B",
+      "changed": 173,
+      "max": 36,
+      "signedMin": -36,
+      "signedMax": 5
+    },
+    {
+      "channel": "A",
+      "changed": 557,
+      "max": 1,
+      "signedMin": -1,
+      "signedMax": -1
+    }
+  ],
+  "sameInputHashes": true,
+  "all10SameGPUZero": true,
+  "finalDiffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "1d52d27f7b6cd18571423a49531838385a2b20ff7cc1429347e718a6d54b95a1",
+      "referenceHash": "1d52d27f7b6cd18571423a49531838385a2b20ff7cc1429347e718a6d54b95a1"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fb94d180f4c4b2e3307e5af32dabb06ac13db37ea56a121ee41362eb1541bb9e",
+      "referenceHash": "fb94d180f4c4b2e3307e5af32dabb06ac13db37ea56a121ee41362eb1541bb9e"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+    }
+  },
+  "gl": [
+    0,
+    0
+  ],
+  "errors": [],
+  "restoration": {
+    "ownershipExact": true,
+    "restored": true
+  },
+  "qualification": "QA-only numerical control, no production changes/performance claim.",
+  "mode6Highp": {
+    "requested": true,
+    "samplerCount": 6,
+    "originalSHA": "b53ec815e0e503925fa25ec9ac2f7105d6d79dd102a36dfa9f68953ae68c2461",
+    "patchedSHA": "95c732a15ffd10e09520f4e453ae0e3b976ac472454dd40ad7c466951b3b829f",
+    "selectedCalls": 10,
+    "otherCalls": 574,
+    "initializedBaseline": true,
+    "restoration": {
+      "wrapperExact": true,
+      "cacheExact": true,
+      "cacheDescriptorRestored": true,
+      "deletedOwnedProgram": true
+    },
+    "uniformKeys": [
+      "u_a",
+      "u_b",
+      "u_c",
+      "u_k",
+      "u_mode",
+      "u_tau",
+      "u_dir",
+      "u_d",
+      "u_origin",
+      "u_size",
+      "u_band",
+      "u_world",
+      "u_mode6Resolution",
+      "u_mode6DirPx",
+      "u_mode6DiscreteGrid"
+    ]
+  }
+}
