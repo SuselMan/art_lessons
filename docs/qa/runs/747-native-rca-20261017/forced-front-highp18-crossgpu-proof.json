@@ -1,0 +1,408 @@
+{
+  "sourcePair": [
+    "509fb989",
+    "509fb989"
+  ],
+  "inputExact": true,
+  "forcedExact": true,
+  "highpSamsungSHA": "38e49907209e4e546e3bae2f2baf053e96c58353fc1a23bb6bcd472cee556b88",
+  "highpIntelSHA": "9fc03fba47fb6e57e13af44270541370334aac9ea26e810f8f2f94d4df65d3a7",
+  "samsungOFFSHA": "26f3e1e35afbfde28e5f3ef05a3791fba57e7ef660c7e753629e7560af28ea0c",
+  "pairs": {
+    "SamsungHighp_minus_IntelHighp": {
+      "R": {
+        "changed": 1431,
+        "max": 1,
+        "histogram": {
+          "-1": 1431
+        },
+        "first": [
+          {
+            "byte": 9892708,
+            "x": 1241,
+            "y": 1207,
+            "difference": -1,
+            "samsungHighp": 82,
+            "other": 83
+          },
+          {
+            "byte": 9892712,
+            "x": 1242,
+            "y": 1207,
+            "difference": -1,
+            "samsungHighp": 82,
+            "other": 83
+          },
+          {
+            "byte": 9892716,
+            "x": 1243,
+            "y": 1207,
+            "difference": -1,
+            "samsungHighp": 82,
+            "other": 83
+          },
+          {
+            "byte": 9892720,
+            "x": 1244,
+            "y": 1207,
+            "difference": -1,
+            "samsungHighp": 82,
+            "other": 83
+          },
+          {
+            "byte": 9892724,
+            "x": 1245,
+            "y": 1207,
+            "difference": -1,
+            "samsungHighp": 82,
+            "other": 83
+          },
+          {
+            "byte": 9892728,
+            "x": 1246,
+            "y": 1207,
+            "difference": -1,
+            "samsungHighp": 82,
+            "other": 83
+          },
+          {
+            "byte": 9892732,
+            "x": 1247,
+            "y": 1207,
+            "difference": -1,
+            "samsungHighp": 82,
+            "other": 83
+          },
+          {
+            "byte": 9892736,
+            "x": 1248,
+            "y": 1207,
+            "difference": -1,
+            "samsungHighp": 82,
+            "other": 83
+          }
+        ]
+      },
+      "G": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      },
+      "B": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      },
+      "A": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      }
+    },
+    "SamsungHighp_minus_SamsungOFF": {
+      "R": {
+        "changed": 1163,
+        "max": 1,
+        "histogram": {
+          "1": 1163
+        },
+        "first": [
+          {
+            "byte": 9827248,
+            "x": 1260,
+            "y": 1199,
+            "difference": 1,
+            "samsungHighp": 103,
+            "other": 102
+          },
+          {
+            "byte": 9827252,
+            "x": 1261,
+            "y": 1199,
+            "difference": 1,
+            "samsungHighp": 103,
+            "other": 102
+          },
+          {
+            "byte": 9827256,
+            "x": 1262,
+            "y": 1199,
+            "difference": 1,
+            "samsungHighp": 103,
+            "other": 102
+          },
+          {
+            "byte": 9827260,
+            "x": 1263,
+            "y": 1199,
+            "difference": 1,
+            "samsungHighp": 103,
+            "other": 102
+          },
+          {
+            "byte": 9827264,
+            "x": 1264,
+            "y": 1199,
+            "difference": 1,
+            "samsungHighp": 103,
+            "other": 102
+          },
+          {
+            "byte": 9827268,
+            "x": 1265,
+            "y": 1199,
+            "difference": 1,
+            "samsungHighp": 103,
+            "other": 102
+          },
+          {
+            "byte": 9827272,
+            "x": 1266,
+            "y": 1199,
+            "difference": 1,
+            "samsungHighp": 103,
+            "other": 102
+          },
+          {
+            "byte": 9827276,
+            "x": 1267,
+            "y": 1199,
+            "difference": 1,
+            "samsungHighp": 103,
+            "other": 102
+          }
+        ]
+      },
+      "G": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      },
+      "B": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      },
+      "A": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      }
+    }
+  },
+  "samsungHighpMetadata": {
+    "requested": true,
+    "samplerCount": 5,
+    "originalFragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+    "patchedFragmentSHA": "f596dc8f3ceaacc960f6413f0275b496f098219aa31b4b51e66f66c7be08fc81",
+    "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+    "uniformKeys": [
+      "u_wcNoiseTex",
+      "u_cost",
+      "u_paperHeightMap",
+      "u_resolution",
+      "u_paperOrigin",
+      "u_paperTexSize",
+      "u_paperScale",
+      "u_climb",
+      "u_floor",
+      "u_costMax",
+      "u_film",
+      "u_dryCost",
+      "u_stride",
+      "u_foreignFilm",
+      "u_foreignWet"
+    ],
+    "modifiedProperties": [
+      "_waterFrontProg",
+      "_waterFrontUni",
+      "_waterFrontPosLoc"
+    ],
+    "qualification": "Only owned native water-front program replaced. Exported shader strings and prefix build/jump programs unchanged. QA control, not product fix.",
+    "restoration": {
+      "restored": true,
+      "ownershipExact": true,
+      "deletedOwnedProgram": true
+    }
+  },
+  "intelHighpMetadata": {
+    "requested": true,
+    "samplerCount": 5,
+    "originalFragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+    "patchedFragmentSHA": "f596dc8f3ceaacc960f6413f0275b496f098219aa31b4b51e66f66c7be08fc81",
+    "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+    "uniformKeys": [
+      "u_wcNoiseTex",
+      "u_cost",
+      "u_paperHeightMap",
+      "u_resolution",
+      "u_paperOrigin",
+      "u_paperTexSize",
+      "u_paperScale",
+      "u_climb",
+      "u_floor",
+      "u_costMax",
+      "u_film",
+      "u_dryCost",
+      "u_stride",
+      "u_foreignFilm",
+      "u_foreignWet"
+    ],
+    "modifiedProperties": [
+      "_waterFrontProg",
+      "_waterFrontUni",
+      "_waterFrontPosLoc"
+    ],
+    "qualification": "Only owned native water-front program replaced. Exported shader strings and prefix build/jump programs unchanged. QA control, not product fix.",
+    "restoration": {
+      "restored": true,
+      "ownershipExact": true,
+      "deletedOwnedProgram": true
+    }
+  },
+  "finalCrossGPUHashesOnly": {
+    "p": {
+      "samsung": "aa5d6669773126c10fc136d6c2e8892a9b27825418c5f5ac3701619a1d2f7623",
+      "intel": "0ade849aac0db2a5ba7b8dbf4605f559e2f7b6a0a8feb17bf9e29397049a90c8",
+      "exact": false
+    },
+    "c": {
+      "samsung": "e50a1866604adbdab8cfa2feb817d4263ee196bd6d810b0c63c239f96f591f93",
+      "intel": "d9adcc38a561d4e9e5fd5bad30ab3e41f2fa651938727f658fe99fbb8d6fb85d",
+      "exact": false
+    },
+    "coverage": {
+      "samsung": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "intel": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "exact": true
+    }
+  },
+  "qualification": "Five highp native-front samplers QA control, not product. First18 comparison; final hashes only, no full final-array diff exported in this run.",
+  "sameGPUStages": {
+    "stageDiffs": {
+      "referenceP": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9",
+        "referenceHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9"
+      },
+      "referenceC": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2",
+        "referenceHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2"
+      },
+      "solvedP": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "4f1efca431eff8603331e514515bb83b99938f3d0382485f600299178d2fc74f",
+        "referenceHash": "4f1efca431eff8603331e514515bb83b99938f3d0382485f600299178d2fc74f"
+      },
+      "solvedC": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "a89f500dfabaef9d5485e9bfbe50a6efcff8e0a445bcb6585da04d4185c7b268",
+        "referenceHash": "a89f500dfabaef9d5485e9bfbe50a6efcff8e0a445bcb6585da04d4185c7b268"
+      },
+      "solvedCoverage": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+      },
+      "coarse:gate": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+        "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+      },
+      "coarse:beforeP": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "a2e8cf698d3b6724cd2689ac63a0a205fe0e91785cf7b658a9d6bdd70d2ceda6",
+        "referenceHash": "a2e8cf698d3b6724cd2689ac63a0a205fe0e91785cf7b658a9d6bdd70d2ceda6"
+      },
+      "coarse:afterP": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "31a1da7e83d591199ebf96a58260c85434b2e29164ac9b8a71061651e32f7a50",
+        "referenceHash": "31a1da7e83d591199ebf96a58260c85434b2e29164ac9b8a71061651e32f7a50"
+      },
+      "coarse:beforeC": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "78f9040c132abfb8dd4367adca9df0400590d12d944685507d70f99c69cff3ce",
+        "referenceHash": "78f9040c132abfb8dd4367adca9df0400590d12d944685507d70f99c69cff3ce"
+      },
+      "coarse:afterC": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "ea14d9c15605f00a592602e7775cc0bf399db9dbf88369dfc9f6e448f50c4ad6",
+        "referenceHash": "ea14d9c15605f00a592602e7775cc0bf399db9dbf88369dfc9f6e448f50c4ad6"
+      }
+    },
+    "diffs": {
+      "p": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "aa5d6669773126c10fc136d6c2e8892a9b27825418c5f5ac3701619a1d2f7623",
+        "referenceHash": "aa5d6669773126c10fc136d6c2e8892a9b27825418c5f5ac3701619a1d2f7623"
+      },
+      "c": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "e50a1866604adbdab8cfa2feb817d4263ee196bd6d810b0c63c239f96f591f93",
+        "referenceHash": "e50a1866604adbdab8cfa2feb817d4263ee196bd6d810b0c63c239f96f591f93"
+      },
+      "coverage": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+        "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+      }
+    },
+    "errors": [],
+    "highFloat": {
+      "precision": 23,
+      "rangeMin": 127,
+      "rangeMax": 127
+    },
+    "dither": {
+      "requestedOff": false,
+      "initial": true,
+      "atCapture": true
+    }
+  }
+}
