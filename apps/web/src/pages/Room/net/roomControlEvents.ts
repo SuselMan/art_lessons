@@ -59,7 +59,7 @@ export function createRoomControlEventHandlers({
     // above.
     room_frozen_changed: ({ frozen }) => {
       useRoomStore.getState().setRoomFrozen(frozen)
-      if (frozen) repairAllBlockedLiveInk()
+      if (frozen) repairBlockedLiveInk(useRoomStore.getState().participants.filter(p => p.role !== 'owner').map(p => p.userId))
     },
 
     // (#548) The owner changed which tools this room offers. Broadcast to
