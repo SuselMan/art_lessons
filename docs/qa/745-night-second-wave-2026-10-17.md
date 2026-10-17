@@ -859,3 +859,30 @@ touch10 иDPR1.5. Нативный Samsung300MiB ранее проверен о�
 проверены lease/callback lifecycle, parked timestamps, chunks, lateACK/reject,
 Dry/hide repair debt. Это не добавляет нового GPUproof; long-hold/last-material
 продуктовая семантика остаётся OPEN.
+
+
+## Срез 05:21 — ещё один порядок Dry и дорогая история Undo
+
+#782: настоящий controller/engine material-state baseline подтверждает:
+A_UPpending→чужойDryseq1→A_ACKseq2 оставляет A сухим, хотя журнал требует
+мокрый A после Dry. Последующая чистая вода получает pigmentInputsKnownZero=true,
+независимый accepted-only engine — false. Это не только отсутствие вызова replay.
+Кандидат d5541129 учитывает material boundary в private _noteOvertaken, не
+меняет shared pixel dependency категории. 26 целевых тестов PASS, TypeScript/
+scoped lint PASS; аппаратный сценарий подготовлен, ещё не запущен.
+
+#780 дополнен переходами доски/урока: 3 actual Socket.IO baseline FAIL,
+после исправления 374 rooms и 18 Socket.IO PASS. Неподтверждённый live-хвост
+отменяется только у уходящего соединения, остающийся жест второго устройства
+сохраняется. Kick проверен без изменения кода: последний peer_left очищает
+наблюдателей, отключать сам socket для этого не требуется.
+
+#744/#779: readonly benchmark настоящего OperationLog на VPS, 240/480/960
+независимых луж, по три последних UndoDry пересчёта. Для 960 (2888 записей)
+получили 6180/6230/5951ms только на watercolorEffectiveOperations, до GPU.
+Все 960 защищённых вод сохранились. Это воспроизводимый CPU hotspot, не
+измерение видимого Undo на устройстве и не isolated benchmark. Compact proof:
+runs/779-boundary-resolver-scaling-2026-10-17/large-baseline.json. Исследуется
+узкое кеширование чистого decoding границ без смены геометрии/правил Undo.
+
+Последний budget read05:20: 49%used/51%left, reset1 неиспользован.
