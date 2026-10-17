@@ -1,0 +1,126 @@
+{
+  "source": "e50dd217",
+  "scope": "actual observer held water/pigment, network cancel and author disconnect",
+  "cases": [
+    {
+      "name": "frozen-room-owner-held-preview-and-live-sequence-preserved",
+      "held": "YxRUfrxGTp",
+      "op": "_-YtLstFhn",
+      "beforeFreeze": [
+        [
+          {
+            "received": 10,
+            "committed": 0,
+            "hasFilm": true
+          }
+        ],
+        [
+          {
+            "received": 10,
+            "committed": 0,
+            "hasFilm": true
+          }
+        ]
+      ],
+      "afterFreeze": [
+        [
+          {
+            "received": 20,
+            "committed": 0,
+            "hasFilm": true
+          }
+        ],
+        [
+          {
+            "received": 20,
+            "committed": 0,
+            "hasFilm": true
+          }
+        ]
+      ]
+    },
+    {
+      "name": "owner-frozen-accepted-canonical-exact-0",
+      "proof": {
+        "layerId": "qa-three-558b77c3-b598-47d1-a5bf-ccf5b3db5ab4",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "143713ae1d81a67391bd1ade3ea3296d8bfc5e4614f910a115249388953db829",
+        "oracleHash": "143713ae1d81a67391bd1ade3ea3296d8bfc5e4614f910a115249388953db829",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 3275,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    },
+    {
+      "name": "owner-frozen-accepted-canonical-exact-1",
+      "proof": {
+        "layerId": "qa-three-558b77c3-b598-47d1-a5bf-ccf5b3db5ab4",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "b74e448d01e56a488a73eae7adc58f0166b266d013edaa36a6076f568dade89c",
+        "oracleHash": "b74e448d01e56a488a73eae7adc58f0166b266d013edaa36a6076f568dade89c",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 3275,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    },
+    {
+      "name": "owner-frozen-accepted-canonical-exact-2",
+      "proof": {
+        "layerId": "qa-three-558b77c3-b598-47d1-a5bf-ccf5b3db5ab4",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "143713ae1d81a67391bd1ade3ea3296d8bfc5e4614f910a115249388953db829",
+        "oracleHash": "143713ae1d81a67391bd1ade3ea3296d8bfc5e4614f910a115249388953db829",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 3275,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "c5438166-8017-448f-9335-9f3a6e9d34c0",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "ef10ae88-0a26-4ef2-a78f-6a08f618f10b",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "3e3e0b28-f273-4501-a130-d550bd5ea41e",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "pass": true,
+  "assessment": "Three actual browser actors: owner held stroke survives room freeze, both observer films remain and receive subsequent packet data; owner final canonical operation accepted. After unfreeze and Dry all three physical rasters exactly match own independent journal replay."
+}
