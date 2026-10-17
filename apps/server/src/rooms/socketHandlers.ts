@@ -476,9 +476,18 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // board of the same lesson is a page turn, not a departure: `joinRoom`
       // above already moved the seat, and the only thing to leave is the old
       // board's content channel, below.
+      // A successful board/lesson departure ends only this socket's live
+      // tails on their original boards. A rejected join leaves them intact.
+      if (previousRoomId && previousRoomId !== roomId) cancelLiveStrokes(userId)
       if (previousLessonId && previousLessonId !== lessonId) {
+        const previousBoardId = getParticipant(previousLessonId, userId)?.boardId
         if (previousRoomId && leaveRoom(previousRoomId, userId, socket.id)) {
           socket.to(lessonChannel(previousLessonId)).emit('peer_left', userId)
+        } else {
+          const participant = getParticipant(previousLessonId, userId)
+          if (participant?.boardId && participant.boardId !== previousBoardId) {
+            io.to(lessonChannel(previousLessonId)).emit('peer_board_changed', { userId, boardId: participant.boardId })
+          }
         }
         void socket.leave(lessonChannel(previousLessonId))
       }
