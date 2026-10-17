@@ -1,0 +1,18 @@
+{
+  "appSource": "e562d496",
+  "command": [
+    "npx",
+    "vitest",
+    "run",
+    "apps/web/src/engine",
+    "--maxWorkers=1"
+  ],
+  "exitCode": 0,
+  "filesPassed": 279,
+  "testsPassed": 2725,
+  "durationSeconds": 396.96,
+  "startedLocal": "2026-10-17 15:16:46 Europe/Vilnius",
+  "finishedUTC": "2026-10-17T12:23:23.675610+00:00",
+  "logSHA256": "2d07364da6d5516fb8ce63dc2720adad2d87d77cd86426e787c36c7e83ea1af7",
+  "note": "Before raw coverage reuse 3ee37518; latter targeted 167 tests/14 files, actual web typecheck and oxlint pass. Full run process ended; no test browser/service created."
+}

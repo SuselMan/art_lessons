@@ -215,3 +215,7 @@ QAtrackedscissor4b42 nowreads4stateparameters+1enabledoncepernative.run, tracks7
 App e562d496 + QA tracked scissor4b42aa79 CLEAN fixture15: seamUP4127ms unprofiled, edge4977ms CPUprofiled; DOWN56/56ms, MOVE52/7ms, UP100/23ms; outerstepmax293/264ms. Finalnaturalgoal vs independentfullAPI29Nativeprepares3ops allphysical/rawROI/full/outside0diff,GL0. 4/5scopes selected,0fallback,84/105runs=snapshots=detaches,exactrestore. No strictspeedABclaim acrossdifferentfixtures. Proofa9d4ade1. Memoryinput224/solve120 unchanged. Rootfullengine e562d496 one-worker run PID183840 started15:16:45, pending; appsourcefrozen.
 
 #748 QA mode11 highp sampler ONLY fixes Samsung coverage completely: bothGPU e0c3e4d6168fc34d3bca93490b026d9a16eeb111023b18053923ad37f2f8e2ad. Samsung selected5/other581,6samplers,all10stage/finalown0,GL0,programrestore/deleteexact. Proof13f0bf4e. Notappshaderfix; fullcrossGPUfinalNOTconfirmed. NextBANDboundaryunderway.
+
+### 15:26 — full engine regression and raw coverage reuse
+
+Frozen app e562d496 fullengine279files/2725tests PASS396.96s, exit0; ownedprocessgroup183840 finished, ledgerupdated. Afterward app3ee37518 reuses immutable raw.coverage snapshot rather than reading Native published contour back from GPU and rewritingCPU pages. Source proof06e4cdf2 holdswithoutR32/noForeign assumption forsuccessfulcurrentPagedlifecycle. Root167tests14files/actualwebtypecheck/oxlintPASS; cancellationbetweenP/C planes and arbitrarycoverageRGBA/unknownsupport/foreignmetadata tested. Samsungdefaultall10NativePagedgate nowRUN; no speedclaim.
