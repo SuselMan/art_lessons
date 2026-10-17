@@ -18,5 +18,9 @@ if(!entry)throw Error('Missing entry')
 html=html.replace(/<script type="module">[\s\S]*?<\/script>/,`<script type="module" src="/mini-assets/${entry.split('/').pop()}"></script>`)
 const paper=JSON.parse(await readFile(root+'apps/web/public/paper/manifest.json','utf8')).assets.fine.texture
 html=html.replace('<title>',`<link rel="preload" as="fetch" href="/paper/${paper}" crossorigin><title>`)
+// UI-only classic observer; injecting it does not rebundle model/chunk code.
+const latencyUI=await readFile(root+'docs/qa/prototypes/mini-stand/goal-latency.js','utf8')
+if(!html.includes('</html>')||html.includes('data-mini-goal-latency'))throw Error('Mini latency injection anchor invalid')
+html=html.replace('</html>',`<script data-mini-goal-latency>${latencyUI}</script></html>`)
 await writeFile(output+'/index.html',html)
 console.log(JSON.stringify({entry,files:result.outputFiles.length,bytes:result.outputFiles.reduce((n,f)=>n+f.contents.length,0)}))
