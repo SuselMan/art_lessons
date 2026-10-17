@@ -1,0 +1,1005 @@
+{
+  "qualification": "Real public Room on native Samsung with managed120MiB cache, engine host three options ON, fresh empty accepted history. No QA sampler/origin/cache overrides. One trusted pen gesture. Timing scope stops before readback/oracles; nested timings overlap. Native Plan prepare count3 is observed solver window count for this one-gesture case. Raw ROI/full render and canonical goal/replay byteexact. UI latency remains about6.8s after UP, so not product-ready performance.",
+  "source": "df1b7fe9",
+  "geometry": {
+    "width": 1754,
+    "height": 1240
+  },
+  "inputLineage": {
+    "operations": [],
+    "controller": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 0,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "layerCount": 2
+  },
+  "cases": [
+    {
+      "name": "room-native-ready",
+      "wallAt": 1792226073139,
+      "roomReadyElapsedMs": 30970
+    },
+    {
+      "name": "RAF-foreground-probe",
+      "wallAt": 1792226073803,
+      "times": [
+        16.799999999999272,
+        33.39999999999782,
+        16.700000000000728,
+        16.700000000000728,
+        16.799999999999272,
+        16.600000000002183,
+        16.799999999999272,
+        16.799999999999272,
+        16.700000000000728,
+        33.39999999999782,
+        16.600000000002183,
+        16.799999999999272,
+        16.700000000000728,
+        16.700000000000728,
+        16.69999999999709,
+        16.80000000000291,
+        16.599999999998545,
+        16.799999999999272,
+        16.700000000000728,
+        16.700000000000728
+      ],
+      "hidden": false,
+      "visibility": "visible"
+    },
+    {
+      "name": "operation-layer_add-idle",
+      "wallAt": 1792226074213,
+      "telemetry": {
+        "label": "layer_add",
+        "start": 31615.5,
+        "lru": {},
+        "worst": [],
+        "raf": {
+          "count": 17,
+          "sumMs": 317.6000000000022,
+          "maxMs": 50.19999999999709,
+          "histogram": [
+            0,
+            1,
+            15,
+            0,
+            1,
+            0,
+            0,
+            0
+          ],
+          "over50": 1,
+          "over100": 0
+        },
+        "visibility": [
+          {
+            "at": 31615.700000047684,
+            "hidden": false,
+            "state": "visible"
+          },
+          {
+            "at": 31937.60000014305,
+            "hidden": false,
+            "state": "visible"
+          }
+        ],
+        "end": 31937.60000014305,
+        "wallMs": 322.10000014305115
+      },
+      "nativeElapsedMs": 365.90000009536743
+    },
+    {
+      "0": {
+        "controller": "PagedPuddleRoomController",
+        "engineHostFlags": {
+          "skipEmptyFixedWindows": true,
+          "omitZeroForeignSolventLoad": true,
+          "detachedWindowSource": true
+        }
+      },
+      "name": "deep-telemetry-identity",
+      "wallAt": 1792226074552
+    },
+    {
+      "name": "trusted-pen-crosses-both1024-seams",
+      "wallAt": 1792226084537,
+      "telemetry": {
+        "label": "trusted-pen-crosses-both1024-seams",
+        "start": 32749.60000014305,
+        "lru": {},
+        "worst": [],
+        "raf": {
+          "count": 56,
+          "sumMs": 9445,
+          "maxMs": 1387.1000000000058,
+          "histogram": [
+            0,
+            19,
+            17,
+            1,
+            3,
+            6,
+            7,
+            3
+          ],
+          "over50": 19,
+          "over100": 16
+        },
+        "visibility": [
+          {
+            "at": 32749.60000014305,
+            "hidden": false,
+            "state": "visible"
+          },
+          {
+            "at": 42204.60000014305,
+            "hidden": false,
+            "state": "visible"
+          }
+        ],
+        "methods": {
+          "controller.source@DOWN": {
+            "count": 1,
+            "sumMs": 0.2999999523162842,
+            "maxMs": 0.2999999523162842
+          },
+          "engine._ribbonDabsWork@DOWN": {
+            "count": 4,
+            "sumMs": 0.5999999046325684,
+            "maxMs": 0.5999999046325684
+          },
+          "controller.beforePaint@DOWN": {
+            "count": 4,
+            "sumMs": 0.20000028610229492,
+            "maxMs": 0.10000014305114746
+          },
+          "gl.texImage2D@DOWN": {
+            "count": 364,
+            "sumMs": 3.500000238418579,
+            "maxMs": 0.10000014305114746,
+            "uploadBytes": 1432
+          },
+          "scratch.compositeScalars@DOWN": {
+            "count": 20,
+            "sumMs": 0.39999985694885254,
+            "maxMs": 0.2999999523162842
+          },
+          "pool.acquire@DOWN": {
+            "count": 84,
+            "sumMs": 237.90000104904175,
+            "maxMs": 24.5
+          },
+          "actualCache.touch@DOWN": {
+            "count": 1045,
+            "sumMs": 1745.6999995708466,
+            "maxMs": 31.5,
+            "nominalBytes": 3304325120
+          },
+          "actualCache.reserve@DOWN": {
+            "count": 354,
+            "sumMs": 1559.5000019073486,
+            "maxMs": 30.799999952316284
+          },
+          "actualCache.register@DOWN": {
+            "count": 103,
+            "sumMs": 162.10000133514404,
+            "maxMs": 23.5,
+            "nominalBytes": 202424320
+          },
+          "host.makeBuffer@DOWN": {
+            "count": 44,
+            "sumMs": 52.799999713897705,
+            "maxMs": 14
+          },
+          "controller.present@DOWN": {
+            "count": 8,
+            "sumMs": 11.099999904632568,
+            "maxMs": 3.9000000953674316
+          },
+          "controller.accept@DOWN": {
+            "count": 4,
+            "sumMs": 271.30000019073486,
+            "maxMs": 160.79999995231628
+          },
+          "engine._onStart@DOWN": {
+            "count": 1,
+            "sumMs": 106.29999995231628,
+            "maxMs": 106.29999995231628
+          },
+          "engine._onMove@DOWN": {
+            "count": 4,
+            "sumMs": 1900.6000003814697,
+            "maxMs": 943.1000001430511
+          },
+          "actualBuffer._residencyEvict@DOWN": {
+            "count": 294,
+            "sumMs": 1515.6999998092651,
+            "maxMs": 30.600000143051147,
+            "nominalBytes": 971161600,
+            "idleDiscardCalls": 20,
+            "roles": {
+              "pooledFree": 20,
+              "presentation.goal": 4,
+              "solverOrOther": 34,
+              "source.original": 8,
+              "presentation.next": 5,
+              "presentation.raw": 5,
+              "source.solventLoad": 23,
+              "source.solventBase": 22,
+              "source.strokeSolvent": 22,
+              "source.coverage": 21,
+              "source.inkLoad": 22,
+              "source.inkBase": 22,
+              "source.strokeInk": 22,
+              "source.inkColor": 20,
+              "source.colorBase": 22,
+              "source.strokeColor": 22
+            }
+          },
+          "gl.readPixels@DOWN": {
+            "count": 216,
+            "sumMs": 962.5999999046326,
+            "maxMs": 25.09999990463257,
+            "nominalBytes": 725663744
+          },
+          "gl.texSubImage2D@DOWN": {
+            "count": 132,
+            "sumMs": 52.69999980926514,
+            "maxMs": 1.1999998092651367,
+            "uploadBytes": 484311040
+          },
+          "actualBuffer._residencyHydrate@DOWN": {
+            "count": 251,
+            "sumMs": 332.0999987125397,
+            "maxMs": 5.599999904632568,
+            "nominalBytes": 889454592,
+            "roles": {
+              "source.coverage": 21,
+              "source.strokeSolvent": 20,
+              "source.solventLoad": 20,
+              "source.solventBase": 20,
+              "source.strokeInk": 20,
+              "source.strokeColor": 20,
+              "source.inkLoad": 22,
+              "source.inkBase": 20,
+              "source.inkColor": 20,
+              "source.colorBase": 20,
+              "source.original": 8,
+              "presentation.next": 5,
+              "solverOrOther": 30,
+              "presentation.raw": 5
+            }
+          },
+          "engine._ribbonDabsWork@UP": {
+            "count": 1,
+            "sumMs": 0,
+            "maxMs": 0
+          },
+          "controller.beforePaint@UP": {
+            "count": 1,
+            "sumMs": 0,
+            "maxMs": 0
+          },
+          "scratch.compositeScalars@UP": {
+            "count": 22,
+            "sumMs": 0.20000004768371582,
+            "maxMs": 0.10000014305114746
+          },
+          "actualCache.touch@UP": {
+            "count": 2366,
+            "sumMs": 1300.2000019550323,
+            "maxMs": 63.200000047683716,
+            "nominalBytes": 5028991232
+          },
+          "actualBuffer._residencyEvict@UP": {
+            "count": 238,
+            "sumMs": 1948.9000000953674,
+            "maxMs": 342.09999990463257,
+            "nominalBytes": 664105984,
+            "idleDiscardCalls": 29,
+            "roles": {
+              "pooledFree": 29,
+              "source.solventBase": 13,
+              "source.strokeSolvent": 12,
+              "source.inkBase": 12,
+              "source.strokeInk": 12,
+              "source.colorBase": 12,
+              "source.strokeColor": 12,
+              "source.solventLoad": 16,
+              "source.original": 8,
+              "solverOrOther": 46,
+              "presentation.next": 8,
+              "presentation.raw": 8,
+              "source.inkLoad": 18,
+              "source.inkColor": 16,
+              "source.coverage": 16
+            }
+          },
+          "actualCache.reserve@UP": {
+            "count": 475,
+            "sumMs": 2016.6000006198883,
+            "maxMs": 349.10000014305115
+          },
+          "gl.texImage2D@UP": {
+            "count": 511,
+            "sumMs": 84.19999933242798,
+            "maxMs": 12.5,
+            "uploadBytes": 141558660
+          },
+          "gl.texSubImage2D@UP": {
+            "count": 262,
+            "sumMs": 85.50000262260437,
+            "maxMs": 7.900000095367432,
+            "uploadBytes": 559379608
+          },
+          "actualBuffer._residencyHydrate@UP": {
+            "count": 203,
+            "sumMs": 299.39999890327454,
+            "maxMs": 10.100000143051147,
+            "nominalBytes": 615420928,
+            "roles": {
+              "source.strokeSolvent": 12,
+              "source.solventLoad": 15,
+              "source.solventBase": 12,
+              "source.strokeInk": 12,
+              "source.strokeColor": 12,
+              "source.inkBase": 12,
+              "source.colorBase": 12,
+              "source.inkLoad": 16,
+              "source.inkColor": 15,
+              "source.coverage": 15,
+              "source.original": 8,
+              "presentation.next": 5,
+              "solverOrOther": 49,
+              "presentation.raw": 4,
+              "presentation.goal": 4
+            }
+          },
+          "gl.readPixels@UP": {
+            "count": 246,
+            "sumMs": 2189.099999189377,
+            "maxMs": 207.89999985694885,
+            "nominalBytes": 729635616
+          },
+          "pool.acquire@UP": {
+            "count": 69,
+            "sumMs": 1523.3000004291534,
+            "maxMs": 349.7999999523163
+          },
+          "actualCache.register@UP": {
+            "count": 272,
+            "sumMs": 1042.200001001358,
+            "maxMs": 349.10000014305115,
+            "nominalBytes": 626025472
+          },
+          "host.makeBuffer@UP": {
+            "count": 30,
+            "sumMs": 23.299999952316284,
+            "maxMs": 1.3000001907348633
+          },
+          "controller.present@UP": {
+            "count": 43,
+            "sumMs": 30.600000143051147,
+            "maxMs": 4.5
+          },
+          "controller.accept@UP": {
+            "count": 2,
+            "sumMs": 174,
+            "maxMs": 148.5
+          },
+          "controller.finish@UP": {
+            "count": 1,
+            "sumMs": 25.899999856948853,
+            "maxMs": 25.899999856948853
+          },
+          "engine._onEnd@UP": {
+            "count": 1,
+            "sumMs": 1324.9000000953674,
+            "maxMs": 1324.9000000953674
+          },
+          "controller.frame@UP": {
+            "count": 33,
+            "sumMs": 4753.599999904633,
+            "maxMs": 879.2999999523163
+          },
+          "solver.resetFromScratch@UP": {
+            "count": 1,
+            "sumMs": 1.2000000476837158,
+            "maxMs": 1.2000000476837158
+          },
+          "controller.start@UP": {
+            "count": 1,
+            "sumMs": 1.3000001907348633,
+            "maxMs": 1.3000001907348633
+          },
+          "actualBuffer.readPixels@UP": {
+            "count": 83,
+            "sumMs": 874.8999993801117,
+            "maxMs": 163.29999995231628,
+            "nominalBytes": 266107680
+          },
+          "solver.step@UP": {
+            "count": 23,
+            "sumMs": 4546.199999570847,
+            "maxMs": 879.2999999523163
+          },
+          "scratch.captureFinishMetadata@UP": {
+            "count": 3,
+            "sumMs": 1.0999999046325684,
+            "maxMs": 0.5999999046325684
+          },
+          "plan.prepare@UP": {
+            "count": 3,
+            "sumMs": 45.799999952316284,
+            "maxMs": 41
+          },
+          "solver.dry@UP": {
+            "count": 1,
+            "sumMs": 0.10000014305114746,
+            "maxMs": 0.10000014305114746
+          },
+          "controller.complete@UP": {
+            "count": 1,
+            "sumMs": 149.40000009536743,
+            "maxMs": 149.40000009536743
+          }
+        },
+        "phase": "UP",
+        "end": 42204.60000014305,
+        "wallMs": 9455
+      },
+      "upToObservedIdleMs": 6808.5
+    },
+    {
+      "name": "actual-physical-first-after-UP-cache120MiB",
+      "wallAt": 1792226084657,
+      "physical": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "hash": "2747aca4c91b4d8a067fa057e0d9b514f9e3906ea69606ef3f7e12abd5b91515",
+          "alpha": 2033
+        },
+        {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "hash": "e925574a68c09c3415ed0c533fa6ab0c2b5e197eec67c9374cced8035bf2498c",
+          "alpha": 300
+        },
+        {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "hash": "2d274e2b5a6ff187d3dd84d972e5ec74bc74974fe415df5c0066c37f4932a5d2",
+          "alpha": 291
+        },
+        {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "hash": "61445a93fdc54c3a3242978756eedeffcb6325c3d73ed0d5ea4caf6e4db575e9",
+          "alpha": 1561
+        }
+      ],
+      "puddle": "PagedPuddleRoomController",
+      "state": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 1,
+        "residentLayers": 1,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 1,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 2,
+            "ready": true,
+            "active": true
+          }
+        ]
+      },
+      "regions": [
+        {
+          "region": {
+            "x": 832,
+            "y": 0,
+            "width": 192,
+            "height": 192
+          },
+          "tile": {
+            "x": 0,
+            "y": 0
+          },
+          "buffers": {
+            "raw": {
+              "w": 192,
+              "h": 192,
+              "bytes": 147456
+            },
+            "next": {
+              "w": 192,
+              "h": 192,
+              "bytes": 147456
+            },
+            "goal": {
+              "w": 1024,
+              "h": 1024,
+              "bytes": 4194304
+            }
+          }
+        },
+        {
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 192,
+            "height": 192
+          },
+          "tile": {
+            "x": 1024,
+            "y": 0
+          },
+          "buffers": {
+            "raw": {
+              "w": 192,
+              "h": 192,
+              "bytes": 147456
+            },
+            "next": {
+              "w": 192,
+              "h": 192,
+              "bytes": 147456
+            },
+            "goal": {
+              "w": 1024,
+              "h": 1024,
+              "bytes": 4194304
+            }
+          }
+        },
+        {
+          "region": {
+            "x": 832,
+            "y": 832,
+            "width": 192,
+            "height": 192
+          },
+          "tile": {
+            "x": 0,
+            "y": 1024
+          },
+          "buffers": {
+            "raw": {
+              "w": 192,
+              "h": 192,
+              "bytes": 147456
+            },
+            "next": {
+              "w": 192,
+              "h": 192,
+              "bytes": 147456
+            },
+            "goal": {
+              "w": 1024,
+              "h": 1024,
+              "bytes": 4194304
+            }
+          }
+        },
+        {
+          "region": {
+            "x": 0,
+            "y": 832,
+            "width": 192,
+            "height": 192
+          },
+          "tile": {
+            "x": 1024,
+            "y": 1024
+          },
+          "buffers": {
+            "raw": {
+              "w": 192,
+              "h": 192,
+              "bytes": 147456
+            },
+            "next": {
+              "w": 192,
+              "h": 192,
+              "bytes": 147456
+            },
+            "goal": {
+              "w": 1024,
+              "h": 1024,
+              "bytes": 4194304
+            }
+          }
+        }
+      ],
+      "pool": {
+        "live": 83886080,
+        "free": 64552960
+      },
+      "cache": {
+        "resident": 121765888,
+        "budget": 125829120
+      },
+      "gl": 0,
+      "lost": false
+    },
+    {
+      "name": "raw-ROI-full-render-proof",
+      "wallAt": 1792226085410,
+      "correctOrigin": false,
+      "originCorrections": 0,
+      "context": {
+        "layerGesture": "nhZHBrKeg7",
+        "epoch": 2,
+        "context": {
+          "preset": {
+            "opacity": 0.99,
+            "hardness": 0.88,
+            "sizeMultiplier": 1
+          },
+          "fieldSeed": [
+            980,
+            980.0001220703125
+          ],
+          "bounds": {
+            "minX": 948.5206623077393,
+            "minY": 948.5207843780518,
+            "maxX": 1095.7310936681952,
+            "maxY": 1095.7310936681952
+          },
+          "opacity": 0.9900000095367432
+        },
+        "finishContext": {
+          "preset": {
+            "opacity": 0.99,
+            "hardness": 0.88,
+            "sizeMultiplier": 1
+          },
+          "fieldSeed": [
+            980,
+            980.0001220703125
+          ],
+          "bounds": {
+            "minX": 948.5206623077393,
+            "minY": 948.5207843780518,
+            "maxX": 1095.7310936681952,
+            "maxY": 1095.7310936681952
+          }
+        }
+      },
+      "tiles": [
+        {
+          "freshVsFull": 0,
+          "freshVsFullMax": 0,
+          "stale": 0,
+          "staleMax": 0,
+          "freshFirst": [],
+          "freshHash": "d99599b1d8ca3d215061f0d5a548e7fb18a01598c5feef9d0f50b0c50f99beea",
+          "tile": {
+            "x": 0,
+            "y": 0,
+            "w": 1024,
+            "h": 1024
+          },
+          "region": {
+            "x": 832,
+            "y": 0,
+            "width": 192,
+            "height": 192
+          },
+          "changedInside": 0,
+          "maxInside": 0,
+          "changedOutside": 0,
+          "maxOutside": 0,
+          "first": [],
+          "rawHash": "d99599b1d8ca3d215061f0d5a548e7fb18a01598c5feef9d0f50b0c50f99beea",
+          "fullHash": "f0de9c6dbdd8bf03b053203db29abb80a347e56461a4dd971d43ec641b933a19",
+          "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "freshVsFull": 0,
+          "freshVsFullMax": 0,
+          "stale": 0,
+          "staleMax": 0,
+          "freshFirst": [],
+          "freshHash": "6bed47b67c456e74c8bfd85a71632d78db974023a87db77442b07ef96f1ef7ee",
+          "tile": {
+            "x": 1024,
+            "y": 0,
+            "w": 1024,
+            "h": 1024
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 192,
+            "height": 192
+          },
+          "changedInside": 0,
+          "maxInside": 0,
+          "changedOutside": 0,
+          "maxOutside": 0,
+          "first": [],
+          "rawHash": "6bed47b67c456e74c8bfd85a71632d78db974023a87db77442b07ef96f1ef7ee",
+          "fullHash": "87a752be81b13811d8590a7c8570bee68296c7e72f5cc66fe54ae96005a29169",
+          "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "freshVsFull": 0,
+          "freshVsFullMax": 0,
+          "stale": 0,
+          "staleMax": 0,
+          "freshFirst": [],
+          "freshHash": "7f432ac739a9fdd25193547f6d4cd0d2cefb79c24eb72f12e085511b113bd824",
+          "tile": {
+            "x": 0,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024
+          },
+          "region": {
+            "x": 832,
+            "y": 832,
+            "width": 192,
+            "height": 192
+          },
+          "changedInside": 0,
+          "maxInside": 0,
+          "changedOutside": 0,
+          "maxOutside": 0,
+          "first": [],
+          "rawHash": "7f432ac739a9fdd25193547f6d4cd0d2cefb79c24eb72f12e085511b113bd824",
+          "fullHash": "7bf1cc58ca726005c503c175a8bcb71002483c8e64799d2e0718706a212297cc",
+          "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "freshVsFull": 0,
+          "freshVsFullMax": 0,
+          "stale": 0,
+          "staleMax": 0,
+          "freshFirst": [],
+          "freshHash": "0698e336bd3105476c079ffff4065748b02ba2e3fcdfcd1ceac9daabeb7e0cf5",
+          "tile": {
+            "x": 1024,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024
+          },
+          "region": {
+            "x": 0,
+            "y": 832,
+            "width": 192,
+            "height": 192
+          },
+          "changedInside": 0,
+          "maxInside": 0,
+          "changedOutside": 0,
+          "maxOutside": 0,
+          "first": [],
+          "rawHash": "0698e336bd3105476c079ffff4065748b02ba2e3fcdfcd1ceac9daabeb7e0cf5",
+          "fullHash": "37ca7f688a74e739dabddb8abbf43997fe7ea62808227290e811c37e24bb3851",
+          "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        }
+      ],
+      "sourceMemory": {
+        "fields": {
+          "original": {
+            "count": 4,
+            "bytes": 16777216,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          },
+          "coverage": {
+            "count": 4,
+            "bytes": 16777216,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          },
+          "inkLoad": {
+            "count": 4,
+            "bytes": 16777216,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          },
+          "inkColor": {
+            "count": 4,
+            "bytes": 16777216,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          },
+          "solventLoad": {
+            "count": 4,
+            "bytes": 16777216,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          }
+        },
+        "uniqueBytes": 83886080,
+        "bufferCount": 20
+      },
+      "pool": {
+        "live": 83886080,
+        "free": 64552960
+      },
+      "cache": {
+        "resident": 121765888,
+        "budget": 125829120
+      },
+      "gl": 0,
+      "lost": false
+    },
+    {
+      "name": "canonical-goal-first-full-replay-proof",
+      "wallAt": 1792226093843,
+      "actualSource": "canonical-goal",
+      "actualCapturedBeforeOracle": true,
+      "page": {
+        "width": 1754,
+        "height": 1240
+      },
+      "physicalChanged": 0,
+      "max": 0,
+      "alpha": 4178,
+      "tiles": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 2028
+        },
+        {
+          "x": 1024,
+          "y": 0,
+          "w": 730,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 300
+        },
+        {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 216,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 291
+        },
+        {
+          "x": 1024,
+          "y": 1024,
+          "w": 730,
+          "h": 216,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1559
+        }
+      ],
+      "actualHash": "bc165a4433f0f7bbc76366f170e5def5cda363dabfc1921a682ce146cbe7bde9",
+      "oracleHash": "bc165a4433f0f7bbc76366f170e5def5cda363dabfc1921a682ce146cbe7bde9",
+      "glError": 0
+    }
+  ],
+  "pass": true,
+  "errors": []
+}
