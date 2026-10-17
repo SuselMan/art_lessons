@@ -1,0 +1,15 @@
+#744: обязательный native gate guarded boundary batch на Samsung
+
+PASS runtime f6a27f98, flagscache/hiddenOFF, M70tag/opts, одна512²fixture, nativeAdreno650/DPR2.125/300MiB. ТриразныхавторареальныхSocketA/B/C; этоencodedprotocolGPUсценарий, неtrustedpen/performancebenchmark.
+
+Сцена: AсоздалLи12раздельныхM70источников(4×3gridсшагами110/120px,2dabs,size12,uniquegestureIDs). CзаранеесоздалX, затемlayerDryL. Bсоздал12пигментныхconsumerштрихов, каждыйпересекаеттолькосвойA-pool. CUndoDry; AUndoвсех12reverse; CRedoDry/CUndoDry. FASTcaptureдоказалровно12Awater-only(presetpigment0) и12Bpigment>0.
+
+ЗатемименноBдобавилM70strokeнаXсtimestamp−600000мс; AundoneиCundoneDryнеbranchились. CRedoDry/CUndoDry→FALLBACK. FASTfulljournalstroke-span41мс; FALLBACK600041мс, поэтомусуществующийконсервативныйglobalspan<120sguardнеприменим. ВсеLstrokeID/timestampиprojectedmaterialвобеихстадияходинаковы; XнеизменилматериальныйclockL.
+
+Вобеихстадиях: сначалаphysical, затемnaturallyreadycanonicalgoalиВСЕentry-buffer/скалярыпрочитаныДОindependentfullAPIlogOFForacle(controlUndo/Redoсвёрнуты). Каждыйoracle0diff/GL0; FASTgoal==FALLBACKgoal. Все5non-nullrawbuffers(original/coverage/inkLoad/inkColor/solventLoad) hashравны; всеостальныенулевые/числовыеentryполяитакжеполныйscratch._scalarsJSONравны. Lifecyclegesture/materialGestureтожесовпали — ниодногополядляPASSнеисключали. ScalarJSON/hashиnullableentriesсохраненыполностью.
+
+SourceLпроверенкакcontextpresent+goalready/dirtyfalseобастадии; поcontroller.hasMaterialэтообязательноtrue. sourceTimestamp1792210841246неизменён. FASTAPI42ops, FALLBACK45ops, localorderedIDs==APIorderedIDs. Coverageпустая, snapshotpublicationзаблокировандоnavigation. Runtimecountersдлячислабатчейнепатчились: nativecaseподтверждаетветкичерездоказанныеграничныеусловияspan/disjointcomponents; отдельныйCPUcounterproof71testsостаётсяуroot.
+
+Restorationwaitsимеют30сlimit; консервативноеsame-VPSmtimeокноFASTproof→X+RedoDry/UndoDry→FALLBACKready+oracle3090.04мс. Этоupperboundпроверкиготовности, непроизводительность. SharedQA/VegaRCAпараллельно, no speedclaim.
+
+ВсеownroomDELETE200/auth/context/socketsзакрытыfinally, originaltabrestored, ownSSH4096913/session70171остановлен; remote9235/userChromeнетронуты. Последнеепредыдущеепоказаниеbattery100%AC37.6°C, после37.5°C. RawID744-samsung-boundary-batch-20261017ожидаетштатныйguardedfinishпослеcompactproof. Новыхcases/GPUнет.
