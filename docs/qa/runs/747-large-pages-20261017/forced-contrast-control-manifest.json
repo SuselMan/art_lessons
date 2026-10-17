@@ -1,0 +1,20 @@
+{
+  "width": 2048,
+  "height": 512,
+  "chosenSource": "dfe322c3",
+  "inputHashes": {
+    "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+    "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+    "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+    "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+  },
+  "arrays": {
+    "contrastReferenceP": {
+      "sha256": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9"
+    },
+    "contrastReferenceC": {
+      "sha256": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2"
+    }
+  },
+  "qualification": "Immutable true Contrast referenceP/C from Intel dfe baseline. QA-only controlled input, not final output, not golden substitution."
+}
