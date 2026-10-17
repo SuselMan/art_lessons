@@ -20,7 +20,7 @@ export function createContrastPhase(gl:WebGLRenderingContext, readParameters: Re
  run(2,selection);const bytes=selection.readPixels()
  const minCells=Math.ceil((t.minimumRegionArea??128)/((p.width/nx)*(p.height/ny)))
  const keep=retainedComponents(bytes,nx,ny,minCells)
- gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,regionKeep.texture);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,nx,ny,gl.RGBA,gl.UNSIGNED_BYTE,keep);
+ gl.activeTexture(gl.TEXTURE0);regionKeep.writePixels(keep);
  run(0,referenceP);run(1,referenceC);
 },destroy(){gl.useProgram(null);gl.deleteProgram(bg);gl.deleteProgram(split);gl.deleteBuffer(quad);background.destroy();selection.destroy();regionKeep.destroy()}}
 }

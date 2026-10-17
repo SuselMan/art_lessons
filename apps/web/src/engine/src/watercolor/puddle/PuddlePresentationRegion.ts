@@ -36,6 +36,6 @@ export function renderPuddleRegion(host:PuddleRoomHost,source:RibbonStrokeScratc
   for(const paint of source.paints)cropped.paints.add(paint)
   cropped.noteFinish({...context})
   const synthetic={...tile,buffer:out,originX:tile.originX+region.x,originY:tile.originY+tile.buffer.height-region.y-region.height,contentRect:null}
-  host.render(cropped,synthetic,context,out,{p:entry.inkLoad!,c:entry.inkColor!,coverage:entry.coverage})
+  host.render(cropped,synthetic,context,out,{p:entry.inkLoad!,c:entry.inkColor!,coverage:entry.coverage},[tile.originX+region.x,-tile.originY+region.y])
  }finally{cropped.destroy()}
 }

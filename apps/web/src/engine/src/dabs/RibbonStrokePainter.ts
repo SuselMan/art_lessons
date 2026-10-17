@@ -161,9 +161,9 @@ export class RibbonStrokePainter {
             this.ctx.fieldOp(temp, recipient.coverage, donor.coverage, 20, 0)
             temp.copyTo(recipient.coverage)
             if (donor.solventLoad) {
-              if (!recipient.foreignSolventLoad) { recipient.foreignSolventLoad = pool.acquire(tile.width, tile.height); recipient.foreignSolventLoad.clear() }
-              this.ctx.fieldOp(temp, recipient.foreignSolventLoad, donor.solventLoad, 1, 1)
-              temp.copyTo(recipient.foreignSolventLoad)
+              const foreignSolventLoad = scratch.ensureForeignSolventLoad(tile)
+              this.ctx.fieldOp(temp, foreignSolventLoad, donor.solventLoad, 1, 1)
+              temp.copyTo(foreignSolventLoad)
             }
           } finally { pool.release(temp) }
         }

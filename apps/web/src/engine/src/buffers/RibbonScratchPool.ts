@@ -43,9 +43,11 @@ export class RibbonScratchPool {
   private _allocatedBytes = 0
   private _freeBytes = 0
 
+  private readonly options: {discardIdleContents?:boolean}
   private readonly bufferFactory?: (width:number,height:number,filter:'linear'|'nearest')=>AccumulationBuffer
 
-  constructor(gl: WebGLRenderingContext, bufferFactory?: (width:number,height:number,filter:'linear'|'nearest')=>AccumulationBuffer) {
+  constructor(gl: WebGLRenderingContext, bufferFactory?: (width:number,height:number,filter:'linear'|'nearest')=>AccumulationBuffer, options: {discardIdleContents?:boolean} = {}) {
+    this.options=options
     this.bufferFactory=bufferFactory
     this.gl = gl
   }
@@ -58,7 +60,11 @@ export class RibbonScratchPool {
   acquire(width: number, height: number): AccumulationBuffer {
     const list = this._free.get(`${width}x${height}`)
     const reused = list?.pop()
-    if (reused) { this._freeBytes -= width * height * 4; return reused }
+    if (reused) {
+      this._freeBytes -= width * height * 4
+      if (this.options.discardIdleContents) reused.setIdlePoolDiscardable(false)
+      return reused
+    }
     // 'nearest' matches what RibbonStrokeScratch has always asked for — see
     // its getOrCreate comment. The pool must never hand back a buffer built
     // with a different filter, which is why it is keyed by size alone and
@@ -94,10 +100,11 @@ export class RibbonScratchPool {
     if (this.holding) {
       if (list) list.push(buf); else this._free.set(key, [buf])
       this._freeBytes += bytes
+      if (this.options.discardIdleContents) buf.setIdlePoolDiscardable(true)
       return
     }
     if (!list && this._freeBytes + bytes > SCRATCH_POOL_FREE_BYTES) { buf.destroy(); this._allocatedBytes -= bytes; return }
-    if (!list) { this._free.set(key, [buf]); this._freeBytes += bytes; return }
+    if (!list) { this._free.set(key, [buf]); this._freeBytes += bytes; if (this.options.discardIdleContents) buf.setIdlePoolDiscardable(true); return }
     // (#536, ADR 011 §17.50) ...and never more than SCRATCH_POOL_FREE_BYTES
     // held idle in all: on the iPad (Safari, 3 GB) 151 MB of idle buffers on
     // top of the live wash was enough for the tab to be killed and reloaded
@@ -105,6 +112,7 @@ export class RibbonScratchPool {
     if (list.length >= MARKER_SCRATCH_POOL_PER_SIZE || this._freeBytes + bytes > SCRATCH_POOL_FREE_BYTES) { buf.destroy(); this._allocatedBytes -= bytes; return }
     list.push(buf)
     this._freeBytes += bytes
+    if (this.options.discardIdleContents) buf.setIdlePoolDiscardable(true)
   }
 
   destroy(): void {

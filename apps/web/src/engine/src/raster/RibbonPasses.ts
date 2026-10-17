@@ -317,6 +317,7 @@ export class RibbonPasses {
     /** (#536) Half-width of this gesture's mark, px — what the hair count is
      *  derived from. */
     bristleRadiusPx = 0,
+    samplingOrigin?: readonly [number, number],
   ): void {
     // (#536, §17.22) The rect itself, as a dab whose aspect is the rect's:
     // DAB_VERT scales the unit quad by (aspect, 1) * radius * 2, so a "dab"
@@ -333,7 +334,7 @@ export class RibbonPasses {
       x: (minX + maxX) * 0.5, y: (minY + maxY) * 0.5, pressure: 1, tiltX: 0, tiltY: 0,
       size: h, aspectRatio: w / h, angle: 0, opacity, t: 0,
     }
-    this.drawRibbonCompositeDab(tile, rectDab, h * 0.5, preset, profile, original, coverage, inkLoad, inkColor, color, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx)
+    this.drawRibbonCompositeDab(tile, rectDab, h * 0.5, preset, profile, original, coverage, inkLoad, inkColor, color, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx, samplingOrigin)
   }
 
 
@@ -352,6 +353,7 @@ export class RibbonPasses {
     /** (#536) Half-width of this gesture's mark, px — what the hair count is
      *  derived from. */
     bristleRadiusPx = 0,
+    samplingOrigin?: readonly [number, number],
   ): void {
     const { gl } = this
     const { buffer } = tile
@@ -376,7 +378,7 @@ export class RibbonPasses {
     // own setup exactly rather than skipping it.
     const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-    gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
+    gl.uniform2f(u.u_paperOrigin, samplingOrigin?.[0] ?? tile.originX, samplingOrigin?.[1] ?? (-tile.originY || 0))
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this.ctx.paperTex())
     gl.uniform1i(u.u_paperHeightMap, 0)

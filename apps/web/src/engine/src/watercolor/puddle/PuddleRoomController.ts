@@ -55,7 +55,7 @@ export interface PuddleRoomHost extends PuddleTargetHost {
   /** Hidden replay changes material only until its target becomes visible. */
   deferPresentation?(target: ILayerBuffer): boolean
   render(scratch: RibbonStrokeScratch, tile: PaintTarget, context: Context,
-    output: AccumulationBuffer, material: Material): void
+    output: AccumulationBuffer, material: Material, samplingOrigin?: readonly [number, number]): void
   changed(target: ILayerBuffer): void
   display(): void
   released(scratch: RibbonStrokeScratch): void

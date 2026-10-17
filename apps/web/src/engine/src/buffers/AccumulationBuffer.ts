@@ -61,6 +61,22 @@ export class AccumulationBuffer {
   private _resident = true
   private _destroyed = false
   private _backing?: Uint8Array | readonly [number, number, number, number]
+  private _idlePoolBuffer = false
+  get idlePoolBuffer(): boolean { return this._idlePoolBuffer }
+  private _idlePoolDiscardable = false
+  private _discardedPoolContents = false
+
+  /** Exclusive idle pool ownership only. Reacquire disables future discards
+   * without hydrating. Mip-bearing buffers retain the lossless path. */
+  setIdlePoolDiscardable(on: boolean): void {
+    this._idlePoolBuffer = on
+    this._idlePoolDiscardable = on && !this._mipsAllocated
+    if (this._idlePoolDiscardable && !this._resident && !this._destroyed) {
+      this._backing = undefined
+      this._discardedPoolContents = true
+    }
+  }
+
 
   enableResidency(cache: BufferResidency): this {
     if (this._destroyed || (this._residency && this._residency !== cache)) throw new Error('Invalid residency attachment')
@@ -75,7 +91,10 @@ export class AccumulationBuffer {
 
   _residencyEvict(): void {
     const { gl, width, height } = this
-    preserveResidencyState(gl, () => {
+    if (this._idlePoolDiscardable) {
+      this._backing = undefined
+      this._discardedPoolContents = true
+    } else if (!this._backing || this._backing instanceof Uint8Array) preserveResidencyState(gl, () => {
       const pixels = new Uint8Array(width * height * 4)
       gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
@@ -96,25 +115,32 @@ export class AccumulationBuffer {
   }
 
   _residencyHydrate(): void {
-    if (!this._backing || this._destroyed) throw new Error('Residency pixels unavailable after context loss')
+    if ((!this._backing && !this._discardedPoolContents) || this._destroyed) throw new Error('Residency pixels unavailable after context loss')
     const { gl, width, height } = this
     preserveResidencyState(gl, () => {
       this._texture = this._makeTexture(this._baseFilter)
       this._fbo = this._makeFBO(this._texture)
-      const backing = this._backing!
-      const pixels = backing instanceof Uint8Array ? backing : new Uint8Array(width * height * 4)
-      if (!(backing instanceof Uint8Array)) {
-        for (let i = 0; i < pixels.length; i += 4) pixels.set(backing, i)
+      if (!this._discardedPoolContents) {
+        const backing = this._backing!
+        const zeroUniform = !(backing instanceof Uint8Array) && backing.every(value => value === 0)
+        if (!zeroUniform) {
+          const pixels = backing instanceof Uint8Array ? backing : new Uint8Array(width * height * 4)
+          if (!(backing instanceof Uint8Array)) {
+            for (let i = 0; i < pixels.length; i += 4) pixels.set(backing, i)
+          }
+          gl.bindTexture(gl.TEXTURE_2D, this._texture)
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+        } // New WebGL texture storage is security-initialised to zero.
+        if (this._mipsValid) gl.generateMipmap(gl.TEXTURE_2D)
       }
-      gl.bindTexture(gl.TEXTURE_2D, this._texture)
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
-      if (this._mipsValid) gl.generateMipmap(gl.TEXTURE_2D)
       const base = this._baseFilter === 'nearest' ? gl.NEAREST : gl.LINEAR
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, this._pointSampling ? gl.NEAREST : base)
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
         this._pointSampling ? gl.NEAREST : this._mipSampling ? gl.LINEAR_MIPMAP_LINEAR : base)
     })
-    this._backing = undefined
+    // Retain only verified uniform tuples, never full CPU image arrays.
+    if (this._discardedPoolContents || this._backing instanceof Uint8Array) this._backing = undefined
+    this._discardedPoolContents = false
     this._resident = true
   }
 
@@ -164,7 +190,7 @@ export class AccumulationBuffer {
   }
 
   get texture(): WebGLTexture { this._ensureResident(); return this._texture }
-  get fbo(): WebGLFramebuffer { this._ensureResident(); return this._fbo }
+  get fbo(): WebGLFramebuffer { this._ensureResident(); this._backing = undefined; return this._fbo }
 
   /** (#365) Whether a mip chain can legally exist for this buffer at all.
    *  WebGL1 only allows mipmaps on power-of-two textures, and a texture whose
@@ -199,6 +225,8 @@ export class AccumulationBuffer {
    *  frame behind the stroke drawing it. Two texParameteri calls per write
    *  batch is nothing next to the draws around them. */
   private _invalidateMips(): void {
+    // Invalidate the uniform proof after hydration, before every level-zero write.
+    this._backing = undefined
     if (!this._mipCapable || !this._mipsValid) return
     const { gl } = this
     this._mipsValid = false

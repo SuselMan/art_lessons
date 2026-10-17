@@ -1682,7 +1682,7 @@ export class PencilEngine implements PencilEngineAPI {
     const large=w>1024 || h>1024
     const cache=large?new BufferResidency(this.gl,120*1024*1024):null
     const make=(width:number,height:number,filter:'nearest'|'linear'='linear')=>new AccumulationBuffer(this.gl,width,height,filter,cache??undefined)
-    const pool=large?new RibbonScratchPool(this.gl,(width,height)=>make(width,height,'nearest')):this._ribbonScratchPool
+    const pool=large?new RibbonScratchPool(this.gl,(width,height)=>make(width,height,'nearest'),{discardIdleContents:true}):this._ribbonScratchPool
     const bounds={minX:0,minY:0,maxX:w,maxY:h}
     this._ribbonPasses.diagnosticPigmentBlot=.45
     this._ribbonPainter.diagnosticBandBatch=true
@@ -1696,13 +1696,13 @@ export class PencilEngine implements PencilEngineAPI {
       finishLegacySettle:()=>this._completeSettle(),
       drawing:()=>!!this._strokeLayerId || !!this._settle || this._rebuildJobs.size > 0,
       deferPresentation:target=>this._hiddenM70Replay.has(target),
-      render:(scratch,tile,ctx,output,material)=>{
+      render:(scratch,tile,ctx,output,material,samplingOrigin)=>{
         const entry=scratch.peek(tile.buffer)
         if (!entry) return
         const sc=scratch.compositeScalars(()=>({spreadPx:0,inkSmoothPx:0,water:0,migratePx:0,fieldSeed:[0,0],bristleRadiusPx:0}))
         output.clear()
         this._drawRibbonCompositeRect({...tile,buffer:output},{minX:tile.originX,minY:tile.originY,maxX:tile.originX+tile.buffer.width,maxY:tile.originY+tile.buffer.height},ctx.preset,ctx.profile,entry.original,
-          material.coverage,material.p,material.c,ctx.color,ctx.opacity,ctx.fieldSeed,0,sc.water,sc.migratePx,0,scratch.noteDirection(0,0),sc.bristleRadiusPx)
+          material.coverage,material.p,material.c,ctx.color,ctx.opacity,ctx.fieldSeed,0,sc.water,sc.migratePx,0,scratch.noteDirection(0,0),sc.bristleRadiusPx,samplingOrigin)
       },
       changed:target=>{target.resolveExistingForPaint(bounds);target.markContentPainted(bounds);this._paperPartialOK=false;this._paperCacheKey='';this._invalidateSplitCache()},
       display:()=>this._displayIfNotSuspended(),
@@ -9692,8 +9692,9 @@ export class PencilEngine implements PencilEngineAPI {
     /** (#536) Half-width of this gesture's mark, px — what the hair count is
      *  derived from. */
     bristleRadiusPx = 0,
+    samplingOrigin?: readonly [number, number],
   ): void {
-    this._ribbonPasses.drawRibbonCompositeRect(tile, bounds, preset, profile, original, coverage, inkLoad, inkColor, color, opacity, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx)
+    this._ribbonPasses.drawRibbonCompositeRect(tile, bounds, preset, profile, original, coverage, inkLoad, inkColor, color, opacity, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx, samplingOrigin)
   }
   /** Delegates layer composition to LayerCompositor. */
   private _compositeTextures(

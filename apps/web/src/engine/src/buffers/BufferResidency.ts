@@ -4,6 +4,7 @@ export interface ResidentBuffer {
   readonly width: number
   readonly height: number
   readonly mipmapsAllocated?: boolean
+  readonly idlePoolBuffer?: boolean
   _texture: WebGLTexture
   _fbo: WebGLFramebuffer
   destroy(): void
@@ -92,8 +93,13 @@ export class BufferResidency {
   private reserve(bytes: number, except: ResidentBuffer): void {
     if (bytes > this.budgetBytes) throw new Error('Buffer exceeds residency budget')
     while (this.used + bytes > this.budgetBytes) {
-      const victim = [...this.entries].find(([buffer, resident]) => resident && buffer !== except
-        && !this.pins.has(buffer) && !draws.get(this.gl)?.some(scope => scope.has(buffer)) && !this.bound(buffer))
+      const eligible = (buffer: ResidentBuffer, resident: boolean): boolean => resident && buffer !== except
+        && !this.pins.has(buffer) && !draws.get(this.gl)?.some(scope => scope.has(buffer)) && !this.bound(buffer)
+      const candidates = [...this.entries]
+      // Idle opt-in pool leases have no observable contents. Prefer retiring
+      // those before a live material plane, preserving all pin/binding checks.
+      const victim = candidates.find(([buffer, resident]) => buffer.idlePoolBuffer && eligible(buffer, resident))
+        ?? candidates.find(([buffer, resident]) => eligible(buffer, resident))
       if (!victim) throw new Error('Residency budget exhausted: all buffers pinned or bound')
       victim[0]._residencyEvict()
       this.entries.set(victim[0], false)

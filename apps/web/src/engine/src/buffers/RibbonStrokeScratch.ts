@@ -636,6 +636,17 @@ export class RibbonStrokeScratch {
 
   /** Bounded diagnostic solvent state: one loaded-contact film is V=1;
    * RGBA8 stores V/4. MAX within the gesture, additive/capped between films. */
+  /** Foreign water belongs to the recipient, not the painter/donor pool.
+   * Publish the lease only after successful initialization. */
+  ensureForeignSolventLoad(tile: AccumulationBuffer): AccumulationBuffer {
+    const entry = this.getOrCreate(tile)
+    if (entry.foreignSolventLoad) return entry.foreignSolventLoad
+    const buffer = this.pool.acquire(tile.width, tile.height)
+    try { buffer.clear() } catch (error) { this.pool.release(buffer); throw error }
+    entry.foreignSolventLoad = buffer
+    return buffer
+  }
+
   solventFilm(tile: AccumulationBuffer): { load: AccumulationBuffer; base: AccumulationBuffer; film: AccumulationBuffer } {
     const entry = this.getOrCreate(tile)
     if (!entry.solventLoad) { entry.solventLoad = this.pool.acquire(tile.width, tile.height); entry.solventLoad.clear() }
