@@ -4,7 +4,8 @@
   "removed": [
     "728-online-adversarial-20261017",
     "744-samsung-boundary-batch-20261017",
-    "744-samsung-cache-on-final-20261017"
+    "744-samsung-cache-on-final-20261017",
+    "792-samsung-ended-disconnect-20261017"
   ],
   "remainingOwnedRaw": "728-annotation-20261017 retained only until final checks/quota read",
   "preservedServices": [

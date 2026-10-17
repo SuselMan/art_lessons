@@ -1,0 +1,50 @@
+{
+  "engine-final-f6.log": {
+    "bytes": 270,
+    "sha256": "e43165d311a513c81a18f64e7db2864920537ad025664ec9b86fa65f5faf9368"
+  },
+  "room-final-f6.log": {
+    "bytes": 280,
+    "sha256": "1b1d3bb7d0e542cfce36915a645db402e40f3bd7777926ad75b7143ff0b5fa52"
+  },
+  "typecheck-final-f6.log": {
+    "bytes": 472,
+    "sha256": "747bc67288e811c5bafc1753cf4c0ff5849a613cd94c9ed8714a499943c0cb92"
+  },
+  "lint-final-f6.log": {
+    "bytes": 5650,
+    "sha256": "3a83b5024eefeb70acfc224aa7a06283c92b18d79f0337ec05f124c6beb24102"
+  },
+  "map-final-f6.log": {
+    "bytes": 508,
+    "sha256": "5e08f5296d8c0e565243542ccd53f569f364e504968a7e26edd6a721a2e0418e"
+  },
+  "codec-final.log": {
+    "bytes": 253,
+    "sha256": "27c6a17ed26c41529ec4ecdb7f6cf987684fdce71e7deba6011ad1461755459a"
+  },
+  "server-final-792.log": {
+    "bytes": 261,
+    "sha256": "7ca6a27ee50b439a92c26b1c90f563ad76f615b8fb3cd2338ec891715cdf7b4b"
+  },
+  "server-typecheck-final-792.log": {
+    "bytes": 52,
+    "sha256": "e9ed083ab522a701531a8c2d3bc8ae0e8fdfabb1fcd2678bcc7d9755ad3e97fa"
+  },
+  "map-final-792.log": {
+    "bytes": 508,
+    "sha256": "c081e0530deb9c4c0d919e456ecf43c237cb7fe7244c36aca410f256d2ee84ac"
+  },
+  "engine-final-785.log": {
+    "bytes": 270,
+    "sha256": "1f6ce3f62396ba0da60b7b0753d9ebb60a137b6fb32541d095eed77b55c04127"
+  },
+  "typecheck-final-785.log": {
+    "bytes": 472,
+    "sha256": "747bc67288e811c5bafc1753cf4c0ff5849a613cd94c9ed8714a499943c0cb92"
+  },
+  "map-final-785.log": {
+    "bytes": 508,
+    "sha256": "2cf370a0628ba1598c474eb05c050240107d2d8b74b619eab6a2efb7d914762e"
+  }
+}

@@ -37,12 +37,34 @@ CPU69targeted+10000graphprefixesPASS; аппаратный повтор Dry/clea
 Отдельный opt-in prototype прошёл restart/atomicity tests, но старые вкладки,
 crash window и cross-batch mapping пока исключают незаметное внедрение.
 
-## Текущая проверка: 07:46
+## Сводка по исходному плану
 
-Новые направления поиска остановлены на soft-limit60%; завершены #792 и его runtime-проверка; выполняется финальная уборка. Лимит: **60% использовано, 40% осталось** (07:40).
+Проверялась QA-сборка, изменения не опубликованы в production. «Пройдено» ниже
+относится к перечисленным сценариям, а не ко всем устройствам и размерам холста.
+
+| Направление | Что получилось | Что мешает считать готовым |
+|---|---|---|
+| Совместный онлайн | Найдены и исправлены гонки живых хвостов, нескольких вкладок, смены/удаления доски, поздних ACK и snapshot. Есть настоящие Socket.IO и аппаратные проверки. | 792: native Samsung подтверждает удаление цветной плёнки; точность всего UI-фона не подтверждена. Recovery777/778 ещё открыт. |
+| Детерминизм | На одном GPU большинство actual-before-oracle, повторов, Undo/Redo и холодных входов точны. | **748: разные GPU дают разные target и Dry.** 791: отдельное редкое same-GPU наблюдение пока без устойчивого repro. |
+| Производительность | CPU-поиск зависимостей и независимых исторических луж значительно ускорен, native-equivalence подтверждена. | Тяжёлый видимый Undo744 ещё медленный; общую приемлемую скорость для всех устройств не заявляем. |
+| Загрузка, аннотации | Проверены normal/annotation/compact, мокрые и сухие входы, snapshot/head/backfill и переключения досок. | Samsung1000 мокрых мазков≈13,6с,787 открыт; A4/multitile747 не поддержан. |
+| Undo/Redo | Проверены собственные/чужие мазки, защищённая вода, bridge, целый gesture/chunks, snapshot head, dry/clear/copy/merge и холодный вход. | Общий GPU-cost744 и recovery777/cross-batch778 остаются. |
+| Сушка | Послойная ordered Dry, Undo/Redo, сетевые границы и восстановление проверены; конкретная ошибка120s исправлена753. | Истинное last-actual-material/долгое удержание требуют отдельного продуктового решения. |
+| Остальные инструменты | Сочетания с карандашом, обычными мазками, ластиком и восстановлением проверялись; held pencil native PASS. | Не все сочетания всех инструментов проверены на каждом устройстве; marker/smudge held-snapshot только CPU. |
+| Слои | Проверены копирование/слияние, очистка/удаление, Undo и исторические источники; исправлены несколько ошибок зависимости. | Активная вода при copy/merge и взаимодействие с обычными инструментами ещё содержат ранее отмеченные продуктовые ограничения. |
+| Ластик | Первая согласованная версия: стирает сухой пигмент, мокрый материал сохраняется; dry-substrate-under-wet и UndoDry проверены. | Это намеренная семантика версии1; исходное предложение стирать и воду было заменено в обсуждении. |
+| Анимация и первый пиксель | На Vega/Surface/Samsung пигмент виден до UP, в том числе при длинном вводе с chunks. | **743 не воспроизведён**, отсутствие исходной ошибки не доказано. Анимация может различаться, расхождение итогового target этим не оправдывается. |
+
+iPad в эту ночь не проверен: активная Safari была недоступна. Surface участвовал
+в аппаратных проверках, но длинная touch-серия оборвалась после22/24 шагов
+из-за перезагрузки Windows; это не полный PASS серии и не доказанный GPU-crash.
+
+## Текущая проверка: 08:14
+
+Новые большие серии остановлены на soft-limit60%; завершены #792 и его runtime/native-проверки. В резерве воспроизведён и исправлен mixed-history вариант785. Идёт один реальный30минутный soak:10Socketавторов,3одновременных мазка/10с,1nativeSamsungobserver, без подмены времени. Новых направлений и runtime-изменений до END нет. Midpoint15мин:270/540мазков и дваUndoRedo. Цель доoracle exact0diff/max0, canonicalReadAddedComputations0; полныйAPI/localIDs совпали. Physical morphing hash отличается от target — не заявляемphysicalexact. Затем acceptedlayerDry и новая мокрая эпоха; финальный/coldgates ещё впереди. Лимит: **60% использовано, 40% осталось** (07:40).
 Один reset не использован. Production и push не выполнялись.
 
-Текущий QA-кандидат — **f6a27f98** (последующие коммиты — QA-артефакты): защита мокрых checkpoint, исправления
+Текущий frontend QA-кандидат — **43f87295** (новый узкий785), backend ac892525 (#792). Полный engine235files/2285PASS уже на43f87295; предыдущие сводные проверки относятся к f6a27f98: защита мокрых checkpoint, исправления
 онлайна 780–786, отмена старого восстановления 788, сохранение живого
 обычного мазка 774 и включение границы snapshot в Undo 789, плюс guarded CPU-оптимизация744.
 Отдельный QA frontend5384 теперь по умолчанию M70 (PID4092300),
@@ -72,7 +94,9 @@ Coverage/jobs/queues/unsettled пусты, полные ID/effective/contenthash
 legacycarry, purepencil и provedclosedM70 сохранены. Старое редкое наблюдение
 5байтов послеclosedDry автоматически закрытым не считаем.
 
-**#792 — зависшее превью после pen-up:** новый actual Socket.IO baseline FAIL. Одна вкладка отправляет live-воду и normalUP, отключается до durable operation; вторая вкладка того же автора остаётся. Ни peer_left, ни targeted cancel не приходят, хотя operation log пуст. Исправление ac892525 интегрировано: socket-local ownership до покрытия видимого префикса, bounded pressure-cleanup только ENDED превью, active sibling сохраняется. Полный server39files/751PASS, serverTypeScriptPASS; реальный QA runtime с настоящими identity/DB также PASS: targetedcancel пришёл, log0ops, siblingconnected, authorPeerLeft0. Тестовая комната ownerDELETE200/auth removed. Старые #777/778 этим не закрыты.
+**#785 — новый воспроизводимый mixed-history вариант:** CPU public append M70 на слоеM оставляет dirty puddle, затем legacy watercolor на слоеL запускает настоящий sliced settle. Следующий реальный controller frame воспроизводит `Native puddle target requires exclusive settle-field ownership`. Presentation mock не подменяет NativeTarget guard. Это отдельный доказанный вариант старых комнат с двумя моделями; исторический all-M70 случай и #791 этим не объяснены. Узкое исправление scheduler43f87295 интегрировано: async ждёт legacy, sync canonical/close завершает continuation до lookup; NativeTarget assertion сохранён.32целевых теста, webTypeScript и scopedlint PASS. Полный engine после нового изменения:235files/2285PASS,349,8с,1worker. ОбщийTypeScript всех workspace/e2e/scripts и map1133 PASS.
+
+**#792 — зависшее превью после pen-up:** новый actual Socket.IO baseline FAIL. Одна вкладка отправляет live-воду и normalUP, отключается до durable operation; вторая вкладка того же автора остаётся. Ни peer_left, ни targeted cancel не приходят, хотя operation log пуст. Исправление ac892525 интегрировано: socket-local ownership до покрытия видимого префикса, bounded pressure-cleanup только ENDED превью, active sibling сохраняется. Полный server39files/751PASS, serverTypeScriptPASS; реальный QA runtime с настоящими identity/DB также PASS: targetedcancel пришёл, log0ops, siblingconnected, authorPeerLeft0. Тестовая комната ownerDELETE200/auth removed. Native Samsung: цветной film ROI1444→0, stream state пуст, canonical base точно прежний, GL0, второйsocketжив. Исходный строгий UI-background assertFAIL сохранён:3285 отличающихся grayscale-каналов текстуры, mean246,394→246,380; поэтому exactUIbackground INCONCLUSIVE, не overall pixelPASS. После750мс цветная плёнка также не вернулась. Все собственные ресурсы серии удалены. Старые #777/778 этим не закрыты.
 
 **#791 — same-GPU drift после board turn, OPEN/RCA:** после перехода на
 другую доску настоящий M70-мазок+Dry дал956 отличающихся каналов против
