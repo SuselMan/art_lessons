@@ -1,3 +1,4 @@
+import { awaitRestore } from '../../../lib/restoreGeneration'
 import { isLayerStateShape, type LayerState, type Operation, type SnapshotIndex } from '@grafetto/shared'
 
 import { api, ApiError, apiPath } from '../../../lib/api/api'
@@ -169,6 +170,7 @@ function isRetriableStatus(status: number): boolean {
 type Attempt<T> = { ok: true; value: T } | { ok: false; retriable: boolean; error: unknown }
 
 export interface RestoreOptions {
+  signal?: AbortSignal
   /** Test seam. Sleeping for real would make the retry tests as slow as the
    *  backoff they assert. */
   sleep?: (ms: number) => Promise<void>
@@ -177,12 +179,15 @@ export interface RestoreOptions {
 const realSleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
 
 async function withRetry<T>(
-  attempt: () => Promise<Attempt<T>>, sleep: (ms: number) => Promise<void>,
+  attempt: () => Promise<Attempt<T>>, sleep: (ms: number) => Promise<void>, signal?: AbortSignal,
 ): Promise<T> {
   let lastError: unknown
   for (let i = 0; i < SNAPSHOT_FETCH_ATTEMPTS; i++) {
-    if (i > 0) await sleep(retryDelayMs(i - 1))
-    const result = await attempt()
+    signal?.throwIfAborted()
+    if (i > 0) await awaitRestore(sleep(retryDelayMs(i - 1)), signal)
+    signal?.throwIfAborted()
+    const result = await awaitRestore(attempt(), signal)
+    signal?.throwIfAborted()
     if (result.ok) return result.value
     lastError = result.error
     if (!result.retriable) break
@@ -194,9 +199,9 @@ async function withRetry<T>(
  *  that died on 2026-09-04 died *there*, with the response line long since
  *  delivered and `arrayBuffer()` never resolving. A retry that only covered the
  *  status would not cover the incident it exists for. */
-async function fetchBlobOnce(url: string, describe: string): Promise<Attempt<Uint8Array>> {
+async function fetchBlobOnce(url: string, describe: string, signal?: AbortSignal): Promise<Attempt<Uint8Array>> {
   try {
-    const res = await fetch(url, { credentials: 'include' })
+    const res = await fetch(url, { credentials: 'include', ...(signal ? { signal } : {}) })
     if (!res.ok) {
       return { ok: false, retriable: isRetriableStatus(res.status), error: new Error(`${describe}: ${res.status}`) }
     }
@@ -217,6 +222,7 @@ async function fetchBlobs(
   roomId: string,
   layers: SnapshotIndex['layers'],
   sleep: (ms: number) => Promise<void>,
+  signal?: AbortSignal,
 ): Promise<Uint8Array[]> {
   const blobs = new Array<Uint8Array>(layers.length)
   let next = 0
@@ -234,9 +240,9 @@ async function fetchBlobs(
             apiPath('GET /api/rooms/:roomId/snapshots/:layerId/:seq', {
               params: { roomId, layerId: layer.layerId, seq: layer.seq },
             }),
-            `snapshot blob ${layer.layerId}@${layer.seq}`,
+            `snapshot blob ${layer.layerId}@${layer.seq}`, signal,
           ),
-          sleep,
+          sleep, signal,
         )
       } catch (error) {
         if (!failed) { failed = true; firstError = error }
@@ -259,11 +265,13 @@ export async function restoreLatestSnapshot(
   // where it stopped and what it had already handed to the engine. A `failed`
   // outcome naming zero applied layers and one naming four are the difference
   // between a join that fell back cleanly and a lesson showing half its pixels.
+  const checkCurrent = () => options.signal?.throwIfAborted()
   let stage: 'index' | 'blobs' | 'apply' = 'index'
   let plan: RestorePlanEntry[] = []
   const appliedLayerIds: string[] = []
   const sleep = options.sleep ?? realSleep
   try {
+    checkCurrent()
     // 204 is the room's own answer that nothing was ever baked. A non-ok status
     // is a fault, and collapsing the two — as this did until #474 — spends the
     // one signal that says so. `null` is how the 204 leaves the retry loop:
@@ -277,7 +285,8 @@ export async function restoreLatestSnapshot(
         }
         return { ok: false, retriable: true, error }
       }
-    }, sleep)
+    }, sleep, options.signal)
+    checkCurrent()
     if (body === null) return { status: 'none' }
     // (#623) The stored structure is what some client once uploaded; it is
     // `unknown` on the wire, and only a LayerState-shaped one may reach the
@@ -309,7 +318,8 @@ export async function restoreLatestSnapshot(
             } catch (error) {
               return { ok: false, retriable: !(error instanceof ApiError) || isRetriableStatus(error.status), error }
             }
-          }, sleep)
+          }, sleep, options.signal)
+          checkCurrent()
           if (!page.length) break
           const oldest = page[0].seq ?? 0
           if (oldest >= cursor) throw new Error('snapshot dependency history cursor did not advance')
@@ -326,8 +336,9 @@ export async function restoreLatestSnapshot(
     // cache hitting here is the entire point of #427. The bytes are still gzip
     // on arrival — the server sends the stored bytes without Content-Encoding
     // precisely so they stay compressed until the loop below.
-    const blobs = await fetchBlobs(roomId, body.layers, sleep)
+    const blobs = await fetchBlobs(roomId, body.layers, sleep, options.signal)
 
+    checkCurrent()
     for (let i = 0; i < blobs.length; i++) plan[i].bytes = blobs[i].byteLength
 
     // Nothing has touched the engine yet, and everything that can fail on the
@@ -338,7 +349,8 @@ export async function restoreLatestSnapshot(
     sink.beginLayers(layerState, body.replayStructure)
     if (body.replayStructure) {
       if (!sink.restoreHistory) throw new Error('Structural history restore is unavailable')
-      await sink.restoreHistory(dependencyHistory, true)
+      await awaitRestore(sink.restoreHistory(dependencyHistory, true), options.signal)
+      checkCurrent()
     }
 
     for (let i = 0; i < body.layers.length; i++) {
@@ -347,7 +359,9 @@ export async function restoreLatestSnapshot(
       // the compressed copy while the inflated one exists beside it.
       const compressed = blobs[i]
       blobs[i] = EMPTY
-      const raw = await decompressLayerTiles(compressed)
+      checkCurrent()
+      const raw = await awaitRestore(decompressLayerTiles(compressed), options.signal)
+      checkCurrent()
       // `decodeLayerTiles` hands back subarray *views* into `raw`, so `raw`
       // stays alive exactly as long as the tiles do. restoreLayerFromSnapshot
       // copies what it needs into GL, which is what makes dropping the whole
@@ -359,7 +373,7 @@ export async function restoreLatestSnapshot(
 
     // Structural buffers must exist before blobs, but a retained earlier
     // source snapshot must precede replay of its later dependency pixels.
-    if (dependencyHistory.length) await sink.restoreHistory!(dependencyHistory)
+    if (dependencyHistory.length) { await awaitRestore(sink.restoreHistory!(dependencyHistory), options.signal); checkCurrent() }
     return { status: 'restored', head: { seq: body.seq, layerState, ...(body.replayStructure ? { replayStructure: true as const } : {}) }, plan }
   } catch (error) {
     return { status: 'failed', stage, plan, appliedLayerIds, error }
