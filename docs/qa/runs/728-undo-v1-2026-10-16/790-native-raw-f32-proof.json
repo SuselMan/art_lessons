@@ -1,0 +1,1793 @@
+{
+  "source": "f6a27f98",
+  "scope": "One native B control followed by real UI board turn to A; no Float32 shim or production changes. Prior 956-channel failure not reproduced; rounding causality unproven.",
+  "pass": true,
+  "cases": [
+    "B-native-raw-wet-dry-capture",
+    "A-after-real-UI-turn-native-raw-wet-dry-capture"
+  ],
+  "errors": [],
+  "controls": [
+    {
+      "phase": "beforeTurn",
+      "identity": {
+        "board": "fa1a8d8e-f184-41b9-836e-f66ec0b06423",
+        "pathname": "/room/qa-undo-v1-fe8f48d5-a592-4719-9876-5df1453ef9c3",
+        "search": "",
+        "model": "m70-r2-v1",
+        "asyncFinish": false,
+        "cache": false,
+        "hidden": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)"
+      },
+      "layer": "qa-model-B-df6b1717-2681-4bc5-bbf6-ee5f7a9af2ab",
+      "stroke": "DQvjQUWN9l",
+      "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+      "raw": {
+        "calls": [
+          {
+            "at": 10270.40000000596,
+            "layer": "qa-model-B-df6b1717-2681-4bc5-bbf6-ee5f7a9af2ab",
+            "strokeId": "DQvjQUWN9l",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "argumentStrokeId": null,
+            "washId": null,
+            "seed": [
+              959.3814432989691,
+              494.3258426966292
+            ],
+            "isLayerTarget": true,
+            "targetKind": "TiledLayerBuffer",
+            "dabs": [
+              {
+                "x": 219.99998474121094,
+                "y": 220,
+                "pressure": 0.75,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 19.966941833496094,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.9900000095367432,
+                "t": 0
+              }
+            ],
+            "prevDab": null,
+            "color": [
+              0.1,
+              0.25,
+              0.8
+            ],
+            "spreadSettle": false,
+            "pieceTris": 0
+          },
+          {
+            "at": 10673.40000000596,
+            "layer": "qa-model-B-df6b1717-2681-4bc5-bbf6-ee5f7a9af2ab",
+            "strokeId": "DQvjQUWN9l",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "argumentStrokeId": null,
+            "washId": null,
+            "seed": [
+              959.3814432989691,
+              494.3258426966292
+            ],
+            "isLayerTarget": true,
+            "targetKind": "TiledLayerBuffer",
+            "dabs": [
+              {
+                "x": 227.03997802734375,
+                "y": 220,
+                "pressure": 0.75,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 27.731863021850586,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.9900000095367432,
+                "t": 409.1000061035156
+              }
+            ],
+            "prevDab": {
+              "x": 219.99998474121094,
+              "y": 220,
+              "pressure": 0.75,
+              "tiltX": 0,
+              "tiltY": 0,
+              "size": 19.966941833496094,
+              "aspectRatio": 1,
+              "angle": 0,
+              "opacity": 0.9900000095367432,
+              "t": 0
+            },
+            "color": [
+              0.1,
+              0.25,
+              0.8
+            ],
+            "spreadSettle": false,
+            "pieceTris": 0
+          },
+          {
+            "at": 10876.800000011921,
+            "layer": "qa-model-B-df6b1717-2681-4bc5-bbf6-ee5f7a9af2ab",
+            "strokeId": "DQvjQUWN9l",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "argumentStrokeId": null,
+            "washId": null,
+            "seed": [
+              959.3814432989691,
+              494.3258426966292
+            ],
+            "isLayerTarget": true,
+            "targetKind": "TiledLayerBuffer",
+            "dabs": [
+              {
+                "x": 234.07998657226562,
+                "y": 220,
+                "pressure": 0.75,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 27.731863021850586,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.9900000095367432,
+                "t": 614.0999755859375
+              }
+            ],
+            "prevDab": {
+              "x": 227.03997802734375,
+              "y": 220,
+              "pressure": 0.75,
+              "tiltX": 0,
+              "tiltY": 0,
+              "size": 27.731863021850586,
+              "aspectRatio": 1,
+              "angle": 0,
+              "opacity": 0.9900000095367432,
+              "t": 409.1000061035156
+            },
+            "color": [
+              0.1,
+              0.25,
+              0.8
+            ],
+            "spreadSettle": false,
+            "pieceTris": 0
+          },
+          {
+            "at": 11082.90000000596,
+            "layer": "qa-model-B-df6b1717-2681-4bc5-bbf6-ee5f7a9af2ab",
+            "strokeId": "DQvjQUWN9l",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "argumentStrokeId": null,
+            "washId": null,
+            "seed": [
+              959.3814432989691,
+              494.3258426966292
+            ],
+            "isLayerTarget": true,
+            "targetKind": "TiledLayerBuffer",
+            "dabs": [
+              {
+                "x": 237.19981384277344,
+                "y": 220,
+                "pressure": 0.04125000163912773,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 23.918731689453125,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.9900000095367432,
+                "t": 819.4000244140625
+              },
+              {
+                "x": 240.3196563720703,
+                "y": 220,
+                "pressure": 0.027499999850988388,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 20.105600357055664,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.9900000095367432,
+                "t": 819.4000244140625
+              },
+              {
+                "x": 243.43948364257812,
+                "y": 220,
+                "pressure": 0.013749999925494194,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 16.292469024658203,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.9900000095367432,
+                "t": 819.4000244140625
+              },
+              {
+                "x": 246.559326171875,
+                "y": 220,
+                "pressure": 0,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 12.479337692260742,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.9900000095367432,
+                "t": 819.4000244140625
+              }
+            ],
+            "prevDab": {
+              "x": 234.07998657226562,
+              "y": 220,
+              "pressure": 0.75,
+              "tiltX": 0,
+              "tiltY": 0,
+              "size": 27.731863021850586,
+              "aspectRatio": 1,
+              "angle": 0,
+              "opacity": 0.9900000095367432,
+              "t": 614.0999755859375
+            },
+            "color": [
+              0.1,
+              0.25,
+              0.8
+            ],
+            "spreadSettle": false,
+            "pieceTris": 0
+          }
+        ],
+        "atPack": [
+          {
+            "at": 11086.800000011921,
+            "id": "tWwgiAQomC",
+            "strokeId": "DQvjQUWN9l",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "raw": [
+              {
+                "x": 219.99998320975044,
+                "y": 219.99999984814193,
+                "pressure": 0.75,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 19.966941005358006,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.99,
+                "t": 0
+              },
+              {
+                "x": 227.03998320975046,
+                "y": 219.99999984814193,
+                "pressure": 0.75,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 27.731862507441676,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.99,
+                "t": 409.10000002384186
+              },
+              {
+                "x": 234.07998320975045,
+                "y": 219.99999984814193,
+                "pressure": 0.75,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 27.731862507441676,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.99,
+                "t": 614.1000000238419
+              },
+              {
+                "x": 237.19981774183765,
+                "y": 219.99999984814193,
+                "pressure": 0.04125,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 23.918731412668446,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.99,
+                "t": 819.4000000059605
+              },
+              {
+                "x": 240.31965227392482,
+                "y": 219.99999984814193,
+                "pressure": 0.0275,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 20.105600317895213,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.99,
+                "t": 819.4000000059605
+              },
+              {
+                "x": 243.439486806012,
+                "y": 219.99999984814193,
+                "pressure": 0.01375,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 16.292469223121984,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.99,
+                "t": 819.4000000059605
+              },
+              {
+                "x": 246.5593213380992,
+                "y": 219.99999984814193,
+                "pressure": 0,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 12.479338128348752,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.99,
+                "t": 819.4000000059605
+              }
+            ],
+            "packed": {
+              "id": "tWwgiAQomC",
+              "type": "stroke",
+              "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+              "layerId": "qa-model-B-df6b1717-2681-4bc5-bbf6-ee5f7a9af2ab",
+              "tool": "watercolor",
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "color": [
+                0.1,
+                0.25,
+                0.8
+              ],
+              "dabsPacked": "1://9bQwAAXEMAAEA/AAAAAAAAAABMvJ9BAACAPwAAAACkcH0/AAAAADwKY0MAAFxDAABAPwAAAAAAAAAA29rdQQAAgD8AAAAApHB9P82MzEN6FGpDAABcQwAAQD8AAAAAAAAAANva3UEAAIA/AAAAAKRwfT9mhhlEJzNtQwAAXEPD9Sg9AAAAAAAAAACQWb9BAACAPwAAAACkcH0/mtlMRNVRcEMAAFxDrkfhPAAAAAAAAAAARdigQQAAgD8AAAAApHB9P5rZTESCcHNDAABcQ65HYTwAAAAAAAAAAPpWgkEAAIA/AAAAAKRwfT+a2UxEMI92QwAAXEMAAAAAAAAAAAAAAABeq0dBAACAPwAAAACkcH0/mtlMRA==",
+              "timestamp": 1792210786821,
+              "strokeId": "DQvjQUWN9l",
+              "washId": "m70:qa-model-B-df6b1717-2681-4bc5-bbf6-ee5f7a9af2ab"
+            },
+            "runtime": {
+              "model": "m70-r2-v1",
+              "opts": {
+                "size": 32,
+                "tool": "watercolor",
+                "pencilType": "normal:95:34:PB29:round",
+                "graphiteColor": [
+                  0.1,
+                  0.25,
+                  0.8
+                ],
+                "opacity": 1
+              },
+              "strokePreset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "paper": {
+                "w": 512,
+                "h": 512
+              },
+              "canvas": {
+                "w": 1600,
+                "h": 1000
+              },
+              "vpTransform": [
+                {
+                  "x": -180.77278905706885,
+                  "y": -66.82315924746558
+                },
+                {
+                  "x": -180.1590568160576,
+                  "y": -66.82315924746558
+                },
+                {
+                  "x": -180.77278905706885,
+                  "y": -66.20942700645435
+                }
+              ]
+            }
+          }
+        ],
+        "accepted": {
+          "id": "tWwgiAQomC",
+          "seq": 5,
+          "tool": "watercolor",
+          "type": "stroke",
+          "color": [
+            0.1,
+            0.25,
+            0.8
+          ],
+          "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+          "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+          "washId": "m70:qa-model-B-df6b1717-2681-4bc5-bbf6-ee5f7a9af2ab",
+          "layerId": "qa-model-B-df6b1717-2681-4bc5-bbf6-ee5f7a9af2ab",
+          "strokeId": "DQvjQUWN9l",
+          "timestamp": 1792210786821,
+          "dabsPacked": "1://9bQwAAXEMAAEA/AAAAAAAAAABMvJ9BAACAPwAAAACkcH0/AAAAADwKY0MAAFxDAABAPwAAAAAAAAAA29rdQQAAgD8AAAAApHB9P82MzEN6FGpDAABcQwAAQD8AAAAAAAAAANva3UEAAIA/AAAAAKRwfT9mhhlEJzNtQwAAXEPD9Sg9AAAAAAAAAACQWb9BAACAPwAAAACkcH0/mtlMRNVRcEMAAFxDrkfhPAAAAAAAAAAARdigQQAAgD8AAAAApHB9P5rZTESCcHNDAABcQ65HYTwAAAAAAAAAAPpWgkEAAIA/AAAAAKRwfT+a2UxEMI92QwAAXEMAAAAAAAAAAAAAAABeq0dBAACAPwAAAACkcH0/mtlMRA=="
+        },
+        "decoded": [
+          {
+            "x": 219.99998474121094,
+            "y": 220,
+            "pressure": 0.75,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 19.966941833496094,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 0
+          },
+          {
+            "x": 227.03997802734375,
+            "y": 220,
+            "pressure": 0.75,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 27.731863021850586,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 409.1000061035156
+          },
+          {
+            "x": 234.07998657226562,
+            "y": 220,
+            "pressure": 0.75,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 27.731863021850586,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 614.0999755859375
+          },
+          {
+            "x": 237.19981384277344,
+            "y": 220,
+            "pressure": 0.04125000163912773,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 23.918731689453125,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 819.4000244140625
+          },
+          {
+            "x": 240.3196563720703,
+            "y": 220,
+            "pressure": 0.027499999850988388,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 20.105600357055664,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 819.4000244140625
+          },
+          {
+            "x": 243.43948364257812,
+            "y": 220,
+            "pressure": 0.013749999925494194,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 16.292469024658203,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 819.4000244140625
+          },
+          {
+            "x": 246.559326171875,
+            "y": 220,
+            "pressure": 0,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 12.479337692260742,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 819.4000244140625
+          }
+        ],
+        "float32Differences": [
+          {
+            "index": 0,
+            "field": "x",
+            "raw": 219.99998320975044,
+            "decoded": 219.99998474121094,
+            "delta": 1.531460497972148e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 0,
+            "field": "y",
+            "raw": 219.99999984814193,
+            "decoded": 220,
+            "delta": 1.5185807455964095e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 0,
+            "field": "size",
+            "raw": 19.966941005358006,
+            "decoded": 19.966941833496094,
+            "delta": 8.281380878827349e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 0,
+            "field": "opacity",
+            "raw": 0.99,
+            "decoded": 0.9900000095367432,
+            "delta": 9.536743172944284e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 1,
+            "field": "x",
+            "raw": 227.03998320975046,
+            "decoded": 227.03997802734375,
+            "delta": -5.182406709991483e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 1,
+            "field": "y",
+            "raw": 219.99999984814193,
+            "decoded": 220,
+            "delta": 1.5185807455964095e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 1,
+            "field": "size",
+            "raw": 27.731862507441676,
+            "decoded": 27.731863021850586,
+            "delta": 5.144089101349891e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 1,
+            "field": "opacity",
+            "raw": 0.99,
+            "decoded": 0.9900000095367432,
+            "delta": 9.536743172944284e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 1,
+            "field": "t",
+            "raw": 409.10000002384186,
+            "decoded": 409.1000061035156,
+            "delta": 6.079673767089844e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 2,
+            "field": "x",
+            "raw": 234.07998320975045,
+            "decoded": 234.07998657226562,
+            "delta": 3.362515172966596e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 2,
+            "field": "y",
+            "raw": 219.99999984814193,
+            "decoded": 220,
+            "delta": 1.5185807455964095e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 2,
+            "field": "size",
+            "raw": 27.731862507441676,
+            "decoded": 27.731863021850586,
+            "delta": 5.144089101349891e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 2,
+            "field": "opacity",
+            "raw": 0.99,
+            "decoded": 0.9900000095367432,
+            "delta": 9.536743172944284e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 2,
+            "field": "t",
+            "raw": 614.1000000238419,
+            "decoded": 614.0999755859375,
+            "delta": -2.4437904357910156e-05,
+            "equalsFround": true
+          },
+          {
+            "index": 3,
+            "field": "x",
+            "raw": 237.19981774183765,
+            "decoded": 237.19981384277344,
+            "delta": -3.899064211054792e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 3,
+            "field": "y",
+            "raw": 219.99999984814193,
+            "decoded": 220,
+            "delta": 1.5185807455964095e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 3,
+            "field": "pressure",
+            "raw": 0.04125,
+            "decoded": 0.04125000163912773,
+            "delta": 1.6391277293803519e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 3,
+            "field": "size",
+            "raw": 23.918731412668446,
+            "decoded": 23.918731689453125,
+            "delta": 2.7678467873215595e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 3,
+            "field": "opacity",
+            "raw": 0.99,
+            "decoded": 0.9900000095367432,
+            "delta": 9.536743172944284e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 3,
+            "field": "t",
+            "raw": 819.4000000059605,
+            "decoded": 819.4000244140625,
+            "delta": 2.440810203552246e-05,
+            "equalsFround": true
+          },
+          {
+            "index": 4,
+            "field": "x",
+            "raw": 240.31965227392482,
+            "decoded": 240.3196563720703,
+            "delta": 4.098145495845529e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 4,
+            "field": "y",
+            "raw": 219.99999984814193,
+            "decoded": 220,
+            "delta": 1.5185807455964095e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 4,
+            "field": "pressure",
+            "raw": 0.0275,
+            "decoded": 0.027499999850988388,
+            "delta": -1.4901161207725444e-10,
+            "equalsFround": true
+          },
+          {
+            "index": 4,
+            "field": "size",
+            "raw": 20.105600317895213,
+            "decoded": 20.105600357055664,
+            "delta": 3.916045088203646e-08,
+            "equalsFround": true
+          },
+          {
+            "index": 4,
+            "field": "opacity",
+            "raw": 0.99,
+            "decoded": 0.9900000095367432,
+            "delta": 9.536743172944284e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 4,
+            "field": "t",
+            "raw": 819.4000000059605,
+            "decoded": 819.4000244140625,
+            "delta": 2.440810203552246e-05,
+            "equalsFround": true
+          },
+          {
+            "index": 5,
+            "field": "x",
+            "raw": 243.439486806012,
+            "decoded": 243.43948364257812,
+            "delta": -3.1634338881758595e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 5,
+            "field": "y",
+            "raw": 219.99999984814193,
+            "decoded": 220,
+            "delta": 1.5185807455964095e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 5,
+            "field": "pressure",
+            "raw": 0.01375,
+            "decoded": 0.013749999925494194,
+            "delta": -7.450580603862722e-11,
+            "equalsFround": true
+          },
+          {
+            "index": 5,
+            "field": "size",
+            "raw": 16.292469223121984,
+            "decoded": 16.292469024658203,
+            "delta": -1.9846378052079672e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 5,
+            "field": "opacity",
+            "raw": 0.99,
+            "decoded": 0.9900000095367432,
+            "delta": 9.536743172944284e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 5,
+            "field": "t",
+            "raw": 819.4000000059605,
+            "decoded": 819.4000244140625,
+            "delta": 2.440810203552246e-05,
+            "equalsFround": true
+          },
+          {
+            "index": 6,
+            "field": "x",
+            "raw": 246.5593213380992,
+            "decoded": 246.559326171875,
+            "delta": 4.833775790302752e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 6,
+            "field": "y",
+            "raw": 219.99999984814193,
+            "decoded": 220,
+            "delta": 1.5185807455964095e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 6,
+            "field": "size",
+            "raw": 12.479338128348752,
+            "decoded": 12.479337692260742,
+            "delta": -4.3608801014727305e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 6,
+            "field": "opacity",
+            "raw": 0.99,
+            "decoded": 0.9900000095367432,
+            "delta": 9.536743172944284e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 6,
+            "field": "t",
+            "raw": 819.4000000059605,
+            "decoded": 819.4000244140625,
+            "delta": 2.440810203552246e-05,
+            "equalsFround": true
+          }
+        ]
+      },
+      "wet": {
+        "canonicalEncodedShape": "rawRGBA512x512",
+        "stage": "wet",
+        "identity": {
+          "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+          "model": "m70-r2-v1",
+          "page": {
+            "w": 512,
+            "h": 512
+          },
+          "DPR": 1.0000000298023224,
+          "touch": 10,
+          "budget": "Infinity",
+          "cache": false,
+          "hidden": false,
+          "dither": true
+        },
+        "computationsBefore": 1,
+        "computationsBeforeOracle": 1,
+        "physicalHash": "ceb2b09f365137d6f1085b27adedf3bbe60839e61c0403368f9bc179efdede5a",
+        "canonicalHash": "e05183ff69451ff2facca1ac0f015790377488982712a2ca17a2dc14971ad73b",
+        "bytes": 1048576,
+        "material": {
+          "epoch": 2,
+          "ready": true,
+          "active": true,
+          "fields": {
+            "original": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+            "inkLoad": "68cd1bf1496d8cea6d9efa52aca33766df7d6f9122446e0c3a5a830c6cc87be7",
+            "inkColor": "f837d97885d484994a0ad15ee0f89613f50c8388e6dcdf44ac34dbe7f4ab3d3a",
+            "coverage": "9f830c8ac96a477b5fa5fdb6b39f33b0f07f55df9400368bff693f2588c85f52",
+            "solventLoad": "56f1301f6e75813223a00667a6b4bf30bedb8955204396adf2c0de24910b6d8f",
+            "foreignSolventLoad": null
+          }
+        },
+        "actualCapturedBeforeOracle": true,
+        "oracleHash": "e05183ff69451ff2facca1ac0f015790377488982712a2ca17a2dc14971ad73b",
+        "oracleChangedChannels": 0,
+        "oracleMax": 0,
+        "apiOperations": 5,
+        "apiIds": [
+          "f9743ed0-4830-45bc-bbf5-6933a81fb4aa",
+          "sRc03Ggo7V",
+          "cd648467-90f8-433f-b138-ec0bc75c8b71",
+          "5e4f6e9f-6296-40ed-b9f4-aef99389059a",
+          "tWwgiAQomC"
+        ],
+        "apiContentSHA": "b8677f326ce197b9a04c96e14a2b8fa59b40f7a74f9bc1604becfd15961a5e53",
+        "localContentSHA": "b8677f326ce197b9a04c96e14a2b8fa59b40f7a74f9bc1604becfd15961a5e53",
+        "latestStrokeAgeMs": 1945,
+        "coverage": [
+          [
+            "qa-model-B-067b7017-9cb6-436b-85cd-e3cc2706d9cd",
+            3
+          ]
+        ],
+        "sourcePreservedAfterOracle": true,
+        "glError": 0
+      },
+      "dry": {
+        "canonicalEncodedShape": "rawRGBA512x512",
+        "stage": "dry",
+        "identity": {
+          "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+          "model": "m70-r2-v1",
+          "page": {
+            "w": 512,
+            "h": 512
+          },
+          "DPR": 1.0000000298023224,
+          "touch": 10,
+          "budget": "Infinity",
+          "cache": false,
+          "hidden": false,
+          "dither": true
+        },
+        "computationsBefore": 1,
+        "computationsBeforeOracle": 1,
+        "physicalHash": "e05183ff69451ff2facca1ac0f015790377488982712a2ca17a2dc14971ad73b",
+        "canonicalHash": "e05183ff69451ff2facca1ac0f015790377488982712a2ca17a2dc14971ad73b",
+        "bytes": 1048576,
+        "material": null,
+        "actualCapturedBeforeOracle": true,
+        "oracleHash": "e05183ff69451ff2facca1ac0f015790377488982712a2ca17a2dc14971ad73b",
+        "oracleChangedChannels": 0,
+        "oracleMax": 0,
+        "apiOperations": 6,
+        "apiIds": [
+          "f9743ed0-4830-45bc-bbf5-6933a81fb4aa",
+          "sRc03Ggo7V",
+          "cd648467-90f8-433f-b138-ec0bc75c8b71",
+          "5e4f6e9f-6296-40ed-b9f4-aef99389059a",
+          "tWwgiAQomC",
+          "ae04e8cb-d888-4f20-bde0-461829e18293"
+        ],
+        "apiContentSHA": "fce1276ac034a3db4d9be036bd85002605fc0c376c1d66577a4eeaccfa1b4604",
+        "localContentSHA": "fce1276ac034a3db4d9be036bd85002605fc0c376c1d66577a4eeaccfa1b4604",
+        "latestStrokeAgeMs": 3881,
+        "coverage": [
+          [
+            "qa-model-B-067b7017-9cb6-436b-85cd-e3cc2706d9cd",
+            3
+          ]
+        ],
+        "sourcePreservedAfterOracle": false,
+        "glError": 0
+      },
+      "closeHandover": {
+        "changedChannels": 0,
+        "max": 0
+      },
+      "pass": true
+    },
+    {
+      "phase": "afterTurn",
+      "identity": {
+        "board": "qa-undo-v1-fe8f48d5-a592-4719-9876-5df1453ef9c3",
+        "pathname": "/room/qa-undo-v1-fe8f48d5-a592-4719-9876-5df1453ef9c3",
+        "search": "",
+        "model": "m70-r2-v1",
+        "asyncFinish": false,
+        "cache": false,
+        "hidden": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)"
+      },
+      "layer": "qa-raw-A-1152a2aa-75a8-4ab9-b14a-97d9e273ea0a",
+      "stroke": "tIfSZpHGuR",
+      "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+      "raw": {
+        "calls": [
+          {
+            "at": 20605.70000001788,
+            "layer": "qa-raw-A-1152a2aa-75a8-4ab9-b14a-97d9e273ea0a",
+            "strokeId": "tIfSZpHGuR",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "argumentStrokeId": null,
+            "washId": null,
+            "seed": [
+              118.48453608247422,
+              312.1123595505618
+            ],
+            "isLayerTarget": true,
+            "targetKind": "TiledLayerBuffer",
+            "dabs": [
+              {
+                "x": 219.99998474121094,
+                "y": 220,
+                "pressure": 0.75,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 19.966941833496094,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.9900000095367432,
+                "t": 0
+              }
+            ],
+            "prevDab": null,
+            "color": [
+              0.1,
+              0.25,
+              0.8
+            ],
+            "spreadSettle": false,
+            "pieceTris": 0
+          },
+          {
+            "at": 21116.90000000596,
+            "layer": "qa-raw-A-1152a2aa-75a8-4ab9-b14a-97d9e273ea0a",
+            "strokeId": "tIfSZpHGuR",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "argumentStrokeId": null,
+            "washId": null,
+            "seed": [
+              118.48453608247422,
+              312.1123595505618
+            ],
+            "isLayerTarget": true,
+            "targetKind": "TiledLayerBuffer",
+            "dabs": [
+              {
+                "x": 227.03997802734375,
+                "y": 220,
+                "pressure": 0.75,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 27.731863021850586,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.9900000095367432,
+                "t": 511.8999938964844
+              }
+            ],
+            "prevDab": {
+              "x": 219.99998474121094,
+              "y": 220,
+              "pressure": 0.75,
+              "tiltX": 0,
+              "tiltY": 0,
+              "size": 19.966941833496094,
+              "aspectRatio": 1,
+              "angle": 0,
+              "opacity": 0.9900000095367432,
+              "t": 0
+            },
+            "color": [
+              0.1,
+              0.25,
+              0.8
+            ],
+            "spreadSettle": false,
+            "pieceTris": 0
+          },
+          {
+            "at": 21424,
+            "layer": "qa-raw-A-1152a2aa-75a8-4ab9-b14a-97d9e273ea0a",
+            "strokeId": "tIfSZpHGuR",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "argumentStrokeId": null,
+            "washId": null,
+            "seed": [
+              118.48453608247422,
+              312.1123595505618
+            ],
+            "isLayerTarget": true,
+            "targetKind": "TiledLayerBuffer",
+            "dabs": [
+              {
+                "x": 234.07998657226562,
+                "y": 220,
+                "pressure": 0.75,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 27.731863021850586,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.9900000095367432,
+                "t": 818.9000244140625
+              }
+            ],
+            "prevDab": {
+              "x": 227.03997802734375,
+              "y": 220,
+              "pressure": 0.75,
+              "tiltX": 0,
+              "tiltY": 0,
+              "size": 27.731863021850586,
+              "aspectRatio": 1,
+              "angle": 0,
+              "opacity": 0.9900000095367432,
+              "t": 511.8999938964844
+            },
+            "color": [
+              0.1,
+              0.25,
+              0.8
+            ],
+            "spreadSettle": false,
+            "pieceTris": 0
+          },
+          {
+            "at": 21636.600000023842,
+            "layer": "qa-raw-A-1152a2aa-75a8-4ab9-b14a-97d9e273ea0a",
+            "strokeId": "tIfSZpHGuR",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "argumentStrokeId": null,
+            "washId": null,
+            "seed": [
+              118.48453608247422,
+              312.1123595505618
+            ],
+            "isLayerTarget": true,
+            "targetKind": "TiledLayerBuffer",
+            "dabs": [
+              {
+                "x": 237.19981384277344,
+                "y": 220,
+                "pressure": 0.04125000163912773,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 23.918731689453125,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.9900000095367432,
+                "t": 1027.4000244140625
+              },
+              {
+                "x": 240.3196563720703,
+                "y": 220,
+                "pressure": 0.027499999850988388,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 20.105600357055664,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.9900000095367432,
+                "t": 1027.4000244140625
+              },
+              {
+                "x": 243.43948364257812,
+                "y": 220,
+                "pressure": 0.013749999925494194,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 16.292469024658203,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.9900000095367432,
+                "t": 1027.4000244140625
+              },
+              {
+                "x": 246.559326171875,
+                "y": 220,
+                "pressure": 0,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 12.479337692260742,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.9900000095367432,
+                "t": 1027.4000244140625
+              }
+            ],
+            "prevDab": {
+              "x": 234.07998657226562,
+              "y": 220,
+              "pressure": 0.75,
+              "tiltX": 0,
+              "tiltY": 0,
+              "size": 27.731863021850586,
+              "aspectRatio": 1,
+              "angle": 0,
+              "opacity": 0.9900000095367432,
+              "t": 818.9000244140625
+            },
+            "color": [
+              0.1,
+              0.25,
+              0.8
+            ],
+            "spreadSettle": false,
+            "pieceTris": 0
+          }
+        ],
+        "atPack": [
+          {
+            "at": 21640.30000001192,
+            "id": "GKDLK5ZLpQ",
+            "strokeId": "tIfSZpHGuR",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "raw": [
+              {
+                "x": 219.99998320975044,
+                "y": 219.99999984814193,
+                "pressure": 0.75,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 19.966941005358006,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.99,
+                "t": 0
+              },
+              {
+                "x": 227.03998320975046,
+                "y": 219.99999984814193,
+                "pressure": 0.75,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 27.731862507441676,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.99,
+                "t": 511.90000000596046
+              },
+              {
+                "x": 234.07998320975045,
+                "y": 219.99999984814193,
+                "pressure": 0.75,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 27.731862507441676,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.99,
+                "t": 818.9000000059605
+              },
+              {
+                "x": 237.19981774183765,
+                "y": 219.99999984814193,
+                "pressure": 0.04125,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 23.918731412668446,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.99,
+                "t": 1027.4000000059605
+              },
+              {
+                "x": 240.31965227392482,
+                "y": 219.99999984814193,
+                "pressure": 0.0275,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 20.105600317895213,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.99,
+                "t": 1027.4000000059605
+              },
+              {
+                "x": 243.439486806012,
+                "y": 219.99999984814193,
+                "pressure": 0.01375,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 16.292469223121984,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.99,
+                "t": 1027.4000000059605
+              },
+              {
+                "x": 246.5593213380992,
+                "y": 219.99999984814193,
+                "pressure": 0,
+                "tiltX": 0,
+                "tiltY": 0,
+                "size": 12.479338128348752,
+                "aspectRatio": 1,
+                "angle": 0,
+                "opacity": 0.99,
+                "t": 1027.4000000059605
+              }
+            ],
+            "packed": {
+              "id": "GKDLK5ZLpQ",
+              "type": "stroke",
+              "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+              "layerId": "qa-raw-A-1152a2aa-75a8-4ab9-b14a-97d9e273ea0a",
+              "tool": "watercolor",
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "color": [
+                0.1,
+                0.25,
+                0.8
+              ],
+              "dabsPacked": "1://9bQwAAXEMAAEA/AAAAAAAAAABMvJ9BAACAPwAAAACkcH0/AAAAADwKY0MAAFxDAABAPwAAAAAAAAAA29rdQQAAgD8AAAAApHB9PzPz/0N6FGpDAABcQwAAQD8AAAAAAAAAANva3UEAAIA/AAAAAKRwfT+auUxEJzNtQwAAXEPD9Sg9AAAAAAAAAACQWb9BAACAPwAAAACkcH0/zWyARNVRcEMAAFxDrkfhPAAAAAAAAAAARdigQQAAgD8AAAAApHB9P81sgESCcHNDAABcQ65HYTwAAAAAAAAAAPpWgkEAAIA/AAAAAKRwfT/NbIBEMI92QwAAXEMAAAAAAAAAAAAAAABeq0dBAACAPwAAAACkcH0/zWyARA==",
+              "timestamp": 1792210797374,
+              "strokeId": "tIfSZpHGuR",
+              "washId": "m70:qa-raw-A-1152a2aa-75a8-4ab9-b14a-97d9e273ea0a"
+            },
+            "runtime": {
+              "model": "m70-r2-v1",
+              "opts": {
+                "size": 32,
+                "tool": "watercolor",
+                "pencilType": "normal:95:34:PB29:round",
+                "graphiteColor": [
+                  0.1,
+                  0.25,
+                  0.8
+                ],
+                "opacity": 1
+              },
+              "strokePreset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "paper": {
+                "w": 512,
+                "h": 512
+              },
+              "canvas": {
+                "w": 1600,
+                "h": 1000
+              },
+              "vpTransform": [
+                {
+                  "x": -180.77278905706885,
+                  "y": -66.82315924746558
+                },
+                {
+                  "x": -180.1590568160576,
+                  "y": -66.82315924746558
+                },
+                {
+                  "x": -180.77278905706885,
+                  "y": -66.20942700645435
+                }
+              ]
+            }
+          }
+        ],
+        "accepted": {
+          "id": "GKDLK5ZLpQ",
+          "seq": 5,
+          "tool": "watercolor",
+          "type": "stroke",
+          "color": [
+            0.1,
+            0.25,
+            0.8
+          ],
+          "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+          "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+          "washId": "m70:qa-raw-A-1152a2aa-75a8-4ab9-b14a-97d9e273ea0a",
+          "layerId": "qa-raw-A-1152a2aa-75a8-4ab9-b14a-97d9e273ea0a",
+          "strokeId": "tIfSZpHGuR",
+          "timestamp": 1792210797374,
+          "dabsPacked": "1://9bQwAAXEMAAEA/AAAAAAAAAABMvJ9BAACAPwAAAACkcH0/AAAAADwKY0MAAFxDAABAPwAAAAAAAAAA29rdQQAAgD8AAAAApHB9PzPz/0N6FGpDAABcQwAAQD8AAAAAAAAAANva3UEAAIA/AAAAAKRwfT+auUxEJzNtQwAAXEPD9Sg9AAAAAAAAAACQWb9BAACAPwAAAACkcH0/zWyARNVRcEMAAFxDrkfhPAAAAAAAAAAARdigQQAAgD8AAAAApHB9P81sgESCcHNDAABcQ65HYTwAAAAAAAAAAPpWgkEAAIA/AAAAAKRwfT/NbIBEMI92QwAAXEMAAAAAAAAAAAAAAABeq0dBAACAPwAAAACkcH0/zWyARA=="
+        },
+        "decoded": [
+          {
+            "x": 219.99998474121094,
+            "y": 220,
+            "pressure": 0.75,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 19.966941833496094,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 0
+          },
+          {
+            "x": 227.03997802734375,
+            "y": 220,
+            "pressure": 0.75,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 27.731863021850586,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 511.8999938964844
+          },
+          {
+            "x": 234.07998657226562,
+            "y": 220,
+            "pressure": 0.75,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 27.731863021850586,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 818.9000244140625
+          },
+          {
+            "x": 237.19981384277344,
+            "y": 220,
+            "pressure": 0.04125000163912773,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 23.918731689453125,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 1027.4000244140625
+          },
+          {
+            "x": 240.3196563720703,
+            "y": 220,
+            "pressure": 0.027499999850988388,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 20.105600357055664,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 1027.4000244140625
+          },
+          {
+            "x": 243.43948364257812,
+            "y": 220,
+            "pressure": 0.013749999925494194,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 16.292469024658203,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 1027.4000244140625
+          },
+          {
+            "x": 246.559326171875,
+            "y": 220,
+            "pressure": 0,
+            "tiltX": 0,
+            "tiltY": 0,
+            "size": 12.479337692260742,
+            "aspectRatio": 1,
+            "angle": 0,
+            "opacity": 0.9900000095367432,
+            "t": 1027.4000244140625
+          }
+        ],
+        "float32Differences": [
+          {
+            "index": 0,
+            "field": "x",
+            "raw": 219.99998320975044,
+            "decoded": 219.99998474121094,
+            "delta": 1.531460497972148e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 0,
+            "field": "y",
+            "raw": 219.99999984814193,
+            "decoded": 220,
+            "delta": 1.5185807455964095e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 0,
+            "field": "size",
+            "raw": 19.966941005358006,
+            "decoded": 19.966941833496094,
+            "delta": 8.281380878827349e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 0,
+            "field": "opacity",
+            "raw": 0.99,
+            "decoded": 0.9900000095367432,
+            "delta": 9.536743172944284e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 1,
+            "field": "x",
+            "raw": 227.03998320975046,
+            "decoded": 227.03997802734375,
+            "delta": -5.182406709991483e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 1,
+            "field": "y",
+            "raw": 219.99999984814193,
+            "decoded": 220,
+            "delta": 1.5185807455964095e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 1,
+            "field": "size",
+            "raw": 27.731862507441676,
+            "decoded": 27.731863021850586,
+            "delta": 5.144089101349891e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 1,
+            "field": "opacity",
+            "raw": 0.99,
+            "decoded": 0.9900000095367432,
+            "delta": 9.536743172944284e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 1,
+            "field": "t",
+            "raw": 511.90000000596046,
+            "decoded": 511.8999938964844,
+            "delta": -6.109476089477539e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 2,
+            "field": "x",
+            "raw": 234.07998320975045,
+            "decoded": 234.07998657226562,
+            "delta": 3.362515172966596e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 2,
+            "field": "y",
+            "raw": 219.99999984814193,
+            "decoded": 220,
+            "delta": 1.5185807455964095e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 2,
+            "field": "size",
+            "raw": 27.731862507441676,
+            "decoded": 27.731863021850586,
+            "delta": 5.144089101349891e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 2,
+            "field": "opacity",
+            "raw": 0.99,
+            "decoded": 0.9900000095367432,
+            "delta": 9.536743172944284e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 2,
+            "field": "t",
+            "raw": 818.9000000059605,
+            "decoded": 818.9000244140625,
+            "delta": 2.440810203552246e-05,
+            "equalsFround": true
+          },
+          {
+            "index": 3,
+            "field": "x",
+            "raw": 237.19981774183765,
+            "decoded": 237.19981384277344,
+            "delta": -3.899064211054792e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 3,
+            "field": "y",
+            "raw": 219.99999984814193,
+            "decoded": 220,
+            "delta": 1.5185807455964095e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 3,
+            "field": "pressure",
+            "raw": 0.04125,
+            "decoded": 0.04125000163912773,
+            "delta": 1.6391277293803519e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 3,
+            "field": "size",
+            "raw": 23.918731412668446,
+            "decoded": 23.918731689453125,
+            "delta": 2.7678467873215595e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 3,
+            "field": "opacity",
+            "raw": 0.99,
+            "decoded": 0.9900000095367432,
+            "delta": 9.536743172944284e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 3,
+            "field": "t",
+            "raw": 1027.4000000059605,
+            "decoded": 1027.4000244140625,
+            "delta": 2.440810203552246e-05,
+            "equalsFround": true
+          },
+          {
+            "index": 4,
+            "field": "x",
+            "raw": 240.31965227392482,
+            "decoded": 240.3196563720703,
+            "delta": 4.098145495845529e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 4,
+            "field": "y",
+            "raw": 219.99999984814193,
+            "decoded": 220,
+            "delta": 1.5185807455964095e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 4,
+            "field": "pressure",
+            "raw": 0.0275,
+            "decoded": 0.027499999850988388,
+            "delta": -1.4901161207725444e-10,
+            "equalsFround": true
+          },
+          {
+            "index": 4,
+            "field": "size",
+            "raw": 20.105600317895213,
+            "decoded": 20.105600357055664,
+            "delta": 3.916045088203646e-08,
+            "equalsFround": true
+          },
+          {
+            "index": 4,
+            "field": "opacity",
+            "raw": 0.99,
+            "decoded": 0.9900000095367432,
+            "delta": 9.536743172944284e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 4,
+            "field": "t",
+            "raw": 1027.4000000059605,
+            "decoded": 1027.4000244140625,
+            "delta": 2.440810203552246e-05,
+            "equalsFround": true
+          },
+          {
+            "index": 5,
+            "field": "x",
+            "raw": 243.439486806012,
+            "decoded": 243.43948364257812,
+            "delta": -3.1634338881758595e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 5,
+            "field": "y",
+            "raw": 219.99999984814193,
+            "decoded": 220,
+            "delta": 1.5185807455964095e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 5,
+            "field": "pressure",
+            "raw": 0.01375,
+            "decoded": 0.013749999925494194,
+            "delta": -7.450580603862722e-11,
+            "equalsFround": true
+          },
+          {
+            "index": 5,
+            "field": "size",
+            "raw": 16.292469223121984,
+            "decoded": 16.292469024658203,
+            "delta": -1.9846378052079672e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 5,
+            "field": "opacity",
+            "raw": 0.99,
+            "decoded": 0.9900000095367432,
+            "delta": 9.536743172944284e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 5,
+            "field": "t",
+            "raw": 1027.4000000059605,
+            "decoded": 1027.4000244140625,
+            "delta": 2.440810203552246e-05,
+            "equalsFround": true
+          },
+          {
+            "index": 6,
+            "field": "x",
+            "raw": 246.5593213380992,
+            "decoded": 246.559326171875,
+            "delta": 4.833775790302752e-06,
+            "equalsFround": true
+          },
+          {
+            "index": 6,
+            "field": "y",
+            "raw": 219.99999984814193,
+            "decoded": 220,
+            "delta": 1.5185807455964095e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 6,
+            "field": "size",
+            "raw": 12.479338128348752,
+            "decoded": 12.479337692260742,
+            "delta": -4.3608801014727305e-07,
+            "equalsFround": true
+          },
+          {
+            "index": 6,
+            "field": "opacity",
+            "raw": 0.99,
+            "decoded": 0.9900000095367432,
+            "delta": 9.536743172944284e-09,
+            "equalsFround": true
+          },
+          {
+            "index": 6,
+            "field": "t",
+            "raw": 1027.4000000059605,
+            "decoded": 1027.4000244140625,
+            "delta": 2.440810203552246e-05,
+            "equalsFround": true
+          }
+        ]
+      },
+      "wet": {
+        "canonicalEncodedShape": "rawRGBA512x512",
+        "stage": "wet",
+        "identity": {
+          "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+          "model": "m70-r2-v1",
+          "page": {
+            "w": 512,
+            "h": 512
+          },
+          "DPR": 1.0000000298023224,
+          "touch": 10,
+          "budget": "Infinity",
+          "cache": false,
+          "hidden": false,
+          "dither": true
+        },
+        "computationsBefore": 3,
+        "computationsBeforeOracle": 3,
+        "physicalHash": "42fcb4ac773ea1372ca97cf59f5f4d55eba1232a5f78b1255c90fb7e6e65231e",
+        "canonicalHash": "49aa3565d61a6fabe883427ae22b1902bc4f67d7371d086959bbf923a31e3bf5",
+        "bytes": 1048576,
+        "material": {
+          "epoch": 2,
+          "ready": true,
+          "active": true,
+          "fields": {
+            "original": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+            "inkLoad": "bba8ed37b8dd776af37e65031774b3acd21d17310189ada82f06d856045464c0",
+            "inkColor": "6f4b95aff00af69d6f2033d5ef94fd7672e44e2e27ae3666b2f69ce511a90dd8",
+            "coverage": "c8cb108e9d63dedd5c5b5bb838cfcc745cbbd53db5fd0c0d123c5f6035c97dc2",
+            "solventLoad": "56f1301f6e75813223a00667a6b4bf30bedb8955204396adf2c0de24910b6d8f",
+            "foreignSolventLoad": null
+          }
+        },
+        "actualCapturedBeforeOracle": true,
+        "oracleHash": "49aa3565d61a6fabe883427ae22b1902bc4f67d7371d086959bbf923a31e3bf5",
+        "oracleChangedChannels": 0,
+        "oracleMax": 0,
+        "apiOperations": 5,
+        "apiIds": [
+          "6c5f7422-401f-4c69-b0f9-b2396532e587",
+          "Krbv77fXSw",
+          "27997e7c-f324-4f31-a169-0f947e07d636",
+          "9733a919-d644-40fa-b504-fb9f48d020df",
+          "GKDLK5ZLpQ"
+        ],
+        "apiContentSHA": "802cfce14cfc1d4125dd5a35c7e13791e627378c1f5fa9a1a7ced5568857eadd",
+        "localContentSHA": "802cfce14cfc1d4125dd5a35c7e13791e627378c1f5fa9a1a7ced5568857eadd",
+        "latestStrokeAgeMs": 1660,
+        "coverage": [],
+        "sourcePreservedAfterOracle": true,
+        "glError": 0
+      },
+      "dry": {
+        "canonicalEncodedShape": "rawRGBA512x512",
+        "stage": "dry",
+        "identity": {
+          "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+          "model": "m70-r2-v1",
+          "page": {
+            "w": 512,
+            "h": 512
+          },
+          "DPR": 1.0000000298023224,
+          "touch": 10,
+          "budget": "Infinity",
+          "cache": false,
+          "hidden": false,
+          "dither": true
+        },
+        "computationsBefore": 3,
+        "computationsBeforeOracle": 3,
+        "physicalHash": "49aa3565d61a6fabe883427ae22b1902bc4f67d7371d086959bbf923a31e3bf5",
+        "canonicalHash": "49aa3565d61a6fabe883427ae22b1902bc4f67d7371d086959bbf923a31e3bf5",
+        "bytes": 1048576,
+        "material": null,
+        "actualCapturedBeforeOracle": true,
+        "oracleHash": "49aa3565d61a6fabe883427ae22b1902bc4f67d7371d086959bbf923a31e3bf5",
+        "oracleChangedChannels": 0,
+        "oracleMax": 0,
+        "apiOperations": 6,
+        "apiIds": [
+          "6c5f7422-401f-4c69-b0f9-b2396532e587",
+          "Krbv77fXSw",
+          "27997e7c-f324-4f31-a169-0f947e07d636",
+          "9733a919-d644-40fa-b504-fb9f48d020df",
+          "GKDLK5ZLpQ",
+          "ed669e1b-1024-4b8a-9d36-5edfdf0239e0"
+        ],
+        "apiContentSHA": "9be36647b6978749a3c5625863ac16df7af2b1941bd5c1274a5b0185b8a55c75",
+        "localContentSHA": "9be36647b6978749a3c5625863ac16df7af2b1941bd5c1274a5b0185b8a55c75",
+        "latestStrokeAgeMs": 3707,
+        "coverage": [],
+        "sourcePreservedAfterOracle": false,
+        "glError": 0
+      },
+      "closeHandover": {
+        "changedChannels": 0,
+        "max": 0
+      },
+      "pass": true
+    }
+  ],
+  "resources": "Own browser contexts closed. Existing Vega QA Chrome/forward and retained owner fixture remain for root RCA decision."
+}
