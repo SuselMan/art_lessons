@@ -1,0 +1,14 @@
+{
+  "source": "509fb989",
+  "selection": {
+    "kind": "band",
+    "ordinal": 1
+  },
+  "result": "QA_INVALID",
+  "error": "Duplicate selected front capture",
+  "cause": "Later mode6 with same field/group attempted second observer read after first band had marked phase done. Product primitive unchanged.",
+  "fix": "Require phase===inward for first mode6/band capture; sets phase done and ignores later mode6.",
+  "regression": "CPU test first band+later mode6 reads exactly once",
+  "retry": "Not run; parent prioritized outward13",
+  "cleanup": "Own context/page closed, wrappers restored via finally; own Chrome/forward retained"
+}

@@ -13,7 +13,7 @@ module.exports=()=>{globalThis.__qa748FrontBoundaryProbe=(plan,passes,getRect,op
   if(selected===current&&f){
    if(mode===10&&out===f.pressure){if(events.length>1||phase!=='outward')group++;if(group===1&&kind==='seed')read('seed',out)}
    if(group===1&&mode===12&&out===f.mask){phase='inward';events.push({method:'fieldOp',mode,k,role:'inward-seed'})}
-   if(group===1&&mode===6&&out===f.band){events.push({method:'fieldOp',mode,k,role:'band'});if(kind==='band')read('band',out);phase='done'}
+   if(group===1&&phase==='inward'&&mode===6&&out===f.band){events.push({method:'fieldOp',mode,k,role:'band'});if(kind==='band')read('band',out);phase='done'}
   }return result
  };
  const front=function(...args){const result=original.front.apply(this,args);if(selected===current&&args[0]===selected.field&&group===1&&(phase==='outward'||phase==='inward')){const n=phase==='outward'?++outward:++inward;events.push({method:'waterFrontStep',phase,ordinal:n,x0:args[1],y0:args[2],dryCost:args[3],max:args[6],climb:args[7],floor:args[8],stride:args[9]??1,scale:args[10]??1,foreign:!!args[11],discreteGrid:args[12]===true});if(kind===phase&&n===ordinal)read(phase+':'+n,args[5])}return result};
