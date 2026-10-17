@@ -1,0 +1,64 @@
+{
+  "readOnly": true,
+  "lastBootUTC": "2026-10-17T02:28:39.500000+00:00",
+  "events": [
+    {
+      "atUTC": "2026-10-17T02:28:39.785000+00:00",
+      "provider": "Microsoft-Windows-Kernel-General",
+      "id": 12,
+      "message": "Системное время запуска операционной системы: ?2026?-?10?-?17T02:28:39.500000000Z."
+    },
+    {
+      "atUTC": "2026-10-17T02:28:28.766000+00:00",
+      "provider": "Microsoft-Windows-Kernel-General",
+      "id": 13,
+      "message": "Системное время завершения работы операционной системы: ?2026?-?10?-?17T02:28:28.766975700Z."
+    },
+    {
+      "atUTC": "2026-10-17T02:28:53.459000+00:00",
+      "provider": "EventLog",
+      "id": 6005,
+      "message": "Запущена служба журнала событий."
+    },
+    {
+      "atUTC": "2026-10-17T02:28:22.639000+00:00",
+      "provider": "EventLog",
+      "id": 6006,
+      "message": "Служба журнала событий остановлена."
+    },
+    {
+      "atUTC": "2026-10-17T02:28:17.159000+00:00",
+      "provider": "User32",
+      "id": 1074,
+      "message": "Процесс C:\\WINDOWS\\servicing\\TrustedInstaller.exe (DESKTOP-ABLVDT7) инициировал действие \"Перезапустить\" для компьютера DESKTOP-ABLVDT7 от имени пользователя NT AUTHORITY\\СИСТЕМА по причине: Операционная система: Обновление (Запланированное)\r\n Код причины: 0x80020003\r\n Тип выключения: Перезапустить\r\n Комментарий: "
+    },
+    {
+      "atUTC": "2026-10-17T02:27:11.104000+00:00",
+      "provider": "Microsoft-Windows-Kernel-General",
+      "id": 12,
+      "message": "Системное время запуска операционной системы: ?2026?-?10?-?17T02:27:10.500000000Z."
+    },
+    {
+      "atUTC": "2026-10-17T02:27:05.004000+00:00",
+      "provider": "Microsoft-Windows-Kernel-General",
+      "id": 13,
+      "message": "Системное время завершения работы операционной системы: ?2026?-?10?-?17T02:27:05.004153400Z."
+    },
+    {
+      "atUTC": "2026-10-17T02:27:27.731000+00:00",
+      "provider": "EventLog",
+      "id": 6005,
+      "message": "Запущена служба журнала событий."
+    },
+    {
+      "atUTC": "2026-10-17T02:27:02.759000+00:00",
+      "provider": "EventLog",
+      "id": 6006,
+      "message": "Служба журнала событий остановлена."
+    }
+  ],
+  "chromeApplicationError1000or1001": [],
+  "ownedChromeProcessesAfterBoot": 0,
+  "ownRelaunch": "Skipped before task registration: no interactive logged-in account. No unlock/logon/autologin attempted.",
+  "assessment": "Windows reboot pairs at02:27 and02:28UTC; second explicitly initiated by TrustedInstaller planned OS update. Soak disconnected02:26:40UTC before first recorded shutdown by25s. Exact first network-loss cause not directly logged; original owned Chrome process absence explained by reboots. User Chrome not stopped."
+}

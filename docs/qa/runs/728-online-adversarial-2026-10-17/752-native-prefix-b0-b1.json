@@ -1,0 +1,4703 @@
+{
+  "source": "e8e1f005",
+  "device": "Two isolated browser authors on the same real AMD Vega GPU;1024;DPR1.5;maxTouchPoints1;GPUbudgetInfinity",
+  "scope": "Manual engine callbacks A50 then Bcut,4moves/callbackstroke,RAF after each third stroke. Cache and hidden replay OFF. No forced checkpoint or modified engine pipeline. Not a trusted pen prefix or latency benchmark.",
+  "controls": [
+    {
+      "foreignStrokes": 0,
+      "pass": true,
+      "spec": {
+        "prefix": 50,
+        "authors": 2,
+        "prefixDabs": 0,
+        "prefixInput": "manual engine pointer callbacks",
+        "blue": [
+          0.1,
+          0.25,
+          0.8
+        ],
+        "size": 32,
+        "water": 0.95,
+        "pigment": 0.34,
+        "moves": 4,
+        "deltaX": 4,
+        "lastRed": {
+          "x": 650,
+          "y": 650
+        },
+        "newGesture": {
+          "input": "trusted CDP pen",
+          "moves": 4,
+          "deltaXCSS": 3,
+          "force": 0.75
+        },
+        "DPR": 1.5,
+        "hasTouch": true,
+        "authorCounts": [
+          50,
+          0
+        ]
+      },
+      "specSHA": "798eaa77b29d343f07661e54b0be3a8b93927631ae1a479a931ac930ba67a6b1",
+      "authoritativeJournal": {
+        "operations": 50,
+        "sha": "0cb54d3c243649dc3b09b7a701f948ca02d77afb6b4754266df486e7e4ef4a6e",
+        "opContentsHash": "2654b3680daf4b1f2c9048765e39e61cb596888b8946f693ad4974411cd85f84",
+        "localPayloadsEqual": [
+          true,
+          true
+        ]
+      },
+      "prefixGoals": [
+        {
+          "readMs": 7.799999982118607,
+          "bytes": 4194304,
+          "canonicalHash": "e6153463f93c08cb5fd44e91d3b9b802617fd3aed100d16e93b635f6f322ee30",
+          "oracleHash": "e6153463f93c08cb5fd44e91d3b9b802617fd3aed100d16e93b635f6f322ee30",
+          "changed": 0,
+          "max": 0,
+          "glError": 0
+        },
+        {
+          "readMs": 6.200000017881393,
+          "bytes": 4194304,
+          "canonicalHash": "e6153463f93c08cb5fd44e91d3b9b802617fd3aed100d16e93b635f6f322ee30",
+          "oracleHash": "e6153463f93c08cb5fd44e91d3b9b802617fd3aed100d16e93b635f6f322ee30",
+          "changed": 0,
+          "max": 0,
+          "glError": 0
+        }
+      ],
+      "prefixPhysical": [
+        {
+          "opContentsHash": "2654b3680daf4b1f2c9048765e39e61cb596888b8946f693ad4974411cd85f84",
+          "layer": "layer-1",
+          "tiles": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "hash": "bdf21cdc9bdbde024cb0db86b91a23b4ebea36bf8acf46825775c38e906e42de",
+              "nonzeroAlpha": 1956
+            }
+          ],
+          "raw": {
+            "fields": {
+              "original": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              "coverage": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "a973324057951ba26fd879f11e508599562327efb05c42c8fa69e4d2e2c8fabb"
+              },
+              "inkLoad": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "54e390c5660039c9d4011e43505a0c08655d65cd1b9f5dff8cd2c19009c6f88a"
+              },
+              "inkSettled": null,
+              "inkColor": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "75edb433ace0462297bf8bd9748e677d9474235440c0a3475121c23ac8d01156"
+              },
+              "colorSettled": null,
+              "inkDry": null,
+              "colorDry": null,
+              "solventLoad": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "a913dd47ee3bab465a70959e82159c8ecea38098a355f1414b454909624df6c3"
+              },
+              "foreignSolventLoad": null
+            },
+            "goal": "862e53e499752f923e43408b26868e0a99370da7c5f1bfa85d80393d7aaadf59",
+            "scalar": {
+              "waterUsed": 0,
+              "pigmentUsed": 3.026044733311124,
+              "pigmentInputsKnownZero": false,
+              "gesture": 51,
+              "materialGesture": 51,
+              "finishModel": "m70-r2-v1"
+            }
+          },
+          "actualPhysicalBeforeAnyOracle": true,
+          "state": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 1,
+            "computations": 2,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 51,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "hasSettle": false,
+          "cache": false,
+          "hidden": false,
+          "log": [
+            {
+              "id": "0mjqzhJvkN",
+              "type": "stroke",
+              "seq": 0,
+              "serverSeq": 1,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "0fuz3PGd9X",
+              "type": "stroke",
+              "seq": 1,
+              "serverSeq": 2,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "K2UEsRRc53",
+              "type": "stroke",
+              "seq": 2,
+              "serverSeq": 3,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "5h5pAUHVX6",
+              "type": "stroke",
+              "seq": 3,
+              "serverSeq": 4,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "YZwPs8QfNO",
+              "type": "stroke",
+              "seq": 4,
+              "serverSeq": 5,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "GVt2M1Cbx3",
+              "type": "stroke",
+              "seq": 5,
+              "serverSeq": 6,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "nvWrDC7ejS",
+              "type": "stroke",
+              "seq": 6,
+              "serverSeq": 7,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "OwkJ-prrVm",
+              "type": "stroke",
+              "seq": 7,
+              "serverSeq": 8,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "_GucOibsal",
+              "type": "stroke",
+              "seq": 8,
+              "serverSeq": 9,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "9hLv0D_wxH",
+              "type": "stroke",
+              "seq": 9,
+              "serverSeq": 10,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "QLwuCuc3aH",
+              "type": "stroke",
+              "seq": 10,
+              "serverSeq": 11,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "pE3peiBYCb",
+              "type": "stroke",
+              "seq": 11,
+              "serverSeq": 12,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "mz2-swKwT8",
+              "type": "stroke",
+              "seq": 12,
+              "serverSeq": 13,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "BsAkhEIlVM",
+              "type": "stroke",
+              "seq": 13,
+              "serverSeq": 14,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "16Ghx4VUtq",
+              "type": "stroke",
+              "seq": 14,
+              "serverSeq": 15,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "xw3O8RNFx9",
+              "type": "stroke",
+              "seq": 15,
+              "serverSeq": 16,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "qUA_RAkGP0",
+              "type": "stroke",
+              "seq": 16,
+              "serverSeq": 17,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "gAnq7Mh44A",
+              "type": "stroke",
+              "seq": 17,
+              "serverSeq": 18,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "D01R-AegWf",
+              "type": "stroke",
+              "seq": 18,
+              "serverSeq": 19,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "HEolm1QCn_",
+              "type": "stroke",
+              "seq": 19,
+              "serverSeq": 20,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "kxjHAQimYb",
+              "type": "stroke",
+              "seq": 20,
+              "serverSeq": 21,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "yw-Ay_hSit",
+              "type": "stroke",
+              "seq": 21,
+              "serverSeq": 22,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "IBxeecmlaF",
+              "type": "stroke",
+              "seq": 22,
+              "serverSeq": 23,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "bBYvNo85T4",
+              "type": "stroke",
+              "seq": 23,
+              "serverSeq": 24,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "YpkUvBVlOP",
+              "type": "stroke",
+              "seq": 24,
+              "serverSeq": 25,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "zmDcEfbvae",
+              "type": "stroke",
+              "seq": 25,
+              "serverSeq": 26,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "QwtOLdFdBu",
+              "type": "stroke",
+              "seq": 26,
+              "serverSeq": 27,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "M5nbR-X1HG",
+              "type": "stroke",
+              "seq": 27,
+              "serverSeq": 28,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "lUPefSjDsb",
+              "type": "stroke",
+              "seq": 28,
+              "serverSeq": 29,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "X7TrTINuEQ",
+              "type": "stroke",
+              "seq": 29,
+              "serverSeq": 30,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "blKfPS-SCC",
+              "type": "stroke",
+              "seq": 30,
+              "serverSeq": 31,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "a-q7Mh1EAM",
+              "type": "stroke",
+              "seq": 31,
+              "serverSeq": 32,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "AiLMmmD5ef",
+              "type": "stroke",
+              "seq": 32,
+              "serverSeq": 33,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "6QGYGUQOtH",
+              "type": "stroke",
+              "seq": 33,
+              "serverSeq": 34,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "H_VScnDwQl",
+              "type": "stroke",
+              "seq": 34,
+              "serverSeq": 35,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "0IVGUEn0A-",
+              "type": "stroke",
+              "seq": 35,
+              "serverSeq": 36,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "oAkBgegN4Q",
+              "type": "stroke",
+              "seq": 36,
+              "serverSeq": 37,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "DVFG7ot_Z1",
+              "type": "stroke",
+              "seq": 37,
+              "serverSeq": 38,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "XcAdgopSrN",
+              "type": "stroke",
+              "seq": 38,
+              "serverSeq": 39,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "9XRatyCU19",
+              "type": "stroke",
+              "seq": 39,
+              "serverSeq": 40,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "Wqz4oxmgRN",
+              "type": "stroke",
+              "seq": 40,
+              "serverSeq": 41,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "tztkXThL9M",
+              "type": "stroke",
+              "seq": 41,
+              "serverSeq": 42,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "5kPHz4z_K-",
+              "type": "stroke",
+              "seq": 42,
+              "serverSeq": 43,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "zOjWyDXeO9",
+              "type": "stroke",
+              "seq": 43,
+              "serverSeq": 44,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "pw2X0BGTJV",
+              "type": "stroke",
+              "seq": 44,
+              "serverSeq": 45,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "m_cJLMlzqY",
+              "type": "stroke",
+              "seq": 45,
+              "serverSeq": 46,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "d0mpIUrRdw",
+              "type": "stroke",
+              "seq": 46,
+              "serverSeq": 47,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "QfrOsuh-Fg",
+              "type": "stroke",
+              "seq": 47,
+              "serverSeq": 48,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "0P2eTYX6Fm",
+              "type": "stroke",
+              "seq": 48,
+              "serverSeq": 49,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "V5vH1ZBze4",
+              "type": "stroke",
+              "seq": 49,
+              "serverSeq": 50,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            }
+          ],
+          "effectiveIds": [
+            "0mjqzhJvkN",
+            "0fuz3PGd9X",
+            "K2UEsRRc53",
+            "5h5pAUHVX6",
+            "YZwPs8QfNO",
+            "GVt2M1Cbx3",
+            "nvWrDC7ejS",
+            "OwkJ-prrVm",
+            "_GucOibsal",
+            "9hLv0D_wxH",
+            "QLwuCuc3aH",
+            "pE3peiBYCb",
+            "mz2-swKwT8",
+            "BsAkhEIlVM",
+            "16Ghx4VUtq",
+            "xw3O8RNFx9",
+            "qUA_RAkGP0",
+            "gAnq7Mh44A",
+            "D01R-AegWf",
+            "HEolm1QCn_",
+            "kxjHAQimYb",
+            "yw-Ay_hSit",
+            "IBxeecmlaF",
+            "bBYvNo85T4",
+            "YpkUvBVlOP",
+            "zmDcEfbvae",
+            "QwtOLdFdBu",
+            "M5nbR-X1HG",
+            "lUPefSjDsb",
+            "X7TrTINuEQ",
+            "blKfPS-SCC",
+            "a-q7Mh1EAM",
+            "AiLMmmD5ef",
+            "6QGYGUQOtH",
+            "H_VScnDwQl",
+            "0IVGUEn0A-",
+            "oAkBgegN4Q",
+            "DVFG7ot_Z1",
+            "XcAdgopSrN",
+            "9XRatyCU19",
+            "Wqz4oxmgRN",
+            "tztkXThL9M",
+            "5kPHz4z_K-",
+            "zOjWyDXeO9",
+            "pw2X0BGTJV",
+            "m_cJLMlzqY",
+            "d0mpIUrRdw",
+            "QfrOsuh-Fg",
+            "0P2eTYX6Fm",
+            "V5vH1ZBze4"
+          ],
+          "coverage": [],
+          "checkpoints": [
+            {
+              "layer": "layer-1",
+              "opIds": [
+                "0mjqzhJvkN",
+                "0fuz3PGd9X",
+                "K2UEsRRc53",
+                "5h5pAUHVX6",
+                "YZwPs8QfNO",
+                "GVt2M1Cbx3",
+                "nvWrDC7ejS",
+                "OwkJ-prrVm"
+              ],
+              "covered": [],
+              "canonicalValidPresent": false
+            }
+          ],
+          "best": {
+            "start": 8,
+            "layer": "layer-1"
+          },
+          "queue": 0,
+          "jobs": 0,
+          "pendingRebuilds": 0,
+          "unsettled": []
+        },
+        {
+          "opContentsHash": "2654b3680daf4b1f2c9048765e39e61cb596888b8946f693ad4974411cd85f84",
+          "layer": "layer-1",
+          "tiles": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "hash": "3917f8dc1df9ca6f01fe8240b57d5f2694c97b1bd5f2a74bf34085d09e851d4e",
+              "nonzeroAlpha": 1956
+            }
+          ],
+          "raw": {
+            "fields": {
+              "original": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              "coverage": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "a973324057951ba26fd879f11e508599562327efb05c42c8fa69e4d2e2c8fabb"
+              },
+              "inkLoad": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "54e390c5660039c9d4011e43505a0c08655d65cd1b9f5dff8cd2c19009c6f88a"
+              },
+              "inkSettled": null,
+              "inkColor": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "75edb433ace0462297bf8bd9748e677d9474235440c0a3475121c23ac8d01156"
+              },
+              "colorSettled": null,
+              "inkDry": null,
+              "colorDry": null,
+              "solventLoad": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "a913dd47ee3bab465a70959e82159c8ecea38098a355f1414b454909624df6c3"
+              },
+              "foreignSolventLoad": null
+            },
+            "goal": "862e53e499752f923e43408b26868e0a99370da7c5f1bfa85d80393d7aaadf59",
+            "scalar": {
+              "waterUsed": 0,
+              "pigmentUsed": 3.026044733311124,
+              "pigmentInputsKnownZero": false,
+              "gesture": 101,
+              "materialGesture": 101,
+              "finishModel": "m70-r2-v1"
+            }
+          },
+          "actualPhysicalBeforeAnyOracle": true,
+          "state": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 2,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 51,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "hasSettle": false,
+          "cache": false,
+          "hidden": false,
+          "log": [
+            {
+              "id": "0mjqzhJvkN",
+              "type": "stroke",
+              "seq": 0,
+              "serverSeq": 1,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "0fuz3PGd9X",
+              "type": "stroke",
+              "seq": 1,
+              "serverSeq": 2,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "K2UEsRRc53",
+              "type": "stroke",
+              "seq": 2,
+              "serverSeq": 3,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "5h5pAUHVX6",
+              "type": "stroke",
+              "seq": 3,
+              "serverSeq": 4,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "YZwPs8QfNO",
+              "type": "stroke",
+              "seq": 4,
+              "serverSeq": 5,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "GVt2M1Cbx3",
+              "type": "stroke",
+              "seq": 5,
+              "serverSeq": 6,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "nvWrDC7ejS",
+              "type": "stroke",
+              "seq": 6,
+              "serverSeq": 7,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "OwkJ-prrVm",
+              "type": "stroke",
+              "seq": 7,
+              "serverSeq": 8,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "_GucOibsal",
+              "type": "stroke",
+              "seq": 8,
+              "serverSeq": 9,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "9hLv0D_wxH",
+              "type": "stroke",
+              "seq": 9,
+              "serverSeq": 10,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "QLwuCuc3aH",
+              "type": "stroke",
+              "seq": 10,
+              "serverSeq": 11,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "pE3peiBYCb",
+              "type": "stroke",
+              "seq": 11,
+              "serverSeq": 12,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "mz2-swKwT8",
+              "type": "stroke",
+              "seq": 12,
+              "serverSeq": 13,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "BsAkhEIlVM",
+              "type": "stroke",
+              "seq": 13,
+              "serverSeq": 14,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "16Ghx4VUtq",
+              "type": "stroke",
+              "seq": 14,
+              "serverSeq": 15,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "xw3O8RNFx9",
+              "type": "stroke",
+              "seq": 15,
+              "serverSeq": 16,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "qUA_RAkGP0",
+              "type": "stroke",
+              "seq": 16,
+              "serverSeq": 17,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "gAnq7Mh44A",
+              "type": "stroke",
+              "seq": 17,
+              "serverSeq": 18,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "D01R-AegWf",
+              "type": "stroke",
+              "seq": 18,
+              "serverSeq": 19,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "HEolm1QCn_",
+              "type": "stroke",
+              "seq": 19,
+              "serverSeq": 20,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "kxjHAQimYb",
+              "type": "stroke",
+              "seq": 20,
+              "serverSeq": 21,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "yw-Ay_hSit",
+              "type": "stroke",
+              "seq": 21,
+              "serverSeq": 22,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "IBxeecmlaF",
+              "type": "stroke",
+              "seq": 22,
+              "serverSeq": 23,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "bBYvNo85T4",
+              "type": "stroke",
+              "seq": 23,
+              "serverSeq": 24,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "YpkUvBVlOP",
+              "type": "stroke",
+              "seq": 24,
+              "serverSeq": 25,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "zmDcEfbvae",
+              "type": "stroke",
+              "seq": 25,
+              "serverSeq": 26,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "QwtOLdFdBu",
+              "type": "stroke",
+              "seq": 26,
+              "serverSeq": 27,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "M5nbR-X1HG",
+              "type": "stroke",
+              "seq": 27,
+              "serverSeq": 28,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "lUPefSjDsb",
+              "type": "stroke",
+              "seq": 28,
+              "serverSeq": 29,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "X7TrTINuEQ",
+              "type": "stroke",
+              "seq": 29,
+              "serverSeq": 30,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "blKfPS-SCC",
+              "type": "stroke",
+              "seq": 30,
+              "serverSeq": 31,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "a-q7Mh1EAM",
+              "type": "stroke",
+              "seq": 31,
+              "serverSeq": 32,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "AiLMmmD5ef",
+              "type": "stroke",
+              "seq": 32,
+              "serverSeq": 33,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "6QGYGUQOtH",
+              "type": "stroke",
+              "seq": 33,
+              "serverSeq": 34,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "H_VScnDwQl",
+              "type": "stroke",
+              "seq": 34,
+              "serverSeq": 35,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "0IVGUEn0A-",
+              "type": "stroke",
+              "seq": 35,
+              "serverSeq": 36,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "oAkBgegN4Q",
+              "type": "stroke",
+              "seq": 36,
+              "serverSeq": 37,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "DVFG7ot_Z1",
+              "type": "stroke",
+              "seq": 37,
+              "serverSeq": 38,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "XcAdgopSrN",
+              "type": "stroke",
+              "seq": 38,
+              "serverSeq": 39,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "9XRatyCU19",
+              "type": "stroke",
+              "seq": 39,
+              "serverSeq": 40,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "Wqz4oxmgRN",
+              "type": "stroke",
+              "seq": 40,
+              "serverSeq": 41,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "tztkXThL9M",
+              "type": "stroke",
+              "seq": 41,
+              "serverSeq": 42,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "5kPHz4z_K-",
+              "type": "stroke",
+              "seq": 42,
+              "serverSeq": 43,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "zOjWyDXeO9",
+              "type": "stroke",
+              "seq": 43,
+              "serverSeq": 44,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "pw2X0BGTJV",
+              "type": "stroke",
+              "seq": 44,
+              "serverSeq": 45,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "m_cJLMlzqY",
+              "type": "stroke",
+              "seq": 45,
+              "serverSeq": 46,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "d0mpIUrRdw",
+              "type": "stroke",
+              "seq": 46,
+              "serverSeq": 47,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "QfrOsuh-Fg",
+              "type": "stroke",
+              "seq": 47,
+              "serverSeq": 48,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "0P2eTYX6Fm",
+              "type": "stroke",
+              "seq": 48,
+              "serverSeq": 49,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "V5vH1ZBze4",
+              "type": "stroke",
+              "seq": 49,
+              "serverSeq": 50,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            }
+          ],
+          "effectiveIds": [
+            "0mjqzhJvkN",
+            "0fuz3PGd9X",
+            "K2UEsRRc53",
+            "5h5pAUHVX6",
+            "YZwPs8QfNO",
+            "GVt2M1Cbx3",
+            "nvWrDC7ejS",
+            "OwkJ-prrVm",
+            "_GucOibsal",
+            "9hLv0D_wxH",
+            "QLwuCuc3aH",
+            "pE3peiBYCb",
+            "mz2-swKwT8",
+            "BsAkhEIlVM",
+            "16Ghx4VUtq",
+            "xw3O8RNFx9",
+            "qUA_RAkGP0",
+            "gAnq7Mh44A",
+            "D01R-AegWf",
+            "HEolm1QCn_",
+            "kxjHAQimYb",
+            "yw-Ay_hSit",
+            "IBxeecmlaF",
+            "bBYvNo85T4",
+            "YpkUvBVlOP",
+            "zmDcEfbvae",
+            "QwtOLdFdBu",
+            "M5nbR-X1HG",
+            "lUPefSjDsb",
+            "X7TrTINuEQ",
+            "blKfPS-SCC",
+            "a-q7Mh1EAM",
+            "AiLMmmD5ef",
+            "6QGYGUQOtH",
+            "H_VScnDwQl",
+            "0IVGUEn0A-",
+            "oAkBgegN4Q",
+            "DVFG7ot_Z1",
+            "XcAdgopSrN",
+            "9XRatyCU19",
+            "Wqz4oxmgRN",
+            "tztkXThL9M",
+            "5kPHz4z_K-",
+            "zOjWyDXeO9",
+            "pw2X0BGTJV",
+            "m_cJLMlzqY",
+            "d0mpIUrRdw",
+            "QfrOsuh-Fg",
+            "0P2eTYX6Fm",
+            "V5vH1ZBze4"
+          ],
+          "coverage": [],
+          "checkpoints": [],
+          "best": null,
+          "queue": 0,
+          "jobs": 0,
+          "pendingRebuilds": 0,
+          "unsettled": []
+        }
+      ],
+      "errors": [],
+      "synchronousErrors": [
+        [],
+        []
+      ],
+      "settleStarts": [
+        [],
+        []
+      ]
+    },
+    {
+      "foreignStrokes": 1,
+      "pass": false,
+      "spec": {
+        "prefix": 51,
+        "authors": 2,
+        "prefixDabs": 0,
+        "prefixInput": "manual engine pointer callbacks",
+        "blue": [
+          0.1,
+          0.25,
+          0.8
+        ],
+        "size": 32,
+        "water": 0.95,
+        "pigment": 0.34,
+        "moves": 4,
+        "deltaX": 4,
+        "lastRed": {
+          "x": 650,
+          "y": 650
+        },
+        "newGesture": {
+          "input": "trusted CDP pen",
+          "moves": 4,
+          "deltaXCSS": 3,
+          "force": 0.75
+        },
+        "DPR": 1.5,
+        "hasTouch": true,
+        "authorCounts": [
+          50,
+          1
+        ]
+      },
+      "specSHA": "cbb47151396a3d157473f2ca649404cda0b2593a6ef4f1b439ed5e6def42a31e",
+      "authoritativeJournal": {
+        "operations": 51,
+        "sha": "3b0721ac59c4ce00fb8c50b860a08c6cb1f025a27f97caa698ea93b687cb6d65",
+        "opContentsHash": "3d5fa4497ae9d88db35ceb8395e7a876f0f7b07f30b96e2bd1e1b0d1c8e0516a",
+        "localPayloadsEqual": [
+          true,
+          true
+        ]
+      },
+      "prefixGoals": [
+        {
+          "readMs": 5.9000000059604645,
+          "bytes": 4194304,
+          "canonicalHash": "9ddaaa0e6249b0a5837d839095772eb595b1b31db774a037c4f11d2d46f538b7",
+          "oracleHash": "9e7322646d33682760da016933e197d272286d7210b56b37dc5adbddd20bcebd",
+          "changed": 5390,
+          "max": 37,
+          "glError": 0
+        },
+        {
+          "readMs": 5.4000000059604645,
+          "bytes": 4194304,
+          "canonicalHash": "9e7322646d33682760da016933e197d272286d7210b56b37dc5adbddd20bcebd",
+          "oracleHash": "9e7322646d33682760da016933e197d272286d7210b56b37dc5adbddd20bcebd",
+          "changed": 0,
+          "max": 0,
+          "glError": 0
+        }
+      ],
+      "prefixPhysical": [
+        {
+          "opContentsHash": "3d5fa4497ae9d88db35ceb8395e7a876f0f7b07f30b96e2bd1e1b0d1c8e0516a",
+          "layer": "layer-1",
+          "tiles": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "hash": "3ced0491993a47def3d330415b8f9be8e67625baaf06065e85501e46bca5ae53",
+              "nonzeroAlpha": 1955
+            }
+          ],
+          "raw": {
+            "fields": {
+              "original": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "f391eeb6f936c7c1a5dfa119c57fd200c6d421d69542ec092152ea8347ffdbc7"
+              },
+              "coverage": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "21f8c9acad3411db44ec208578fe7e31c46eab6075f6f76fe2d1522f63d6ec98"
+              },
+              "inkLoad": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "35211d8cf15f866c0b1785bfb2ba6b3522ad311fdf959ff65abcb77a392eabd4"
+              },
+              "inkSettled": null,
+              "inkColor": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "211bc35fa5e973925789acd135a35326b75ab96e02df47b5c10750f76c62fb93"
+              },
+              "colorSettled": null,
+              "inkDry": null,
+              "colorDry": null,
+              "solventLoad": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "7424110c615cbad330cddfc32c5eb05c2369df7e42d481ed05bb68b106b51445"
+              },
+              "foreignSolventLoad": null
+            },
+            "goal": "9597e9e065c6560cdd2096936a0232eee6fbf3f9351c930fde3f4997669f41eb",
+            "scalar": {
+              "waterUsed": 0,
+              "pigmentUsed": 3.026044733311124,
+              "pigmentInputsKnownZero": false,
+              "gesture": 86,
+              "materialGesture": 86,
+              "finishModel": "m70-r2-v1"
+            }
+          },
+          "actualPhysicalBeforeAnyOracle": true,
+          "state": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 3,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 43,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "hasSettle": false,
+          "cache": false,
+          "hidden": false,
+          "log": [
+            {
+              "id": "SOW1CpAQCI",
+              "type": "stroke",
+              "seq": 0,
+              "serverSeq": 1,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "TUoE4pfBuR",
+              "type": "stroke",
+              "seq": 1,
+              "serverSeq": 2,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "Q3fMYKgqXZ",
+              "type": "stroke",
+              "seq": 2,
+              "serverSeq": 3,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "nfKxWIRuqU",
+              "type": "stroke",
+              "seq": 3,
+              "serverSeq": 4,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "ysb_wQdWMv",
+              "type": "stroke",
+              "seq": 4,
+              "serverSeq": 5,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "rcKdhOfknx",
+              "type": "stroke",
+              "seq": 5,
+              "serverSeq": 6,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "J786mHEQy2",
+              "type": "stroke",
+              "seq": 6,
+              "serverSeq": 7,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "5YkDviMF-2",
+              "type": "stroke",
+              "seq": 7,
+              "serverSeq": 8,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "qYWDBwCTi4",
+              "type": "stroke",
+              "seq": 8,
+              "serverSeq": 9,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "8VC6qxggyy",
+              "type": "stroke",
+              "seq": 9,
+              "serverSeq": 10,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "s7ppKmGL_x",
+              "type": "stroke",
+              "seq": 10,
+              "serverSeq": 11,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "gdX_VmYet6",
+              "type": "stroke",
+              "seq": 11,
+              "serverSeq": 12,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "lpVKxVabx2",
+              "type": "stroke",
+              "seq": 12,
+              "serverSeq": 13,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "yuJ7z3Xpgn",
+              "type": "stroke",
+              "seq": 13,
+              "serverSeq": 14,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "XyrOWlBCBM",
+              "type": "stroke",
+              "seq": 14,
+              "serverSeq": 15,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "ky508Yejv8",
+              "type": "stroke",
+              "seq": 15,
+              "serverSeq": 16,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "Qgn31x5f75",
+              "type": "stroke",
+              "seq": 16,
+              "serverSeq": 17,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "Crpt0T84-r",
+              "type": "stroke",
+              "seq": 17,
+              "serverSeq": 18,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "X0UFXgIwmH",
+              "type": "stroke",
+              "seq": 18,
+              "serverSeq": 19,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "AQmyyagVi7",
+              "type": "stroke",
+              "seq": 19,
+              "serverSeq": 20,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "pI1DcM7c6N",
+              "type": "stroke",
+              "seq": 20,
+              "serverSeq": 21,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "p42PcrBppq",
+              "type": "stroke",
+              "seq": 21,
+              "serverSeq": 22,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "U3jZhYtYQT",
+              "type": "stroke",
+              "seq": 22,
+              "serverSeq": 23,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "u04sjHSoya",
+              "type": "stroke",
+              "seq": 23,
+              "serverSeq": 24,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "IIGhT74fjz",
+              "type": "stroke",
+              "seq": 24,
+              "serverSeq": 25,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "VLcvH6OQhv",
+              "type": "stroke",
+              "seq": 25,
+              "serverSeq": 26,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "w3ys57ObW9",
+              "type": "stroke",
+              "seq": 26,
+              "serverSeq": 27,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "w0Bha-i_8n",
+              "type": "stroke",
+              "seq": 27,
+              "serverSeq": 28,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "RxR58rFXDK",
+              "type": "stroke",
+              "seq": 28,
+              "serverSeq": 29,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "qNjaJFECmV",
+              "type": "stroke",
+              "seq": 29,
+              "serverSeq": 30,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "NJ9gncg4KO",
+              "type": "stroke",
+              "seq": 30,
+              "serverSeq": 31,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "yJ4geahuIN",
+              "type": "stroke",
+              "seq": 31,
+              "serverSeq": 32,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "ylitLfGpUJ",
+              "type": "stroke",
+              "seq": 32,
+              "serverSeq": 33,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "irS2JJo1E_",
+              "type": "stroke",
+              "seq": 33,
+              "serverSeq": 34,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "k8FbPWqrKB",
+              "type": "stroke",
+              "seq": 34,
+              "serverSeq": 35,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "45lsS1GIaT",
+              "type": "stroke",
+              "seq": 35,
+              "serverSeq": 36,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "BfLq70mpuq",
+              "type": "stroke",
+              "seq": 36,
+              "serverSeq": 37,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "jPwftDjXOT",
+              "type": "stroke",
+              "seq": 37,
+              "serverSeq": 38,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "AVubJiD2no",
+              "type": "stroke",
+              "seq": 38,
+              "serverSeq": 39,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "9OTBq2J8sL",
+              "type": "stroke",
+              "seq": 39,
+              "serverSeq": 40,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "atNto-f-yX",
+              "type": "stroke",
+              "seq": 40,
+              "serverSeq": 41,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "_RAe28K45N",
+              "type": "stroke",
+              "seq": 41,
+              "serverSeq": 42,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "cvjp7_8NKH",
+              "type": "stroke",
+              "seq": 42,
+              "serverSeq": 43,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "Afu7k-fBSz",
+              "type": "stroke",
+              "seq": 43,
+              "serverSeq": 44,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "QUh0sJOYkO",
+              "type": "stroke",
+              "seq": 44,
+              "serverSeq": 45,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "S8qauaU4v3",
+              "type": "stroke",
+              "seq": 45,
+              "serverSeq": 46,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "TcdD-Anz3m",
+              "type": "stroke",
+              "seq": 46,
+              "serverSeq": 47,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "ZuVwxD36X8",
+              "type": "stroke",
+              "seq": 47,
+              "serverSeq": 48,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "7oUnLsqgce",
+              "type": "stroke",
+              "seq": 48,
+              "serverSeq": 49,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "1EVEKB5AJT",
+              "type": "stroke",
+              "seq": 49,
+              "serverSeq": 50,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "quiFMTqyXB",
+              "type": "stroke",
+              "seq": 50,
+              "serverSeq": 51,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            }
+          ],
+          "effectiveIds": [
+            "SOW1CpAQCI",
+            "TUoE4pfBuR",
+            "Q3fMYKgqXZ",
+            "nfKxWIRuqU",
+            "ysb_wQdWMv",
+            "rcKdhOfknx",
+            "J786mHEQy2",
+            "5YkDviMF-2",
+            "qYWDBwCTi4",
+            "8VC6qxggyy",
+            "s7ppKmGL_x",
+            "gdX_VmYet6",
+            "lpVKxVabx2",
+            "yuJ7z3Xpgn",
+            "XyrOWlBCBM",
+            "ky508Yejv8",
+            "Qgn31x5f75",
+            "Crpt0T84-r",
+            "X0UFXgIwmH",
+            "AQmyyagVi7",
+            "pI1DcM7c6N",
+            "p42PcrBppq",
+            "U3jZhYtYQT",
+            "u04sjHSoya",
+            "IIGhT74fjz",
+            "VLcvH6OQhv",
+            "w3ys57ObW9",
+            "w0Bha-i_8n",
+            "RxR58rFXDK",
+            "qNjaJFECmV",
+            "NJ9gncg4KO",
+            "yJ4geahuIN",
+            "ylitLfGpUJ",
+            "irS2JJo1E_",
+            "k8FbPWqrKB",
+            "45lsS1GIaT",
+            "BfLq70mpuq",
+            "jPwftDjXOT",
+            "AVubJiD2no",
+            "9OTBq2J8sL",
+            "atNto-f-yX",
+            "_RAe28K45N",
+            "cvjp7_8NKH",
+            "Afu7k-fBSz",
+            "QUh0sJOYkO",
+            "S8qauaU4v3",
+            "TcdD-Anz3m",
+            "ZuVwxD36X8",
+            "7oUnLsqgce",
+            "1EVEKB5AJT",
+            "quiFMTqyXB"
+          ],
+          "coverage": [],
+          "checkpoints": [
+            {
+              "layer": "layer-1",
+              "opIds": [
+                "SOW1CpAQCI",
+                "TUoE4pfBuR",
+                "Q3fMYKgqXZ",
+                "nfKxWIRuqU",
+                "ysb_wQdWMv",
+                "rcKdhOfknx",
+                "J786mHEQy2",
+                "5YkDviMF-2"
+              ],
+              "covered": [],
+              "canonicalValidPresent": false
+            }
+          ],
+          "best": {
+            "start": 8,
+            "layer": "layer-1"
+          },
+          "queue": 0,
+          "jobs": 0,
+          "pendingRebuilds": 0,
+          "unsettled": []
+        },
+        {
+          "opContentsHash": "3d5fa4497ae9d88db35ceb8395e7a876f0f7b07f30b96e2bd1e1b0d1c8e0516a",
+          "layer": "layer-1",
+          "tiles": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "hash": "d218c6f94a5c17577353130b0dbb068fc49964b0d53195fa3e10efc565fce12b",
+              "nonzeroAlpha": 1956
+            }
+          ],
+          "raw": {
+            "fields": {
+              "original": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+              },
+              "coverage": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "99ec7c1da7311826176e1665dab186debbb36e729ccdb05faabdc3ecb2958623"
+              },
+              "inkLoad": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "c765b5eadb22f64c96ce266ee697dfb625ff439130c36d78ea8ba9147e9056b0"
+              },
+              "inkSettled": null,
+              "inkColor": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "b7dcdeb6b8e9ee5aad371ab76a4908812f9f622f2f76a33fd88b541a9b7244c7"
+              },
+              "colorSettled": null,
+              "inkDry": null,
+              "colorDry": null,
+              "solventLoad": {
+                "w": 1024,
+                "h": 1024,
+                "hash": "3d04bb400b7fadd61ffa0f8223708a9e59ea1df2f4af04898fb22d07fccde660"
+              },
+              "foreignSolventLoad": null
+            },
+            "goal": "4f64d0b34fe936239a751c76893fafc87a6f710e144fcb09e1c7c8bb4066ec4b",
+            "scalar": {
+              "waterUsed": 0,
+              "pigmentUsed": 3.026044733311124,
+              "pigmentInputsKnownZero": false,
+              "gesture": 102,
+              "materialGesture": 102,
+              "finishModel": "m70-r2-v1"
+            }
+          },
+          "actualPhysicalBeforeAnyOracle": true,
+          "state": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 3,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 51,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "hasSettle": false,
+          "cache": false,
+          "hidden": false,
+          "log": [
+            {
+              "id": "SOW1CpAQCI",
+              "type": "stroke",
+              "seq": 0,
+              "serverSeq": 1,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "TUoE4pfBuR",
+              "type": "stroke",
+              "seq": 1,
+              "serverSeq": 2,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "Q3fMYKgqXZ",
+              "type": "stroke",
+              "seq": 2,
+              "serverSeq": 3,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "nfKxWIRuqU",
+              "type": "stroke",
+              "seq": 3,
+              "serverSeq": 4,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "ysb_wQdWMv",
+              "type": "stroke",
+              "seq": 4,
+              "serverSeq": 5,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "rcKdhOfknx",
+              "type": "stroke",
+              "seq": 5,
+              "serverSeq": 6,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "J786mHEQy2",
+              "type": "stroke",
+              "seq": 6,
+              "serverSeq": 7,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "5YkDviMF-2",
+              "type": "stroke",
+              "seq": 7,
+              "serverSeq": 8,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "qYWDBwCTi4",
+              "type": "stroke",
+              "seq": 8,
+              "serverSeq": 9,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "8VC6qxggyy",
+              "type": "stroke",
+              "seq": 9,
+              "serverSeq": 10,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "s7ppKmGL_x",
+              "type": "stroke",
+              "seq": 10,
+              "serverSeq": 11,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "gdX_VmYet6",
+              "type": "stroke",
+              "seq": 11,
+              "serverSeq": 12,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "lpVKxVabx2",
+              "type": "stroke",
+              "seq": 12,
+              "serverSeq": 13,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "yuJ7z3Xpgn",
+              "type": "stroke",
+              "seq": 13,
+              "serverSeq": 14,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "XyrOWlBCBM",
+              "type": "stroke",
+              "seq": 14,
+              "serverSeq": 15,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "ky508Yejv8",
+              "type": "stroke",
+              "seq": 15,
+              "serverSeq": 16,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "Qgn31x5f75",
+              "type": "stroke",
+              "seq": 16,
+              "serverSeq": 17,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "Crpt0T84-r",
+              "type": "stroke",
+              "seq": 17,
+              "serverSeq": 18,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "X0UFXgIwmH",
+              "type": "stroke",
+              "seq": 18,
+              "serverSeq": 19,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "AQmyyagVi7",
+              "type": "stroke",
+              "seq": 19,
+              "serverSeq": 20,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "pI1DcM7c6N",
+              "type": "stroke",
+              "seq": 20,
+              "serverSeq": 21,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "p42PcrBppq",
+              "type": "stroke",
+              "seq": 21,
+              "serverSeq": 22,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "U3jZhYtYQT",
+              "type": "stroke",
+              "seq": 22,
+              "serverSeq": 23,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "u04sjHSoya",
+              "type": "stroke",
+              "seq": 23,
+              "serverSeq": 24,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "IIGhT74fjz",
+              "type": "stroke",
+              "seq": 24,
+              "serverSeq": 25,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "VLcvH6OQhv",
+              "type": "stroke",
+              "seq": 25,
+              "serverSeq": 26,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "w3ys57ObW9",
+              "type": "stroke",
+              "seq": 26,
+              "serverSeq": 27,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "w0Bha-i_8n",
+              "type": "stroke",
+              "seq": 27,
+              "serverSeq": 28,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "RxR58rFXDK",
+              "type": "stroke",
+              "seq": 28,
+              "serverSeq": 29,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "qNjaJFECmV",
+              "type": "stroke",
+              "seq": 29,
+              "serverSeq": 30,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "NJ9gncg4KO",
+              "type": "stroke",
+              "seq": 30,
+              "serverSeq": 31,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "yJ4geahuIN",
+              "type": "stroke",
+              "seq": 31,
+              "serverSeq": 32,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "ylitLfGpUJ",
+              "type": "stroke",
+              "seq": 32,
+              "serverSeq": 33,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "irS2JJo1E_",
+              "type": "stroke",
+              "seq": 33,
+              "serverSeq": 34,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "k8FbPWqrKB",
+              "type": "stroke",
+              "seq": 34,
+              "serverSeq": 35,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "45lsS1GIaT",
+              "type": "stroke",
+              "seq": 35,
+              "serverSeq": 36,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "BfLq70mpuq",
+              "type": "stroke",
+              "seq": 36,
+              "serverSeq": 37,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "jPwftDjXOT",
+              "type": "stroke",
+              "seq": 37,
+              "serverSeq": 38,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "AVubJiD2no",
+              "type": "stroke",
+              "seq": 38,
+              "serverSeq": 39,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "9OTBq2J8sL",
+              "type": "stroke",
+              "seq": 39,
+              "serverSeq": 40,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "atNto-f-yX",
+              "type": "stroke",
+              "seq": 40,
+              "serverSeq": 41,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "_RAe28K45N",
+              "type": "stroke",
+              "seq": 41,
+              "serverSeq": 42,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "cvjp7_8NKH",
+              "type": "stroke",
+              "seq": 42,
+              "serverSeq": 43,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "Afu7k-fBSz",
+              "type": "stroke",
+              "seq": 43,
+              "serverSeq": 44,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "QUh0sJOYkO",
+              "type": "stroke",
+              "seq": 44,
+              "serverSeq": 45,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "S8qauaU4v3",
+              "type": "stroke",
+              "seq": 45,
+              "serverSeq": 46,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "TcdD-Anz3m",
+              "type": "stroke",
+              "seq": 46,
+              "serverSeq": 47,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "ZuVwxD36X8",
+              "type": "stroke",
+              "seq": 47,
+              "serverSeq": 48,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "7oUnLsqgce",
+              "type": "stroke",
+              "seq": 48,
+              "serverSeq": 49,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "1EVEKB5AJT",
+              "type": "stroke",
+              "seq": 49,
+              "serverSeq": 50,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            },
+            {
+              "id": "quiFMTqyXB",
+              "type": "stroke",
+              "seq": 50,
+              "serverSeq": 51,
+              "state": "done",
+              "pending": false,
+              "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "covered": false
+            }
+          ],
+          "effectiveIds": [
+            "SOW1CpAQCI",
+            "TUoE4pfBuR",
+            "Q3fMYKgqXZ",
+            "nfKxWIRuqU",
+            "ysb_wQdWMv",
+            "rcKdhOfknx",
+            "J786mHEQy2",
+            "5YkDviMF-2",
+            "qYWDBwCTi4",
+            "8VC6qxggyy",
+            "s7ppKmGL_x",
+            "gdX_VmYet6",
+            "lpVKxVabx2",
+            "yuJ7z3Xpgn",
+            "XyrOWlBCBM",
+            "ky508Yejv8",
+            "Qgn31x5f75",
+            "Crpt0T84-r",
+            "X0UFXgIwmH",
+            "AQmyyagVi7",
+            "pI1DcM7c6N",
+            "p42PcrBppq",
+            "U3jZhYtYQT",
+            "u04sjHSoya",
+            "IIGhT74fjz",
+            "VLcvH6OQhv",
+            "w3ys57ObW9",
+            "w0Bha-i_8n",
+            "RxR58rFXDK",
+            "qNjaJFECmV",
+            "NJ9gncg4KO",
+            "yJ4geahuIN",
+            "ylitLfGpUJ",
+            "irS2JJo1E_",
+            "k8FbPWqrKB",
+            "45lsS1GIaT",
+            "BfLq70mpuq",
+            "jPwftDjXOT",
+            "AVubJiD2no",
+            "9OTBq2J8sL",
+            "atNto-f-yX",
+            "_RAe28K45N",
+            "cvjp7_8NKH",
+            "Afu7k-fBSz",
+            "QUh0sJOYkO",
+            "S8qauaU4v3",
+            "TcdD-Anz3m",
+            "ZuVwxD36X8",
+            "7oUnLsqgce",
+            "1EVEKB5AJT",
+            "quiFMTqyXB"
+          ],
+          "coverage": [],
+          "checkpoints": [],
+          "best": null,
+          "queue": 0,
+          "jobs": 0,
+          "pendingRebuilds": 0,
+          "unsettled": []
+        }
+      ],
+      "errors": [],
+      "synchronousErrors": [
+        [],
+        []
+      ],
+      "settleStarts": [
+        [],
+        []
+      ]
+    }
+  ],
+  "qualification": "Canonical goal material parity, actual resident raster hash and raw/source goal hashes captured before any oracle. Wet animated physical raster is not required to equal dry goal. Full operation content hash ignores only seq; ordered IDs/causal state also retained. CP8 causality remains hypothesis pending isolated admission counterexample.",
+  "foreignOrderingB1": {
+    "operationId": "s7ppKmGL_x",
+    "serverSeq": 11,
+    "ownBefore": 10,
+    "ownAfter": 40,
+    "checkpointOpIdsEqualFirst8ServerIds": true
+  },
+  "additionalCutB8": {
+    "source": "e8e1f005",
+    "prefixOnly": true,
+    "settleTrace": true,
+    "traceDiagnostic": true,
+    "enabled": false,
+    "scope": "Open wet Undo prototype cost; actual trusted pen event + natural screen-cache ROI; no forced presentation",
+    "errors": [],
+    "identity": [
+      {
+        "page": {
+          "w": 1024,
+          "h": 1024
+        },
+        "DPR": 1.5,
+        "touch": 1,
+        "budget": "Infinity",
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "prototypeField": true
+      },
+      {
+        "page": {
+          "w": 1024,
+          "h": 1024
+        },
+        "DPR": 1.5,
+        "touch": 1,
+        "budget": "Infinity",
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "prototypeField": true
+      }
+    ],
+    "spec": {
+      "prefix": 58,
+      "authors": 2,
+      "prefixDabs": 0,
+      "prefixInput": "manual engine pointer callbacks",
+      "blue": [
+        0.1,
+        0.25,
+        0.8
+      ],
+      "size": 32,
+      "water": 0.95,
+      "pigment": 0.34,
+      "moves": 4,
+      "deltaX": 4,
+      "lastRed": {
+        "x": 650,
+        "y": 650
+      },
+      "newGesture": {
+        "input": "trusted CDP pen",
+        "moves": 4,
+        "deltaXCSS": 3,
+        "force": 0.75
+      },
+      "DPR": 1.5,
+      "hasTouch": true,
+      "authorCounts": [
+        50,
+        8
+      ]
+    },
+    "specSHA": "1a509a5b90c291cecedb6c97006d19e0e0ef8bc87f98b61cce2ba45bfd3ce704",
+    "prefixPhysical": [
+      {
+        "opContentsHash": "9573e08f156f23073cce06bc146ce15fda7df1ec2383901d293d60770b2bab58",
+        "layer": "layer-1",
+        "tiles": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "679967605a1e03d15994313838d5580297fc9adf21204ce9930d9242322b28c7",
+            "nonzeroAlpha": 1956
+          }
+        ],
+        "raw": {
+          "fields": {
+            "original": {
+              "w": 1024,
+              "h": 1024,
+              "hash": "8467c78ac0f457c14bd1c656bfd80ae5e44b0f8ba4e1121df8c8986b00befa3e"
+            },
+            "coverage": {
+              "w": 1024,
+              "h": 1024,
+              "hash": "7bd182f1a0463e208e3a7352477a9ac56167da3596098876287277f9de5b0cb7"
+            },
+            "inkLoad": {
+              "w": 1024,
+              "h": 1024,
+              "hash": "63dcc6de995ce0bbb94d15b339e2ca6749699f9379ced9dba5853449f89c40bd"
+            },
+            "inkSettled": null,
+            "inkColor": {
+              "w": 1024,
+              "h": 1024,
+              "hash": "9998857c8918a14a64710370e6360ec1bf39ad5e1856aea7023c563f017b369e"
+            },
+            "colorSettled": null,
+            "inkDry": null,
+            "colorDry": null,
+            "solventLoad": {
+              "w": 1024,
+              "h": 1024,
+              "hash": "c06d49ca94ee1d5efbada7764a4a1ab8bb1e3f6cf0e81296c45e48b745721871"
+            },
+            "foreignSolventLoad": null
+          },
+          "goal": "80d21af558c5de67d54c83bd76508ec989532cbe85cf151414a51be503b2d217",
+          "scalar": {
+            "waterUsed": 0,
+            "pigmentUsed": 3.0260448714621777,
+            "pigmentInputsKnownZero": false,
+            "gesture": 100,
+            "materialGesture": 100,
+            "finishModel": "m70-r2-v1"
+          }
+        },
+        "actualPhysicalBeforeAnyOracle": true,
+        "state": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 1,
+          "residentLayers": 1,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 1,
+          "computations": 3,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 50,
+              "ready": true,
+              "active": true
+            }
+          ]
+        },
+        "hasSettle": false,
+        "cache": false,
+        "hidden": false,
+        "log": [
+          {
+            "id": "CljSDMiW9v",
+            "type": "stroke",
+            "seq": 0,
+            "serverSeq": 1,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "0A9V7Wvdvs",
+            "type": "stroke",
+            "seq": 1,
+            "serverSeq": 2,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "mEDE1ki_xI",
+            "type": "stroke",
+            "seq": 2,
+            "serverSeq": 3,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "IMl9tPGjuD",
+            "type": "stroke",
+            "seq": 3,
+            "serverSeq": 4,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "JFnbaFt5Q9",
+            "type": "stroke",
+            "seq": 4,
+            "serverSeq": 5,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "DAeLgSuVoW",
+            "type": "stroke",
+            "seq": 5,
+            "serverSeq": 6,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "vq3NCbj__1",
+            "type": "stroke",
+            "seq": 6,
+            "serverSeq": 7,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "zTNNfWvtRy",
+            "type": "stroke",
+            "seq": 7,
+            "serverSeq": 8,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "7M-zEEC1Cs",
+            "type": "stroke",
+            "seq": 8,
+            "serverSeq": 9,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "KaPC5ytMBd",
+            "type": "stroke",
+            "seq": 9,
+            "serverSeq": 10,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "GDAplBs34S",
+            "type": "stroke",
+            "seq": 10,
+            "serverSeq": 11,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "PvYuL6Gp6u",
+            "type": "stroke",
+            "seq": 11,
+            "serverSeq": 12,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "S0L0lYlfuc",
+            "type": "stroke",
+            "seq": 12,
+            "serverSeq": 13,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "Hht3KVgbMk",
+            "type": "stroke",
+            "seq": 13,
+            "serverSeq": 14,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "kJI4-b0mkX",
+            "type": "stroke",
+            "seq": 14,
+            "serverSeq": 15,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "NAZ9xeYoem",
+            "type": "stroke",
+            "seq": 15,
+            "serverSeq": 16,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "3gDH_BkBmm",
+            "type": "stroke",
+            "seq": 16,
+            "serverSeq": 17,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "xIhUuvSMre",
+            "type": "stroke",
+            "seq": 17,
+            "serverSeq": 18,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "4m6SUNGggE",
+            "type": "stroke",
+            "seq": 18,
+            "serverSeq": 19,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "-wZKmCuUpB",
+            "type": "stroke",
+            "seq": 19,
+            "serverSeq": 20,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "0GLqXDaaV8",
+            "type": "stroke",
+            "seq": 20,
+            "serverSeq": 21,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "H3WBXTTTT0",
+            "type": "stroke",
+            "seq": 21,
+            "serverSeq": 22,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "3oTVsygVdb",
+            "type": "stroke",
+            "seq": 22,
+            "serverSeq": 23,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "1eOyEEuzZB",
+            "type": "stroke",
+            "seq": 23,
+            "serverSeq": 24,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "Z9cRgjAZMV",
+            "type": "stroke",
+            "seq": 24,
+            "serverSeq": 25,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "KWSPIpE2bj",
+            "type": "stroke",
+            "seq": 25,
+            "serverSeq": 26,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "ql8GtBq3B6",
+            "type": "stroke",
+            "seq": 26,
+            "serverSeq": 27,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "TiGI_UW9Xv",
+            "type": "stroke",
+            "seq": 27,
+            "serverSeq": 28,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "ixvbfqmRss",
+            "type": "stroke",
+            "seq": 28,
+            "serverSeq": 29,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "-c6ZWDahZQ",
+            "type": "stroke",
+            "seq": 29,
+            "serverSeq": 30,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "rkNqG1JB27",
+            "type": "stroke",
+            "seq": 30,
+            "serverSeq": 31,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "XOMMFeMgPd",
+            "type": "stroke",
+            "seq": 31,
+            "serverSeq": 32,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "nQJITVWaxt",
+            "type": "stroke",
+            "seq": 32,
+            "serverSeq": 33,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "z-qY6_a7is",
+            "type": "stroke",
+            "seq": 33,
+            "serverSeq": 34,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "4dEb5KGk2m",
+            "type": "stroke",
+            "seq": 34,
+            "serverSeq": 35,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "mdPhYWmKgh",
+            "type": "stroke",
+            "seq": 35,
+            "serverSeq": 36,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "AOrv9Xu8I5",
+            "type": "stroke",
+            "seq": 36,
+            "serverSeq": 37,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "7L_fOBCFtD",
+            "type": "stroke",
+            "seq": 37,
+            "serverSeq": 38,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "_dg_5mp3Ex",
+            "type": "stroke",
+            "seq": 38,
+            "serverSeq": 39,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "W86N8hxxje",
+            "type": "stroke",
+            "seq": 39,
+            "serverSeq": 40,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "tT72Bl38q4",
+            "type": "stroke",
+            "seq": 40,
+            "serverSeq": 41,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "pRL0lwVhYr",
+            "type": "stroke",
+            "seq": 41,
+            "serverSeq": 42,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "Xy87pMvokq",
+            "type": "stroke",
+            "seq": 42,
+            "serverSeq": 43,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "vl9r3zol_r",
+            "type": "stroke",
+            "seq": 43,
+            "serverSeq": 44,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "P3gOrTzMeq",
+            "type": "stroke",
+            "seq": 44,
+            "serverSeq": 45,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "HJ408OQnNG",
+            "type": "stroke",
+            "seq": 45,
+            "serverSeq": 46,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "ZnOimscvRP",
+            "type": "stroke",
+            "seq": 46,
+            "serverSeq": 47,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "yWb6dUrzS3",
+            "type": "stroke",
+            "seq": 47,
+            "serverSeq": 48,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "t6MV0iagXN",
+            "type": "stroke",
+            "seq": 48,
+            "serverSeq": 49,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "1xalsACAv9",
+            "type": "stroke",
+            "seq": 49,
+            "serverSeq": 50,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "pWbU0-nOaB",
+            "type": "stroke",
+            "seq": 50,
+            "serverSeq": 51,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "zR36-w5baS",
+            "type": "stroke",
+            "seq": 51,
+            "serverSeq": 52,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "0pXHAF9JDb",
+            "type": "stroke",
+            "seq": 52,
+            "serverSeq": 53,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "3vdOtgGdrU",
+            "type": "stroke",
+            "seq": 53,
+            "serverSeq": 54,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "kaXLX-W-wK",
+            "type": "stroke",
+            "seq": 54,
+            "serverSeq": 55,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "KDgdlr2Evz",
+            "type": "stroke",
+            "seq": 55,
+            "serverSeq": 56,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "DFMH5cvNUb",
+            "type": "stroke",
+            "seq": 56,
+            "serverSeq": 57,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "BWNIVzUnDl",
+            "type": "stroke",
+            "seq": 57,
+            "serverSeq": 58,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          }
+        ],
+        "effectiveIds": [
+          "CljSDMiW9v",
+          "0A9V7Wvdvs",
+          "mEDE1ki_xI",
+          "IMl9tPGjuD",
+          "JFnbaFt5Q9",
+          "DAeLgSuVoW",
+          "vq3NCbj__1",
+          "zTNNfWvtRy",
+          "7M-zEEC1Cs",
+          "KaPC5ytMBd",
+          "GDAplBs34S",
+          "PvYuL6Gp6u",
+          "S0L0lYlfuc",
+          "Hht3KVgbMk",
+          "kJI4-b0mkX",
+          "NAZ9xeYoem",
+          "3gDH_BkBmm",
+          "xIhUuvSMre",
+          "4m6SUNGggE",
+          "-wZKmCuUpB",
+          "0GLqXDaaV8",
+          "H3WBXTTTT0",
+          "3oTVsygVdb",
+          "1eOyEEuzZB",
+          "Z9cRgjAZMV",
+          "KWSPIpE2bj",
+          "ql8GtBq3B6",
+          "TiGI_UW9Xv",
+          "ixvbfqmRss",
+          "-c6ZWDahZQ",
+          "rkNqG1JB27",
+          "XOMMFeMgPd",
+          "nQJITVWaxt",
+          "z-qY6_a7is",
+          "4dEb5KGk2m",
+          "mdPhYWmKgh",
+          "AOrv9Xu8I5",
+          "7L_fOBCFtD",
+          "_dg_5mp3Ex",
+          "W86N8hxxje",
+          "tT72Bl38q4",
+          "pRL0lwVhYr",
+          "Xy87pMvokq",
+          "vl9r3zol_r",
+          "P3gOrTzMeq",
+          "HJ408OQnNG",
+          "ZnOimscvRP",
+          "yWb6dUrzS3",
+          "t6MV0iagXN",
+          "1xalsACAv9",
+          "pWbU0-nOaB",
+          "zR36-w5baS",
+          "0pXHAF9JDb",
+          "3vdOtgGdrU",
+          "kaXLX-W-wK",
+          "KDgdlr2Evz",
+          "DFMH5cvNUb",
+          "BWNIVzUnDl"
+        ],
+        "coverage": [],
+        "checkpoints": [
+          {
+            "layer": "layer-1",
+            "opIds": [
+              "CljSDMiW9v",
+              "0A9V7Wvdvs",
+              "mEDE1ki_xI",
+              "IMl9tPGjuD",
+              "JFnbaFt5Q9",
+              "DAeLgSuVoW",
+              "vq3NCbj__1",
+              "zTNNfWvtRy"
+            ],
+            "covered": [],
+            "canonicalValidPresent": false
+          }
+        ],
+        "best": {
+          "start": 8,
+          "layer": "layer-1"
+        },
+        "queue": 0,
+        "jobs": 0,
+        "pendingRebuilds": 0,
+        "unsettled": []
+      },
+      {
+        "opContentsHash": "9573e08f156f23073cce06bc146ce15fda7df1ec2383901d293d60770b2bab58",
+        "layer": "layer-1",
+        "tiles": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 1024,
+            "h": 1024,
+            "hash": "d4d962fa0244253785d478a412a6d32d0f6a5259318680b5f8f218a9c55747bb",
+            "nonzeroAlpha": 1956
+          }
+        ],
+        "raw": {
+          "fields": {
+            "original": {
+              "w": 1024,
+              "h": 1024,
+              "hash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            },
+            "coverage": {
+              "w": 1024,
+              "h": 1024,
+              "hash": "3b158ac2b8529f79a7d553420dd00f16e83d3e9c2c5af211e17d337f3a247dfa"
+            },
+            "inkLoad": {
+              "w": 1024,
+              "h": 1024,
+              "hash": "8e6d8991a94a16915ede54c1ef23d99d2bbcefd36019418f32c35dde4b531506"
+            },
+            "inkSettled": null,
+            "inkColor": {
+              "w": 1024,
+              "h": 1024,
+              "hash": "e359f0b69170311e881e4fcc8431f2aa84c9adb78d84036d47c8df4fb2dff325"
+            },
+            "colorSettled": null,
+            "inkDry": null,
+            "colorDry": null,
+            "solventLoad": {
+              "w": 1024,
+              "h": 1024,
+              "hash": "b7dc227d33ad57cc0b0a16ac3b84561153449a273a4d9330409876b179041bd8"
+            },
+            "foreignSolventLoad": null
+          },
+          "goal": "979cbe45acded39f57966891db21144d2d37d8ed40ad7b0eb2e3b3759b085ba7",
+          "scalar": {
+            "waterUsed": 0,
+            "pigmentUsed": 3.0260448714621777,
+            "pigmentInputsKnownZero": false,
+            "gesture": 116,
+            "materialGesture": 116,
+            "finishModel": "m70-r2-v1"
+          }
+        },
+        "actualPhysicalBeforeAnyOracle": true,
+        "state": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 1,
+          "residentLayers": 1,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 1,
+          "computations": 2,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 58,
+              "ready": true,
+              "active": true
+            }
+          ]
+        },
+        "hasSettle": false,
+        "cache": false,
+        "hidden": false,
+        "log": [
+          {
+            "id": "CljSDMiW9v",
+            "type": "stroke",
+            "seq": 0,
+            "serverSeq": 1,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "0A9V7Wvdvs",
+            "type": "stroke",
+            "seq": 1,
+            "serverSeq": 2,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "mEDE1ki_xI",
+            "type": "stroke",
+            "seq": 2,
+            "serverSeq": 3,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "IMl9tPGjuD",
+            "type": "stroke",
+            "seq": 3,
+            "serverSeq": 4,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "JFnbaFt5Q9",
+            "type": "stroke",
+            "seq": 4,
+            "serverSeq": 5,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "DAeLgSuVoW",
+            "type": "stroke",
+            "seq": 5,
+            "serverSeq": 6,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "vq3NCbj__1",
+            "type": "stroke",
+            "seq": 6,
+            "serverSeq": 7,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "zTNNfWvtRy",
+            "type": "stroke",
+            "seq": 7,
+            "serverSeq": 8,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "7M-zEEC1Cs",
+            "type": "stroke",
+            "seq": 8,
+            "serverSeq": 9,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "KaPC5ytMBd",
+            "type": "stroke",
+            "seq": 9,
+            "serverSeq": 10,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "GDAplBs34S",
+            "type": "stroke",
+            "seq": 10,
+            "serverSeq": 11,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "PvYuL6Gp6u",
+            "type": "stroke",
+            "seq": 11,
+            "serverSeq": 12,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "S0L0lYlfuc",
+            "type": "stroke",
+            "seq": 12,
+            "serverSeq": 13,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "Hht3KVgbMk",
+            "type": "stroke",
+            "seq": 13,
+            "serverSeq": 14,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "kJI4-b0mkX",
+            "type": "stroke",
+            "seq": 14,
+            "serverSeq": 15,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "NAZ9xeYoem",
+            "type": "stroke",
+            "seq": 15,
+            "serverSeq": 16,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "3gDH_BkBmm",
+            "type": "stroke",
+            "seq": 16,
+            "serverSeq": 17,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "xIhUuvSMre",
+            "type": "stroke",
+            "seq": 17,
+            "serverSeq": 18,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "4m6SUNGggE",
+            "type": "stroke",
+            "seq": 18,
+            "serverSeq": 19,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "-wZKmCuUpB",
+            "type": "stroke",
+            "seq": 19,
+            "serverSeq": 20,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "0GLqXDaaV8",
+            "type": "stroke",
+            "seq": 20,
+            "serverSeq": 21,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "H3WBXTTTT0",
+            "type": "stroke",
+            "seq": 21,
+            "serverSeq": 22,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "3oTVsygVdb",
+            "type": "stroke",
+            "seq": 22,
+            "serverSeq": 23,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "1eOyEEuzZB",
+            "type": "stroke",
+            "seq": 23,
+            "serverSeq": 24,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "Z9cRgjAZMV",
+            "type": "stroke",
+            "seq": 24,
+            "serverSeq": 25,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "KWSPIpE2bj",
+            "type": "stroke",
+            "seq": 25,
+            "serverSeq": 26,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "ql8GtBq3B6",
+            "type": "stroke",
+            "seq": 26,
+            "serverSeq": 27,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "TiGI_UW9Xv",
+            "type": "stroke",
+            "seq": 27,
+            "serverSeq": 28,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "ixvbfqmRss",
+            "type": "stroke",
+            "seq": 28,
+            "serverSeq": 29,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "-c6ZWDahZQ",
+            "type": "stroke",
+            "seq": 29,
+            "serverSeq": 30,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "rkNqG1JB27",
+            "type": "stroke",
+            "seq": 30,
+            "serverSeq": 31,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "XOMMFeMgPd",
+            "type": "stroke",
+            "seq": 31,
+            "serverSeq": 32,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "nQJITVWaxt",
+            "type": "stroke",
+            "seq": 32,
+            "serverSeq": 33,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "z-qY6_a7is",
+            "type": "stroke",
+            "seq": 33,
+            "serverSeq": 34,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "4dEb5KGk2m",
+            "type": "stroke",
+            "seq": 34,
+            "serverSeq": 35,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "mdPhYWmKgh",
+            "type": "stroke",
+            "seq": 35,
+            "serverSeq": 36,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "AOrv9Xu8I5",
+            "type": "stroke",
+            "seq": 36,
+            "serverSeq": 37,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "7L_fOBCFtD",
+            "type": "stroke",
+            "seq": 37,
+            "serverSeq": 38,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "_dg_5mp3Ex",
+            "type": "stroke",
+            "seq": 38,
+            "serverSeq": 39,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "W86N8hxxje",
+            "type": "stroke",
+            "seq": 39,
+            "serverSeq": 40,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "tT72Bl38q4",
+            "type": "stroke",
+            "seq": 40,
+            "serverSeq": 41,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "pRL0lwVhYr",
+            "type": "stroke",
+            "seq": 41,
+            "serverSeq": 42,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "Xy87pMvokq",
+            "type": "stroke",
+            "seq": 42,
+            "serverSeq": 43,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "vl9r3zol_r",
+            "type": "stroke",
+            "seq": 43,
+            "serverSeq": 44,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "P3gOrTzMeq",
+            "type": "stroke",
+            "seq": 44,
+            "serverSeq": 45,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "HJ408OQnNG",
+            "type": "stroke",
+            "seq": 45,
+            "serverSeq": 46,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "ZnOimscvRP",
+            "type": "stroke",
+            "seq": 46,
+            "serverSeq": 47,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "yWb6dUrzS3",
+            "type": "stroke",
+            "seq": 47,
+            "serverSeq": 48,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "t6MV0iagXN",
+            "type": "stroke",
+            "seq": 48,
+            "serverSeq": 49,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "1xalsACAv9",
+            "type": "stroke",
+            "seq": 49,
+            "serverSeq": 50,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "pWbU0-nOaB",
+            "type": "stroke",
+            "seq": 50,
+            "serverSeq": 51,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "zR36-w5baS",
+            "type": "stroke",
+            "seq": 51,
+            "serverSeq": 52,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "0pXHAF9JDb",
+            "type": "stroke",
+            "seq": 52,
+            "serverSeq": 53,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "3vdOtgGdrU",
+            "type": "stroke",
+            "seq": 53,
+            "serverSeq": 54,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "kaXLX-W-wK",
+            "type": "stroke",
+            "seq": 54,
+            "serverSeq": 55,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "KDgdlr2Evz",
+            "type": "stroke",
+            "seq": 55,
+            "serverSeq": 56,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "DFMH5cvNUb",
+            "type": "stroke",
+            "seq": 56,
+            "serverSeq": 57,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          },
+          {
+            "id": "BWNIVzUnDl",
+            "type": "stroke",
+            "seq": 57,
+            "serverSeq": 58,
+            "state": "done",
+            "pending": false,
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+            "tool": "watercolor",
+            "covered": false
+          }
+        ],
+        "effectiveIds": [
+          "CljSDMiW9v",
+          "0A9V7Wvdvs",
+          "mEDE1ki_xI",
+          "IMl9tPGjuD",
+          "JFnbaFt5Q9",
+          "DAeLgSuVoW",
+          "vq3NCbj__1",
+          "zTNNfWvtRy",
+          "7M-zEEC1Cs",
+          "KaPC5ytMBd",
+          "GDAplBs34S",
+          "PvYuL6Gp6u",
+          "S0L0lYlfuc",
+          "Hht3KVgbMk",
+          "kJI4-b0mkX",
+          "NAZ9xeYoem",
+          "3gDH_BkBmm",
+          "xIhUuvSMre",
+          "4m6SUNGggE",
+          "-wZKmCuUpB",
+          "0GLqXDaaV8",
+          "H3WBXTTTT0",
+          "3oTVsygVdb",
+          "1eOyEEuzZB",
+          "Z9cRgjAZMV",
+          "KWSPIpE2bj",
+          "ql8GtBq3B6",
+          "TiGI_UW9Xv",
+          "ixvbfqmRss",
+          "-c6ZWDahZQ",
+          "rkNqG1JB27",
+          "XOMMFeMgPd",
+          "nQJITVWaxt",
+          "z-qY6_a7is",
+          "4dEb5KGk2m",
+          "mdPhYWmKgh",
+          "AOrv9Xu8I5",
+          "7L_fOBCFtD",
+          "_dg_5mp3Ex",
+          "W86N8hxxje",
+          "tT72Bl38q4",
+          "pRL0lwVhYr",
+          "Xy87pMvokq",
+          "vl9r3zol_r",
+          "P3gOrTzMeq",
+          "HJ408OQnNG",
+          "ZnOimscvRP",
+          "yWb6dUrzS3",
+          "t6MV0iagXN",
+          "1xalsACAv9",
+          "pWbU0-nOaB",
+          "zR36-w5baS",
+          "0pXHAF9JDb",
+          "3vdOtgGdrU",
+          "kaXLX-W-wK",
+          "KDgdlr2Evz",
+          "DFMH5cvNUb",
+          "BWNIVzUnDl"
+        ],
+        "coverage": [],
+        "checkpoints": [],
+        "best": null,
+        "queue": 0,
+        "jobs": 0,
+        "pendingRebuilds": 0,
+        "unsettled": []
+      }
+    ],
+    "authoritativeJournal": {
+      "operations": 58,
+      "sha": "283ac9d0da2a8ac7b3f615144b7ae5c4f12847065b936d4e3ee3ee6542564e2c",
+      "opContentsHash": "9573e08f156f23073cce06bc146ce15fda7df1ec2383901d293d60770b2bab58",
+      "localPayloadsEqual": [
+        true,
+        true
+      ]
+    },
+    "prefixGoals": [
+      {
+        "readMs": 10.5,
+        "bytes": 4194304,
+        "canonicalHash": "5b5df791b6f35295736d0e01f3d12250017271db9e80948c8806c1ca3a1e317e",
+        "oracleHash": "666532a92487ae6943601d810f63ad670bc0bb351b61c18f97f221b3c73bae87",
+        "changed": 5364,
+        "max": 35,
+        "glError": 0
+      },
+      {
+        "readMs": 3.5999999940395355,
+        "bytes": 4194304,
+        "canonicalHash": "666532a92487ae6943601d810f63ad670bc0bb351b61c18f97f221b3c73bae87",
+        "oracleHash": "666532a92487ae6943601d810f63ad670bc0bb351b61c18f97f221b3c73bae87",
+        "changed": 0,
+        "max": 0,
+        "glError": 0
+      }
+    ],
+    "pass": false,
+    "synchronousErrors": [
+      [],
+      []
+    ],
+    "settleStarts": []
+  }
+}
