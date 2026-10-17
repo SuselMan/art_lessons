@@ -219,7 +219,8 @@ export class WatercolorSettlePlan {
     let x1 = Math.min(maxX, Math.ceil(bounds.maxX) + pad), y1 = Math.min(maxY, Math.ceil(bounds.maxY) + pad)
     S = watercolorSettleScale(radiusPx, Math.max(x1 - x0, y1 - y0),
       fineLarge ? 'fine-large' : !fineFront && coarseTransport ? 'coarse' : 'native')
-    if (import.meta.env.DEV && this.diagnosticFullResolution) S = 1
+    // M70 has one canonical integer-pixel grid for every brush size/build.
+    if (approvedM70 || (import.meta.env.DEV && this.diagnosticFullResolution)) S = 1
     const CAP = 1536 * S
     if (x1 - x0 > CAP) { const c = (x0 + x1) * 0.5; x0 = Math.floor(c - CAP / 2); x1 = x0 + CAP }
     if (y1 - y0 > CAP) { const c = (y0 + y1) * 0.5; y0 = Math.floor(c - CAP / 2); y1 = y0 + CAP }

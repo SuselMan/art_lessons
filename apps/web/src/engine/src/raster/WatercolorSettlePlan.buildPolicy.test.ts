@@ -35,14 +35,16 @@ function execute(dev:boolean,model:'m70-r2-v1'|'front8-detail-flow-v4',travel:bo
   const count=job.ops.length
   for(let i=0;i<job.ops.length;i++)job.ops[i]()
   job.finish()
-  return {fieldMinimum:fieldFor.mock.calls[0]?.[4],trace,count,paired:!trace.some(row=>(row as unknown[])[0]==='pigmentColor'),contacts:trace.some(row=>(row as unknown[])[0]==='brushPass'),preserve:detail.mock.calls.some(([request])=>request.preserveBrush)}
+  return {fieldMinimum:fieldFor.mock.calls[0]?.[4],fieldScale:fieldFor.mock.calls[0]?.[2],trace,count,paired:!trace.some(row=>(row as unknown[])[0]==='pigmentColor'),contacts:trace.some(row=>(row as unknown[])[0]==='brushPass'),preserve:detail.mock.calls.some(([request])=>request.preserveBrush)}
  }finally{job?.dispose();detail.mockRestore();for(const spy of spies)spy.mockRestore();scratch.destroy();pool.release(tile);engine.destroy();vi.unstubAllEnvs()}
 }
 for(const travel of [false,true])for(const twoPaints of [false,true])it(`M70 actual prepare has identical approved build policy (travel=${travel},twoPaints=${twoPaints})`,()=>{
  const qa=execute(true,'m70-r2-v1',travel,twoPaints,true)
  expect(execute(false,'m70-r2-v1',travel,twoPaints,true)).toEqual(qa)
  expect(execute(false,'m70-r2-v1',travel,twoPaints,false)).toEqual(qa)
- expect(qa.fieldMinimum).toBe(1024);expect(qa.paired).toBe(true);expect(qa.contacts).toBe(false);expect(qa.preserve).toBe(true)
+ expect(qa.fieldMinimum).toBe(1024);expect(qa.fieldScale).toBe(1);expect(qa.paired).toBe(true);expect(qa.contacts).toBe(false)
+ // S1 copies the exact source grid; no half-resolution brush reconstruction is needed.
+ expect(qa.preserve).toBe(false)
 })
 it('legacy single-point prepare retains its build-scoped diagnostic opt-ins',()=>{
  const qa=execute(true,'front8-detail-flow-v4',false,false,true)
