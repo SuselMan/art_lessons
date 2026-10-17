@@ -206,7 +206,8 @@
     "ownContextsDisposed": true,
     "originalTabRestored": true,
     "ownFixtureOwnerDelete": 200,
-    "sharedTunnelRetainedBy": "qa_cases"
+    "sharedTunnelRetainedBy": "qa_cases",
+    "registeredRawCache": "Removed by root through standard privileged qa-cleanup after own process END; identical guards retained. Unprivileged checker had failed closed on inaccessible unrelated own-UID session processes. Shared19335 tunnel untouched."
   },
   "pass": true,
   "loadTimingBoundary": {
