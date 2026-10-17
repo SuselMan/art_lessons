@@ -219,3 +219,11 @@ App e562d496 + QA tracked scissor4b42aa79 CLEAN fixture15: seamUP4127ms unprofil
 ### 15:26 — full engine regression and raw coverage reuse
 
 Frozen app e562d496 fullengine279files/2725tests PASS396.96s, exit0; ownedprocessgroup183840 finished, ledgerupdated. Afterward app3ee37518 reuses immutable raw.coverage snapshot rather than reading Native published contour back from GPU and rewritingCPU pages. Source proof06e4cdf2 holdswithoutR32/noForeign assumption forsuccessfulcurrentPagedlifecycle. Root167tests14files/actualwebtypecheck/oxlintPASS; cancellationbetweenP/C planes and arbitrarycoverageRGBA/unknownsupport/foreignmetadata tested. Samsungdefaultall10NativePagedgate nowRUN; no speedclaim.
+
+### 15:30 — raw coverage GPU gates PASS; mode6 precision partial
+
+Samsung rawcoverage3ee37518 DEFAULT and7flagscompact NativePaged all10stage/final0diff, GL0, contextsclosed. Intelmode6highp experiment also keeps all10stage/final0 andownhistoricalhashes unchanged. No timingclaim fromcorrectnessprobes.
+
+Updatedmode11highp preband-b crossGPU exacte0c3... andexactcorrectedmode11output, sohomecopy preservesit (proofb6f73452/f448fdb5). QA mode6highpsamplersONLY thenfixes all398R discrepancies, butremainingG7747/max230,B173/max36,A557/max1; fullband/finalNOTdeterministic. Notappshaderfix; laterround/noisecontrolsawaitreview.
+
+Outside-role cache QAdefaultOFF approvedsourceaudit, actualPlan199drawunchanged, clears199to31;11CPU/29actualwriter-matrix checksPASS. NumericalNative/PagednewnativeScopewiring underpreparation; noGPU/performancePASSyet.
