@@ -79,7 +79,14 @@ export class AccumulationBuffer {
       const pixels = new Uint8Array(width * height * 4)
       gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
-      const uniform = pixels.every((value, i) => value === pixels[i % 4])
+      // readPixels owns an aligned RGBA8 allocation. Word equality compares
+      // all four channels exactly, independently of host byte order.
+      const words = new Uint32Array(pixels.buffer, pixels.byteOffset, pixels.byteLength / 4)
+      const first = words[0]
+      let uniform = true
+      for (let i = 1; i < words.length; i++) {
+        if (words[i] !== first) { uniform = false; break }
+      }
       this._backing = uniform ? [pixels[0], pixels[1], pixels[2], pixels[3]] : pixels
     })
     releaseResidencyTexture(this._texture)

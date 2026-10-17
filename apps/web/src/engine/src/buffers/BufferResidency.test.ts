@@ -178,3 +178,52 @@ it('cycles more windows than the budget despite stale sampler bindings outside d
   }
   cache.dispose()
 })
+
+
+it.each([[0, 0, 0, 0], [19, 73, 151, 233], [255, 0, 127, 1]])('round-trips asymmetric uniform RGBA through repeated eviction: %j', (...rgba) => {
+  const { gl, make, unbind, cache } = fixture(36)
+  const expected = Uint8Array.from({ length: 36 }, (_, i) => rgba[i % 4])
+  const a = make(); a.writePixels(expected); unbind()
+  // MockGL mirrors alpha in its raster backend: inject exact RGBA readback
+  // and assert the full upload on each restoration, without a GPU pixel claim.
+  vi.spyOn(gl, 'readPixels').mockImplementation((_x, _y, _w, _h, _format, _type, target) => {
+    const bytes = target as Uint8Array
+    if (gl.getParameter(gl.FRAMEBUFFER_BINDING) === (a as unknown as { _fbo: WebGLFramebuffer })._fbo) bytes.set(expected)
+    else bytes.fill(0)
+  })
+  const uploads = vi.spyOn(gl, 'texSubImage2D')
+  const b = make(); unbind() // a now owns compact uniform backing
+  expect((a as unknown as { _backing: unknown })._backing).toEqual(rgba)
+  for (let round = 0; round < 4; round++) {
+    void a.texture
+    expect(uploads.mock.lastCall?.[8]).toEqual(expected); unbind()
+    void b.texture; unbind() // force a back to CPU after every hydration
+    expect(cache.residentBytes).toBe(36)
+  }
+  cache.dispose()
+  expect(cache.bufferCount).toBe(0)
+})
+
+it.each([0, 1, 2, 3])('keeps a last-pixel-only change in RGBA channel %s lossless', channel => {
+  const { gl, make, unbind, cache } = fixture(36)
+  const expected = Uint8Array.from({ length: 36 }, (_, i) => [19, 73, 151, 233][i % 4])
+  expected[expected.length - 4 + channel] ^= 1
+  const a = make(); a.writePixels(expected); unbind()
+  // MockGL mirrors alpha in its raster backend: inject exact RGBA readback
+  // and assert the full upload on each restoration, without a GPU pixel claim.
+  vi.spyOn(gl, 'readPixels').mockImplementation((_x, _y, _w, _h, _format, _type, target) => {
+    const bytes = target as Uint8Array
+    if (gl.getParameter(gl.FRAMEBUFFER_BINDING) === (a as unknown as { _fbo: WebGLFramebuffer })._fbo) bytes.set(expected)
+    else bytes.fill(0)
+  })
+  const uploads = vi.spyOn(gl, 'texSubImage2D')
+  const b = make(); unbind()
+  expect((a as unknown as { _backing: unknown })._backing).toBeInstanceOf(Uint8Array)
+  for (let round = 0; round < 4; round++) {
+    void a.texture
+    expect(uploads.mock.lastCall?.[8]).toEqual(expected); unbind()
+    void b.texture; unbind()
+  }
+  cache.dispose()
+  expect(cache.bufferCount).toBe(0)
+})
