@@ -491,6 +491,20 @@ describe('leaveRoom', () => {
       expect(() => recordOperation(roomId, stroke({ id: 'a' }))).not.toThrow()
     })
 
+    it('#780 retains the owner gate when the latest socket leaves before the old live socket', () => {
+      const roomId = freshRoomId()
+      createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1', '-old'))
+      joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
+      joinRoom(roomId, 'owner-1', 'Teacher', sock('owner-1', '-new'))
+      setRoomFrozen(roomId, true)
+      expect(leaveRoom(roomId, 'owner-1', sock('owner-1', '-new'))).toBe(false)
+      expect(getParticipant(roomId, 'owner-1')?.role).toBe('owner')
+      expect(getOperationRejectReason(roomId, 'owner-1', stroke({ userId: 'owner-1' }))).toBeNull()
+      expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBe('room_frozen')
+      expect(leaveRoom(roomId, 'owner-1', sock('owner-1', '-old'))).toBe(true)
+      expect(getParticipant(roomId, 'student-1')).toBeDefined()
+    })
+
     it("the newer socket's own eventual disconnect still removes the participant normally", () => {
       const roomId = freshRoomId()
       createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1', '-old'))

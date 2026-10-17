@@ -43,25 +43,19 @@ const CURSOR_COLORS = [
 
 const BCRYPT_ROUNDS = 10
 
-// Tracks which socket.id is currently considered "the" live connection for
-// a given room+userId (#164). A user can briefly have two overlapping
-// sockets for the same room — a page refresh, a flaky reconnect — where the
-// OLD socket's 'disconnect' event arrives *after* the NEW socket has already
-// joined. Without this, that stale disconnect's leaveRoom call would remove
-// the participant (participants is keyed by userId, not socket.id, so the
-// old socket's leave looks identical to the new one's) and, if they were
-// the room's last participant, evict the room entirely — while a live,
-// joined socket for that user still exists and can go on to call
-// recordOperation for a room that's no longer in the Map, throwing an
-// uncaught exception that crashes the whole process. Keyed by
-// `${roomId}:${userId}` rather than nesting inside RoomRecord.participants
-// so a stale leaveRoom can check it even after the room itself might
-// already be gone.
-//
-// (#176) Keyed by the *lesson* id: presence is a fact about the lesson, and a
-// socket that switches boards is the same live connection for the same
-// person, not a new participant.
+// One logical participant per lesson/user, present until their last socket
+// leaves (#164, #780). Map insertion order selects the latest live board
+// seat; older tabs remain connected and can take that seat back on disconnect.
 const currentSocketForParticipant = new Map<string, string>()
+const connectionsForParticipant = new Map<string, Map<string, string>>()
+
+function seatConnection(key: string, socketId: string, boardId: string): void {
+  const connections = connectionsForParticipant.get(key) ?? new Map<string, string>()
+  connections.delete(socketId)
+  connections.set(socketId, boardId)
+  connectionsForParticipant.set(key, connections)
+  currentSocketForParticipant.set(key, socketId)
+}
 
 function participantKey(lessonId: string, userId: string): string {
   return `${lessonId}:${userId}`
@@ -187,7 +181,7 @@ export function createRoom(
     existing.participants.set(ownerId, participant)
     existing.sockets.add(socketId)
     boardOfSocket.set(socketId, roomData.id)
-    currentSocketForParticipant.set(participantKey(roomData.id, ownerId), socketId)
+    seatConnection(participantKey(roomData.id, ownerId), socketId, roomData.id)
     return { room: existing.room, participant }
   }
 
@@ -224,7 +218,7 @@ export function createRoom(
     structuralLog: [],
   })
   boardOfSocket.set(socketId, room.id)
-  currentSocketForParticipant.set(participantKey(room.id, ownerId), socketId)
+  seatConnection(participantKey(room.id, ownerId), socketId, room.id)
   persistRoomCreate(room, passwordHash)
   persistParticipant(room.id, ownerId, ownerName, passwordHash)
   persistPalette(room.id, palette)
@@ -318,7 +312,7 @@ export function joinRoom(
   lesson.participants.set(userId, participant)
   record.sockets.add(socketId)
   boardOfSocket.set(socketId, roomId)
-  currentSocketForParticipant.set(key, socketId)
+  seatConnection(key, socketId, roomId)
   // The RoomParticipant row is the lesson's: it is what "Мои уроки" lists and
   // what an invite_only lesson re-admits by, and a board is neither listed nor
   // a thing one is admitted to.
@@ -342,14 +336,9 @@ export function joinRoom(
  *  re-populates the Map, and that room must not then be deleted out from
  *  under it.
  *
- *  `socketId` must be the disconnecting socket's own id (#164): if a newer
- *  socket for this same room+userId has since joined (see
- *  `currentSocketForParticipant`), this disconnect is stale — a superseded
- *  socket's belated 'disconnect' event, not a real departure — and is
- *  ignored entirely, participant untouched. Without this check a stale
- *  disconnect could evict a still-live, joined participant (and, if they
- *  were the room's last one, the whole room), which then made the live
- *  socket's next `recordOperation` throw on a room no longer in the Map.
+ *  `socketId` must be the departing socket's own id. Other live sockets
+ *  preserve the logical participant; when the latest seat leaves, restore
+ *  its board from the latest remaining connection (#780).
  *
  *  Returns whether a participant was actually removed — false for a stale/
  *  superseded socket or an already-gone room/participant. The caller
@@ -372,12 +361,23 @@ export function leaveRoom(roomId: string, userId: string, socketId: string): boo
   // superseded tab was still *on* the board, and the board's roster has to
   // lose it or the board never empties. The seat is the other, and only the
   // socket that holds it may release it (#164, below).
-  removeSocketFromBoard(boardOfSocket.get(socketId) ?? roomId, socketId)
-  boardOfSocket.delete(socketId)
+  removeSocketFromBoard(roomId, socketId)
+  // A join to another lesson may already have registered the next board.
+  if (boardOfSocket.get(socketId) === roomId) boardOfSocket.delete(socketId)
 
   const key = participantKey(lesson?.room.id ?? roomId, userId)
+  const connections = connectionsForParticipant.get(key)
+  connections?.delete(socketId)
   if (currentSocketForParticipant.get(key) !== socketId) return false
+  const remaining = connections ? [...connections].at(-1) : undefined
+  if (remaining) {
+    currentSocketForParticipant.set(key, remaining[0])
+    const participant = lesson?.participants.get(userId)
+    if (participant) participant.boardId = remaining[1]
+    return false
+  }
   currentSocketForParticipant.delete(key)
+  connectionsForParticipant.delete(key)
 
   if (!lesson) return false
   const removed = lesson.participants.delete(userId)
