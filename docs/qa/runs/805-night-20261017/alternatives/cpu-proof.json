@@ -1,0 +1,51 @@
+{
+  "scope": "CPU fake GL lifecycle and floating donor arithmetic; no GLSL execution, GPU pixels, visual quality or timing proof",
+  "typescript": "strict standalone ES2022/Bundler/DOM noEmit: zero diagnostics",
+  "lifecycle": {
+    "variants": 15,
+    "checks": [
+      "run before upload rejects",
+      "upload/run output1024",
+      "fixed pass ledger",
+      "repeat run reset and no allocation growth",
+      "DITHER restored",
+      "idempotent destroy",
+      "no remaining fake GL objects",
+      "run/upload after destroy rejects"
+    ],
+    "defaultPasses": {
+      "stable-fluids": 69,
+      "lattice-diffusion": 18,
+      "artistic-front": 17
+    }
+  },
+  "donorFloatProperties": {
+    "seed": 12345,
+    "cases": 100,
+    "size": 8,
+    "rate": 0.6,
+    "downhill": 0.15,
+    "massAbsoluteTolerance": 1e-10,
+    "positivity": true,
+    "premultiplication": true,
+    "qualification": "before UNORM8 quantization/saturation"
+  },
+  "metrics": "identity input preserves mass/coverage/centroid, no premultiplication violations",
+  "resourceLedger": "No browser/GPU/server/services/dependency copies or persistent CPU processes created. Only owned source/notes.",
+  "estimatedBaseTextureMiBAt256": {
+    "stable-fluids": 10.25,
+    "lattice-diffusion": 9,
+    "artistic-front": 9.5
+  },
+  "programSearchAdapter": {
+    "programs": 24,
+    "metadataAttestation": "PASS all24",
+    "drawTrace": "exact ordered op kind, stride and compiled4/8front neighborhood match lower(program)",
+    "passRange": [
+      10,
+      13
+    ],
+    "ordinaryAlgorithms": "unchanged defaults69/18/17passes",
+    "qualification": "FakeGL source/host dispatch only; no GLSL execution"
+  }
+}
