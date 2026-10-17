@@ -9088,7 +9088,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (next > 0) { this._wcAsyncOwners.set(scratch, next); return }
     this._wcAsyncOwners.delete(scratch)
     this._wcAsyncDryTo.delete(scratch)
-    if (scratch !== this._wash?.scratch && scratch !== this._ribbonStrokeScratch) {
+    if (scratch !== this._wash?.scratch && scratch !== this._ribbonStrokeScratch && !this._puddle?.owns(scratch)) {
       if (lost) scratch.forget(); else scratch.destroy()
     }
   }
@@ -9463,11 +9463,6 @@ export class PencilEngine implements PencilEngineAPI {
     /** Owned logical boundary, used only by the opt-in canonical FIFO. */
     owned?: RibbonCanonicalFinish,
   ): void {
-    if (scratch.finishContext?.profile.materialModel==='m70-r2-v1') {
-      if (this._liveComposite?.scratch===scratch) this._flushLiveComposite()
-      this._puddleFor().finish(scratch)
-      return
-    }
     if (this._wcAsyncFinish && !owned && scratch === this._ribbonStrokeScratch) {
       const finish = scratch.captureCanonicalFinish()
       if (!finish) return
@@ -9490,6 +9485,11 @@ export class PencilEngine implements PencilEngineAPI {
         },
         cancel: lost => { owner._releaseAsyncPresentation(scratch, finish.gesture, lost); release(lost) },
       })
+      return
+    }
+    if ((owned?.finish??scratch.finishContext)?.profile.materialModel==='m70-r2-v1') {
+      if (this._liveComposite?.scratch===scratch) this._flushLiveComposite()
+      this._puddleFor().finish(scratch,owned)
       return
     }
     if (this._wcJoinedFinishDeferred && this._wcJoinedTouch && !this._wcAsyncFinish

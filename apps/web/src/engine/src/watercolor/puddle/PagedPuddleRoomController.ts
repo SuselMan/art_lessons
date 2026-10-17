@@ -302,8 +302,8 @@ export class PagedPuddleRoomController {
       return state
     } catch(error) {for(const b of allocated)b.destroy();presentation?.destroy();throw error}
   }
-  accept(scratch: RibbonStrokeScratch): void {
-    const layer=this.find(scratch),context=scratch.finishContext
+  accept(scratch: RibbonStrokeScratch,context=scratch.finishContext): void {
+    const layer=this.find(scratch)
     if(!layer || !context)return
     const deferred=this.host.deferPresentation?.(layer.target)===true
     const candidate=this.host.presentationBounds?.(scratch,context)
@@ -334,10 +334,11 @@ export class PagedPuddleRoomController {
     if(deferred){layer.deferredPresentation=true;return}
     layer.presentationDirty=true;this.present(layer)
   }
-  finish(scratch: RibbonStrokeScratch): void {
-    this.accept(scratch)
-    scratch.diffusePending = false
-    scratch.releaseFilm()
+  finish(scratch: RibbonStrokeScratch,owned?:{gesture:number;finish:RibbonStrokeScratch['finishContext']}): void {
+    this.accept(scratch,owned?.finish??scratch.finishContext)
+    // Input may already own a later logical film while this FIFO boundary lands.
+    if(!owned||owned.gesture===scratch.gesture)scratch.diffusePending = false
+    scratch.releaseFilm(owned?.gesture)
     this.request()
   }
   private finishField(layer:Layer):void {

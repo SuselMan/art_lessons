@@ -302,8 +302,8 @@ export class PuddleRoomController {
     layer.active = false
     layer.goalReady = false
   }
-  accept(scratch: RibbonStrokeScratch): void {
-    const layer = this.find(scratch), context = scratch.finishContext
+  accept(scratch: RibbonStrokeScratch,context=scratch.finishContext): void {
+    const layer = this.find(scratch)
     if (!layer || !context) return
     const tile = context.target.allResident().find(t => !!scratch.peek(t.buffer)?.inkColor)
     if (!tile) return
@@ -328,10 +328,11 @@ export class PuddleRoomController {
     layer.after = performance.now()+60
     this.present(layer)
   }
-  finish(scratch: RibbonStrokeScratch): void {
-    this.accept(scratch)
-    scratch.diffusePending = false
-    scratch.releaseFilm()
+  finish(scratch: RibbonStrokeScratch,owned?:{gesture:number;finish:RibbonStrokeScratch['finishContext']}): void {
+    this.accept(scratch,owned?.finish??scratch.finishContext)
+    // Input may already own a later logical film while this FIFO boundary lands.
+    if(!owned||owned.gesture===scratch.gesture)scratch.diffusePending = false
+    scratch.releaseFilm(owned?.gesture)
     this.request()
   }
   private cancelCurrent(): void {
