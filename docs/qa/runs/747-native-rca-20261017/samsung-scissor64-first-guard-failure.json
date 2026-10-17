@@ -1,0 +1,10 @@
+{
+  "source": "509fb989",
+  "scope": "QA-only paged scissor64 compact vs full Native, all other overrides OFF",
+  "status": "FAIL before numerical comparison",
+  "error": "Scissor64 scoped draw lacks owned destination",
+  "stack": "Error: Error: Scissor64 scoped draw lacks owned destination\n    at WebGLRenderingContext.draw (<anonymous>:17:150)\n    at WatercolorPasses.fieldOpDraw (http://127.0.0.1:15484/src/engine/src/raster/WatercolorPasses.ts?t=1792233882231:149:7)\n    at http://127.0.0.1:15484/src/engine/src/raster/WatercolorPasses.ts?t=1792233882231:76:17\n    at visit (http://127.0.0.1:15484/src/engine/src/raster/discreteGridSampling.ts:9:39)\n    at visit (http://127.0.0.1:15484/src/engine/src/raster/discreteGridSampling.ts:13:11)\n    at visit (http://127.0.0.1:15484/src/engine/src/raster/discreteGridSampling.ts:13:11)\n    at withDiscreteGrid (http://127.0.0.1:15484/src/engine/src/raster/discreteGridSampling.ts:19:9)\n    at WatercolorPasses.fieldOp (http://127.0.0.1:15484/src/engine/src/raster/WatercolorPasses.ts?t=1792233882231:69:10)\n    at host.passes.<computed> (<anonymous>:63:1608)\n    at <anonymous>:14:219\n    at evaluate (/home/suselman/projects/pencil-agents/747-single-rect/docs/qa/harness/747/nonzero-origin-ab-android.cjs:13:162)\n    at async /home/suselman/projects/pencil-agents/747-single-rect/docs/qa/harness/747/nonzero-origin-ab-android.cjs:35:557\n",
+  "logSHA256": "435b87a0f1c1beae83cfe9d5ae98bbceb152d761d32ad1893a70174404a24d18",
+  "numericalResult": null,
+  "qualification": "Do not infer physics mismatch or speed gain. Actual producer FBO ownership guard stopped run. Dynamic-import prototype mismatch is hypothesis only; no guard weakened. Own target/browser context closed in finally."
+}
