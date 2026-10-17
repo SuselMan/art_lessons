@@ -1,0 +1,18 @@
+{
+  "baseHEAD": "0acdcb7993965f70ce21009d2d230a9859addcc0",
+  "files": {
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": {
+      "base": "b05e6ff9e496a73ac9d0822424d5bbed21b70820b8055595ce6e0449e19287db",
+      "candidate": "59eb29037868c1db15657cf616d3621b1a1fb0a7f36777f96a73d5c72313dc66"
+    },
+    "apps/web/src/engine/src/watercolor/puddle/M70EmptyPostphase.ts": {
+      "base": null,
+      "candidate": "cc26f7daadbacede5f80e6019466dcea58d7a5bec09f0d0bb596db5343c2a8b6"
+    },
+    "apps/web/src/engine/src/watercolor/puddle/M70EmptyPostphase.test.ts": {
+      "base": null,
+      "candidate": "9128983b217ece235cdc954ccc4d28ced9c86ffcb81af490b024c12b7d1c1a21"
+    }
+  },
+  "patchSHA256": "7e7e120115c2c932747f8be49d055d0cc95fd10bf2311e7b260a4623ec080f6c"
+}
