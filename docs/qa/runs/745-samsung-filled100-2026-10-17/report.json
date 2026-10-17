@@ -1,0 +1,429 @@
+{
+  "runtime": "0be6e667",
+  "sourceFreezeDocs": "bd90bb9a",
+  "harnessCommit": "50f08eaa",
+  "harnessSHA256": {
+    "docs/qa/harness/744/full-history-raster-proof.cjs": "3e6d6a0c47ce701304c56af1427cbb7b7461ba3c5a268809b17a67d09476c896",
+    "docs/qa/harness/728-night/samsung-filled100.cjs": "4593d0bce741347c94ddd32187c13eaf366758ec420a705d051d0f286c1ea6d4",
+    "docs/qa/harness/728-night/samsung-watercolor-undo.cjs": "669a1a46ad22acc4abd2cce35354cf7fd2fe1827de4e77a1a530edd56866a59d"
+  },
+  "nativeWatercolorUndoRedo": {
+    "source": "bd90bb9a",
+    "scope": "Samsung trusted pen, actual compositorROI; isolatedcontext syntheticowner, defaultprofile untouched",
+    "cases": [
+      {
+        "name": "watercolor-native-held",
+        "pixels": {
+          "changedChannels": 2028,
+          "max": 219,
+          "meanRGB": [
+            232.0991124260355,
+            48.38165680473373,
+            61.912721893491124
+          ]
+        },
+        "stroke": "qBY6SoiYCI",
+        "dabs": 6,
+        "displayCallFirstMs": 290.60000002384186,
+        "displayCalls": 8,
+        "frameGaps": {
+          "count": 190,
+          "p50": 16.700000000000728,
+          "p95": 16.80000000000109,
+          "max": 83.59999999999854
+        },
+        "limit": "Display call is not first visible pixel latency; screenshot readback only once while held"
+      },
+      {
+        "name": "own-undo-redo",
+        "beforeUndo": {
+          "hash": "c01003759f648b53600bf100dad9b2b2e0e2afce0eaa02a6d9181be52ff68c43",
+          "changedChannels": 0,
+          "nonzeroAlpha": 3092,
+          "glError": 0,
+          "scope": "Existing canonicalTiles captured before independent fullReplay; actual held pixels verified separately"
+        },
+        "afterUndo": {
+          "hash": "empty",
+          "nonzeroAlpha": 0,
+          "changedChannels": 0,
+          "glError": 0,
+          "scope": "Legitimate null fullReplay equals empty material target"
+        },
+        "afterRedo": {
+          "hash": "c01003759f648b53600bf100dad9b2b2e0e2afce0eaa02a6d9181be52ff68c43",
+          "changedChannels": 0,
+          "nonzeroAlpha": 3092,
+          "glError": 0,
+          "scope": "Existing canonicalTiles captured before independent fullReplay; actual held pixels verified separately"
+        }
+      }
+    ],
+    "errors": [],
+    "identity": {
+      "model": "m70-r2-v1",
+      "asyncFinish": false,
+      "gpuBudget": "314572800",
+      "scratchHolding": false,
+      "touch": 5,
+      "deviceMemory": 4,
+      "DPR": 2.125,
+      "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "flags": {
+        "hidden": false
+      }
+    },
+    "pass": true
+  },
+  "filledLoading": {
+    "source": "bd90bb9a",
+    "scope": "Samsung native isolated context100x8 room load; mode active from URL, no drawing mutations",
+    "cases": [
+      {
+        "mode": "normal",
+        "raster": {
+          "actualCapturedBeforeOracle": true,
+          "oracleAcceptedHistoryCount": 103,
+          "originalLogRestored": true,
+          "missingCoveredStrokes": [
+            {
+              "id": "5064a6d0-aae0-42a4-ba5f-bc179b38797b",
+              "type": "stroke",
+              "seq": 2,
+              "covered": true,
+              "positiveSnapshot": true
+            }
+          ],
+          "physicalChanged": 0,
+          "targetChanged": 0,
+          "nonzeroAlpha": 60986,
+          "targetHash": "1686f376943b12088eda7c1bcabd241d603df376ac8c90378d1138040b2b207f",
+          "oracleHash": "1686f376943b12088eda7c1bcabd241d603df376ac8c90378d1138040b2b207f",
+          "glError": 0
+        },
+        "engineReadyMs": 7344,
+        "historyCompleteMs": 8022,
+        "readyMs": 7725,
+        "openMeasurement": {
+          "outcome": "ready",
+          "totalMs": 1234,
+          "stages": {
+            "join": 447,
+            "paper": 168,
+            "snapshot": 614,
+            "replay": 5
+          },
+          "reached": "replay",
+          "facts": {
+            "tailOperations": 2,
+            "latestSeq": 0,
+            "snapshotSeq": 103,
+            "restoredFromSnapshot": true,
+            "layers": 3
+          }
+        },
+        "identity": {
+          "gpuBudget": "314572800",
+          "touch": 5,
+          "deviceMemory": 4,
+          "DPR": 2.125,
+          "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+          "mode": false,
+          "annotations": 1,
+          "glError": 0,
+          "firstDrawIssued": 7647.700000047684,
+          "annotationModeAtFirstDraw": false,
+          "firstVisibleRaf": 7791.200000047684
+        },
+        "historyCount": 103
+      },
+      {
+        "mode": "normal-warm-reload",
+        "raster": {
+          "actualCapturedBeforeOracle": true,
+          "oracleAcceptedHistoryCount": 103,
+          "originalLogRestored": true,
+          "missingCoveredStrokes": [
+            {
+              "id": "5064a6d0-aae0-42a4-ba5f-bc179b38797b",
+              "type": "stroke",
+              "seq": 2,
+              "covered": true,
+              "positiveSnapshot": true
+            }
+          ],
+          "physicalChanged": 0,
+          "targetChanged": 0,
+          "nonzeroAlpha": 60986,
+          "targetHash": "1686f376943b12088eda7c1bcabd241d603df376ac8c90378d1138040b2b207f",
+          "oracleHash": "1686f376943b12088eda7c1bcabd241d603df376ac8c90378d1138040b2b207f",
+          "glError": 0
+        },
+        "sameContext": true,
+        "joinFormShown": true,
+        "engineReadyMs": 6862,
+        "historyCompleteMs": 7344,
+        "readyMs": 7185,
+        "openMeasurement": {
+          "outcome": "ready",
+          "totalMs": 967,
+          "stages": {
+            "join": 325,
+            "paper": 135,
+            "snapshot": 505,
+            "replay": 2
+          },
+          "reached": "replay",
+          "facts": {
+            "tailOperations": 2,
+            "latestSeq": 0,
+            "snapshotSeq": 103,
+            "restoredFromSnapshot": true,
+            "layers": 3
+          }
+        },
+        "firstDrawIssued": 7112.700000047684,
+        "annotationModeAtFirstDraw": false,
+        "firstVisibleRaf": 7215.200000047684,
+        "annotationMode": false,
+        "annotationCount": 1,
+        "glError": 0,
+        "DPR": 2.125,
+        "touch": 5,
+        "gpuBudget": "314572800",
+        "historyCount": 103
+      },
+      {
+        "mode": "annotations",
+        "raster": {
+          "actualCapturedBeforeOracle": true,
+          "oracleAcceptedHistoryCount": 103,
+          "originalLogRestored": true,
+          "missingCoveredStrokes": [
+            {
+              "id": "5064a6d0-aae0-42a4-ba5f-bc179b38797b",
+              "type": "stroke",
+              "seq": 2,
+              "covered": true,
+              "positiveSnapshot": true
+            }
+          ],
+          "physicalChanged": 0,
+          "targetChanged": 0,
+          "nonzeroAlpha": 60986,
+          "targetHash": "1686f376943b12088eda7c1bcabd241d603df376ac8c90378d1138040b2b207f",
+          "oracleHash": "1686f376943b12088eda7c1bcabd241d603df376ac8c90378d1138040b2b207f",
+          "glError": 0
+        },
+        "engineReadyMs": 7273,
+        "historyCompleteMs": 8002,
+        "readyMs": 7749,
+        "openMeasurement": {
+          "outcome": "ready",
+          "totalMs": 1269,
+          "stages": {
+            "join": 438,
+            "paper": 146,
+            "snapshot": 680,
+            "replay": 5
+          },
+          "reached": "replay",
+          "facts": {
+            "tailOperations": 2,
+            "latestSeq": 0,
+            "snapshotSeq": 103,
+            "restoredFromSnapshot": true,
+            "layers": 3
+          }
+        },
+        "identity": {
+          "gpuBudget": "314572800",
+          "touch": 5,
+          "deviceMemory": 4,
+          "DPR": 2.125,
+          "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+          "mode": true,
+          "annotations": 1,
+          "glError": 0,
+          "firstDrawIssued": 7641.799999952316,
+          "annotationModeAtFirstDraw": true,
+          "firstVisibleRaf": 7816.299999952316
+        },
+        "historyCount": 103
+      },
+      {
+        "mode": "annotations-warm-reload",
+        "raster": {
+          "actualCapturedBeforeOracle": true,
+          "oracleAcceptedHistoryCount": 103,
+          "originalLogRestored": true,
+          "missingCoveredStrokes": [
+            {
+              "id": "5064a6d0-aae0-42a4-ba5f-bc179b38797b",
+              "type": "stroke",
+              "seq": 2,
+              "covered": true,
+              "positiveSnapshot": true
+            }
+          ],
+          "physicalChanged": 0,
+          "targetChanged": 0,
+          "nonzeroAlpha": 60986,
+          "targetHash": "1686f376943b12088eda7c1bcabd241d603df376ac8c90378d1138040b2b207f",
+          "oracleHash": "1686f376943b12088eda7c1bcabd241d603df376ac8c90378d1138040b2b207f",
+          "glError": 0
+        },
+        "sameContext": true,
+        "joinFormShown": true,
+        "engineReadyMs": 7041,
+        "historyCompleteMs": 7792,
+        "readyMs": 7486,
+        "openMeasurement": {
+          "outcome": "ready",
+          "totalMs": 1096,
+          "stages": {
+            "join": 331,
+            "paper": 129,
+            "snapshot": 634,
+            "replay": 2
+          },
+          "reached": "replay",
+          "facts": {
+            "tailOperations": 2,
+            "latestSeq": 0,
+            "snapshotSeq": 103,
+            "restoredFromSnapshot": true,
+            "layers": 3
+          }
+        },
+        "earlyReviewImage": {
+          "at": 7164.200000047684,
+          "width": 1024,
+          "height": 1024,
+          "mode": true,
+          "earlyHistory": true
+        },
+        "firstDrawIssued": 7418.200000047684,
+        "annotationModeAtFirstDraw": true,
+        "firstVisibleRaf": 7574.700000047684,
+        "annotationMode": true,
+        "annotationCount": 1,
+        "glError": 0,
+        "DPR": 2.125,
+        "touch": 5,
+        "gpuBudget": "314572800",
+        "historyCount": 103
+      }
+    ],
+    "errors": [],
+    "input": {
+      "count": 100,
+      "dabsPerStroke": 8,
+      "inputHash": "47bcda90037ec9e2e242a1856f830186fbba4ebe38df0bfe1b643e4def49e341"
+    },
+    "reviewImageExport": {
+      "bytes": 1370986,
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 1024
+      }
+    },
+    "pass": true
+  },
+  "initialNewlySeededEntryBeforeSnapshotReuse": {
+    "mode": "normal",
+    "raster": {
+      "layerId": "qa-load-f6f27c14-2f09-43b4-b637-12ef94cf9864",
+      "sourceHiddenReplay": false,
+      "oracleHiddenReplay": false,
+      "actualCapturedBeforeOracle": true,
+      "targetHash": "1686f376943b12088eda7c1bcabd241d603df376ac8c90378d1138040b2b207f",
+      "oracleHash": "1686f376943b12088eda7c1bcabd241d603df376ac8c90378d1138040b2b207f",
+      "targetChanged": 0,
+      "physicalChanged": 0,
+      "max": 0,
+      "nonzeroAlpha": 60986,
+      "tiles": 1,
+      "bytes": 4194324,
+      "glError": 0
+    },
+    "engineReadyMs": 10522,
+    "historyCompleteMs": 11260,
+    "readyMs": 9883,
+    "openMeasurement": {
+      "outcome": "ready",
+      "totalMs": 3284,
+      "stages": {
+        "join": 425,
+        "paper": 168,
+        "snapshot": 0,
+        "replay": 2691
+      },
+      "reached": "replay",
+      "facts": {
+        "tailOperations": 103,
+        "latestSeq": 0,
+        "snapshotSeq": null,
+        "restoredFromSnapshot": false,
+        "layers": 3
+      }
+    },
+    "identity": {
+      "gpuBudget": "314572800",
+      "touch": 5,
+      "deviceMemory": 4,
+      "DPR": 2.125,
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "mode": false,
+      "annotations": 1,
+      "glError": 0,
+      "firstDrawIssued": 9787.300000071526,
+      "annotationModeAtFirstDraw": false,
+      "firstVisibleRaf": 10339.5
+    },
+    "historyCount": 103
+  },
+  "input": {
+    "seed": 728745,
+    "count": 100,
+    "dabsPerStroke": 8,
+    "dryEvery": 100,
+    "layerId": "qa-load-f6f27c14-2f09-43b4-b637-12ef94cf9864",
+    "inputHash": "47bcda90037ec9e2e242a1856f830186fbba4ebe38df0bfe1b643e4def49e341"
+  },
+  "battery": {
+    "before": {
+      "AC": true,
+      "level": 100,
+      "C": 39.8
+    },
+    "after": {
+      "AC": true,
+      "level": 100,
+      "C": 39.9
+    }
+  },
+  "limits": [
+    "ShareddevQA backend concurrently servesVega/Surface10socketsoak; no isolated release/performance benchmark.",
+    "Fresh isolated browsercontexts and samecontextreload in warm browser process; not true HTTPcachecold.",
+    "Navigation wall, UIready afterjoin, firstdisplayRAFproxy and earlyReviewImage documentclock are separate scopes.",
+    "NativeCtrlZ/ShiftCtrlZ targets the watercolor stroke. Canonical material captured before independent fullReplay; held screenshot separately proves visible input beforeUP.",
+    "No GPU timer hooks here. Undo swap latency was not instrumented and is not claimed.",
+    "KnownQAfixes: null fullReplay is legitimate blank afterUndo; strictallrawIDs gate was replaced by positivecoveredstroke+snapshot; warmRaster variable declaration corrected. These are not product defects."
+  ],
+  "cleanup": {
+    "twoExactOwnedFixturesDeleted200": true,
+    "authDeleted": true,
+    "ownContextsDisposed": true,
+    "originalActiveTabRestored": true,
+    "shared19335TunnelRetainedBy": "qa_cases"
+  },
+  "pass": true
+}
