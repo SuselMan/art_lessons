@@ -1,0 +1,1974 @@
+{
+  "source": "82313a4c",
+  "scope": "Touch/DPR + isolated changing sentinel and dry-eraser endurance: ten Socket.io authors, two real GPU observers, two layers, idle intervals, journal/actual-replay/GL/heap; author pointer path not tested",
+  "requestedCycles": 24,
+  "completedCycles": 22,
+  "pass": false,
+  "failure": "page.evaluate: Target page, context or browser has been closed\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/endurance-touch-sentinel.cjs:17:66",
+  "classification": "Incomplete hardware campaign: Surface SSH and owned CDP forward lost; exact OS/browser cause unconfirmed. Not a canonical-pixel or GL failure. No automatic restart attempted.",
+  "startedUTC": "2026-10-17T02:07:01.759000+00:00",
+  "finishedUTC": "2026-10-17T02:26:40.227000+00:00",
+  "wallMs": 1178468,
+  "identity": [
+    {
+      "user": "9a67ccfd-9e9b-4d0b-9c1a-59448aaecae5",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224,
+      "maxTouchPoints": 10,
+      "deviceMemory": 16,
+      "gpuBudget": "Infinity"
+    },
+    {
+      "user": "dc2c2229-9570-43a5-8f4a-d4bc6ea6ebeb",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.5,
+      "maxTouchPoints": 10,
+      "deviceMemory": 8,
+      "gpuBudget": "Infinity"
+    }
+  ],
+  "operations": 1206,
+  "workloadWallMs": 112785,
+  "verificationWallMs": 46159,
+  "recordedIdleWallMs": 991149,
+  "performanceScope": "Correctness/endurance on shared QA services; concurrent VPS resolver CPU diagnostic near end. Not pointer/Undo latency or production load benchmark. Workload includes network/server/settle; verification includes readback/hash/full replay.",
+  "authorPointerPathTested": false,
+  "lastIndependentExactCycle": 17,
+  "finalIndependentProofPerformed": false,
+  "finalProofNote": "Failure occurred before next cycle selection, failed Surface inaccessible. Finally does not run deep oracle after error. Last completed cycles18..21 have sentinel actual ROI, history/aggregate/GL checks only.",
+  "deepChecks": [
+    {
+      "cycle": 0,
+      "proofs": [
+        {
+          "layerId": "qa-ten-60f692e5-c43e-4ca1-a2bc-b314ed3dd04f",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "cdd722b9789d1497ef8712b1b32cf5a4f189a816f7b925b7bb06856de0441534",
+          "oracleHash": "cdd722b9789d1497ef8712b1b32cf5a4f189a816f7b925b7bb06856de0441534",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4925,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-60f692e5-c43e-4ca1-a2bc-b314ed3dd04f",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "4b796a59912b24502c7e9dbd28ae48ec839be320ba1fbdc6944799b92004f8b7",
+          "oracleHash": "4b796a59912b24502c7e9dbd28ae48ec839be320ba1fbdc6944799b92004f8b7",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4925,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 5,
+      "proofs": [
+        {
+          "layerId": "qa-ten-alt-d06d91c6-613d-4c16-ba4e-391859301d50",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "f33aa8e872f839c984dde81ea4383f2cfea1378b572d3ca31e47bf6abc5404af",
+          "oracleHash": "f33aa8e872f839c984dde81ea4383f2cfea1378b572d3ca31e47bf6abc5404af",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5084,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-alt-d06d91c6-613d-4c16-ba4e-391859301d50",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "d1b9ef05c96f148e0541af21d5d034780fc646e61d803205667c45ec50c56b53",
+          "oracleHash": "d1b9ef05c96f148e0541af21d5d034780fc646e61d803205667c45ec50c56b53",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5094,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 11,
+      "proofs": [
+        {
+          "layerId": "qa-ten-alt-d06d91c6-613d-4c16-ba4e-391859301d50",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "a9cb833f0ce936cab94c84337fe52f8478f749156fec7a98d5ae9086054bd590",
+          "oracleHash": "a9cb833f0ce936cab94c84337fe52f8478f749156fec7a98d5ae9086054bd590",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5306,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-alt-d06d91c6-613d-4c16-ba4e-391859301d50",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "ea4f1ae5fa355c2357e2c922db3dc686eb887261119a73d612c6992ebda086af",
+          "oracleHash": "ea4f1ae5fa355c2357e2c922db3dc686eb887261119a73d612c6992ebda086af",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5349,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 17,
+      "proofs": [
+        {
+          "layerId": "qa-ten-alt-d06d91c6-613d-4c16-ba4e-391859301d50",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "0f7650137ae3fda16583da4c6f6b6b3b1c8038224610572cb3e95fdc06f4fdb3",
+          "oracleHash": "0f7650137ae3fda16583da4c6f6b6b3b1c8038224610572cb3e95fdc06f4fdb3",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5514,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-alt-d06d91c6-613d-4c16-ba4e-391859301d50",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "b6f946f604e561215e9af6cc1175aeccd0f73f4d9e47c4d5005de701c3b90004",
+          "oracleHash": "b6f946f604e561215e9af6cc1175aeccd0f73f4d9e47c4d5005de701c3b90004",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5596,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    }
+  ],
+  "sentinelChecks": [
+    {
+      "cycle": 0,
+      "sentinel": {
+        "x": 32,
+        "y": 300
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 28,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "f58e770479bcb1360c6b6bdb5c7276495be4f8c60ac7ccdb468ead4e627bc889",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              13026,
+              0,
+              0,
+              14753
+            ]
+          },
+          "erased": null
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 28,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "95d4c8375cf57e05eccf9503dd1f05427f5be771d7737cc223811de3a3dcb102",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              13033,
+              0,
+              0,
+              14764
+            ]
+          },
+          "erased": null
+        }
+      ]
+    },
+    {
+      "cycle": 1,
+      "sentinel": {
+        "x": 88,
+        "y": 300
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 84,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "8ee52b77714d4248c2d98f9d1ca6651bd78fd5f0839e5ac2d8f27f8483198d30",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              9418,
+              1225,
+              15476
+            ]
+          },
+          "erased": null
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 84,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "39e208157676c0a47b7200e89e45170accd9bee90b5cb9660397538e45747223",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              9427,
+              1221,
+              15479
+            ]
+          },
+          "erased": null
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "sentinel": {
+        "x": 144,
+        "y": 300
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 140,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "ca17378744aff28a25365de1c3cf2a97da6830d53d8b9a09030b25298920093a",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              1619,
+              12844,
+              14580
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 28,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 140,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "65bc9bf91cbbb5fb361feeb472aa97cece6f5e04797eec79a51dd39bcd2ad08c",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              1615,
+              12854,
+              14593
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 28,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 3,
+      "sentinel": {
+        "x": 200,
+        "y": 300
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 196,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "266d12c24a48d7f9ce798bc8cc0142de33136125e471b7c63f3c930a74b6ec22",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              13230,
+              0,
+              0,
+              15480
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 84,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 196,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "6f6b05bcb62142b8d140cf1ab688fbbe79d361491f0b31efa9a8e8754a85d275",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              13240,
+              0,
+              0,
+              15482
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 84,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 4,
+      "sentinel": {
+        "x": 256,
+        "y": 300
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 252,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "076fc8a062fe383b262a9c24ed137baebb3cce8164f22ee471c2e1554ee6d061",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              9595,
+              1772,
+              13942
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 140,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 252,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "de9cd3a5e78bdddd1e0ca9710923a0b3320d5ce25e2ec90fa22d09cecd711b41",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              9608,
+              1784,
+              13956
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 140,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 5,
+      "sentinel": {
+        "x": 312,
+        "y": 300
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 308,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "c1ec6c9bca04122043484bd56f4319e8bde2b565b1e2f62643892fe24c0790fe",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              1541,
+              12902,
+              14772
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 196,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 308,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "03ae100e1979d75c0f59782aa3d45c01469be877d4fec5e51312e0e92a776dc4",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              1535,
+              12909,
+              14777
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 196,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 6,
+      "sentinel": {
+        "x": 368,
+        "y": 300
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 364,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "7cb65edc6669dd35bf20a60585c1c110218f787de0b84f6e91ab07d352931349",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              13277,
+              0,
+              0,
+              15361
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 252,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 364,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5e366c1e648d8355d684841e36fd684050d60ea10482f71f4dfdc4fa0758039a",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              13283,
+              0,
+              0,
+              15367
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 252,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 7,
+      "sentinel": {
+        "x": 424,
+        "y": 300
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 420,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "1fa78707fc3dd466c86b1d93e8eea147bfa2bcf9d89c393666e0c2ff91e2b8c2",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              9641,
+              1410,
+              15143
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 308,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 420,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "7d634fb11712a30254b7fb2cdb341dd3a89f116fd30644a5643286ebe5985e58",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              9643,
+              1402,
+              15147
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 308,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 8,
+      "sentinel": {
+        "x": 480,
+        "y": 300
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 476,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "1c8afd8f71a400454adb0bcadfe74b8dce46f931abd4eb274707effc8d007cf2",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              1359,
+              13326,
+              15222
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 364,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 476,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "4deea83a36901f3787479625e41f7f765d32f22ce9b605210b210b95614375f5",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              1355,
+              13335,
+              15227
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 364,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 9,
+      "sentinel": {
+        "x": 32,
+        "y": 348
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 28,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "68c59bfc92302bbfa600df0ba93426df0265e89cf4c18d101ab65a60741f807f",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              13006,
+              0,
+              0,
+              14953
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 420,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 28,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "d84a8c8ada873072300ef80fbf45eafe085380284400da517572dbca7a52027b",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              13014,
+              0,
+              0,
+              14962
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 420,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 10,
+      "sentinel": {
+        "x": 88,
+        "y": 348
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 84,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "76b01f0475d912ac962fa398b79551d38bbb56b0e0c517985d670048cf070396",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              9538,
+              1321,
+              15265
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 476,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 84,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "ed083879d8f0d0111cd9220d24807f4caf3e530774463e1b30b793a9a95a0cb2",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              9518,
+              1328,
+              15274
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 476,
+              "y": 296,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 11,
+      "sentinel": {
+        "x": 144,
+        "y": 348
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 140,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "c27ddb90179a4c57c54353d13b815e97180444b57896129986b16ed363911d79",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              1911,
+              12661,
+              14232
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 28,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 140,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "66fdc77032ce83f0170ba3776875bd126aa1b2ad75b32ebcf5e7ff38ef659a19",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              1938,
+              12694,
+              14262
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 28,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 12,
+      "sentinel": {
+        "x": 200,
+        "y": 348
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 196,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "222d392b13697e7f001763ba5daa855e9778a4dbd6176cb7a28c696dab270eb0",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              13177,
+              0,
+              0,
+              14882
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 84,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 196,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "0604907a9aacc14270a9361317e1e1f7e7d24c225a2584c4f961188d902f6437",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              13189,
+              0,
+              0,
+              14895
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 84,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 13,
+      "sentinel": {
+        "x": 256,
+        "y": 348
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 252,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "2d883829b64131138ac55b2a20b3b292abaa78dbc44888afb727dd910b002406",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              9663,
+              1743,
+              14256
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 140,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 252,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "e21248aae55a9594c84f55c5a82b2cac71b89fc04404a5f7e1985d4b1318c812",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              9676,
+              1747,
+              14271
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 140,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 14,
+      "sentinel": {
+        "x": 312,
+        "y": 348
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 308,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "10cc33814742a86468cc809f60816cb45d5710ace1353418972bc4e758c09c34",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              1422,
+              13376,
+              15101
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 196,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 308,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "397897a8cae0a733c3db7210344163c8aaacee638a898e494f2ba8e2a1f37413",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              1417,
+              13386,
+              15110
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 196,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 15,
+      "sentinel": {
+        "x": 368,
+        "y": 348
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 364,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "1101a418d5646f0f070ef3c60bc1ccd3480a3c861191fc629469d5383d8ca6ec",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              12999,
+              0,
+              0,
+              14723
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 252,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 364,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "11391b8a971a54d3b5a2126061dbfd7154732c36175431594b1ae399ee79b0ff",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              13009,
+              0,
+              0,
+              14734
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 252,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 16,
+      "sentinel": {
+        "x": 424,
+        "y": 348
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 420,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "c3105626bba6f8e3e1abaf3d4365743efd514460c37a8428d76779558b70f0b1",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              9408,
+              1225,
+              15432
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 308,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 420,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "1f20272e7586ab4ab2a7ed5b63187b55c01fe7c7809f4690ebc51589840f96da",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              9399,
+              1222,
+              15431
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 308,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 17,
+      "sentinel": {
+        "x": 480,
+        "y": 348
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 476,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "88dc617165685197584c4b7338c7b64bf99f2853633f4d74b3b8cbaa5faf29ed",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              1359,
+              13369,
+              15200
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 364,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 476,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "c0c5e43690cfd71439988bbb1c9841160ea50b95d51f46cc2f6619acc9ff4ce2",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              1366,
+              13374,
+              15197
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 364,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 18,
+      "sentinel": {
+        "x": 32,
+        "y": 396
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 28,
+              "y": 392,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "fe111da1a275f570de4aa300da10e4daf089c1215fbb4377b1e4c194c844b2e8",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              11969,
+              0,
+              0,
+              13452
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 420,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 28,
+              "y": 392,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "a6228ccb0ef9abf73ba84fe39fff229e33fc98049e7ee3b8ce79014559fc7aee",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              11974,
+              0,
+              0,
+              13459
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 420,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 19,
+      "sentinel": {
+        "x": 88,
+        "y": 396
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 84,
+              "y": 392,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "503921bcad8d217e2ac2dfc4ffe1b8a270792a781bd18ef2c57ae2e971b4c7a7",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              9752,
+              1603,
+              14880
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 476,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 84,
+              "y": 392,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "e122963cd65cf2c9dce4030a0e1d7b59f71da723012943f26e13e13962376f6e",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              9752,
+              1593,
+              14881
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 476,
+              "y": 344,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 20,
+      "sentinel": {
+        "x": 144,
+        "y": 396
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 140,
+              "y": 392,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "99598c3312b348d75d5afeb95f2db3e0a1c12accaaf95d7c7752ee319475b6f1",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              1386,
+              13154,
+              14976
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 28,
+              "y": 392,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 140,
+              "y": 392,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "0c0bcfdabcb7256358a2561a11a05096882a3990c75bb53cd3f0b64eeecbdd55",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              0,
+              1383,
+              13164,
+              14981
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 28,
+              "y": 392,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    },
+    {
+      "cycle": 21,
+      "sentinel": {
+        "x": 200,
+        "y": 396
+      },
+      "proofs": [
+        {
+          "fresh": {
+            "rect": {
+              "x": 196,
+              "y": 392,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "ffcffb25bcfd3c62ec05d99e73d70cdf1f15ef3be99f1b1f78354ea331b7c82e",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              13366,
+              0,
+              0,
+              15487
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 84,
+              "y": 392,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        },
+        {
+          "fresh": {
+            "rect": {
+              "x": 196,
+              "y": 392,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "ff625d156f1637778c9deb08e188935b52ede153435e3ffc6e5d291b3f425763",
+            "nonzeroAlpha": 64,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0,
+            "channelSums": [
+              13369,
+              0,
+              0,
+              15494
+            ]
+          },
+          "erased": {
+            "rect": {
+              "x": 84,
+              "y": 392,
+              "w": 8,
+              "h": 8
+            },
+            "physicalHash": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+            "nonzeroAlpha": 0,
+            "actualCapturedBeforeOracle": true,
+            "glError": 0
+          }
+        }
+      ]
+    }
+  ],
+  "cycleTimings": [
+    {
+      "cycle": 0,
+      "workloadMs": 4420,
+      "verificationMs": 1651,
+      "idleMs": 45049
+    },
+    {
+      "cycle": 1,
+      "workloadMs": 4150,
+      "verificationMs": 839,
+      "idleMs": 45052
+    },
+    {
+      "cycle": 2,
+      "workloadMs": 5456,
+      "verificationMs": 1252,
+      "idleMs": 45057
+    },
+    {
+      "cycle": 3,
+      "workloadMs": 5223,
+      "verificationMs": 1141,
+      "idleMs": 45053
+    },
+    {
+      "cycle": 4,
+      "workloadMs": 5118,
+      "verificationMs": 1161,
+      "idleMs": 45054
+    },
+    {
+      "cycle": 5,
+      "workloadMs": 5456,
+      "verificationMs": 3251,
+      "idleMs": 45054
+    },
+    {
+      "cycle": 6,
+      "workloadMs": 5179,
+      "verificationMs": 1946,
+      "idleMs": 45064
+    },
+    {
+      "cycle": 7,
+      "workloadMs": 4990,
+      "verificationMs": 1205,
+      "idleMs": 45065
+    },
+    {
+      "cycle": 8,
+      "workloadMs": 5441,
+      "verificationMs": 2134,
+      "idleMs": 45055
+    },
+    {
+      "cycle": 9,
+      "workloadMs": 5218,
+      "verificationMs": 1648,
+      "idleMs": 45050
+    },
+    {
+      "cycle": 10,
+      "workloadMs": 5148,
+      "verificationMs": 1835,
+      "idleMs": 45055
+    },
+    {
+      "cycle": 11,
+      "workloadMs": 5214,
+      "verificationMs": 4839,
+      "idleMs": 45043
+    },
+    {
+      "cycle": 12,
+      "workloadMs": 4817,
+      "verificationMs": 1570,
+      "idleMs": 45050
+    },
+    {
+      "cycle": 13,
+      "workloadMs": 5067,
+      "verificationMs": 1530,
+      "idleMs": 45061
+    },
+    {
+      "cycle": 14,
+      "workloadMs": 5229,
+      "verificationMs": 1856,
+      "idleMs": 45054
+    },
+    {
+      "cycle": 15,
+      "workloadMs": 4999,
+      "verificationMs": 1653,
+      "idleMs": 45056
+    },
+    {
+      "cycle": 16,
+      "workloadMs": 5168,
+      "verificationMs": 2254,
+      "idleMs": 45044
+    },
+    {
+      "cycle": 17,
+      "workloadMs": 5216,
+      "verificationMs": 6309,
+      "idleMs": 45044
+    },
+    {
+      "cycle": 18,
+      "workloadMs": 5212,
+      "verificationMs": 1973,
+      "idleMs": 45047
+    },
+    {
+      "cycle": 19,
+      "workloadMs": 5510,
+      "verificationMs": 2182,
+      "idleMs": 45046
+    },
+    {
+      "cycle": 20,
+      "workloadMs": 5324,
+      "verificationMs": 1978,
+      "idleMs": 45044
+    },
+    {
+      "cycle": 21,
+      "workloadMs": 5230,
+      "verificationMs": 1952,
+      "idleMs": 45052
+    }
+  ],
+  "lastMetrics": [
+    {
+      "operations": 1206,
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 1,
+        "residentLayers": 1,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 7,
+        "computations": 51,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": false,
+            "active": false
+          }
+        ]
+      },
+      "peers": 0,
+      "previewStreams": 30,
+      "textureBytes": null,
+      "heap": {
+        "used": 117654104,
+        "total": 145834804
+      },
+      "glError": 0
+    },
+    {
+      "operations": 1206,
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 1,
+        "residentLayers": 1,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 9,
+        "computations": 31,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": false,
+            "active": false
+          }
+        ]
+      },
+      "peers": 0,
+      "previewStreams": 30,
+      "textureBytes": null,
+      "heap": {
+        "used": 111465451,
+        "total": 142744875
+      },
+      "glError": 0
+    }
+  ],
+  "errors": [],
+  "accessDiagnostics": {
+    "ownedSurfaceForwardPID3861673": "exited255: client_loop send disconnect Broken pipe",
+    "surfaceCDP19334": "connection refused",
+    "surfaceSSH": "192.168.1.87:22 No route to host",
+    "homeDevicesStatus": {
+      "surface": "No route to host",
+      "lanpad": "No route to host",
+      "samsung": "SM-T970 reachable"
+    },
+    "nativeSurfaceChromePID14500": "unavailable: SSH unreachable, cannot prove process fate"
+  },
+  "limitations": [
+    "Own-GPU independent replay exact at periodic deep checks, not strict AMD/Intel equality (#748 remains open).",
+    "Surface DPR1.5/MT10/memory8 faithful secure-origin profile; GPU budgetInfinity by existing policy.",
+    "Vega observer DPR1 desktop emulation; actual AMD GPU, native memory16 observed separately.",
+    "Distinct moving sentinel and erased prior sentinel avoid relying only on dense shared-wash saturation.",
+    "Own contexts finally closed where CDP reachable; Surface inaccessible context may remain until reconnection, not falsely marked closed."
+  ]
+}
