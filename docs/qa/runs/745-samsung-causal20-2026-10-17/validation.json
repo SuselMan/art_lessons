@@ -1,0 +1,23 @@
+{
+  "pass": true,
+  "source": "e8e1f005",
+  "cycles": 20,
+  "exactChecks": 84,
+  "eraserCases": 4,
+  "rejoins": 4,
+  "groups": {
+    "pigment/B-before-A": 2,
+    "layerDry/B-before-A": 2,
+    "globalDry/B-before-A": 2,
+    "hide/B-before-A": 2,
+    "eraser/B-before-A": 2,
+    "pigment/B-after-A": 2,
+    "layerDry/B-after-A": 2,
+    "globalDry/B-after-A": 2,
+    "hide/B-after-A": 2,
+    "eraser/B-after-A": 2
+  },
+  "independentUndoStateAndChangedMaterial": true,
+  "inputOperations": 168,
+  "inputSHA256": "ab8fb8c393b9b7319705291e6a1160ce506cd6b8614a0ae90f065a1a59c1b793"
+}
