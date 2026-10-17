@@ -235,3 +235,18 @@ Fixture16 CLEAN A2l3508x2480, app3ee37518 +7flags+scopedoutsidecache, bothgestur
 App3d9be901 allocation-only batch snapshot: PagedallocateMany6/8/3 captures3bindingsonce, eachmanagedctor restorescachebaselinebefore nextadmission. Native4outputconstructorblock andall8pinnedmodelkernelsunchanged. Root208tests17filesinclR32guardPASS, actualwebtypecheck0, oxlint0. DefaultSamsungall10 GPUgateRUN; no speedclaim. Memoryinput224/solve120 unchanged; noNativeoutputretention.
 
 #748 mode6highp+ROUND fixesR/A, remainsG7803max229/B176max36. NEUTRALrim diagnostic then fullBANDcrossGPUexactc51e4f1d...; notproductcandidate/artisticremoval. Canonicalexisting251latticeQAvariantapproveddefaultOFF andIntelcaseRUN, needspairbeforecausality/promotion. ActualSamsungEXT_disjoint_timer_query absent/null(GL0), repeatedemptycapabilitycontextclosed; nobarrierimplemented.
+
+### 15:57 — latest A2 and next memory-focused candidate
+
+App3d9be901 default+7flags/outsidecompact Samsungall10stage/final0diffGL0. CLEANfixture17A2l bothUNPROFILED seamUP3785ms/edge4203ms; naturalgoalFIRSTvscompleteAPI29Nativebaseline allrawROI/full/outside0/historyunchanged. Proofa708e9d9. ExtraOWNlayer oneedge underCPUprofile isattributionONLY: wall3153ms, getParameter241ms (readbackstateevict176.9/scope.snapshot57.4/readRegionPACK6.9;ctor/bound0sampled notproof0calls),readPixels576ms,buildPagedTapAtlas147,idle748. Proof0e21ebba, rawprofiledeletedaftercompact. Externalboundpredicatecandidate NOTappliedbecausecurrentprofiledoesnotshowitdominant.
+
+Memory-focused proposal: borrowedfinal2materialplanes fromcompletedNativejob wouldavoid4outputs/contouralloc+copies. WholecompletedScratchretention rejected due81MiBlivesetpotential; audit/externalprototype transfersONLYfinalP/Cpoolleases thenreleasesotherScratch immediately, explicitcancel/reset/destroy ownership. Notappapplied/notGPUproven. Native8pinnedsourceunchangedcurrently. FunctionalA2latestprofilelayer2strokeUndoRedoDry/cold withoriginalwetlayerpreservation nowRUN, noUI/FPSclaim.
+
+#748 canonical251latticeQA firstBAND leavesG2/B1max1(R/A0); idealrationalG valueswithin0.000061/0.000048byteofhalfround boundary, noF32proof. NEUTRAL wholefinalP/C alsoDIFFwhilefirstBANDexact/refP/Cexact, soindependentlatercauseexists; coverageexact. No productshaderpromotion/nohandbiasedepsilon.
+
+
+### 18:47 — диагностический режим без перекрытий
+
+По запросу Ильи подготовлен afc07e0d QA-only local independent1536 planner и 9bd847cb интерактивная страница на существующем5384. DefaultOFF, Native/shader8pins неизменны; globals contrast/background shared, no claim numerical correctness. Два режима отличаются independentflag; свежие engines, sameworldinputs. Hosttimings не pureGPU; readPixels stalls могут ждать раннюю работу. Tests16/2 новых +22/3 прежних PASS, web typecheck0; page targetedtsc0. Samsung comparison START:4freshcases small/broad × normal/independent; measurements pending. Новый сервис/комнаты/deps не создавались.
+
+Дополнительно d184dcb0 сохраняет warm A2 Undo/Redo/Dry/UndoDry/RedoDry и truecold fullAPI/raw physical0 для сухого слоя и сохранённой другой мокрой лужи. Cold-ready50.576s, не speedPASS; earlyengineUnlocked недостаточен. Carry16 crossGPU518channels max1 после нейтрализации rim, inputs ещё не доказаны, причинный вывод не делаем.
