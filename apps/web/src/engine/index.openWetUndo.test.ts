@@ -242,3 +242,25 @@ it('a wet replay waiting for foreign eraser input does not deadlock Dry on anoth
   expect(Array.from(canonical)).toEqual(Array.from(replay))
  }finally{engine.destroy()}
 })
+for(const boundary of ['hide','dry'])it(`cancelling a ${boundary} held layer does not leak its pen-up Dry into a later gesture on another layer`,async()=>{
+ const {engine,state}=await setup(false)
+ const physical=state as unknown as {_strokeId:string|null;_dryAtPenUp:boolean;_puddleDryAtPenUp:string|null}
+ try{
+  engine.appendOperation(makeLayerAdd('B','K'),'remote')
+  engine.appendOperation({...fillStroke('B','K',8,8,4),tool:'watercolor',preset:'normal:80:60:PB29:round:wc@m70-r2-v1',strokeId:'K-wet',washId:'m70:K',timestamp:Date.now()},'remote')
+  simulateStrokeStart(engine,10,10);simulateStrokeMove(engine,14,10)
+  expect(physical._strokeId).toBeTruthy()
+  engine.appendOperation(boundary==='hide'?{id:'hide-L',type:'layer_visibility',userId:'B',layerId:'L',visible:false,timestamp:Date.now()}:{id:'dry-L',type:'paper_dry',userId:'B',layerId:'L',timestamp:Date.now()},'remote')
+  expect(physical._dryAtPenUp).toBe(true)
+  const add=state._log.entries.find(e=>e.op.type==='layer_add' && e.op.layerId==='L')!.op
+  engine.appendOperation({id:'remove-L',type:'operation_undo',targetOpId:add.id,userId:'B',timestamp:Date.now()},'remote')
+  expect(physical._strokeId).toBeNull()
+  expect.soft(physical._dryAtPenUp).toBe(false)
+  expect.soft(physical._puddleDryAtPenUp).toBeNull()
+  engine.setActiveLayer('K')
+  draw(engine)
+  expect(state._puddle.state.drying).toBe(false)
+  state._puddle.finishDrying()
+  expect(state._puddle.hasMaterial(state._layers.get('K')!)).toBe(true)
+ }finally{engine.destroy()}
+})
