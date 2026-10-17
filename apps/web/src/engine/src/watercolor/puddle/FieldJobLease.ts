@@ -12,10 +12,10 @@ export function fieldJobScope(lease:FieldLease){
    const value=Reflect.get(target,key,receiver)
    if(typeof key!=='string'||!/^\d+$/.test(key)||typeof value!=='function')return value
    let wrapped=wrappers.get(value)
-   if(!wrapped){wrapped=()=>{try{return run(()=>value())}catch(error){try{job.dispose()}finally{retire()}throw error}};Object.defineProperties(wrapped,Object.getOwnPropertyDescriptors(value));inheritSettleOpTags(value,wrapped);wrappers.set(value,wrapped)}
+   if(!wrapped){wrapped=()=>{if(retired)return;try{return run(()=>value())}catch(error){try{job.dispose()}finally{retire()}throw error}};Object.defineProperties(wrapped,Object.getOwnPropertyDescriptors(value));inheritSettleOpTags(value,wrapped);wrappers.set(value,wrapped)}
    return wrapped
   }})
-  return {...job,ops,finish:()=>run(()=>{try{job.finish()}finally{try{job.dispose()}finally{retire()}}}),dispose:()=>{try{job.dispose()}finally{retire()}}}
+  return {...job,ops,finish:()=>{if(retired)return;return run(()=>{try{job.finish()}finally{try{job.dispose()}finally{retire()}}})},dispose:()=>{if(retired)return;try{job.dispose()}finally{retire()}}}
  }
  return {run,retire,wrapJob,get activeDepth(){return depth}}
 }
