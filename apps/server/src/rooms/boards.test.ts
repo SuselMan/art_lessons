@@ -31,7 +31,7 @@ const {
   isRoomFrozen, setParticipantFrozen, setRoomClosed, setRoomFrozen, setRoomTools,
 } = await import('./ownerControls.js')
 const {
-  getLessonBoards, noteBoardCreated, noteBoardDeleted, noteBoardRenamed, noteBoardsReordered, setActiveBoard,
+  getLessonBoards, getLessonStateFor, setHandRaised, noteBoardCreated, noteBoardDeleted, noteBoardRenamed, noteBoardsReordered, setActiveBoard,
 } = await import('./classroom.js')
 
 /** What `prisma.room.findUnique` hands back for a row this test seeded. Shaped
@@ -477,4 +477,39 @@ describe('the strip and the active board', () => {
     expect(isRoomResident(lessonId)).toBe(true)
     expect(getLessonBoards(lessonId)?.map(b => b.id)).toEqual([lessonId, second])
   })
+})
+
+it('#780 restores the remaining board seat, frozen state and hand until the final socket leaves', async () => {
+  const lessonId = makeLesson()
+  const boardId = await makeBoard(lessonId)
+  joinRoom(boardId, 'student', 'Alice', sock('student', '-old'))
+  joinRoom(lessonId, 'student', 'Alice', sock('student', '-new'))
+  setParticipantFrozen(lessonId, 'student', true)
+  setHandRaised(lessonId, 'student', true)
+  const color = getParticipant(lessonId, 'student')?.color
+  expect(leaveRoom(lessonId, 'student', sock('student', '-new'))).toBe(false)
+  expect(getParticipant(lessonId, 'student')).toMatchObject({ boardId, frozen: true, color })
+  expect(getLessonStateFor(lessonId, 'teacher')?.handsRaised).toContain('student')
+  expect(isRoomResident(boardId)).toBe(true)
+  expect(leaveRoom(boardId, 'student', sock('student', '-old'))).toBe(true)
+  expect(getLessonStateFor(lessonId, 'teacher')?.handsRaised).not.toContain('student')
+  leaveRoom(lessonId, 'teacher', sock('teacher'))
+  await Promise.all([_flushPendingWrites(lessonId), _flushPendingWrites(boardId)])
+  expect(isRoomResident(lessonId)).toBe(false)
+  expect(isRoomResident(boardId)).toBe(false)
+})
+
+it('#780 leaving a previous lesson preserves the socket roster in its next lesson', async () => {
+  const first = makeLesson()
+  const second = makeLesson()
+  const board = await makeBoard(second)
+  const socket = sock('student')
+  joinRoom(first, 'student', 'Alice', socket)
+  joinRoom(board, 'student', 'Alice', socket)
+  expect(leaveRoom(first, 'student', socket)).toBe(true)
+  expect(isRoomResident(board)).toBe(true)
+  expect(getParticipant(second, 'student')?.boardId).toBe(board)
+  expect(leaveRoom(board, 'student', socket)).toBe(true)
+  await _flushPendingWrites(board)
+  expect(isRoomResident(board)).toBe(false)
 })

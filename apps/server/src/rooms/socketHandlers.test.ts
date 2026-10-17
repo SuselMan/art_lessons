@@ -321,3 +321,90 @@ it('keeps accepted chunks and does not cancel successfully recorded live ink',as
  expect((await confirmation).operation.id).toBe(op.id)
  await silent(teacher,'peer_stroke_live_end',40)
 })
+
+// #780: real transports, two overlapping sockets of one identity.
+it.each(['latest', 'old'] as const)('keeps logical presence and cancels only the %s departing socket live tail', async order => {
+  const { lessonId, teacher, student } = await classroom()
+  const newer = client('student')
+  await join(newer, lessonId, 'Alice')
+  for (const [sender, strokeId] of [[student, 'old-held'], [newer, 'new-held']] as const) {
+    const packet = next(teacher, 'peer_stroke_live')
+    sender.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'watercolor', preset: 'normal', color: [0, 0, 1], packetSeq: 0, dabsPacked: '' })
+    expect((await packet).strokeId).toBe(strokeId)
+  }
+  const cancelled: unknown[] = []
+  const left: string[] = []
+  teacher.on('peer_stroke_live_end', event => cancelled.push(event))
+  teacher.on('peer_left', userId => left.push(userId))
+  const gone = order === 'latest' ? newer : student
+  const remaining = order === 'latest' ? student : newer
+  const cancellation = next(teacher, 'peer_stroke_live_end')
+  gone.close()
+  expect(await cancellation).toEqual({ userId: 'student', strokeId: order === 'latest' ? 'new-held' : 'old-held', cancelled: true })
+  await new Promise(resolve => setTimeout(resolve, 30))
+  expect(cancelled).toHaveLength(1)
+  expect(left).toEqual([])
+  const departed = next(teacher, 'peer_left')
+  remaining.close()
+  expect(await departed).toBe('student')
+})
+
+it('#780 broadcasts the remaining socket board seat after the latest tab leaves', async () => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const firstMove = next(teacher, 'peer_board_changed')
+  await join(student, boardId, 'Alice')
+  await firstMove
+  const newer = client('student')
+  const taken = next(teacher, 'peer_board_changed')
+  await join(newer, lessonId, 'Alice')
+  await taken
+  const moved = next(teacher, 'peer_board_changed')
+  newer.close()
+  expect(await moved).toEqual({ userId: 'student', boardId })
+  await silent(teacher, 'peer_left', 30)
+})
+
+it('#780 bounds tracked live streams, retires ended streams, and ignores refused live packets', async () => {
+  const { teacher, student } = await classroom()
+  const relayed: string[] = []
+  const cancelled: string[] = []
+  teacher.on('peer_stroke_live', event => relayed.push(event.strokeId))
+  teacher.on('peer_stroke_live_end', event => { if (event.cancelled) cancelled.push(event.strokeId) })
+  const packet = (strokeId: string) => student.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'watercolor', preset: 'normal', color: [0, 0, 1], packetSeq: 0, dabsPacked: '' })
+  for (let i = 0; i < 129; i++) packet(`bounded-${i}`)
+  // Ordered ack is a barrier for preceding messages on this transport.
+  await new Promise<void>(resolve => student.emit('clock_sync', () => resolve()))
+  student.emit('stroke_live_end', { strokeId: 'bounded-0' })
+  packet('replacement')
+  const frozen = next(student, 'room_frozen_changed')
+  teacher.emit('set_room_frozen', true)
+  await frozen
+  packet('refused')
+  await new Promise<void>(resolve => student.emit('clock_sync', () => resolve()))
+  const left = next(teacher, 'peer_left')
+  student.close()
+  await left
+  expect(relayed).toHaveLength(129)
+  expect(relayed).not.toContain('bounded-128')
+  expect(relayed).toContain('replacement')
+  expect(cancelled).toHaveLength(128)
+  expect(cancelled).not.toContain('bounded-0')
+  expect(cancelled).not.toContain('refused')
+})
+
+it('#780 keeps the old owner socket authorized after its newer tab leaves a frozen room', async () => {
+  const { lessonId, teacher, student } = await classroom()
+  const newer = client('teacher')
+  await join(newer, lessonId, 'Teacher')
+  const frozen = next(student, 'room_frozen_changed')
+  teacher.emit('set_room_frozen', true)
+  await frozen
+  const serverSocket = io.sockets.sockets.get(newer.id!)!
+  const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+  newer.close()
+  await disconnected
+  const verdict = await new Promise(resolve => teacher.emit('operation', stroke(fresh('owner-after-close'), 'teacher'), resolve))
+  expect(verdict).toMatchObject({ ok: true })
+  const refused = await new Promise(resolve => student.emit('operation', stroke(fresh('student-still-frozen'), 'student'), resolve))
+  expect(refused).toEqual({ ok: false, reason: 'room_frozen' })
+})

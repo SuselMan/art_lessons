@@ -300,6 +300,15 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
   })
 
   io.on('connection', (socket) => {
+    // Bounded to this transport, never to userId: a sibling tab's live ink
+    // must survive this connection leaving (#780).
+    const activeLiveStrokes = new Map<string, string>()
+    const cancelLiveStrokes = (userId: string) => {
+      for (const [strokeId, boardId] of activeLiveStrokes) {
+        socket.to(boardId).emit('peer_stroke_live_end', { userId, strokeId, cancelled: true })
+      }
+      activeLiveStrokes.clear()
+    }
     // (#480) Устройство здесь же, рядом с userId — см. clientDescription.ts:
     // до этого связать одно с другим можно было только склейкой с nginx по
     // времени хендшейка.
@@ -585,6 +594,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
           // its ordinary pen-up has arrived. Accepted chunks remain in the log;
           // cancellation repairs only the unrecorded remainder on observers.
           if (op.type === 'stroke' && op.strokeId) {
+            activeLiveStrokes.delete(op.strokeId)
             socket.to(roomId).emit('peer_stroke_live_end', { userId, strokeId: op.strokeId, cancelled: true })
           }
           return
@@ -664,11 +674,14 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     socket.on('stroke_live', data => {
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return
+      if (typeof data.strokeId !== 'string' || !data.strokeId || data.strokeId.length > 256) return
+      if (!activeLiveStrokes.has(data.strokeId) && activeLiveStrokes.size >= 128) return
       const standIn: Operation = {
         id: data.strokeId, type: 'stroke', userId, timestamp: 0,
         layerId: data.layerId, tool: data.tool, preset: data.preset, color: data.color, dabs: [],
       }
       if (getOperationRejectReason(roomId, userId, standIn)) return
+      activeLiveStrokes.set(data.strokeId, roomId)
       socket.to(roomId).emit('peer_stroke_live', { ...data, userId })
     })
 
@@ -682,6 +695,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     socket.on('stroke_live_end', ({ strokeId, cancelled }) => {
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return
+      activeLiveStrokes.delete(strokeId)
       socket.to(roomId).emit('peer_stroke_live_end', { userId, strokeId, ...(cancelled === true ? { cancelled: true } : {}) })
     })
 
@@ -887,7 +901,13 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         // newer socket for this same room+userId already took over — see
         // its own doc comment) — must not broadcast peer_left in that case,
         // the user is still very much present via that newer socket.
+        cancelLiveStrokes(userId)
+        const previousBoardId = getParticipant(roomId, userId)?.boardId
         const actuallyLeft = leaveRoom(roomId, userId, socket.id)
+        const participant = getParticipant(lessonId ?? roomId, userId)
+        if (participant?.boardId && participant.boardId !== previousBoardId) {
+          io.to(lessonChannel(lessonId ?? roomId)).emit('peer_board_changed', { userId, boardId: participant.boardId })
+        }
         if (actuallyLeft) socket.to(lessonChannel(lessonId ?? roomId)).emit('peer_left', userId)
         // (#480) Только если комната действительно ушла из памяти. Забывать
         // на каждом разрыве нельзя: урок 21.08 состоял из десяти
