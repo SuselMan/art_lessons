@@ -1,0 +1,81 @@
+import {BUFFER,buffer,integerOption,packedRGBA,pipeline,readPacked,validateInput,type Candidate,type Input} from './contract'
+import {macroGrid,scalar} from './macro-common'
+export interface CapillaryConfig {grid?:number;steps?:number;flow?:number;mixing?:number;suction?:number;absorption?:number;capacity?:number;staining?:number;wetThreshold?:number;finePaperGain?:number}
+const PARAMS=/* wgsl */`struct Params {n:u32,size:u32,flow:f32,mixing:f32,suction:f32,absorption:f32,staining:f32,threshold:f32}`
+const DIRECTIONS=/* wgsl */`const DIR=array<vec2i,4>(vec2i(-1,0),vec2i(1,0),vec2i(0,-1),vec2i(0,1));const OPP=array<u32,4>(1u,0u,3u,2u);fn valid(q:vec2i,n:u32)->bool{return all(q>=vec2i(0))&&all(q<vec2i(i32(n)));}fn index(q:vec2i,n:u32)->u32{return u32(q.y)*n+u32(q.x);}`
+export const MACRO4_CAPILLARY_FLUX=PARAMS+DIRECTIONS+/* wgsl */`
+@group(0) @binding(0) var<storage,read> water:array<vec2f>;
+@group(0) @binding(1) var<storage,read> environment:array<vec2f>;
+@group(0) @binding(2) var<storage,read_write> flux:array<vec4f>;
+@group(0) @binding(3) var<uniform> p:Params;
+fn head(i:u32)->f32{return water[i].x-p.suction*max(0.0,1.0-water[i].y/environment[i].x);}
+@compute @workgroup_size(8,8) fn main(@builtin(global_invocation_id) gid:vec3u){
+ if(any(gid.xy>=vec2u(p.n))){return;}let pos=vec2i(gid.xy);let i=index(pos,p.n);var f=vec4f(0);
+ if(water[i].x>p.threshold){for(var k=0u;k<4u;k++){let q=pos+DIR[k];if(valid(q,p.n)){let j=index(q,p.n);let permeability=0.15+0.85*(1.0-max(environment[i].y,environment[j].y));f[k]=p.flow*permeability*max(0.0,head(i)-head(j));}}}
+ let total=dot(f,vec4f(1));if(total>water[i].x&&total>0.0){f*=water[i].x/total;}flux[i]=f;
+}`
+export const MACRO4_CAPILLARY_MOVE=PARAMS+DIRECTIONS+/* wgsl */`
+@group(0) @binding(0) var<storage,read> mobile:array<vec4f>;
+@group(0) @binding(1) var<storage,read> water:array<vec2f>;
+@group(0) @binding(2) var<storage,read> deposited:array<vec4f>;
+@group(0) @binding(3) var<storage,read> flux:array<vec4f>;
+@group(0) @binding(4) var<storage,read_write> nextMobile:array<vec4f>;
+@group(0) @binding(5) var<storage,read_write> nextWater:array<vec2f>;
+@group(0) @binding(6) var<storage,read_write> nextDeposited:array<vec4f>;
+@group(0) @binding(7) var<storage,read> environment:array<vec2f>;
+@group(0) @binding(8) var<uniform> p:Params;
+@compute @workgroup_size(8,8) fn main(@builtin(global_invocation_id) gid:vec3u){
+ if(any(gid.xy>=vec2u(p.n))){return;}let pos=vec2i(gid.xy);let i=index(pos,p.n);let outgoing=dot(flux[i],vec4f(1));var w=max(0.0,water[i].x-outgoing);var m=mobile[i]*(1.0-outgoing/max(water[i].x,0.0000001));
+ for(var k=0u;k<4u;k++){let q=pos+DIR[k];if(valid(q,p.n)){let j=index(q,p.n);let amount=flux[j][OPP[k]];w+=amount;m+=mobile[j]*(amount/max(water[j].x,0.0000001));}}
+ let absorbed=min(max(0.0,environment[i].x-water[i].y),p.absorption*w);let fraction=clamp(p.staining*absorbed/max(w,0.0000001),0.0,1.0);let fixedDelta=m*fraction;
+ nextMobile[i]=m-fixedDelta;nextDeposited[i]=deposited[i]+fixedDelta;nextWater[i]=vec2f(w-absorbed,water[i].y+absorbed);
+}`
+export const MACRO4_CAPILLARY_MIX=PARAMS+DIRECTIONS+/* wgsl */`
+@group(0) @binding(0) var<storage,read> source:array<vec4f>;
+@group(0) @binding(1) var<storage,read> water:array<vec2f>;
+@group(0) @binding(2) var<storage,read_write> dest:array<vec4f>;
+@group(0) @binding(3) var<uniform> p:Params;
+@compute @workgroup_size(8,8) fn main(@builtin(global_invocation_id) gid:vec3u){
+ if(any(gid.xy>=vec2u(p.n))){return;}let pos=vec2i(gid.xy);let i=index(pos,p.n);let a=water[i].x;var m=source[i];if(a>p.threshold){for(var k=0u;k<4u;k++){let q=pos+DIR[k];if(valid(q,p.n)){let j=index(q,p.n);let b=water[j].x;if(b>p.threshold){m+=p.mixing*min(a,b)*(source[j]/b-source[i]/a);}}}}dest[i]=m;
+}`
+export const MACRO4_CAPILLARY_PACK=PARAMS+/* wgsl */`
+@group(0) @binding(0) var<storage,read> mobile:array<vec4f>;
+@group(0) @binding(1) var<storage,read> deposited:array<vec4f>;
+@group(0) @binding(2) var<storage,read> dryOriginal:array<u32>;
+@group(0) @binding(3) var<storage,read> weights:array<f32>;
+@group(0) @binding(4) var<storage,read_write> output:array<u32>;
+@group(0) @binding(5) var<uniform> p:Params;
+@group(0) @binding(6) var<storage,read_write> guard:array<atomic<u32>>;
+fn unpack(v:u32)->vec4f{return vec4f(f32(v&255u),f32((v>>8u)&255u),f32((v>>16u)&255u),f32(v>>24u))/255.0;}
+@compute @workgroup_size(8,8) fn main(@builtin(global_invocation_id) gid:vec3u){if(any(gid.xy>=vec2u(p.size))){return;}let i=gid.y*p.size+gid.x;let cell=gid.xy*p.n/p.size;let j=cell.y*p.n+cell.x;let moved=mobile[j]+deposited[j];if(all(moved==vec4f(0))){output[i]=dryOriginal[i];return;}let value=moved*weights[i]+unpack(dryOriginal[i]);if(any(value>vec4f(1))){atomicAdd(&guard[0],1u);}if(any(value<vec4f(0))){atomicAdd(&guard[1],1u);}let b=vec4u(floor(clamp(value,vec4f(0),vec4f(1))*255.0+vec4f(.5)));output[i]=b.r|(b.g<<8u)|(b.b<<16u)|(b.a<<24u);}`
+export function initialCapillary(input:Input,n:number,capacity:number,paperGain:number){
+ const ratio=input.size/n,area=ratio*ratio,mobile=new Float32Array(n*n*4),water=new Float32Array(n*n*2),environment=new Float32Array(n*n*2),weights=new Float32Array(input.size*input.size),dry=new Uint32Array(input.size*input.size),packed=packedRGBA(input.rgba)
+ if(!Number.isInteger(ratio))throw Error('Grid must divide input')
+ for(let cy=0;cy<n;cy++)for(let cx=0;cx<n;cx++){const cell=cy*n+cx;let paper=0,weightSum=0
+  for(let dy=0;dy<ratio;dy++)for(let dx=0;dx<ratio;dx++){const i=(cy*ratio+dy)*input.size+cx*ratio+dx,w=input.water[i]/255;water[cell*2]+=w/area;paper+=input.paper[i]/(255*area);weights[i]=.5+paperGain*(1-input.paper[i]/255);weightSum+=weights[i];if(input.water[i]===0)dry[i]=packed[i];else for(let c=0;c<4;c++)mobile[cell*4+c]+=input.rgba[i*4+c]/(255*area)}
+  environment[cell*2]=.05+capacity*(1-paper);environment[cell*2+1]=paper
+  for(let dy=0;dy<ratio;dy++)for(let dx=0;dx<ratio;dx++){const i=(cy*ratio+dy)*input.size+cx*ratio+dx;weights[i]*=area/weightSum}
+ }return{mobile,water,environment,weights,dry}
+}
+/** f64 scalar conservation oracle, two water states and mobile/fixed pigment. No evaporation/walls. */
+export function capillaryReference(mobile:Float64Array,surface:Float64Array,absorbed:Float64Array,fixed:Float64Array,paper:Float64Array,n:number,config:Required<Omit<CapillaryConfig,'grid'|'steps'|'finePaperGain'>>){
+ const N=n*n,flux=new Float64Array(N*4),m=new Float64Array(N),w=new Float64Array(N),s=absorbed.slice(),d=fixed.slice(),dx=[-1,1,0,0],dy=[0,0,-1,1],opp=[1,0,3,2],capacity=(i:number)=>.05+config.capacity*(1-paper[i]),neighbor=(i:number,k:number)=>{const x=i%n+dx[k],y=Math.floor(i/n)+dy[k];return x<0||y<0||x>=n||y>=n?-1:y*n+x},head=(i:number)=>surface[i]-config.suction*Math.max(0,1-absorbed[i]/capacity(i))
+ for(let i=0;i<N;i++){if(surface[i]<=config.wetThreshold)continue;let total=0;for(let k=0;k<4;k++){const j=neighbor(i,k);if(j<0)continue;const q=config.flow*(.15+.85*(1-Math.max(paper[i],paper[j])))*Math.max(0,head(i)-head(j));flux[i*4+k]=q;total+=q}if(total>surface[i])for(let k=0;k<4;k++)flux[i*4+k]*=surface[i]/total}
+ for(let i=0;i<N;i++){let outgoing=0;for(let k=0;k<4;k++)outgoing+=flux[i*4+k];w[i]=Math.max(0,surface[i]-outgoing);m[i]=mobile[i]*(1-outgoing/Math.max(surface[i],1e-7));for(let k=0;k<4;k++){const j=neighbor(i,k);if(j<0)continue;const amount=flux[j*4+opp[k]];w[i]+=amount;m[i]+=mobile[j]*amount/Math.max(surface[j],1e-7)}const transfer=Math.min(Math.max(0,capacity(i)-s[i]),config.absorption*w[i]),fraction=Math.min(1,Math.max(0,config.staining*transfer/Math.max(w[i],1e-7))),delta=m[i]*fraction;w[i]-=transfer;s[i]+=transfer;m[i]-=delta;d[i]+=delta}
+ const result=m.slice();for(let i=0;i<N;i++)if(w[i]>config.wetThreshold)for(let k=0;k<4;k++){const j=neighbor(i,k);if(j>=0&&w[j]>config.wetThreshold)result[i]+=config.mixing*Math.min(w[i],w[j])*(m[j]/w[j]-m[i]/w[i])}
+ return{mobile:result,surface:w,absorbed:s,fixed:d}
+}
+export async function create(device:GPUDevice,size:number,config:CapillaryConfig={}):Promise<Candidate>{
+ const n=config.grid??128;macroGrid(size,n);const steps=integerOption(config.steps??96,1,256,'steps'),flow=scalar(config.flow??.18,0,.24,'flow'),mixing=scalar(config.mixing??.12,0,.24,'mixing'),suction=scalar(config.suction??.15,0,2,'suction'),absorption=scalar(config.absorption??.025,0,.5,'absorption'),capacityAmount=scalar(config.capacity??.35,0,2,'capacity'),staining=scalar(config.staining??.7,0,1,'staining'),wetThreshold=scalar(config.wetThreshold??.0001,0,.05,'wetThreshold'),finePaperGain=scalar(config.finePaperGain??.5,0,4,'finePaperGain'),N=n*n,area=(size/n)**2
+ if(device.limits.maxStorageBuffersPerShaderStage<8||device.limits.maxStorageBufferBindingSize<Math.max(size*size*4,N*16))throw Error('Dynamic wetness requires8storage buffers/stage')
+ const fluxPass=await pipeline(device,MACRO4_CAPILLARY_FLUX,'805-dynamic-wet-flux'),movePass=await pipeline(device,MACRO4_CAPILLARY_MOVE,'805-dynamic-wet-move-absorb'),mixPass=await pipeline(device,MACRO4_CAPILLARY_MIX,'805-dynamic-wet-pigment-mix'),pack=await pipeline(device,MACRO4_CAPILLARY_PACK,'805-dynamic-wet-pack'),usage=BUFFER.STORAGE|BUFFER.COPY_DST|BUFFER.COPY_SRC
+ const mobile=[buffer(device,N*16,usage,'dynamic-mobile-a'),buffer(device,N*16,usage,'dynamic-mobile-b')],fixed=[buffer(device,N*16,usage,'dynamic-fixed-a'),buffer(device,N*16,usage,'dynamic-fixed-b')],water=[buffer(device,N*8,usage,'dynamic-water-a'),buffer(device,N*8,usage,'dynamic-water-b')],environment=buffer(device,N*8,usage,'dynamic-paper-capacity'),flux=buffer(device,N*16,BUFFER.STORAGE,'dynamic-flux'),dry=buffer(device,size*size*4,BUFFER.STORAGE|BUFFER.COPY_DST,'dynamic-dry-fixed'),weights=buffer(device,size*size*4,BUFFER.STORAGE|BUFFER.COPY_DST,'dynamic-fine-weights'),output=buffer(device,size*size*4,BUFFER.STORAGE|BUFFER.COPY_SRC,'dynamic-output'),staging=buffer(device,size*size*4,BUFFER.COPY_DST|BUFFER.MAP_READ,'dynamic-output-readback'),stateStaging=buffer(device,N*40+16,BUFFER.COPY_DST|BUFFER.MAP_READ,'dynamic-state-readback'),guard=buffer(device,16,BUFFER.STORAGE|BUFFER.COPY_DST|BUFFER.COPY_SRC,'dynamic-pack-guards'),params=buffer(device,32,BUFFER.UNIFORM|BUFFER.COPY_DST,'dynamic-params'),raw=new ArrayBuffer(32);new Uint32Array(raw).set([n,size]);new Float32Array(raw).set([flow,mixing,suction,absorption,staining,wetThreshold],2);device.queue.writeBuffer(params,0,raw)
+ const bind=(p:GPUComputePipeline,list:GPUBuffer[])=>device.createBindGroup({layout:p.getBindGroupLayout(0),entries:list.map((b,binding)=>({binding,resource:{buffer:b}}))}),fluxGroups=[0,1].map(i=>bind(fluxPass,[water[i],environment,flux,params])),moveGroups=[0,1].map(i=>bind(movePass,[mobile[0],water[i],fixed[i],flux,mobile[1],water[1-i],fixed[1-i],environment,params])),mixGroups=[0,1].map(i=>bind(mixPass,[mobile[1],water[1-i],mobile[0],params])),packGroup=bind(pack,[mobile[0],fixed[steps%2],dry,weights,output,params,guard]),all=[...mobile,...fixed,...water,environment,flux,dry,weights,output,staging,stateStaging,guard,params]
+ let uploaded=false,hasOutput=false,destroyed=false,initialWater=0,initialPigment=0,initialDry=0,initialWet=new Uint8Array(N),stateSummary:Record<string,unknown>|null=null
+ const metadata={algorithm:'dynamic-Darcy-wetting-and-absorption',wetDomain:'dynamic',grid:n,steps,flow,mixing,suction,absorption,capacity:capacityAmount,staining,wetThreshold,finePaperGain,dispatches:steps*3+1,get initialWaterSum(){return initialWater},get initialPigmentAlphaCodes(){return initialPigment},get initialDryFixedAlphaCodes(){return initialDry},get finalState(){return stateSummary?{...stateSummary}:null},waterUnits:'sum of normalized water per fine pixel, surface+absorbed; no evaporation',staticWallMap:false,readbackState:'coarseW/S/M/D and explicit pre-pack overflow/negative counters copy/map only inside readback after timing',limitations:'Initial dry water is NOT a solid wall. Phenomenological Darcy+absorption, not full MoXi. Coarse fronts and finalRGBA8 clipping/rounding require checks; S absorbed water is stationary.',seedUsed:false,featuresRequired:[]}
+ return{metadata:Object.freeze(metadata),async upload(input:Input){if(destroyed)throw Error('Destroyed');validateInput(input,size);const initial=initialCapillary(input,n,capacityAmount,finePaperGain);initialWater=0;initialPigment=0;initialDry=0;for(let i=0;i<input.water.length;i++){initialWater+=input.water[i]/255;initialPigment+=input.rgba[i*4+3];if(input.water[i]===0)initialDry+=input.rgba[i*4+3]}initialWet=Uint8Array.from({length:N},(_,i)=>initial.water[i*2]>wetThreshold?1:0);stateSummary=null;device.queue.writeBuffer(mobile[0],0,initial.mobile);device.queue.writeBuffer(fixed[0],0,new Float32Array(N*4));device.queue.writeBuffer(water[0],0,initial.water);device.queue.writeBuffer(environment,0,initial.environment);device.queue.writeBuffer(dry,0,initial.dry);device.queue.writeBuffer(weights,0,initial.weights);await device.queue.onSubmittedWorkDone();uploaded=true;hasOutput=false},run(){if(destroyed||!uploaded)throw Error('Fresh upload required');uploaded=false;const encoder=device.createCommandEncoder();encoder.clearBuffer(guard);const pass=encoder.beginComputePass();for(let s=0;s<steps;s++){const i=s%2;pass.setPipeline(fluxPass);pass.setBindGroup(0,fluxGroups[i]);pass.dispatchWorkgroups(Math.ceil(n/8),Math.ceil(n/8));pass.setPipeline(movePass);pass.setBindGroup(0,moveGroups[i]);pass.dispatchWorkgroups(Math.ceil(n/8),Math.ceil(n/8));pass.setPipeline(mixPass);pass.setBindGroup(0,mixGroups[i]);pass.dispatchWorkgroups(Math.ceil(n/8),Math.ceil(n/8))}pass.setPipeline(pack);pass.setBindGroup(0,packGroup);pass.dispatchWorkgroups(Math.ceil(size/8),Math.ceil(size/8));pass.end();device.queue.submit([encoder.finish()]);hasOutput=true;return{buffer:output,width:size,height:size,bytesPerRow:size*4}},async readback(){if(destroyed||!hasOutput)throw Error('No output');const pixels=await readPacked(device,output,size,staging),encoder=device.createCommandEncoder();encoder.copyBufferToBuffer(water[steps%2],0,stateStaging,0,N*8);encoder.copyBufferToBuffer(mobile[0],0,stateStaging,N*8,N*16);encoder.copyBufferToBuffer(fixed[steps%2],0,stateStaging,N*24,N*16);encoder.copyBufferToBuffer(guard,0,stateStaging,N*40,16);device.queue.submit([encoder.finish()]);await stateStaging.mapAsync(1);try{const mapped=stateStaging.getMappedRange(),a=new Float32Array(mapped),flags=new Uint32Array(mapped,N*40,4);let surfaceSum=0,absorbedSum=0,mobileAlpha=0,adsorbedAlpha=0,expandedSurfaceCells=0,expandedTotalWetCells=0,minWater=Infinity,minPigment=Infinity;for(let i=0;i<N;i++){const w=a[i*2],s=a[i*2+1],m=a[N*2+i*4+3],d=a[N*6+i*4+3];surfaceSum+=w;absorbedSum+=s;mobileAlpha+=m;adsorbedAlpha+=d;minWater=Math.min(minWater,w,s);minPigment=Math.min(minPigment,m,d);if(!initialWet[i]&&w>wetThreshold)expandedSurfaceCells++;if(!initialWet[i]&&w+s>wetThreshold)expandedTotalWetCells++}stateSummary={surfaceSum:surfaceSum*area,absorbedSum:absorbedSum*area,totalWaterSum:(surfaceSum+absorbedSum)*area,mobileAlphaCodes:mobileAlpha*area*255,adsorbedAlphaCodes:adsorbedAlpha*area*255,initialDryFixedAlphaCodes:initialDry,expandedSurfaceCells,expandedTotalWetCells,minWater,minPigment,prePackOverflowFinePixels:flags[0],prePackNegativeFinePixels:flags[1],prePackGuardPassed:flags[0]===0&&flags[1]===0}}finally{stateStaging.unmap()}return pixels},destroy(){if(destroyed)return;destroyed=true;initialWet=new Uint8Array(0);for(const b of all)b.destroy()}}
+}
+export const capillaryDefinitions=[{id:'wgsl-macro-dynamic-wetness',label:'Динамическое смачивание и перенос пигмента',create,configs:[
+ {grid:128,steps:96,flow:.18,mixing:.12,suction:.15,absorption:.025,capacity:.35,staining:.7,wetThreshold:.0001,finePaperGain:.5},
+ {grid:256,steps:96,flow:.2,mixing:.12,suction:.2,absorption:.015,capacity:.25,staining:.5,wetThreshold:.0001,finePaperGain:.5}
+]}]
