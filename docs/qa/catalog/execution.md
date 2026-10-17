@@ -39,6 +39,10 @@ npx playwright test e2e/specs/draw.spec.ts e2e/specs/undo.spec.ts e2e/specs/peer
 npx playwright test e2e/specs/contextLoss.spec.ts e2e/specs/reconnect.spec.ts --list
 ```
 
+Подробные кейсы запускаются также по `file:line`, например
+`npx playwright test e2e/specs/layerFilter.spec.ts:116 --project=chromium --list`
+выбирает пять фильтров одного сценария; это один кейс с пятью вариантами.
+
 Большой набор: `python3 scripts/qa/check_catalog.py --suite full` печатает полный состав,
 после подготовки `npm run test:e2e` исполняет **все текущие** specs (также несопоставленные
 новые, если каталог забыли обновить; checker это запрещает). Ручные gates suite выполняются
@@ -53,7 +57,23 @@ CI сейчас запускает single-browser; @two-browsers advisory по `
 ## Специальные и unit проверки
 
 Для unit из текущего checkout: `npx vitest run <путь-к-test.ts> --maxWorkers=1`.
-MockGL доказывает вызовы/инварианты, а не пиксели. Найденный regression сначала должен упасть
+MockGL доказывает вызовы/инварианты, а не пиксели.
+Для server unit сначала прочитать выбранный test: часть мокает Prisma, часть специально
+проверяет отказ записи без схемы. Даже такой suite может выглядеть зависшим без доступного
+PostgreSQL из-за connect timeout. Указывать `DATABASE_URL` явно только на собственный
+одноразовый unit PG, не на dev/production или чужой E2E PG; не подхватывать `.env` вслепую.
+Для no-schema tests база намеренно без migration; для настоящих integration fixtures нужна
+их схема. У нового контейнера `--rm`, уникальное имя/порт и гарантированный finally cleanup.
+Не запускать второй тяжёлый стенд параллельно существующему ради unit-проверки.
+Пример команды после явной подготовки своей unit БД:
+
+```sh
+: "${QA_UNIT_DATABASE_URL:?Нужна отдельная одноразовая unit БД}"
+DATABASE_URL="$QA_UNIT_DATABASE_URL" npx vitest run apps/server/src/rooms/rooms.test.ts --maxWorkers=1
+```
+
+В кодовых/auth mocks без обращения к БД реальная доставка письма или Prisma persistence
+этим не проверяются. Ни один unit-support не переводит ручной acceptance в PASS. Найденный regression сначала должен упасть
 на дофиксном коде; expected FAIL открытого дефекта остаётся отдельным FAIL в отчёте.
 Unit-файл из NIGHT запускать только из checkout NIGHT с его совместимыми зависимостями.
 

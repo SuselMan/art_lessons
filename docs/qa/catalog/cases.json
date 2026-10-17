@@ -1,266 +1,2428 @@
 {
   "QA-001": {
     "title": "Вход и первые штрихи",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-002": {
     "title": "Одновременное рисование",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-003": {
     "title": "Материалы и перезаход",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-004": {
     "title": "Слои и локальный активный слой",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-005": {
     "title": "Конфликт структуры слоёв",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-006": {
     "title": "Авторские Undo/Redo",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-007": {
     "title": "Preview фильтра",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-008": {
     "title": "Отключение и возврат сети",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-009": {
     "title": "Фигуры и выделение онлайн",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-010": {
     "title": "Совместная мокрая акварель",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-011": {
     "title": "Рост числа участников",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-012": {
     "title": "Потеря графического контекста",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-013": {
     "title": "Несколько источников ввода в одном жесте",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-014": {
     "title": "Одновременная анимация входящих штрихов",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-015": {
     "title": "Удаление слоя во время настройки фильтра",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-016": {
     "title": "Запрет редактирования посреди живого жеста",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-017": {
     "title": "Разные инструменты на одной области",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-018": {
     "title": "Финальный кадр акварели на уменьшенном холсте",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-019": {
     "title": "Cache overflow при повторном построении акварели",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-020": {
     "title": "Один шаг фоновой выгрузки не блокирует кадр",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-021": {
     "title": "Локальный zoom при активной совместной комнате",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-022": {
     "title": "Одинаковый шум акварели и угля на разных GPU",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-023": {
     "title": "Сохранение всех буферов заливки без CPU-readback",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-024": {
     "title": "Маркерная лента у границы субпикселя",
-    "file": "../scenarios/collaboration.md"
+    "file": "../scenarios/collaboration.md",
+    "kind": "group"
   },
   "QA-025": {
     "title": "Живые вода и пигмент до отпускания пера",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-026": {
     "title": "Чужой пигмент зависит от воды автора",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-027": {
     "title": "Один жест из нескольких принятых частей",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-028": {
     "title": "Послойная сушка и переход через её границу",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-029": {
     "title": "Ластик над сухой подложкой и мокрой акварелью",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-030": {
     "title": "Несколько мокрых слоёв и выгрузка",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-031": {
     "title": "Следующее действие не стирается поздней акварелью",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-032": {
     "title": "Живой обычный мазок во время Undo и snapshot",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-033": {
     "title": "Отключение после UP при живой соседней вкладке",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-034": {
     "title": "Позднее подтверждение после ухода с доски",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-035": {
     "title": "Устаревшее восстановление снимка",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-036": {
     "title": "Пустой и частичный снимок, холодный хвост, Undo головы",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-037": {
     "title": "Защищённая вода переживает обратимую границу",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-038": {
     "title": "Переход естественного времени через 120 секунд",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-039": {
     "title": "Потеря GPU-контекста с входящими действиями",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-040": {
     "title": "Заполненная мокрая комната",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-041": {
     "title": "Видимая стоимость Undo100",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-042": {
     "title": "Один M70-журнал на разных GPU",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-043": {
     "title": "Смена доски и проверка своего replay",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-044": {
     "title": "Подтверждённый checkpoint обгоняет pending мазки",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-045": {
     "title": "Восстановление отвергнутого рисунка и несколько пачек",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-046": {
     "title": "Две модели акварели на разных слоях",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-047": {
     "title": "Реальный получасовой онлайн soak",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-048": {
     "title": "Непрерывная мокрая эпоха без Dry",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-049": {
     "title": "Размер страницы и границы тайлов M70",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-050": {
     "title": "Загрузка по готовому review export без replay",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-051": {
     "title": "Аппаратное перо, ладонь и жесты",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-052": {
     "title": "Настоящий урок и длительная touch-серия",
-    "file": "watercolor.md"
+    "file": "watercolor.md",
+    "kind": "case"
   },
   "QA-101": {
     "title": "Цвет, инструмент и его настройки",
-    "file": "interface.md"
+    "file": "interface.md",
+    "kind": "group"
   },
   "QA-102": {
     "title": "Плавающая панель и пустые слоты",
-    "file": "interface.md"
+    "file": "interface.md",
+    "kind": "group"
   },
   "QA-103": {
     "title": "Фигуры, заливка и цифровая кисть",
-    "file": "interface.md"
+    "file": "interface.md",
+    "kind": "group"
   },
   "QA-104": {
     "title": "Выделение, Cut и clipboard между комнатами",
-    "file": "interface.md"
+    "file": "interface.md",
+    "kind": "group"
   },
   "QA-105": {
     "title": "Импорт и преобразование без шва",
-    "file": "interface.md"
+    "file": "interface.md",
+    "kind": "group"
   },
   "QA-106": {
     "title": "Пипетка, линейка и растушёвка",
-    "file": "interface.md"
+    "file": "interface.md",
+    "kind": "group"
   },
   "QA-107": {
     "title": "Ластик через несколько слоёв",
-    "file": "interface.md"
+    "file": "interface.md",
+    "kind": "group"
   },
   "QA-108": {
     "title": "Структура и локальное Solo",
-    "file": "interface.md"
+    "file": "interface.md",
+    "kind": "group"
   },
   "QA-109": {
     "title": "Доски, камера и бесконечная комната",
-    "file": "interface.md"
+    "file": "interface.md",
+    "kind": "group"
   },
   "QA-110": {
     "title": "Класс, ограничения урока и копия ученика",
-    "file": "interface.md"
+    "file": "interface.md",
+    "kind": "group"
   },
   "QA-111": {
     "title": "Вход, пароль, бумага и снимки доступа",
-    "file": "interface.md"
+    "file": "interface.md",
+    "kind": "group"
   },
   "QA-112": {
     "title": "Проекты, копии и превью",
-    "file": "interface.md"
+    "file": "interface.md",
+    "kind": "group"
   },
   "QA-113": {
     "title": "Аннотация, ссылка и готовый review",
-    "file": "interface.md"
+    "file": "interface.md",
+    "kind": "group"
   },
   "QA-114": {
     "title": "Заголовок, выход, версия и метрики входа",
-    "file": "interface.md"
+    "file": "interface.md",
+    "kind": "group"
+  },
+  "QA-201": {
+    "title": "Каждый материал онлайн",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-003"
+  },
+  "QA-202": {
+    "title": "Вход по ссылке review",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-113"
+  },
+  "QA-203": {
+    "title": "Перо аннотаций",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-113"
+  },
+  "QA-204": {
+    "title": "Текстовая аннотация",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-113"
+  },
+  "QA-205": {
+    "title": "Ластик аннотаций",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-113"
+  },
+  "QA-206": {
+    "title": "Камера после создания доски",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-109"
+  },
+  "QA-207": {
+    "title": "Следование по доскам",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-109"
+  },
+  "QA-208": {
+    "title": "Цикл работы в классе",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-110"
+  },
+  "QA-209": {
+    "title": "Paste после закрытия рамки",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-104"
+  },
+  "QA-210": {
+    "title": "Paste в другую комнату",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-104"
+  },
+  "QA-211": {
+    "title": "Paste в исходную комнату",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-104"
+  },
+  "QA-212": {
+    "title": "Clipboard в уже открытой вкладке",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-104"
+  },
+  "QA-213": {
+    "title": "Сходимость при росте участников",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-017"
+  },
+  "QA-214": {
+    "title": "Разные материалы одновременно",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-017"
+  },
+  "QA-215": {
+    "title": "Цвет из палитры",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-216": {
+    "title": "Цвет при активном ластике",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-217": {
+    "title": "Цвет выключенной заливки фигуры",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-218": {
+    "title": "Цвет в общей палитре",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-219": {
+    "title": "Открытие и закрытие color well",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-220": {
+    "title": "Пиксели после GPU restore",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-012"
+  },
+  "QA-221": {
+    "title": "Undo после GPU restore",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-012"
+  },
+  "QA-222": {
+    "title": "Жест прерван потерей GPU",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-012"
+  },
+  "QA-223": {
+    "title": "Входящий штрих во время GPU loss",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-012"
+  },
+  "QA-224": {
+    "title": "Жёсткость цифровой кисти",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-103"
+  },
+  "QA-225": {
+    "title": "Opacity цифровой кисти",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-103"
+  },
+  "QA-226": {
+    "title": "Первый штрих",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-001"
+  },
+  "QA-227": {
+    "title": "Второй штрих",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-001"
+  },
+  "QA-228": {
+    "title": "Сквозной ластик и Undo",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-107"
+  },
+  "QA-229": {
+    "title": "Хоткей сквозного ластика",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-107"
+  },
+  "QA-230": {
+    "title": "Обычный ластик",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-107"
+  },
+  "QA-231": {
+    "title": "Пипетка возвращает инструмент",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-106"
+  },
+  "QA-232": {
+    "title": "Заливка замкнутой области",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-103"
+  },
+  "QA-233": {
+    "title": "Заливка заблокированного слоя",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-103"
+  },
+  "QA-234": {
+    "title": "Заливка в нижней части листа",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-103"
+  },
+  "QA-235": {
+    "title": "Волосная линия гибкой кисти",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-017"
+  },
+  "QA-236": {
+    "title": "Тап с дрейфом по панели",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-237": {
+    "title": "Перетаскивание за пределы кнопки",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-238": {
+    "title": "Drag тела панели",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-239": {
+    "title": "Тап пустого слота",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-240": {
+    "title": "Hold пустого слота",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-241": {
+    "title": "Начальная раскладка панели",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-242": {
+    "title": "Состав chooser слота",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-243": {
+    "title": "Назначение инструмента слоту",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-244": {
+    "title": "Перенос назначения",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-245": {
+    "title": "Очистка слота",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-246": {
+    "title": "Группа следует внешнему выбору",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-247": {
+    "title": "Повторный тап группы",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-248": {
+    "title": "Hold группы меняет слот",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-249": {
+    "title": "Тап действует без chooser",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-250": {
+    "title": "Раскладка между комнатами",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-251": {
+    "title": "Неизвестный инструмент в сохранённой раскладке",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-252": {
+    "title": "Миграция старой раскладки",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-102"
+  },
+  "QA-253": {
+    "title": "Рамка импортированной картинки",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-105"
+  },
+  "QA-254": {
+    "title": "Импорт при выделении",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-105"
+  },
+  "QA-255": {
+    "title": "Бесконечная комната",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-109"
+  },
+  "QA-256": {
+    "title": "Мышь не перехватывает перо",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-013"
+  },
+  "QA-257": {
+    "title": "Комната без пароля",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-111"
+  },
+  "QA-258": {
+    "title": "Пароль после отказа",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-111"
+  },
+  "QA-259": {
+    "title": "Встречные переносы папок",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-005"
+  },
+  "QA-260": {
+    "title": "Конкурирующие свойства слоя",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-005"
+  },
+  "QA-261": {
+    "title": "Переименование выделяет имя",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-108"
+  },
+  "QA-262": {
+    "title": "Группировка выделенных слоёв",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-108"
+  },
+  "QA-263": {
+    "title": "Gaussian Blur и отмена",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-007"
+  },
+  "QA-264": {
+    "title": "Cancel фильтра",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-007"
+  },
+  "QA-265": {
+    "title": "HSL lightness",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-007"
+  },
+  "QA-266": {
+    "title": "Чужой штрих во время preview",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-007"
+  },
+  "QA-267": {
+    "title": "Удалённая цель фильтра",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-007"
+  },
+  "QA-268": {
+    "title": "Локальный Solo",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-108"
+  },
+  "QA-269": {
+    "title": "Жесты Solo",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-108"
+  },
+  "QA-270": {
+    "title": "Удаление Solo-слоя",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-108"
+  },
+  "QA-271": {
+    "title": "Подтверждение выхода",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-114"
+  },
+  "QA-272": {
+    "title": "Back внутри редактора",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-114"
+  },
+  "QA-273": {
+    "title": "Freeze комнаты",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-110"
+  },
+  "QA-274": {
+    "title": "Freeze участника",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-110"
+  },
+  "QA-275": {
+    "title": "Открытие закрытого урока",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-110"
+  },
+  "QA-276": {
+    "title": "Reopen до broadcast",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-110"
+  },
+  "QA-277": {
+    "title": "Копия ученика",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-110"
+  },
+  "QA-278": {
+    "title": "Запрет во время жеста",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-110"
+  },
+  "QA-279": {
+    "title": "Задержка пера у участника",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-014"
+  },
+  "QA-280": {
+    "title": "Потерянная цель offline операции",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-008"
+  },
+  "QA-281": {
+    "title": "Ошибка бумаги и retry",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-111"
+  },
+  "QA-282": {
+    "title": "Paste обновляет уменьшенный вид",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-105"
+  },
+  "QA-283": {
+    "title": "История до прихода",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-001"
+  },
+  "QA-284": {
+    "title": "Новый штрих у наблюдателя",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-001"
+  },
+  "QA-285": {
+    "title": "Ошибка сборки комнаты",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-001"
+  },
+  "QA-286": {
+    "title": "Следование камере другого",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-001"
+  },
+  "QA-287": {
+    "title": "Телефонный список и удаление",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-112"
+  },
+  "QA-288": {
+    "title": "Карточка создаваемой копии",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-112"
+  },
+  "QA-289": {
+    "title": "Ошибка копии в списке",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-112"
+  },
+  "QA-290": {
+    "title": "Копия среди поисковых результатов",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-112"
+  },
+  "QA-291": {
+    "title": "Ошибка copy-and-open",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-112"
+  },
+  "QA-292": {
+    "title": "Loader до входа в копию",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-112"
+  },
+  "QA-293": {
+    "title": "Обрыв при входе в копию",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-112"
+  },
+  "QA-294": {
+    "title": "Позднее продолжение вытесненной заливки",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-019"
+  },
+  "QA-295": {
+    "title": "Собственный offline штрих",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-008"
+  },
+  "QA-296": {
+    "title": "Работа других пока offline",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-008"
+  },
+  "QA-297": {
+    "title": "Offline удаление общего слоя",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-008"
+  },
+  "QA-298": {
+    "title": "Запоминание материала",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-299": {
+    "title": "Временный жест не запоминается",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-300": {
+    "title": "Быстрый review до слоёв",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-113"
+  },
+  "QA-301": {
+    "title": "Upload review не удался",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-113"
+  },
+  "QA-302": {
+    "title": "Новый user gesture для Share",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-113"
+  },
+  "QA-303": {
+    "title": "Legacy preview без export",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-113"
+  },
+  "QA-304": {
+    "title": "Review текущей доски",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-114"
+  },
+  "QA-305": {
+    "title": "Rename сохраняет урок",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-114"
+  },
+  "QA-306": {
+    "title": "Отмена rename",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-114"
+  },
+  "QA-307": {
+    "title": "Rotation lock",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-114"
+  },
+  "QA-308": {
+    "title": "Возврат 100% zoom",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-114"
+  },
+  "QA-309": {
+    "title": "Узкая шапка",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-114"
+  },
+  "QA-310": {
+    "title": "Повторный вход в метриках",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-114"
+  },
+  "QA-311": {
+    "title": "Медленный вход завершился",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-114"
+  },
+  "QA-312": {
+    "title": "Поздний finish метрики",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-114"
+  },
+  "QA-313": {
+    "title": "Превью обычной комнаты",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-112"
+  },
+  "QA-314": {
+    "title": "Новая линейка",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-106"
+  },
+  "QA-315": {
+    "title": "Перенос линейки",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-106"
+  },
+  "QA-316": {
+    "title": "Поворот конца линейки",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-106"
+  },
+  "QA-317": {
+    "title": "Delete выделения",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-104"
+  },
+  "QA-318": {
+    "title": "Cut выделения",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-104"
+  },
+  "QA-319": {
+    "title": "Delete на locked слое",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-104"
+  },
+  "QA-320": {
+    "title": "Многоугольное лассо",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-104"
+  },
+  "QA-321": {
+    "title": "Кнопки выделения",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-104"
+  },
+  "QA-322": {
+    "title": "Finger tap снимает выделение",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-104"
+  },
+  "QA-323": {
+    "title": "Тап внутри выделения",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-104"
+  },
+  "QA-324": {
+    "title": "Pan сохраняет выделение",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-104"
+  },
+  "QA-325": {
+    "title": "Редактируемый прямоугольник",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-103"
+  },
+  "QA-326": {
+    "title": "Клик фигурой без drag",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-103"
+  },
+  "QA-327": {
+    "title": "Esc незаконченной фигуры",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-103"
+  },
+  "QA-328": {
+    "title": "Handles после UP",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-103"
+  },
+  "QA-329": {
+    "title": "Shift квадрат",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-103"
+  },
+  "QA-330": {
+    "title": "Рисование каждым типом фигуры",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-103"
+  },
+  "QA-331": {
+    "title": "Растушёвка на шве",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-106"
+  },
+  "QA-332": {
+    "title": "Вход из snapshot",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-036"
+  },
+  "QA-333": {
+    "title": "Недоступный snapshot blob",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-036"
+  },
+  "QA-334": {
+    "title": "HTTP доступ без socket",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-111"
+  },
+  "QA-335": {
+    "title": "Одна кнопка материалов",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-336": {
+    "title": "Два тапа группы",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-337": {
+    "title": "Выбор материала группы",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-338": {
+    "title": "Hold группы без смены",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-339": {
+    "title": "Группа фигур",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-340": {
+    "title": "Единственный материал",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-341": {
+    "title": "Вкладка настроек следует инструменту",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-342": {
+    "title": "Размер store доходит до движка",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-343": {
+    "title": "Смена инструмента доходит до движка",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-101"
+  },
+  "QA-344": {
+    "title": "Transform после UP",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-105"
+  },
+  "QA-345": {
+    "title": "Undo незавершённого move",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-105"
+  },
+  "QA-346": {
+    "title": "Resample на границе тайлов",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-105"
+  },
+  "QA-347": {
+    "title": "Поздний seq своего штриха",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-002"
+  },
+  "QA-348": {
+    "title": "Рука в телефонных аннотациях",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-113"
+  },
+  "QA-349": {
+    "title": "Minimal UI по умолчанию",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-113"
+  },
+  "QA-350": {
+    "title": "Базовый Undo/Redo",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-006"
+  },
+  "QA-351": {
+    "title": "Версия в Settings",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-114"
+  },
+  "QA-352": {
+    "title": "Версия в globalThis",
+    "file": "browser.md",
+    "kind": "case",
+    "group": "QA-114"
+  },
+  "QA-401": {
+    "title": "Вход гостя и устаревшая cookie",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "auth"
+  },
+  "QA-402": {
+    "title": "Запрос кода email",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "auth"
+  },
+  "QA-403": {
+    "title": "Неверный email и отказ провайдера",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "auth"
+  },
+  "QA-404": {
+    "title": "Код только своему браузеру",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "auth"
+  },
+  "QA-405": {
+    "title": "Одноразовость и срок кода",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "auth"
+  },
+  "QA-406": {
+    "title": "Неверные попытки кода",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "auth"
+  },
+  "QA-407": {
+    "title": "Cooldown повторного письма",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "auth"
+  },
+  "QA-408": {
+    "title": "Rate limit почты и IP",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "auth"
+  },
+  "QA-409": {
+    "title": "Гость становится аккаунтом",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "auth"
+  },
+  "QA-410": {
+    "title": "Смена email при входе",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "auth"
+  },
+  "QA-411": {
+    "title": "Код не выдаётся production клиенту",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "auth"
+  },
+  "QA-412": {
+    "title": "Бан до и после отправки кода",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "auth"
+  },
+  "QA-413": {
+    "title": "Отзыв сессий",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "auth"
+  },
+  "QA-414": {
+    "title": "Идентификатор устройства и IP",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "auth"
+  },
+  "QA-415": {
+    "title": "Владелец не определяется гонкой join",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "access"
+  },
+  "QA-416": {
+    "title": "Открытая комната с паролем",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "access"
+  },
+  "QA-417": {
+    "title": "Приглашение по email",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "access"
+  },
+  "QA-418": {
+    "title": "Очередь ожидания",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "access"
+  },
+  "QA-419": {
+    "title": "Отказ запроса и чужой requestId",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "access"
+  },
+  "QA-420": {
+    "title": "Invitation разрешает ожидающий запрос",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "access"
+  },
+  "QA-421": {
+    "title": "Block участника и unblock",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "access"
+  },
+  "QA-422": {
+    "title": "Owner не блокирует себя",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "access"
+  },
+  "QA-423": {
+    "title": "Изменение режима и password",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "access"
+  },
+  "QA-424": {
+    "title": "Контент дочерней доски",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "access"
+  },
+  "QA-425": {
+    "title": "Доступ HTTP после разрыва socket",
+    "file": "historical.md",
+    "kind": "alias",
+    "section": "access",
+    "alias_of": "QA-334"
+  },
+  "QA-426": {
+    "title": "Доступ после удаления пользователя",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "access"
+  },
+  "QA-427": {
+    "title": "Список только своих уроков",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-428": {
+    "title": "Папки списка и права",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-429": {
+    "title": "Цикл папок проектов",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-430": {
+    "title": "Удаление непустой папки проектов",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-431": {
+    "title": "Выход участника из коллекции",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-432": {
+    "title": "Rename без сброса холста",
+    "file": "historical.md",
+    "kind": "alias",
+    "section": "projects",
+    "alias_of": "QA-305"
+  },
+  "QA-433": {
+    "title": "Копия в исходной папке",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-434": {
+    "title": "Права и настройки копии",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-435": {
+    "title": "Новые ID операций копии",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-436": {
+    "title": "Структурные операции в копии",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-437": {
+    "title": "Копия тяжёлой комнаты без полной кучи",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-438": {
+    "title": "Копия урока со всеми досками",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-439": {
+    "title": "Превью после ухода socket",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-440": {
+    "title": "Валидация и кеширование thumbnail",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-441": {
+    "title": "Drop слоя в закрытую папку",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-442": {
+    "title": "Перенос папки с содержимым",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-443": {
+    "title": "Вложенные папки и запрет цикла",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-444": {
+    "title": "Merge внутри папки",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-445": {
+    "title": "Merge/delete с чужим содержимым",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-446": {
+    "title": "Восстановление слоя после merge/delete",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-447": {
+    "title": "Undo удаления в серверном зеркале",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-448": {
+    "title": "Hidden слой не принимает рисунок",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-449": {
+    "title": "Локальный и владельческий замок",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-450": {
+    "title": "Замок всех редакторских действий",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-451": {
+    "title": "Дубликат слоя и папки",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-452": {
+    "title": "Активный слой после reload",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-453": {
+    "title": "Смена цвета не перекрашивает прошлое",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-454": {
+    "title": "Острый угол быстрого штриха",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-455": {
+    "title": "Плотность не зависит от report rate",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-456": {
+    "title": "Скорость по timestamp пера",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-457": {
+    "title": "Прерывания длинного жеста на zoom",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-458": {
+    "title": "Наклон пера и азимут хвата",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-459": {
+    "title": "Крупный твёрдый карандаш",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-460": {
+    "title": "Равномерный маркер внутри жеста",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-461": {
+    "title": "Конец сегмента маркера",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-462": {
+    "title": "Маркер не делает подложку непрозрачной",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-463": {
+    "title": "Стык чанков маркера",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-464": {
+    "title": "Растушёвка без белого ореола",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-465": {
+    "title": "Preview peer тем же материалом",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-466": {
+    "title": "Переход импорта к следующей операции",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-467": {
+    "title": "Undo импортированной картинки",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-468": {
+    "title": "Изображение за границей холста",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-469": {
+    "title": "Размер и hit area gizmo",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-470": {
+    "title": "Второй жест transform-сессии",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-471": {
+    "title": "Transform pending ACK и Esc",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-472": {
+    "title": "Transform reload и тап вне рамки",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-473": {
+    "title": "Зерно world-space на infinite",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "paper"
+  },
+  "QA-474": {
+    "title": "Масштаб графита и бумаги",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "paper"
+  },
+  "QA-475": {
+    "title": "Шов baked paper",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "paper"
+  },
+  "QA-476": {
+    "title": "Вид бумаги и качество на GPU",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "paper"
+  },
+  "QA-477": {
+    "title": "Смена бумаги и загрузка кода",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "paper"
+  },
+  "QA-478": {
+    "title": "Safari совместимость бумаги",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "paper"
+  },
+  "QA-479": {
+    "title": "Снимок плюс Undo не стирают прошлое",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-480": {
+    "title": "Слои вне окна server log",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-481": {
+    "title": "Снимок пустой структуры не затирает живую",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-482": {
+    "title": "Ошибка восстановления тайла видна",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-483": {
+    "title": "Нижняя полоса clipped snapshot",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-484": {
+    "title": "Первый слой после restore",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-485": {
+    "title": "Потерянный commit seq не глушит bake",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-486": {
+    "title": "Пустой bake допускает повтор",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-487": {
+    "title": "Checkpoint без незаписанных чернил",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-488": {
+    "title": "План восстановления без полной истории",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-489": {
+    "title": "Сжатый blob и ETag",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-490": {
+    "title": "Сверка независимых снимков",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-491": {
+    "title": "Outbox работает без IndexedDB",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "network"
+  },
+  "QA-492": {
+    "title": "Outbox привязан к комнате",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "network"
+  },
+  "QA-493": {
+    "title": "Операция до join получает ответ",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "network"
+  },
+  "QA-494": {
+    "title": "Исключение при operation ACK",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "network"
+  },
+  "QA-495": {
+    "title": "Повторная доставка и server seq",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "network"
+  },
+  "QA-496": {
+    "title": "Permanent и retryable reject",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "network"
+  },
+  "QA-497": {
+    "title": "Автовозврат после shutdown",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "network"
+  },
+  "QA-498": {
+    "title": "Ошибка create/join видна человеку",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "network"
+  },
+  "QA-499": {
+    "title": "Неправильная целевая структура",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "network"
+  },
+  "QA-500": {
+    "title": "HTTP catchup пока socket отсутствует",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "network"
+  },
+  "QA-501": {
+    "title": "Дробный zoom на шве тайлов",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "canvas"
+  },
+  "QA-502": {
+    "title": "Экспорт вне viewport",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "canvas"
+  },
+  "QA-503": {
+    "title": "Малый zoom infinite и LOD",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "canvas"
+  },
+  "QA-504": {
+    "title": "Свёртка только когда нужна",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "canvas"
+  },
+  "QA-505": {
+    "title": "Area clear на малом zoom",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "canvas"
+  },
+  "QA-506": {
+    "title": "Большой bounded лист и memory",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "canvas"
+  },
+  "QA-507": {
+    "title": "Восстановление многих слоёв без jetsam",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "canvas"
+  },
+  "QA-508": {
+    "title": "Длинный replay без incomplete FBO",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "canvas"
+  },
+  "QA-509": {
+    "title": "DPR и 100% нативного масштаба",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "canvas"
+  },
+  "QA-510": {
+    "title": "Ось pinch при большом zoom",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "canvas"
+  },
+  "QA-511": {
+    "title": "Слайдер пером с ладонью",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-512": {
+    "title": "Тап minimal UI и возврат оболочки",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-513": {
+    "title": "Курсор кисти на бумаге",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-514": {
+    "title": "Touch scroll списка проектов",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-515": {
+    "title": "Picker меняет режим без скачка",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-516": {
+    "title": "Fullscreen портальные элементы",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-517": {
+    "title": "Тост поверх панелей",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-518": {
+    "title": "Панель после смены ориентации",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-519": {
+    "title": "Модалка перемещения проектов",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-520": {
+    "title": "Иконки до загрузки шрифта",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-521": {
+    "title": "Safari карточки бумаги",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-522": {
+    "title": "Логотип и навигация входа",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-523": {
+    "title": "Язык и сохранение настроек",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-524": {
+    "title": "Настройки размера и цвета инструмента",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-525": {
+    "title": "Hotkeys при текстовом вводе",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-526": {
+    "title": "Свежий документ после обновления",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "pwa"
+  },
+  "QA-527": {
+    "title": "Возврат PWA из фона",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "pwa"
+  },
+  "QA-528": {
+    "title": "SW не перехватывает API/socket",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "pwa"
+  },
+  "QA-529": {
+    "title": "Старая доменная привязка SW",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "pwa"
+  },
+  "QA-530": {
+    "title": "Ограниченное resident окно",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "server"
+  },
+  "QA-531": {
+    "title": "Комнаты освобождаются после ухода",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "server"
+  },
+  "QA-532": {
+    "title": "Отказ при memory pressure",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "server"
+  },
+  "QA-533": {
+    "title": "Health зависит от БД",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "server"
+  },
+  "QA-534": {
+    "title": "Порог диска и event loop",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "server"
+  },
+  "QA-535": {
+    "title": "Graceful shutdown сохраняет результат",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "server"
+  },
+  "QA-536": {
+    "title": "Бан аккаунта администратором",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "server"
+  },
+  "QA-537": {
+    "title": "Временный IP ban и proxy",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "server"
+  },
+  "QA-538": {
+    "title": "Sentry без чувствительных данных",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "server"
+  },
+  "QA-539": {
+    "title": "Snapshot lag watcher",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "server"
+  },
+  "QA-540": {
+    "title": "Проверка backup восстановлением",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "infra"
+  },
+  "QA-541": {
+    "title": "Сжатие статических ассетов",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "infra"
+  },
+  "QA-542": {
+    "title": "Две последовательные выкатки",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "infra"
+  },
+  "QA-543": {
+    "title": "Бюджет диска сборок",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "infra"
+  },
+  "QA-544": {
+    "title": "Типизация служебных скриптов",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "infra"
+  },
+  "QA-545": {
+    "title": "Задержка локальной линии",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-546": {
+    "title": "Видимая стоимость обычного Undo",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-547": {
+    "title": "Время входа legacy комнаты",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-548": {
+    "title": "Нажим акварели и brushPen",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-549": {
+    "title": "Сто коротких штрихов Apple Pencil",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-550": {
+    "title": "Текст причины восстановления",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-551": {
+    "title": "Мелкий chisel без дыр",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-552": {
+    "title": "Chisel90° live против replay",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-553": {
+    "title": "Антиалиасинг края маркерной ленты",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-554": {
+    "title": "Создание без WebGL",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-555": {
+    "title": "Неизвестный route",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-556": {
+    "title": "Количество операций после rejoin",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-557": {
+    "title": "Компиляция шейдеров Adreno",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-558": {
+    "title": "LOD маркера и brushPen",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "canvas"
+  },
+  "QA-559": {
+    "title": "Поздняя structural dependency snapshot",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-560": {
+    "title": "Copy/merge мокрого canonical target",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-561": {
+    "title": "Историческая копия после позднего Undo source",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-562": {
+    "title": "Историческая копия и новый source snapshot",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-563": {
+    "title": "Undo merge мокрых источников",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "layers"
+  },
+  "QA-564": {
+    "title": "Новый ввод во время Dry другого слоя",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-565": {
+    "title": "Prewarm на неподдержанной геометрии",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-566": {
+    "title": "Refused live tail после обычного UP",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "network"
+  },
+  "QA-567": {
+    "title": "Flush при неподвижном удержании пера",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "network"
+  },
+  "QA-568": {
+    "title": "Пустой M70 prewarm не блокирует bake",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-569": {
+    "title": "Resize наблюдателя при held stroke",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "network"
+  },
+  "QA-570": {
+    "title": "Новый snapshot заменяет старую мокрую базу",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "snapshots"
+  },
+  "QA-571": {
+    "title": "Fit учитывает панели",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "canvas"
+  },
+  "QA-572": {
+    "title": "Deferred Dry не переходит на соседний слой",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "engine"
+  },
+  "QA-573": {
+    "title": "Shared dist в server image",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "infra"
+  },
+  "QA-574": {
+    "title": "Отказ offsite backup не зелёный",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "infra"
+  },
+  "QA-575": {
+    "title": "Offline probe действительно обрывает WebSocket",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "method"
+  },
+  "QA-576": {
+    "title": "Bridge join с пустой формой",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "method"
+  },
+  "QA-577": {
+    "title": "Oracle загрузки учитывает snapshot",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "method"
+  },
+  "QA-578": {
+    "title": "M70 модель не теряется в стенде",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "method"
+  },
+  "QA-579": {
+    "title": "Архитектурная карта подсвечивает связи",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "infra"
+  },
+  "QA-580": {
+    "title": "Создание с custom размером",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-581": {
+    "title": "Бумага, цвет и enabled tools при создании",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-582": {
+    "title": "Приглашение с другого устройства",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-583": {
+    "title": "Создание и rename доски",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-584": {
+    "title": "Порядок досок",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-585": {
+    "title": "Удаление текущей доски",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-586": {
+    "title": "Личные доски и приватность класса",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "access"
+  },
+  "QA-587": {
+    "title": "Live stroke чужой личной доски",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "access"
+  },
+  "QA-588": {
+    "title": "Опоздавший ученик получает работу",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-589": {
+    "title": "Spotlight не меняет собственность доски",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-590": {
+    "title": "Поднятая рука",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "projects"
+  },
+  "QA-591": {
+    "title": "Пользовательская и общая палитра",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-592": {
+    "title": "Калибровка нажима и размеры",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-593": {
+    "title": "Числовой ввод параметра",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-594": {
+    "title": "Линейка и сетка как выбранный инструмент",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-595": {
+    "title": "Справка и поиск по задаче",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-596": {
+    "title": "Звук карандаша и настройки",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
+  },
+  "QA-597": {
+    "title": "Импорт референса не портит соседей",
+    "file": "historical.md",
+    "kind": "case",
+    "section": "ui"
   }
 }

@@ -1,0 +1,3777 @@
+[
+  {
+    "id": "QA-401",
+    "section": "auth",
+    "title": "Вход гостя и устаревшая cookie",
+    "setup": "Новый браузер; отдельно подписанная cookie удалённого пользователя.",
+    "steps": "Открыть создание комнаты и socket с новой/устаревшей cookie.",
+    "expected": "Создана действительная guest identity; отсутствующий userId не уходит в socket, известный аккаунт сохранён.",
+    "unit_support": [
+      "apps/server/src/auth/identity.test.ts"
+    ],
+    "issues": [
+      41,
+      695
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-402",
+    "section": "auth",
+    "title": "Запрос кода email",
+    "setup": "Гость с тестовым почтовым провайдером.",
+    "steps": "Запросить код для нового и существующего email.",
+    "expected": "Ответ не раскрывает наличие аккаунта; письмо отправлено, есть confirmation phrase и nonce-cookie.",
+    "unit_support": [
+      "apps/server/src/auth/authRoutes.test.ts",
+      "apps/server/src/auth/loginCodes.test.ts"
+    ],
+    "issues": [
+      316
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-403",
+    "section": "auth",
+    "title": "Неверный email и отказ провайдера",
+    "setup": "Тестовый mail transport с управляемым отказом.",
+    "steps": "Ввести некорректный email, затем валидный при отказе отправки.",
+    "expected": "Ошибки различимы и показаны; успешный вход не объявлен, секретный код не выдан.",
+    "unit_support": [
+      "apps/server/src/auth/authRoutes.test.ts"
+    ],
+    "issues": [
+      316
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-404",
+    "section": "auth",
+    "title": "Код только своему браузеру",
+    "setup": "Код выдан браузеру A, второй браузер B без nonce A.",
+    "steps": "Правильный код отправить из B, без nonce, затем из A.",
+    "expected": "Чужой browser и отсутствие nonce отказаны с учётом попытки; A может войти согласно состоянию кода.",
+    "unit_support": [
+      "apps/server/src/auth/loginCodes.test.ts",
+      "apps/server/src/auth/authRoutes.test.ts"
+    ],
+    "issues": [
+      316
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-405",
+    "section": "auth",
+    "title": "Одноразовость и срок кода",
+    "setup": "Выдан свежий шестизначный код в тестовой БД.",
+    "steps": "Ввести верный код; повторить использованный. Отдельно истечь 10 мин и ввести просроченный.",
+    "expected": "Один вход на код; повтор и expiry отказаны явно; nonce потрачен вместе с кодом.",
+    "unit_support": [
+      "apps/server/src/auth/loginCodes.test.ts",
+      "apps/server/src/auth/authRoutes.test.ts"
+    ],
+    "issues": [
+      316
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-406",
+    "section": "auth",
+    "title": "Неверные попытки кода",
+    "setup": "Выдан код для одного адреса.",
+    "steps": "Вводить неверные значения до установленного предела; затем правильное.",
+    "expected": "Попытки учтены, код сожжён после предела; последующие запросы не обходят блокировку.",
+    "unit_support": [
+      "apps/server/src/auth/loginCodes.test.ts",
+      "apps/server/src/auth/authRoutes.test.ts"
+    ],
+    "issues": [
+      237,
+      316
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-407",
+    "section": "auth",
+    "title": "Cooldown повторного письма",
+    "setup": "Есть только что отправленный код.",
+    "steps": "Запросить новый сразу, после cooldown и после использования старого.",
+    "expected": "Cooldown возвращён числом секунд; новый код гасит прежние; использованный не заставляет ждать заново.",
+    "unit_support": [
+      "apps/server/src/auth/loginCodes.test.ts",
+      "apps/server/src/auth/authRoutes.test.ts"
+    ],
+    "issues": [
+      316
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-408",
+    "section": "auth",
+    "title": "Rate limit почты и IP",
+    "setup": "Тестовые адреса/IP; изолированное состояние лимитов.",
+    "steps": "Менять IP при рассылке одному mailbox; одним IP обращаться к разным адресам; превысить budget.",
+    "expected": "Лимиты mailbox и IP не обходятся и не блокируют ошибочно весь сервер; отказ имеет правильный статус.",
+    "unit_support": [
+      "apps/server/src/auth/authRoutes.test.ts"
+    ],
+    "issues": [
+      237
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-409",
+    "section": "auth",
+    "title": "Гость становится аккаунтом",
+    "setup": "У гостя уже есть комнаты, email ещё не зарегистрирован.",
+    "steps": "Войти кодом нового email и открыть прежние комнаты.",
+    "expected": "Регистрация заполняет ту же guest row; проекты не потеряны.",
+    "unit_support": [
+      "apps/server/src/auth/authRoutes.test.ts"
+    ],
+    "issues": [
+      316,
+      116
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-410",
+    "section": "auth",
+    "title": "Смена email при входе",
+    "setup": "Браузер уже вошёл в аккаунт A; существует B.",
+    "steps": "Войти кодом B и проверить данные A/B.",
+    "expected": "Вход не переименовывает аккаунт A в B и не отдаёт чужие проекты.",
+    "unit_support": [
+      "apps/server/src/auth/authRoutes.test.ts"
+    ],
+    "issues": [
+      316
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-411",
+    "section": "auth",
+    "title": "Код не выдаётся production клиенту",
+    "setup": "Production env; отдельно provider configured и dev без mailbox.",
+    "steps": "Запросить код во всех режимах.",
+    "expected": "Код никогда не включён в production/provider response; dev shortcut ограничен предусмотренным режимом.",
+    "unit_support": [
+      "apps/server/src/auth/authRoutes.test.ts"
+    ],
+    "issues": [
+      353,
+      356
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-412",
+    "section": "auth",
+    "title": "Бан до и после отправки кода",
+    "setup": "Администратор, пользователь с выданным кодом.",
+    "steps": "Забанить адрес до request, затем отдельного пользователя после request до redeem.",
+    "expected": "Забаненному письмо/вход запрещены; ранее выданный код не обходит ban.",
+    "unit_support": [
+      "apps/server/src/auth/authRoutes.test.ts",
+      "apps/server/src/admin/adminRoutes.test.ts"
+    ],
+    "issues": [
+      587
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-413",
+    "section": "auth",
+    "title": "Отзыв сессий",
+    "setup": "Аккаунт с двумя активными сокетами и HTTP cookie.",
+    "steps": "Отозвать токены администратором, повторить /api/me и socket-вход.",
+    "expected": "Старые токены больше не действуют, live sockets закрыты; восстановление гостя не возвращает отозванный доступ.",
+    "unit_support": [
+      "apps/server/src/auth/authRoutes.test.ts",
+      "apps/server/src/admin/adminRoutes.test.ts"
+    ],
+    "issues": [
+      585,
+      587
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-414",
+    "section": "auth",
+    "title": "Идентификатор устройства и IP",
+    "setup": "HTTP и socket за разрешённым proxy.",
+    "steps": "Повторить запросы, передать некорректный device-id, IPv4-mapped и forwarded-chain.",
+    "expected": "Device cookie стабилен, принимается только допустимый UUID, IP нормализован по доверенному proxy.",
+    "unit_support": [
+      "apps/server/src/auth/sessions.test.ts",
+      "apps/server/src/auth/authRoutes.test.ts"
+    ],
+    "issues": [
+      590
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-415",
+    "section": "access",
+    "title": "Владелец не определяется гонкой join",
+    "setup": "Свежий owner и второй browser без localStorage комнаты.",
+    "steps": "Создать комнату, почти одновременно войти обоим.",
+    "expected": "Создатель teacher независимо от порядка входа; второй видит серверный конфиг и рисунок.",
+    "unit_support": [
+      "apps/server/src/rooms/rooms.test.ts",
+      "apps/server/src/rooms/socketHandlers.test.ts"
+    ],
+    "issues": [
+      39,
+      85
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-416",
+    "section": "access",
+    "title": "Открытая комната с паролем",
+    "setup": "Owner и новый участник; password установлен.",
+    "steps": "Войти без пароля, с неверным, затем правильным.",
+    "expected": "Отказ не раскрывает content; правильный пароль открывает комнату и сохраняет разрешение.",
+    "unit_support": [
+      "apps/server/src/rooms/roomAccess.test.ts",
+      "apps/server/src/rooms/socketHandlers.test.ts"
+    ],
+    "issues": [
+      225,
+      513
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-417",
+    "section": "access",
+    "title": "Приглашение по email",
+    "setup": "Комната invite-only, guest и зарегистрированный приглашённый.",
+    "steps": "Добавить email с пробелами/регистром, войти обоими, удалить приглашение.",
+    "expected": "Адрес нормализован, доступ получает нужный аккаунт; удаление/отзыв соответствует политике.",
+    "unit_support": [
+      "apps/server/src/rooms/roomAccess.test.ts",
+      "apps/server/src/roomRoutes/roomAccessRoutes.test.ts"
+    ],
+    "issues": [
+      224,
+      225,
+      226
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-418",
+    "section": "access",
+    "title": "Очередь ожидания",
+    "setup": "Teacher и незнакомый student, access mode с запросом.",
+    "steps": "Student просит вход; teacher открывает панель и approves.",
+    "expected": "Pending request виден один раз; approval уведомляет обе стороны и открывает доступ.",
+    "unit_support": [
+      "apps/server/src/rooms/roomAccess.test.ts",
+      "apps/server/src/roomRoutes/roomAccessRoutes.test.ts"
+    ],
+    "issues": [
+      227,
+      380
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-419",
+    "section": "access",
+    "title": "Отказ запроса и чужой requestId",
+    "setup": "Есть pending запросы в двух разных комнатах.",
+    "steps": "Deny свой запрос, попытаться разрешить чужой room request.",
+    "expected": "Свой отказ доставлен; чужое разрешение невозможно; resolved не остаётся в pending списке.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/roomAccessRoutes.test.ts"
+    ],
+    "issues": [
+      226,
+      227
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-420",
+    "section": "access",
+    "title": "Invitation разрешает ожидающий запрос",
+    "setup": "Участник уже стоит в waiting queue.",
+    "steps": "Пригласить тот же email, затем проверить очередь и вход.",
+    "expected": "Приглашение разрешает соответствующий запрос без дубля и не делает owner заявителем.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/roomAccessRoutes.test.ts"
+    ],
+    "issues": [
+      226
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-421",
+    "section": "access",
+    "title": "Block участника и unblock",
+    "setup": "Участник приглашён и уже был в уроке.",
+    "steps": "Owner блокирует его; повторить socket/HTTP вход; снять block.",
+    "expected": "Block закрывает доступ и очищает invite; unblock снимает только block, прежнее приглашение само не возвращается.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/roomAccessRoutes.test.ts",
+      "apps/server/src/rooms/roomAccess.test.ts"
+    ],
+    "issues": [
+      224,
+      226
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-422",
+    "section": "access",
+    "title": "Owner не блокирует себя",
+    "setup": "Owner, участник и неизвестный userId.",
+    "steps": "Вызвать block себя, пустой userId, неизвестного пользователя.",
+    "expected": "Owner остаётся владельцем, неверные запросы дают 400/404 без изменения доступа.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/roomAccessRoutes.test.ts"
+    ],
+    "issues": [
+      226
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-423",
+    "section": "access",
+    "title": "Изменение режима и password",
+    "setup": "Owner с открытой панелью доступа и peer.",
+    "steps": "Изменить accessMode; отдельно установить пароль, null удалить, пустой отказать.",
+    "expected": "Режим и пароль меняются независимо; live room уведомлена; невалидный patch не имитирует успех.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/roomAccessRoutes.test.ts"
+    ],
+    "issues": [
+      224,
+      226
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-424",
+    "section": "access",
+    "title": "Контент дочерней доски",
+    "setup": "Доска принадлежит lesson, участники с разным доступом.",
+    "steps": "Запросить snapshots/thumbnail/review дочерней доски, обойти урок прямым boardId.",
+    "expected": "Проверяется lesson content access и block, чужой boardId не даёт обхода.",
+    "unit_support": [
+      "apps/server/src/rooms/boardContentAccess.test.ts",
+      "apps/server/src/roomRoutes/snapshotRoutes.test.ts",
+      "apps/server/src/roomRoutes/reviewRoutes.test.ts"
+    ],
+    "issues": [
+      564,
+      741
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-425",
+    "section": "access",
+    "title": "Доступ HTTP после разрыва socket",
+    "setup": "Участник успешно вошёл; cookie не меняется.",
+    "steps": "Отключить socket и читать snapshot/history; затем сменить пароль.",
+    "expected": "Сохранённое успешное участие действует без socket; старая password revision отозвана, owner доступен.",
+    "unit_support": [
+      "apps/server/src/rooms/boardContentAccess.test.ts",
+      "apps/server/src/roomRoutes/snapshotRoutes.test.ts"
+    ],
+    "issues": [
+      741
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-426",
+    "section": "access",
+    "title": "Доступ после удаления пользователя",
+    "setup": "Cookie указывает на удалённую user row.",
+    "steps": "Создать/войти/сохранить комнату через HTTP и socket.",
+    "expected": "Не возникает несуществующего владельца и несохраняемой комнаты; identity восстановлена согласованно.",
+    "unit_support": [
+      "apps/server/src/auth/identity.test.ts",
+      "apps/server/src/rooms/socketHandlers.test.ts"
+    ],
+    "issues": [
+      695
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-427",
+    "section": "projects",
+    "title": "Список только своих уроков",
+    "setup": "Два аккаунта, урок с несколькими boards, гостевые участия.",
+    "steps": "Открыть mine и поиск с q/пустым q.",
+    "expected": "Только доступные lessons, не дочерние boards; пустой запрос не запускает лишний поиск.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/roomRoutes.test.ts"
+    ],
+    "issues": [
+      116,
+      211,
+      564
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-428",
+    "section": "projects",
+    "title": "Папки списка и права",
+    "setup": "Два владельца, вложенные папки, урок в папке.",
+    "steps": "Переместить урок в свою папку и root; попробовать чужую; открыть прямых детей.",
+    "expected": "Список scoped к владельцу, чужие папки недоступны, root и direct children корректны.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/roomFolderRoutes.test.ts"
+    ],
+    "issues": [
+      215
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-429",
+    "section": "projects",
+    "title": "Цикл папок проектов",
+    "setup": "Есть A→B и пустая C.",
+    "steps": "Переместить A в себя/потомка B, затем C в B.",
+    "expected": "Циклы отказаны, допустимый перенос выполнен.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/roomFolderRoutes.test.ts"
+    ],
+    "issues": [
+      215
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-430",
+    "section": "projects",
+    "title": "Удаление непустой папки проектов",
+    "setup": "Папка с комнатой, папка с подпапкой, пустая папка.",
+    "steps": "Попытаться удалить каждую, в том числе чужую.",
+    "expected": "Непустые защищены; только своя пустая удалена.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/roomFolderRoutes.test.ts"
+    ],
+    "issues": [
+      215
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-431",
+    "section": "projects",
+    "title": "Выход участника из коллекции",
+    "setup": "Owner и участник урока.",
+    "steps": "Участник выполняет leave; owner пытается тем же путём покинуть своё; outsider покидает незнакомое.",
+    "expected": "Удалена только нужная RoomParticipant; owner не теряет урок, чужие данные не затронуты.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/roomRoutes.test.ts"
+    ],
+    "issues": [
+      213
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-432",
+    "section": "projects",
+    "title": "Rename без сброса холста",
+    "setup": "Непустой урок с несколькими слоями и peer.",
+    "steps": "Переименовать в шапке; повторить отказ/blank/не-owner.",
+    "expected": "Имя меняется только у владельца; engine и pixels не пересозданы, ошибка не стирает рисунок.",
+    "unit_support": [
+      "apps/web/src/pages/Room/engineWiring.test.ts",
+      "apps/server/src/roomRoutes/roomRoutes.test.ts"
+    ],
+    "issues": [
+      461,
+      496
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-433",
+    "section": "projects",
+    "title": "Копия в исходной папке",
+    "setup": "Урок в папке, owner и участник с собственной коллекцией.",
+    "steps": "Скопировать урок владельцем и участником.",
+    "expected": "Копия размещена по действующим правилам folder ownership, без присваивания чужой папки.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/forkRoutes.test.ts"
+    ],
+    "issues": [
+      552
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-434",
+    "section": "projects",
+    "title": "Права и настройки копии",
+    "setup": "Урок закрыт, защищён паролем и имеет палитру.",
+    "steps": "Скопировать допустимым автором; отдельно outsider.",
+    "expected": "Копия принадлежит запросившему, provenance сохранён, ограничения источника не наследуются неверно, палитра сохранена.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/forkRoutes.test.ts"
+    ],
+    "issues": [
+      418,
+      568
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-435",
+    "section": "projects",
+    "title": "Новые ID операций копии",
+    "setup": "У источника есть stroke и Undo; snapshots+tail.",
+    "steps": "Скопировать и сравнить payload ids, target Undo и seq.",
+    "expected": "Inherited IDs переназначены включая вложенные ссылки, seq согласован со snapshot, старый автор не отменяет унаследованное.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/forkRoutes.test.ts"
+    ],
+    "issues": [
+      498
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-436",
+    "section": "projects",
+    "title": "Структурные операции в копии",
+    "setup": "Слои и папки источника созданы до последнего snapshot.",
+    "steps": "Скопировать, удалить/перенести слой, Undo/Redo и перезайти.",
+    "expected": "Скопирован structural log, target_gone не возникает для живого слоя; структура восстанавливается.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/forkRoutes.test.ts",
+      "apps/server/src/rooms/structuralLog.test.ts"
+    ],
+    "issues": [
+      498
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-437",
+    "section": "projects",
+    "title": "Копия тяжёлой комнаты без полной кучи",
+    "setup": "Длинный source log, snapshots некоторых слоёв, слой без snapshot.",
+    "steps": "Копировать с ограниченным resident window; отдельно source без снимков.",
+    "expected": "Не читаются blobs/stroke payload целиком в процесс; без snapshot нужная история не потеряна, chunk SQL корректен.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/forkRoutes.test.ts"
+    ],
+    "issues": [
+      418
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-438",
+    "section": "projects",
+    "title": "Копия урока со всеми досками",
+    "setup": "Урок с несколькими boards и разными рисунками.",
+    "steps": "Copy whole lesson; отдельно взять в работу конкретную доску.",
+    "expected": "В первой копии все boards со своим контентом; take-board не смешивает рисунки соседей.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/forkRoutes.test.ts",
+      "apps/server/src/rooms/classMode.test.ts"
+    ],
+    "issues": [
+      568
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-439",
+    "section": "projects",
+    "title": "Превью после ухода socket",
+    "setup": "Участник нарисовал и закрывает редактор.",
+    "steps": "Отправить thumbnail после disconnect; повторить blocked/ex-participant и outsider.",
+    "expected": "Успешный участник сохраняет превью без живого socket; blocked/outsider отказаны.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/thumbnailRoutes.test.ts"
+    ],
+    "issues": [
+      382,
+      738
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-440",
+    "section": "projects",
+    "title": "Валидация и кеширование thumbnail",
+    "setup": "Есть допустимые PNG/WebP и oversized/corrupt файлы.",
+    "steps": "POST каждого; GET/If-None-Match, частые uploads, board preview.",
+    "expected": "Corrupt/oversized отказаны; mime/ETag/304 корректны, rate limit не смешивает boards и соседей.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/thumbnailRoutes.test.ts"
+    ],
+    "issues": [
+      210,
+      738
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-441",
+    "section": "layers",
+    "title": "Drop слоя в закрытую папку",
+    "setup": "Один слой с рисунком, закрытая папка, наблюдатель.",
+    "steps": "Перетащить слой на header закрытой папки, открыть и перезайти.",
+    "expected": "Слой внутри нужной папки с теми же пикселями и общим порядком.",
+    "unit_support": [
+      "apps/web/src/lib/layers/layers.test.ts",
+      "apps/web/src/components/LayerPanel/flatList.test.ts"
+    ],
+    "issues": [
+      65
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-442",
+    "section": "layers",
+    "title": "Перенос папки с содержимым",
+    "setup": "Открытая папка с несколькими слоями и вложенной папкой.",
+    "steps": "Перетащить header между sibling folders; Undo/Redo.",
+    "expected": "Переезжает целое поддерево, дети не теряются и не остаются в старом месте.",
+    "unit_support": [
+      "apps/web/src/lib/layers/layers.test.ts",
+      "apps/web/src/components/LayerPanel/flatList.test.ts"
+    ],
+    "issues": [
+      66,
+      410
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-443",
+    "section": "layers",
+    "title": "Вложенные папки и запрет цикла",
+    "setup": "Разрешённые текущей версией nested folders.",
+    "steps": "Вложить папку в другую, затем попробовать в себя и своего потомка, включая peer operation.",
+    "expected": "Допустимая вложенность сохранена, циклы отвергнуты при replay; старый запрет 67 superseded задачей 410.",
+    "unit_support": [
+      "apps/web/src/lib/layers/layers.test.ts",
+      "apps/server/src/rooms/structuralLog.test.ts"
+    ],
+    "issues": [
+      67,
+      410
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-444",
+    "section": "layers",
+    "title": "Merge внутри папки",
+    "setup": "Два слоя внутри папки и соседний корневой слой.",
+    "steps": "Merge down внутренних слоёв, Undo/Redo.",
+    "expected": "Результат остаётся в правильной папке и stacking position, соседний слой не сдвинут ошибочно.",
+    "unit_support": [
+      "apps/web/src/lib/layers/layers.test.ts",
+      "apps/web/src/engine/index.structuralUndo.test.ts"
+    ],
+    "issues": [
+      77
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-445",
+    "section": "layers",
+    "title": "Merge/delete с чужим содержимым",
+    "setup": "А создал слой, Б нарисовал в нём.",
+    "steps": "А удаляет слой, отменяет своё layer_add и делает merge; для каждого подтвердить/отменить предупреждение.",
+    "expected": "Потеря чужого контента не происходит молча; Cancel не меняет рисунок, Undo восстанавливает согласованный результат.",
+    "unit_support": [
+      "apps/web/src/engine/index.structuralUndo.test.ts",
+      "apps/web/src/lib/layers/layers.test.ts"
+    ],
+    "issues": [
+      171,
+      263
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-446",
+    "section": "layers",
+    "title": "Восстановление слоя после merge/delete",
+    "setup": "Слои с давно запечённым контентом и коротким локальным log window.",
+    "steps": "Удалить либо merge, Undo, дождаться snapshot, перезайти новым клиентом.",
+    "expected": "Воскресший слой имеет прежние pixels, не пустой; дефект 522 остаётся отдельным gate.",
+    "unit_support": [
+      "apps/web/src/engine/index.revivedLayer.test.ts",
+      "apps/web/src/engine/index.restoredBaseLayers.test.ts",
+      "apps/web/src/engine/index.structuralSnapshot.test.ts"
+    ],
+    "issues": [
+      522
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-447",
+    "section": "layers",
+    "title": "Undo удаления в серверном зеркале",
+    "setup": "Живой слой известен серверу, peer подключён.",
+    "steps": "Delete, Undo delete, затем stroke/image_import/layer_clear в восстановленный слой.",
+    "expected": "Сервер считает слой живым, новые операции не отвергаются как target_gone.",
+    "unit_support": [
+      "apps/server/src/rooms/operationGate.test.ts",
+      "apps/server/src/rooms/structuralLog.test.ts"
+    ],
+    "issues": [
+      368
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-448",
+    "section": "layers",
+    "title": "Hidden слой не принимает рисунок",
+    "setup": "Скрытый слой внутри видимой либо скрытой папки.",
+    "steps": "Пытаться рисовать, fill и paste; включить видимость и повторить.",
+    "expected": "Эффективная видимость проверяется, скрытый материал не меняется до явного разрешения.",
+    "unit_support": [
+      "apps/web/src/pages/Room/editing/activeLayer.test.ts",
+      "apps/web/src/lib/layers/layers.test.ts"
+    ],
+    "issues": [
+      359
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-449",
+    "section": "layers",
+    "title": "Локальный и владельческий замок",
+    "setup": "А owner, Б student; один слой.",
+    "steps": "Включить локальный lock, перезагрузить А, проверить Б; отдельно owner-lock и direct transform op от Б.",
+    "expected": "Локальный lock сохраняется только у автора; owner-lock соблюдается и на server transform gate, не только pointer start.",
+    "unit_support": [
+      "apps/server/src/rooms/operationGate.test.ts",
+      "apps/web/src/pages/Room/editing/activeLayer.test.ts"
+    ],
+    "issues": [
+      488,
+      451,
+      518
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-450",
+    "section": "layers",
+    "title": "Замок всех редакторских действий",
+    "setup": "Locked слой с выделением и импортом.",
+    "steps": "Попытаться transform/fill/Delete/Cut/Paste/shape/filter обычным UI и разрешённым API.",
+    "expected": "Ни один путь не изменяет защищённые pixels; разблокировка возвращает редактирование.",
+    "unit_support": [
+      "apps/web/src/pages/Room/editing/activeLayer.test.ts",
+      "apps/server/src/rooms/operationGate.test.ts"
+    ],
+    "issues": [
+      518
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-451",
+    "section": "layers",
+    "title": "Дубликат слоя и папки",
+    "setup": "Нарисованное поддерево с opacity/blend и peer.",
+    "steps": "Duplicate layer и whole folder, затем Undo/Redo и reload.",
+    "expected": "Новые ID не конфликтуют, весь контент/порядок скопирован, исходник не тронут.",
+    "unit_support": [
+      "apps/web/src/engine/index.layerDuplicate.test.ts",
+      "apps/web/src/components/LayerPanel/duplicate.test.ts"
+    ],
+    "issues": [
+      449
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-452",
+    "section": "layers",
+    "title": "Активный слой после reload",
+    "setup": "Два слоя, на устройстве А выбран второй, Б первый.",
+    "steps": "Reload А, удалить выбранный слой peer и Undo delete.",
+    "expected": "Допустимый локальный выбор восстанавливается; при недоступности есть корректный fallback, выбор Б не перезаписан.",
+    "unit_support": [
+      "apps/web/src/pages/Room/editing/activeLayer.test.ts",
+      "apps/web/src/lib/browser/roomStorage.test.ts"
+    ],
+    "issues": [
+      506
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-453",
+    "section": "engine",
+    "title": "Смена цвета не перекрашивает прошлое",
+    "setup": "Графит на двух слоях, цвета различимы.",
+    "steps": "Рисовать красным, сменить на синий и продолжить; Undo/Redo и replay.",
+    "expected": "Прежний штрих остаётся красным, новый синий во всех режимах.",
+    "unit_support": [
+      "apps/web/src/engine/index.trueOrder.test.ts",
+      "apps/web/src/engine/index.networkedUndoRedo.test.ts"
+    ],
+    "issues": [
+      117
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-454",
+    "section": "engine",
+    "title": "Острый угол быстрого штриха",
+    "setup": "Реальные Samsung и Surface, одинаковый материал.",
+    "steps": "Рисовать быстрый зигзаг и медленную плавную дугу; записать входные точки.",
+    "expected": "Угол не превращён в дугу сглаживанием; гладкий участок не получает ломаного шума.",
+    "unit_support": [
+      "apps/web/src/engine/src/dabs/DabSystem.test.ts"
+    ],
+    "issues": [
+      91
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-455",
+    "section": "engine",
+    "title": "Плотность не зависит от report rate",
+    "setup": "Один сохранённый путь с разной частотой/субпиксельными точками.",
+    "steps": "Нарисовать один путь плотными и редкими отчётами с одинаковым временем/нажимом.",
+    "expected": "Депозит и форма не зависят произвольно от частоты отчётов; сохранены субпиксельные участки.",
+    "unit_support": [
+      "apps/web/src/engine/index.dabSpacing.test.ts",
+      "apps/web/src/engine/src/dabs/DabSystem.test.ts"
+    ],
+    "issues": [
+      303
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-456",
+    "section": "engine",
+    "title": "Скорость по timestamp пера",
+    "setup": "Coalesced samples; обработчик намеренно задержан.",
+    "steps": "Подать одинаковые timestamps с быстрым/медленным обработчиком; проверить liner/brushPen.",
+    "expected": "Физика скорости одинакова; очередь обработчика не даёт зебру и пропажу чернил.",
+    "unit_support": [
+      "apps/web/src/engine/src/input/PointerInput.speed.test.ts",
+      "apps/web/src/engine/index.liner.test.ts"
+    ],
+    "issues": [
+      532
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-457",
+    "section": "engine",
+    "title": "Прерывания длинного жеста на zoom",
+    "setup": "Планшет, крупный zoom, длинный stroke.",
+    "steps": "Писать непрерывно, пересечь границу видимой области и продолжать до UP.",
+    "expected": "Нет случайных разрывов, все принятые части видны после replay.",
+    "unit_support": [
+      "apps/web/src/engine/index.strokeStreaming.test.ts",
+      "apps/web/src/engine/index.strokeChunking.test.ts"
+    ],
+    "issues": [
+      187,
+      205
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-458",
+    "section": "engine",
+    "title": "Наклон пера и азимут хвата",
+    "setup": "Перьевые образцы с одинаковой физической величиной tilt и разным azimuth.",
+    "steps": "Нарисовать эквивалентные штрихи, затем изменить именно tilt.",
+    "expected": "Величина наклона не зависит ошибочно от hypot компонент/азимута; форма меняется только по предназначенным параметрам.",
+    "unit_support": [
+      "apps/web/src/engine/index.pencilTilt.test.ts",
+      "apps/web/src/engine/src/presets/tiltMath.test.ts",
+      "apps/web/src/engine/src/presets/pencilTilt.test.ts"
+    ],
+    "issues": [
+      163,
+      388
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-459",
+    "section": "engine",
+    "title": "Крупный твёрдый карандаш",
+    "setup": "Материалы 2H–6H, крупная кисть, обычная бумага.",
+    "steps": "Нарисовать длинную линию каждого грейда и повторить на мягких грейдах.",
+    "expected": "Нет отдельных эллипсов/фестонов; исправление твёрдого не делает мягкий край плоским и жёстким.",
+    "unit_support": [
+      "apps/web/src/engine/src/presets/pencilPresets.test.ts",
+      "apps/web/src/engine/index.dabSpacing.test.ts"
+    ],
+    "issues": [
+      478,
+      483,
+      485
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-460",
+    "section": "engine",
+    "title": "Равномерный маркер внутри жеста",
+    "setup": "Bullet и chisel, крупный размер и полупрозрачный seed.",
+    "steps": "Одним жестом пересечь свои dabs, повторить вторым отдельным жестом.",
+    "expected": "Внутри первого нет полос/шевронов и прямоугольных dab; перекрытие разных жестов работает согласно материалу.",
+    "unit_support": [
+      "apps/web/src/engine/index.marker.test.ts",
+      "apps/web/src/engine/src/dabs/markerRibbon.test.ts"
+    ],
+    "issues": [
+      266,
+      330
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-461",
+    "section": "engine",
+    "title": "Конец сегмента маркера",
+    "setup": "Маркерная лента, углы и быстрый UP.",
+    "steps": "Сделать короткие угловые штрихи с разными последними сегментами.",
+    "expected": "Нет лишнего даба позади линии и прыжка на конце.",
+    "unit_support": [
+      "apps/web/src/engine/src/dabs/markerRibbon.test.ts",
+      "apps/web/src/engine/index.marker.test.ts"
+    ],
+    "issues": [
+      361
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-462",
+    "section": "engine",
+    "title": "Маркер не делает подложку непрозрачной",
+    "setup": "Полупрозрачный штрих, прозрачный фон.",
+    "steps": "Провести маркером поверх и проверить alpha до/после Undo.",
+    "expected": "Непрозрачность не становится 1 из-за неверной premultiplied композиции.",
+    "unit_support": [
+      "apps/web/src/engine/src/dabs/markerInkGain.test.ts",
+      "apps/web/src/engine/index.marker.test.ts"
+    ],
+    "issues": [
+      439
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-463",
+    "section": "engine",
+    "title": "Стык чанков маркера",
+    "setup": "Длинный реальный жест, chunk boundary проходит по заметному участку.",
+    "steps": "Удерживать до нескольких chunks, сравнить live/commit/replay и raw seam pixels.",
+    "expected": "Нет двойного multiply либо светлого разрыва на границе chunks.",
+    "unit_support": [
+      "apps/web/src/engine/index.strokeChunking.test.ts",
+      "apps/web/src/engine/index.strokeStreaming.test.ts"
+    ],
+    "issues": [
+      435
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-464",
+    "section": "engine",
+    "title": "Растушёвка без белого ореола",
+    "setup": "Тёмная линия на бумаге и отдельный цветной seed.",
+    "steps": "Растушевать вдоль края на разных размерах; Undo/Redo.",
+    "expected": "Цвет переносится растрово без белого ореола и ложного скалярного разбавления.",
+    "unit_support": [
+      "apps/web/src/engine/index.smudge.test.ts"
+    ],
+    "issues": [
+      416,
+      444
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-465",
+    "section": "engine",
+    "title": "Preview peer тем же материалом",
+    "setup": "Два браузера, marker и smudge.",
+    "steps": "Держать длинный жест А, сравнить у Б до UP, после commit и replay.",
+    "expected": "Preview не подменяет маркер/растушёвку обычными dabs; нет скачка в другой рисунок при commit.",
+    "unit_support": [
+      "apps/web/src/engine/index.peerLiveStroke.test.ts",
+      "apps/web/src/engine/index.tiledPreview.test.ts"
+    ],
+    "issues": [
+      430
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-466",
+    "section": "engine",
+    "title": "Переход импорта к следующей операции",
+    "setup": "Большая картинка с искусственно задержанным decode.",
+    "steps": "Принять image_import, затем stroke/clear/transform, затем replay.",
+    "expected": "Последующие операции не теряются и не обгоняют асинхронный import.",
+    "unit_support": [
+      "apps/web/src/engine/index.imageImport.test.ts",
+      "apps/web/src/engine/index.networkedUndoRedo.test.ts"
+    ],
+    "issues": [
+      398
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-467",
+    "section": "engine",
+    "title": "Undo импортированной картинки",
+    "setup": "Свежий image_import на отдельном слое.",
+    "steps": "Undo, Redo и reload/peer check.",
+    "expected": "Undo убирает именно картинку, Redo возвращает; открытый 447 не считать исправленным без прогона.",
+    "unit_support": [
+      "apps/web/src/engine/index.imageImport.test.ts",
+      "apps/web/src/engine/index.structuralUndo.test.ts"
+    ],
+    "issues": [
+      447
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-468",
+    "section": "engine",
+    "title": "Изображение за границей холста",
+    "setup": "Импортированный референс пересекает границу листа.",
+    "steps": "Увести часть за край, подтвердить, вернуть, повторить после reload.",
+    "expected": "Контент вне текущего видимого листа не уничтожен необратимо; рамка/доступный extent согласованы.",
+    "unit_support": [
+      "apps/web/src/engine/index.layerTransform.test.ts",
+      "apps/web/src/engine/index.tiledTransform.test.ts"
+    ],
+    "issues": [
+      133
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-469",
+    "section": "engine",
+    "title": "Размер и hit area gizmo",
+    "setup": "Непустой слой, zoom10/100/400%.",
+    "steps": "Пытаться взять те же handles, несколько раз повернуть и масштабировать.",
+    "expected": "Hit area остаётся удобной в screen px; bounding box не растёт после каждого вращения.",
+    "unit_support": [
+      "apps/web/src/lib/transform/transformMath.test.ts",
+      "apps/web/src/engine/index.layerTransform.test.ts"
+    ],
+    "issues": [
+      394,
+      421
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-470",
+    "section": "engine",
+    "title": "Второй жест transform-сессии",
+    "setup": "Повернуть слой, не подтверждать сессию.",
+    "steps": "Выполнить второй drag, потом UP/commit и Undo.",
+    "expected": "Второй жест использует правильное пространство, gizmo не уезжает; слой не прыгает в исходник при UP.",
+    "unit_support": [
+      "apps/web/src/lib/transform/transformMath.test.ts",
+      "apps/web/src/engine/index.tiledTransformPreview.test.ts"
+    ],
+    "issues": [
+      395,
+      399,
+      407
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-471",
+    "section": "engine",
+    "title": "Transform pending ACK и Esc",
+    "setup": "Сессия трансформации отправлена, ACK задержан.",
+    "steps": "Нажать Esc до подтверждения, затем доставить ACK.",
+    "expected": "Удерживаемое preview не пропадает раньше confirmed результата; duplicate op нет.",
+    "unit_support": [
+      "apps/web/src/engine/index.tiledTransformPreview.test.ts",
+      "apps/web/src/pages/Room/net/optimism.test.ts"
+    ],
+    "issues": [
+      417
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-472",
+    "section": "engine",
+    "title": "Transform reload и тап вне рамки",
+    "setup": "Незакоммиченная сессия; minimal UI выключен.",
+    "steps": "Reload с открытым transform; отдельно тапнуть вне рамки пером и пальцем.",
+    "expected": "Сессия не теряется молча согласно сохранённой политике; тап подтверждает/закрывает её, не включает заодно minimal UI.",
+    "unit_support": [
+      "apps/web/src/lib/browser/reloadSafety.test.ts",
+      "apps/web/src/pages/Room/gestures/tapTracker.test.ts"
+    ],
+    "issues": [
+      401,
+      408
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-473",
+    "section": "paper",
+    "title": "Зерно world-space на infinite",
+    "setup": "Один stroke через несколько тайлов, окно можно менять.",
+    "steps": "Pan/zoom/resize и смена orientation, затем сравнить бумагу под тем же мировым участком.",
+    "expected": "Бумага не плавает с экраном и не перезапускает узор отдельно на каждом тайле.",
+    "unit_support": [
+      "apps/web/src/engine/index.paperTexture.test.ts",
+      "apps/web/src/engine/index.tiledDisplay.test.ts"
+    ],
+    "issues": [
+      141,
+      154
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-474",
+    "section": "paper",
+    "title": "Масштаб графита и бумаги",
+    "setup": "Bounded и infinite, DPR1 и 2.",
+    "steps": "Провести штрих по заметному зерну, изменить zoom и вернуться 100%.",
+    "expected": "Графит и display читают один масштаб бумаги; нативный размер не умножен ошибочно на DPR.",
+    "unit_support": [
+      "apps/web/src/engine/index.paperTexture.test.ts",
+      "apps/web/src/engine/index.paperMipmaps.test.ts"
+    ],
+    "issues": [
+      333,
+      154
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-475",
+    "section": "paper",
+    "title": "Шов baked paper",
+    "setup": "Новая чистая комната каждого типа бумаги.",
+    "steps": "Осмотреть весь лист и переход repeat в оригинальном масштабе и zoom.",
+    "expected": "Нет вертикального разрыва baked texture; исходные paper asset размеры/каналы корректны.",
+    "unit_support": [
+      "apps/web/src/engine/src/paper/paperAssets.test.ts",
+      "apps/web/src/engine/index.paperTexture.test.ts"
+    ],
+    "issues": [
+      302,
+      165
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-476",
+    "section": "paper",
+    "title": "Вид бумаги и качество на GPU",
+    "setup": "Rough/Smooth/Bristol на AMD/Intel/Apple/Adreno.",
+    "steps": "Открыть одинаковый seed и параметры, сравнить paperCatch и общий relief.",
+    "expected": "Сохранены различия типов без чрезмерного рельефа; одинаковый baked источник, а не независимый шум каждого GPU.",
+    "unit_support": [
+      "apps/web/src/engine/src/paper/paperAssets.test.ts",
+      "apps/web/src/engine/index.paperTexture.test.ts"
+    ],
+    "issues": [
+      95,
+      162,
+      165
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-477",
+    "section": "paper",
+    "title": "Смена бумаги и загрузка кода",
+    "setup": "Настоящий планшет с кешем предыдущего посещения.",
+    "steps": "Поменять допустимую бумагу/комнату после обновления ассетов, дождаться paperReady.",
+    "expected": "Нет ошибки загрузки Room chunk, новый тип доступен, preload не открывает редактор до готовности.",
+    "unit_support": [
+      "apps/web/src/engine/src/paper/paperLoader.test.ts",
+      "apps/web/src/pages/Room/status/notOpenScreen.test.ts"
+    ],
+    "issues": [
+      186,
+      345,
+      350
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-478",
+    "section": "paper",
+    "title": "Safari совместимость бумаги",
+    "setup": "iPad Safari16.3 либо заявленный минимум; WebGL1.",
+    "steps": "Создать комнату, загрузить paper blob и пройти в редактор.",
+    "expected": "Поддержанный браузер читает baked формат; если версия больше не поддержана, зафиксировано явное требование, а не молчаливый пустой холст.",
+    "unit_support": [
+      "apps/web/src/engine/src/paper/paperLoader.test.ts",
+      "apps/web/src/lib/browser/webgl.test.ts"
+    ],
+    "issues": [
+      464
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-479",
+    "section": "snapshots",
+    "title": "Снимок плюс Undo не стирают прошлое",
+    "setup": "Слой восстановлен из snapshot, старые strokes вне локального окна.",
+    "steps": "Добавить штрих, Undo/Redo/revoke разных авторов, затем reload.",
+    "expected": "Старый snapshotted контент остаётся базой, не стирается отменой нового.",
+    "unit_support": [
+      "apps/web/src/engine/index.restoredBaseLayers.test.ts",
+      "apps/web/src/engine/index.networkedUndoRedo.test.ts"
+    ],
+    "issues": [
+      287
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-480",
+    "section": "snapshots",
+    "title": "Слои вне окна server log",
+    "setup": "Много слоёв; старый слой давно не менялся и его операции вне resident window.",
+    "steps": "Запечь снимок, выгрузить комнату из RAM, войти другим устройством.",
+    "expected": "Все live layers имеют контент/покрытие; старый слой не выпадает из snapshot structure.",
+    "unit_support": [
+      "apps/server/src/rooms/snapshotCoverage.test.ts",
+      "apps/server/src/rooms/roomSnapshots.test.ts",
+      "apps/web/src/engine/index.structuralSnapshot.test.ts"
+    ],
+    "issues": [
+      369
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-481",
+    "section": "snapshots",
+    "title": "Снимок пустой структуры не затирает живую",
+    "setup": "Непустая комната с задержанным hydrate у нового клиента.",
+    "steps": "Пока join не завершён, спровоцировать bake/upload; затем завершить и повторить.",
+    "expected": "До полной структуры опасный upload запрещён, server отвергает snapshot, стирающий живые слои.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/snapshotRoutes.test.ts",
+      "apps/web/src/pages/Room/net/structuralSnapshotBase.test.ts"
+    ],
+    "issues": [
+      462
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-482",
+    "section": "snapshots",
+    "title": "Ошибка восстановления тайла видна",
+    "setup": "Multi-tile snapshot с одним повреждённым/непрочитанным tile.",
+    "steps": "Открыть, потерять один blob/decoded tile, затем retry.",
+    "expected": "Нет молчаливого частичного успеха; ошибка наблюдаема и повтор может вернуть все тайлы.",
+    "unit_support": [
+      "apps/web/src/engine/index.networkSnapshot.test.ts",
+      "apps/web/src/engine/src/buffers/retileSnapshot.test.ts",
+      "apps/web/src/pages/Room/diagnostics/restoreReport.test.ts"
+    ],
+    "issues": [
+      474
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-483",
+    "section": "snapshots",
+    "title": "Нижняя полоса clipped snapshot",
+    "setup": "Bounded лист с частичным последним тайлом, рисунок внизу.",
+    "steps": "Bake/restore при DPR/размере, отличном от stored tile geometry.",
+    "expected": "Нижняя полоса и крайние pixels сохранены; размеры/offset не путаются.",
+    "unit_support": [
+      "apps/web/src/engine/src/buffers/retileSnapshot.clipped.test.ts",
+      "apps/web/src/engine/src/buffers/AccumulationBuffer.clippedRestore.test.ts"
+    ],
+    "issues": [
+      500
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-484",
+    "section": "snapshots",
+    "title": "Первый слой после restore",
+    "setup": "Комната с persisted structure и первоначальным layer_add.",
+    "steps": "Restore/revoke старого initial layer, затем рисовать до bake threshold.",
+    "expected": "Начальный слой согласован, bake не заблокирован навсегда из-за потерянного revoke.",
+    "unit_support": [
+      "apps/web/src/pages/Room/net/structuralSnapshotBase.test.ts",
+      "apps/web/src/engine/index.structuralSnapshot.test.ts"
+    ],
+    "issues": [
+      486
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-485",
+    "section": "snapshots",
+    "title": "Потерянный commit seq не глушит bake",
+    "setup": "Pending operation с задержанным/повторным подтверждением, peer продолжает.",
+    "steps": "Сделать reconnect/catchup, удалить устаревший pending, дождаться нового checkpoint.",
+    "expected": "Список pendingCommitSeqs отражает реальность, snapshot снова публикуется, watcher сообщает отставание.",
+    "unit_support": [
+      "apps/web/src/pages/Room/net/snapshotSync.test.ts",
+      "apps/server/src/health/snapshotLagWatch.test.ts"
+    ],
+    "issues": [
+      477,
+      480
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-486",
+    "section": "snapshots",
+    "title": "Пустой bake допускает повтор",
+    "setup": "Новая комната без снимка, первый bake пришёл слишком рано/пустой.",
+    "steps": "Закончить hydrate, рисовать до следующего порога, дождаться bake.",
+    "expected": "Пустая первая попытка не запирает снимки навсегда; есть последующее корректное покрытие.",
+    "unit_support": [
+      "apps/web/src/engine/index.emptySnapshotRetry.test.ts",
+      "apps/server/src/rooms/firstSnapshotPolicy.test.ts"
+    ],
+    "issues": [
+      386
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-487",
+    "section": "snapshots",
+    "title": "Checkpoint без незаписанных чернил",
+    "setup": "Есть optimistic/live ink поверх подтверждённой базы.",
+    "steps": "Снять checkpoint, подтвердить/отменить исходную операцию, несколько раз Undo/Redo.",
+    "expected": "Незаписанные pixels не попали в базу дважды, насыщение не растёт на каждой отмене.",
+    "unit_support": [
+      "apps/web/src/engine/index.checkpointUnrecordedInk.test.ts",
+      "apps/web/src/engine/checkpointPrefix.test.ts"
+    ],
+    "issues": [
+      479
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-488",
+    "section": "snapshots",
+    "title": "План восстановления без полной истории",
+    "setup": "Тяжёлая комната, snapshots на разных seq, часть coverage несопоставима.",
+    "steps": "Получить replay plan, загрузить только dependency history и хвост; reconnect во время загрузки.",
+    "expected": "Снимки и tail доказуемо согласованы, covered payload не скачивается без нужды, retry не падает 403 навсегда.",
+    "unit_support": [
+      "apps/server/src/rooms/snapshotReplayPlan.test.ts",
+      "apps/server/src/rooms/snapshotReplayLoader.test.ts",
+      "apps/web/src/pages/Room/net/snapshotHistoryRepair.test.ts"
+    ],
+    "issues": [
+      291,
+      739
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-489",
+    "section": "snapshots",
+    "title": "Сжатый blob и ETag",
+    "setup": "Сервер хранит gzip snapshot; авторизованный клиент.",
+    "steps": "GET plan/blob, conditional GET, неверный seq, history cursor на границе.",
+    "expected": "Gzip байты переданы без повторного content-encoding,304 без body; seq/cursor валидированы, чужой доступ отказан.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/snapshotRoutes.test.ts",
+      "packages/shared/src/rest.test.ts"
+    ],
+    "issues": [
+      168,
+      342,
+      741
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-490",
+    "section": "snapshots",
+    "title": "Сверка независимых снимков",
+    "setup": "Два устройства запекают один seq с одинаковым журналом.",
+    "steps": "Принять первый snapshot, второй с тем же room/layer/seq и отличающимися bytes; проверить сохранность истории.",
+    "expected": "Сопоставление/dedup не признаёт непроверенную картинку доказательством для удаления исходной истории; расхождение диагностировано.",
+    "unit_support": [
+      "apps/server/src/rooms/roomSnapshots.test.ts",
+      "apps/server/src/rooms/snapshotCoverage.test.ts"
+    ],
+    "issues": [
+      168,
+      289
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-491",
+    "section": "network",
+    "title": "Outbox работает без IndexedDB",
+    "setup": "Браузер с отказом open/put/get IndexedDB, peer онлайн.",
+    "steps": "Рисовать и восстановить доступ к storage в этой же странице.",
+    "expected": "Операция не теряется молча; доступен memory fallback и отправка; rejected dbPromise не ломает всю жизнь страницы.",
+    "unit_support": [
+      "apps/web/src/pages/Room/net/outbox.test.ts",
+      "apps/web/src/lib/browser/roomStorage.test.ts"
+    ],
+    "issues": [
+      296
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-492",
+    "section": "network",
+    "title": "Outbox привязан к комнате",
+    "setup": "А офлайн нарисовал в комнате X; другая комната Y открывается тем же приложением.",
+    "steps": "Перейти в Y, вернуть сеть и reload обеих комнат.",
+    "expected": "Очередь X не отправлена в Y; операции восстановлены только в своей комнате.",
+    "unit_support": [
+      "apps/web/src/pages/Room/net/outbox.test.ts",
+      "apps/web/src/pages/Room/net/deferredOps.test.ts"
+    ],
+    "issues": [
+      358
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-493",
+    "section": "network",
+    "title": "Операция до join получает ответ",
+    "setup": "Socket подключён, join ещё не принят.",
+    "steps": "Отправить operation, затем завершить join и повторить по политике outbox.",
+    "expected": "Есть terminal/retryable ACK, нет бесконечных молчаливых retries и роста очереди.",
+    "unit_support": [
+      "apps/server/src/rooms/socketHandlers.test.ts",
+      "apps/web/src/pages/Room/net/outboxVerdict.test.ts"
+    ],
+    "issues": [
+      298
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-494",
+    "section": "network",
+    "title": "Исключение при operation ACK",
+    "setup": "Подготовленный fault injection в handler/recordOperation.",
+    "steps": "Вызвать ошибку принятия операции, затем отправить допустимую.",
+    "expected": "Процесс жив, клиент получает отрицательный ACK с причиной, дальнейшие операции работают.",
+    "unit_support": [
+      "apps/server/src/rooms/socketHandlers.test.ts",
+      "apps/server/src/rooms/roomPersistence.test.ts"
+    ],
+    "issues": [
+      164,
+      495
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-495",
+    "section": "network",
+    "title": "Повторная доставка и server seq",
+    "setup": "Один operation id, duplicate transports/повторный reconnect.",
+    "steps": "Доставить duplicate, ACK в другом порядке и пропущенный seq, затем catchup.",
+    "expected": "Одна запись и один commit; confirmed stream восстанавливает порядок, чужой duplicate не меняет payload.",
+    "unit_support": [
+      "apps/web/src/pages/Room/net/confirmedStream.test.ts",
+      "apps/server/src/rooms/rooms.test.ts",
+      "apps/web/src/engine/src/oplog/OperationLog.test.ts"
+    ],
+    "issues": [
+      205,
+      537
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-496",
+    "section": "network",
+    "title": "Permanent и retryable reject",
+    "setup": "Очередь с room_frozen/target_gone и временной сетевой ошибкой.",
+    "steps": "Отправить, получить разные причины, вернуть доступ/сеть.",
+    "expected": "Временный отказ повторяется, постоянный явно разрешён/восстановлен, pending не зависает навсегда.",
+    "unit_support": [
+      "apps/web/src/pages/Room/net/outboxVerdict.test.ts",
+      "apps/web/src/pages/Room/net/lostWork.test.ts",
+      "packages/shared/src/rejectReason.test.ts"
+    ],
+    "issues": [
+      311,
+      693
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-497",
+    "section": "network",
+    "title": "Автовозврат после shutdown",
+    "setup": "Изолированный QA backend и открытый редактор с сохранённым input.",
+    "steps": "Контролируемо завершить свой backend SIGTERM, запустить его, дождаться reconnect; не трогать production.",
+    "expected": "Socket трактует shutdown как обрыв и возвращается сам, outbox дослан, баннер связи снят без reload.",
+    "unit_support": [
+      "apps/server/src/health/shutdown.test.ts",
+      "apps/web/src/pages/Room/net/socketRevival.test.ts"
+    ],
+    "issues": [
+      497,
+      504
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-498",
+    "section": "network",
+    "title": "Ошибка create/join видна человеку",
+    "setup": "Изолированный API возвращает not_found/forbidden/internal error.",
+    "steps": "Создать/войти через UI, повторить после исправления сервера.",
+    "expected": "Понятный отказ и retry, не только console error; engine не остаётся полуинициализированным.",
+    "unit_support": [
+      "apps/web/src/pages/Room/net/joinError.test.ts",
+      "apps/web/src/pages/Room/status/notOpenScreen.test.ts"
+    ],
+    "issues": [
+      496,
+      538
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-499",
+    "section": "network",
+    "title": "Неправильная целевая структура",
+    "setup": "Серверный слой удалён либо закрыт, клиент сохранил старый ID.",
+    "steps": "Доставить stroke/image_import/layer_clear/transform в устаревшую цель.",
+    "expected": "OperationGate явно отвергает недопустимую цель; нет принято-но-потеряно, отказ до replay loop.",
+    "unit_support": [
+      "apps/server/src/rooms/operationGate.test.ts",
+      "apps/server/src/rooms/structuralLog.test.ts"
+    ],
+    "issues": [
+      311,
+      451
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-500",
+    "section": "network",
+    "title": "HTTP catchup пока socket отсутствует",
+    "setup": "Участник ранее допущен, socket временно потерян, история грузится.",
+    "steps": "Получить несколько страниц во время reconnect и после смены password/block.",
+    "expected": "Разрешённая история читается без случайного 403; настоящее revocation прекращает чтение и не ретраится бесконечно.",
+    "unit_support": [
+      "apps/web/src/pages/Room/net/catchUp.test.ts",
+      "apps/server/src/rooms/boardContentAccess.test.ts"
+    ],
+    "issues": [
+      739,
+      741
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-501",
+    "section": "canvas",
+    "title": "Дробный zoom на шве тайлов",
+    "setup": "Рисунок через соседние тайлы, zoom1.01, дробный pan.",
+    "steps": "Двигать камеру и менять zoom около единицы.",
+    "expected": "Нет 1px прозрачного разрыва/нахлёста на общей границе.",
+    "unit_support": [
+      "apps/web/src/engine/index.tiledDisplay.test.ts",
+      "apps/web/src/engine/src/raster/cameraFrame.test.ts"
+    ],
+    "issues": [
+      140
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-502",
+    "section": "canvas",
+    "title": "Экспорт вне viewport",
+    "setup": "Infinite рисунок далеко за камерой на нескольких тайлах.",
+    "steps": "Увести камеру, export PNG с бумагой/прозрачностью и pickColor в offscreen world point.",
+    "expected": "Экспорт содержит весь нужный рисунок, пипетка читает world pixels, не текущий screen framebuffer.",
+    "unit_support": [
+      "apps/web/src/engine/index.tiledExport.test.ts",
+      "apps/web/src/engine/index.tiledStroke.test.ts"
+    ],
+    "issues": [
+      145
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-503",
+    "section": "canvas",
+    "title": "Малый zoom infinite и LOD",
+    "setup": "Длинная infinite комната с большим extent.",
+    "steps": "Уменьшить масштаб, pan по сцене, измерить replay/fold во время steady frames.",
+    "expected": "Нет чёрных тайлов, мипы дают качество, полный log не replay на каждом кадре.",
+    "unit_support": [
+      "apps/web/src/engine/index.tiledMipmaps.test.ts",
+      "apps/web/src/engine/index.tiledDisplay.test.ts"
+    ],
+    "issues": [
+      363,
+      365
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-504",
+    "section": "canvas",
+    "title": "Свёртка только когда нужна",
+    "setup": "Bounded/infinite рисунок и активный stroke.",
+    "steps": "Рисовать при 100%, затем уменьшить, дождаться idle и повторить frames.",
+    "expected": "Не делается лишний full downsample каждый кадр; dirty coarse обновляется тогда, когда нужен.",
+    "unit_support": [
+      "apps/web/src/engine/index.tiledMipmaps.test.ts",
+      "apps/web/src/engine/index.areaClearCoarse.test.ts"
+    ],
+    "issues": [
+      367,
+      503
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-505",
+    "section": "canvas",
+    "title": "Area clear на малом zoom",
+    "setup": "Рисунок с заполненным fine и coarse, zoom меньше 50%.",
+    "steps": "Delete выделенную область, Undo/Redo, zoom100→small.",
+    "expected": "Нужная область очищена на всех LOD, пустой уровень не гасит весь слой.",
+    "unit_support": [
+      "apps/web/src/engine/index.areaClearCoarse.test.ts",
+      "apps/web/src/engine/index.areaSelection.test.ts"
+    ],
+    "issues": [
+      503
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-506",
+    "section": "canvas",
+    "title": "Большой bounded лист и memory",
+    "setup": "Физический iPad, пустой A2 и 4096²; другие GPU для сравнения.",
+    "steps": "Открыть, добавить слои/штрихи, pan/zoom и context restore; замерить memory.",
+    "expected": "Тайловый bounded renderer не выделяет непосильный full-page FBO и не уходит в reload; ограничения GPU записаны.",
+    "unit_support": [
+      "apps/web/src/engine/index.tiledStroke.test.ts",
+      "apps/web/src/engine/src/buffers/TiledLayerBuffer.test.ts"
+    ],
+    "issues": [
+      469,
+      121
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-507",
+    "section": "canvas",
+    "title": "Восстановление многих слоёв без jetsam",
+    "setup": "iPad с тяжёлой многослойной комнатой, обычные инструменты.",
+    "steps": "Restore и несколько минут работы; memory/reload/log восстановлений отдельно.",
+    "expected": "Не удерживаются все тяжёлые слои разом вне бюджета; нет циклического reload; jetsam не выдаётся за JS исключение.",
+    "unit_support": [
+      "apps/web/src/engine/index.tiledEviction.test.ts",
+      "apps/web/src/engine/src/buffers/TiledLayerBuffer.eviction.test.ts"
+    ],
+    "issues": [
+      467
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-508",
+    "section": "canvas",
+    "title": "Длинный replay без incomplete FBO",
+    "setup": "Большой bounded/infinite log, несколько materials.",
+    "steps": "Холодно войти и восстановить историю, затем новый stroke/Undo.",
+    "expected": "Нет Framebuffer incomplete и молчаливого пустого холста; очередь replay завершается.",
+    "unit_support": [
+      "apps/web/src/engine/index.tiledStroke.test.ts",
+      "apps/web/src/engine/index.contextRestore.test.ts"
+    ],
+    "issues": [
+      385
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-509",
+    "section": "canvas",
+    "title": "DPR и 100% нативного масштаба",
+    "setup": "Одинаковый world seed на DPR1/2 и разных ориентациях.",
+    "steps": "Выставить 100%, изменить orientation и вернуть.",
+    "expected": "Размер world pixels и бумаги соответствует DPR, pointer transform совпадает с камерой.",
+    "unit_support": [
+      "apps/web/src/pages/Room/viewport/pointerTransform.test.ts",
+      "apps/web/src/pages/Room/viewport/cameraMath.test.ts"
+    ],
+    "issues": [
+      154
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-510",
+    "section": "canvas",
+    "title": "Ось pinch при большом zoom",
+    "setup": "Планшет с физическим multitouch, крупный zoom.",
+    "steps": "Вращать двумя пальцами вокруг удалённой от origin точки, затем рисовать в ней.",
+    "expected": "Центр жеста не уезжает, новый штрих попадает под перо.",
+    "unit_support": [
+      "apps/web/src/pages/Room/viewport/pinchTracker.test.ts",
+      "apps/web/src/pages/Room/viewport/cameraMath.test.ts"
+    ],
+    "issues": [
+      442
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-511",
+    "section": "ui",
+    "title": "Слайдер пером с ладонью",
+    "setup": "Физический Surface/Samsung, PrecisionSlider, ладонь на экране.",
+    "steps": "Медленно тянуть размер/opacity, удерживая контакт ладони.",
+    "expected": "Нет browser context menu и выделения текста; значение меняется плавно.",
+    "unit_support": [
+      "apps/web/src/components/PrecisionSlider/precisionSlider.test.ts",
+      "apps/web/src/lib/input/useDragToAdjust.test.ts"
+    ],
+    "issues": [
+      102,
+      115
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-512",
+    "section": "ui",
+    "title": "Тап minimal UI и возврат оболочки",
+    "setup": "Планшет, полноэкранный редактор.",
+    "steps": "Тапнуть пустой холст для minimal/full, повторить после рисования и orientation change.",
+    "expected": "Тап распознан, оболочка возвращается целиком, нет вспышки интерфейса.",
+    "unit_support": [
+      "apps/web/src/pages/Room/gestures/tapSequence.test.ts",
+      "apps/web/src/lib/browser/uiPreferences.test.ts"
+    ],
+    "issues": [
+      159,
+      307,
+      423
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-513",
+    "section": "ui",
+    "title": "Курсор кисти на бумаге",
+    "setup": "Разные масштабы, тонкая/крупная кисть, light/dark paper.",
+    "steps": "Hover, stroke, pan/zoom и выход курсора из canvas.",
+    "expected": "Отпечаток виден, не обрезан собственным слоем и не моргает при WebGL redraw; subpixel кольцо различимо.",
+    "unit_support": [
+      "apps/web/src/pages/Room/overlays/cursorController.test.ts"
+    ],
+    "issues": [
+      306,
+      481
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-514",
+    "section": "ui",
+    "title": "Touch scroll списка проектов",
+    "setup": "Телефон/планшет с длинной коллекцией.",
+    "steps": "Скроллить вертикально с касанием карточки; отдельно намеренно drag/drop.",
+    "expected": "Обычный scroll не перехвачен DnD, deliberate reorder/перенос не спутан со scroll.",
+    "unit_support": [
+      "apps/web/src/lib/input/useDraggablePosition.test.ts"
+    ],
+    "issues": [
+      331
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-515",
+    "section": "ui",
+    "title": "Picker меняет режим без скачка",
+    "setup": "Открыт color picker, square/triangle/ring и числовой ввод.",
+    "steps": "Переключать режимы, двигать курсоры к краям и вернуть прежний цвет.",
+    "expected": "Popup не подпрыгивает, HSV/RGB/alpha согласованы, edge geometry не выпускает курсор за допустимую область.",
+    "unit_support": [
+      "apps/web/src/components/ColorPicker/modes/triangleGeometry.test.ts",
+      "apps/web/src/components/ColorPicker/modes/ringGeometry.test.ts"
+    ],
+    "issues": [
+      337,
+      340,
+      341,
+      344
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-516",
+    "section": "ui",
+    "title": "Fullscreen портальные элементы",
+    "setup": "Desktop и Safari с фактически поддержанным Fullscreen API.",
+    "steps": "Войти fullscreen, открыть layer menu, modal, toast; закрыть fullscreen.",
+    "expected": "Все portals видны и интерактивны в fullscreen subtree; unsupported API не даёт сломанную кнопку.",
+    "unit_support": [
+      "apps/web/src/lib/browser/fullscreen.test.ts",
+      "apps/web/src/lib/input/popupPlacement.test.ts"
+    ],
+    "issues": [
+      357,
+      466
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-517",
+    "section": "ui",
+    "title": "Тост поверх панелей",
+    "setup": "Открыта панель/viewport; событие создаёт notice.",
+    "steps": "Открыть notice с действием и закрыть крестиком возле панели.",
+    "expected": "Тост выше соответствующих stacking contexts, действие/крестик доступны.",
+    "unit_support": [
+      "apps/web/src/stores/noticeStore.test.ts",
+      "apps/web/src/lib/input/popupPlacement.test.ts"
+    ],
+    "issues": [
+      364
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-518",
+    "section": "ui",
+    "title": "Панель после смены ориентации",
+    "setup": "Floating panel у правого/нижнего края планшета.",
+    "steps": "Повернуть экран и изменить viewport, перетащить панель обратно.",
+    "expected": "Панель остаётся достижимой в новом viewport, её позиция ограничена экраном.",
+    "unit_support": [
+      "apps/web/src/components/FloatingToolPanel/panelPosition.test.ts",
+      "apps/web/src/lib/input/useDraggablePosition.test.ts"
+    ],
+    "issues": [
+      459
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-519",
+    "section": "ui",
+    "title": "Модалка перемещения проектов",
+    "setup": "Есть папки с длинными именами и вложениями.",
+    "steps": "Открыть Move to, пройти уровни, выбрать папку на touch и desktop.",
+    "expected": "Имена/кнопки читаемы, допустимый выбор не перекрыт; перемещение соответствует показанному target.",
+    "unit_support": [
+      "apps/web/src/lib/input/popupPlacement.test.ts",
+      "apps/server/src/roomRoutes/roomFolderRoutes.test.ts"
+    ],
+    "issues": [
+      360
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-520",
+    "section": "ui",
+    "title": "Иконки до загрузки шрифта",
+    "setup": "Чистый кеш, задержан icon font.",
+    "steps": "Открыть вход/редактор, дождаться font, проверить все registry names.",
+    "expected": "Не вспыхивают слова-лигатуры; все зарегистрированные значки есть в subset, отсутствующий icon не скрыт type widening.",
+    "unit_support": [
+      "apps/web/src/icons/iconFont.test.ts"
+    ],
+    "issues": [
+      179,
+      322
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-521",
+    "section": "ui",
+    "title": "Safari карточки бумаги",
+    "setup": "Физический iPad Safari и create form, узкое окно.",
+    "steps": "Открыть четыре варианта зернистости, сменить orientation и выбрать каждый.",
+    "expected": "Ряд/перенос соответствует layout, карточки не растянуты за viewport, выбор доступен.",
+    "unit_support": [
+      "apps/web/src/engine/src/paper/paperAssets.test.ts"
+    ],
+    "issues": [
+      465
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-522",
+    "section": "ui",
+    "title": "Логотип и навигация входа",
+    "setup": "Join screen, полный и компактный header.",
+    "steps": "Нажать логотип, проверить полный wordmark/compact icon и PWA icons.",
+    "expected": "Переход доступен; текст не обрезан и не выглядывает из compact asset, иконки согласованы.",
+    "unit_support": [
+      "apps/web/src/icons/iconFont.test.ts"
+    ],
+    "issues": [
+      379,
+      717,
+      719,
+      722
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-523",
+    "section": "ui",
+    "title": "Язык и сохранение настроек",
+    "setup": "Два поддержанных locale, чистая и сохранённая настройка приложения.",
+    "steps": "Переключить язык, открыть room/create/settings, перезагрузить.",
+    "expected": "Пользовательские строки переведены согласованно, сохранённый locale переживает смену комнаты; отсутствующие ключи выявляются.",
+    "unit_support": [
+      "apps/web/src/i18n/core/i18n.test.ts",
+      "apps/web/src/lib/browser/uiPreferences.test.ts"
+    ],
+    "issues": [
+      208
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-524",
+    "section": "ui",
+    "title": "Настройки размера и цвета инструмента",
+    "setup": "Карандаш/ластик и несколько материалов, два устройства.",
+    "steps": "Настроить размер/opacity/цвет, сменить инструмент и вернуться; reload.",
+    "expected": "Собственные значения восстанавливаются по действующей политике и не переносятся как чужое общее состояние.",
+    "unit_support": [
+      "apps/web/src/stores/slices/toolSlice.test.ts",
+      "apps/web/src/pages/Room/tools/toolChoice.test.ts"
+    ],
+    "issues": [
+      156,
+      682
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-525",
+    "section": "ui",
+    "title": "Hotkeys при текстовом вводе",
+    "setup": "Текстовая аннотация/rename активны, затем чистый canvas.",
+    "steps": "Нажать Undo/Delete/tool hotkeys в text input и после blur.",
+    "expected": "Текстовый ввод не запускает разрушительное действие холста; на canvas нужные hotkeys работают.",
+    "unit_support": [
+      "apps/web/src/pages/Room/tools/editorHotkeys.test.ts",
+      "apps/web/src/lib/input/hotkeys.test.ts"
+    ],
+    "issues": [
+      405
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-526",
+    "section": "pwa",
+    "title": "Свежий документ после обновления",
+    "setup": "Установлена предыдущая PWA/build, подготовлены две локальные сборки.",
+    "steps": "Открыть новую вкладку после смены served build; проверить HTML headers и stamped version.",
+    "expected": "HTML обновлён, hashed assets могут кешироваться; новая вкладка не удержана старым precache.",
+    "unit_support": [
+      "apps/web/src/pwa/navigationResponse.test.ts",
+      "apps/web/src/pwa/swConfig.test.ts"
+    ],
+    "issues": [
+      294,
+      502
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-527",
+    "section": "pwa",
+    "title": "Возврат PWA из фона",
+    "setup": "PWA на старой сборке; есть unsent outbox и обновлённый кандидат.",
+    "steps": "Свернуть/вернуть приложение, проверить update action, подтвердить только после сохранения очереди.",
+    "expected": "Версия видна, обновление не теряет работу; resume не оставляет незаметно старую сборку навсегда.",
+    "unit_support": [
+      "apps/web/src/pwa/updatePolicy.test.ts",
+      "apps/web/src/lib/browser/reloadSafety.test.ts"
+    ],
+    "issues": [
+      515
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-528",
+    "section": "pwa",
+    "title": "SW не перехватывает API/socket",
+    "setup": "Активный service worker, controlled failure API/WebSocket.",
+    "steps": "Вызвать network error и reconnect, открыть обычную навигацию offline.",
+    "expected": "API/socket сохраняют свой сетевой контракт, нет unhandled rejection из navigation fallback; offline UI определён.",
+    "unit_support": [
+      "apps/web/src/pwa/swConfig.test.ts",
+      "apps/web/src/pwa/navigationResponse.test.ts"
+    ],
+    "issues": [
+      383
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-529",
+    "section": "pwa",
+    "title": "Старая доменная привязка SW",
+    "setup": "Изолированная копия прежнего origin и новый origin; архивный сценарий.",
+    "steps": "Воспроизвести controlled navigation прежнего PWA и проверку регистрации SW.",
+    "expected": "Нет вечного redirect/cache lock; если старый origin недоступен, BLOCKED, не проверять на реальных пользовательских данных.",
+    "unit_support": [
+      "apps/web/src/pwa/swConfig.test.ts",
+      "apps/web/src/pwa/updatePolicy.test.ts"
+    ],
+    "issues": [
+      355
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-530",
+    "section": "server",
+    "title": "Ограниченное resident окно",
+    "setup": "Тяжёлая комната со snapshots, гораздо больше операций, чем RAM window.",
+    "steps": "Войти, получить состояние/историю страницами, наблюдать heap и seq.",
+    "expected": "Сервер не грузит всю историю в RAM; missing-old-data можно дочитать без потери snapshot основы.",
+    "unit_support": [
+      "apps/server/src/rooms/roomLoader.test.ts",
+      "apps/server/src/rooms/roomRegistry.test.ts"
+    ],
+    "issues": [
+      206,
+      292
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-531",
+    "section": "server",
+    "title": "Комнаты освобождаются после ухода",
+    "setup": "Три варианта: failed password join, повторный join в другую комнату, последний участник ушёл.",
+    "steps": "Повторить много циклов и проверить registry; отдельно удалить комнату через API.",
+    "expected": "Не остаются необоснованные резидентные комнаты; pending join имеет защиту от преждевременной eviction.",
+    "unit_support": [
+      "apps/server/src/rooms/roomRegistry.test.ts",
+      "apps/server/src/rooms/rooms.test.ts"
+    ],
+    "issues": [
+      292,
+      419,
+      784
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-532",
+    "section": "server",
+    "title": "Отказ при memory pressure",
+    "setup": "Изолированный QA server с управляемым memory probe.",
+    "steps": "На порогах warning/admission попытаться новый join; существующий продолжает.",
+    "expected": "Новая нагрузка отказана предсказуемо, существующая комната не повреждена; unknown memory не объявлена OK.",
+    "unit_support": [
+      "apps/server/src/health/memory.test.ts",
+      "apps/server/src/rooms/roomRegistry.test.ts"
+    ],
+    "issues": [
+      415,
+      207
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-533",
+    "section": "server",
+    "title": "Health зависит от БД",
+    "setup": "Изолированный API и управляемая БД.",
+    "steps": "Проверить healthy, отказ соединения, зависший DB reply.",
+    "expected": "Есть bounded503 при неисправности; HTTP200 не означает только живой Node; guest user не создаётся probe-запросом.",
+    "unit_support": [
+      "apps/server/src/health/healthRoutes.test.ts"
+    ],
+    "issues": [
+      178,
+      334
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-534",
+    "section": "server",
+    "title": "Порог диска и event loop",
+    "setup": "Unit probes с граничными/unknown значениями, отдельный QA нагрузочный процесс.",
+    "steps": "Проверить warn/critical ровно на watermark, один долгий stall и насыщение многих задач.",
+    "expected": "Неизвестное не OK; обнаружены оба вида нагрузки; диск/heap/loop представлены раздельно.",
+    "unit_support": [
+      "apps/server/src/health/disk.test.ts",
+      "apps/server/src/health/eventLoop.test.ts"
+    ],
+    "issues": [
+      324,
+      415
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-535",
+    "section": "server",
+    "title": "Graceful shutdown сохраняет результат",
+    "setup": "Свой QA процесс, активная очередь записи, безопасная disposable БД.",
+    "steps": "SIGTERM, дождаться завершения записи, restart и rejoin.",
+    "expected": "Принятые операции доступны, shutdown отчёт сохранён, клиент сам возвращается; чужие процессы не трогаются.",
+    "unit_support": [
+      "apps/server/src/health/shutdown.test.ts",
+      "apps/server/src/rooms/roomPersistence.test.ts"
+    ],
+    "issues": [
+      497,
+      499,
+      504
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-536",
+    "section": "server",
+    "title": "Бан аккаунта администратором",
+    "setup": "Admin allowlist, обычный user и две его сессии.",
+    "steps": "Обычным user открыть admin; admin банит с причиной, unban, revoke; смоделировать write fail.",
+    "expected": "Чужим 404, действия атомарны с audit, нельзя забанить себя/другого admin; failed write не оставляет ложный ban в памяти.",
+    "unit_support": [
+      "apps/server/src/admin/adminRoutes.test.ts"
+    ],
+    "issues": [
+      585,
+      586,
+      587,
+      588
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-537",
+    "section": "server",
+    "title": "Временный IP ban и proxy",
+    "setup": "Admin и несколько clients за проверенным proxy.",
+    "steps": "Забанить IP на разрешённый срок, дождаться expiry, повторить mapped IPv4; попробовать свой/admin IP.",
+    "expected": "Закрыты нужные sockets, срок истекает, защищённые адреса не забанены ошибочно, audit полный.",
+    "unit_support": [
+      "apps/server/src/admin/adminRoutes.test.ts",
+      "apps/server/src/auth/sessions.test.ts"
+    ],
+    "issues": [
+      589,
+      590
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-538",
+    "section": "server",
+    "title": "Sentry без чувствительных данных",
+    "setup": "Изолированный env без DSN и с тестовым transport.",
+    "steps": "Вызвать безопасное exception/invariant; проверить payload и React error handling.",
+    "expected": "Без DSN не отправляется; cookies/bodies/headers и inferred identity не попали в событие, release указан, tracing выключен.",
+    "unit_support": [
+      "apps/server/src/health/sentryOptions.test.ts",
+      "apps/web/src/lib/observability/sentry.test.ts",
+      "apps/web/src/lib/observability/reportInvariant.test.ts"
+    ],
+    "issues": [
+      177,
+      480
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-539",
+    "section": "server",
+    "title": "Snapshot lag watcher",
+    "setup": "Живая и пустая комната, контролируемый seq lag.",
+    "steps": "Превысить threshold, не увеличивать/удвоить lag; затем восстановить и повторить.",
+    "expected": "Сигнал только для живой отстающей комнаты, ограничено повторение; после восстановления новый инцидент виден.",
+    "unit_support": [
+      "apps/server/src/health/snapshotLagWatch.test.ts"
+    ],
+    "issues": [
+      480
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-540",
+    "section": "infra",
+    "title": "Проверка backup восстановлением",
+    "setup": "Отдельная одноразовая БД и копия backup без production доступа на запись.",
+    "steps": "Восстановить backup в disposable БД, сравнить counts/hashes нужных таблиц и snapshots.",
+    "expected": "Данные читаются и совпадают, проверяется восстановление, а не только наличие файла.",
+    "unit_support": [],
+    "issues": [
+      315
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-541",
+    "section": "infra",
+    "title": "Сжатие статических ассетов",
+    "setup": "Локальная production-like nginx конфигурация и baked assets.",
+    "steps": "Проверить заголовки/размеры JS/CSS и уже gzip paper/preview.",
+    "expected": "JS/CSS сжаты; paper/preview не сжимаются второй раз, client получает ожидаемые bytes.",
+    "unit_support": [],
+    "issues": [
+      342,
+      437
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-542",
+    "section": "infra",
+    "title": "Две последовательные выкатки",
+    "setup": "Изолированный CI/config review; production deploy не запускать.",
+    "steps": "Проверить concurrency config на двух входящих revision и порядок migration→server start.",
+    "expected": "Новые jobs не ломают уже идущий deploy; schema готова до запуска нового кода; факт runtime проверяется отдельным разрешённым стендом.",
+    "unit_support": [],
+    "issues": [
+      422,
+      598,
+      621
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-543",
+    "section": "infra",
+    "title": "Бюджет диска сборок",
+    "setup": "Изолированные disposable образы/артефакты; защищённые данные помечены.",
+    "steps": "Проверить предусмотренную ротацию завершённых SHA images и QA disposable ресурсов.",
+    "expected": "Старые расходники не заполняют диск; production volumes, worktrees и незакоммиченный код защищены.",
+    "unit_support": [],
+    "issues": [
+      199,
+      275
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-544",
+    "section": "infra",
+    "title": "Типизация служебных скриптов",
+    "setup": "Рабочая копия с совместимыми deps, без runtime старта.",
+    "steps": "Проверить состав typecheck scripts config и команду на ошибочном временном fixture без публикации.",
+    "expected": "apps/web/scripts и e2e включены в соответствующие гейты; зелёный typecheck не пропускает исключённые файлы.",
+    "unit_support": [],
+    "issues": [
+      348
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-545",
+    "section": "engine",
+    "title": "Задержка локальной линии",
+    "setup": "Реальный стилус на Samsung/Surface/iPad, live metrics или видеозамер.",
+    "steps": "Быстро писать и менять направление, отдельно повторить predictPointer по доступным флагам.",
+    "expected": "Есть pen-to-local-ink измерение и active/tail frame gaps; prediction не объявлен лечением без замера, бюджет согласован заранее.",
+    "unit_support": [
+      "apps/web/src/lib/observability/liveLatency.test.ts",
+      "apps/web/src/engine/src/input/PointerInput.speed.test.ts"
+    ],
+    "issues": [
+      104,
+      155
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-546",
+    "section": "engine",
+    "title": "Видимая стоимость обычного Undo",
+    "setup": "Обычная длинная pencil/marker комната, не M70 benchmark.",
+    "steps": "Сделать Undo при открытом редакторе и одновременном peer input; измерить до видимого кадра.",
+    "expected": "UI не остаётся заблокированным без диагностики; фактическое время и кадры сравнены с принятым бюджетом, не только время resolver.",
+    "unit_support": [
+      "apps/web/src/engine/index.replayCost.test.ts",
+      "apps/web/src/engine/index.structuralUndoRedoPeek.test.ts"
+    ],
+    "issues": [
+      308
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-547",
+    "section": "snapshots",
+    "title": "Время входа legacy комнаты",
+    "setup": "Комнаты с snapshot и без,100/1000 обычных strokes.",
+    "steps": "Холодно войти с реального планшета; разделить network/decode/replay/Undo setup/first visible.",
+    "expected": "Отдельно известны время открытия, объём и блокировки; нет автоматического полного replay/скачивания старой истории без зависимости.",
+    "unit_support": [
+      "apps/web/src/pages/Room/diagnostics/openTiming.test.ts",
+      "apps/server/src/rooms/snapshotReplayLoader.test.ts"
+    ],
+    "issues": [
+      381,
+      425
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-548",
+    "section": "engine",
+    "title": "Нажим акварели и brushPen",
+    "setup": "Физическое перо, одинаковые скачки pressure и размеры.",
+    "steps": "Нанести weak→strong→weak brushPen и watercolor при тех же входах; сравнить ширину/replay.",
+    "expected": "Гибкая кисть имеет тонкий контакт независимо от размера; заявленное сглаживание pressure не действует обратным образом.",
+    "unit_support": [
+      "apps/web/src/engine/index.ribbonPressure.test.ts",
+      "apps/web/src/engine/src/dabs/flexibleHairline.test.ts"
+    ],
+    "issues": [
+      473,
+      684
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-549",
+    "section": "ui",
+    "title": "Сто коротких штрихов Apple Pencil",
+    "setup": "Активный iPad Safari, физический Pencil, чистый слой.",
+    "steps": "Вручную сделать 100 быстрых штрихов с полным отрывом, пересчитать input/ops/видимые линии и повторить после reload.",
+    "expected": "Нет пропуска примерно каждого 15-го контакта; generated CDP pen не заменяет эту проверку.",
+    "unit_support": [
+      "apps/web/src/engine/src/input/PointerInput.touchDefault.test.ts",
+      "apps/web/src/engine/src/input/PointerInput.pressure.test.ts"
+    ],
+    "issues": [
+      517
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-550",
+    "section": "snapshots",
+    "title": "Текст причины восстановления",
+    "setup": "Управляемый snapshot decode/read error с известным message.",
+    "steps": "Открыть комнату и получить restore report/Sentry event.",
+    "expected": "Есть исходный текст/стадия/stack безопасной ошибки, не только общий failed; отсутствие report не выдаётся за отсутствие сбоя.",
+    "unit_support": [
+      "apps/web/src/pages/Room/diagnostics/restoreReport.test.ts",
+      "apps/web/src/lib/observability/reportInvariant.test.ts"
+    ],
+    "issues": [
+      534
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-551",
+    "section": "engine",
+    "title": "Мелкий chisel без дыр",
+    "setup": "Chisel8/15/20px, наклон 0/45/90° относительно хода.",
+    "steps": "Нарисовать ровную линию при 100% и снять сечение покрытия.",
+    "expected": "Внутри нет решётки/пунктира с шагом dabs; края/минимальное покрытие измерены.",
+    "unit_support": [
+      "apps/web/src/engine/src/dabs/markerRibbon.test.ts",
+      "apps/web/src/engine/index.marker.test.ts"
+    ],
+    "issues": [
+      559
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-552",
+    "section": "engine",
+    "title": "Chisel90° live против replay",
+    "setup": "Один сохранённый chisel-жест поперёк хода, контроль bullet/45°.",
+    "steps": "Снять actual до Undo/Redo, затем rejoin; сравнить ROI.",
+    "expected": "Live и replay дают согласованный материал, разница не скрыта переносом координат/допуска.",
+    "unit_support": [
+      "apps/web/src/engine/index.marker.test.ts",
+      "apps/web/src/engine/src/dabs/markerRibbon.test.ts"
+    ],
+    "issues": [
+      560
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-553",
+    "section": "engine",
+    "title": "Антиалиасинг края маркерной ленты",
+    "setup": "Прямой chisel30/50 и bullet8+, крупный zoom.",
+    "steps": "Измерить крайний ряд pixels между stamp и ribbon в одном stroke.",
+    "expected": "Нет зубчатого чередования over вместо max; средний цвет не скрывает дефект края.",
+    "unit_support": [
+      "apps/web/src/engine/src/dabs/markerRibbon.test.ts"
+    ],
+    "issues": [
+      561
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-554",
+    "section": "ui",
+    "title": "Создание без WebGL",
+    "setup": "Новый browser context с getContext(webgl)=null.",
+    "steps": "Открыть существующую комнату и Create project; затем вернуть GL и retry.",
+    "expected": "Есть понятная заглушка вместо чёрного экрана; URL не выдаёт несуществующую комнату за созданную.",
+    "unit_support": [
+      "apps/web/src/lib/browser/webgl.test.ts",
+      "apps/web/src/pages/Room/status/notOpenScreen.test.ts"
+    ],
+    "issues": [
+      570
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-555",
+    "section": "ui",
+    "title": "Неизвестный route",
+    "setup": "Browser без авторизации, затем вошедший.",
+    "steps": "Открыть несуществующий путь и старую/ошибочную ссылку.",
+    "expected": "Страница 404 со ссылками на проекты/создание, не пустой чёрный фон.",
+    "unit_support": [],
+    "issues": [
+      572
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-556",
+    "section": "snapshots",
+    "title": "Количество операций после rejoin",
+    "setup": "100pencil strokes, snapshot seq100, хвост 3charcoal+3long pencil со chunks.",
+    "steps": "Сохранить IDs/effective actions и pixels до reload, затем после; отдельный контроль подсчёта chunks.",
+    "expected": "Любая разница count объяснена идентификаторами/семантикой, содержимое и accepted порядок не потеряны;673 не закрывается одним screenshot.",
+    "unit_support": [
+      "apps/web/src/pages/Room/net/snapshotHistoryRepair.test.ts",
+      "apps/web/src/engine/index.strokeChunking.test.ts"
+    ],
+    "issues": [
+      673
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-557",
+    "section": "engine",
+    "title": "Компиляция шейдеров Adreno",
+    "setup": "Реальный Samsung SM-T970/Adreno650, холодный browser shader cache.",
+    "steps": "Трижды холодно открыть shader paths включая carry/deposit/colour, затем нарисовать и replay; сравнить разрешённый A/B вход на GPU.",
+    "expected": "Нет compiler/link failure и потерянного контекста; все формулы дают прежние pixels в подтверждённых A/B вариантах.",
+    "unit_support": [
+      "apps/web/src/engine/src/raster/shaders.test.ts",
+      "apps/web/src/lib/browser/webgl.test.ts"
+    ],
+    "issues": [
+      685
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-558",
+    "section": "canvas",
+    "title": "LOD маркера и brushPen",
+    "setup": "Zoom0.32, marker/brushPen и peer.",
+    "steps": "Рисовать, Undo/Redo, reload, менять zoom без export/bake между capture.",
+    "expected": "Coarse вид обновлён сразу, мелкая копия не остаётся прежней до следующего zoom.",
+    "unit_support": [
+      "apps/web/src/engine/index.tiledMipmaps.test.ts",
+      "apps/web/src/engine/index.tiledPreview.test.ts"
+    ],
+    "issues": [
+      694
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-559",
+    "section": "snapshots",
+    "title": "Поздняя structural dependency snapshot",
+    "setup": "Snapshot plan открывает новую структурную зависимость после первой страницы history.",
+    "steps": "Догрузить dependency history несколькими страницами, где поздно появляется copy/merge source.",
+    "expected": "Проверка prefix повторена после новых зависимостей, не только перед циклом; неполная база не применяется.",
+    "unit_support": [
+      "apps/web/src/pages/Room/net/snapshotHistoryRepair.test.ts",
+      "apps/server/src/rooms/snapshotReplayPlan.test.ts"
+    ],
+    "issues": [
+      746
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": [
+      "apps/web/src/pages/Room/net/snapshotHistoryRepair.test.ts"
+    ]
+  },
+  {
+    "id": "QA-560",
+    "section": "layers",
+    "title": "Copy/merge мокрого canonical target",
+    "setup": "M70 слои ещё анимируются; тот же журнал у peer.",
+    "steps": "Дублировать/merge до завершения morph, потом Dry/replay; actual снять до oracle.",
+    "expected": "Копируется стабильный target, а не случайный кадр анимации; GPU gate нуждается в M70 кандидате.",
+    "unit_support": [],
+    "issues": [
+      749
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": [
+      "apps/web/src/engine/index.layerDuplicate.test.ts"
+    ]
+  },
+  {
+    "id": "QA-561",
+    "section": "layers",
+    "title": "Историческая копия после позднего Undo source",
+    "setup": "А скопировал слой; Б позже отменяет ранний source stroke.",
+    "steps": "Доставить поздний Undo в server order и повторить полный replay копии.",
+    "expected": "Старый copy зафиксирован на своей исторической границе, не переосмыслен по текущему source.",
+    "unit_support": [
+      "apps/web/src/engine/index.layerDuplicate.test.ts",
+      "apps/web/src/engine/index.trueOrder.test.ts"
+    ],
+    "issues": [
+      750
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": [
+      "apps/web/src/engine/index.historicalCopy.test.ts"
+    ]
+  },
+  {
+    "id": "QA-562",
+    "section": "layers",
+    "title": "Историческая копия и новый source snapshot",
+    "setup": "Есть копия на seqN и новый source snapshot послеN.",
+    "steps": "Перезайти, восстановить копию, получить более поздний snapshot оригинала.",
+    "expected": "Replay копии не использует будущую базу source; граница seq соблюдена.",
+    "unit_support": [
+      "apps/web/src/pages/Room/net/snapshotHistoryRepair.test.ts",
+      "apps/web/src/engine/index.layerDuplicate.test.ts"
+    ],
+    "issues": [
+      751
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": [
+      "apps/web/src/engine/index.historicalCopy.test.ts"
+    ]
+  },
+  {
+    "id": "QA-563",
+    "section": "layers",
+    "title": "Undo merge мокрых источников",
+    "setup": "Два мокрых M70 слоя, два автора, canonical capture до oracle.",
+    "steps": "Merge, Undo merge, продолжить водой на восстановленных слоях; rejoin.",
+    "expected": "Живые source и их материал восстановлены согласованно, не только совпадают независимые replay; acceptance на M70 вручную.",
+    "unit_support": [],
+    "issues": [
+      754
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": [
+      "apps/web/src/engine/index.structuralUndo.test.ts"
+    ]
+  },
+  {
+    "id": "QA-564",
+    "section": "engine",
+    "title": "Новый ввод во время Dry другого слоя",
+    "setup": "А инициировал Dry, Б начинает trusted stroke на том же/другом слое.",
+    "steps": "Сразу после ACK Dry рисовать обоими и дождаться окончания presentation drying.",
+    "expected": "Новый ввод не пропадает молча глобально; локальное ограничение либо очередь явно определены и проверены.",
+    "unit_support": [],
+    "issues": [
+      755
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": [
+      "apps/web/src/engine/index.dryInput.test.ts"
+    ]
+  },
+  {
+    "id": "QA-565",
+    "section": "engine",
+    "title": "Prewarm на неподдержанной геометрии",
+    "setup": "Карандаш, прямоугольный/infinite room, M70 опционален.",
+    "steps": "Переключать активный слой и ждать deferred prewarm, продолжать pencil strokes.",
+    "expected": "Ограничение M70 не порождает background pageerror при обычном рисовании.",
+    "unit_support": [],
+    "issues": [
+      757
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": [
+      "apps/web/src/engine/index.puddlePrewarm.test.ts"
+    ]
+  },
+  {
+    "id": "QA-566",
+    "section": "network",
+    "title": "Refused live tail после обычного UP",
+    "setup": "Student отправил live+normal UP и остаётся online; durable op будет отвергнут.",
+    "steps": "Freeze/удалить цель до operation commit, принять permanent rejection; наблюдать peer cancellation.",
+    "expected": "Незаписанный хвост удалён у наблюдателей даже после нормального UP; accepted части не удалены.",
+    "unit_support": [
+      "apps/server/src/rooms/socketHandlers.test.ts",
+      "apps/web/src/engine/index.peerLiveStroke.test.ts"
+    ],
+    "issues": [
+      762
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": [
+      "apps/server/src/rooms/liveStrokeOwnership.test.ts"
+    ]
+  },
+  {
+    "id": "QA-567",
+    "section": "network",
+    "title": "Flush при неподвижном удержании пера",
+    "setup": "Live интервал 60 мс; автор двигается быстрее интервала и останавливается до UP.",
+    "steps": "Нарисовать короткий быстрый сегмент, держать перо неподвижно, не слать новых pointer events.",
+    "expected": "Очередь live dabs flush по таймеру; peer получает хвост до UP, не только первый пакет.",
+    "unit_support": [
+      "apps/web/src/engine/index.strokeStreaming.test.ts"
+    ],
+    "issues": [
+      764
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": [
+      "apps/web/src/engine/index.strokeStreaming.test.ts"
+    ]
+  },
+  {
+    "id": "QA-568",
+    "section": "snapshots",
+    "title": "Пустой M70 prewarm не блокирует bake",
+    "setup": "Слой выбран, M70 готов, ни воды ни strokes на нём нет.",
+    "steps": "Подождать 51 мс после setActiveLayer, проверить quiet/checkpoint/bake; затем реальный stroke.",
+    "expected": "Пустой prewarm не считается незавершённым материалом и не запрещает snapshots навсегда.",
+    "unit_support": [],
+    "issues": [
+      765
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": [
+      "apps/web/src/engine/index.puddlePrewarm.test.ts"
+    ]
+  },
+  {
+    "id": "QA-569",
+    "section": "network",
+    "title": "Resize наблюдателя при held stroke",
+    "setup": "Samsung observer, peer держит M70 перо, новых live packets пока нет.",
+    "steps": "Получить два live пакета, изменить viewport/ResizeObserver, ждать, потом UP.",
+    "expected": "Живой film не исчезает до UP, stream и экран остаются согласованы.",
+    "unit_support": [],
+    "issues": [
+      766
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": [
+      "apps/web/src/engine/index.watercolorTransientPreview.test.ts"
+    ]
+  },
+  {
+    "id": "QA-570",
+    "section": "snapshots",
+    "title": "Новый snapshot заменяет старую мокрую базу",
+    "setup": "M70 мокрый source уже resident, пришёл более новый bitmap+coverage.",
+    "steps": "Restore snapshot, затем recorded Dry, поздний ACK и pending local strokes.",
+    "expected": "Старая лужа не переписывает новую базу; pending не потерян, serverSeq coverage учтён.",
+    "unit_support": [
+      "apps/web/src/engine/index.snapshotCoverage.test.ts"
+    ],
+    "issues": [
+      767
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": [
+      "apps/web/src/engine/index.wetSnapshot.test.ts"
+    ]
+  },
+  {
+    "id": "QA-571",
+    "section": "canvas",
+    "title": "Fit учитывает панели",
+    "setup": "Landscape768×512, правую панель открыть, rotation lock задан.",
+    "steps": "Fit canvas, initial entry, закрыть/открыть панели и повторить.",
+    "expected": "Весь лист помещается в реально доступную область, не под панель; lock/rotation сохранены.",
+    "unit_support": [
+      "apps/web/src/pages/Room/viewport/cameraMath.test.ts"
+    ],
+    "issues": [
+      768
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-572",
+    "section": "engine",
+    "title": "Deferred Dry не переходит на соседний слой",
+    "setup": "Мокрые L/K, А держит stroke наL, Б скрывает и отзывает созданиеL.",
+    "steps": "Отменить хвост А, затем наK обычный новый stroke/UP.",
+    "expected": "Старая команда dry-at-up очищена и не сушитK без записанной операции.",
+    "unit_support": [],
+    "issues": [
+      772
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": [
+      "apps/web/src/engine/index.dryInput.test.ts"
+    ]
+  },
+  {
+    "id": "QA-573",
+    "section": "infra",
+    "title": "Shared dist в server image",
+    "setup": "Изолированная собранная копия server image без production env.",
+    "steps": "Запустить одноразовый server из image со своей тестовой БД.",
+    "expected": "Runtime разрешает @grafetto/shared из правильного dist; ошибка не отложена до production boot.",
+    "unit_support": [],
+    "issues": [
+      184
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-574",
+    "section": "infra",
+    "title": "Отказ offsite backup не зелёный",
+    "setup": "Изолированный backup-check с устаревшим последним upload и контролируемым отказом B2.",
+    "steps": "Проверить свежесть локальной и offsite копий, смоделировать failure/переполнение.",
+    "expected": "Health/alert показывает сбой offsite и диск, не PASS только по локальному dump; секреты не выводятся.",
+    "unit_support": [],
+    "issues": [
+      555
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-575",
+    "section": "method",
+    "title": "Offline probe действительно обрывает WebSocket",
+    "setup": "Готовый тестовый browser и peer.",
+    "steps": "Включить используемый offline helper, доказать disconnect/socket отсутствие, отправить контроль, вернуть сеть.",
+    "expected": "Проверяется настоящее отключение transport, а не только HTTP navigator flag.",
+    "unit_support": [],
+    "issues": [
+      690
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-576",
+    "section": "method",
+    "title": "Bridge join с пустой формой",
+    "setup": "Доступный device bridge, нет заполненного join имени.",
+    "steps": "Открыть комнату, дождаться формы и отправить корректный join, затем engineReady.",
+    "expected": "Helper не ждёт бесконечно engine до submit и не выдаёт недопуск за product crash.",
+    "unit_support": [],
+    "issues": [
+      692
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-577",
+    "section": "method",
+    "title": "Oracle загрузки учитывает snapshot",
+    "setup": "Известный snapshot и покрытая им история.",
+    "steps": "Прогнать validator входа по плану snapshot+tail, отдельно лишнюю/недостающую history.",
+    "expected": "Checker не требует весь старый log поверх snapshot; реальная missing dependency всё ещё выявляется.",
+    "unit_support": [],
+    "issues": [
+      756
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-578",
+    "section": "method",
+    "title": "M70 модель не теряется в стенде",
+    "setup": "QA URL/модель выбраны явно, несколько boards.",
+    "steps": "Перейти A→B→A, записать фактический tool preset и модель из accepted operations.",
+    "expected": "Сравниваются действительно M70 операции, helper не сделал legacy stroke; ошибка 790 не выдаётся за физику движка.",
+    "unit_support": [],
+    "issues": [
+      790
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-579",
+    "section": "infra",
+    "title": "Архитектурная карта подсвечивает связи",
+    "setup": "Локальная карта, модуль с входящими/исходящими рёбрами.",
+    "steps": "На вкладке Структура выбрать модуль, перемещать/снять выбор.",
+    "expected": "Подсвечены нужные рёбра и направление; это engineering UI, отдельно от регрессии урока.",
+    "unit_support": [],
+    "issues": [
+      643
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-580",
+    "section": "projects",
+    "title": "Создание с custom размером",
+    "setup": "Чистый профиль и форма CreateRoom.",
+    "steps": "Ввести пустое имя, недопустимые/нечисловые custom размеры, затем допустимый размер и создать.",
+    "expected": "Ошибки показаны до навигации/создания; принятые размеры и paper config совпадают с сервером и canvas; границы брать из текущей формы.",
+    "unit_support": [],
+    "issues": [
+      26,
+      28,
+      29
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-581",
+    "section": "projects",
+    "title": "Бумага, цвет и enabled tools при создании",
+    "setup": "Новая комната с выбранными paper/paperColor и ограниченным toolset.",
+    "steps": "Создать, войти другим устройством и открыть tool chooser; reload обоих.",
+    "expected": "Настройки общие и восстановлены; недоступные материалы не появляются как случайный default.",
+    "unit_support": [
+      "packages/shared/src/toolset.test.ts",
+      "apps/server/src/rooms/rooms.test.ts"
+    ],
+    "issues": [
+      27,
+      273
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-582",
+    "section": "projects",
+    "title": "Приглашение с другого устройства",
+    "setup": "Комната создана автором, другой browser не имеет localStorage/куки первого.",
+    "steps": "Скопировать invite через шапку и карточку проекта, открыть ссылку на другом устройстве.",
+    "expected": "Вход использует server config, сохранён room/boardId; не требуется локальная запись создателя.",
+    "unit_support": [
+      "apps/web/src/lib/api/shareRoom.test.ts",
+      "apps/server/src/rooms/socketHandlers.test.ts"
+    ],
+    "issues": [
+      30,
+      85,
+      460
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-583",
+    "section": "projects",
+    "title": "Создание и rename доски",
+    "setup": "Owner урока и participant, доска с рисунком.",
+    "steps": "Owner создаёт и переименовывает board; повторить blank name, чужой lessonId и не-owner; обратиться к board как родителю.",
+    "expected": "Проверены owner/lesson scope; вложенных board-уроков нет, урок может быть первой доской без потери контента.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/boardRoutes.test.ts"
+    ],
+    "issues": [
+      176,
+      564
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-584",
+    "section": "projects",
+    "title": "Порядок досок",
+    "setup": "Урок и несколько boards.",
+    "steps": "Переместить board в начало/конец, попытаться переместить сам lesson и выйти за границы.",
+    "expected": "Первая доска-урок остаётся первой; позиции изменяются атомарно и только нужные.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/boardRoutes.test.ts"
+    ],
+    "issues": [
+      176,
+      564
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-585",
+    "section": "projects",
+    "title": "Удаление текущей доски",
+    "setup": "На board находится ученик, она active у teacher.",
+    "steps": "Удалить её, задержать уведомление, reload ученика; попытаться удалить lesson этим endpoint.",
+    "expected": "Сначала участники переведены на доступную доску, activeBoard обновлён атомарно; lesson защищён.",
+    "unit_support": [
+      "apps/server/src/roomRoutes/boardRoutes.test.ts",
+      "apps/server/src/rooms/boards.test.ts"
+    ],
+    "issues": [
+      176,
+      564
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-586",
+    "section": "access",
+    "title": "Личные доски и приватность класса",
+    "setup": "Teacher, два students, assignment и режим teacher_only.",
+    "steps": "Раздать задание, studentA пробует открыть доскуB; teacher её открывает; изменить class visibility.",
+    "expected": "В приватном режиме видят владелец/teacher; режим просмотра не даёт однокласснику права рисовать.",
+    "unit_support": [
+      "apps/server/src/rooms/classMode.test.ts",
+      "apps/server/src/rooms/boardContentAccess.test.ts"
+    ],
+    "issues": [
+      595,
+      600
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-587",
+    "section": "access",
+    "title": "Live stroke чужой личной доски",
+    "setup": "Class visibility позволяет смотреть, A не владеет доскойB.",
+    "steps": "Отправить stroke и stroke_live на чужую личную доску.",
+    "expected": "Отказаны и durable, и live delivery; preview не обходит operation gate.",
+    "unit_support": [
+      "apps/server/src/rooms/classMode.test.ts",
+      "apps/server/src/rooms/operationGate.test.ts"
+    ],
+    "issues": [
+      595
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-588",
+    "section": "projects",
+    "title": "Опоздавший ученик получает работу",
+    "setup": "Assignment создан до входа ученика; учитель возвращает класс к заданию.",
+    "steps": "Войти поздно, переключить class location, проверить выдачу и уведомления других.",
+    "expected": "У ученика одна собственная доска; чужим не раскрыта лишняя приватная информация.",
+    "unit_support": [
+      "apps/server/src/rooms/classMode.test.ts"
+    ],
+    "issues": [
+      595
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-589",
+    "section": "projects",
+    "title": "Spotlight не меняет собственность доски",
+    "setup": "Класс на разных boards, teacher смотрит student board.",
+    "steps": "Показать student work всем, выключить, выполнить повторный перевод туда же.",
+    "expected": "Работа видна в spotlight только пока разрешено; личная доска не становится teacher activeBoard автоматически; повтор не сбивает spotlight.",
+    "unit_support": [
+      "apps/server/src/rooms/classMode.test.ts"
+    ],
+    "issues": [
+      595,
+      600
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-590",
+    "section": "projects",
+    "title": "Поднятая рука",
+    "setup": "Teacher и два students в разных boards одного lesson.",
+    "steps": "А поднимает/опускает руку, Б пытается опустить А, teacher опускает; новый участник входит.",
+    "expected": "Состояние транслируется по уроку и есть в lesson_state; чужой student не управляет рукой А.",
+    "unit_support": [
+      "apps/server/src/rooms/classMode.test.ts"
+    ],
+    "issues": [
+      595
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-591",
+    "section": "ui",
+    "title": "Пользовательская и общая палитра",
+    "setup": "Два аккаунта в одной комнате, сохранённый цвет.",
+    "steps": "Создать именованную личную palette и room palette, добавить/выбрать цвет, reload и войти вторым автором.",
+    "expected": "Личная коллекция scoped пользователю; общая видна комнате и сохранена, цвета не теряются при reload.",
+    "unit_support": [
+      "apps/web/src/pages/Room/tools/colorWell.test.ts"
+    ],
+    "issues": [
+      190,
+      192,
+      193,
+      194
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-592",
+    "section": "ui",
+    "title": "Калибровка нажима и размеры",
+    "setup": "Перо поддерживает pressure, профиль с настройками калибровки.",
+    "steps": "Изменить pressure curve, нарисовать слабый/сильный stroke разными кистями, reload; включить временный инструмент.",
+    "expected": "Реакция меняется согласно curve, значения ограничены и сохранены; passing tool не затирает постоянные настройки.",
+    "unit_support": [
+      "apps/web/src/lib/input/pressureCalibration.test.ts",
+      "apps/web/src/engine/src/input/PointerInput.pressure.test.ts"
+    ],
+    "issues": [
+      573
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-593",
+    "section": "ui",
+    "title": "Числовой ввод параметра",
+    "setup": "Tool settings с size/opacity/angle, fractional и предельные значения.",
+    "steps": "Ввести число, очистить поле, Esc/Enter, затем потянуть slider; сменить unit/инструмент.",
+    "expected": "Нет NaN/недопустимого состояния; число и slider соответствуют одной величине и своей шкале.",
+    "unit_support": [
+      "apps/web/src/lib/tools/numberInput.test.ts",
+      "apps/web/src/lib/tools/sliderScale.test.ts",
+      "apps/web/src/components/PrecisionSlider/precisionSlider.test.ts"
+    ],
+    "issues": [
+      553
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-594",
+    "section": "ui",
+    "title": "Линейка и сетка как выбранный инструмент",
+    "setup": "Активная кисть, ruler/grid modes и transform.",
+    "steps": "Последовательно выбрать grid/ruler/brush, временно привязать stroke, отменить.",
+    "expected": "В один момент выбран согласованный инструмент; вспомогательные overlays не пишут лишние общие операции и не ломают камеру.",
+    "unit_support": [
+      "apps/web/src/pages/Room/tools/toolChoice.test.ts",
+      "apps/web/src/engine/index.ruler.test.ts"
+    ],
+    "issues": [
+      405
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-595",
+    "section": "ui",
+    "title": "Справка и поиск по задаче",
+    "setup": "Реализованная пользовательская документация в приложении.",
+    "steps": "Открыть Help, найти инструмент/задачу, перейти по результатам и вернуться в комнату.",
+    "expected": "Материал доступен и соответствует реализованным действиям; ссылки не уводят в пустой экран, рисунок сохранён.",
+    "unit_support": [],
+    "issues": [
+      584
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "manual",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-596",
+    "section": "ui",
+    "title": "Звук карандаша и настройки",
+    "setup": "Устройство с AudioContext, пользовательский mute/system volume.",
+    "steps": "Первым user gesture разрешить звук, рисовать разным pressure/speed, выключить звук и сменить комнату.",
+    "expected": "Звук следует параметрам и выключается настройкой, нет непойманного AudioContext error или накопления synth после смены комнаты.",
+    "unit_support": [
+      "apps/web/src/lib/sound/pencilSoundV3/Variant3Synth.test.ts"
+    ],
+    "issues": [
+      280
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  },
+  {
+    "id": "QA-597",
+    "section": "ui",
+    "title": "Импорт референса не портит соседей",
+    "setup": "Большое референс-фото, два слоя и существующий рисунок.",
+    "steps": "Импортировать на отдельный слой, resize/rotate, убрать видимость, export, Undo/Redo; повторить отказ decode.",
+    "expected": "Рабочий рисунок соседнего слоя сохранён, ошибки видны, импорт имеет свой operation и восстанавливается.",
+    "unit_support": [
+      "apps/web/src/engine/index.imageImport.test.ts",
+      "apps/web/src/engine/index.layerTransform.test.ts"
+    ],
+    "issues": [
+      88
+    ],
+    "status": "NOT RUN",
+    "source_commit": "f52635e3",
+    "automation": "unit-support + manual acceptance",
+    "source_only_support": []
+  }
+]

@@ -3,33 +3,40 @@
 Единая библиотека повторяемых проверок: #793 (продолжение #689).
 Определения кейсов и результаты конкретной версии хранятся раздельно.
 
-1. Выбрать [набор: smoke, full, devices или long](catalog/suites.md).
+1. Выбрать [набор: smoke, full, devices, long или operations](catalog/suites.md).
 2. Выполнить [подготовку и инструкции запуска](catalog/execution.md).
 3. Открыть кейсы по стабильным ID и пройти шаги с проверяемыми ожиданиями.
 4. Сохранить [результат по шаблону](catalog/result-template.md) в `runs/<run-id>/`;
    обновить [последние известные результаты и пробелы](catalog/results.md).
 
-## Темы
+## Общий список и темы
 
-| Тема | Кейсы |
+[375 самостоятельных тесткейсов проекта](catalog/all.md) — основной указатель для больших регрессий.
+В нём 152 браузерных/API-сценария с 180 вариантами,195 сценариев из истории и контрактов,
+28 специальных акварельных/device проверок. Ещё 38 прежних ID сохранены как обзорные группы,
+в 375 они не посчитаны. Параметрические варианты также не объявлены отдельными кейсами.
+
+| Тема | Определения |
 |---|---|
-| Онлайн и вход | [QA-001…003, QA-011, QA-014](scenarios/collaboration.md), [QA-111](catalog/interface.md#qa-111) |
-| Инструменты и UI | [QA-003, QA-009, QA-013, QA-017](scenarios/collaboration.md), [QA-101…107](catalog/interface.md) |
-| Слои и фильтры | [QA-004/005/007/015](scenarios/collaboration.md), [QA-030](catalog/watercolor.md#qa-030), [QA-108](catalog/interface.md#qa-108) |
-| Undo/Redo | [QA-006/016/019](scenarios/collaboration.md), [QA-026…028](catalog/watercolor.md#qa-026), [QA-037/044](catalog/watercolor.md#qa-037) |
-| Загрузка и восстановление | [QA-012](scenarios/collaboration.md#qa-012), [QA-035/036/039/040/050](catalog/watercolor.md#qa-035) |
-| Отключения и конфликты | [QA-005/008/016](scenarios/collaboration.md), [QA-033/034/045](catalog/watercolor.md#qa-033) |
-| Акварель | [QA-025…050](catalog/watercolor.md); модель/размер обязательно указывать |
-| Детерминизм | [QA-017/022/024](scenarios/collaboration.md), [QA-042/043/044](catalog/watercolor.md#qa-042) |
-| Производительность | [QA-014/019/020](scenarios/collaboration.md), [QA-040/041/047/048](catalog/watercolor.md#qa-040) |
-| Устройства и ввод | [QA-013/021](scenarios/collaboration.md), [QA-049…052](catalog/watercolor.md#qa-049), [device-набор](catalog/suites.md#devices) |
-| Урок, доски и аннотации | [QA-109/110/113/114](catalog/interface.md#qa-109), [QA-034/052](catalog/watercolor.md#qa-034) |
+| Вход, email-коды, сессии, rate limits | [Вход и сессии](catalog/historical.md#вход-и-сессии) |
+| Права, пароль, приглашения, waiting room, блокировки | [Доступ](catalog/historical.md#доступ-и-участники) |
+| Проекты, папки, копии, превью, доски и класс | [Проекты](catalog/historical.md#проекты-и-копии), [браузерные проверки](catalog/browser.md) |
+| Слои, вложенность, замки, merge/delete/duplicate, фильтры | [Слои](catalog/historical.md#слои-и-структура), [browser](catalog/browser.md) |
+| Материалы, перо, нажим, геометрия и transform | [Инструменты](catalog/historical.md#материалы-и-преобразования), [browser](catalog/browser.md) |
+| Бумага, Safari, shader compiler, тайлы и DPR | [Бумага](catalog/historical.md#бумага-и-совместимость), [canvas](catalog/historical.md#тайлы-камера-и-память-gpu) |
+| Сохранение, снимки, checkpoint, история, Undo/Redo | [Восстановление](catalog/historical.md#сохранение-и-восстановление), [специальные мокрые случаи](catalog/watercolor.md) |
+| Сеть, outbox, IndexedDB, reconnect, поздние ACK | [Сеть](catalog/historical.md#сеть-и-очередь-операций), [browser](catalog/browser.md) |
+| Аннотации, review export, clipboard, UI | [Браузерные кейсы](catalog/browser.md), [UI/device](catalog/historical.md#интерфейс-и-устройства) |
+| PWA, service worker, обновление и offline | [PWA](catalog/historical.md#обновление-и-офлайн) |
+| Сервер, bans/admin, health, memory, диагностика | [Сервер](catalog/historical.md#сервер-и-наблюдаемость) |
+| Backup, CI, деплой, достоверность стенда | [Эксплуатация](catalog/historical.md#эксплуатация-и-выпуск), [QA-стенд](catalog/historical.md#проверка-достоверности-qa-стенда) |
+| Акварель, детерминизм, нагрузка и настоящие устройства | [Специальные сценарии](catalog/watercolor.md), [devices/long](catalog/suites.md) |
 
-66 определений: старые QA-001…024 сохранены; QA-025…052 извлечены из ночной кампании,
-QA-101…114 описывают UI и основные инструменты. Каждый номер назначен навсегда.
-[Автоматизация и все 56 E2E specs](catalog/automation.md),
-[инвентаризация, объединения и долги](catalog/inventory.md),
-[сохранённые источники и их SHA](catalog/sources.md).
+[История 217 дефектов → сценарии](catalog/history.md),
+[все 331unit-файл](catalog/unit.md), [E2E-автоматизация](catalog/automation.md),
+[инвентаризация и долги](catalog/inventory.md), [источники и SHA](catalog/sources.md).
+675 задач сохранены как исходный навигационный индекс: эпики, планы и рефакторинг
+не объявлены автоматически реализованными или протестированными возможностями.
 
 ## Значение статусов
 
@@ -55,8 +62,8 @@ SwiftShader — программная растеризация, MockGL — во
 (ACK после ухода, Dry до/после продолжения, UP до disconnect). При объединении оставить alias
 и старую ссылку; не перенумеровывать ID и не переписывать исторические отчёты.
 
-Добавить определение в тематический файл, запись в `catalog/cases.json`, suites по смыслу,
-автоматизацию в `e2e-map.json`/`night-cases.json`, последний результат по версии/device в индекс.
+Добавить самостоятельное определение в тематический файл, запись в `catalog/cases.json`, suites по смыслу,
+автоматизацию в `browser-cases.json`/`historical-cases.json`/`night-cases.json`, последний результат по версии/device в индекс.
 При изменении ожидания указать модель и причину; продуктовую семантику не придумывать тестом.
 Связать defect issue. Исправленный локально дефект остаётся открытым до мержа и проверки.
 

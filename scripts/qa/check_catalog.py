@@ -2,6 +2,7 @@
 """Read-only QA catalogue checks. --suite prints a selection; never starts product tests."""
 import argparse
 import hashlib
+from functools import cache
 import json
 from pathlib import Path
 import re
@@ -24,6 +25,7 @@ def slug(text):
     return ''.join(c for c in text if c in '-_' or unicodedata.category(c)[0] in 'LN')
 
 
+@cache
 def anchors(path):
     content = path.read_text()
     result = set(re.findall(r'<a id="([^"]+)"', content))
@@ -38,7 +40,8 @@ def anchors(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--suite', choices=['smoke', 'full', 'devices', 'long'])
+    parser.add_argument('--suite', choices=list(read_json('suites.json')))
+    parser.add_argument('--discovery', type=Path, help='Playwright --list --reporter=json output to compare with browser cases')
     args = parser.parse_args()
     errors = []
     cases = read_json('cases.json')
@@ -47,7 +50,7 @@ def main():
     manifest = read_json('sources.json')
     night = read_json('night-cases.json')
     definitions = {}
-    docs = [CAT / 'watercolor.md', CAT / 'interface.md', ROOT / 'docs/qa/scenarios/collaboration.md']
+    docs = sorted({(CAT / data['file']).resolve() for data in cases.values()})
     for path in docs:
         content = path.read_text()
         for match in re.finditer(r'^## (QA-\d+) — (.+)$', content, re.M):
@@ -75,19 +78,76 @@ def main():
     old_bytes = subprocess.check_output(['git', '-C', str(ROOT), 'show', manifest['base_commit'] + ':docs/qa/scenarios/collaboration.md'])
     if legacy.read_bytes() != old_bytes:
         errors.append('Legacy source changed')
+    for case, data in cases.items():
+        if data.get('kind') not in {'case', 'group', 'alias'}:
+            errors.append(f'{case}: missing case/group/alias classification')
+        if data.get('kind') == 'alias' and cases.get(data.get('alias_of'), {}).get('kind') != 'case':
+            errors.append(f'{case}: alias must point to an individual case')
     for name, suite in suites.items():
         if len(suite['cases']) != len(set(suite['cases'])):
             errors.append(f'{name}: duplicate case')
         for case in suite['cases']:
             if case not in cases:
                 errors.append(f'{name}: unknown {case}')
+            elif cases[case].get('kind') != 'case':
+                errors.append(f'{name}: overview/alias cannot count as a case: {case}')
+    selected = {case for suite in suites.values() for case in suite['cases']}
+    if selected != {case for case, data in cases.items() if data.get('kind') == 'case'}:
+        errors.append('Suite union does not cover all individual cases')
     specs = {str(p.relative_to(ROOT)) for p in (ROOT / 'e2e/specs').glob('*.spec.ts')}
     if specs != set(mapping):
         errors.append(f'E2E mapping differs: unmapped={sorted(specs-set(mapping))}, absent={sorted(set(mapping)-specs)}')
     for source, case in mapping.items():
         if case not in cases:
             errors.append(f'{source}: unknown {case}')
+    browser = read_json('browser-cases.json')
+    historical = read_json('historical-cases.json')
+    unit = read_json('unit-inventory.json')
+    audit = read_json('history-audit.json')
+    for item in browser:
+        if item['id'] not in cases or item['group'] not in cases:
+            errors.append(f'Invalid browser case/group: {item["id"]}')
+        if item['source'] not in specs:
+            errors.append(f'Browser source absent: {item["source"]}')
+        if not item['variants'] or not item['steps'] or not item['expected']:
+            errors.append(f'Empty browser definition: {item["id"]}')
+    if args.discovery:
+        actual = set()
+        def walk(suite):
+            for spec in suite.get('specs', []):
+                actual.add((spec['file'], spec['line'], spec['title']))
+            for child in suite.get('suites', []):
+                walk(child)
+        walk(json.loads(args.discovery.read_text()))
+        expected = {(Path(r['source']).name, r['line'], title) for r in browser for title in r['variants']}
+        if actual != expected:
+            errors.append(f'Browser discovery differs: missing={len(expected-actual)}, new={len(actual-expected)}')
     source_tools = set(manifest['source_tools'])
+    for item in historical:
+        if item['id'] not in cases:
+            errors.append(f'Unknown historical case {item["id"]}')
+        for path in item['unit_support']:
+            if not (ROOT / path).is_file():
+                errors.append(f'Missing unit support: {path}')
+        for path in item.get('source_only_support', []):
+            if path not in source_tools:
+                errors.append(f'Missing pinned support: {path}')
+    current_units = {str(p.relative_to(ROOT)) for folder in ('apps/web/src', 'apps/server/src', 'packages/shared') for p in (ROOT / folder).rglob('*.test.ts')}
+    if current_units != {r['path'] for r in unit}:
+        errors.append('Unit inventory is stale')
+    for item in unit:
+        if hashlib.sha256((ROOT / item['path']).read_bytes()).hexdigest() != item['sha256']:
+            errors.append(f'Unit source changed: {item["path"]}; refresh inventory and review scope')
+        for case in item['case_support']:
+            if case not in cases:
+                errors.append(f'Unknown unit-support case: {case}')
+    for item in audit:
+        for case in item['cases']:
+            if case not in cases:
+                errors.append(f'Unknown historical mapping: {case}')
+        if item['bug_candidate'] and not item['cases'] and (item['disposition'] != 'excluded' or not item['reason']):
+            errors.append(f'Bug without disposition: #{item["number"]}')
+
     for item in night:
         if item['id'] not in cases:
             errors.append(f'Unknown NIGHT case {item["id"]}')
@@ -130,18 +190,22 @@ def main():
     if errors:
         print('\n'.join(errors), file=sys.stderr)
         return 1
-    print(f'PASS: {len(cases)} cases; {len(suites)} suites; {len(specs)} E2E files; {link_count} local links; {len(manifest["files"])} pinned copies.')
+    print(f'PASS: {sum(r.get("kind")=="case" for r in cases.values())} individual cases + {sum(r.get("kind")=="group" for r in cases.values())} groups; {len(suites)} suites; {len(browser)} browser scenarios/{sum(len(r["variants"]) for r in browser)} variants; {len(unit)} unit files; {link_count} local links; {len(manifest["files"])} pinned copies.')
     if args.suite:
         suite = suites[args.suite]
         print(f'\n{args.suite}: {suite["resources"]}\n{suite["duration"]}')
         for case in suite['cases']:
             print(f'{case} — {cases[case]["title"]}')
-        files = sorted(source for source, case in mapping.items() if case in suite['cases'])
+        files = sorted({source for source, case in mapping.items() if case in suite['cases']} | {r['source'] + ':' + str(r['line']) for r in browser if r['id'] in suite['cases']})
         if args.suite == 'full':
             files = sorted(mapping)
         print('\nBrowser automation subset (manual/device gates remain):')
         if files:
             print('npx playwright test ' + ' '.join(shlex.quote(f) for f in files) + ' --project=chromium --list')
+        units = sorted({path for item in historical if item['id'] in suite['cases'] for path in item['unit_support']})
+        if units:
+            print('\nPartial unit support (prepare isolated DB where required; manual acceptance remains):')
+            print('npx vitest run ' + ' '.join(shlex.quote(path) for path in units) + ' --maxWorkers=1')
         print('No product test was executed.')
     return 0
 

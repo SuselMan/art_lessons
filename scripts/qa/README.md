@@ -15,6 +15,9 @@ production-физика и журналы пользователя здесь н
 
 `python3 scripts/qa/check_catalog.py` проверяет ID, ссылки/anchors, наборы, полноту
 E2E mapping и SHA сохранённых источников. Python3 standard library, зависимости не нужны.
-`--suite smoke|full|devices|long` печатает состав и команду discovery, приложение не запускает.
+`--suite smoke|full|devices|long|operations` печатает состав и команду discovery, приложение не запускает.
 
 Определения, результаты и инструкции: [каталог QA](../../docs/qa/README.md).
+
+`--discovery <json>` сверяет 152 определения с настоящим `playwright test --list --reporter=json`.
+Файл discovery — временный, полный JSON с локальным config в Git не добавлять.

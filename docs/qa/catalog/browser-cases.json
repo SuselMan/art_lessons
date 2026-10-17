@@ -1,0 +1,2158 @@
+[
+  {
+    "id": "QA-201",
+    "title": "Каждый материал онлайн",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Двумя авторами нанести мазки выбранным материалом, Undo/Redo автора, reload и late join.",
+    "expected": "У наблюдателя и после replay сохранён тот же материал без чужой отмены; повторить девять указанных вариантов.",
+    "source": "e2e/specs/allToolsCollaboration.spec.ts",
+    "line": 14,
+    "variants": [
+      "pencil: live peer, undo/redo and history replay retain the mark",
+      "charcoal: live peer, undo/redo and history replay retain the mark",
+      "liner: live peer, undo/redo and history replay retain the mark",
+      "marker: live peer, undo/redo and history replay retain the mark",
+      "brushPen: live peer, undo/redo and history replay retain the mark",
+      "digitalBrush: live peer, undo/redo and history replay retain the mark",
+      "eraser: live peer, undo/redo and history replay retain the mark",
+      "smudge: live peer, undo/redo and history replay retain the mark",
+      "watercolor: live peer, undo/redo and history replay retain the mark"
+    ],
+    "group": "QA-003",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-202",
+    "title": "Вход по ссылке review",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть preview link, войти в аннотации и вернуться к рисованию.",
+    "expected": "Режим включён один раз, возврат доступен и не теряет рисунок.",
+    "source": "e2e/specs/annotations.spec.ts",
+    "line": 34,
+    "variants": [
+      "preview links enter annotation mode once and allow returning to drawing"
+    ],
+    "group": "QA-113",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-203",
+    "title": "Перо аннотаций",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Нарисовать пометку поверх готового рисунка.",
+    "expected": "Пометка записана отдельной операцией, исходный рисунок не изменился.",
+    "source": "e2e/specs/annotations.spec.ts",
+    "line": 56,
+    "variants": [
+      "the annotation pen records a mark, and leaves the drawing alone"
+    ],
+    "group": "QA-113",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-204",
+    "title": "Текстовая аннотация",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Тапнуть текстовым инструментом, набрать текст, нажать Ctrl+Enter.",
+    "expected": "Редактор открыт в точке тапа, текст сохранён как аннотация.",
+    "source": "e2e/specs/annotations.spec.ts",
+    "line": 71,
+    "variants": [
+      "a text note opens on a tap, takes typing, and is recorded on Ctrl+Enter"
+    ],
+    "group": "QA-113",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-205",
+    "title": "Ластик аннотаций",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Провести annotation eraser через существующую пометку.",
+    "expected": "Пометка удалена, слой рисунка сохранён.",
+    "source": "e2e/specs/annotations.spec.ts",
+    "line": 92,
+    "variants": [
+      "the annotation eraser removes a mark by dragging across it"
+    ],
+    "group": "QA-113",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-206",
+    "title": "Камера после создания доски",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Создать вторую доску, переключиться, изменить zoom и угол.",
+    "expected": "Холст действительно перерисован под новой камерой, а не только изменены числа.",
+    "source": "e2e/specs/boardCamera.spec.ts",
+    "line": 14,
+    "variants": [
+      "zoom and rotation redraw the canvas after creating and switching boards (#715)"
+    ],
+    "group": "QA-109",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-207",
+    "title": "Следование по доскам",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Учитель меняет доски, ученик следует, затем выбирает доску сам; reload и удаление выбранной доски.",
+    "expected": "Рисунки досок изолированы; режим следования и возврат к доступной доске корректны.",
+    "source": "e2e/specs/boards.spec.ts",
+    "line": 116,
+    "variants": [
+      "the teacher turns pages, the student follows, and both boards keep their ink"
+    ],
+    "group": "QA-109",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-208",
+    "title": "Цикл работы в классе",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Раздать работу, рисовать, обойти доски учеников, показать одну всем, вернуть класс и разослать обратно.",
+    "expected": "Учитель и ученики получают нужные доски, свои рисунки сохраняются.",
+    "source": "e2e/specs/classMode.spec.ts",
+    "line": 97,
+    "variants": [
+      "hand out, draw, walk the class, show one to all, call everyone back and send them back"
+    ],
+    "group": "QA-110",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-209",
+    "title": "Paste после закрытия рамки",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Скопировать фрагмент на другой слой, перетащить и закрыть gizmo.",
+    "expected": "Фрагмент остаётся виден после commit.",
+    "source": "e2e/specs/clipboardAcrossRooms.spec.ts",
+    "line": 90,
+    "variants": [
+      "a piece copied onto another layer stays visible after dragging and closing its gizmo (#714)"
+    ],
+    "group": "QA-104",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-210",
+    "title": "Paste в другую комнату",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Скопировать фрагмент, открыть другую комнату с другой камерой, вставить.",
+    "expected": "Фрагмент появляется перед текущим пользователем.",
+    "source": "e2e/specs/clipboardAcrossRooms.spec.ts",
+    "line": 141,
+    "variants": [
+      "a piece copied in one room pastes into another, in front of the person"
+    ],
+    "group": "QA-104",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-211",
+    "title": "Paste в исходную комнату",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Скопировать фрагмент и вставить в той же комнате.",
+    "expected": "Фрагмент возвращается на исходные координаты.",
+    "source": "e2e/specs/clipboardAcrossRooms.spec.ts",
+    "line": 175,
+    "variants": [
+      "a paste inside its own room still lands exactly where it was copied"
+    ],
+    "group": "QA-104",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-212",
+    "title": "Clipboard в уже открытой вкладке",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть две комнаты, скопировать в первой и вставить во второй без reload.",
+    "expected": "Открытая вкладка видит новый clipboard.",
+    "source": "e2e/specs/clipboardAcrossRooms.spec.ts",
+    "line": 189,
+    "variants": [
+      "a copy in one tab is pasteable in a room already open in another"
+    ],
+    "group": "QA-104",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-213",
+    "title": "Сходимость при росте участников",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Одновременно рисовать и выполнять авторские Undo/Redo в комнатах на 2/5/10/20 участников.",
+    "expected": "Журнал и итог сходятся для каждого размера; сетевые identities и renderer считать отдельно.",
+    "source": "e2e/specs/collaborationMatrix.spec.ts",
+    "line": 21,
+    "variants": [
+      "2 participants converge after simultaneous strokes and author undo/redo",
+      "5 participants converge after simultaneous strokes and author undo/redo",
+      "10 participants converge after simultaneous strokes and author undo/redo",
+      "20 participants converge after simultaneous strokes and author undo/redo"
+    ],
+    "group": "QA-017",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-214",
+    "title": "Разные материалы одновременно",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Нескольким авторам пересечь общий seed разными материалами, затем Undo/Redo.",
+    "expected": "Порядок и пиксели сходятся; наборы материалов перечислены среди вариантов.",
+    "source": "e2e/specs/collaborationMatrix.spec.ts",
+    "line": 86,
+    "variants": [
+      "5 mixed-tool authors (pencil, marker, watercolor, eraser, smudge) converge after drawing and undo/redo",
+      "2 mixed-tool authors (pencil, marker) converge after drawing and undo/redo",
+      "2 mixed-tool authors (watercolor, eraser) converge after drawing and undo/redo",
+      "2 mixed-tool authors (watercolor, smudge) converge after drawing and undo/redo"
+    ],
+    "group": "QA-017",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-215",
+    "title": "Цвет из палитры",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Выбрать цвет кнопкой палитры на рейке и нарисовать.",
+    "expected": "Новый штрих имеет выбранный цвет.",
+    "source": "e2e/specs/colorWell.spec.ts",
+    "line": 39,
+    "variants": [
+      "a palette colour from the rail is the colour the next stroke is drawn in"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-216",
+    "title": "Цвет при активном ластике",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Взять ластик, изменить цвет, вернуться к карандашу и рисовать.",
+    "expected": "Изменён цвет карандаша, ластик не получает фиктивного цвета.",
+    "source": "e2e/specs/colorWell.spec.ts",
+    "line": 57,
+    "variants": [
+      "with the eraser in hand the well edits the pencil’s colour"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-217",
+    "title": "Цвет выключенной заливки фигуры",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Выключить fill фигуры, выбрать его цвет, затем swap fill/stroke.",
+    "expected": "Выбор включает fill, swap меняет обе стороны согласованно.",
+    "source": "e2e/specs/colorWell.spec.ts",
+    "line": 68,
+    "variants": [
+      "for a shape: choosing a colour for a switched-off fill switches it on, and swap trades both"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-218",
+    "title": "Цвет в общей палитре",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Добавить текущий цвет в палитру комнаты.",
+    "expected": "Цвет попал в общее состояние, а не только локальный flyout.",
+    "source": "e2e/specs/colorWell.spec.ts",
+    "line": 96,
+    "variants": [
+      "adding the current colour to the palette reaches the room"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-219",
+    "title": "Открытие и закрытие color well",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Дважды нажать цветовой well.",
+    "expected": "Flyout открывается и закрывается, доступное состояние переключателя соответствует факту.",
+    "source": "e2e/specs/colorWell.spec.ts",
+    "line": 110,
+    "variants": [
+      "the well toggles its flyout and says so"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-220",
+    "title": "Пиксели после GPU restore",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Нарисовать, снять actual, потерять WebGL context, восстановить.",
+    "expected": "Рисунок восстановлен пиксельно, GL context готов.",
+    "source": "e2e/specs/contextLoss.spec.ts",
+    "line": 28,
+    "variants": [
+      "the drawing comes back, pixel for pixel"
+    ],
+    "group": "QA-012",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-221",
+    "title": "Undo после GPU restore",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Нарисовать два штриха, потерять и восстановить context, выполнить Undo.",
+    "expected": "Отменяется нужный штрих, предыдущий сохранён.",
+    "source": "e2e/specs/contextLoss.spec.ts",
+    "line": 65,
+    "variants": [
+      "undo still knows what it was going to undo"
+    ],
+    "group": "QA-012",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-222",
+    "title": "Жест прерван потерей GPU",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Начать жест и потерять context до UP; восстановить.",
+    "expected": "Незавершённый след не записан и не остаётся призраком.",
+    "source": "e2e/specs/contextLoss.spec.ts",
+    "line": 102,
+    "variants": [
+      "a gesture interrupted by the loss leaves nothing behind"
+    ],
+    "group": "QA-012",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-223",
+    "title": "Входящий штрих во время GPU loss",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Во время входящего peer stroke потерять context и восстановить.",
+    "expected": "Участник не остаётся с половиной принятого штриха.",
+    "source": "e2e/specs/contextLoss.spec.ts",
+    "line": 149,
+    "variants": [
+      "a peer stroke in flight is not left half-drawn"
+    ],
+    "group": "QA-012",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-224",
+    "title": "Жёсткость цифровой кисти",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Сравнить край одинаковых мазков при разных hardness и размерах.",
+    "expected": "Край действительно меняется и масштабируется с кистью.",
+    "source": "e2e/specs/digitalBrush.spec.ts",
+    "line": 46,
+    "variants": [
+      "hardness genuinely changes the edge, and it scales with the mark"
+    ],
+    "group": "QA-103",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-225",
+    "title": "Opacity цифровой кисти",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Нанести перекрывающиеся dabs внутри одного мазка с заданной opacity.",
+    "expected": "Итоговая непрозрачность соответствует настройке, не сумме повторных нанесений.",
+    "source": "e2e/specs/digitalBrush.spec.ts",
+    "line": 107,
+    "variants": [
+      "paints at the opacity it was asked for, not at whatever the dabs sum to"
+    ],
+    "group": "QA-103",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-226",
+    "title": "Первый штрих",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть новую комнату и нарисовать.",
+    "expected": "Есть видимые чернила и соответствующая операция журнала.",
+    "source": "e2e/specs/draw.spec.ts",
+    "line": 12,
+    "variants": [
+      "the stroke lands on the canvas and in the log"
+    ],
+    "group": "QA-001",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-227",
+    "title": "Второй штрих",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "После первого штриха добавить второй в другом месте.",
+    "expected": "Оба штриха сохранены, первый не заменён вторым.",
+    "source": "e2e/specs/draw.spec.ts",
+    "line": 38,
+    "variants": [
+      "a second stroke adds to the first rather than replacing it"
+    ],
+    "group": "QA-001",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-228",
+    "title": "Сквозной ластик и Undo",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Нарисовать на двух слоях, одним жестом стереть оба в through-layers, Undo.",
+    "expected": "Один жест затрагивает оба слоя и один Undo возвращает оба.",
+    "source": "e2e/specs/eraseThroughLayers.spec.ts",
+    "line": 101,
+    "variants": [
+      "one pass clears both layers, and one undo brings both back"
+    ],
+    "group": "QA-107",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-229",
+    "title": "Хоткей сквозного ластика",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Выключить постоянный through-layers toggle, нажать Shift+E.",
+    "expected": "Выбран сквозной ластик, постоянная настройка не перезаписана.",
+    "source": "e2e/specs/eraseThroughLayers.spec.ts",
+    "line": 144,
+    "variants": [
+      "Shift+E takes the through-layers eraser without touching the switch"
+    ],
+    "group": "QA-107",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-230",
+    "title": "Обычный ластик",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "При выключенном through-layers стереть в области двух слоёв.",
+    "expected": "Меняется только активный слой.",
+    "source": "e2e/specs/eraseThroughLayers.spec.ts",
+    "line": 174,
+    "variants": [
+      "with the toggle off it stays on the active layer"
+    ],
+    "group": "QA-107",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-231",
+    "title": "Пипетка возвращает инструмент",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Взять цвет нарисованной области пипеткой и провести карандашом.",
+    "expected": "Цвет взят из правильной точки, карандаш снова активен.",
+    "source": "e2e/specs/eyedropper.spec.ts",
+    "line": 14,
+    "variants": [
+      "the eyedropper takes the colour under the pointer and hands the pencil back"
+    ],
+    "group": "QA-106",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-232",
+    "title": "Заливка замкнутой области",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Нарисовать контур и тапнуть внутри fill.",
+    "expected": "Заполнена нужная область активного слоя, fill записан в журнал.",
+    "source": "e2e/specs/fill.spec.ts",
+    "line": 51,
+    "variants": [
+      "a tap inside an outline fills it on the active layer, and the fill is recorded"
+    ],
+    "group": "QA-103",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-233",
+    "title": "Заливка заблокированного слоя",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Заблокировать слой и тапнуть fill.",
+    "expected": "Нет изменения пикселей и лишней операции/работы.",
+    "source": "e2e/specs/fill.spec.ts",
+    "line": 67,
+    "variants": [
+      "a locked layer refuses the tap before any work is done"
+    ],
+    "group": "QA-103",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-234",
+    "title": "Заливка в нижней части листа",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Создать замкнутую область внизу A4 и залить.",
+    "expected": "Нижние тайлы доступны, заливка не ограничена верхним тайлом.",
+    "source": "e2e/specs/fill.spec.ts",
+    "line": 89,
+    "variants": [
+      "a tap low on the sheet fills too"
+    ],
+    "group": "QA-103",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-235",
+    "title": "Волосная линия гибкой кисти",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Выбрать крупный flexible tip, провести с feather pressure0.02.",
+    "expected": "Перо/акварель дают тонкую видимую линию; сомнительный watercolor oracle709 отмечать отдельно.",
+    "source": "e2e/specs/flexibleHairline.spec.ts",
+    "line": 7,
+    "variants": [
+      "brushPen: a large flexible nib draws a hairline with feather pressure",
+      "watercolor: a large flexible nib draws a hairline with feather pressure"
+    ],
+    "group": "QA-017",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-236",
+    "title": "Тап с дрейфом по панели",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Нажать кнопку и немного сдвинуть перо до UP.",
+    "expected": "Выполнено действие кнопки, панель не сместилась.",
+    "source": "e2e/specs/floatingPanel.spec.ts",
+    "line": 79,
+    "variants": [
+      "a small drift still presses the button and leaves the panel where it was"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-237",
+    "title": "Перетаскивание за пределы кнопки",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Нажать кнопку и протянуть палец/перо далеко за её пределы.",
+    "expected": "Панель перемещена, действие кнопки не выполнено.",
+    "source": "e2e/specs/floatingPanel.spec.ts",
+    "line": 98,
+    "variants": [
+      "a press that travels off the button drags the panel and does not press it"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-238",
+    "title": "Drag тела панели",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Потянуть свободную область панели.",
+    "expected": "Перемещение начинается сразу, лишних нажатий нет.",
+    "source": "e2e/specs/floatingPanel.spec.ts",
+    "line": 118,
+    "variants": [
+      "a press on the panel body drags it from the first pixels"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-239",
+    "title": "Тап пустого слота",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Коротко тапнуть незаполненный слот.",
+    "expected": "Выбор инструмента не открывается.",
+    "source": "e2e/specs/floatingPanel.spec.ts",
+    "line": 162,
+    "variants": [
+      "a tap on it opens nothing"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-240",
+    "title": "Hold пустого слота",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Удержать незаполненный слот.",
+    "expected": "Открыт chooser назначения слота.",
+    "source": "e2e/specs/floatingPanel.spec.ts",
+    "line": 178,
+    "variants": [
+      "a hold on it opens its chooser"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-241",
+    "title": "Начальная раскладка панели",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть профиль без сохранённой раскладки.",
+    "expected": "Четыре прежние кнопки и четыре пустых слота на месте.",
+    "source": "e2e/specs/floatingPanelSlots.spec.ts",
+    "line": 56,
+    "variants": [
+      "opens with the four-button panel it has always had, plus four empty slots"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-242",
+    "title": "Состав chooser слота",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Удержать пустой слот и просмотреть список.",
+    "expected": "Предложены инструменты, обе группы, Undo/Redo и очистка слота.",
+    "source": "e2e/specs/floatingPanelSlots.spec.ts",
+    "line": 74,
+    "variants": [
+      "holding an empty slot offers every tool, both groups, undo/redo and “leave empty”"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-243",
+    "title": "Назначение инструмента слоту",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Удержать слот и выбрать конкретный инструмент.",
+    "expected": "Инструмент назначен и взят в руку.",
+    "source": "e2e/specs/floatingPanelSlots.spec.ts",
+    "line": 97,
+    "variants": [
+      "puts the chosen tool in the slot and takes it in hand"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-244",
+    "title": "Перенос назначения",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Назначить уже занятый инструмент другому слоту.",
+    "expected": "Новое место заполнено, прежнее очищено, дубликата нет.",
+    "source": "e2e/specs/floatingPanelSlots.spec.ts",
+    "line": 113,
+    "variants": [
+      "moving something to a new slot empties the one it came from"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-245",
+    "title": "Очистка слота",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "У занятого слота выбрать leave empty.",
+    "expected": "Слот пустой и не действует как прежняя кнопка.",
+    "source": "e2e/specs/floatingPanelSlots.spec.ts",
+    "line": 125,
+    "variants": [
+      "“leave empty” takes the tool back out"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-246",
+    "title": "Группа следует внешнему выбору",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Настроить group slot, выбрать материал через другую панель.",
+    "expected": "Слот отражает последний выбранный материал.",
+    "source": "e2e/specs/floatingPanelSlots.spec.ts",
+    "line": 139,
+    "variants": [
+      "a group slot follows whatever was last picked elsewhere"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-247",
+    "title": "Повторный тап группы",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Дважды нажать group slot, выбрать ранее не использованный материал.",
+    "expected": "Chooser доступен, новый материал можно взять без предварительного выбора в другом месте.",
+    "source": "e2e/specs/floatingPanelSlots.spec.ts",
+    "line": 155,
+    "variants": [
+      "a second tap on a group slot reaches a material never picked before"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-248",
+    "title": "Hold группы меняет слот",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Удержать настроенный group slot.",
+    "expected": "Открыта настройка слота, а не ошибочно выбор материала группы.",
+    "source": "e2e/specs/floatingPanelSlots.spec.ts",
+    "line": 186,
+    "variants": [
+      "holding a group slot still offers to change the slot, not the material"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-249",
+    "title": "Тап действует без chooser",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Коротко нажать настроенный слот.",
+    "expected": "Выполнена его команда, chooser не появился.",
+    "source": "e2e/specs/floatingPanelSlots.spec.ts",
+    "line": 196,
+    "variants": [
+      "a tap does the slot’s job without opening the chooser"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-250",
+    "title": "Раскладка между комнатами",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Изменить слоты, выйти и открыть другую комнату.",
+    "expected": "Раскладка сохранена как настройка приложения.",
+    "source": "e2e/specs/floatingPanelSlots.spec.ts",
+    "line": 210,
+    "variants": [
+      "the layout is the same in the next room"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-251",
+    "title": "Неизвестный инструмент в сохранённой раскладке",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Подготовить настройку с удалённым tool id и открыть панель.",
+    "expected": "Использован корректный fallback без пустого/сломавшегося UI.",
+    "source": "e2e/specs/floatingPanelSlots.spec.ts",
+    "line": 229,
+    "variants": [
+      "a layout naming a tool that no longer exists falls back to the default"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-252",
+    "title": "Миграция старой раскладки",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Загрузить раскладку прежнего формата с ролями кнопок.",
+    "expected": "Верхние и нижние команды сохранены в правильных слотах.",
+    "source": "e2e/specs/floatingPanelSlots.spec.ts",
+    "line": 243,
+    "variants": [
+      "a layout stored with the old roles keeps its top and bottom buttons"
+    ],
+    "group": "QA-102",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-253",
+    "title": "Рамка импортированной картинки",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Импортировать референс на слой.",
+    "expected": "Gizmo охватывает картинку и позволяет её поставить.",
+    "source": "e2e/specs/imageImportGizmo.spec.ts",
+    "line": 64,
+    "variants": [
+      "opens the transform gizmo around the picture"
+    ],
+    "group": "QA-105",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-254",
+    "title": "Импорт при выделении",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Сделать выделение, затем импортировать картинку.",
+    "expected": "Прежнее выделение сброшено, рамка относится к картинке.",
+    "source": "e2e/specs/imageImportGizmo.spec.ts",
+    "line": 73,
+    "variants": [
+      "drops a standing selection, so the frame is not the selection"
+    ],
+    "group": "QA-105",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-255",
+    "title": "Бесконечная комната",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть infinite room, нарисовать, переместить камеру и проверить overlays.",
+    "expected": "Рисунок и overlays находятся в одних мировых координатах.",
+    "source": "e2e/specs/infiniteRoom.spec.ts",
+    "line": 30,
+    "variants": [
+      "opens, takes a stroke, and draws its overlays over the world"
+    ],
+    "group": "QA-109",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-256",
+    "title": "Мышь не перехватывает перо",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Держать pen pointer и послать native mouse hover либо mouse up.",
+    "expected": "Перо продолжает свой жест без скачка и преждевременного завершения.",
+    "source": "e2e/specs/inputOwnership.spec.ts",
+    "line": 22,
+    "variants": [
+      "native mouse hover cannot change or end a pen gesture",
+      "native mouse up cannot change or end a pen gesture"
+    ],
+    "group": "QA-013",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-257",
+    "title": "Комната без пароля",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть ссылку комнаты без password.",
+    "expected": "Поле пароля не показывается.",
+    "source": "e2e/specs/joinGate.spec.ts",
+    "line": 18,
+    "variants": [
+      "never shows a password field for a room without one"
+    ],
+    "group": "QA-111",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-258",
+    "title": "Пароль после отказа",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Войти без password в защищённую комнату, получить отказ, ввести правильный.",
+    "expected": "Поле появляется после отказа, успешный retry открывает комнату.",
+    "source": "e2e/specs/joinGate.spec.ts",
+    "line": 38,
+    "variants": [
+      "asks for a password only after a passwordless attempt is refused"
+    ],
+    "group": "QA-111",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-259",
+    "title": "Встречные переносы папок",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Двумя авторами одновременно вложить папки друг в друга, затем author Undo/Redo.",
+    "expected": "Нет цикла, итоговая структура сходится.",
+    "source": "e2e/specs/layerConflicts.spec.ts",
+    "line": 18,
+    "variants": [
+      "opposing folder moves never create a cycle and converge after author undo/redo"
+    ],
+    "group": "QA-005",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-260",
+    "title": "Конкурирующие свойства слоя",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Двумя авторами одновременно изменить имя/opacity/visibility, Undo/Redo и late join.",
+    "expected": "Свойства соответствуют confirmed order, все клиенты сходятся.",
+    "source": "e2e/specs/layerConflicts.spec.ts",
+    "line": 73,
+    "variants": [
+      "concurrent layer rename follows confirmed order through undo/redo and late join",
+      "concurrent layer opacity follows confirmed order through undo/redo and late join",
+      "concurrent layer visibility follows confirmed order through undo/redo and late join"
+    ],
+    "group": "QA-005",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-261",
+    "title": "Переименование выделяет имя",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть rename и начать печатать.",
+    "expected": "Полное прежнее имя заменено, а не дописан хвост.",
+    "source": "e2e/specs/layerEditing.spec.ts",
+    "line": 4,
+    "variants": [
+      "rename selects the whole name and typing replaces it"
+    ],
+    "group": "QA-108",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-262",
+    "title": "Группировка выделенных слоёв",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Выделить слои и существующее поддерево, создать folder.",
+    "expected": "Сохранён stacking order, содержимое поддерева не потеряно.",
+    "source": "e2e/specs/layerEditing.spec.ts",
+    "line": 24,
+    "variants": [
+      "new folders group selections in stacking order and preserve selected subtrees"
+    ],
+    "group": "QA-108",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-263",
+    "title": "Gaussian Blur и отмена",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Размыть нарисованный штрих, Apply, Undo.",
+    "expected": "Край смягчён, Undo возвращает исходные пиксели.",
+    "source": "e2e/specs/layerFilter.spec.ts",
+    "line": 55,
+    "variants": [
+      "a Gaussian blur softens the stroke, and undo takes it back"
+    ],
+    "group": "QA-007",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-264",
+    "title": "Cancel фильтра",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть preview, изменить параметр, Cancel.",
+    "expected": "Слой точно прежний, новой операции фильтра нет.",
+    "source": "e2e/specs/layerFilter.spec.ts",
+    "line": 76,
+    "variants": [
+      "Cancel leaves the layer exactly as it was"
+    ],
+    "group": "QA-007",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-265",
+    "title": "HSL lightness",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "К графиту применить lightness+100.",
+    "expected": "Штрих стал белым ровно после Apply.",
+    "source": "e2e/specs/layerFilter.spec.ts",
+    "line": 90,
+    "variants": [
+      "lightness +100 turns graphite white once applied"
+    ],
+    "group": "QA-007",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-266",
+    "title": "Чужой штрих во время preview",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Б рисует пока А preview фильтра; А выполняет Cancel, затем Apply и Undo/Redo.",
+    "expected": "Новые peer pixels сохранены при каждом варианте пяти фильтров.",
+    "source": "e2e/specs/layerFilter.spec.ts",
+    "line": 116,
+    "variants": [
+      "gaussian_blur: remote drawing during preview survives Cancel, Apply and undo/redo",
+      "motion_blur: remote drawing during preview survives Cancel, Apply and undo/redo",
+      "hsl: remote drawing during preview survives Cancel, Apply and undo/redo",
+      "curves: remote drawing during preview survives Cancel, Apply and undo/redo",
+      "color_balance: remote drawing during preview survives Cancel, Apply and undo/redo"
+    ],
+    "group": "QA-007",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-267",
+    "title": "Удалённая цель фильтра",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "А меняет Radius, Б удаляет слой и Undo удаления.",
+    "expected": "Dialog закрыт окончательно и не возвращается сам.",
+    "source": "e2e/specs/layerFilter.spec.ts",
+    "line": 184,
+    "variants": [
+      "a deleted filter target stays dismissed when its owner undoes the deletion"
+    ],
+    "group": "QA-007",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-268",
+    "title": "Локальный Solo",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Включить Solo через row menu, проверить peer и PNG, вернуть toolbar.",
+    "expected": "Только локальный вид скрывает другие слои, журнал/peer/export неизменны.",
+    "source": "e2e/specs/layerSolo.spec.ts",
+    "line": 116,
+    "variants": [
+      "the row menu shows one layer alone, the toolbar brings the rest back, and the room never knew"
+    ],
+    "group": "QA-108",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-269",
+    "title": "Жесты Solo",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Alt+click на eye, затем long press на том же eye.",
+    "expected": "Solo включён и прекращён предусмотренными жестами.",
+    "source": "e2e/specs/layerSolo.spec.ts",
+    "line": 172,
+    "variants": [
+      "Alt+click on the eye solos, a long press on the same eye ends it"
+    ],
+    "group": "QA-108",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-270",
+    "title": "Удаление Solo-слоя",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Включить Solo и удалить целевой слой.",
+    "expected": "Solo прекращается, экран не остаётся пустым.",
+    "source": "e2e/specs/layerSolo.spec.ts",
+    "line": 206,
+    "variants": [
+      "a solo whose layer is deleted ends itself instead of blanking the screen"
+    ],
+    "group": "QA-108",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-271",
+    "title": "Подтверждение выхода",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Нажать Leave→Stay, затем снова Leave→Leave.",
+    "expected": "Stay сохраняет редактор, подтверждение выводит домой.",
+    "source": "e2e/specs/leaveGuard.spec.ts",
+    "line": 10,
+    "variants": [
+      "asks first — Stay keeps the room, Leave goes home"
+    ],
+    "group": "QA-114",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-272",
+    "title": "Back внутри редактора",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Выполнить browser Back при открытой комнате.",
+    "expected": "Редактор не покидается случайно.",
+    "source": "e2e/specs/leaveGuard.spec.ts",
+    "line": 27,
+    "variants": [
+      "Back does nothing while the editor is on screen"
+    ],
+    "group": "QA-114",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-273",
+    "title": "Freeze комнаты",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Учитель блокирует комнату, ученик пробует рисовать, учитель снимает запрет.",
+    "expected": "Ученик не пишет при запрете и пишет после снятия.",
+    "source": "e2e/specs/lessonControls.spec.ts",
+    "line": 27,
+    "variants": [
+      "freezing the room freezes the student, and unfreezing lets them go"
+    ],
+    "group": "QA-110",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-274",
+    "title": "Freeze участника",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Учитель блокирует только одного ученика, второй продолжает.",
+    "expected": "Ограничен только выбранный участник.",
+    "source": "e2e/specs/lessonControls.spec.ts",
+    "line": 45,
+    "variants": [
+      "freezing one participant freezes that participant only"
+    ],
+    "group": "QA-110",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-275",
+    "title": "Открытие закрытого урока",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Владелец находится в закрытой комнате и нажимает reopen.",
+    "expected": "Редактирование восстановлено без выхода из комнаты.",
+    "source": "e2e/specs/lessonControls.spec.ts",
+    "line": 67,
+    "variants": [
+      "the owner reopens it from inside the room"
+    ],
+    "group": "QA-110",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-276",
+    "title": "Reopen до broadcast",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Задержать широковещательное событие, выполнить reopen.",
+    "expected": "Ответ запроса позволяет продолжить, UI не ждёт broadcast бесконечно.",
+    "source": "e2e/specs/lessonControls.spec.ts",
+    "line": 82,
+    "variants": [
+      "reopening does not wait for the broadcast"
+    ],
+    "group": "QA-110",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-277",
+    "title": "Копия ученика",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Ученик берёт работу в свою копию.",
+    "expected": "Созданная комната принадлежит ученику и открылась.",
+    "source": "e2e/specs/lessonControls.spec.ts",
+    "line": 101,
+    "variants": [
+      "a student takes a copy and lands in it"
+    ],
+    "group": "QA-110",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-278",
+    "title": "Запрет во время жеста",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Во время live gesture включить room freeze/point freeze/close lesson, затем UP.",
+    "expected": "Отказанный live ink исчез у всех; варианты запрета проверяются отдельно.",
+    "source": "e2e/specs/lessonControls.spec.ts",
+    "line": 121,
+    "variants": [
+      "room freeze mid-gesture removes refused live ink on every viewer",
+      "point freeze mid-gesture removes refused live ink on every viewer",
+      "closed lesson mid-gesture removes refused live ink on every viewer"
+    ],
+    "group": "QA-110",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-279",
+    "title": "Задержка пера у участника",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Двумя браузерами рисовать live stroke, снять pen-to-ink probe.",
+    "expected": "Есть измерение с соблюдением тестового localhost budget; оно не доказывает физическую межустройственную задержку.",
+    "source": "e2e/specs/liveLatency.spec.ts",
+    "line": 14,
+    "variants": [
+      "a peer’s live stroke is timed pen to ink, and on localhost it is within budget"
+    ],
+    "group": "QA-014",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-280",
+    "title": "Потерянная цель offline операции",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Отключить автора, создать shape/fill/paste, другим удалить слой, вернуть сеть.",
+    "expected": "Отказ виден, работа предложена к восстановлению без молчаливой потери.",
+    "source": "e2e/specs/offlineLostWork.spec.ts",
+    "line": 9,
+    "variants": [
+      "offline shape is recovered when its layer was deleted by another participant",
+      "offline area_fill is recovered when its layer was deleted by another participant",
+      "offline area_paste is recovered when its layer was deleted by another participant"
+    ],
+    "group": "QA-008",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-281",
+    "title": "Ошибка бумаги и retry",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Отказать загрузке baked paper, затем разрешить и Try again.",
+    "expected": "Комната не открыта полупустой, показана ошибка, повтор открывает холст.",
+    "source": "e2e/specs/paperFailure.spec.ts",
+    "line": 14,
+    "variants": [
+      "a paper that fails to load keeps the room closed, and Try again opens it"
+    ],
+    "group": "QA-111",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-282",
+    "title": "Paste обновляет уменьшенный вид",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Вставить и трансформировать фрагмент, отдалить камеру.",
+    "expected": "Coarse tile содержит новый результат, не только fine pixels.",
+    "source": "e2e/specs/pasteMipmaps.spec.ts",
+    "line": 8,
+    "variants": [
+      "a transformed paste updates the zoomed-out tile as well as its base pixels"
+    ],
+    "group": "QA-105",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-283",
+    "title": "История до прихода",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "А рисует до подключения Б; Б входит.",
+    "expected": "Б видит прежнюю работу.",
+    "source": "e2e/specs/peer.spec.ts",
+    "line": 17,
+    "variants": [
+      "sees what was drawn before they arrived"
+    ],
+    "group": "QA-001",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-284",
+    "title": "Новый штрих у наблюдателя",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Б уже смотрит, А рисует.",
+    "expected": "Штрих появляется у Б без reload.",
+    "source": "e2e/specs/peer.spec.ts",
+    "line": 42,
+    "variants": [
+      "sees a stroke drawn while they are watching"
+    ],
+    "group": "QA-001",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-285",
+    "title": "Ошибка сборки комнаты",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Вызвать исключение в финале восстановления, затем retry.",
+    "expected": "Видна ошибка вместо полуоткрытого редактора, повтор позволяет войти.",
+    "source": "e2e/specs/peer.spec.ts",
+    "line": 84,
+    "variants": [
+      "is told when the room cannot be assembled, instead of getting a half-open editor"
+    ],
+    "group": "QA-001",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-286",
+    "title": "Следование камере другого",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Включить follow участника и перемещать его камеру.",
+    "expected": "Наблюдатель следует выбранному автору, рисунок не меняется.",
+    "source": "e2e/specs/peer.spec.ts",
+    "line": 151,
+    "variants": [
+      "follows the other person around the canvas"
+    ],
+    "group": "QA-001",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-287",
+    "title": "Телефонный список и удаление",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть проекты на телефоне, новый проект и удаление карточки.",
+    "expected": "Два столбца, компактная кнопка, удаление подтверждается модалкой.",
+    "source": "e2e/specs/projectCopyUi.spec.ts",
+    "line": 33,
+    "variants": [
+      "phone grid, compact new-project button and modal deletion"
+    ],
+    "group": "QA-112",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-288",
+    "title": "Карточка создаваемой копии",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Задержать copy request.",
+    "expected": "Preparing-карточка сразу видна, прокручена в поле и disabled, затем превращена в проект.",
+    "source": "e2e/specs/projectCopyUi.spec.ts",
+    "line": 61,
+    "variants": [
+      "copy immediately appears disabled, scrolls into view, then becomes a project"
+    ],
+    "group": "QA-112",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-289",
+    "title": "Ошибка копии в списке",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Отказать copy в list view и повторить.",
+    "expected": "Preparing убрана, исходник сохранён, retry доступен.",
+    "source": "e2e/specs/projectCopyUi.spec.ts",
+    "line": 75,
+    "variants": [
+      "failed copy removes its preparing card in list view and permits retry"
+    ],
+    "group": "QA-112",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-290",
+    "title": "Копия среди поисковых результатов",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Начать copy при активном поиске.",
+    "expected": "Прогресс виден, фильтрация не прячет создаваемый проект.",
+    "source": "e2e/specs/projectCopyUi.spec.ts",
+    "line": 93,
+    "variants": [
+      "copy progress remains visible in search results"
+    ],
+    "group": "QA-112",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-291",
+    "title": "Ошибка copy-and-open",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Отказать copy-and-open.",
+    "expected": "Fullscreen loader снят, можно выполнить другое действие.",
+    "source": "e2e/specs/projectCopyUi.spec.ts",
+    "line": 104,
+    "variants": [
+      "copy-and-open failure clears the full-screen loader and allows another action"
+    ],
+    "group": "QA-112",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-292",
+    "title": "Loader до входа в копию",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Успешный copy-and-open с задержанным входом.",
+    "expected": "Loader остаётся до фактического редактора новой комнаты.",
+    "source": "e2e/specs/projectCopyUi.spec.ts",
+    "line": 116,
+    "variants": [
+      "copy and open keeps the loader through the request and enters the new room"
+    ],
+    "group": "QA-112",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-293",
+    "title": "Обрыв при входе в копию",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Потерять сеть перед join копии и вернуть.",
+    "expected": "UI сообщает отсутствие связи и продолжает вход после восстановления.",
+    "source": "e2e/specs/projectCopyUi.spec.ts",
+    "line": 142,
+    "variants": [
+      "copy entry reports a missing connection and opens automatically when it returns"
+    ],
+    "group": "QA-112",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-294",
+    "title": "Позднее продолжение вытесненной заливки",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Пять watercolor авторов, Undo, continuation во время rebuild, Redo и fresh replay.",
+    "expected": "Начало wash сохранено; SHA равны, finished-wash синхронных readback нет.",
+    "source": "e2e/specs/rebuildSpill.spec.ts",
+    "line": 28,
+    "variants": [
+      "five watercolor authors survive undo, late continuation, redo and fresh replay without finished-wash spills"
+    ],
+    "group": "QA-019",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-295",
+    "title": "Собственный offline штрих",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Отключить сеть автора, нарисовать, вернуть.",
+    "expected": "Очередь отправлена ровно один раз, peer видит штрих.",
+    "source": "e2e/specs/reconnect.spec.ts",
+    "line": 24,
+    "variants": [
+      "work drawn offline reaches the server once the connection returns"
+    ],
+    "group": "QA-008",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-296",
+    "title": "Работа других пока offline",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Отключить ученика, учителем рисовать, вернуть ученика.",
+    "expected": "Пропущенные операции догружены и видны.",
+    "source": "e2e/specs/reconnect.spec.ts",
+    "line": 78,
+    "variants": [
+      "what was drawn while a student was offline reaches them when they return"
+    ],
+    "group": "QA-008",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-297",
+    "title": "Offline удаление общего слоя",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Без сети попытаться удалить общий слой.",
+    "expected": "Отказ объяснён, опасная операция не остаётся в очереди.",
+    "source": "e2e/specs/reconnect.spec.ts",
+    "line": 123,
+    "variants": [
+      "deleting a shared layer offline is refused, visibly, and nothing is queued"
+    ],
+    "group": "QA-008",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-298",
+    "title": "Запоминание материала",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Выбрать материал, выйти и войти в комнату.",
+    "expected": "Тот же материал активен на устройстве.",
+    "source": "e2e/specs/rememberedTool.spec.ts",
+    "line": 39,
+    "variants": [
+      "a room reopens with the material it was left with"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-299",
+    "title": "Временный жест не запоминается",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Вызвать passing gesture и перезайти.",
+    "expected": "Сохранён постоянный материал, не временное действие.",
+    "source": "e2e/specs/rememberedTool.spec.ts",
+    "line": 54,
+    "variants": [
+      "a passing gesture is not what the room remembers"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-300",
+    "title": "Быстрый review до слоёв",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Задержать layers, открыть готовый bounded/infinite export, поставить заметки, дождаться handoff; отдельно выйти раньше.",
+    "expected": "Заметки и камера сохранены; ранний выход показывает preloader, без ложной готовности.",
+    "source": "e2e/specs/reviewImage.spec.ts",
+    "line": 17,
+    "variants": [
+      "bounded review image accepts notes before layers load; handoff keeps the view and notes",
+      "bounded review image accepts notes before layers load; early exit shows a preloader",
+      "infinite review image accepts notes before layers load; handoff keeps the view and notes"
+    ],
+    "group": "QA-113",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-301",
+    "title": "Upload review не удался",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Отказать upload экспортированной картинки.",
+    "expected": "Пользователю не отправлена ссылка на отсутствующий asset.",
+    "source": "e2e/specs/reviewImage.spec.ts",
+    "line": 113,
+    "variants": [
+      "an export upload failure does not send a link to a missing image"
+    ],
+    "group": "QA-113",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-302",
+    "title": "Новый user gesture для Share",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Дождаться export/upload, отдельно нажать native Share.",
+    "expected": "Native sharing получает свежий жест и работает.",
+    "source": "e2e/specs/reviewImage.spec.ts",
+    "line": 127,
+    "variants": [
+      "native sharing gets a fresh user gesture after export and upload"
+    ],
+    "group": "QA-113",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-303",
+    "title": "Legacy preview без export",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть старую preview-ссылку без готовой картинки.",
+    "expected": "Работает fallback обычной загрузки слоёв.",
+    "source": "e2e/specs/reviewImage.spec.ts",
+    "line": 148,
+    "variants": [
+      "a legacy preview without an export falls back to normal layers"
+    ],
+    "group": "QA-113",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-304",
+    "title": "Review текущей доски",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть вторую доску, Share for review.",
+    "expected": "Ссылка указывает на текущую доску и включает annotation mode.",
+    "source": "e2e/specs/roomHeader.spec.ts",
+    "line": 17,
+    "variants": [
+      "Share for review sends the current board link and opens annotation mode"
+    ],
+    "group": "QA-114",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-305",
+    "title": "Rename сохраняет урок",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Изменить имя в шапке и подтвердить.",
+    "expected": "Имя сохранено сервером, рисунок не потерян.",
+    "source": "e2e/specs/roomHeader.spec.ts",
+    "line": 48,
+    "variants": [
+      "the owner renames the lesson in place, and the server keeps it"
+    ],
+    "group": "QA-114",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-306",
+    "title": "Отмена rename",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Начать новое имя и Esc.",
+    "expected": "Прежнее имя сохранено.",
+    "source": "e2e/specs/roomHeader.spec.ts",
+    "line": 64,
+    "variants": [
+      "Esc abandons a rename and leaves the name as it was"
+    ],
+    "group": "QA-114",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-307",
+    "title": "Rotation lock",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Включить замок и попробовать изменить угол.",
+    "expected": "Угол зафиксирован согласованно с UI.",
+    "source": "e2e/specs/roomHeader.spec.ts",
+    "line": 76,
+    "variants": [
+      "the rotation lock pins the angle readout"
+    ],
+    "group": "QA-114",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-308",
+    "title": "Возврат 100% zoom",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Изменить zoom, нажать числовое значение.",
+    "expected": "Камера возвращается к 100%.",
+    "source": "e2e/specs/roomHeader.spec.ts",
+    "line": 87,
+    "variants": [
+      "clicking the zoom readout puts the zoom back to 100%"
+    ],
+    "group": "QA-114",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-309",
+    "title": "Узкая шапка",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Сузить viewport и открыть overflow.",
+    "expected": "Все скрытые toggles доступны в меню.",
+    "source": "e2e/specs/roomHeader.spec.ts",
+    "line": 102,
+    "variants": [
+      "a narrow header folds its toggles into the menu"
+    ],
+    "group": "QA-114",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-310",
+    "title": "Повторный вход в метриках",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Дважды войти в одну комнату.",
+    "expected": "Сохранены разные завершённые входы, а не одна перезаписанная запись.",
+    "source": "e2e/specs/roomOpenMetrics.spec.ts",
+    "line": 14,
+    "variants": [
+      "saves actual room finishes and distinguishes re-entry into the same room"
+    ],
+    "group": "QA-114",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-311",
+    "title": "Медленный вход завершился",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Вызвать задержку входа до alarm, затем завершить.",
+    "expected": "Сохранены alarm и фактический finish одного входа.",
+    "source": "e2e/specs/roomOpenMetrics.spec.ts",
+    "line": 39,
+    "variants": [
+      "a real slow entry saves both the alarm and its eventual finish"
+    ],
+    "group": "QA-114",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-312",
+    "title": "Поздний finish метрики",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Повторить delivery поздних/старых измерений и неправильный input.",
+    "expected": "Нет дублей/понижения завершённого результата, input проверен.",
+    "source": "e2e/specs/roomOpenMetrics.spec.ts",
+    "line": 64,
+    "variants": [
+      "updates delayed finishes without duplicates or downgrades and validates input"
+    ],
+    "group": "QA-114",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-313",
+    "title": "Превью обычной комнаты",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть обычную комнату, отказать первой отправке, рисовать один штрих, скопировать.",
+    "expected": "Первое превью повторено, обновлено после изменений и унаследовано копией.",
+    "source": "e2e/specs/roomPreviews.spec.ts",
+    "line": 5,
+    "variants": [
+      "ordinary room publishes its first preview, retries failure, updates after one stroke and copies it"
+    ],
+    "group": "QA-112",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-314",
+    "title": "Новая линейка",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Потянуть из свободного места.",
+    "expected": "Линия проходит от точки DOWN до UP.",
+    "source": "e2e/specs/ruler.spec.ts",
+    "line": 36,
+    "variants": [
+      "a drag off any line lays a new one from the press to the release"
+    ],
+    "group": "QA-106",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-315",
+    "title": "Перенос линейки",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Потянуть тело существующей линии.",
+    "expected": "Линия сдвинулась целиком без изменения направления.",
+    "source": "e2e/specs/ruler.spec.ts",
+    "line": 46,
+    "variants": [
+      "a drag on its body slides the whole line"
+    ],
+    "group": "QA-106",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-316",
+    "title": "Поворот конца линейки",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Потянуть один конец линии.",
+    "expected": "Второй конец остаётся на месте.",
+    "source": "e2e/specs/ruler.spec.ts",
+    "line": 61,
+    "variants": [
+      "a drag on an end swings that end and leaves the other where it was"
+    ],
+    "group": "QA-106",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-317",
+    "title": "Delete выделения",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Выделить часть активного слоя и Delete.",
+    "expected": "Очищена только выбранная область.",
+    "source": "e2e/specs/selectionActions.spec.ts",
+    "line": 54,
+    "variants": [
+      "Delete clears the selected region of the active layer"
+    ],
+    "group": "QA-104",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-318",
+    "title": "Cut выделения",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Выделить, Cut, затем Paste.",
+    "expected": "Фрагмент есть в clipboard, исходная область очищена.",
+    "source": "e2e/specs/selectionActions.spec.ts",
+    "line": 76,
+    "variants": [
+      "Cut fills the clipboard and then clears the region"
+    ],
+    "group": "QA-104",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-319",
+    "title": "Delete на locked слое",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Заблокировать слой, выделить и Delete.",
+    "expected": "Пиксели не изменены, операция не принята.",
+    "source": "e2e/specs/selectionActions.spec.ts",
+    "line": 90,
+    "variants": [
+      "a locked layer refuses Delete"
+    ],
+    "group": "QA-104",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-320",
+    "title": "Многоугольное лассо",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Поставить вершины последовательными кликами, закончить double-click.",
+    "expected": "Создана правильная замкнутая область без лишней вершины.",
+    "source": "e2e/specs/selectionActions.spec.ts",
+    "line": 114,
+    "variants": [
+      "the point-by-point lasso places vertices and closes on a double-click"
+    ],
+    "group": "QA-104",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-321",
+    "title": "Кнопки выделения",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Без выделения и с ним нажать Copy/Delete/Deselect в quick column.",
+    "expected": "Кнопки доступны только при подходящем состоянии и делают свою операцию.",
+    "source": "e2e/specs/selectionActions.spec.ts",
+    "line": 138,
+    "variants": [
+      "the quick column’s buttons copy, delete and deselect, and wait for something to act on"
+    ],
+    "group": "QA-104",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-322",
+    "title": "Finger tap снимает выделение",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Сделать выделение и тапнуть пальцем снаружи.",
+    "expected": "Выделение снято.",
+    "source": "e2e/specs/selectionTap.spec.ts",
+    "line": 80,
+    "variants": [
+      "a tap clears the selection"
+    ],
+    "group": "QA-104",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-323",
+    "title": "Тап внутри выделения",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Тапнуть пальцем внутри выделения.",
+    "expected": "Выделение снято так же, как при pen tap.",
+    "source": "e2e/specs/selectionTap.spec.ts",
+    "line": 92,
+    "variants": [
+      "a tap inside the selection clears it too, exactly as the pen does"
+    ],
+    "group": "QA-104",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-324",
+    "title": "Pan сохраняет выделение",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Вместо тапа выполнить однопальцевый pan.",
+    "expected": "Камера движется, выделение не снимается.",
+    "source": "e2e/specs/selectionTap.spec.ts",
+    "line": 107,
+    "variants": [
+      "a one-finger pan leaves the selection alone"
+    ],
+    "group": "QA-104",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-325",
+    "title": "Редактируемый прямоугольник",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Создать rectangle, изменить до commit, подтвердить.",
+    "expected": "До commit есть редактируемая рамка, после есть pixels и одна операция.",
+    "source": "e2e/specs/shapes.spec.ts",
+    "line": 58,
+    "variants": [
+      "a rectangle stays editable, then lands on the canvas and in the log"
+    ],
+    "group": "QA-103",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-326",
+    "title": "Клик фигурой без drag",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Нажать и отпустить в одной точке.",
+    "expected": "Ни фигуры, ни операции нет.",
+    "source": "e2e/specs/shapes.spec.ts",
+    "line": 85,
+    "variants": [
+      "a click that never moved records nothing"
+    ],
+    "group": "QA-103",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-327",
+    "title": "Esc незаконченной фигуры",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Начать фигуру и нажать Esc.",
+    "expected": "Нет следа и durable operation.",
+    "source": "e2e/specs/shapes.spec.ts",
+    "line": 100,
+    "variants": [
+      "Esc drops an unconfirmed shape without a trace"
+    ],
+    "group": "QA-103",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-328",
+    "title": "Handles после UP",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Создать фигуру до UP, затем подвигать handles.",
+    "expected": "Фигура остаётся редактируемой до подтверждения.",
+    "source": "e2e/specs/shapes.spec.ts",
+    "line": 117,
+    "variants": [
+      "the handles keep working after the pen comes up"
+    ],
+    "group": "QA-103",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-329",
+    "title": "Shift квадрат",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Тянуть rectangle с Shift.",
+    "expected": "Стороны равны в мировых координатах.",
+    "source": "e2e/specs/shapes.spec.ts",
+    "line": 144,
+    "variants": [
+      "Shift constrains the drag to a square"
+    ],
+    "group": "QA-103",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-330",
+    "title": "Рисование каждым типом фигуры",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "По очереди создать все зарегистрированные shape tools.",
+    "expected": "Каждый тип даёт видимые pixels и допустимую операцию.",
+    "source": "e2e/specs/shapes.spec.ts",
+    "line": 159,
+    "variants": [
+      "every shape tool paints something"
+    ],
+    "group": "QA-103",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-331",
+    "title": "Растушёвка на шве",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Растушевать графит вниз поперёк x=1024.",
+    "expected": "Нет мёртвой полосы шириной с кисть.",
+    "source": "e2e/specs/smudgeSeam.spec.ts",
+    "line": 35,
+    "variants": [
+      "no dead band at x=TILE_SIZE: the stump drags graphite down at every x"
+    ],
+    "group": "QA-106",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-332",
+    "title": "Вход из snapshot",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Довести историю до снимка, войти новым участником.",
+    "expected": "Восстановлены stored pixels и только нужный tail, не полный тяжёлый replay.",
+    "source": "e2e/specs/snapshot.spec.ts",
+    "line": 69,
+    "variants": [
+      "the joiner restores from stored pixels instead of replaying everything"
+    ],
+    "group": "QA-036",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-333",
+    "title": "Недоступный snapshot blob",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Отказать blob-запросам, затем retry.",
+    "expected": "Ошибка видна вместо пустого рисунка, повтор восстановил работу.",
+    "source": "e2e/specs/snapshot.spec.ts",
+    "line": 105,
+    "variants": [
+      "a joiner whose snapshot never arrives is told, not shown an empty room"
+    ],
+    "group": "QA-036",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-334",
+    "title": "HTTP доступ без socket",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Успешно войти, отключить socket и запросить snapshot; сменить пароль.",
+    "expected": "Успешный участник продолжает читать, смена пароля отзывает старое разрешение.",
+    "source": "e2e/specs/snapshotAccess.spec.ts",
+    "line": 5,
+    "variants": [
+      "snapshot HTTP access survives socket disconnect and is revoked by a password change"
+    ],
+    "group": "QA-111",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-335",
+    "title": "Одна кнопка материалов",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть рейку при нескольких доступных материалах.",
+    "expected": "Группа представляет все материалы и показывает активный.",
+    "source": "e2e/specs/toolGroup.spec.ts",
+    "line": 35,
+    "variants": [
+      "one button stands for every material, and says which one is in hand"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-336",
+    "title": "Два тапа группы",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Первым тапом взять группу, вторым открыть chooser.",
+    "expected": "Первый тап не открывает лишний popup, второй открывает.",
+    "source": "e2e/specs/toolGroup.spec.ts",
+    "line": 52,
+    "variants": [
+      "a second tap opens the chooser; the first one only selects"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-337",
+    "title": "Выбор материала группы",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Через chooser выбрать другой материал.",
+    "expected": "Новый материал взят, кнопка его отражает.",
+    "source": "e2e/specs/toolGroup.spec.ts",
+    "line": 70,
+    "variants": [
+      "choosing a material takes it, and the button then wears it"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-338",
+    "title": "Hold группы без смены",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Удержать group button при другом активном инструменте.",
+    "expected": "Chooser открыт, материал не сменился до выбора.",
+    "source": "e2e/specs/toolGroup.spec.ts",
+    "line": 88,
+    "variants": [
+      "a hold opens the chooser without changing the tool under it"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-339",
+    "title": "Группа фигур",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть shape group и выбрать вариант.",
+    "expected": "Группа меняет нужную shape setting согласованно с инструментом.",
+    "source": "e2e/specs/toolGroup.spec.ts",
+    "line": 109,
+    "variants": [
+      "the shape button is the same group, over a setting instead of a tool"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-340",
+    "title": "Единственный материал",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Создать комнату, где доступен один материал, нажать группу.",
+    "expected": "Бесполезного chooser нет.",
+    "source": "e2e/specs/toolGroup.spec.ts",
+    "line": 133,
+    "variants": [
+      "a room offering one material has nothing to choose, so it offers no chooser"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-341",
+    "title": "Вкладка настроек следует инструменту",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть tool settings и менять инструмент.",
+    "expected": "Показаны настройки текущего инструмента.",
+    "source": "e2e/specs/toolSettingsTab.spec.ts",
+    "line": 8,
+    "variants": [
+      "the Tool settings tab shows the tool in hand, and follows it"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-342",
+    "title": "Размер store доходит до движка",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Изменить размер через store/UI и нарисовать второй штрих.",
+    "expected": "Крупный размер реально даёт более высокий след.",
+    "source": "e2e/specs/toolSync.spec.ts",
+    "line": 28,
+    "variants": [
+      "a size set in the store reaches the engine — a bigger brush lays a taller mark"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-343",
+    "title": "Смена инструмента доходит до движка",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Изменить tool в store на eraser и рисовать.",
+    "expected": "Следующий жест стирает, а не продолжает прежний материал.",
+    "source": "e2e/specs/toolSync.spec.ts",
+    "line": 57,
+    "variants": [
+      "a tool set in the store reaches the engine — the next stroke is the eraser’s"
+    ],
+    "group": "QA-101",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-344",
+    "title": "Transform после UP",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Перетащить слой и отпустить.",
+    "expected": "Pixels остаются в новом месте, transform записан.",
+    "source": "e2e/specs/transformCommit.spec.ts",
+    "line": 44,
+    "variants": [
+      "a dragged layer stays where it was dropped, and the move is in the log"
+    ],
+    "group": "QA-105",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-345",
+    "title": "Undo незавершённого move",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Начать transform, до commit нажать Undo.",
+    "expected": "Move отброшен, исходный штрих сохранён.",
+    "source": "e2e/specs/transformCommit.spec.ts",
+    "line": 76,
+    "variants": [
+      "undo while a move is open throws the move away and keeps the stroke"
+    ],
+    "group": "QA-105",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-346",
+    "title": "Resample на границе тайлов",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Повернуть/масштабировать рисунок через границу исходных тайлов.",
+    "expected": "В запечённой картинке нет линии шва.",
+    "source": "e2e/specs/transformSeam.spec.ts",
+    "line": 32,
+    "variants": [
+      "no source-tile boundary shows through a resampling transform"
+    ],
+    "group": "QA-105",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-347",
+    "title": "Поздний seq своего штриха",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Задержать доставку штриха А, дать Б завершить раньше, затем подтвердить А.",
+    "expected": "Автор перекрасил свой результат в server order, равный peer и fresh joiner.",
+    "source": "e2e/specs/trueOrder.spec.ts",
+    "line": 82,
+    "variants": [
+      "the author of a delayed stroke re-settles into the server order"
+    ],
+    "group": "QA-002",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-348",
+    "title": "Рука в телефонных аннотациях",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Войти с телефона/preview, затем явно выбрать annotation tool и обновить состояние.",
+    "expected": "Начальный hand не затирает сознательный выбор при последующих обновлениях.",
+    "source": "e2e/specs/uiAnnotationDefaults.spec.ts",
+    "line": 27,
+    "variants": [
+      "phone and preview start with hand, deliberate annotation choices survive updates"
+    ],
+    "group": "QA-113",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-349",
+    "title": "Minimal UI по умолчанию",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть чистые настройки, затем сохранить false и открыть снова.",
+    "expected": "Default включён, сохранённое false не сбрасывается.",
+    "source": "e2e/specs/uiAnnotationDefaults.spec.ts",
+    "line": 64,
+    "variants": [
+      "minimal UI defaults on and saved false survives reopening settings"
+    ],
+    "group": "QA-113",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-350",
+    "title": "Базовый Undo/Redo",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Нарисовать, Undo, Redo.",
+    "expected": "Штрих исчезает и возвращается один раз.",
+    "source": "e2e/specs/undo.spec.ts",
+    "line": 18,
+    "variants": [
+      "undo takes the stroke off the canvas, redo puts it back"
+    ],
+    "group": "QA-006",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-351",
+    "title": "Версия в Settings",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Открыть настройки версии.",
+    "expected": "Строка точно соответствует stamped build version.",
+    "source": "e2e/specs/version.spec.ts",
+    "line": 20,
+    "variants": [
+      "settings shows exactly the version this build was stamped with"
+    ],
+    "group": "QA-114",
+    "source_commit": "f52635e3"
+  },
+  {
+    "id": "QA-352",
+    "title": "Версия в globalThis",
+    "setup": "Подготовленный E2E-стенд, новая disposable комната и fixture указанного теста; независимые identity для peer-случаев. Для HTTP-only проверки достаточно тестового API. Физический ввод и GPU отдельно от browser automation.",
+    "steps": "Прочитать exposed app version из страницы.",
+    "expected": "Значение равно stamped build и видимой версии.",
+    "source": "e2e/specs/version.spec.ts",
+    "line": 25,
+    "variants": [
+      "and the same string is on globalThis, for a console that has no UI"
+    ],
+    "group": "QA-114",
+    "source_commit": "f52635e3"
+  }
+]
