@@ -262,6 +262,7 @@
   },
   "pass": false,
   "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n5209 !== 0\n\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/open-wet-undo-cost.cjs:7:896",
-  "qualification": "Diagnostic CPU undo-cache flag explicitly ON; default OFF unaffected. One real AMD GPU with two browser authors, shared VPS CPU tests; trace is not clean performance benchmark. Old extra-computation symptom not reproduced (11 before/after Undo). New prototype canonical mismatch and exclusive ownership pageerror remain unresolved.",
-  "scopeLimit": "Prefix100 engine callback gestures; new101 is trusted CDP pen. Trace readback disabled until settle, then canonical target captured before full replay. This is not original100 foreign-Dry workload."
+  "qualification": "Initial diagnostic explicitly enabled optional CPU undo cache; default remains OFF. This run alone did not establish cache causality: its pageerror lacked a timestamp/stack. See later e8e1f005 synchronous repeat and default-prefix controls for correction. Shared VPS CPU tests; not a clean performance benchmark.",
+  "scopeLimit": "Prefix100 engine callback gestures; new101 is trusted CDP pen. Trace readback disabled until settle, then canonical target captured before full replay. This is not original100 foreign-Dry workload.",
+  "causalityCorrection20261017": "Later synchronous ON repeat captured ownership exception at26.291s BEFORE cache enable/capture at29.088s. Three dedicated cacheOFF/hiddenOFF prefix100 repeats independently showed authorA canonical drift with no legacy settle/error. A50/B0 exact; A50/B1 mismatched after ordinaryCP8 replay, with complete API payload equality. Therefore ownership exception and prefix-material drift cannot be attributed to cacheON from this old run. Cached Undo may preserve an already divergent prefix; re-evaluate optional cache after default checkpoint repair."
 }
