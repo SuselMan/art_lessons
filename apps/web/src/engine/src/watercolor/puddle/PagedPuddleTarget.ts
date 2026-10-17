@@ -76,7 +76,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
     windowSource.noteFinish({...context,bounds:{minX:ox,minY:oy,maxX:ox+1536,maxY:oy+1536}})
     const sc=source.compositeScalars(()=>({spreadPx:0,inkSmoothPx:0,water:0,migratePx:0,fieldSeed:[0,0],bristleRadiusPx:0}))
     windowSource.compositeScalars(()=>({...sc,fieldSeed:[...sc.fieldSeed]}));const dir=source.noteDirection(0,0);windowSource.noteDirection(dir[0],dir[1])
-    native=createNativePuddleTarget(host,1536,{portableNoise:true,bufferFactory:(w,h,f='linear')=>make(w,h,f),deferFinalMix:true,finalOnly:true,
+    native=createNativePuddleTarget(host,1536,{portableNoise:true,bufferFactory:(w,h,f='linear')=>make(w,h,f),deferFinalMix:true,finalOnly:true,consumePreparedSource:true,
      contrast:{selection:contrast.selection,prepare:(p,c,w,_volume,rp,rc)=>{contrast.renderReference(rect,p,c,w,rp,rc);inspect.windowReference?.(rect,rp,rc)},destroy(){}},
      background:{capture(){},ops:()=>[],readback:()=>background.readback(),destroy(){}}})
     native.resetFromScratch(windowSource,{buffer:key,originX:ox,originY:oy,contentRect:null},epoch)

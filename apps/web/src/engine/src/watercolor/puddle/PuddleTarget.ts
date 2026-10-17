@@ -32,6 +32,8 @@ export type NativePuddleTargetOptions = {
   fullResolution?: boolean
   /** Paged callers consume only completed material; omit intermediate presentation copies. */
   finalOnly?: boolean
+  /** Transfer a disposable window created with host.pool. Requires deferred global mixing. */
+  consumePreparedSource?: boolean
   /** A paged caller supplies whole-sheet phases, shared by every solver window. */
   deferFinalMix?: boolean
   contrast?: ReturnType<typeof createContrastPhase>
@@ -43,6 +45,7 @@ export type NativePuddleTargetOptions = {
  * The layer tile is only an identity key; no operation writes live scratch/RGB.
  * One native operation may contain several draws. No fixed-iteration claim. */
 export function createNativePuddleTarget(host: PuddleTargetHost, size: PuddleSize, options: NativePuddleTargetOptions = {}) {
+  if(options.consumePreparedSource && !options.deferFinalMix)throw Error('Consuming a prepared source requires deferred final mixing')
   const {width, height} = puddleDimensions(size)
   const gl: WebGLRenderingContext = host.gl
   const owner: WatercolorSettlePlan = host.settlePlan
@@ -107,14 +110,16 @@ export function createNativePuddleTarget(host: PuddleTargetHost, size: PuddleSiz
       if (tile.buffer.width !== width || tile.buffer.height !== height) throw new Error('Native puddle target supports one full-page tile')
       if (host.hasActiveSettle()) throw new Error('Native puddle target requires exclusive settle-field ownership')
       state.epoch = epoch; state.iterations = 0; state.total = 0; state.done = false
-      scratch = new RibbonStrokeScratch(pool, true, true)
+      scratch = options.consumePreparedSource ? source : new RibbonStrokeScratch(pool, true, true)
       key = tile.buffer
       const clone = scratch, entry = clone.getOrCreate(tile.buffer)
-      sourceEntry.original.copyTo(entry.original)
-      sourceEntry.coverage.copyTo(entry.coverage)
+      if(!options.consumePreparedSource){
+        sourceEntry.original.copyTo(entry.original)
+        sourceEntry.coverage.copyTo(entry.coverage)
+        sourceEntry.inkLoad.copyTo(entry.inkLoad!)
+      }
       sourceEntry.coverage.copyTo(contour)
-      sourceEntry.inkLoad.copyTo(entry.inkLoad!)
-      if (sourceEntry.inkColor) sourceEntry.inkColor.copyTo(entry.inkColor!)
+      if (sourceEntry.inkColor) {if(!options.consumePreparedSource)sourceEntry.inkColor.copyTo(entry.inkColor!)}
       else {
         const paint = [...source.paints][0]
         if (!paint) { cancel(); throw new Error('Native target lacks optical color and paint metadata') }
@@ -133,7 +138,7 @@ export function createNativePuddleTarget(host: PuddleTargetHost, size: PuddleSiz
       contrast.prepare(entry.inkLoad!,entry.inkColor!,initialWater,true,entry.inkSettled!,entry.colorSettled!)
       initialP=sourceEntry.inkLoad;initialC=sourceEntry.inkColor
       background.capture(entry.inkLoad!,entry.inkSettled!,entry.coverage)
-      for (const name of ['solventLoad', 'foreignSolventLoad'] as const) {
+      if(!options.consumePreparedSource)for (const name of ['solventLoad', 'foreignSolventLoad'] as const) {
         const src = sourceEntry[name]
         if (src) { const copy: AccumulationBuffer = pool.acquire(width, height); src.copyTo(copy); entry[name] = copy }
       }
