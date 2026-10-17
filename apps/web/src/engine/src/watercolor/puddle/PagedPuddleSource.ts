@@ -105,6 +105,7 @@ export function* capturePagedPuddleSourceSteps(source:RibbonStrokeScratch,target
 }
 
 export interface PagedWindowRestoreOptions {
+  captureReads?:CapturedReadScope
   /** QA-only opt-in: omit an exactly zero foreign plane on a fresh scratch entry. */
   omitZeroForeignSolventLoad?:boolean
 }
@@ -139,6 +140,7 @@ function restoreOwnedEntry(source:PagedPuddleSource,rect:MaterialRect,entry:Ribb
     }
     let buffer=entry[name]
     if(!buffer){buffer=acquireOwned();entry[name]=buffer}
-    buffer.restorePixels(pixels)
+    if(options.captureReads)options.captureReads.upload(buffer,pixels)
+    else buffer.restorePixels(pixels)
   }
 }

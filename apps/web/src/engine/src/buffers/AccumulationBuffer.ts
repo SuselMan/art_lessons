@@ -64,7 +64,7 @@ export class AccumulationBuffer {
     this._mipCapable = isPowerOfTwo(width) && isPowerOfTwo(height)
   }
 
-  private _capturedRead?:{token:symbol;revision:number;pixels:Uint8Array}
+  private _capturedRead?:{token:symbol;revision:number;pixels:Uint8Array;persist:boolean;backing?:Uint8Array|readonly[number,number,number,number]}
   private _contentRevision=0
   get contentRevision():number{return this._contentRevision}
   private _noteContentWrite():void{this._capturedRead=undefined;this._contentRevision=Number.isSafeInteger(this._contentRevision)&&this._contentRevision<Number.MAX_SAFE_INTEGER?this._contentRevision+1:NaN}
@@ -112,8 +112,8 @@ export class AccumulationBuffer {
     } else if(this._capturedRead&&this._capturedRead.revision===this._contentRevision){
       // Consume proof once. The buffer now owns the same bytes as its ordinary
       // nonresident backing; the capture scope must not keep their array alive.
-      this._backing=uniformReadback(this._capturedRead.pixels)
-      this._capturedRead=undefined
+      this._backing=this._capturedRead.backing??=uniformReadback(this._capturedRead.pixels)
+      if(!this._capturedRead.persist||!(this._backing instanceof Uint8Array))this._capturedRead=undefined
     } else if (!this._backing || this._backing instanceof Uint8Array) preserveResidencyState(gl, () => {
       const pixels = new Uint8Array(width * height * 4)
       gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -478,12 +478,19 @@ export class AccumulationBuffer {
   /** QA candidate only: caller may read but must not mutate pixels while this
    * capture is owned. No copy, upload or additional GL read occurs here.
    * The returned lease functions retain only this buffer and an identity token. */
-  captureReadPixels():{pixels:Uint8Array;release():void;retainedBytes():number} {
-    const pixels=this.readPixels(),token=Symbol(),revision=this._contentRevision
-    if(this._residency&&!this._destroyed&&this._resident&&Number.isSafeInteger(revision)
-      &&(!this._backing||this._backing instanceof Uint8Array))this._capturedRead={token,revision,pixels}
-    return {pixels,
-      release:()=>{if(this._capturedRead?.token===token)this._capturedRead=undefined},
+  captureReadPixels(options:{persistUntilRelease?:boolean}={}):{pixels:Uint8Array;release():void;retainedBytes():number} {
+    const revision=this._contentRevision,pixels=this.readPixels()
+    return {pixels,...this.retainCapturedPixels(pixels,{...options,expectedRevision:revision})}
+  }
+
+  /** Ownership contract: immutable exact full-size CPU upload/readback only.
+   * No copy/upload/read; caller releases before mutating/reusing its array. */
+  retainCapturedPixels(pixels:Uint8Array,options:{persistUntilRelease?:boolean;expectedRevision:number}):{release():void;retainedBytes():number} {
+    if(!(pixels instanceof Uint8Array)||!(pixels.buffer instanceof ArrayBuffer)||pixels.byteOffset!==0||pixels.buffer.byteLength!==pixels.byteLength||pixels.byteLength!==this.width*this.height*4)throw new RangeError('Captured pixels dimensions differ')
+    const token=Symbol(),revision=this._contentRevision
+    if(options.expectedRevision===revision&&this._residency&&!this._destroyed&&this._resident&&Number.isSafeInteger(revision)
+      &&(!this._backing||this._backing instanceof Uint8Array))this._capturedRead={token,revision,pixels,persist:options.persistUntilRelease===true}
+    return {release:()=>{if(this._capturedRead?.token===token)this._capturedRead=undefined},
       retainedBytes:()=>this._capturedRead?.token===token?this.width*this.height*4:0}
   }
 

@@ -23,6 +23,7 @@ export interface PagedPuddleInspection {
  skipEmptyReference?:boolean
  referenceEmpty?(rect:MaterialRect):void
  /** QA-only default OFF: capture read ownership and reuse sole-water bytes. */
+ persistCapturedBacking?:boolean
  capturedBacking?:boolean
  /** Separate scheduling experiment, default OFF. */
  cooperativeCapture?:boolean
@@ -50,6 +51,7 @@ export interface PagedPuddleInspection {
  coarse?(value:ReturnType<ReturnType<typeof createPagedBackgroundMix>['readback']>):void
 }
 export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number;height:number},make:PagedBufferFactory,inspect:PagedPuddleInspection={}){
+ if(inspect.persistCapturedBacking===true&&inspect.capturedBacking!==true)throw new Error('Persistent capture requires captured backing')
  const gl=host.gl,read=()=>APPROVED_M70_PARAMETERS
  const contrast=createPagedContrastPhase(gl,read,size,make),background=createPagedBackgroundMix(gl,size,read,true,make)
  const vertex='attribute vec2 pos;varying vec2 uv;void main(){uv=pos*.5+.5;gl_Position=vec4(pos,0.,1.);}'
@@ -75,7 +77,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
  function* rects(step=512):Generator<MaterialRect>{for(let y=0;y<size.height;y+=step)for(let x=0;x<size.width;x+=step)yield{x,y,width:Math.min(step,size.width-x),height:Math.min(step,size.height-y)}}
  function destroyOutputs(){for(const value of outputs.values())for(const b of Object.values(value))b.destroy();outputs.clear()}
  function* solve(source:RibbonStrokeScratch,target:ILayerBuffer,epoch:number):Generator<void>{
-  const captureReads=inspect.capturedBacking===true?new CapturedReadScope():undefined
+  const captureReads=inspect.capturedBacking===true?new CapturedReadScope({persistUntilRelease:inspect.persistCapturedBacking===true,maxRetainedBytes:64*1024*1024}):undefined
   try{
   let raw:ReturnType<typeof capturePagedPuddleSource>
   if(inspect.cooperativeCapture===true){
@@ -134,9 +136,10 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
    const windowSource=new RibbonStrokeScratch(host.pool,true,true)
    let key:AccumulationBuffer|undefined
    const detachedWindowSource=inspect.detachedWindowSource===true
+   const windowReads=inspect.persistCapturedBacking===true?new CapturedReadScope({persistUntilRelease:true,maxRetainedBytes:6*1536*1536*4}):undefined
    let native:ReturnType<typeof createNativePuddleTarget>|undefined
    try{
-    const restoreOptions={omitZeroForeignSolventLoad:inspect.omitZeroForeignSolventLoad}
+    const restoreOptions={captureReads:windowReads,omitZeroForeignSolventLoad:inspect.omitZeroForeignSolventLoad}
     if(detachedWindowSource)key=createDetachedPagedPuddleWindow(raw,rect,windowSource,restoreOptions)
     else{key=host.pool.acquire(1536,1536);restorePagedPuddleWindow(raw,rect,windowSource,key,host.pool,restoreOptions)}
     const context=source.finishContext;if(!context)throw Error('Missing paged finish context')
@@ -161,7 +164,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
       out.writeRect(interior,extractMaterialTileRect(pixels,readRect.width,readRect.height,{...local,x:local.x-readRect.x,y:local.y-readRect.y}))
      }
     }
-   }finally{try{native?.destroy()}finally{try{windowSource.destroy()}finally{if(key&&!detachedWindowSource)host.pool.release(key)}}}
+   }finally{try{native?.destroy()}finally{try{windowReads?.dispose()}finally{try{windowSource.destroy()}finally{if(key&&!detachedWindowSource)host.pool.release(key)}}}}
    yield
   }
   if(radius===32&&!metadataKnown())throw Error('M70 support metadata changed after window solve')
