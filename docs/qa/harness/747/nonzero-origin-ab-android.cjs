@@ -13,7 +13,9 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),WS=r
   const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true},session);if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result?.value};
   for(let i=0;i<100;i++){if(await evaluate('location.origin==='+JSON.stringify(env.QA_BASE_URL.replace(/\/$/,''))+'&&document.readyState!=="loading"'))break;await new Promise(r=>setTimeout(r,100));if(i===99)throw Error('Own QA page did not load')}
   const source=fs.readFileSync(env.QA_BROWSER_HARNESS?path.resolve(env.QA_BROWSER_HARNESS):path.join(__dirname,'nonzero-origin-ab.cjs'),'utf8'),start='const result=await page.evaluate(async()=>{',end='\n });\n const report=';
+  await evaluate('globalThis.__qa747TightMaterialSupport32='+JSON.stringify(env.QA_TIGHT_SUPPORT32==='1'));await evaluate('globalThis.__qa747SkipFixedWindows='+JSON.stringify(env.QA_SKIP_EMPTY_FIXED_WINDOWS==='1'));
   await evaluate('globalThis.__qa747DisableDither='+JSON.stringify(env.QA_DISABLE_DITHER==='1'));
+  await evaluate('globalThis.__qa747RequireHighPrecision='+JSON.stringify(env.QA_REQUIRE_HIGH_PRECISION==='1'));
   if(env.QA_EXPORT_CONTRAST==='1')await evaluate('('+require('./contrast-readback-installer.cjs').toString()+')()');
   if(env.QA_EXPORT_RGBA==='1')await evaluate('('+require('./rgba-export.cjs').toString()+')()');
   assert.equal(source.split(start).length,2);assert.equal(source.split(end).length,2);const code='(async()=>{'+source.split(start)[1].split(end)[0]+'})()';
