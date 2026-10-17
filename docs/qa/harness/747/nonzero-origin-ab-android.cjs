@@ -14,6 +14,7 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),WS=r
   for(let i=0;i<100;i++){if(await evaluate('location.origin==='+JSON.stringify(env.QA_BASE_URL.replace(/\/$/,''))+'&&document.readyState!=="loading"'))break;await new Promise(r=>setTimeout(r,100));if(i===99)throw Error('Own QA page did not load')}
   const source=fs.readFileSync(env.QA_BROWSER_HARNESS?path.resolve(env.QA_BROWSER_HARNESS):path.join(__dirname,'nonzero-origin-ab.cjs'),'utf8'),start='const result=await page.evaluate(async()=>{',end='\n });\n const report=';
   assert.equal(source.split(start).length,2);assert.equal(source.split(end).length,2);const code='(async()=>{'+source.split(start)[1].split(end)[0]+'})()';
+  await evaluate('globalThis.__qa747CompactSource='+JSON.stringify(env.QA_COMPACT_SOURCE==='1'));
   const result=await evaluate(code),report={source:env.QA_SOURCE,transport:'raw Android CDP; exact shared browser function',...result,errors};
   fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
   assert.equal(errors.length,0);assert.equal(result.reference.gl,0);assert.equal(result.actual.gl,0);assert.equal(result.lost,false);for(const d of Object.values(result.diffs))assert.equal(d.changed,0,'Material A/B difference');for(const[name,d]of Object.entries(result.stageDiffs))assert.equal(d.changed,0,'Stage A/B difference '+name);

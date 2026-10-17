@@ -57,6 +57,8 @@ for(const twoPaints of [false,true])it(`bounds the actual radius40 M70 operator 
   expect(brush).not.toHaveBeenCalled();expect(resample).not.toHaveBeenCalled()
   const proof=Math.max(...lastTides.map(t=>t.radius))
   expect(proof).toBeGreaterThan(500)
+  // Every traced intermediate, not merely the last material tide pair.
+  expect(graph.maxRadius).toBeLessThanOrEqual(640)
   expect(m70WindowGeometry(proof).field).toBe(1536)
   expect({proof,front:traces.filter(t=>t.kind==='front').length,diffusion:traces.filter(t=>t.kind==='diffuse').length}).toMatchInlineSnapshot(`
     {

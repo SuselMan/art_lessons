@@ -1,11 +1,12 @@
 // QA-only independent full-domain reference versus paged, nonzero window origins.
 // Creates only its own page. Run only when the device QA operator authorizes it.
-// Required: QA_CDP, QA_BASE_URL, QA_OUTPUT; optional QA_SOURCE.
+// Required: QA_CDP, QA_BASE_URL, QA_OUTPUT; optional QA_SOURCE, QA_COMPACT_SOURCE=1.
 const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chromium}=require('@playwright/test');
 (async()=>{let browser,page;const output=process.env.QA_OUTPUT;fs.mkdirSync(output,{recursive:true});try{
  browser=await chromium.connectOverCDP(process.env.QA_CDP);const context=browser.contexts()[0];page=await context.newPage();
  const errors=[];page.on('pageerror',e=>errors.push({message:e.message,stack:e.stack}));
  await page.goto(process.env.QA_BASE_URL);await page.waitForLoadState('domcontentloaded');
+ await page.evaluate(compact=>{globalThis.__qa747CompactSource=compact},process.env.QA_COMPACT_SOURCE==='1');
  const result=await page.evaluate(async()=>{
   const [{PencilEngine},{AccumulationBuffer},{RibbonStrokeScratch},{ribbonProfileFor},{createNativePuddleTarget},{createPagedPuddleTarget},{createContrastPhase},{createBackgroundMix},{APPROVED_M70_PARAMETERS}]=await Promise.all([
    import('/src/engine/index.ts'),import('/src/engine/src/buffers/AccumulationBuffer.ts'),import('/src/engine/src/buffers/RibbonStrokeScratch.ts'),import('/src/engine/src/dabs/ribbonProfile.ts'),import('/src/engine/src/watercolor/puddle/PuddleTarget.ts'),import('/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts'),import('/src/engine/src/watercolor/puddle/ContrastPhase.ts'),import('/src/engine/src/watercolor/puddle/BackgroundMix.ts'),import('/src/engine/src/watercolor/puddle/PuddleParameters.ts')]);
@@ -16,16 +17,24 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chr
   const gl=e.gl,ext=gl.getExtension('WEBGL_debug_renderer_info'),renderer=ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):null;
   if(!renderer||/swiftshader|llvmpipe/i.test(renderer))throw Error('Native GPU required: '+renderer);
   const W=2048,H=512,size={width:W,height:H},domain={width:2048,height:1536},bytes=W*H*4,planes={p:new Uint8Array(bytes),c:new Uint8Array(bytes),coverage:new Uint8Array(bytes),water:new Uint8Array(bytes)};
-  const pools=[[8,256,42],[640,242,65],[1024,272,85],[1280,247,75],[1536,270,80],[2010,250,60],[2040,256,42],[640,8,36],[1536,504,36]];
+  const compact=globalThis.__qa747CompactSource===true;
+  const pools=compact?[[1000,256,60]]:[[8,256,42],[640,242,65],[1024,272,85],[1280,247,75],[1536,270,80],[2010,250,60],[2040,256,42],[640,8,36],[1536,504,36]];
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
    // A single connected wet strip crosses every window origin and halo/gather
    // region. Two pigments overlap around x1024; asymmetric edge pools expose Y.
-   const strip=Math.abs(y-(256+16*Math.sin(x/73)))<24;
+   const strip=!compact&&Math.abs(y-(256+16*Math.sin(x/73)))<24;
    let wet=strip?1:0,a=strip&&x<1080?1:0,b=strip&&x>920?1:0;
-   for(let n=0;n<pools.length;n++){const [cx,cy,r]=pools[n],d=Math.hypot(x-cx,y-cy);if(d<r){wet=1;if(d<r*.8){if(n%2)a=1;else b=1}}}
+   for(let n=0;n<pools.length;n++){const [cx,cy,r]=pools[n],d=Math.hypot(x-cx,y-cy);if(d<r){wet=1;if(d<r*.8){if(compact){a=x<1012?1:0;b=x>988?1:0}else if(n%2)a=1;else b=1}}}
    if(!wet)continue;const k=(y*W+x)*4;
    planes.coverage.set([128,80,255,255],k);planes.water[k+3]=64;
    const mass=48*(a+b);planes.p.set([0,0,mass,mass],k);planes.c.set([90*a+10*b,45*a+30*b,10*a+90*b,mass],k);
+  }
+  const compactSupport={};
+  if(compact)for(const name of ['coverage','water']){
+   let left=W,right=0,bottom=H,top=0;const field=planes[name];
+   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=(y*W+x)*4;if(field[i]||field[i+1]||field[i+2]||field[i+3]){left=Math.min(left,x);right=Math.max(right,x+1);bottom=Math.min(bottom,y);top=Math.max(top,y+1)}}
+   compactSupport[name]={x:left,y:bottom,width:right-left,height:top-bottom};
+   if(right<=left||top<=bottom||right-left>120||top-bottom>120||left<940||right>1060||bottom<196||top>316)throw Error('Compact '+name+' support exceeds its 120px fixture bounds');
   }
   const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),v=>v.toString(16).padStart(2,'0')).join('');
   const inputHashes={};for(const[k,v]of Object.entries(planes))inputHashes[k]=await hash(v);
@@ -95,7 +104,7 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chr
    for(const result of [reference,actual])if(JSON.stringify(Object.keys(result.stages).sort())!==JSON.stringify(expectedStages))throw Error('Incomplete stage capture');
    const stageDiffs={};for(const name of Object.keys(reference.stages)){const a=actual.stages[name],b=reference.stages[name];if(!a||a.length!==b.length)throw Error('Stage length mismatch '+name);let changed=0,max=0;const first=[];for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);if(d){changed++;if(first.length<8)first.push({byte:i,channel:i%4,a:a[i],b:b[i]})}max=Math.max(max,d)}stageDiffs[name]={bytes:a.length,changed,max,first,actualHash:await hash(a),referenceHash:await hash(b)}}
    const finalInputHashes={};for(const[k,v]of Object.entries(planes)){finalInputHashes[k]=await hash(v);if(finalInputHashes[k]!==inputHashes[k])throw Error('Immutable input changed '+k)}
-   return{stageDiffs,renderer,size,domain,windowGeometry,origins,referenceFieldGeometry,referenceReleasedBeforeActual:true,patch,finalInputHashes,sourceLocation:location.origin,inputHashes,reference:{ms:reference.ms,steps:reference.steps,gl:reference.gl},actual:{ms:actual.ms,steps:actual.steps,gl:actual.gl},diffs,lost:gl.isContextLost(),sequential:true};
+   return{fixtureMode:compact?'compact-single-pool':'connected-strip',compactSupport,expectedCompactField:compact?{x:compactSupport.coverage.x-640,y:0,width:1536,height:1536}:null,stageDiffs,renderer,size,domain,windowGeometry,origins,referenceFieldGeometry,referenceReleasedBeforeActual:true,patch,finalInputHashes,sourceLocation:location.origin,inputHashes,reference:{ms:reference.ms,steps:reference.steps,gl:reference.gl},actual:{ms:actual.ms,steps:actual.steps,gl:actual.gl},diffs,lost:gl.isContextLost(),sequential:true};
   }finally{try{referencePlan?.destroyTextures()}finally{if(blobURL)URL.revokeObjectURL(blobURL);e.destroy()}}
  });
  const report={source:process.env.QA_SOURCE,...result,errors};fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
