@@ -1,0 +1,158 @@
+{
+  "source": "82313a4c",
+  "scope": "Samsung trusted pen, actual compositorROI; isolatedcontext syntheticowner, defaultprofile untouched",
+  "cases": [
+    {
+      "name": "crossing-material",
+      "proof": {
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "2e1870462600119c3fef75218012582cc7a21dbcf1eb102842d22cf9becae469",
+        "oracleHash": "2e1870462600119c3fef75218012582cc7a21dbcf1eb102842d22cf9becae469",
+        "physicalHash": "56fff541071c17dd404d4cba4b4e4313f63da5f7250780797dc480e301f20a7f",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 8518,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    },
+    {
+      "name": "next-native-stroke",
+      "proof": {
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "3652d2705f3d4ddba30641e15b873ce59dc16d9e286cad67c5c408292975cff7",
+        "oracleHash": "3652d2705f3d4ddba30641e15b873ce59dc16d9e286cad67c5c408292975cff7",
+        "physicalHash": "443db935462afa02148fdd8788c8bb963f128c2b576d8c7db27645ad67706bba",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 14351,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    },
+    {
+      "name": "undo-new-stroke",
+      "proof": {
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "2e1870462600119c3fef75218012582cc7a21dbcf1eb102842d22cf9becae469",
+        "oracleHash": "2e1870462600119c3fef75218012582cc7a21dbcf1eb102842d22cf9becae469",
+        "physicalHash": "f64c44b5daf387a128caa9f87030334f338500f9e7cbe8a3fdb45f0fcb232791",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 8811,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    },
+    {
+      "name": "redo-new-stroke",
+      "proof": {
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "3652d2705f3d4ddba30641e15b873ce59dc16d9e286cad67c5c408292975cff7",
+        "oracleHash": "3652d2705f3d4ddba30641e15b873ce59dc16d9e286cad67c5c408292975cff7",
+        "physicalHash": "da21a8ead9a3e2209b3096f3079aaa2c4296dc16ffa8398a98ae473607c5e8f2",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 15014,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    },
+    {
+      "name": "fresh-context-rejoin",
+      "proof": {
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "3652d2705f3d4ddba30641e15b873ce59dc16d9e286cad67c5c408292975cff7",
+        "oracleHash": "3652d2705f3d4ddba30641e15b873ce59dc16d9e286cad67c5c408292975cff7",
+        "physicalHash": "1ef57c21463c551e50d3dca75ce46216eded78489925310e184c726dc79ca4b7",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 14722,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      },
+      "allAcceptedIdsPresent": true
+    }
+  ],
+  "errors": [],
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "gpuBudget": "314572800",
+    "scratchHolding": false,
+    "touch": 5,
+    "deviceMemory": 4,
+    "DPR": 2.125,
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "flags": {
+      "hidden": false,
+      "undoCache": false
+    }
+  },
+  "timeline": {
+    "oldId": "0780625c-e137-485c-a32a-f68b5d70e055",
+    "oldAt": 1792202329187,
+    "boundary": 1792202449187,
+    "layer": "layer-1",
+    "downAt": 1792202448544,
+    "strokeId": "16q4Mck6dk",
+    "upAt": 1792202451435,
+    "downBeforeExpiry": true,
+    "upAfterExpiry": true,
+    "heldMs": 2891,
+    "recorded": [
+      {
+        "id": "0780625c-e137-485c-a32a-f68b5d70e055",
+        "type": "stroke",
+        "timestamp": 1792202329187,
+        "strokeId": "0780625c-e137-485c-a32a-f68b5d70e055",
+        "seq": 0,
+        "serverSeq": 1,
+        "pending": false
+      },
+      {
+        "id": "OS19UGPdal",
+        "type": "stroke",
+        "timestamp": 1792202451451,
+        "strokeId": "16q4Mck6dk",
+        "seq": 1,
+        "serverSeq": 2,
+        "pending": false
+      }
+    ],
+    "jobs": 0,
+    "unsettled": false,
+    "pending": false
+  },
+  "proof": {
+    "actualPhysicalCapturedBeforeCanonicalRead": true,
+    "actualCanonicalCapturedBeforeOracle": true,
+    "actualHash": "2e1870462600119c3fef75218012582cc7a21dbcf1eb102842d22cf9becae469",
+    "oracleHash": "2e1870462600119c3fef75218012582cc7a21dbcf1eb102842d22cf9becae469",
+    "physicalHash": "56fff541071c17dd404d4cba4b4e4313f63da5f7250780797dc480e301f20a7f",
+    "changedChannels": 0,
+    "max": 0,
+    "physicalVsCanonicalChanged": 8518,
+    "glError": 0,
+    "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+  },
+  "pass": true,
+  "harnessSha256": "06a125b6a13621e28d7445db98a3b2db21a21da4ece9c71d64e58e04eeaccff7",
+  "cleanup": {
+    "ownerRoomDelete": 200,
+    "ownContextsClosed": true,
+    "originalTabRestored": true,
+    "sharedForwardRetained": true,
+    "rawCache": "registered; guarded finish pending"
+  }
+}
