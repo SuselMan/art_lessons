@@ -1,0 +1,704 @@
+{
+  "source": "e5d08c61",
+  "scope": "Accepted peer operations during actual WebGL context loss; three wet layers; no forced GPU access while lost",
+  "cases": [
+    {
+      "allActualCapturedBeforeAnyOracle": true,
+      "allPhysicalCapturedFirst": true,
+      "canonicalReadAddedComputations": 0,
+      "rows": [
+        {
+          "id": "loss-L1",
+          "actualHash": "9ba44554fd047bb97682e451c7f7f219ed639cc93e0f45568cdd5e962c210340",
+          "physicalHash": "9ba44554fd047bb97682e451c7f7f219ed639cc93e0f45568cdd5e962c210340",
+          "oracleHash": "9ba44554fd047bb97682e451c7f7f219ed639cc93e0f45568cdd5e962c210340",
+          "changedChannels": 0,
+          "max": 0
+        },
+        {
+          "id": "loss-L2",
+          "actualHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "physicalHash": "e961c036c82d1b36614d99c7eb0e3ae0e872cc93f7c45e6ac66fcd1b605f112d",
+          "oracleHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "changedChannels": 0,
+          "max": 0
+        },
+        {
+          "id": "loss-L3",
+          "actualHash": "1e70ff72b2b24b892dab29a9cb84e45eef09a19a48ca77207e1b2d257fe296e4",
+          "physicalHash": "15c1c94e161a3cf73820d48ba4d3cf8f577b612076100e51f584fd68efd40e50",
+          "oracleHash": "1e70ff72b2b24b892dab29a9cb84e45eef09a19a48ca77207e1b2d257fe296e4",
+          "changedChannels": 0,
+          "max": 0
+        }
+      ],
+      "apiIds": [
+        "56075bb3-961b-4465-b346-4c0b51022ccb",
+        "eab92c71-0f8f-4401-9d91-fc4bbc6b4351",
+        "0720f984-4cee-4cfe-a90e-4649e567eafc",
+        "66ff2859-0a23-46f3-9ea4-a89297cf99c7",
+        "9e203379-f57a-4aad-8c28-14b18829467e",
+        "81d1685b-5fc0-4d82-a8b8-a63277ab650d"
+      ],
+      "localIds": [
+        "56075bb3-961b-4465-b346-4c0b51022ccb",
+        "eab92c71-0f8f-4401-9d91-fc4bbc6b4351",
+        "0720f984-4cee-4cfe-a90e-4649e567eafc",
+        "66ff2859-0a23-46f3-9ea4-a89297cf99c7",
+        "9e203379-f57a-4aad-8c28-14b18829467e",
+        "81d1685b-5fc0-4d82-a8b8-a63277ab650d"
+      ],
+      "quiet": {
+        "unsettled": [],
+        "jobs": 0,
+        "pending": [],
+        "queue": 0
+      },
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 3,
+        "residentLayers": 2,
+        "parkedLayers": 1,
+        "cpuBytes": 5242880,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 3,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          },
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          }
+        ]
+      },
+      "coverage": [],
+      "glError": 0,
+      "name": "before-loss",
+      "inputSHA": "5b858f84909d4d19a415f3bf556f8c59ef5061e5e8f41fb864da25458846b96a"
+    },
+    {
+      "allActualCapturedBeforeAnyOracle": true,
+      "allPhysicalCapturedFirst": true,
+      "canonicalReadAddedComputations": 0,
+      "rows": [
+        {
+          "id": "loss-L1",
+          "actualHash": "9ba44554fd047bb97682e451c7f7f219ed639cc93e0f45568cdd5e962c210340",
+          "physicalHash": "9ba44554fd047bb97682e451c7f7f219ed639cc93e0f45568cdd5e962c210340",
+          "oracleHash": "9ba44554fd047bb97682e451c7f7f219ed639cc93e0f45568cdd5e962c210340",
+          "changedChannels": 0,
+          "max": 0
+        },
+        {
+          "id": "loss-L2",
+          "actualHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "physicalHash": "3bada23901e2033b56769ed22709edbf924c3264e776b3d86babf8a06dd2aa6b",
+          "oracleHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "changedChannels": 0,
+          "max": 0
+        },
+        {
+          "id": "loss-L3",
+          "actualHash": "1b8d735c6ef7624e4df27cb1decc608151c2e14ed23bea78d27580f424111c80",
+          "physicalHash": "efae0ad3dc94247d7546a2a42bb9fa6123d3ae4a4bd9973f73f2166e233983a9",
+          "oracleHash": "1b8d735c6ef7624e4df27cb1decc608151c2e14ed23bea78d27580f424111c80",
+          "changedChannels": 0,
+          "max": 0
+        }
+      ],
+      "apiIds": [
+        "56075bb3-961b-4465-b346-4c0b51022ccb",
+        "eab92c71-0f8f-4401-9d91-fc4bbc6b4351",
+        "0720f984-4cee-4cfe-a90e-4649e567eafc",
+        "66ff2859-0a23-46f3-9ea4-a89297cf99c7",
+        "9e203379-f57a-4aad-8c28-14b18829467e",
+        "81d1685b-5fc0-4d82-a8b8-a63277ab650d",
+        "bf720235-dd8a-4e9a-8080-8451661451be",
+        "c06eec5f-70d0-4535-937d-221e96d6704a",
+        "7dd2f833-e4ad-40d2-aa1c-04a0e93d3786",
+        "e65b5af4-6344-4079-a431-a04c599106de",
+        "8e612d1f-4864-4922-b86e-988b7b9720c2"
+      ],
+      "localIds": [
+        "56075bb3-961b-4465-b346-4c0b51022ccb",
+        "eab92c71-0f8f-4401-9d91-fc4bbc6b4351",
+        "0720f984-4cee-4cfe-a90e-4649e567eafc",
+        "66ff2859-0a23-46f3-9ea4-a89297cf99c7",
+        "9e203379-f57a-4aad-8c28-14b18829467e",
+        "81d1685b-5fc0-4d82-a8b8-a63277ab650d",
+        "bf720235-dd8a-4e9a-8080-8451661451be",
+        "c06eec5f-70d0-4535-937d-221e96d6704a",
+        "7dd2f833-e4ad-40d2-aa1c-04a0e93d3786",
+        "e65b5af4-6344-4079-a431-a04c599106de",
+        "8e612d1f-4864-4922-b86e-988b7b9720c2"
+      ],
+      "quiet": {
+        "unsettled": [],
+        "jobs": 0,
+        "pending": [],
+        "queue": 0
+      },
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 3,
+        "residentLayers": 2,
+        "parkedLayers": 1,
+        "cpuBytes": 5242880,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 3,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          },
+          {
+            "epoch": 2,
+            "ready": true,
+            "active": true
+          }
+        ]
+      },
+      "coverage": [],
+      "glError": 0,
+      "name": "accepted-during-loss",
+      "inputSHA": "1c8ead416664045e0e4b587dc75abdb1d56e453204a25252ffdc2af0c01a0436"
+    },
+    {
+      "allActualCapturedBeforeAnyOracle": true,
+      "allPhysicalCapturedFirst": true,
+      "canonicalReadAddedComputations": 0,
+      "rows": [
+        {
+          "id": "loss-L1",
+          "actualHash": "f411aa6628a7e349be99d3c56533cfccc4a9b35c7a0970011b9c45609586d8ea",
+          "physicalHash": "b268251488d240e940bae7ea71531dcef14524b861f3d0cd63ce3b1c4afd3cc1",
+          "oracleHash": "f411aa6628a7e349be99d3c56533cfccc4a9b35c7a0970011b9c45609586d8ea",
+          "changedChannels": 0,
+          "max": 0
+        },
+        {
+          "id": "loss-L2",
+          "actualHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "physicalHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "oracleHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "changedChannels": 0,
+          "max": 0
+        },
+        {
+          "id": "loss-L3",
+          "actualHash": "1b8d735c6ef7624e4df27cb1decc608151c2e14ed23bea78d27580f424111c80",
+          "physicalHash": "bf1ab5311e1685c93b48224ad5173fc839cbf67e8e79c178a8df9ce5c2f25fde",
+          "oracleHash": "1b8d735c6ef7624e4df27cb1decc608151c2e14ed23bea78d27580f424111c80",
+          "changedChannels": 0,
+          "max": 0
+        }
+      ],
+      "apiIds": [
+        "56075bb3-961b-4465-b346-4c0b51022ccb",
+        "eab92c71-0f8f-4401-9d91-fc4bbc6b4351",
+        "0720f984-4cee-4cfe-a90e-4649e567eafc",
+        "66ff2859-0a23-46f3-9ea4-a89297cf99c7",
+        "9e203379-f57a-4aad-8c28-14b18829467e",
+        "81d1685b-5fc0-4d82-a8b8-a63277ab650d",
+        "bf720235-dd8a-4e9a-8080-8451661451be",
+        "c06eec5f-70d0-4535-937d-221e96d6704a",
+        "7dd2f833-e4ad-40d2-aa1c-04a0e93d3786",
+        "e65b5af4-6344-4079-a431-a04c599106de",
+        "8e612d1f-4864-4922-b86e-988b7b9720c2",
+        "GiD1M9tyM4"
+      ],
+      "localIds": [
+        "56075bb3-961b-4465-b346-4c0b51022ccb",
+        "eab92c71-0f8f-4401-9d91-fc4bbc6b4351",
+        "0720f984-4cee-4cfe-a90e-4649e567eafc",
+        "66ff2859-0a23-46f3-9ea4-a89297cf99c7",
+        "9e203379-f57a-4aad-8c28-14b18829467e",
+        "81d1685b-5fc0-4d82-a8b8-a63277ab650d",
+        "bf720235-dd8a-4e9a-8080-8451661451be",
+        "c06eec5f-70d0-4535-937d-221e96d6704a",
+        "7dd2f833-e4ad-40d2-aa1c-04a0e93d3786",
+        "e65b5af4-6344-4079-a431-a04c599106de",
+        "8e612d1f-4864-4922-b86e-988b7b9720c2",
+        "GiD1M9tyM4"
+      ],
+      "quiet": {
+        "unsettled": [],
+        "jobs": 0,
+        "pending": [],
+        "queue": 0
+      },
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 3,
+        "residentLayers": 2,
+        "parkedLayers": 1,
+        "cpuBytes": 5242880,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 4,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 2,
+            "ready": true,
+            "active": true
+          },
+          {
+            "epoch": 2,
+            "ready": true,
+            "active": true
+          }
+        ]
+      },
+      "coverage": [],
+      "glError": 0,
+      "name": "next-trusted",
+      "inputSHA": "2905cd6ec245928bb800cb68f3473257c853b4286db23d47c2021e5b3992cb6e"
+    },
+    {
+      "allActualCapturedBeforeAnyOracle": true,
+      "allPhysicalCapturedFirst": true,
+      "canonicalReadAddedComputations": 0,
+      "rows": [
+        {
+          "id": "loss-L1",
+          "actualHash": "9ba44554fd047bb97682e451c7f7f219ed639cc93e0f45568cdd5e962c210340",
+          "physicalHash": "a36a326f739ea62980b8d19b30a07fb05038aa748da801a0a5dca119762813b9",
+          "oracleHash": "9ba44554fd047bb97682e451c7f7f219ed639cc93e0f45568cdd5e962c210340",
+          "changedChannels": 0,
+          "max": 0
+        },
+        {
+          "id": "loss-L2",
+          "actualHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "physicalHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "oracleHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "changedChannels": 0,
+          "max": 0
+        },
+        {
+          "id": "loss-L3",
+          "actualHash": "1b8d735c6ef7624e4df27cb1decc608151c2e14ed23bea78d27580f424111c80",
+          "physicalHash": "fb22b4ae8bd18ffc1625f4155edb580bc769ffe2064db6c5cce020c15a712ca6",
+          "oracleHash": "1b8d735c6ef7624e4df27cb1decc608151c2e14ed23bea78d27580f424111c80",
+          "changedChannels": 0,
+          "max": 0
+        }
+      ],
+      "apiIds": [
+        "56075bb3-961b-4465-b346-4c0b51022ccb",
+        "eab92c71-0f8f-4401-9d91-fc4bbc6b4351",
+        "0720f984-4cee-4cfe-a90e-4649e567eafc",
+        "66ff2859-0a23-46f3-9ea4-a89297cf99c7",
+        "9e203379-f57a-4aad-8c28-14b18829467e",
+        "81d1685b-5fc0-4d82-a8b8-a63277ab650d",
+        "bf720235-dd8a-4e9a-8080-8451661451be",
+        "c06eec5f-70d0-4535-937d-221e96d6704a",
+        "7dd2f833-e4ad-40d2-aa1c-04a0e93d3786",
+        "e65b5af4-6344-4079-a431-a04c599106de",
+        "8e612d1f-4864-4922-b86e-988b7b9720c2",
+        "GiD1M9tyM4",
+        "tDFvyEiNUk"
+      ],
+      "localIds": [
+        "56075bb3-961b-4465-b346-4c0b51022ccb",
+        "eab92c71-0f8f-4401-9d91-fc4bbc6b4351",
+        "0720f984-4cee-4cfe-a90e-4649e567eafc",
+        "66ff2859-0a23-46f3-9ea4-a89297cf99c7",
+        "9e203379-f57a-4aad-8c28-14b18829467e",
+        "81d1685b-5fc0-4d82-a8b8-a63277ab650d",
+        "bf720235-dd8a-4e9a-8080-8451661451be",
+        "c06eec5f-70d0-4535-937d-221e96d6704a",
+        "7dd2f833-e4ad-40d2-aa1c-04a0e93d3786",
+        "e65b5af4-6344-4079-a431-a04c599106de",
+        "8e612d1f-4864-4922-b86e-988b7b9720c2",
+        "GiD1M9tyM4",
+        "tDFvyEiNUk"
+      ],
+      "quiet": {
+        "unsettled": [],
+        "jobs": 0,
+        "pending": [],
+        "queue": 0
+      },
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 3,
+        "residentLayers": 2,
+        "parkedLayers": 1,
+        "cpuBytes": 5242880,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 5,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 2,
+            "ready": true,
+            "active": true
+          },
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          }
+        ]
+      },
+      "coverage": [],
+      "glError": 0,
+      "name": "own-undo",
+      "inputSHA": "6baeb4c9e4082ec0182d7b276db72648ff7e33ecd9e0e54472adde04a51570b0"
+    },
+    {
+      "allActualCapturedBeforeAnyOracle": true,
+      "allPhysicalCapturedFirst": true,
+      "canonicalReadAddedComputations": 0,
+      "rows": [
+        {
+          "id": "loss-L1",
+          "actualHash": "f411aa6628a7e349be99d3c56533cfccc4a9b35c7a0970011b9c45609586d8ea",
+          "physicalHash": "1228056400b2810daf6e77e0e409c7d46ad4e96669965266fbeb41af6c72abdd",
+          "oracleHash": "f411aa6628a7e349be99d3c56533cfccc4a9b35c7a0970011b9c45609586d8ea",
+          "changedChannels": 0,
+          "max": 0
+        },
+        {
+          "id": "loss-L2",
+          "actualHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "physicalHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "oracleHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "changedChannels": 0,
+          "max": 0
+        },
+        {
+          "id": "loss-L3",
+          "actualHash": "1b8d735c6ef7624e4df27cb1decc608151c2e14ed23bea78d27580f424111c80",
+          "physicalHash": "cbe9e3bd75d12b1c721b5778cd23df34168e449afd30c44f75f8b5dd011300c6",
+          "oracleHash": "1b8d735c6ef7624e4df27cb1decc608151c2e14ed23bea78d27580f424111c80",
+          "changedChannels": 0,
+          "max": 0
+        }
+      ],
+      "apiIds": [
+        "56075bb3-961b-4465-b346-4c0b51022ccb",
+        "eab92c71-0f8f-4401-9d91-fc4bbc6b4351",
+        "0720f984-4cee-4cfe-a90e-4649e567eafc",
+        "66ff2859-0a23-46f3-9ea4-a89297cf99c7",
+        "9e203379-f57a-4aad-8c28-14b18829467e",
+        "81d1685b-5fc0-4d82-a8b8-a63277ab650d",
+        "bf720235-dd8a-4e9a-8080-8451661451be",
+        "c06eec5f-70d0-4535-937d-221e96d6704a",
+        "7dd2f833-e4ad-40d2-aa1c-04a0e93d3786",
+        "e65b5af4-6344-4079-a431-a04c599106de",
+        "8e612d1f-4864-4922-b86e-988b7b9720c2",
+        "GiD1M9tyM4",
+        "tDFvyEiNUk",
+        "lauQsFIo6A"
+      ],
+      "localIds": [
+        "56075bb3-961b-4465-b346-4c0b51022ccb",
+        "eab92c71-0f8f-4401-9d91-fc4bbc6b4351",
+        "0720f984-4cee-4cfe-a90e-4649e567eafc",
+        "66ff2859-0a23-46f3-9ea4-a89297cf99c7",
+        "9e203379-f57a-4aad-8c28-14b18829467e",
+        "81d1685b-5fc0-4d82-a8b8-a63277ab650d",
+        "bf720235-dd8a-4e9a-8080-8451661451be",
+        "c06eec5f-70d0-4535-937d-221e96d6704a",
+        "7dd2f833-e4ad-40d2-aa1c-04a0e93d3786",
+        "e65b5af4-6344-4079-a431-a04c599106de",
+        "8e612d1f-4864-4922-b86e-988b7b9720c2",
+        "GiD1M9tyM4",
+        "tDFvyEiNUk",
+        "lauQsFIo6A"
+      ],
+      "quiet": {
+        "unsettled": [],
+        "jobs": 0,
+        "pending": [],
+        "queue": 0
+      },
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 3,
+        "residentLayers": 2,
+        "parkedLayers": 1,
+        "cpuBytes": 5242880,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 6,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 2,
+            "ready": true,
+            "active": true
+          },
+          {
+            "epoch": 2,
+            "ready": true,
+            "active": true
+          }
+        ]
+      },
+      "coverage": [],
+      "glError": 0,
+      "name": "own-redo",
+      "inputSHA": "85d92d17b17b8abb7789a4978df2e2fd6f85baaf456eb10178222d002d59cb40"
+    },
+    {
+      "allActualCapturedBeforeAnyOracle": true,
+      "allPhysicalCapturedFirst": true,
+      "canonicalReadAddedComputations": 0,
+      "rows": [
+        {
+          "id": "loss-L1",
+          "actualHash": "f411aa6628a7e349be99d3c56533cfccc4a9b35c7a0970011b9c45609586d8ea",
+          "physicalHash": "0d7598b1587574db529de39dd8010e207709ee30f142f820d0e5f76cc538d3ba",
+          "oracleHash": "f411aa6628a7e349be99d3c56533cfccc4a9b35c7a0970011b9c45609586d8ea",
+          "changedChannels": 0,
+          "max": 0
+        },
+        {
+          "id": "loss-L2",
+          "actualHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "physicalHash": "9af53f39aaefb267e2ea71cb9fe16ad0f3c07cbed63bbac16527f727bd21ae0d",
+          "oracleHash": "9ce2757e5c3092cd6f9b1d79ffc11aec71c7cb434daef7bc71468290dc745d3a",
+          "changedChannels": 0,
+          "max": 0
+        },
+        {
+          "id": "loss-L3",
+          "actualHash": "1b8d735c6ef7624e4df27cb1decc608151c2e14ed23bea78d27580f424111c80",
+          "physicalHash": "1b8d735c6ef7624e4df27cb1decc608151c2e14ed23bea78d27580f424111c80",
+          "oracleHash": "1b8d735c6ef7624e4df27cb1decc608151c2e14ed23bea78d27580f424111c80",
+          "changedChannels": 0,
+          "max": 0
+        }
+      ],
+      "apiIds": [
+        "56075bb3-961b-4465-b346-4c0b51022ccb",
+        "eab92c71-0f8f-4401-9d91-fc4bbc6b4351",
+        "0720f984-4cee-4cfe-a90e-4649e567eafc",
+        "66ff2859-0a23-46f3-9ea4-a89297cf99c7",
+        "9e203379-f57a-4aad-8c28-14b18829467e",
+        "81d1685b-5fc0-4d82-a8b8-a63277ab650d",
+        "bf720235-dd8a-4e9a-8080-8451661451be",
+        "c06eec5f-70d0-4535-937d-221e96d6704a",
+        "7dd2f833-e4ad-40d2-aa1c-04a0e93d3786",
+        "e65b5af4-6344-4079-a431-a04c599106de",
+        "8e612d1f-4864-4922-b86e-988b7b9720c2",
+        "GiD1M9tyM4",
+        "tDFvyEiNUk",
+        "lauQsFIo6A"
+      ],
+      "localIds": [
+        "56075bb3-961b-4465-b346-4c0b51022ccb",
+        "eab92c71-0f8f-4401-9d91-fc4bbc6b4351",
+        "0720f984-4cee-4cfe-a90e-4649e567eafc",
+        "66ff2859-0a23-46f3-9ea4-a89297cf99c7",
+        "9e203379-f57a-4aad-8c28-14b18829467e",
+        "81d1685b-5fc0-4d82-a8b8-a63277ab650d",
+        "bf720235-dd8a-4e9a-8080-8451661451be",
+        "c06eec5f-70d0-4535-937d-221e96d6704a",
+        "7dd2f833-e4ad-40d2-aa1c-04a0e93d3786",
+        "e65b5af4-6344-4079-a431-a04c599106de",
+        "8e612d1f-4864-4922-b86e-988b7b9720c2",
+        "GiD1M9tyM4",
+        "tDFvyEiNUk",
+        "lauQsFIo6A"
+      ],
+      "quiet": {
+        "unsettled": [],
+        "jobs": 0,
+        "pending": [],
+        "queue": 0
+      },
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 3,
+        "residentLayers": 2,
+        "parkedLayers": 1,
+        "cpuBytes": 5242880,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 5,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          },
+          {
+            "epoch": 2,
+            "ready": true,
+            "active": true
+          }
+        ]
+      },
+      "coverage": [],
+      "glError": 0,
+      "name": "cold-rejoin",
+      "inputSHA": "85d92d17b17b8abb7789a4978df2e2fd6f85baaf456eb10178222d002d59cb40"
+    }
+  ],
+  "errors": [],
+  "identity": {
+    "DPR": 2.125,
+    "touch": 5,
+    "budget": "314572800",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "flags": {
+      "cache": false,
+      "hidden": false
+    },
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 3,
+      "residentLayers": 2,
+      "parkedLayers": 1,
+      "cpuBytes": 5242880,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 3,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": true,
+          "active": true
+        },
+        {
+          "epoch": 1,
+          "ready": true,
+          "active": true
+        }
+      ]
+    }
+  },
+  "lossBeforeOps": {
+    "engineLost": true,
+    "nativeLost": true
+  },
+  "acceptedWhileLost": [
+    {
+      "id": "bf720235-dd8a-4e9a-8080-8451661451be",
+      "type": "stroke",
+      "seq": 7
+    },
+    {
+      "id": "c06eec5f-70d0-4535-937d-221e96d6704a",
+      "type": "paper_dry",
+      "seq": 8
+    },
+    {
+      "id": "7dd2f833-e4ad-40d2-aa1c-04a0e93d3786",
+      "type": "stroke",
+      "seq": 9
+    },
+    {
+      "id": "e65b5af4-6344-4079-a431-a04c599106de",
+      "type": "operation_undo",
+      "seq": 10,
+      "targetOpId": "c06eec5f-70d0-4535-937d-221e96d6704a"
+    },
+    {
+      "id": "8e612d1f-4864-4922-b86e-988b7b9720c2",
+      "type": "operation_undo",
+      "seq": 11,
+      "targetOpId": "bf720235-dd8a-4e9a-8080-8451661451be"
+    }
+  ],
+  "lossAfterOps": {
+    "engineLost": true,
+    "nativeLost": true,
+    "localIds": [
+      "56075bb3-961b-4465-b346-4c0b51022ccb",
+      "eab92c71-0f8f-4401-9d91-fc4bbc6b4351",
+      "0720f984-4cee-4cfe-a90e-4649e567eafc",
+      "66ff2859-0a23-46f3-9ea4-a89297cf99c7",
+      "9e203379-f57a-4aad-8c28-14b18829467e",
+      "81d1685b-5fc0-4d82-a8b8-a63277ab650d",
+      "bf720235-dd8a-4e9a-8080-8451661451be",
+      "c06eec5f-70d0-4535-937d-221e96d6704a",
+      "7dd2f833-e4ad-40d2-aa1c-04a0e93d3786",
+      "e65b5af4-6344-4079-a431-a04c599106de",
+      "8e612d1f-4864-4922-b86e-988b7b9720c2"
+    ],
+    "queue": 0
+  },
+  "held": {
+    "id": "xNHHIcE_ZV",
+    "dabs": 6
+  },
+  "pass": true,
+  "deleteStatus": 200,
+  "cleanup": {
+    "ownContextsClosed": true,
+    "socketsClosed": true,
+    "privateAuthRemoved": true,
+    "originalTabRestored": true,
+    "ownLocalForwardClosed": true,
+    "remote9235Untouched": true
+  },
+  "harnessSHA256": "a21d193311cbca23001d21901a0ba8a20bfcff0a54d3a64c42c711f913a843e1",
+  "battery": {
+    "before": {
+      "percent": 100,
+      "AC": true,
+      "celsius": 37.5
+    },
+    "after": {
+      "percent": 100,
+      "AC": true,
+      "celsius": 37.6
+    }
+  },
+  "restoreBoundEvidence": {
+    "scope": "Conservative same-VPS filesystem timestamps enclosing loss, five accepted operations, restore, natural-ready and all three post-restore oracles; not precise restore latency",
+    "beforeLossProofFileMtimeNs": "1792209471187457420",
+    "afterRestoreProofFileMtimeNs": "1792209476207522468",
+    "wholeIntervalMs": 5020.065048,
+    "below30000": true
+  },
+  "validation": {
+    "stages": 6,
+    "strictLayerComparisons": 18,
+    "nativeStrokeId": "GiD1M9tyM4",
+    "nativeLayer": "loss-L1",
+    "actualNativeUndoTargetVerified": true,
+    "undoHashChanges": true,
+    "redoAndColdHashRestore": true,
+    "fullAPIControlFold": true
+  }
+}
