@@ -1,3 +1,4 @@
+import {readNativeCapture,armNativeCapture} from './native-capture-805'
 import {installFrontLazy} from './front-lazy'
 import {installFrontJumpZero} from './front-jump-zero'
 import {installFrontZero} from './front-zero'
@@ -36,7 +37,11 @@ export async function createMiniRuntime(source:HTMLCanvasElement|OffscreenCanvas
  function stateLoop(){if(destroyed)return;const now=performance.now();if(now-lastStateAt>=100){lastStateAt=now;emit({type:'state',state:puddle.state,asyncError:String(e._wcAsyncError||''),stepMax})}requestAnimationFrame(stateLoop)}requestAnimationFrame(stateLoop)
  const dbg=e.gl.getExtension('WEBGL_debug_renderer_info')
  emit({type:'ready',renderer:dbg?e.gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL):e.gl.getParameter(e.gl.RENDERER),budgetBytes:Number.isFinite(e._gpuBudget)?e._gpuBudget:null,flags:{model:e._watercolorModel,asyncFinish:e._wcAsyncFinish,joinedTouch:e._wcJoinedTouch,materialPresentation:e._wcMaterialPresentation},tuning:APPROVED_TUNING,glError:e.gl.getError()})
- return {handle(message:any){if(destroyed)return;if(message.type==='pointer'){if(message.event.type==='pointerdown')stepMax=0;if(message.event.type==='pointerup')activeGesture={id:message.gestureId,captureUpEpoch:message.captureUpEpoch,dequeuedUpEpoch:performance.timeOrigin+performance.now()};const dequeuedEpoch=performance.timeOrigin+performance.now();host.pointer(message.event);emit({type:'processed',eventType:message.event.type,sequence:message.sequence,inputEpoch:message.sentEpoch,dequeuedEpoch,processedEpoch:performance.timeOrigin+performance.now(),gestureId:message.gestureId})}else if(message.type==='qa-goal-hashes'||message.type==='qa-repeat-goal'){
+ return {handle(message:any){if(destroyed)return;if(message.type==='pointer'){if(message.event.type==='pointerdown')stepMax=0;if(message.event.type==='pointerup')activeGesture={id:message.gestureId,captureUpEpoch:message.captureUpEpoch,dequeuedUpEpoch:performance.timeOrigin+performance.now()};const dequeuedEpoch=performance.timeOrigin+performance.now();host.pointer(message.event);emit({type:'processed',eventType:message.event.type,sequence:message.sequence,inputEpoch:message.sentEpoch,dequeuedEpoch,processedEpoch:performance.timeOrigin+performance.now(),gestureId:message.gestureId})}else if(message.type==='qa-native-capture'){
+   void readNativeCapture().then(record=>emit({type:'qa-native-capture',requestId:message.requestId,...record})).catch(error=>emit({type:'error',message:String(error)}))
+  }else if(message.type==='qa-arm-native-capture'){
+   armNativeCapture();emit({type:'qa-native-armed',requestId:message.requestId})
+  }else if(message.type==='qa-goal-hashes'||message.type==='qa-repeat-goal'){
    // Explicit prototype-only oracle. Readback/compilation is outside benchmarks.
    let restore:(()=>void)|null=null,restoreFront:(()=>void)|null=null,restoreJump:(()=>void)|null=null
    let frontJumpStats:{transformedShaders:number}|null=null

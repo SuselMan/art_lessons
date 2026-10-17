@@ -1,0 +1,18 @@
+[
+  {
+    "name": "blue-wash",
+    "bytes": 6291456,
+    "sha256": "e187e1bca5c3faf7c42a59dca1dbefd1d8b9801a7cb74e1884e96216f0c57183",
+    "gzipBytes": 1276632,
+    "gzipSHA256": "cc9675852ea7aaa15d9ea967d1148f15b36dfcca53482d6e55a0ce176b49ddc6",
+    "qualification": "Owned generated native input, linear conversion metadata retained; not a native solver equivalence claim"
+  },
+  {
+    "name": "prewet-blue-stroke",
+    "bytes": 6291456,
+    "sha256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+    "gzipBytes": 1025276,
+    "gzipSHA256": "aca38b7aad9378ac4a0abc0361bf0ad483a0495610c370d91c6aa7221d3067ac",
+    "qualification": "Owned generated native input, linear conversion metadata retained; not a native solver equivalence claim"
+  }
+]
