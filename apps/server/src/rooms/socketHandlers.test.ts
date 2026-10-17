@@ -696,3 +696,110 @@ it.each(['load', 'access'] as const)('#783 disconnect during %s await stops befo
   const { getRoomBacklog } = await import('./roomStats.js')
   expect(getRoomBacklog(roomId)?.participants ?? 0).toBe(stage === 'access' ? 2 : 0)
 })
+
+it.each([
+  ['main', 'owner'], ['child', 'owner'], ['main', 'member'], ['child', 'member'],
+] as const)('#784 pending %s join survives the last %s disconnect', async (target, departingRole) => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const disconnect = async (socket: Client) => {
+    const serverSocket = io.sockets.sockets.get(socket.id!)!
+    const done = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+    socket.close()
+    await done
+  }
+  await disconnect(departingRole === 'owner' ? student : teacher)
+  const departing = departingRole === 'owner' ? teacher : student
+  const roomId = target === 'child' ? boardId : lessonId
+  const { ensureRoomLoaded } = await import('./roomLoader.js')
+  await ensureRoomLoaded(roomId)
+  let release!: (value: null) => void
+  let entered!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const userId = departingRole === 'owner' ? 'newcomer' : 'teacher'
+  const newcomer = client(userId)
+  const verdict = new Promise(resolve => newcomer.emit('join_room', { roomId, name: 'Newcomer' }, resolve))
+  await reached
+  await disconnect(departing)
+  await Promise.all([_flushPendingWrites(lessonId), _flushPendingWrites(roomId)])
+  release(null)
+  expect(await verdict).toEqual({ ok: true, userId })
+  expect(getParticipant(roomId, userId)).toMatchObject({ boardId: roomId, role: userId === 'teacher' ? 'owner' : 'member' })
+  expect(isRoomResident(lessonId)).toBe(true)
+})
+
+it.each(['main', 'child'] as const)('#784 two pending %s joins survive old owner departure and one cancellation, then release fully', async target => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const disconnect = async (socket: Client) => {
+    const serverSocket = io.sockets.sockets.get(socket.id!)!
+    const done = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+    socket.close()
+    await done
+  }
+  await disconnect(student)
+  const roomId = target === 'child' ? boardId : lessonId
+  const { ensureRoomLoaded } = await import('./roomLoader.js')
+  await ensureRoomLoaded(roomId)
+  const releases: ((value: null) => void)[] = []
+  mockPrisma.roomLayerState.findUnique.mockImplementation(() => new Promise<null>(resolve => { releases.push(resolve) }))
+  const cancelled = client('cancelled-newcomer')
+  cancelled.emit('join_room', { roomId, name: 'Cancelled' }, () => {})
+  await vi.waitFor(() => expect(releases).toHaveLength(1))
+  const survivor = client('surviving-newcomer')
+  const verdict = new Promise(resolve => survivor.emit('join_room', { roomId, name: 'Survivor' }, resolve))
+  await vi.waitFor(() => expect(releases).toHaveLength(2))
+  await disconnect(teacher)
+  await disconnect(cancelled)
+  releases[0](null)
+  await new Promise(resolve => setTimeout(resolve, 20))
+  const { evictIdleRooms } = await import('./rooms.js')
+  evictIdleRooms()
+  expect(isRoomResident(lessonId)).toBe(true)
+  expect(isRoomResident(roomId)).toBe(true)
+  expect(getParticipant(roomId, 'cancelled-newcomer')).toBeUndefined()
+  releases[1](null)
+  expect(await verdict).toEqual({ ok: true, userId: 'surviving-newcomer' })
+  await disconnect(survivor)
+  await Promise.all([_flushPendingWrites(lessonId), _flushPendingWrites(roomId)])
+  expect(isRoomResident(roomId)).toBe(false)
+  expect(isRoomResident(lessonId)).toBe(false)
+})
+
+it.each([false, true])('#784 cold child load retains its newly discovered parent; cancelled=%s', async cancelled => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const disconnect = async (socket: Client) => {
+    const serverSocket = io.sockets.sockets.get(socket.id!)!
+    const done = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+    socket.close()
+    await done
+  }
+  await disconnect(student)
+  expect(isRoomResident(boardId)).toBe(false)
+  let release!: (value: null) => void
+  let entered!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const newcomer = client('cold-child-newcomer')
+  const verdict = new Promise(resolve => newcomer.emit('join_room', { roomId: boardId, name: 'Newcomer' }, resolve))
+  await reached
+  await disconnect(teacher)
+  if (cancelled) await disconnect(newcomer)
+  await _flushPendingWrites(lessonId)
+  const { evictIdleRooms } = await import('./rooms.js')
+  evictIdleRooms()
+  expect(isRoomResident(lessonId)).toBe(true)
+  release(null)
+  if (cancelled) {
+    await vi.waitFor(() => {
+      expect(isRoomResident(boardId)).toBe(false)
+      expect(isRoomResident(lessonId)).toBe(false)
+    })
+  } else {
+    expect(await verdict).toEqual({ ok: true, userId: 'cold-child-newcomer' })
+    expect(getParticipant(boardId, 'cold-child-newcomer')?.boardId).toBe(boardId)
+    await disconnect(newcomer)
+    await Promise.all([_flushPendingWrites(lessonId), _flushPendingWrites(boardId)])
+    expect(isRoomResident(boardId)).toBe(false)
+    expect(isRoomResident(lessonId)).toBe(false)
+  }
+})

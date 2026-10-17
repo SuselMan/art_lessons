@@ -22,10 +22,10 @@ vi.mock('../db/prisma.js', () => ({ prisma: mockPrisma }))
 
 const {
   _flushPendingWrites, addPaletteColor, createRoom, getParticipant, getRoomGate, getRoomSnapshot, isRoomResident,
-  joinRoom, leaveRoom, releaseRoomIfUnused,
+  joinRoom, leaveRoom, releaseRoomIfUnused, retainRoomForJoin, evictIdleRooms,
 } = await import('./rooms.js')
 const { getResidentRoomStats, getRoomBacklog, listLiveLessons } = await import('./roomStats.js')
-const { getOperationRejectReason } = await import('./operationLog.js')
+const { getOperationRejectReason, recordOperation } = await import('./operationLog.js')
 const { ensureRoomLoaded } = await import('./roomLoader.js')
 const {
   isRoomFrozen, setParticipantFrozen, setRoomClosed, setRoomFrozen, setRoomTools,
@@ -595,4 +595,53 @@ it.each([0x780, 0x164, 0x176, 0x595])('#780 seeded multi-socket presence model s
   for (const lesson of lessons) leaveRoom(lesson, 'teacher', `anchor-${lesson}`)
   await Promise.all([...lessons, boardA, boardB].map(_flushPendingWrites))
   for (const room of [...lessons, boardA, boardB]) expect(isRoomResident(room)).toBe(false)
+})
+
+it.each(['before-wait', 'during-wait', 'release-before-settle'] as const)('#784 child/parent lease is rechecked around pending writes: %s', async timing => {
+  const lessonId = makeLesson()
+  const boardId = await makeBoard(lessonId)
+  await _flushPendingWrites(lessonId)
+  let finishWrite!: () => void
+  const writes = new Promise<void>(resolve => { finishWrite = resolve })
+  mockPrisma.operation.create.mockImplementation(() => writes)
+  recordOperation(lessonId, stroke('teacher'))
+  recordOperation(boardId, stroke('teacher'))
+  let lease = timing === 'during-wait' ? undefined : retainRoomForJoin(boardId)
+  leaveRoom(lessonId, 'teacher', sock('teacher'))
+  if (!lease) lease = retainRoomForJoin(boardId)
+  // Forced admission cleanup must not bypass residency or pending writes.
+  evictIdleRooms()
+  expect(isRoomResident(lessonId)).toBe(true)
+  expect(isRoomResident(boardId)).toBe(true)
+  if (timing === 'release-before-settle') lease.release()
+  finishWrite()
+  await Promise.all([_flushPendingWrites(lessonId), _flushPendingWrites(boardId)])
+  if (timing !== 'release-before-settle') {
+    expect(isRoomResident(lessonId)).toBe(true)
+    expect(isRoomResident(boardId)).toBe(true)
+    evictIdleRooms()
+    expect(isRoomResident(lessonId)).toBe(true)
+    expect(isRoomResident(boardId)).toBe(true)
+    lease.release()
+  }
+  expect(isRoomResident(lessonId)).toBe(false)
+  expect(isRoomResident(boardId)).toBe(false)
+  // Release is idempotent, no negative/reference leak after duplicate finally.
+  lease.release()
+})
+
+it('#784 releasing one of two leases cannot evict a child or its parent lesson', async () => {
+  const lessonId = makeLesson()
+  const boardId = await makeBoard(lessonId)
+  await _flushPendingWrites(lessonId)
+  const first = retainRoomForJoin(boardId)
+  const second = retainRoomForJoin(boardId)
+  leaveRoom(lessonId, 'teacher', sock('teacher'))
+  first.release()
+  evictIdleRooms()
+  expect(isRoomResident(lessonId)).toBe(true)
+  expect(isRoomResident(boardId)).toBe(true)
+  second.release()
+  expect(isRoomResident(lessonId)).toBe(false)
+  expect(isRoomResident(boardId)).toBe(false)
 })
