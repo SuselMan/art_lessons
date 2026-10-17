@@ -1,5 +1,6 @@
 import {M70PhaseOwner} from './src/watercolor/puddle/M70PhaseOwner'
 import type {FieldLease} from './src/watercolor/puddle/FieldJobLease'
+import {m70PresentationInputSignature} from './src/watercolor/puddle/PuddleInputFingerprint'
 import {PagedPuddleRoomController} from './src/watercolor/puddle/PagedPuddleRoomController'
 import {createPagedPuddleTarget} from './src/watercolor/puddle/PagedPuddleTarget'
 import {BufferResidency} from './src/buffers/BufferResidency'
@@ -1792,7 +1793,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if(!large)return this._puddle=new PuddleRoomController(host)
     let controller:PagedPuddleRoomController
-    try{controller=new PagedPuddleRoomController({...host,makeBuffer:make,beginInput:()=>this._beginPagedInput(cache!),
+    try{controller=new PagedPuddleRoomController({...host,makeBuffer:make,beginInput:()=>this._beginPagedInput(cache!),presentationInputSignature:m70PresentationInputSignature,
       // RAW reachBounds includes brush/composite reads. Foreign-water donors
       // can extend beyond it; retain whole tiles until their bounds are proven.
       presentationBounds:(scratch,context)=>scratch.foreignSources?.length || scratch.foreignImportedGestures.size ? null : context.bounds,

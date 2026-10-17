@@ -57,6 +57,10 @@ export class AccumulationBuffer {
     this._mipCapable = isPowerOfTwo(width) && isPowerOfTwo(height)
   }
 
+  private _contentRevision=0
+  get contentRevision():number{return this._contentRevision}
+  private _noteContentWrite():void{this._contentRevision=Number.isSafeInteger(this._contentRevision)&&this._contentRevision<Number.MAX_SAFE_INTEGER?this._contentRevision+1:NaN}
+
   private _residency?: BufferResidency
   private _resident = true
   private _destroyed = false
@@ -72,6 +76,7 @@ export class AccumulationBuffer {
     this._idlePoolBuffer = on
     this._idlePoolDiscardable = on && !this._mipsAllocated
     if (this._idlePoolDiscardable && !this._resident && !this._destroyed) {
+      this._noteContentWrite()
       this._backing = undefined
       this._discardedPoolContents = true
     }
@@ -92,6 +97,7 @@ export class AccumulationBuffer {
   _residencyEvict(): void {
     const { gl, width, height } = this
     if (this._idlePoolDiscardable) {
+      this._noteContentWrite()
       this._backing = undefined
       this._discardedPoolContents = true
     } else if (!this._backing || this._backing instanceof Uint8Array) preserveResidencyState(gl, () => {
@@ -145,6 +151,7 @@ export class AccumulationBuffer {
   }
 
   _residencyForget(): void {
+    this._noteContentWrite()
     this._backing = undefined
     this._resident = false
     this._destroyed = true
@@ -190,7 +197,7 @@ export class AccumulationBuffer {
   }
 
   get texture(): WebGLTexture { this._ensureResident(); return this._texture }
-  get fbo(): WebGLFramebuffer { this._ensureResident(); this._backing = undefined; return this._fbo }
+  get fbo(): WebGLFramebuffer { this._ensureResident(); this._backing = undefined; this._noteContentWrite(); return this._fbo }
 
   /** (#365) Whether a mip chain can legally exist for this buffer at all.
    *  WebGL1 only allows mipmaps on power-of-two textures, and a texture whose
@@ -225,6 +232,7 @@ export class AccumulationBuffer {
    *  frame behind the stroke drawing it. Two texParameteri calls per write
    *  batch is nothing next to the draws around them. */
   private _invalidateMips(): void {
+    this._noteContentWrite()
     // Invalidate the uniform proof after hydration, before every level-zero write.
     this._backing = undefined
     if (!this._mipCapable || !this._mipsValid) return
@@ -616,6 +624,7 @@ export class AccumulationBuffer {
 
   destroy(): void {
     if (this._destroyed) return
+    this._noteContentWrite()
     this._residency?.remove(this)
     if (this._resident) {
       this.gl.deleteTexture(this._texture)

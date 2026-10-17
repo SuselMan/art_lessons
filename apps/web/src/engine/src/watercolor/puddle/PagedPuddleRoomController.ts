@@ -1,3 +1,4 @@
+import {rawInputFingerprint,sameInputFingerprint,type InputFingerprint} from './PuddleInputFingerprint'
 import { presentationRegion, unionPresentationRegion, regionIsFull, renderPuddleRegion, type PresentationRegion, type PresentationBounds } from './PuddlePresentationRegion'
 import {WATERCOLOR_WET_DRY_MS, type Dab} from '@grafetto/shared'
 import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
@@ -13,6 +14,7 @@ type Context = NonNullable<RibbonStrokeScratch['finishContext']>
 type Presentation = ReturnType<typeof createPuddlePresentation>
 type Material = {p: AccumulationBuffer; c: AccumulationBuffer; coverage: AccumulationBuffer}
 interface Layer {
+  presentationInputSignature?:string|null
   target: ILayerBuffer
   scratch: RibbonStrokeScratch
   gesture: string
@@ -33,6 +35,7 @@ interface Layer {
 }
 type ParkedLayer = Pick<Layer, 'target'|'gesture'|'previous'|'timestamp'|'boundary'|'epoch'>
 interface TileState {
+  inputFingerprint?:InputFingerprint|null
   shownDirty: boolean
   region: PresentationRegion
   tile: PaintTarget
@@ -53,6 +56,8 @@ export interface PagedPuddleSolver {
 export interface PagedPuddleRoomHost extends PuddleRoomHost {
   /** After solver cancellation, before any raw mutation or CPU rehydrate. */
   beginInput?():void
+  /** Host certifies ALL scalar/gesture inputs of render. Missing/unknown means full fallback. */
+  presentationInputSignature?(scratch:RibbonStrokeScratch,context:Context):string|null
   /** Opt-in proof: current raw painting lies inside these world bounds and
    * canonical output outside retained raw support equals the dry substrate.
    * Unknown/foreign/historical inputs return null and retain whole tiles. */
@@ -305,21 +310,26 @@ export class PagedPuddleRoomController {
     const proof=candidate && Object.values(candidate).every(Number.isFinite) && candidate.maxX>candidate.minX && candidate.maxY>candidate.minY ? candidate : null
     scratch.noteRetainedInputBounds(proof)
     const known=!!proof && !!scratch.retainedInputBounds
+    const signature=this.host.presentationInputSignature?.(scratch,context)??null
+    const unchangedGlobals=signature!==null&&signature===layer.presentationInputSignature
     let accepted=false
     for(const tile of context.target.allResident()) {
       if(known && !presentationRegion(tile,proof!,0))continue
       const entry=scratch.peek(tile.buffer)
       if(!entry?.inkLoad || !entry.inkColor)continue
-      const fresh=!layer.tiles.has(tile.buffer)
-      const state=this.ensureTile(layer,tile,this.region(layer,tile,context))
+      const fingerprint=rawInputFingerprint(entry),previous=layer.tiles.get(tile.buffer),region=this.region(layer,tile,context)
+      if(!deferred&&unchangedGlobals&&previous&&sameInputFingerprint(previous.inputFingerprint,fingerprint)&&Object.keys(region).every(key=>region[key as keyof PresentationRegion]===previous.region[key as keyof PresentationRegion])){accepted=true;continue}
+      const fresh=!previous
+      const state=this.ensureTile(layer,tile,region)
       accepted=true
       if(fresh && !deferred){this.crop(entry.original,state.raw,state.region);state.presentation.reset(state.raw,layer.epoch)}
       if(deferred)continue
       this.render(layer,state,context,state.next,{p:entry.inkLoad,c:entry.inkColor,coverage:entry.coverage})
       state.presentation.acceptInput(state.raw,state.next,layer.epoch)
-      state.next.copyTo(state.raw);state.shownDirty=true
+      state.next.copyTo(state.raw);state.shownDirty=true;state.inputFingerprint=fingerprint
     }
-    if(!accepted)return
+    if(!accepted&&!layer.tiles.size)return
+    layer.presentationInputSignature=signature
     layer.context=context;layer.dirty=true;layer.after=performance.now()+60
     if(deferred){layer.deferredPresentation=true;return}
     layer.presentationDirty=true;this.present(layer)
