@@ -232,7 +232,7 @@ it.each([[0, 0, 0, 0], [19, 73, 151, 233], [255, 0, 127, 1]])('round-trips asymm
   expect((a as unknown as { _backing: unknown })._backing).toEqual(rgba)
   for (let round = 0; round < 4; round++) {
     void a.texture
-    expect(uploads.mock.lastCall?.[8]).toEqual(expected); unbind()
+    expect((uploads.mock.lastCall as unknown[] | undefined)?.[8]).toEqual(expected); unbind()
     void b.texture; unbind() // force a back to CPU after every hydration
     expect(cache.residentBytes).toBe(36)
   }
@@ -257,7 +257,7 @@ it.each([0, 1, 2, 3])('keeps a last-pixel-only change in RGBA channel %s lossles
   expect((a as unknown as { _backing: unknown })._backing).toBeInstanceOf(Uint8Array)
   for (let round = 0; round < 4; round++) {
     void a.texture
-    expect(uploads.mock.lastCall?.[8]).toEqual(expected); unbind()
+    expect((uploads.mock.lastCall as unknown[] | undefined)?.[8]).toEqual(expected); unbind()
     void b.texture; unbind()
   }
   cache.dispose()
