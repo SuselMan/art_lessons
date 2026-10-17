@@ -1,0 +1,21 @@
+{
+  "base": "397d03f5",
+  "files": {
+    "apps/web/src/engine/src/watercolor/puddle/PuddleRoomController.ts": {
+      "base": "d5691e70151403923d0e505d2f206e1bb599857c108faac3bee56bed0144045d",
+      "candidate": "1af3b719b7132fd9ddc5d9867e4f075ca2bada151c35a1d375fe2cf3177e1671"
+    },
+    "apps/web/src/engine/src/watercolor/puddle/PuddlePresentationRegion.ts": {
+      "base": "c065e756a77ebd0377cbcd539e2aa4a496559b0c28051ebf830f478d2d03434f",
+      "candidate": "c1d1a44b110f5ce510062fe6c4442c6ccdb766aa8480e9514ef442fae7582508"
+    },
+    "apps/web/src/engine/index.ts": {
+      "base": "e9dacf4d5afbb3af4e805557b85c3085b36c9cdeba5681b50075df9ee17d009c",
+      "candidate": "b121819e97f378c917e2919b0b5e9450672e3ae2f588b6c071ada05e39bea434"
+    },
+    "apps/web/src/engine/src/raster/RibbonPasses.ts": {
+      "base": "ee403d58ad243c1feb4ee5dd7a78d9fb2f15e30a37a6dabd27cb58b701bc119b",
+      "candidate": "526318a0ff76f522a98db45d3cedb613b3b87cb5bb24a697dd1218d670172193"
+    }
+  }
+}

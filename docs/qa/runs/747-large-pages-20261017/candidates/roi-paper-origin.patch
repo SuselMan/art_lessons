@@ -1,0 +1,86 @@
+--- a/apps/web/src/engine/src/watercolor/puddle/PuddleRoomController.ts
++++ b/apps/web/src/engine/src/watercolor/puddle/PuddleRoomController.ts
+@@ -55,7 +55,7 @@
+   /** Hidden replay changes material only until its target becomes visible. */
+   deferPresentation?(target: ILayerBuffer): boolean
+   render(scratch: RibbonStrokeScratch, tile: PaintTarget, context: Context,
+-    output: AccumulationBuffer, material: Material): void
++    output: AccumulationBuffer, material: Material, samplingOrigin?: readonly [number, number]): void
+   changed(target: ILayerBuffer): void
+   display(): void
+   released(scratch: RibbonStrokeScratch): void
+--- a/apps/web/src/engine/src/watercolor/puddle/PuddlePresentationRegion.ts
++++ b/apps/web/src/engine/src/watercolor/puddle/PuddlePresentationRegion.ts
+@@ -36,6 +36,6 @@
+   for(const paint of source.paints)cropped.paints.add(paint)
+   cropped.noteFinish({...context})
+   const synthetic={...tile,buffer:out,originX:tile.originX+region.x,originY:tile.originY+tile.buffer.height-region.y-region.height,contentRect:null}
+-  host.render(cropped,synthetic,context,out,{p:entry.inkLoad!,c:entry.inkColor!,coverage:entry.coverage})
++  host.render(cropped,synthetic,context,out,{p:entry.inkLoad!,c:entry.inkColor!,coverage:entry.coverage},[tile.originX+region.x,-tile.originY+region.y])
+  }finally{cropped.destroy()}
+ }
+--- a/apps/web/src/engine/index.ts
++++ b/apps/web/src/engine/index.ts
+@@ -1696,13 +1696,13 @@
+       finishLegacySettle:()=>this._completeSettle(),
+       drawing:()=>!!this._strokeLayerId || !!this._settle || this._rebuildJobs.size > 0,
+       deferPresentation:target=>this._hiddenM70Replay.has(target),
+-      render:(scratch,tile,ctx,output,material)=>{
++      render:(scratch,tile,ctx,output,material,samplingOrigin)=>{
+         const entry=scratch.peek(tile.buffer)
+         if (!entry) return
+         const sc=scratch.compositeScalars(()=>({spreadPx:0,inkSmoothPx:0,water:0,migratePx:0,fieldSeed:[0,0],bristleRadiusPx:0}))
+         output.clear()
+         this._drawRibbonCompositeRect({...tile,buffer:output},{minX:tile.originX,minY:tile.originY,maxX:tile.originX+tile.buffer.width,maxY:tile.originY+tile.buffer.height},ctx.preset,ctx.profile,entry.original,
+-          material.coverage,material.p,material.c,ctx.color,ctx.opacity,ctx.fieldSeed,0,sc.water,sc.migratePx,0,scratch.noteDirection(0,0),sc.bristleRadiusPx)
++          material.coverage,material.p,material.c,ctx.color,ctx.opacity,ctx.fieldSeed,0,sc.water,sc.migratePx,0,scratch.noteDirection(0,0),sc.bristleRadiusPx,samplingOrigin)
+       },
+       changed:target=>{target.resolveExistingForPaint(bounds);target.markContentPainted(bounds);this._paperPartialOK=false;this._paperCacheKey='';this._invalidateSplitCache()},
+       display:()=>this._displayIfNotSuspended(),
+@@ -9692,8 +9692,9 @@
+     /** (#536) Half-width of this gesture's mark, px — what the hair count is
+      *  derived from. */
+     bristleRadiusPx = 0,
++    samplingOrigin?: readonly [number, number],
+   ): void {
+-    this._ribbonPasses.drawRibbonCompositeRect(tile, bounds, preset, profile, original, coverage, inkLoad, inkColor, color, opacity, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx)
++    this._ribbonPasses.drawRibbonCompositeRect(tile, bounds, preset, profile, original, coverage, inkLoad, inkColor, color, opacity, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx, samplingOrigin)
+   }
+   /** Delegates layer composition to LayerCompositor. */
+   private _compositeTextures(
+--- a/apps/web/src/engine/src/raster/RibbonPasses.ts
++++ b/apps/web/src/engine/src/raster/RibbonPasses.ts
+@@ -317,6 +317,7 @@
+     /** (#536) Half-width of this gesture's mark, px — what the hair count is
+      *  derived from. */
+     bristleRadiusPx = 0,
++    samplingOrigin?: readonly [number, number],
+   ): void {
+     // (#536, §17.22) The rect itself, as a dab whose aspect is the rect's:
+     // DAB_VERT scales the unit quad by (aspect, 1) * radius * 2, so a "dab"
+@@ -333,7 +334,7 @@
+       x: (minX + maxX) * 0.5, y: (minY + maxY) * 0.5, pressure: 1, tiltX: 0, tiltY: 0,
+       size: h, aspectRatio: w / h, angle: 0, opacity, t: 0,
+     }
+-    this.drawRibbonCompositeDab(tile, rectDab, h * 0.5, preset, profile, original, coverage, inkLoad, inkColor, color, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx)
++    this.drawRibbonCompositeDab(tile, rectDab, h * 0.5, preset, profile, original, coverage, inkLoad, inkColor, color, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx, samplingOrigin)
+   }
+ 
+ 
+@@ -352,6 +353,7 @@
+     /** (#536) Half-width of this gesture's mark, px — what the hair count is
+      *  derived from. */
+     bristleRadiusPx = 0,
++    samplingOrigin?: readonly [number, number],
+   ): void {
+     const { gl } = this
+     const { buffer } = tile
+@@ -376,7 +378,7 @@
+     // own setup exactly rather than skipping it.
+     const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
+     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+-    gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
++    gl.uniform2f(u.u_paperOrigin, samplingOrigin?.[0] ?? tile.originX, samplingOrigin?.[1] ?? (-tile.originY || 0))
+     gl.activeTexture(gl.TEXTURE0)
+     gl.bindTexture(gl.TEXTURE_2D, this.ctx.paperTex())
+     gl.uniform1i(u.u_paperHeightMap, 0)

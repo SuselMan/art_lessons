@@ -39,7 +39,7 @@
  
    get texture(): WebGLTexture { this._ensureResident(); return this._texture }
 -  get fbo(): WebGLFramebuffer { this._ensureResident(); return this._fbo }
-+  get fbo(): WebGLFramebuffer { this._ensureResident(); this._invalidateMips(); return this._fbo }
++  get fbo(): WebGLFramebuffer { this._ensureResident(); this._backing = undefined; return this._fbo }
  
    /** (#365) Whether a mip chain can legally exist for this buffer at all.
     *  WebGL1 only allows mipmaps on power-of-two textures, and a texture whose
