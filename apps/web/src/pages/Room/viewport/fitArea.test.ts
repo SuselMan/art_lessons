@@ -31,8 +31,19 @@ it('ignores nonintersecting chrome and avoids invalid fit when no free area rema
 
 it('measures current docked bounds locally and skips hidden chrome before its opacity transition',()=>{
  const node=(edge:string,hidden:boolean,bounds:ReturnType<typeof rect>)=>({dataset:{canvasFitEdge:edge,canvasFitHidden:String(hidden)},getBoundingClientRect:()=>({...bounds,width:bounds.right-bounds.left,height:bounds.bottom-bounds.top})})
- const viewport={getBoundingClientRect:()=>rect(100,200,1380,1000),parentElement:{querySelectorAll:()=>[
+ const viewport={closest:()=>null,getBoundingClientRect:()=>rect(100,200,1380,1000),parentElement:{querySelectorAll:()=>[
   node('left',true,rect(100,252,224,1000)),node('left',false,rect(100,200,162,1000)),node('right',true,rect(1060,252,1380,1000)),
  ]}} as unknown as HTMLElement
  expect(readFitArea(viewport)).toEqual(rect(62,0,1280,800))
+})
+
+it('includes the editor header outside the immediate viewport body',()=>{
+ const header={dataset:{canvasFitEdge:'top'},getBoundingClientRect:()=>({...rect(0,0,1280,52),width:1280,height:52})}
+ const body={querySelectorAll:()=>[]}
+ const editor={querySelectorAll:()=>[header]}
+ const viewport={getBoundingClientRect:()=>rect(0,0,1280,850),parentElement:body,closest:(selector:string)=>selector==='[data-canvas-fit-root]'?editor:null} as unknown as HTMLElement
+ expect(readFitArea(viewport)).toEqual(rect(0,52,1280,850))
+ const fitted=fittedViewport(readFitArea(viewport),{width:1024,height:768},Math.PI/2)
+ expect(fitted.cy).toBe(451)
+ expect(fitted.cy-1024*fitted.zoom/2).toBeGreaterThan(52)
 })
