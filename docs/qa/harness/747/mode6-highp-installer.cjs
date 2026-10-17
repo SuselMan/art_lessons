@@ -1,10 +1,15 @@
-module.exports=()=>{globalThis.__qa748Mode6Highp=async(gl,passes,deps)=>{
+module.exports=()=>{globalThis.__qa748Mode6Highp=async(gl,passes,deps,options={})=>{
+ const explicitRoundRGBA=options.explicitRoundRGBA===true,neutralRimPatch=options.neutralRimPatch===true;
  deps=deps||Object.assign({},await import('/src/engine/src/raster/utils.ts'),await import('/src/engine/src/raster/shaders.ts'));
  const descriptor=Object.getOwnPropertyDescriptor(passes,'_m70Field'),methodDescriptor=Object.getOwnPropertyDescriptor(passes,'fieldOp'),original=passes.fieldOp;
  if(!descriptor||typeof passes.m70Field!=='function')throw Error('Missing actual mode6 cache');
- const fragment=deps.WC_FIELD_OP_M70_FRAG,vertex=deps.DISPLAY_VERT,pattern=/\buniform\s+sampler2D\b/g,samplerCount=[...fragment.matchAll(pattern)].length;if(!samplerCount)throw Error('Missing mode6 sampler anchor');const patched=fragment.replace(pattern,'uniform highp sampler2D');
+ const fragment=deps.WC_FIELD_OP_M70_FRAG,vertex=deps.DISPLAY_VERT,pattern=/\buniform\s+sampler2D\b/g,samplerCount=[...fragment.matchAll(pattern)].length;if(!samplerCount)throw Error('Missing mode6 sampler anchor');let patched=fragment.replace(pattern,'uniform highp sampler2D');
+ const outputAnchor='gl_FragColor = vec4(profileBloom * stoodW, inside * (1.0 - over) * rimPatch, profileTide * stoodW * convexW * (1.0 - over) * rimPatch, dome);',rimAnchor='rimPatch = mix(WC_RIM_PATCH_FLOOR, 1.0, smoothstep(WC_RIM_PATCH_LO, WC_RIM_PATCH_HI, n));';
+ const outputAnchorCount=fragment.split(outputAnchor).length-1,rimAnchorCount=fragment.split(rimAnchor).length-1;
+ if(explicitRoundRGBA){if(outputAnchorCount!==1)throw Error('Mode6 output anchor not unique');patched=patched.replace(outputAnchor,'gl_FragColor = floor(clamp(vec4(profileBloom * stoodW, inside * (1.0 - over) * rimPatch, profileTide * stoodW * convexW * (1.0 - over) * rimPatch, dome), 0.0, 1.0) * 255.0 + 0.5) / 255.0;')}
+ if(neutralRimPatch){if(rimAnchorCount!==1)throw Error('Mode6 rim anchor not unique');patched=patched.replace(rimAnchor,'rimPatch = 1.0;')}
  const hash=async s=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))),x=>x.toString(16).padStart(2,'0')).join('');
- const meta={requested:true,samplerCount,originalSHA:await hash(fragment),patchedSHA:await hash(patched),selectedCalls:0,otherCalls:0,initializedBaseline:descriptor.value===null,restoration:{}};
+ const meta={requested:true,explicitRoundRGBA,neutralRimPatch,outputAnchorCount,rimAnchorCount,samplerCount,originalSHA:await hash(fragment),patchedSHA:await hash(patched),selectedCalls:0,otherCalls:0,initializedBaseline:descriptor.value===null,restoration:{}};
  let baseline,owned,restored=false,executing=false;
  const deleteProgram=p=>{if(p){if(gl.getParameter(gl.CURRENT_PROGRAM)===p)gl.useProgram(null);gl.deleteProgram(p)}};
  try{baseline=passes.m70Field();const attached=gl.getAttachedShaders(baseline.program)||[];if(!attached.some(s=>gl.getShaderParameter(s,gl.SHADER_TYPE)===gl.FRAGMENT_SHADER&&gl.getShaderSource(s)===fragment)||!attached.some(s=>gl.getShaderParameter(s,gl.SHADER_TYPE)===gl.VERTEX_SHADER&&gl.getShaderSource(s)===vertex))throw Error('Actual mode6 shader mismatch');meta.uniformKeys=Object.keys(baseline.uniforms);const program=deps.createProgram(gl,vertex,patched);owned={program,uniforms:null,position:-1};owned.uniforms=deps.getUniforms(gl,program,meta.uniformKeys);owned.position=gl.getAttribLocation(program,'a_position');if(owned.position<0)throw Error('Missing mode6 position')}
