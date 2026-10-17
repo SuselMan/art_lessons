@@ -1,0 +1,730 @@
+{
+  "source": "509fb989",
+  "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x000046D1) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "inputHashes": {
+    "p": "4878344c60ac3888c9513370994f5d1d09477feebecac29e4ca33dc5b95ea53e",
+    "c": "254437fcdf1c452af05e87937690a82ca314d1ec18fd6b874a92ea4b4c2e5af7",
+    "coverage": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2",
+    "water": "c2ec028c4fadb0e897c6558a7610474b740b02a7beb7d47ebfb0ef73d4f6eeae"
+  },
+  "diffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "3765e0a071bd5865c1a750eb64377c5d209318fdc28a080e47f41835dc4980ef",
+      "referenceHash": "3765e0a071bd5865c1a750eb64377c5d209318fdc28a080e47f41835dc4980ef"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "476250a2de2c6f510317a6fa90a35860a3a26cae8287a8c765623f10de992b24",
+      "referenceHash": "476250a2de2c6f510317a6fa90a35860a3a26cae8287a8c765623f10de992b24"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "b166be41b9904ad4cb36540f94e82a76c61e8e4078dea9e45db46830fa156954",
+      "referenceHash": "b166be41b9904ad4cb36540f94e82a76c61e8e4078dea9e45db46830fa156954"
+    }
+  },
+  "stageDiffs": {
+    "referenceP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "b7aaee7062c3e966dbe56fa318687899354c68c39b68bd7dabdba22808d9d548",
+      "referenceHash": "b7aaee7062c3e966dbe56fa318687899354c68c39b68bd7dabdba22808d9d548"
+    },
+    "referenceC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "6bb8ffd862f0688b4147eda854f50286c9902a6423824ce0ee04048c641179f4",
+      "referenceHash": "6bb8ffd862f0688b4147eda854f50286c9902a6423824ce0ee04048c641179f4"
+    },
+    "solvedP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "a3aa036fb4f6a299b5a1bcc4063f9ee907d8648970a54a8ca0d65b0e092b64f0",
+      "referenceHash": "a3aa036fb4f6a299b5a1bcc4063f9ee907d8648970a54a8ca0d65b0e092b64f0"
+    },
+    "solvedC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fb1570506bfe5a7de45d592f04f439a215daed3205fb807792a38a8990c06530",
+      "referenceHash": "fb1570506bfe5a7de45d592f04f439a215daed3205fb807792a38a8990c06530"
+    },
+    "solvedCoverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2",
+      "referenceHash": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2"
+    },
+    "coarse:gate": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "499a4f2bb5e1a3a45e3ff146b58e73b0c0912652b6d0c4d404bab56851d7543a",
+      "referenceHash": "499a4f2bb5e1a3a45e3ff146b58e73b0c0912652b6d0c4d404bab56851d7543a"
+    },
+    "coarse:beforeP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "56b417690772c06d80f1f5ca41333f74efa7195bfea15397b4236a7b234eeed7",
+      "referenceHash": "56b417690772c06d80f1f5ca41333f74efa7195bfea15397b4236a7b234eeed7"
+    },
+    "coarse:afterP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "56b417690772c06d80f1f5ca41333f74efa7195bfea15397b4236a7b234eeed7",
+      "referenceHash": "56b417690772c06d80f1f5ca41333f74efa7195bfea15397b4236a7b234eeed7"
+    },
+    "coarse:beforeC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "cc10a957b36d73a902edbb138d763b23ef1e53366ce0708c6cf1bb14ca26c3b6",
+      "referenceHash": "cc10a957b36d73a902edbb138d763b23ef1e53366ce0708c6cf1bb14ca26c3b6"
+    },
+    "coarse:afterC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "cc10a957b36d73a902edbb138d763b23ef1e53366ce0708c6cf1bb14ca26c3b6",
+      "referenceHash": "cc10a957b36d73a902edbb138d763b23ef1e53366ce0708c6cf1bb14ca26c3b6"
+    }
+  },
+  "managedPersistentProbe": {
+    "cycles": [
+      {
+        "evictReads": 0,
+        "retained": 16
+      },
+      {
+        "evictReads": 0,
+        "retained": 16
+      },
+      {
+        "evictReads": 0,
+        "retained": 16
+      }
+    ],
+    "mutationFallbackReads": 1,
+    "uploadSameArray": true,
+    "releasedRetainedBytes": 0,
+    "glError": 0,
+    "qualification": "Tiny managed RGBA8 2x2 functional residency proof; not performance/large-memory benchmark"
+  },
+  "persistentLeaseProof": {
+    "qualification": "Lease metadata only; no array copies/strong array references or extra GL reads; uncached admissions cannot prove residency savings",
+    "peakRetainedBytes": 0,
+    "retainedNow": 0,
+    "rows": [
+      {
+        "bufferId": 1,
+        "arrayId": 1,
+        "bytes": 4194304,
+        "width": 2048,
+        "height": 512,
+        "revisionAtAdmit": 1,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 1,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 2,
+        "arrayId": 2,
+        "bytes": 4194304,
+        "width": 2048,
+        "height": 512,
+        "revisionAtAdmit": 2,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 2,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 3,
+        "arrayId": 3,
+        "bytes": 4194304,
+        "width": 2048,
+        "height": 512,
+        "revisionAtAdmit": 2,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 2,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 4,
+        "arrayId": 4,
+        "bytes": 4194304,
+        "width": 2048,
+        "height": 512,
+        "revisionAtAdmit": 2,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 2,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 5,
+        "arrayId": 5,
+        "bytes": 4194304,
+        "width": 2048,
+        "height": 512,
+        "revisionAtAdmit": 1,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 1,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 6,
+        "arrayId": 6,
+        "bytes": 4194304,
+        "width": 2048,
+        "height": 512,
+        "revisionAtAdmit": 1,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 1,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 7,
+        "arrayId": 7,
+        "bytes": 9437184,
+        "width": 1536,
+        "height": 1536,
+        "revisionAtAdmit": 2,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 2,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 8,
+        "arrayId": 8,
+        "bytes": 9437184,
+        "width": 1536,
+        "height": 1536,
+        "revisionAtAdmit": 2,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 4,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 9,
+        "arrayId": 9,
+        "bytes": 9437184,
+        "width": 1536,
+        "height": 1536,
+        "revisionAtAdmit": 2,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 5,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 10,
+        "arrayId": 10,
+        "bytes": 9437184,
+        "width": 1536,
+        "height": 1536,
+        "revisionAtAdmit": 2,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 4,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 11,
+        "arrayId": 11,
+        "bytes": 9437184,
+        "width": 1536,
+        "height": 1536,
+        "revisionAtAdmit": 1,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 1,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 12,
+        "arrayId": 12,
+        "bytes": 9437184,
+        "width": 1536,
+        "height": 1536,
+        "revisionAtAdmit": 1,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 1,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 12,
+        "arrayId": 13,
+        "bytes": 9437184,
+        "width": 1536,
+        "height": 1536,
+        "revisionAtAdmit": 3,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 3,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 11,
+        "arrayId": 14,
+        "bytes": 9437184,
+        "width": 1536,
+        "height": 1536,
+        "revisionAtAdmit": 3,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 5,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 13,
+        "arrayId": 15,
+        "bytes": 9437184,
+        "width": 1536,
+        "height": 1536,
+        "revisionAtAdmit": 5,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 8,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 14,
+        "arrayId": 16,
+        "bytes": 9437184,
+        "width": 1536,
+        "height": 1536,
+        "revisionAtAdmit": 6,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 8,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 15,
+        "arrayId": 17,
+        "bytes": 9437184,
+        "width": 1536,
+        "height": 1536,
+        "revisionAtAdmit": 3,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 3,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      },
+      {
+        "bufferId": 16,
+        "arrayId": 18,
+        "bytes": 9437184,
+        "width": 1536,
+        "height": 1536,
+        "revisionAtAdmit": 1,
+        "persistentRequested": true,
+        "managed": false,
+        "retainedAtAdmit": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 1,
+        "retainedAfterRelease": 0,
+        "retainedNow": 0
+      }
+    ]
+  },
+  "referenceSchedule": {
+    "requested": true,
+    "kept": [
+      {
+        "x": 512,
+        "y": 0,
+        "width": 512,
+        "height": 512
+      },
+      {
+        "x": 1024,
+        "y": 0,
+        "width": 512,
+        "height": 512
+      }
+    ],
+    "empty": [
+      {
+        "x": 0,
+        "y": 0,
+        "width": 512,
+        "height": 512
+      },
+      {
+        "x": 1536,
+        "y": 0,
+        "width": 512,
+        "height": 512
+      }
+    ]
+  },
+  "postphaseSchedule": {
+    "requested": true,
+    "rectangles": [
+      {
+        "interior": {
+          "x": 0,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": -21,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": true
+      },
+      {
+        "interior": {
+          "x": 512,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": 491,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": false
+      },
+      {
+        "interior": {
+          "x": 1024,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": 1003,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": false
+      },
+      {
+        "interior": {
+          "x": 1536,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": 1515,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": true
+      }
+    ],
+    "kept": 2,
+    "skipped": 2
+  },
+  "windowSchedule": {
+    "requestedTight32": true,
+    "requestedSkip": false,
+    "allGroups": 4,
+    "kept": 2,
+    "skipped": 2,
+    "decisions": [
+      {
+        "field": {
+          "x": 0,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 0,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 512,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 0,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 512,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 32,
+          "noForeignStencil": true,
+          "kept": false
+        }
+      },
+      {
+        "field": {
+          "x": 128,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 768,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 768,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 32,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      },
+      {
+        "field": {
+          "x": 384,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 1024,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1024,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 32,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      },
+      {
+        "field": {
+          "x": 512,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 1280,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1536,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1792,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1280,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1536,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1792,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 32,
+          "noForeignStencil": true,
+          "kept": false
+        }
+      }
+    ],
+    "sourceSupport": {
+      "width": 2048,
+      "height": 512,
+      "rect": {
+        "x": 941,
+        "y": 197,
+        "width": 119,
+        "height": 119
+      },
+      "rects": [
+        {
+          "x": 941,
+          "y": 197,
+          "width": 119,
+          "height": 119
+        }
+      ],
+      "noForeignStencil": true
+    }
+  },
+  "highFloat": {
+    "precision": 23,
+    "rangeMin": 127,
+    "rangeMax": 127
+  },
+  "dither": {
+    "requestedOff": false,
+    "initial": true,
+    "atCapture": true
+  },
+  "errors": [],
+  "historicalBaseline": {
+    "sameInputHashes": true,
+    "sameFinalHashes": {
+      "p": true,
+      "c": true,
+      "coverage": true
+    },
+    "sameTenStageHashes": {
+      "referenceP": true,
+      "referenceC": true,
+      "solvedP": true,
+      "solvedC": true,
+      "solvedCoverage": true,
+      "coarse:gate": true,
+      "coarse:beforeP": true,
+      "coarse:afterP": true,
+      "coarse:beforeC": true,
+      "coarse:afterC": true
+    }
+  },
+  "qualification": "Functional tiny actual-managed GPU proof; standalone numerical buffers uncached and retainedBytes0. No large-page memory/performance saving claim. Own context closed; Chrome/profile/forward retained by parent request."
+}
