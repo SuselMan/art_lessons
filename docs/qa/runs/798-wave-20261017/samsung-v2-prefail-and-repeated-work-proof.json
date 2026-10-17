@@ -1,0 +1,720 @@
+{
+  "date": "2026-10-17",
+  "device": "Samsung SM-T970 / Adreno650",
+  "runtimeFullSHA": "c1b9468a4f958092219d248032b73dc73d7e55e6",
+  "sourceHashesAtLoad": {
+    "apps/web/src/engine/index.ts": "14c440cec4feb84df96668d3c7bbbb181b89461b7e4cab67f830b60364ad6087",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "bfefef037bbe8d57ff0758451e65bd66dcb5c87ab71106e07077b8db0e1a39a8",
+    "apps/web/src/engine/src/watercolor/puddle/M70IndependentTilesQA.ts": "2b3de2fdc2b3954f27a528e5e7fe297aaf57189f5db463f5108e9e73ee1cda7f",
+    "apps/web/qa-independent-tiles-v2.ts": "d2de293b16725ab0cafc62b4a576edb1c833041c86342f5fbc0cac21f08bb62f",
+    "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "a165e80276011246de4736ef97b8dba870b6ce3a7416aeae8820cf1b3f6c5a90",
+    "apps/web/src/engine/src/buffers/BufferResidency.ts": "d1bac870e865778877916a0e6473d1fad0cdaa54b18f96060d093c6f4386a37c"
+  },
+  "page": "Existing5385 /qa-independent-tiles-v2.html independent A2landscape3508x2480",
+  "scope": "Nooptimizationflags, wave320/101trustedpenpoints/6waves, force.75 water95 pigment34 PB15. Freshengine; samepaper intended2waves+short. NoRoom/auth/fixtureswrites, noforcedfinish/Dry/semanticoracle. Independentnohalo is intentionallynon-equivalent.",
+  "input": {
+    "worldPoints": [
+      [
+        300,
+        2100
+      ],
+      [
+        329,
+        2137.218682902702
+      ],
+      [
+        358,
+        2166.6820658893034
+      ],
+      [
+        387,
+        2181.724057869903
+      ],
+      [
+        416,
+        2177.7040092642405
+      ],
+      [
+        445,
+        2152.658477444273
+      ],
+      [
+        474,
+        2107.5769864163685
+      ],
+      [
+        503,
+        2046.2630511152572
+      ],
+      [
+        532,
+        1974.7999850346457
+      ],
+      [
+        561,
+        1900.696516925272
+      ],
+      [
+        590,
+        1831.8322121561291
+      ],
+      [
+        619,
+        1775.3508111746978
+      ],
+      [
+        648,
+        1736.6569123906968
+      ],
+      [
+        677,
+        1718.6569123906968
+      ],
+      [
+        706,
+        1721.3508111746978
+      ],
+      [
+        735,
+        1741.8322121561291
+      ],
+      [
+        764,
+        1774.696516925272
+      ],
+      [
+        793,
+        1812.7999850346457
+      ],
+      [
+        822,
+        1848.2630511152572
+      ],
+      [
+        851,
+        1873.5769864163683
+      ],
+      [
+        880,
+        1882.658477444273
+      ],
+      [
+        909,
+        1871.7040092642408
+      ],
+      [
+        938,
+        1839.724057869903
+      ],
+      [
+        967,
+        1788.6820658893032
+      ],
+      [
+        996,
+        1723.2186829027016
+      ],
+      [
+        1025,
+        1650
+      ],
+      [
+        1054,
+        1576.7813170972984
+      ],
+      [
+        1083,
+        1511.3179341106966
+      ],
+      [
+        1112,
+        1460.275942130097
+      ],
+      [
+        1141,
+        1428.2959907357592
+      ],
+      [
+        1170,
+        1417.341522555727
+      ],
+      [
+        1199,
+        1426.4230135836315
+      ],
+      [
+        1228,
+        1451.7369488847428
+      ],
+      [
+        1257,
+        1487.2000149653545
+      ],
+      [
+        1286,
+        1525.303483074728
+      ],
+      [
+        1315,
+        1558.1677878438709
+      ],
+      [
+        1344,
+        1578.6491888253022
+      ],
+      [
+        1373,
+        1581.3430876093032
+      ],
+      [
+        1402,
+        1563.3430876093032
+      ],
+      [
+        1431,
+        1524.6491888253022
+      ],
+      [
+        1460,
+        1468.167787843871
+      ],
+      [
+        1489,
+        1399.3034830747283
+      ],
+      [
+        1518,
+        1325.2000149653545
+      ],
+      [
+        1547,
+        1253.7369488847428
+      ],
+      [
+        1576,
+        1192.423013583632
+      ],
+      [
+        1605,
+        1147.341522555727
+      ],
+      [
+        1634,
+        1122.2959907357592
+      ],
+      [
+        1663,
+        1118.275942130097
+      ],
+      [
+        1692,
+        1133.3179341106968
+      ],
+      [
+        1721,
+        1162.781317097298
+      ],
+      [
+        1750,
+        1200
+      ],
+      [
+        1779,
+        1237.2186829027019
+      ],
+      [
+        1808,
+        1266.6820658893032
+      ],
+      [
+        1837,
+        1281.724057869903
+      ],
+      [
+        1866,
+        1277.7040092642408
+      ],
+      [
+        1895.0000000000002,
+        1252.658477444273
+      ],
+      [
+        1924.0000000000002,
+        1207.5769864163683
+      ],
+      [
+        1952.9999999999998,
+        1146.2630511152574
+      ],
+      [
+        1981.9999999999998,
+        1074.7999850346462
+      ],
+      [
+        2011,
+        1000.6965169252721
+      ],
+      [
+        2040,
+        931.8322121561291
+      ],
+      [
+        2069,
+        875.350811174698
+      ],
+      [
+        2098,
+        836.6569123906968
+      ],
+      [
+        2127,
+        818.6569123906967
+      ],
+      [
+        2156,
+        821.3508111746978
+      ],
+      [
+        2185,
+        841.8322121561289
+      ],
+      [
+        2214,
+        874.6965169252718
+      ],
+      [
+        2243,
+        912.7999850346459
+      ],
+      [
+        2272,
+        948.2630511152572
+      ],
+      [
+        2301,
+        973.5769864163682
+      ],
+      [
+        2330,
+        982.658477444273
+      ],
+      [
+        2359,
+        971.7040092642408
+      ],
+      [
+        2388,
+        939.724057869903
+      ],
+      [
+        2417,
+        888.6820658893033
+      ],
+      [
+        2446,
+        823.2186829027021
+      ],
+      [
+        2475,
+        750.0000000000001
+      ],
+      [
+        2504,
+        676.7813170972983
+      ],
+      [
+        2533,
+        611.3179341106969
+      ],
+      [
+        2562,
+        560.2759421300971
+      ],
+      [
+        2591,
+        528.2959907357592
+      ],
+      [
+        2620,
+        517.3415225557269
+      ],
+      [
+        2649,
+        526.4230135836317
+      ],
+      [
+        2678,
+        551.7369488847424
+      ],
+      [
+        2707,
+        587.2000149653537
+      ],
+      [
+        2736,
+        625.3034830747279
+      ],
+      [
+        2765,
+        658.1677878438704
+      ],
+      [
+        2794,
+        678.6491888253023
+      ],
+      [
+        2823,
+        681.3430876093032
+      ],
+      [
+        2852,
+        663.3430876093034
+      ],
+      [
+        2881,
+        624.6491888253022
+      ],
+      [
+        2910,
+        568.1677878438711
+      ],
+      [
+        2939,
+        499.3034830747287
+      ],
+      [
+        2968,
+        425.2000149653541
+      ],
+      [
+        2997,
+        353.7369488847428
+      ],
+      [
+        3026,
+        292.42301358363187
+      ],
+      [
+        3055,
+        247.34152255572718
+      ],
+      [
+        3084,
+        222.29599073575926
+      ],
+      [
+        3113,
+        218.27594213009692
+      ],
+      [
+        3142,
+        233.31793411069623
+      ],
+      [
+        3171,
+        262.7813170972984
+      ],
+      [
+        3200,
+        299.9999999999998
+      ]
+    ],
+    "settings": {
+      "mode": "independent",
+      "format": "a2l",
+      "size": "320",
+      "water": "95",
+      "pigment": "34",
+      "color": "#2688d3"
+    },
+    "pointerType": "pen",
+    "force": 0.75
+  },
+  "fixedPointerSpecSHA": "886ed6205b9a9327672445ae67b2562d55fab47b138f44afc62af64f287415d2",
+  "packedOperationInputSHA": "c7df192e271fd8d8311af94969c9d2ec5ea8ac0d7b0d26a64a1a35a6c01827d3",
+  "inputQualification": "Fixedpointercommand/settingsSHA reproducescommands. PackedoperationSHA differs betweenfreshengines becausegeneratedgestureIDs/seeds/timestamps; not strict identicalrawmaterial A/B.",
+  "preFixV2ExpectedFailure": {
+    "runtime": "e31e0c65",
+    "engineFailed": {
+      "at": 19421.700000047684,
+      "error": "Buffer residency unavailable"
+    },
+    "ready": false,
+    "readyAt": 0,
+    "clockFirstGoalAt": null,
+    "clockFirstIdleAt": null,
+    "visibleRedFailureScreenshotInspected": true,
+    "GL": 0,
+    "qualification": "ExpectedFAIL UIgate passed; productstillFAILED beforeownershipfix."
+  },
+  "postFixFirstGesture": {
+    "ownershipResult": "FIRSTGESTURE ERROR-ABSENCE PASS; secondDOWN accepted; NOT full3gesturePASS",
+    "performanceResult": "FAIL:8completecomputations/167.44s",
+    "dispatchWallMs": 11666,
+    "downAccepted": {
+      "stroke": true,
+      "epochs": [
+        2
+      ],
+      "locked": false,
+      "wcAsyncError": "",
+      "pointerActive": true
+    },
+    "beforeChunks": 0,
+    "afterChunks": 2,
+    "firstMaterial2RAFMs": 57132.40000009537,
+    "firstStrict2RAFMs": 167436.60000014305,
+    "v2FirstGoalMs": 57114.50000004769,
+    "v2FirstIdleMs": 167428.10000004768,
+    "planCount": 8,
+    "allPlanEpochs": [
+      2
+    ],
+    "sameGesture": 1,
+    "completeStageSets": 8,
+    "windowEvents": 48,
+    "keptCompletedWindows": 44,
+    "hiddenDurationAfterUPMs": 0,
+    "wcAsyncError": "",
+    "GL": 0,
+    "contextLost": false,
+    "pageErrors": 0,
+    "readsAcrossInputAndSolve": {
+      "count": 10119,
+      "sumMs": 93879.70001244545,
+      "maxMs": 181.89999985694885,
+      "bytes": 34909745408
+    },
+    "RAF": {
+      "count": 813,
+      "maxMs": 2038.800000000003,
+      "over50": 506,
+      "over100": 420
+    },
+    "perPlanBudget": [
+      {
+        "plan": 1,
+        "captureStartAfterUPMs": 6235.5,
+        "captureMs": 910.4000000953674,
+        "admissionMs": 238.5,
+        "referenceMs": 1604.7999999523163,
+        "windowsSpanMs": 6605.200000047684,
+        "postphaseMs": 1892.6000001430511,
+        "outputMs": 754.7999999523163,
+        "totalStageSpanMs": 12006.700000047684,
+        "gapFromPreviousOutputMs": 6235.5,
+        "kept": 4,
+        "completed": 4,
+        "windowsActiveHostMs": 3201.299999475479,
+        "windowsElapsedHostMs": 6554.099999904633
+      },
+      {
+        "plan": 2,
+        "captureStartAfterUPMs": 19095.5,
+        "captureMs": 1096.7999999523163,
+        "admissionMs": 286.60000014305115,
+        "referenceMs": 2117.5999999046326,
+        "windowsSpanMs": 9633.400000095367,
+        "postphaseMs": 2702.7999999523163,
+        "outputMs": 695.5,
+        "totalStageSpanMs": 16533.200000047684,
+        "gapFromPreviousOutputMs": 853.2999999523163,
+        "kept": 4,
+        "completed": 4,
+        "windowsActiveHostMs": 3515.2999992370605,
+        "windowsElapsedHostMs": 9548.799999952316
+      },
+      {
+        "plan": 3,
+        "captureStartAfterUPMs": 36336.40000009537,
+        "captureMs": 1043.1999998092651,
+        "admissionMs": 290.40000009536743,
+        "referenceMs": 2267.5999999046326,
+        "windowsSpanMs": 13021.0,
+        "postphaseMs": 2824.0,
+        "outputMs": 700.4000000953674,
+        "totalStageSpanMs": 20147.0,
+        "gapFromPreviousOutputMs": 707.7000000476837,
+        "kept": 6,
+        "completed": 6,
+        "windowsActiveHostMs": 4469.600000619888,
+        "windowsElapsedHostMs": 12993.900000095367
+      },
+      {
+        "plan": 4,
+        "captureStartAfterUPMs": 57270.90000009537,
+        "captureMs": 906.5,
+        "admissionMs": 298.7999999523163,
+        "referenceMs": 2298.7999999523163,
+        "windowsSpanMs": 12174.099999904633,
+        "postphaseMs": 2878.2000000476837,
+        "outputMs": 772.4000000953674,
+        "totalStageSpanMs": 19329.299999952316,
+        "gapFromPreviousOutputMs": 787.5,
+        "kept": 6,
+        "completed": 6,
+        "windowsActiveHostMs": 4277.299999475479,
+        "windowsElapsedHostMs": 12142.600000143051
+      },
+      {
+        "plan": 5,
+        "captureStartAfterUPMs": 78186.90000009537,
+        "captureMs": 914.6999998092651,
+        "admissionMs": 187.80000019073486,
+        "referenceMs": 2605.899999856949,
+        "windowsSpanMs": 13949.299999952316,
+        "postphaseMs": 4261.099999904633,
+        "outputMs": 819.7999999523163,
+        "totalStageSpanMs": 22739.199999809265,
+        "gapFromPreviousOutputMs": 1586.7000000476837,
+        "kept": 6,
+        "completed": 6,
+        "windowsActiveHostMs": 3960.0,
+        "windowsElapsedHostMs": 13935.099999904633
+      },
+      {
+        "plan": 6,
+        "captureStartAfterUPMs": 101830.0,
+        "captureMs": 1238.2999999523163,
+        "admissionMs": 235.90000009536743,
+        "referenceMs": 3161.899999856949,
+        "windowsSpanMs": 14401.5,
+        "postphaseMs": 3919.0999999046326,
+        "outputMs": 802.7999999523163,
+        "totalStageSpanMs": 23760.099999904633,
+        "gapFromPreviousOutputMs": 903.9000000953674,
+        "kept": 6,
+        "completed": 6,
+        "windowsActiveHostMs": 4470.099999904633,
+        "windowsElapsedHostMs": 14391.599999904633
+      },
+      {
+        "plan": 7,
+        "captureStartAfterUPMs": 126525.90000009537,
+        "captureMs": 1093.6999998092651,
+        "admissionMs": 230.0,
+        "referenceMs": 3251.2000000476837,
+        "windowsSpanMs": 15322.900000095367,
+        "postphaseMs": 3718.0999999046326,
+        "outputMs": 813.0999999046326,
+        "totalStageSpanMs": 24429.699999809265,
+        "gapFromPreviousOutputMs": 935.8000001907349,
+        "kept": 6,
+        "completed": 6,
+        "windowsActiveHostMs": 4886.999999284744,
+        "windowsElapsedHostMs": 15316.200000286102
+      },
+      {
+        "plan": 8,
+        "captureStartAfterUPMs": 151971.70000004768,
+        "captureMs": 990.3999998569489,
+        "admissionMs": 223.5,
+        "referenceMs": 2749.300000190735,
+        "windowsSpanMs": 8608.399999856949,
+        "postphaseMs": 1359.9000000953674,
+        "outputMs": 859.2999999523163,
+        "totalStageSpanMs": 14791.599999904633,
+        "gapFromPreviousOutputMs": 1016.1000001430511,
+        "kept": 6,
+        "completed": 6,
+        "windowsActiveHostMs": 5229.200001001358,
+        "windowsElapsedHostMs": 8589.400000333786
+      }
+    ],
+    "readinessGesture": {
+      "id": 1,
+      "pointerId": 2,
+      "downAt": 14216.599999904633,
+      "upAt": 25800.799999952316,
+      "firstGoalAt": 82915.3,
+      "firstIdleAt": 193228.9,
+      "firstPlanAt": 34790.39999985695,
+      "lastCompletedWindowAt": 190344,
+      "goalWindowAt": 78759.20000004768,
+      "repeatedPlans": 5,
+      "notSubmitted": false,
+      "cancelled": false
+    },
+    "liveFIFOProbes": [
+      {
+        "atAfterUPMs": 101746.09999990463,
+        "latestSerial": 5,
+        "fifo": {
+          "requests": 22,
+          "pending": true,
+          "work": true,
+          "frame": 610,
+          "epoch": 0
+        },
+        "asyncOwners": null,
+        "phase": null,
+        "caches": null,
+        "fieldWorkPending": null,
+        "puddle": null
+      },
+      {
+        "atAfterUPMs": 142090.59999990463,
+        "latestSerial": 7,
+        "fifo": {
+          "requests": 9,
+          "pending": true,
+          "work": true
+        },
+        "asyncOwners": 1,
+        "phase": {
+          "generation": 0,
+          "activeLeases": 2,
+          "executing": 0,
+          "transitioning": false,
+          "phase": "solve",
+          "enabled": true
+        },
+        "caches": [
+          {
+            "active": true,
+            "budget": 125829120,
+            "resident": 121372672,
+            "buffers": 244,
+            "pins": 0
+          }
+        ],
+        "fieldWorkPending": false,
+        "puddle": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 1,
+          "residentLayers": 1,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 7,
+          "pending": true,
+          "revisions": [
+            {
+              "epoch": 2,
+              "ready": true,
+              "active": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "stopQualification": "Rootrequestedboundedstopwhilefirstgesturewasrunning. It naturally reachedfullidle167.44s beforestopcommand; runnerstartedsecondgenuineDOWN and wasabortedwithfinallyUP/contextdispose. Secondtail/thirdgesture NOTvalidated. No3gesturePASS.",
+  "secondGestureAcceptedBeforeAbort": {
+    "stroke": true,
+    "epochs": [
+      1
+    ],
+    "locked": false,
+    "wcAsyncError": "",
+    "pointerActive": true
+  },
+  "stageQualification": "Stage spans elapsed browser wall including RAF/queued work/GPUdriverwait; activehostnested, do notsum together. Plan event is AFTER reference-done, not beforecapture.",
+  "conclusion": "~169s category reproduced as real repeatedwhole-goal work afterownershiperrorfix. Thisdoesnotprove theexactoriginal169313ms usertab cause. Firstmaterialgoal57.13s wasnotfullengineidle; canonicalFIFOremainedqueued (22at101.75s;9at142.09s).",
+  "validation": "Bothownedrunners node--check0. NativeactualSamsungGPU; rootCPU/tsc reportsseparate, noextraCPUtestclaimhere.",
+  "remainingResources": "Measuredcontexts disposed. Ownbootstrap cleanupfollowsbefore799GPU; owned19336/15485maps keptregisteredforimmediatefollowup, TTL23:07. Protected17fixtures/auth andservices/USERCustomTab untouched."
+}
