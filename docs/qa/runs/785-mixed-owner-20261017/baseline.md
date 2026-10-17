@@ -18,3 +18,14 @@ shared field не может передаваться M70 до завершен�
 Это доказывает допустимый mixed-history сценарий разныхслоёв, не объясняет
 автоматически исторический all-M70prefix #785/старыйCP8 и не закрывает его RCA.
 Runtime исправление в этом baseline отсутствует.
+
+## Узкий кандидат после baseline
+
+Baseline сохранён коммитом e8aa1a1e. В последующем кандидате regression стал
+обычным положительным тестом: три публичных engine пути проверяют RAF,
+синхронное canonicalTiles и close. Async scheduler сохраняет dirty до окончания
+legacy continuation; синхронные barriers сначала вызывают внутренний drain,
+затем заново ищут material target. Повторные canonical/close не запускают goal
+вторично; журнал обоих материалов остаётся неизменным. Native exclusive-owner
+assertion остаётся включённым. Это не утверждение о native RGBA или причине
+старого all-M70 случая.
