@@ -24,7 +24,7 @@ export function fittedViewport(area:FitRect,canvas:{width:number;height:number},
  * with what is on screen; no camera movement merely because a panel toggled. */
 export function readFitArea(viewport:HTMLElement):FitRect {
  const view=viewport.getBoundingClientRect(),overlays:FitOverlay[]=[]
- const root=viewport.parentElement
+ const root=viewport.closest<HTMLElement>('[data-canvas-fit-root]')??viewport.parentElement
  for(const node of root?.querySelectorAll<HTMLElement>('[data-canvas-fit-edge]')??[]){
   if(node.dataset.canvasFitHidden==='true')continue
   const edge=node.dataset.canvasFitEdge

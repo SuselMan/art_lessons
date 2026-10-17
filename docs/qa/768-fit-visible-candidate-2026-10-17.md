@@ -24,7 +24,7 @@ Rotation lock сохраняет угол; fitZoom по-прежнему бер�
 Если docked chrome целиком закрыл viewport, сохраняется прежний full-viewport
 reset, вместо zero/negative/NaN zoom: невидимой свободной области не существует.
 
-Проверка:46unit в fitArea/cameraMath, включая landscape corners, rotated
+Проверка:47unit в fitArea/cameraMath, включая landscape corners, rotated
 bbox, минимальную полосу, overlappingdock, offsetviewport и hiddenDOMadapter.
 Web typecheck, scoped oxlint --fix и git diff --check — PASS. Реального браузерного
 скриншота здесь ещё нет: это candidate, не аппаратно подтверждённый UI fix.
@@ -34,3 +34,9 @@ sidebarcollapsed/Fit; minimalquicksettings/Fit; locked45°/Fit; compact390px;
 infinite reset; keyboard zoom и смена инструмента без самопроизвольного Fit.
 Новые services/contexts/fixtures не создавались. Сохранён isolated worktree
 и совместимые per-entry dependency links; shared output локальный build-кеш.
+
+Аппаратная quarterturn-проверка нашла пропущенный header: он sibling body,
+поэтому сканировать только viewport.parentElement недостаточно. Исправление
+помечает outereditor data-canvas-fit-root и берёт closestroot; regression
+моделирует header вне immediatebody и проверяет верхнюю границу при90°.
+47unitPASS, scopedlintfix: только прежний Room useEffectdeps warning.

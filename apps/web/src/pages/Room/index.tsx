@@ -1469,6 +1469,7 @@ function RoomEditor() {
   return (
     <div
       ref={editorRef}
+      data-canvas-fit-root
       className={styles.editor}
       // #102: on a pen+touch tablet, a hand resting on the screen while
       // slowly dragging a slider/stroke can be read by the OS as "press and
