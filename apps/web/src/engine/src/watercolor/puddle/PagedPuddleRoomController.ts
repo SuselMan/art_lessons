@@ -1,3 +1,4 @@
+import { presentationRegion, unionPresentationRegion, regionIsFull, renderPuddleRegion, type PresentationRegion, type PresentationBounds } from './PuddlePresentationRegion'
 import {WATERCOLOR_WET_DRY_MS, type Dab} from '@grafetto/shared'
 import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
 import type {ILayerBuffer, PaintTarget} from '../../buffers/ILayerBuffer'
@@ -32,6 +33,8 @@ interface Layer {
 }
 type ParkedLayer = Pick<Layer, 'target'|'gesture'|'previous'|'timestamp'|'boundary'|'epoch'>
 interface TileState {
+  shownDirty: boolean
+  region: PresentationRegion
   tile: PaintTarget
   raw: AccumulationBuffer
   next: AccumulationBuffer
@@ -48,6 +51,10 @@ export interface PagedPuddleSolver {
   destroy(): void
 }
 export interface PagedPuddleRoomHost extends PuddleRoomHost {
+  /** Opt-in proof: current raw painting lies inside these world bounds and
+   * canonical output outside retained raw support equals the dry substrate.
+   * Unknown/foreign/historical inputs return null and retain whole tiles. */
+  presentationBounds?(scratch: RibbonStrokeScratch, context: Context): PresentationBounds | null
   createSolver(): PagedPuddleSolver
   makeBuffer?(width: number, height: number, filter?: 'linear' | 'nearest'): AccumulationBuffer
 }
@@ -158,9 +165,9 @@ export class PagedPuddleRoomController {
       if(layer.context)for(const tile of target.allResident()) {
         const entry=scratch.peek(tile.buffer)
         if(!entry?.inkLoad || !entry.inkColor)continue
-        const state=this.ensureTile(layer,tile)
-        this.host.render(scratch,tile,layer.context,state.raw,{p:entry.inkLoad,c:entry.inkColor,coverage:entry.coverage})
-        state.presentation.reset(tile.buffer,layer.epoch)
+        const state=this.ensureTile(layer,tile,this.region(layer,tile,layer.context))
+        this.render(layer,state,layer.context,state.raw,{p:entry.inkLoad,c:entry.inkColor,coverage:entry.coverage})
+        this.resetPresentation(state,tile.buffer,layer.epoch)
       }
     } catch(error) {
       scratch.destroy(); this.destroyTiles(layer); throw error
@@ -244,18 +251,47 @@ export class PagedPuddleRoomController {
   private makeBuffer(width:number,height:number,filter:'linear'|'nearest'='linear'):AccumulationBuffer {
     return this.host.makeBuffer?.(width,height,filter) ?? new AccumulationBuffer(this.host.gl,width,height,filter)
   }
-  private ensureTile(layer:Layer,tile:PaintTarget):TileState {
+  private region(layer: Layer, tile: PaintTarget, context: Context): PresentationRegion {
+    const bounds=layer.scratch.retainedInputBounds
+    if(!this.host.presentationBounds?.(layer.scratch,context) || !bounds)return {x:0,y:0,width:tile.buffer.width,height:tile.buffer.height}
+    return presentationRegion(tile,bounds) ?? {x:0,y:0,width:tile.buffer.width,height:tile.buffer.height}
+  }
+  private crop(source:AccumulationBuffer,destination:AccumulationBuffer,region:PresentationRegion):void {
+    if(regionIsFull(region,source))source.copyTo(destination)
+    else source.copyRegionInto(destination,region.x,region.y,0,0,region.width,region.height)
+  }
+  private render(layer:Layer,state:TileState,context:Context,out:AccumulationBuffer,material:Material):void {
+    if(regionIsFull(state.region,state.tile.buffer))this.host.render(layer.scratch,state.tile,context,out,material)
+    else renderPuddleRegion(this.host,layer.scratch,state.tile,context,out,material,state.region)
+  }
+  private resetPresentation(state:TileState,source:AccumulationBuffer,epoch:number):void {
+    if(source.width===state.region.width && source.height===state.region.height)state.presentation.reset(source,epoch)
+    else {this.crop(source,state.next,state.region);state.presentation.reset(state.next,epoch)}
+    state.shownDirty=true
+  }
+  private ensureTile(layer:Layer,tile:PaintTarget,requested:PresentationRegion={x:0,y:0,width:tile.buffer.width,height:tile.buffer.height}):TileState {
     const existing=layer.tiles.get(tile.buffer)
-    if(existing)return existing
+    const region=existing?unionPresentationRegion(existing.region,requested):requested
+    if(existing && Object.keys(region).every(key=>region[key as keyof PresentationRegion]===existing.region[key as keyof PresentationRegion]))return existing
     const allocated:AccumulationBuffer[]=[]
-    const make=()=>{const b=this.makeBuffer(tile.buffer.width,tile.buffer.height);allocated.push(b);return b}
+    const make=(w:number,h:number)=>{const b=this.makeBuffer(w,h);allocated.push(b);return b}
     let presentation:Presentation|undefined
     try {
-      const raw=make(),next=make(),goal=make()
-      presentation=createPuddlePresentation(this.host.gl,{width:tile.buffer.width,height:tile.buffer.height},
+      const raw=make(region.width,region.height),next=make(region.width,region.height)
+      const goal=existing?.goal ?? make(tile.buffer.width,tile.buffer.height)
+      presentation=createPuddlePresentation(this.host.gl,{width:region.width,height:region.height},
         {smoothArrival:true,bufferFactory:(w,h,filter)=>this.makeBuffer(w,h,filter)})
-      const state={tile,raw,next,goal,presentation}
+      if(existing){
+        const original=layer.scratch.peek(tile.buffer)!.original
+        this.crop(original,raw,region);this.crop(original,next,region)
+        existing.raw.copyRegionInto(raw,0,0,existing.region.x-region.x,existing.region.y-region.y,existing.region.width,existing.region.height)
+        const shown=existing.presentation.tick(0,{dry:false})
+        shown.copyRegionInto(next,0,0,existing.region.x-region.x,existing.region.y-region.y,existing.region.width,existing.region.height)
+        presentation.reset(next,layer.epoch)
+      }
+      const state={tile,region,raw,next,goal,presentation,shownDirty:true}
       layer.tiles.set(tile.buffer,state)
+      if(existing){existing.raw.destroy();existing.next.destroy();existing.presentation.destroy()}
       return state
     } catch(error) {for(const b of allocated)b.destroy();presentation?.destroy();throw error}
   }
@@ -263,18 +299,23 @@ export class PagedPuddleRoomController {
     const layer=this.find(scratch),context=scratch.finishContext
     if(!layer || !context)return
     const deferred=this.host.deferPresentation?.(layer.target)===true
+    const candidate=this.host.presentationBounds?.(scratch,context)
+    const proof=candidate && Object.values(candidate).every(Number.isFinite) && candidate.maxX>candidate.minX && candidate.maxY>candidate.minY ? candidate : null
+    scratch.noteRetainedInputBounds(proof)
+    const known=!!proof && !!scratch.retainedInputBounds
     let accepted=false
     for(const tile of context.target.allResident()) {
+      if(known && !presentationRegion(tile,proof!,0))continue
       const entry=scratch.peek(tile.buffer)
       if(!entry?.inkLoad || !entry.inkColor)continue
       const fresh=!layer.tiles.has(tile.buffer)
-      const state=this.ensureTile(layer,tile)
+      const state=this.ensureTile(layer,tile,this.region(layer,tile,context))
       accepted=true
-      if(fresh && !deferred){entry.original.copyTo(state.raw);state.presentation.reset(state.raw,layer.epoch)}
+      if(fresh && !deferred){this.crop(entry.original,state.raw,state.region);state.presentation.reset(state.raw,layer.epoch)}
       if(deferred)continue
-      this.host.render(scratch,tile,context,state.next,{p:entry.inkLoad,c:entry.inkColor,coverage:entry.coverage})
+      this.render(layer,state,context,state.next,{p:entry.inkLoad,c:entry.inkColor,coverage:entry.coverage})
       state.presentation.acceptInput(state.raw,state.next,layer.epoch)
-      state.next.copyTo(state.raw)
+      state.next.copyTo(state.raw);state.shownDirty=true
     }
     if(!accepted)return
     layer.context=context;layer.dirty=true;layer.after=performance.now()+60
@@ -306,10 +347,18 @@ export class PagedPuddleRoomController {
   private complete(layer: Layer): void {
     if (!layer.tiles.size || !layer.context) return
     this.solver.dry()
-    for(const state of layer.tiles.values()) {
+    for(const previous of [...layer.tiles.values()]) {
+      const state=this.ensureTile(layer,previous.tile,this.region(layer,previous.tile,layer.context))
       const material=this.solver.buffers(state.tile)
       this.host.render(layer.scratch,state.tile,layer.context,state.goal,material)
-      if(!this.host.deferPresentation?.(layer.target))state.presentation.setTarget(state.goal,material.coverage,layer.epoch)
+      if(!this.host.deferPresentation?.(layer.target)){
+        if(regionIsFull(state.region,state.tile.buffer))state.presentation.setTarget(state.goal,material.coverage,layer.epoch)
+        else {
+          const coverage=this.host.pool.acquire(state.region.width,state.region.height)
+          try{this.crop(state.goal,state.next,state.region);this.crop(material.coverage,coverage,state.region);state.presentation.setTarget(state.next,coverage,layer.epoch)}
+          finally{this.host.pool.release(coverage)}
+        }
+      }
     }
     layer.dirty=false;layer.goalReady=true;layer.active=true;layer.started=performance.now()
     if(this.closing.has(layer.target))layer.dryAt=layer.started
@@ -331,7 +380,7 @@ export class PagedPuddleRoomController {
     let moving=false
     for (const layer of this.layers.values()) if (layer.active) {
       const progress=morphProgress(at-layer.started+(layer.dryAt===undefined?0:99*Math.max(0,at-layer.dryAt)),120000)
-      for(const state of layer.tiles.values())state.presentation.tick(16,{dry:false,progress})
+      for(const state of layer.tiles.values()){state.presentation.tick(16,{dry:false,progress});state.shownDirty=true}
       layer.presentationDirty=true
       this.present(layer)
       if (progress>=1) {
@@ -350,7 +399,13 @@ export class PagedPuddleRoomController {
   private present(layer: Layer): void {
     if(!layer.tiles.size || !layer.context || !layer.presentationDirty || this.host.deferPresentation?.(layer.target))return
     layer.presentationDirty=false
-    for(const state of layer.tiles.values())state.presentation.tick(0,{dry:false}).copyTo(state.tile.buffer)
+    for(const state of layer.tiles.values()){
+      if(!state.shownDirty)continue
+      const shown=state.presentation.tick(0,{dry:false})
+      if(regionIsFull(state.region,state.tile.buffer))shown.copyTo(state.tile.buffer)
+      else shown.copyRegionInto(state.tile.buffer,0,0,state.region.x,state.region.y,state.region.width,state.region.height)
+      state.shownDirty=false
+    }
     this.host.changed(layer.target)
   }
   resumePresentation(target: ILayerBuffer): void {
@@ -359,8 +414,8 @@ export class PagedPuddleRoomController {
     layer.deferredPresentation=false
     for(const state of layer.tiles.values()) {
       const entry=layer.scratch.peek(state.tile.buffer)!
-      this.host.render(layer.scratch,state.tile,layer.context,state.raw,{p:entry.inkLoad!,c:entry.inkColor!,coverage:entry.coverage})
-      state.presentation.reset(layer.goalReady && !layer.dirty ? state.goal : state.raw,layer.epoch)
+      this.render(layer,state,layer.context,state.raw,{p:entry.inkLoad!,c:entry.inkColor!,coverage:entry.coverage})
+      this.resetPresentation(state,layer.goalReady && !layer.dirty ? state.goal : state.raw,layer.epoch)
     }
     if(layer.goalReady && !layer.dirty)layer.active=false
     layer.presentationDirty=true;this.present(layer);this.request()
@@ -390,8 +445,9 @@ export class PagedPuddleRoomController {
       paint(entry.original,state.tile)
       if(this.host.deferPresentation?.(target))layer.deferredPresentation=true
       else {
-        this.host.render(layer.scratch,state.tile,layer.context,state.raw,{p:entry.inkLoad,c:entry.inkColor,coverage:entry.coverage})
-        state.presentation.reset(state.raw,layer.epoch)
+        if(!regionIsFull(state.region,state.tile.buffer))entry.original.copyTo(state.tile.buffer)
+        this.render(layer,state,layer.context,state.raw,{p:entry.inkLoad,c:entry.inkColor,coverage:entry.coverage})
+        state.presentation.reset(state.raw,layer.epoch);state.shownDirty=true
       }
     }
     layer.presentationDirty = true

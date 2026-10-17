@@ -1723,6 +1723,9 @@ export class PencilEngine implements PencilEngineAPI {
     if(!large)return this._puddle=new PuddleRoomController(host)
     let controller:PagedPuddleRoomController
     try{controller=new PagedPuddleRoomController({...host,makeBuffer:make,
+      // RAW reachBounds includes brush/composite reads. Foreign-water donors
+      // can extend beyond it; retain whole tiles until their bounds are proven.
+      presentationBounds:(scratch,context)=>scratch.foreignSources?.length || scratch.foreignImportedGestures.size ? null : context.bounds,
       createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make)})}
     catch(error){try{settlePlan.destroyTextures()}finally{try{pool.destroy()}finally{cache!.dispose()}}throw error}
     const destroy=controller.destroy.bind(controller)

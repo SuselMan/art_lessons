@@ -142,6 +142,23 @@ export class RibbonStrokeScratch {
   // of its empty exterior and must be kept whole.
   private _storageBounds: ScratchBounds | null | undefined = null
 
+  /** Proven raw-input support for the wet epoch; undefined means unknown.
+   * Separate from solver storageBounds, whose halo can be much larger. */
+  private _retainedInputBounds: ScratchBounds | null | undefined = null
+  get retainedInputBounds(): ScratchBounds | null | undefined {
+    return this._retainedInputBounds ? { ...this._retainedInputBounds } : this._retainedInputBounds
+  }
+  noteRetainedInputBounds(bounds: ScratchBounds | null): void {
+    const old = this._retainedInputBounds
+    if (!bounds) { this._retainedInputBounds = undefined; return }
+    if (old === undefined) return
+    this._retainedInputBounds = old ? {
+      minX: Math.min(old.minX, bounds.minX), minY: Math.min(old.minY, bounds.minY),
+      maxX: Math.max(old.maxX, bounds.maxX), maxY: Math.max(old.maxY, bounds.maxY),
+    } : { ...bounds }
+  }
+
+
   noteStorageBounds(bounds: ScratchBounds): void {
     const old = this._storageBounds
     if (old === undefined) return
@@ -637,6 +654,7 @@ export class RibbonStrokeScratch {
   destroy(): void {
     this._materialGesture = null
     this._storageBounds = null
+    this._retainedInputBounds = null
     this._waterUsed = 0
     this._pigmentUsed = 0
     this.diffusePending = false
@@ -778,6 +796,7 @@ export class RibbonStrokeScratch {
     return {
       needsInk: this.needsInk, needsColor: this.needsColor,
       storageBounds: this._storageBounds ? { ...this._storageBounds } : this._storageBounds,
+      retainedInputBounds: this.retainedInputBounds,
       paints: [...this.paints], waterUsed: this._waterUsed, pigmentUsed: this._pigmentUsed,
       composite: this._composite ? { ...this._composite, fieldSeed: [...this._composite.fieldSeed] } : null,
       dabSpacing: this._dabSpacing, brushEdgePx: this._brushEdgePx, dir: [...this._dir], dirSet: this._dirSet,
@@ -795,6 +814,7 @@ export class RibbonStrokeScratch {
     this.pigmentInputsKnownZero = false
 
     this._storageBounds = snap.storageBounds ? { ...snap.storageBounds } : snap.storageBounds
+    this._retainedInputBounds = snap.retainedInputBounds ? { ...snap.retainedInputBounds } : snap.retainedInputBounds
     for (const p of snap.paints) this.paints.add(p)
     this._waterUsed = snap.waterUsed
     this._pigmentUsed = snap.pigmentUsed
@@ -999,6 +1019,7 @@ export function freeScratchSnapshot(snap: ScratchSnapshot): void {
 /** (#536, §17.56) Every number of a RibbonStrokeScratch the next operation
  *  of its wash reads. */
 interface ScratchScalars {
+  retainedInputBounds?: ScratchBounds | null
   storageBounds?: ScratchBounds | null
   needsInk: boolean; needsColor: boolean
   paints: string[]; waterUsed: number; pigmentUsed: number
