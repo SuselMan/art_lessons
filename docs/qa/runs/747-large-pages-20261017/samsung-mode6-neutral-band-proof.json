@@ -1,0 +1,102 @@
+{
+  "source": "3ee37518",
+  "controls": "front highp+round / mode11 highp-only / mode6 highp+ROUND_RGBA+NEUTRAL_RIM_PATCH; forced identical Contrast reference",
+  "samsungSHA": "c51e4f1d235c9bb4b5025670d57c1a69a2761132019c287540b6017017b98fef",
+  "intelSHA": "c51e4f1d235c9bb4b5025670d57c1a69a2761132019c287540b6017017b98fef",
+  "sameInputHashes": true,
+  "channels": [
+    {
+      "channel": "R",
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "channel": "G",
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "channel": "B",
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "channel": "A",
+      "changed": 0,
+      "max": 0
+    }
+  ],
+  "mode6Highp": {
+    "requested": true,
+    "explicitRoundRGBA": true,
+    "neutralRimPatch": true,
+    "outputAnchorCount": 1,
+    "rimAnchorCount": 1,
+    "samplerCount": 6,
+    "originalSHA": "b53ec815e0e503925fa25ec9ac2f7105d6d79dd102a36dfa9f68953ae68c2461",
+    "patchedSHA": "62a597b0a2375bf8598be940c920f5c8861cf997f1b3b0a6c8775a1dde855722",
+    "selectedCalls": 10,
+    "otherCalls": 576,
+    "initializedBaseline": true,
+    "restoration": {
+      "wrapperExact": true,
+      "cacheExact": true,
+      "cacheDescriptorRestored": true,
+      "deletedOwnedProgram": true
+    },
+    "uniformKeys": [
+      "u_a",
+      "u_b",
+      "u_c",
+      "u_k",
+      "u_mode",
+      "u_tau",
+      "u_dir",
+      "u_d",
+      "u_origin",
+      "u_size",
+      "u_band",
+      "u_world",
+      "u_mode6Resolution",
+      "u_mode6DirPx",
+      "u_mode6DiscreteGrid"
+    ]
+  },
+  "all10SameGPUZero": true,
+  "finalDiffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "496a90d8fa9a1e5cc3ac4197a6c509978d0a9b28575635247b242162a092987e",
+      "referenceHash": "496a90d8fa9a1e5cc3ac4197a6c509978d0a9b28575635247b242162a092987e"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "d9d64e016845eaa6b5266a390a090241fa878b504be81e83f735074144b99d92",
+      "referenceHash": "d9d64e016845eaa6b5266a390a090241fa878b504be81e83f735074144b99d92"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+    }
+  },
+  "gl": [
+    0,
+    0
+  ],
+  "errors": [],
+  "restoration": {
+    "ownershipExact": true,
+    "restored": true
+  },
+  "qualification": "Temporary QA diagnostic removes artistic rim noise; NOT product candidate or preserved old target. This boundary does not prove full downstream parity."
+}
