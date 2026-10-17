@@ -1,0 +1,159 @@
+{
+  "source": "d32f8e66",
+  "result": "INCONCLUSIVE: transport gate never held B ACK; stale-ACK behavior not exercised",
+  "device": "Native AMD Vega; real UI owner and fresh guest attempts",
+  "sourceModified": false,
+  "cases": [
+    {
+      "name": "783-native-board-race-gate2",
+      "diagnostic": {
+        "board": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+        "gate": {
+          "enabled": true,
+          "target": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+          "prefix": "436[",
+          "held": 0,
+          "requests": [
+            {
+              "connection": 2,
+              "ack": "5",
+              "room": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+              "at": 7527.600000023842
+            },
+            {
+              "connection": 2,
+              "ack": "6",
+              "room": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+              "at": 10457.800000011921
+            }
+          ],
+          "acks": [
+            {
+              "connection": 2,
+              "ack": "4",
+              "keys": [],
+              "at": 6296.9000000059605
+            },
+            {
+              "connection": 2,
+              "ack": "5",
+              "room": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+              "ok": true,
+              "keys": [
+                "ok",
+                "userId"
+              ],
+              "at": 7738.600000023842
+            },
+            {
+              "connection": 3,
+              "ack": "3",
+              "keys": [],
+              "at": 11246.700000017881
+            },
+            {
+              "connection": 3,
+              "ack": "4",
+              "keys": [],
+              "at": 11283.200000017881
+            },
+            {
+              "connection": 3,
+              "ack": "5",
+              "keys": [],
+              "at": 11396.300000011921
+            }
+          ],
+          "pending": [],
+          "connections": 3,
+          "targetConnection": 2
+        },
+        "boards": []
+      },
+      "failure": "page.waitForFunction: Timeout 10000ms exceeded.\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/board-join-race.cjs:15:113",
+      "pageErrors": []
+    },
+    {
+      "name": "783-native-board-race-guest",
+      "diagnostic": {
+        "board": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+        "gate": {
+          "enabled": true,
+          "target": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+          "prefix": "436[",
+          "held": 0,
+          "requests": [
+            {
+              "connection": 2,
+              "ack": "5",
+              "room": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+              "at": 8403.300000011921
+            },
+            {
+              "connection": 2,
+              "ack": "6",
+              "room": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+              "at": 10981.800000011921
+            }
+          ],
+          "acks": [
+            {
+              "connection": 2,
+              "ack": "3",
+              "keys": [],
+              "at": 7066
+            },
+            {
+              "connection": 2,
+              "ack": "4",
+              "keys": [],
+              "at": 7167.200000017881
+            },
+            {
+              "connection": 2,
+              "ack": "5",
+              "room": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+              "ok": true,
+              "keys": [
+                "ok",
+                "userId"
+              ],
+              "at": 8646.90000000596
+            },
+            {
+              "connection": 3,
+              "ack": "2",
+              "keys": [],
+              "at": 11378.5
+            },
+            {
+              "connection": 3,
+              "ack": "3",
+              "keys": [],
+              "at": 11431
+            },
+            {
+              "connection": 3,
+              "ack": "4",
+              "keys": [],
+              "at": 11461.800000011921
+            },
+            {
+              "connection": 3,
+              "ack": "5",
+              "keys": [],
+              "at": 11493.700000017881
+            }
+          ],
+          "pending": [],
+          "connections": 3,
+          "targetConnection": 2
+        },
+        "boards": []
+      },
+      "failure": "page.waitForFunction: Timeout 10000ms exceeded.\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/board-join-race.cjs:15:113",
+      "pageErrors": []
+    }
+  ],
+  "resources": "Owned browser contexts closed; common owned Chrome/tunnel retained. Root annotation fixture retained."
+}
