@@ -1,0 +1,73 @@
+{
+  "qualification": "CPU-only QA-helper proof; defaultOFF; no GPU/performance claim",
+  "helperSHA": "8c7236013e872a6d93b28deb72229d6317ef8e1c86368aaa3a2f99250471e10c",
+  "externalManifestSHA": "0be5b91c5519100f76872ddd456463921537ff45e5ef4f1426c6c349652bf703",
+  "tests": {
+    "nodeTests": 11,
+    "actualTests": 29,
+    "gpuRuns": 0
+  },
+  "actualPlan": {
+    "false": {
+      "draws": 199,
+      "clears": 199,
+      "prefixDraws": 16,
+      "roles": {
+        "0,0,0,0": 132,
+        "0,0,0,1": 23,
+        "1,0,0,1": 28,
+        "1,1,1,1": 16
+      },
+      "pixelArea": 7335936,
+      "fullArea": 208666624,
+      "stateSnapshots": 79,
+      "hookedPrototypes": 2,
+      "runs": 79,
+      "restoreOwnershipExact": true,
+      "restoredPrototypes": 2,
+      "detaches": 79,
+      "clearArea": 208666624,
+      "disposed": true
+    },
+    "true": {
+      "draws": 199,
+      "clears": 31,
+      "prefixDraws": 16,
+      "roles": {
+        "0,0,0,0": 132,
+        "0,0,0,1": 23,
+        "1,0,0,1": 28,
+        "1,1,1,1": 16
+      },
+      "pixelArea": 7335936,
+      "fullArea": 208666624,
+      "stateSnapshots": 79,
+      "hookedPrototypes": 2,
+      "runs": 79,
+      "outsideInvalidations": 29,
+      "restoreOwnershipExact": true,
+      "restoredPrototypes": 2,
+      "detaches": 79,
+      "clearArea": 32505856,
+      "skippedClears": 168,
+      "disposed": true
+    }
+  },
+  "auditedSourceSHA": {
+    "apps/web/src/engine/src/buffers/AccumulationBuffer.ts": "c2ec3b5f996f1102d58b18f936361afcb5eede9e57bb7cba9663aeda92d99e47",
+    "apps/web/src/engine/src/buffers/BufferResidency.ts": "47355bd5d8c0060ab85eaa5acebcb0a1152a2de056293772a9dd23552af7ce64",
+    "apps/web/src/engine/src/buffers/SettleField.ts": "28126f169e6045e2d2e2bb80d1d21c32aa53856dada27abb80053c788132be92",
+    "apps/web/src/engine/src/raster/WatercolorFrontPaths.ts": "5715f547d834465abc5153e6516b18f3c6cfeb98346adb5fe87ed9f9fa92cf22",
+    "apps/web/src/engine/src/raster/WatercolorPasses.ts": "eb23f10e70ca8086e8f7da235a0abb90e3f3f06ab8397a47c745d377b94f4e10",
+    "apps/web/src/engine/src/raster/WatercolorSettlePlan.ts": "67c5e48da59acca27fe078c27632105768a9191f380d1fb195c409eb1ab8c7da",
+    "apps/web/src/engine/src/watercolor/puddle/PuddleTarget.ts": "8f4a61f4786476afb1e2c5965df81b07422cd5fd1b052a26e6f51c18dde88538",
+    "apps/web/src/engine/index.ts": "781358669883a714ef3d4ca87aba7e70cd44bb358c1cb5b237f123256b393798"
+  },
+  "testFileSHA": {
+    "outside.test.cjs": "a5b99ead171666cd627963e6b13073ceccfc9fb3adac66d00786b5507e76012e",
+    "tests.log": "86823eec6063d2a3565bc24bc2f2597bd70835c1fc54a7e4367a7bbb0e4af254",
+    "actual-writers.test.ts": "940f1da21150ba083232b2d55e4df3773c8c3695fbbb08e2cedec7e7c0870ba3",
+    "actual-schedule.test.ts": "900985cb0d79acc00066a4ef7e480c5d10dbd0fe8fd615756f179cf17eba9629",
+    "actual-tests.log": "506c503495eb29e1dc3f8c31c06a7c34d211a905c197f2834fb13e6ab97966f3"
+  }
+}
