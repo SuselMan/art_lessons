@@ -1,0 +1,16 @@
+{
+  "resourceId": "puddle-747-native-gate-20261017",
+  "finishedAt": "2026-10-17T12:10:26.278328+00:00",
+  "tool": "qa-cleanup.py finish",
+  "result": "removed",
+  "previousInventory": {
+    "files": 196,
+    "bytes": 20271597
+  },
+  "oldPathAbsent": true,
+  "newCachePreserved": true,
+  "scope": "Only registered old disposable cache; no fixture API deletes, no worktree/service/new-cache cleanup",
+  "inventoryProofCommit": "f8348358",
+  "newFixturesPreserved": 14,
+  "protectedResources": "NEW credentials, rooms, worktrees and services preserved; no room deletion API calls."
+}

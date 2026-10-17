@@ -1,0 +1,133 @@
+{
+  "source": "e562d496",
+  "qualification": "QA combined native-front highp+round, forced identical Contrast reference; mode11 output captured after original draw before home copy. No production change.",
+  "samsungSHA": "69c8204af43e5a045e130cd74ec954acdf83cfdff6240a1a994d481d1d5b64b3",
+  "intelSHA": "e0c3e4d6168fc34d3bca93490b026d9a16eeb111023b18053923ad37f2f8e2ad",
+  "sameInputHashes": true,
+  "capture": {
+    "name": "coverage:mode11",
+    "width": 2048,
+    "height": 1536,
+    "bytes": 12582912,
+    "filter": "nearest",
+    "pointSampling": false,
+    "mode11": {
+      "mode": 11,
+      "k": 1,
+      "band": [
+        0.96,
+        0
+      ],
+      "size": [
+        0.01,
+        1
+      ],
+      "aIsCoverage": true,
+      "bIsCoverage": true,
+      "dIsPressure": true,
+      "outIsCoverage": false,
+      "timing": "after-original-before-home-copy"
+    },
+    "sha256": "69c8204af43e5a045e130cd74ec954acdf83cfdff6240a1a994d481d1d5b64b3"
+  },
+  "channels": [
+    {
+      "channel": "R",
+      "changed": 398,
+      "max": 2,
+      "signedMin": -2,
+      "signedMax": -1
+    },
+    {
+      "channel": "G",
+      "changed": 0,
+      "max": 0,
+      "signedMin": 0,
+      "signedMax": 0
+    },
+    {
+      "channel": "B",
+      "changed": 398,
+      "max": 6,
+      "signedMin": -6,
+      "signedMax": -2
+    },
+    {
+      "channel": "A",
+      "changed": 398,
+      "max": 6,
+      "signedMin": -6,
+      "signedMax": -2
+    }
+  ],
+  "first": [
+    {
+      "x": 1233,
+      "y": 1211,
+      "channel": "R",
+      "samsung": 124,
+      "intel": 125
+    },
+    {
+      "x": 1233,
+      "y": 1211,
+      "channel": "B",
+      "samsung": 249,
+      "intel": 251
+    },
+    {
+      "x": 1233,
+      "y": 1211,
+      "channel": "A",
+      "samsung": 249,
+      "intel": 251
+    },
+    {
+      "x": 1989,
+      "y": 1217,
+      "channel": "R",
+      "samsung": 5,
+      "intel": 7
+    },
+    {
+      "x": 1989,
+      "y": 1217,
+      "channel": "B",
+      "samsung": 11,
+      "intel": 13
+    },
+    {
+      "x": 1989,
+      "y": 1217,
+      "channel": "A",
+      "samsung": 11,
+      "intel": 13
+    },
+    {
+      "x": 1988,
+      "y": 1218,
+      "channel": "R",
+      "samsung": 5,
+      "intel": 7
+    },
+    {
+      "x": 1988,
+      "y": 1218,
+      "channel": "B",
+      "samsung": 11,
+      "intel": 13
+    }
+  ],
+  "all10SameGPUStageDiffsZero": true,
+  "allFinalSameGPUDiffsZero": true,
+  "gl": [
+    0,
+    0
+  ],
+  "restoration": {
+    "ownershipExact": true,
+    "restored": true
+  },
+  "errors": [],
+  "conclusion": "Cross-GPU divergence exists at mode11 output before home-copy; identical pressure/mask from prior probes do not establish identical mode11 coverage input. No claim of shader root cause."
+}
