@@ -17,4 +17,4 @@
 
 Частичная видимость отслеживалась _display+2RAF, не screenshot. Для1000 first-visible proxy8.915/8.333с documenttime при submit7.665/7.125с. Полная каноническая готовность наступает позже. Longtasks/maxblock не записаны. Shared QA нагрузка, один прогон на случай: не isolated benchmark.
 
-Cleanup: все6ownedroomsDELETE200, browsercontexts/sockets закрыты finally, исходная вкладка восстановлена, private auth удалён. Только собственный SSH PID4057604/session96718 остановлен; remote9235 и пользовательский Chrome не затронуты. Battery100%AC38.3→38.2°C. Сырой disposable cache `745-samsung-longwet-20261017` сохранён только до guarded finish: unprivileged finish вернул `protected: active process`; root запрошен на штатный privileged finish.
+Cleanup: все6ownedroomsDELETE200, browsercontexts/sockets закрыты finally, исходная вкладка восстановлена, private auth удалён. Только собственный SSH PID4057604/session96718 остановлен; remote9235 и пользовательский Chrome не затронуты. Battery100%AC38.3→38.2°C. Сырой disposable cache `745-samsung-longwet-20261017` удалён штатным privileged guarded finish после сохранения результатов; registry ownership восстановлен.

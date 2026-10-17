@@ -33,18 +33,25 @@ CPU69targeted+10000graphprefixesPASS; аппаратный повтор Dry/clea
 Отдельный opt-in prototype прошёл restart/atomicity tests, но старые вкладки,
 crash window и cross-batch mapping пока исключают незаметное внедрение.
 
-## Текущая проверка: 06:08
+## Текущая проверка: 06:19
 
-Работа продолжается. Лимит: **53% использовано, 47% осталось** (06:00),
+Работа продолжается. Лимит: **54% использовано, 46% осталось** (06:10),
 один reset не использован. Production и push не выполнялись.
 
 **QA runtime6cd49722:** все исправления780–784 плюс защита мокрой M70 от
-legacy carried checkpoint. Backend4558 PID4040793 остаётся на проверенном784;
-последняя правка только в клиенте.30целевыхтестов, fulltypecheck всехworkspace,
+legacy carried checkpoint. Backend4558 PID4062231 на проверенном786, health/dbup после
+согласованного окна между GPU-прогонами; frontend физики остаётся6cd.30целевыхтестов, fulltypecheck всехworkspace,
 lint/map1123 PASS. Полный engine с одним worker завершён: **231 файл,
 2253 теста PASS**,337,35с. Полный Room:70файлов,673PASS и4expectedFAIL
 по открытым777/778,47,37с. Аппаратные post-fix B1/B8/full100 выполняются;
-их результат не объявляем заранее.
+B1 уже PASS на точном прежнем порядке: Bseq11,10A до/40A после,
+удержание320,7мс,50уникальныхпопыток/0retry. API51payloads совпали,
+actualcanonical обоих == fullreplay,0diff/GL0/pageerrors0. B8 и full100 также PASS с Bseq11/0retry. Следующаявода/Undo/Redo,
+WETcoldC(hasMaterialtrue), ещёwaterC109, Dry110 у всех3 и drycoldA —
+actualBEFOREfullAPIoracle точны, GL0/pageerrors0. Дваwatercolorfloat
+local/API отличаются~5e-17 внулевомпигменте; это явно сохранённое
+ограничение payload byte-equality, oracle не округлялся.
+Подробности:752-postfix-native-comparison.json.
 
 **Подтверждённый #752 CP8:** A50/B0 точен, хотя ordinaryCP8 уже создан.
 Один чужой Bseq11 обгоняет40pendingA: авторA получает5390channels/max37diff,
@@ -54,6 +61,20 @@ Coverage/jobs/queues/unsettled пусты, полные ID/effective/contenthash
 Новый кандидат запрещает создание и повторное использование такого carriedCP;
 legacycarry, purepencil и provedclosedM70 сохранены. Старое редкое наблюдение
 5байтов послеclosedDry автоматически закрытым не считаем.
+
+**#787 — загрузка длинной мокрой истории Samsung:**6/6 точных сравнений
+normal/review на100/300/1000мазках PASS. При1000 внутренний replay
+12,816/12,836с, RoomOpen ready13,647/13,616с. Частичная видимость раньше;
+maxmainthreadblock не измерялся. Это отдельная подтверждённая задержка,
+а не ошибка сходимости. Recordedspan≈30мин, не30мин реального ожидания.
+Все6комнат/auth/контекстов/ownforward/rawcache удалены штатно.
+
+**#786 — поздняя эвакуация удаляемой доски:** два baseline FAIL на настоящем
+Socket.IO: отключившийся клиент возвращается ghost-участником; уже перешедший
+на C клиент возвращается на main, и его следующая сушка записывается на main.
+Локальный фикс прошёл72целевыхтеста,servertsc/lint; проверка текущего
+live socket/board/lesson послеawait. Интегрирован3ea7f03c послеEND обоихGPU, root повтор72/72PASS;
+QA backend перезапущен, production не затронут.
 
 **#785 — отдельное наблюдение ownership:** nativeprefix иногда бросает
 exclusive-settle error ещёДОcacheenable. Три последующих defaultprefixtrace
