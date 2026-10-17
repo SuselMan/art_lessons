@@ -13,8 +13,11 @@ for(const tool of ['marker','smudge'] as const)it(`snapshot replacement during h
   engine.setActiveLayer('L');engine.setTool(tool);engine.setSize(6)
   simulateStrokeStart(engine,5,5);simulateStrokeMove(engine,10,5)
   const pixels=new Uint8Array(32*32*4);pixels[3]=255
-  engine.restoreLayerFromSnapshot('L',[{originX:0,originY:0,width:32,height:32,pixels}],1)
-  expect(deleted.size).toBeGreaterThan(0)
+  const deletionBefore=deleted.size
+  const installation=engine.restoreLayerFromSnapshot('L',[{originX:0,originY:0,width:32,height:32,pixels}],1)
+  expect(deleted.size).toBe(deletionBefore)
   expect(()=>{state._flushLiveComposite();simulateStrokeMove(engine,15,8);state._flushLiveComposite();simulateStrokeEnd(engine,20,8)}).not.toThrow()
+  await installation
+  expect(deleted.size).toBeGreaterThan(deletionBefore)
  }finally{binding.mockRestore();deletion.mockRestore();engine.destroy()}
 })
