@@ -1,0 +1,212 @@
+{
+  "source": "3ee37518+mode6-highp-round-QA",
+  "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x000046D1) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "inputHashes": {
+    "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+    "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+    "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+    "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+  },
+  "mode6Highp": {
+    "requested": true,
+    "explicitRoundRGBA": true,
+    "neutralRimPatch": false,
+    "outputAnchorCount": 1,
+    "rimAnchorCount": 1,
+    "samplerCount": 6,
+    "originalSHA": "b53ec815e0e503925fa25ec9ac2f7105d6d79dd102a36dfa9f68953ae68c2461",
+    "patchedSHA": "1eff164585d98035cd2b8d6c597068b3ba3fba77c4bdc738101fef35d0fd3692",
+    "selectedCalls": 10,
+    "otherCalls": 582,
+    "initializedBaseline": true,
+    "restoration": {
+      "wrapperExact": true,
+      "cacheExact": true,
+      "cacheDescriptorRestored": true,
+      "deletedOwnedProgram": true
+    },
+    "uniformKeys": [
+      "u_a",
+      "u_b",
+      "u_c",
+      "u_k",
+      "u_mode",
+      "u_tau",
+      "u_dir",
+      "u_d",
+      "u_origin",
+      "u_size",
+      "u_band",
+      "u_world",
+      "u_mode6Resolution",
+      "u_mode6DirPx",
+      "u_mode6DiscreteGrid"
+    ]
+  },
+  "mode11Precision": {
+    "highpSamplers": true,
+    "roundRGBA": false,
+    "anchorCount": 1,
+    "samplerCount": 6,
+    "originalSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+    "patchedSHA": "d922bcd3be045a50479c2ed875567eea74d6297b28d77b55978bc05bef03c1b1",
+    "uniformKeys": [
+      "u_a",
+      "u_b",
+      "u_c",
+      "u_k",
+      "u_mode",
+      "u_tau",
+      "u_dir",
+      "u_d",
+      "u_e",
+      "u_origin",
+      "u_size",
+      "u_band",
+      "u_world"
+    ],
+    "selectedCalls": 5,
+    "otherCalls": 587,
+    "restoration": {
+      "wrapperExact": true,
+      "propertiesExact": true,
+      "deletedOwnedProgram": true
+    }
+  },
+  "stageDiffs": {
+    "referenceP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9",
+      "referenceHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9"
+    },
+    "referenceC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2",
+      "referenceHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2"
+    },
+    "solvedP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "ef51ef3f3177b8c2ed3f786490c0e283189803d167a463dd29365b5020b0f789",
+      "referenceHash": "ef51ef3f3177b8c2ed3f786490c0e283189803d167a463dd29365b5020b0f789"
+    },
+    "solvedC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "145f702e71b342f99e3d68c55dc1dd6d91356da4ff17541ff280558234243abc",
+      "referenceHash": "145f702e71b342f99e3d68c55dc1dd6d91356da4ff17541ff280558234243abc"
+    },
+    "solvedCoverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+      "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+    },
+    "coarse:gate": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "7ab82cb851ef6a91c742a698cbe96cbb4741238b30167b80be1e33c3e1ead411",
+      "referenceHash": "7ab82cb851ef6a91c742a698cbe96cbb4741238b30167b80be1e33c3e1ead411"
+    },
+    "coarse:beforeP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "ec5c79f3ca133b95de4b8eeca6face42a4f014250c70d92c2678d531d517f87c",
+      "referenceHash": "ec5c79f3ca133b95de4b8eeca6face42a4f014250c70d92c2678d531d517f87c"
+    },
+    "coarse:afterP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "5274cef77843310589c091de778dceabbd7b0f26b80657e8740f182bdee23535",
+      "referenceHash": "5274cef77843310589c091de778dceabbd7b0f26b80657e8740f182bdee23535"
+    },
+    "coarse:beforeC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "63b6a14b44ee1306ca9c920439f362730cf0dda7df3a87db65c8de781256ad08",
+      "referenceHash": "63b6a14b44ee1306ca9c920439f362730cf0dda7df3a87db65c8de781256ad08"
+    },
+    "coarse:afterC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "856ada5ee436392f7a6a6c79decf26f9cb3b1181787febb3a09bcb896ac7cc24",
+      "referenceHash": "856ada5ee436392f7a6a6c79decf26f9cb3b1181787febb3a09bcb896ac7cc24"
+    }
+  },
+  "diffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "3d282ac30cd2a3d84bfd42e9334f6810ef3090f77abbcc430c4074fed6e77c3c",
+      "referenceHash": "3d282ac30cd2a3d84bfd42e9334f6810ef3090f77abbcc430c4074fed6e77c3c"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "227e84a350ca305caacf3a6eacf70f8be39505208e26127ecc630ece96da3f6e",
+      "referenceHash": "227e84a350ca305caacf3a6eacf70f8be39505208e26127ecc630ece96da3f6e"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+    }
+  },
+  "errors": [],
+  "lost": false,
+  "boundary": {
+    "selection": {
+      "kind": "band",
+      "ordinal": 1,
+      "maxBytes": 16777216
+    },
+    "capture": {
+      "name": "band",
+      "width": 2048,
+      "height": 1536,
+      "bytes": 12582912,
+      "filter": "nearest",
+      "pointSampling": false,
+      "sha256": "155a6b5ce11e72f74a45a17445463efd568c387b61d7d36677087d39043383c4"
+    },
+    "restoration": {
+      "ownershipExact": true,
+      "restored": true
+    }
+  },
+  "historicalOwnFinalHashesUnchanged": {
+    "p": false,
+    "c": false,
+    "coverage": true
+  },
+  "qualification": "QA explicit mode6 RGBA rounding changes Intel band and finalP/C; do not claim old golden unchanged. Own Native/Paged exact with same diagnostic variant. CrossGPU peer pending, neutralRimPatch false."
+}
