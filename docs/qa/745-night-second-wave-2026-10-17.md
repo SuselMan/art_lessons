@@ -37,9 +37,9 @@ CPU69targeted+10000graphprefixesPASS; аппаратный повтор Dry/clea
 Отдельный opt-in prototype прошёл restart/atomicity tests, но старые вкладки,
 crash window и cross-batch mapping пока исключают незаметное внедрение.
 
-## Текущая проверка: 07:33
+## Текущая проверка: 07:46
 
-Работа продолжается. Лимит: **59% использовано, 41% осталось** (07:25).
+Новые направления поиска остановлены на soft-limit60%; завершены #792 и его runtime-проверка; выполняется финальная уборка. Лимит: **60% использовано, 40% осталось** (07:40).
 Один reset не использован. Production и push не выполнялись.
 
 Текущий QA-кандидат — **f6a27f98** (последующие коммиты — QA-артефакты): защита мокрых checkpoint, исправления
@@ -47,7 +47,7 @@ crash window и cross-batch mapping пока исключают незаметн
 обычного мазка 774 и включение границы snapshot в Undo 789, плюс guarded CPU-оптимизация744.
 Отдельный QA frontend5384 теперь по умолчанию M70 (PID4092300),
 backend4558:
-PID4062231, health/db up. Последние изменения только клиентские.
+PID4111624, health/db up. Backend обновлён только на QA после #792; production не затронут.
 
 Полные проверки текущего f6a27f98: **73 файла, 689 PASS и 4 expected FAIL**
 по открытым 777/778, 53,82с. Полный engine: **233 файла, 2280 PASS**,343,89с с одним worker.
@@ -71,6 +71,8 @@ Coverage/jobs/queues/unsettled пусты, полные ID/effective/contenthash
 Новый кандидат запрещает создание и повторное использование такого carriedCP;
 legacycarry, purepencil и provedclosedM70 сохранены. Старое редкое наблюдение
 5байтов послеclosedDry автоматически закрытым не считаем.
+
+**#792 — зависшее превью после pen-up:** новый actual Socket.IO baseline FAIL. Одна вкладка отправляет live-воду и normalUP, отключается до durable operation; вторая вкладка того же автора остаётся. Ни peer_left, ни targeted cancel не приходят, хотя operation log пуст. Исправление ac892525 интегрировано: socket-local ownership до покрытия видимого префикса, bounded pressure-cleanup только ENDED превью, active sibling сохраняется. Полный server39files/751PASS, serverTypeScriptPASS; реальный QA runtime с настоящими identity/DB также PASS: targetedcancel пришёл, log0ops, siblingconnected, authorPeerLeft0. Тестовая комната ownerDELETE200/auth removed. Старые #777/778 этим не закрыты.
 
 **#791 — same-GPU drift после board turn, OPEN/RCA:** после перехода на
 другую доску настоящий M70-мазок+Dry дал956 отличающихся каналов против

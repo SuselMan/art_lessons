@@ -139,7 +139,20 @@
       "passed": 2,
       "runtimeChanged": false,
       "durationSeconds": 5.58
-    }
+    },
+    "serverFinal792": {
+      "files": 39,
+      "passed": 751,
+      "failed": 0,
+      "durationSeconds": 26.42,
+      "workers": 1
+    },
+    "serverTypecheck792": "PASS",
+    "map792": {
+      "result": "PASS",
+      "files": 1132
+    },
+    "runtime792": "PASS real QA backend/identities/DB; owner DELETE200"
   },
   "native85e": {
     "samsung781": 5,
@@ -182,5 +195,11 @@
       "ownGPUOracleExact": true
     },
     "783": "native ACK timing inconclusive, socket replaced before ACK"
+  },
+  "backendFinal": {
+    "runtimeSource": "ac892525",
+    "pid": 4111624,
+    "health": "ok/db up",
+    "qaOnly": true
   }
 }
