@@ -1,0 +1,149 @@
+{
+  "source": "82313a4c",
+  "scope": "Samsung trusted pigment offlineUP, B layerDryseq1 before acceptedAseq2, then B water-only interaction; B recorded fixture; actual canonical before oracle",
+  "cases": [
+    {
+      "name": "offline-UP-reconnect-before-legacy-wash-window",
+      "proof": {
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "11d8b8dbcd12e448da27e50e03f94247968e52a033d8fb7f749953f2af1dcc0e",
+        "oracleHash": "11d8b8dbcd12e448da27e50e03f94247968e52a033d8fb7f749953f2af1dcc0e",
+        "physicalHash": "11d8b8dbcd12e448da27e50e03f94247968e52a033d8fb7f749953f2af1dcc0e",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 0,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    },
+    {
+      "name": "later-dependent-B",
+      "proof": {
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "03c3c2c1c07d1959a6783996aae9394cf8392f890dc418f22f09f7264bcc3138",
+        "oracleHash": "b13589bb8ac1691ecea85351dfc4d6248464fe518955d7d56f063f2c90b7b8dd",
+        "physicalHash": "03c3c2c1c07d1959a6783996aae9394cf8392f890dc418f22f09f7264bcc3138",
+        "changedChannels": 15905,
+        "max": 196,
+        "physicalVsCanonicalChanged": 0,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    }
+  ],
+  "errors": [],
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "gpuBudget": "314572800",
+    "scratchHolding": false,
+    "touch": 5,
+    "deviceMemory": 4,
+    "DPR": 2.125,
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "flags": {
+      "hidden": false,
+      "undoCache": false
+    }
+  },
+  "offline": {
+    "sockets": [
+      {
+        "state": 3
+      }
+    ],
+    "pending": [
+      {
+        "id": "OO148NMV7p",
+        "type": "stroke",
+        "strokeId": "4cK5rWzIn0"
+      }
+    ],
+    "strokeHeld": false
+  },
+  "bBeforeReconnect": {
+    "id": "97a8ec6c-931c-4430-9009-96615c67e935",
+    "seq": 1
+  },
+  "acceptedOrder": [
+    {
+      "id": "97a8ec6c-931c-4430-9009-96615c67e935",
+      "type": "paper_dry",
+      "userId": "9388285d-7778-4118-b1c2-a8783c7c3a25",
+      "state": "done",
+      "serverSeq": 1
+    },
+    {
+      "id": "OO148NMV7p",
+      "type": "stroke",
+      "userId": "fb0988ef-64b2-4d9b-8969-49e5e21cbef5",
+      "strokeId": "4cK5rWzIn0",
+      "state": "done",
+      "serverSeq": 2,
+      "pending": false
+    }
+  ],
+  "reconnectState": {
+    "unsettled": [],
+    "pending": [],
+    "jobs": 0,
+    "queue": 0,
+    "wash": null,
+    "source": null
+  },
+  "apiHistory": [
+    {
+      "id": "97a8ec6c-931c-4430-9009-96615c67e935",
+      "seq": 1,
+      "type": "paper_dry",
+      "timestamp": 1792203932133
+    },
+    {
+      "id": "OO148NMV7p",
+      "seq": 2,
+      "type": "stroke",
+      "timestamp": 1792203932204
+    }
+  ],
+  "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n15905 !== 0\n\n    at /home/suselman/projects/pencil-agents/744-hidden-replay/docs/qa/harness/728-night/samsung-transport-dry-order.cjs:56:109",
+  "serverJournal": {
+    "count": 3,
+    "sha256": "c4add49d6df8c123fd6687a9f6d092fe8fc1c298c93b1cd1e8ae12ddc51e28a0",
+    "entries": [
+      {
+        "id": "97a8ec6c-931c-4430-9009-96615c67e935",
+        "seq": 1,
+        "type": "paper_dry",
+        "preset": null
+      },
+      {
+        "id": "OO148NMV7p",
+        "seq": 2,
+        "type": "stroke",
+        "preset": "normal:95:34:PB29:round:wc@m70-r2-v1"
+      },
+      {
+        "id": "a45101c5-b9fe-44ec-8367-a15b16b557ab",
+        "seq": 3,
+        "type": "stroke",
+        "preset": "normal:95:0:PB29:round:wc@m70-r2-v1"
+      }
+    ]
+  },
+  "cleanup": {
+    "ownContextClosed": true,
+    "originalTabRestored": true,
+    "nodePeerSocketClosed": true,
+    "roomRetainedForFixProof": true,
+    "rawCacheRegistered": true,
+    "sharedForwardRetained": true
+  },
+  "harnessSha256": "21f250c2483ac5406eca83f096298f56e5f0247b683f570fe116685ab556002c"
+}
