@@ -1,10 +1,13 @@
+import {definitions as macroGL} from './alternatives/macro-index'
+import {flowIds,createFlowFixture} from './flow-fixtures'
+import {flowMetrics} from './flow-metrics'
 import {createPassProfiler} from './gpu-timestamps'
 import {definitions as gpuDefinitions,glDefinitions as backendGL} from './webgpu'
 import {createFixture,fixtureInfo,fixtureIds,type FixtureId} from './fixtures'
 import {definitions as alternatives} from './alternatives'
 import {reference} from './reference'
 import type {AlgorithmConfig,AlgorithmInput,GLResult} from './protocol'
-const definitions=[reference,...alternatives,...backendGL]
+const definitions=[reference,...alternatives,...macroGL,...backendGL]
 let busy=false
 const send=(r:unknown)=>self.postMessage(r)
 const digest=async(bytes:Uint8Array)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes as Uint8Array<ArrayBuffer>)),b=>b.toString(16).padStart(2,'0')).join('')
@@ -58,10 +61,10 @@ async function runGPU(algorithm:string,input:AlgorithmInput,config:AlgorithmConf
  }finally{try{profiler?.destroy();candidate?.destroy()}finally{device.destroy()}}
 }
 self.onmessage=async({data})=>{if(busy){send({requestId:data.requestId,error:'Algorithm worker busy'});return}busy=true;try{
- if(data.type==='list'){const gpuDefinitions=webgpuModule?(await webgpuModule).definitions:[];send({requestId:data.requestId,algorithms:[...definitions.map(d=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgl1'})),...gpuDefinitions.map((d:any)=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgpu'}))],fixtures:[...fixtureIds.map(id=>({id,...fixtureInfo[id]})),...capturedFixtures.map(f=>({id:f.id,label:f.label,captured:true,description:'Захват Mini: реальная вода и бумага; приближённый общий композитор'}))]});return}
+ if(data.type==='list'){const gpuDefinitions=webgpuModule?(await webgpuModule).definitions:[];send({requestId:data.requestId,algorithms:[...definitions.map(d=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgl1'})),...gpuDefinitions.map((d:any)=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgpu'}))],fixtures:[...fixtureIds.map(id=>({id,...fixtureInfo[id]})),...flowIds.map(id=>({id,label:id,description:'Функциональная сцена переноса пигмента по воде'})),...capturedFixtures.map(f=>({id:f.id,label:f.label,captured:true,description:'Захват Mini: реальная вода и бумага; приближённый общий композитор'}))]});return}
  if(data.type!=='run')throw Error('Unknown request');const encoding=data.encoding??'premultiplied-rgb'
  if(isCapturedFixture(data.fixture)&&encoding!=='optical-density')throw Error('Captured fixture requires optical-density encoding')
- const input=isCapturedFixture(data.fixture)?await loadCapturedInput(data.fixture):createFixture(data.fixture as FixtureId,1024,encoding),fixtureSHA={rgba:await digest(input.rgba),water:await digest(input.water),paper:await digest(input.paper)},repeats=Math.max(1,Math.min(5,Math.floor(data.repeats??3)))
+ const input=isCapturedFixture(data.fixture)?await loadCapturedInput(data.fixture):flowIds.includes(data.fixture)?createFlowFixture(data.fixture):createFixture(data.fixture as FixtureId,1024,encoding),fixtureSHA={rgba:await digest(input.rgba),water:await digest(input.water),paper:await digest(input.paper)},repeats=Math.max(1,Math.min(5,Math.floor(data.repeats??3)))
  const result=data.algorithm.startsWith('wgsl-')?await runGPU(data.algorithm,input,data.config??{},repeats,!!data.profileGPU):await runGL(data.algorithm,input,data.config??{},repeats)
  const {output,...report}=result
  let control:Record<string,number|boolean>|undefined
@@ -72,5 +75,5 @@ self.onmessage=async({data})=>{if(busy){send({requestId:data.requestId,error:'Al
   control={inputRightAlpha:inputRight,outputRightAlpha:outputRight,noCrossing:inputRight===0&&outputRight===0}
  }
  const paper=isCapturedFixture(data.fixture)?input.paper.slice():undefined
- ;(self as any).postMessage({requestId:data.requestId,result:{algorithm:data.algorithm,fixture:data.fixture,encoding,config:data.config??{},fixtureSHA,...report,...(control?{control}:{}),...(paper?{captureManifest:capturedRecord(data.fixture)}:{})},output,paper},[output.buffer,...(paper?[paper.buffer]:[])])
+ ;(self as any).postMessage({requestId:data.requestId,result:{algorithm:data.algorithm,fixture:data.fixture,encoding,config:data.config??{},fixtureSHA,...report,flowMetrics:flowMetrics(data.fixture,input,output),...(control?{control}:{}),...(paper?{captureManifest:capturedRecord(data.fixture)}:{})},output,paper},[output.buffer,...(paper?[paper.buffer]:[])])
  }catch(e){send({requestId:data.requestId,error:String((e as Error).stack??e)})}finally{busy=false}}
