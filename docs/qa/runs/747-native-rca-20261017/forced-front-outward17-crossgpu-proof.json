@@ -1,0 +1,189 @@
+{
+  "sourcePair": [
+    "509fb989",
+    "509fb989"
+  ],
+  "inputExact": true,
+  "forcedExact": true,
+  "samsungCapture": {
+    "name": "outward:17",
+    "width": 2048,
+    "height": 1536,
+    "bytes": 12582912,
+    "filter": "nearest",
+    "pointSampling": false,
+    "sha256": "427a8d811c15ec60c3e6d17f1c49e0e5c417089368567a8664b0250b38201b76"
+  },
+  "intelCapture": {
+    "name": "outward:17",
+    "width": 2048,
+    "height": 1536,
+    "bytes": 12582912,
+    "filter": "nearest",
+    "pointSampling": false,
+    "sha256": "427a8d811c15ec60c3e6d17f1c49e0e5c417089368567a8664b0250b38201b76"
+  },
+  "channels": {
+    "R": {
+      "changed": 0,
+      "max": 0,
+      "first": []
+    },
+    "G": {
+      "changed": 0,
+      "max": 0,
+      "first": []
+    },
+    "B": {
+      "changed": 0,
+      "max": 0,
+      "first": []
+    },
+    "A": {
+      "changed": 0,
+      "max": 0,
+      "first": []
+    }
+  },
+  "samsungOwnAB": {
+    "stageDiffs": {
+      "referenceP": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9",
+        "referenceHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9"
+      },
+      "referenceC": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2",
+        "referenceHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2"
+      },
+      "solvedP": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "917207fc7f27db4c3552c0e3215e3ee1756e56f5c7a204a435b7830df60ac084",
+        "referenceHash": "917207fc7f27db4c3552c0e3215e3ee1756e56f5c7a204a435b7830df60ac084"
+      },
+      "solvedC": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "3d64805256114442064e1666f53fd6c1e9135562d3f28a09c069e6c3ce67cb66",
+        "referenceHash": "3d64805256114442064e1666f53fd6c1e9135562d3f28a09c069e6c3ce67cb66"
+      },
+      "solvedCoverage": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+      },
+      "coarse:gate": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+        "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+      },
+      "coarse:beforeP": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "2f7a94c191c9009f130b63b5f50f5823a5c4a9ab54fba59339844c1af3695128",
+        "referenceHash": "2f7a94c191c9009f130b63b5f50f5823a5c4a9ab54fba59339844c1af3695128"
+      },
+      "coarse:afterP": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "5a0db61e5bfe26fae10a7f6420b430f74be1b39b3d1aa082aea546d015aede34",
+        "referenceHash": "5a0db61e5bfe26fae10a7f6420b430f74be1b39b3d1aa082aea546d015aede34"
+      },
+      "coarse:beforeC": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "d1f20553b5e65e8d864d28cc87e5ae4aa1bf3c5be82fc36afc2911e08d2bc308",
+        "referenceHash": "d1f20553b5e65e8d864d28cc87e5ae4aa1bf3c5be82fc36afc2911e08d2bc308"
+      },
+      "coarse:afterC": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "730d346ff09b4cf320994e9e022d19c0f7a8025727b3e996b7d1dec9fadb4b14",
+        "referenceHash": "730d346ff09b4cf320994e9e022d19c0f7a8025727b3e996b7d1dec9fadb4b14"
+      }
+    },
+    "diffs": {
+      "p": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "9a974af55ccec26ee742d2b44c9fb9c2818336adafb0538062b2315fbfab1b0d",
+        "referenceHash": "9a974af55ccec26ee742d2b44c9fb9c2818336adafb0538062b2315fbfab1b0d"
+      },
+      "c": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "300e474ed4ccbf6c7c60389fbc41fcec35c61b31790e56bf7bb478cb81670cd0",
+        "referenceHash": "300e474ed4ccbf6c7c60389fbc41fcec35c61b31790e56bf7bb478cb81670cd0"
+      },
+      "coverage": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+        "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+      }
+    },
+    "highFloat": {
+      "precision": 23,
+      "rangeMin": 127,
+      "rangeMax": 127
+    },
+    "dither": {
+      "requestedOff": false,
+      "initial": true,
+      "atCapture": true
+    },
+    "errors": []
+  },
+  "restoration": {
+    "ownershipExact": true,
+    "restored": true
+  },
+  "selectedEvent": {
+    "method": "waterFrontStep",
+    "phase": "outward",
+    "ordinal": 17,
+    "x0": 0,
+    "y0": 0,
+    "dryCost": 48,
+    "max": 100,
+    "climb": 30,
+    "floor": 0.85,
+    "stride": 8,
+    "scale": 1,
+    "foreign": false,
+    "discreteGrid": true
+  },
+  "qualification": "Outward17 laststride8 exact crossGPU; first known costR divergence remains18..25. No shader causal claim."
+}
