@@ -1,0 +1,5 @@
+# Accepted Dry before optimistic local water — material-state baseline
+
+Public engine baseline: localA watercolor DOWN/MOVE/UP remains pending; remoteB layerDry is accepted seq1; confirmAseq2; start a new water-only gesture. Compare an independent fresh engine applying accepted-only Dryseq1→sameAseq2→samewatergesture. Actualscratch.pigmentInputsKnownZero=true, authoritativeoracle=false. The local pigment was incorrectly committed dry and cannot participate in the next water, though its recorded stroke follows Dry. MockGL does not prove pixels; it does prove the real CPU material-source lifecycle and input provenance flag.
+
+The failing regression is committed with it.fails so the known defect is explicit. This is separate from #781's100s legacywashhold: paperDry is omitted entirely from pixelWriteLayerIds, so _noteOvertaken returns without recording any material-order repair. Shared pixel dependency categories should stay unchanged; a private materialwriteclosure in accepted-order handling is the narrow candidate. Layer/globalDry, hide and held-owner guards need coverage before promoting. No integration runtime/source changes or GPU probe yet.
