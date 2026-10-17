@@ -1,3 +1,4 @@
+import {independentM70TilesQA,createIndependentWindowTiming,type IndependentTileDiagnosticEvent} from './M70IndependentTilesQA'
 import {withBufferAllocationBindings} from '../../buffers/BufferResidency'
 import {CapturedReadScope} from './CapturedReadScope'
 import {emptyM70PostphaseRect} from './M70EmptyPostphase'
@@ -23,6 +24,10 @@ import {APPROVED_M70_PARAMETERS} from './PuddleParameters'
 export interface PagedNativeScope {run<T>(work:()=>T):T;dispose():void}
 export type PagedNativeScopeFactory=(host:PuddleTargetHost,rect:Readonly<MaterialRect>,proof:Readonly<{epoch:number;boundary:'zero';noForeignStencil:boolean;support:M70CapturedSupport|undefined}>)=>PagedNativeScope|undefined
 export interface PagedPuddleInspection {
+ /** INVALID correctness diagnostic: nonoverlapping1536 fields, no dependency halo. */
+ diagnosticIndependentTiles?:boolean
+ /** Host wall times only; no GPU timer/fence. OFF adds no performance.now calls. */
+ diagnosticMetrics?(event:IndependentTileDiagnosticEvent):void
  /** Default undefined: no observer, no added draws/state changes. */
  nativeScope?:PagedNativeScopeFactory
  /** QA-only OFF: omit global reference rectangles certified raw-zero. */
@@ -126,7 +131,10 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
   // Metadata proof belongs to this immutable captured revision. Unknown falls
   // back to612; appearance of a donor AFTER tight skips is an invalidation.
   const radius:32|612=inspect.tightMaterialSupport32===true&&raw.materialSupport?.noForeignStencil===true&&metadataKnown()?32:612
-  for(const window of m70WindowGroups(size,domain,612)){
+  const independent=inspect.diagnosticIndependentTiles===true
+  const windows=independent?independentM70TilesQA(size):m70WindowGroups(size,domain,612)
+  if(inspect.diagnosticMetrics)inspect.diagnosticMetrics({kind:'plan',epoch,supportRadius:radius,independentTiles:independent,usesProductionWindowPolicy:!independent,plannedWindows:windows.length,plannedFieldPixels:windows.reduce((sum,w)=>sum+w.field.width*w.field.height,0),plannedCorePixels:windows.reduce((sum,w)=>sum+w.cores.reduce((n,c)=>n+c.width*c.height,0),0)})
+  for(const window of windows){
    if(radius===32&&!metadataKnown())throw Error('M70 support metadata changed during immutable solve')
    const kept=inspect.skipEmptyFixedWindows!==true||keepM70FixedGroup(size,window,raw.materialSupport,radius)
    inspect.windowSupport?.(window.field,window.cores,{radius,noForeignStencil:raw.materialSupport?.noForeignStencil===true,kept})
@@ -135,32 +143,40 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
    if(!kept){
     // P/C stay zero; captured coverage is already preserved independently.
     inspect.windowSkipped?.(window.field,window.cores)
+    if(inspect.diagnosticMetrics)inspect.diagnosticMetrics(createIndependentWindowTiming(independent,window,false,epoch,radius).finish(false))
     yield;continue
    }
    // Certified geometry is world top-down; material snapshots are bottom-up.
    const {x:ox,y:oy}=window.field
    const rect={x:ox,y:size.height-oy-1536,width:1536,height:1536}
+   const timing=inspect.diagnosticMetrics?createIndependentWindowTiming(independent,window,true,epoch,radius):undefined
+   let windowCompleted=false
+   const timed=<T>(phase:Parameters<NonNullable<typeof timing>['measure']>[0],work:()=>T):T=>timing?timing.measure(phase,work):work()
    const windowSource=new RibbonStrokeScratch(host.pool,true,true)
    let key:AccumulationBuffer|undefined
    const detachedWindowSource=inspect.detachedWindowSource===true
    const windowReads=inspect.persistCapturedBacking===true?new CapturedReadScope({persistUntilRelease:true,maxRetainedBytes:6*1536*1536*4}):undefined
    let nativeScope:PagedNativeScope|undefined
    let native:ReturnType<typeof createNativePuddleTarget>|undefined
+   let metadata:ReturnType<RibbonStrokeScratch['captureFinishMetadata']>|undefined
    try{
+    timed('restoreHostMs',()=>{
     const restoreOptions={captureReads:windowReads,omitZeroForeignSolventLoad:inspect.omitZeroForeignSolventLoad}
     if(detachedWindowSource)key=createDetachedPagedPuddleWindow(raw,rect,windowSource,restoreOptions)
     else{key=host.pool.acquire(1536,1536);restorePagedPuddleWindow(raw,rect,windowSource,key,host.pool,restoreOptions)}
     const context=source.finishContext;if(!context)throw Error('Missing paged finish context')
-    const metadata=source.captureFinishMetadata()
+    metadata=source.captureFinishMetadata()
     if(radius===32&&!noForeign(metadata.foreignSources))throw Error('M70 support metadata changed during window restore')
     windowSource.gesture=source.gesture;for(const paint of source.paints)windowSource.paints.add(paint)
     windowSource.brushTravel=metadata.brushTravel.map(d=>({...d}));windowSource.wetContacts=metadata.wetContacts.map(d=>({...d}));windowSource.foreignSources=structuredClone(metadata.foreignSources)
     windowSource.noteFinish({...context,bounds:{minX:ox,minY:oy,maxX:ox+1536,maxY:oy+1536}})
     const sc=source.compositeScalars(()=>({spreadPx:0,inkSmoothPx:0,water:0,migratePx:0,fieldSeed:[0,0],bristleRadiusPx:0}))
     windowSource.compositeScalars(()=>({...sc,fieldSeed:[...sc.fieldSeed]}));const dir=source.noteDirection(0,0);windowSource.noteDirection(dir[0],dir[1])
-    native=createNativePuddleTarget(host,1536,{portableNoise:true,bufferFactory:(w,h,f='linear')=>make(w,h,f),deferFinalMix:true,finalOnly:true,consumePreparedSource:true,
+    })
+    if(!metadata)throw Error('Missing restored window metadata')
+    timed('allocationHostMs',()=>{native=createNativePuddleTarget(host,1536,{portableNoise:true,bufferFactory:(w,h,f='linear')=>make(w,h,f),deferFinalMix:true,finalOnly:true,consumePreparedSource:true,
      contrast:{selection:contrast.selection,prepare:(p,c,w,_volume,rp,rc)=>{contrast.renderReference(rect,p,c,w,rp,rc);inspect.windowReference?.(rect,rp,rc)},destroy(){}},
-     background:{capture(){},ops:()=>[],readback:()=>background.readback(),destroy(){}}})
+     background:{capture(){},ops:()=>[],readback:()=>background.readback(),destroy(){}}})})
     if(inspect.nativeScope){
      // Captured support belongs to this immutable raw epoch. Expose detached metadata only.
      const support=raw.materialSupport?structuredClone(raw.materialSupport):undefined
@@ -168,21 +184,27 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
      nativeScope=inspect.nativeScope(host,Object.freeze({...rect}),proof)
     }
     const reset=()=>native!.resetFromScratch(windowSource,{buffer:key!,originX:ox,originY:oy,contentRect:null},epoch)
-    if(nativeScope)nativeScope.run(reset);else reset()
-    while(!native.state.done){if(nativeScope)nativeScope.run(()=>native!.step(4));else native.step(4);yield}
-    const material=native.buffers(),readRect=committedReadRect(window.field,window.cores)
+    timed('resetHostMs',()=>{if(nativeScope)nativeScope.run(reset);else reset()})
+    while(!native!.state.done){timed('stepHostMs',()=>{if(nativeScope)nativeScope.run(()=>native!.step(4));else native!.step(4)});yield}
+    const material=native!.buffers(),readRect=committedReadRect(window.field,window.cores)
     const planes=[[solvedP,material.p],[solvedC,material.c]] as const
     for(const [plane,[out,input]]of planes.entries()){
+     timed('readbackScatterHostMs',()=>{
      const pixels=input.readPixelsRegion(readRect.x,readRect.y,readRect.width,readRect.height)
      for(const core of window.cores){
       const interior={...core,y:size.height-core.y-core.height}
       const local={x:interior.x-rect.x,y:interior.y-rect.y,width:interior.width,height:interior.height}
       out.writeRect(interior,extractMaterialTileRect(pixels,readRect.width,readRect.height,{...local,x:local.x-readRect.x,y:local.y-readRect.y}))
      }
+     })
      // Let the outer deadline run between required GPU reads; publish only complete goals.
      if(plane+1<planes.length)yield
     }
-   }finally{try{nativeScope?.dispose()}finally{try{native?.destroy()}finally{try{windowReads?.dispose()}finally{try{windowSource.destroy()}finally{if(key&&!detachedWindowSource)host.pool.release(key)}}}}}
+    windowCompleted=true
+   }finally{
+    try{timed('cleanupHostMs',()=>{try{nativeScope?.dispose()}finally{try{native?.destroy()}finally{try{windowReads?.dispose()}finally{try{windowSource.destroy()}finally{if(key&&!detachedWindowSource)host.pool.release(key)}}}}})}
+    finally{if(timing)inspect.diagnosticMetrics?.(timing.finish(windowCompleted))}
+   }
    yield
   }
   if(radius===32&&!metadataKnown())throw Error('M70 support metadata changed after window solve')
