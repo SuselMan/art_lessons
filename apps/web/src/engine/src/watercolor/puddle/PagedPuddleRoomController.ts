@@ -146,6 +146,9 @@ export class PagedPuddleRoomController {
     const old=this.parked.get(target)
     if(!old)return undefined
     this.ensureSlot(target)
+    // A journal cache miss temporarily replays through another controller.
+    // It shares the solver field even when this controller has a spare slot.
+    this.cancelCurrent()
     const snapshot=prepared ?? this.residency.take(target) ?? this.host.rehydrate?.(target,beforeRecordedOpId)
     if(!snapshot)throw new Error('M70 evicted material requires journal reconstruction')
     const scratch=RibbonStrokeScratch.restoreCpu(this.host.pool,snapshot,target)

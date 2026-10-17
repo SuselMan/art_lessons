@@ -155,6 +155,9 @@ export class PuddleRoomController {
     const old=this.parked.get(target)
     if(!old)return undefined
     this.ensureSlot(target)
+    // A journal cache miss temporarily replays through another controller.
+    // It shares the solver field even when this controller has a spare slot.
+    this.cancelCurrent()
     const snapshot=prepared ?? this.residency.take(target) ?? this.host.rehydrate?.(target,beforeRecordedOpId)
     if(!snapshot)throw new Error('M70 evicted material requires journal reconstruction')
     if(snapshot.tiles.length!==1 || snapshot.tiles[0].originX || snapshot.tiles[0].originY || snapshot.tiles[0].width!==this.dimensions.width || snapshot.tiles[0].height!==this.dimensions.height)throw new Error('M70 material snapshot dimensions differ from page')

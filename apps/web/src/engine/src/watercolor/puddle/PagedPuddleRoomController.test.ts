@@ -90,6 +90,25 @@ it('CPU eviction preserves marker and requests strict incoming-operation prefix 
  controller.destroy();pool.trimFree();vi.unstubAllGlobals()
 })
 
+it('releases the shared solver field before journal rehydration even when a layer slot is already free',()=>{
+ const {controller,pool,profile,targets,draw,rehydrate,solver}=fixture(0)
+ try{
+  draw(0);const saved=controller.capture(targets[0])!
+  draw(1);draw(2);controller.forget(targets[1])
+  const active=controller['layers'].get(targets[2])!
+  controller['solving']=active;active.dirty=false;solver.state.done=false
+  rehydrate.mockImplementationOnce(()=>{
+   // Rehydration runs another isolated controller over the same GPU field.
+   // Having a spare logical layer slot does not grant concurrent field use.
+   expect(controller['solving']).toBeNull()
+   expect(solver.cancel).toHaveBeenCalled()
+   expect(active.dirty).toBe(true)
+   return saved
+  })
+  controller.source(targets[0],'g0',profile,2)
+ }finally{controller.destroy();pool.trimFree();vi.unstubAllGlobals()}
+})
+
 for(const [width,height]of [[512,768],[768,512]])it(`preserves rectangular ${width}x${height} source through parking, dry-baseline erasure and layer Dry`,()=>{
  const {controller,pool,profile,targets,draw}=fixture(64*1024*1024,width,height)
  try{draw(0);draw(1);draw(2)
