@@ -1,0 +1,1017 @@
+{
+  "scope": "One diagnostic trace, third sequential stroke after two warm strokes. No causal source changes/barriers. Not a GPU elapsed-time measurement.",
+  "source": {
+    "entry": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+    "worker": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+    "manifest": "c93a8ce7a8ee1eb697295d8371464ec1296596e44c52f0bbcb4a8ddf4c417bf6"
+  },
+  "sourceStable": true,
+  "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+  "trace": {
+    "categories": "toplevel,devtools.timeline,blink,cc,viz,gpu,renderer.scheduler,blink.console",
+    "qualification": "Diagnostic trace overhead; third stroke only, from before UP through goal+1s. No screenshots/netlog.",
+    "startedEpoch": 1792265251656,
+    "bytes": 10284129,
+    "sha": "24b9f7ba6bfd996ec7f8b8d66b865fb155f2ebc828d05d42d55959a79689f60a",
+    "endedEpoch": 1792265257422
+  },
+  "metadata": [
+    {
+      "pid": 0,
+      "tid": 0,
+      "kind": "thread_name",
+      "name": "swapper"
+    },
+    {
+      "pid": 5724,
+      "tid": 5724,
+      "kind": "thread_name",
+      "name": "essService0:300"
+    },
+    {
+      "pid": 5724,
+      "tid": 5738,
+      "kind": "thread_name",
+      "name": "CrRendererMain"
+    },
+    {
+      "pid": 5724,
+      "tid": 5757,
+      "kind": "thread_name",
+      "name": "Compositor"
+    },
+    {
+      "pid": 8419,
+      "tid": 8419,
+      "kind": "thread_name",
+      "name": "ileged_process1"
+    },
+    {
+      "pid": 8419,
+      "tid": 8460,
+      "kind": "thread_name",
+      "name": "VizCompositorThread"
+    },
+    {
+      "pid": 8419,
+      "tid": 8431,
+      "kind": "thread_name",
+      "name": "binder:8419_2"
+    },
+    {
+      "pid": 8419,
+      "tid": 8462,
+      "kind": "thread_name",
+      "name": "CompositorGpuThread"
+    },
+    {
+      "pid": 7676,
+      "tid": 7676,
+      "kind": "thread_name",
+      "name": "CrBrowserMain"
+    },
+    {
+      "pid": 7676,
+      "tid": 7714,
+      "kind": "thread_name",
+      "name": "ThreadPoolForegroundWorker"
+    },
+    {
+      "pid": 4564,
+      "tid": 4564,
+      "kind": "thread_name",
+      "name": "essService0:292"
+    },
+    {
+      "pid": 5305,
+      "tid": 5305,
+      "kind": "thread_name",
+      "name": "essService0:294"
+    },
+    {
+      "pid": 20387,
+      "tid": 20387,
+      "kind": "thread_name",
+      "name": "essService0:232"
+    },
+    {
+      "pid": 28350,
+      "tid": 28350,
+      "kind": "thread_name",
+      "name": "essService0:252"
+    },
+    {
+      "pid": 7676,
+      "tid": 7780,
+      "kind": "thread_name",
+      "name": "PerfettoTrace"
+    },
+    {
+      "pid": 7676,
+      "tid": 7800,
+      "kind": "thread_name",
+      "name": "NetworkService"
+    },
+    {
+      "pid": 8419,
+      "tid": 8445,
+      "kind": "thread_name",
+      "name": "PerfettoTrace"
+    },
+    {
+      "pid": 7676,
+      "tid": 7781,
+      "kind": "thread_name",
+      "name": "Chrome_IOThread"
+    },
+    {
+      "pid": 8419,
+      "tid": 8458,
+      "kind": "thread_name",
+      "name": "Chrome_ChildIOThread"
+    },
+    {
+      "pid": 8419,
+      "tid": 8438,
+      "kind": "thread_name",
+      "name": "CrGpuMain"
+    },
+    {
+      "pid": 5724,
+      "tid": 5759,
+      "kind": "thread_name",
+      "name": "DedicatedWorker thread"
+    },
+    {
+      "pid": 20387,
+      "tid": 20406,
+      "kind": "thread_name",
+      "name": "CrRendererMain"
+    },
+    {
+      "pid": 5724,
+      "tid": 5739,
+      "kind": "thread_name",
+      "name": "PerfettoTrace"
+    },
+    {
+      "pid": 28350,
+      "tid": 28362,
+      "kind": "thread_name",
+      "name": "CrRendererMain"
+    },
+    {
+      "pid": 20387,
+      "tid": 20410,
+      "kind": "thread_name",
+      "name": "PerfettoTrace"
+    },
+    {
+      "pid": 28350,
+      "tid": 28363,
+      "kind": "thread_name",
+      "name": "PerfettoTrace"
+    },
+    {
+      "pid": 5305,
+      "tid": 5317,
+      "kind": "thread_name",
+      "name": "CrRendererMain"
+    },
+    {
+      "pid": 5305,
+      "tid": 5320,
+      "kind": "thread_name",
+      "name": "PerfettoTrace"
+    },
+    {
+      "pid": 5724,
+      "tid": 5756,
+      "kind": "thread_name",
+      "name": "Chrome_ChildIOThread"
+    },
+    {
+      "pid": 4564,
+      "tid": 5176,
+      "kind": "thread_name",
+      "name": "DedicatedWorker thread"
+    },
+    {
+      "pid": 4564,
+      "tid": 4575,
+      "kind": "thread_name",
+      "name": "CrRendererMain"
+    },
+    {
+      "pid": 4564,
+      "tid": 4577,
+      "kind": "thread_name",
+      "name": "PerfettoTrace"
+    },
+    {
+      "pid": 7676,
+      "tid": 8004,
+      "kind": "thread_name",
+      "name": "Chrome_DevToolsHandlerThread"
+    },
+    {
+      "pid": 5724,
+      "tid": 5741,
+      "kind": "thread_name",
+      "name": "ThreadPoolForegroundWorker"
+    },
+    {
+      "pid": 5724,
+      "tid": 5755,
+      "kind": "thread_name",
+      "name": "ThreadPoolForegroundWorker"
+    },
+    {
+      "pid": 5724,
+      "tid": 5754,
+      "kind": "thread_name",
+      "name": "ThreadPoolForegroundWorker"
+    },
+    {
+      "pid": 5724,
+      "tid": 5764,
+      "kind": "thread_name",
+      "name": "ThreadPoolForegroundWorker"
+    },
+    {
+      "pid": 5724,
+      "tid": 5761,
+      "kind": "thread_name",
+      "name": "ThreadPoolForegroundWorker"
+    },
+    {
+      "pid": 5724,
+      "tid": 5762,
+      "kind": "thread_name",
+      "name": "ThreadPoolForegroundWorker"
+    },
+    {
+      "pid": 5724,
+      "tid": 5763,
+      "kind": "thread_name",
+      "name": "ThreadPoolForegroundWorker"
+    },
+    {
+      "pid": 7676,
+      "tid": 7713,
+      "kind": "thread_name",
+      "name": "ThreadPoolServiceThread"
+    },
+    {
+      "pid": 28350,
+      "tid": 28371,
+      "kind": "thread_name",
+      "name": "Chrome_ChildIOThread"
+    },
+    {
+      "pid": 20387,
+      "tid": 20420,
+      "kind": "thread_name",
+      "name": "Chrome_ChildIOThread"
+    },
+    {
+      "pid": 4564,
+      "tid": 4585,
+      "kind": "thread_name",
+      "name": "Chrome_ChildIOThread"
+    },
+    {
+      "pid": 5305,
+      "tid": 5329,
+      "kind": "thread_name",
+      "name": "Chrome_ChildIOThread"
+    },
+    {
+      "pid": 5724,
+      "tid": 5740,
+      "kind": "thread_name",
+      "name": "ThreadPoolServiceThread"
+    },
+    {
+      "pid": 5724,
+      "tid": 0,
+      "kind": "process_name",
+      "name": "Renderer"
+    },
+    {
+      "pid": 8419,
+      "tid": 0,
+      "kind": "process_name",
+      "name": "GPU Process"
+    },
+    {
+      "pid": 7676,
+      "tid": 0,
+      "kind": "process_name",
+      "name": "Browser"
+    },
+    {
+      "pid": 4564,
+      "tid": 0,
+      "kind": "process_name",
+      "name": "Renderer"
+    },
+    {
+      "pid": 5305,
+      "tid": 0,
+      "kind": "process_name",
+      "name": "Renderer"
+    },
+    {
+      "pid": 20387,
+      "tid": 0,
+      "kind": "process_name",
+      "name": "Renderer"
+    },
+    {
+      "pid": 28350,
+      "tid": 0,
+      "kind": "process_name",
+      "name": "Renderer"
+    }
+  ],
+  "clockAlignment": "Renderer EventDispatch(pointerup) trace start aligned to capture pointerup epoch; handler begins within that dispatch, so sub-ms alignment is approximate.",
+  "worstPostUpMainRAF": {
+    "start": 1792265252654,
+    "end": 1792265252654.0999,
+    "wall": 0.099853515625,
+    "gap": 149.10009765625,
+    "stamp": 1792265252649.2998,
+    "stampLag": 4.7001953125
+  },
+  "mainTimerTicksDuringGap": 14,
+  "mainLongtasks": [],
+  "completeEventsOver20ms": [
+    {
+      "name": "RunPendingMicrotask",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -165.54,
+      "durationMs": 131.3,
+      "phase": "X"
+    },
+    {
+      "name": "WorkerAnimationFrameProvider::RequestAnimationFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -165.54,
+      "durationMs": 131.28,
+      "phase": "X"
+    },
+    {
+      "name": "FrameRequestCallbackCollection::ExecuteFrameCallbacks",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -165.53,
+      "durationMs": 129.64,
+      "phase": "X"
+    },
+    {
+      "name": "FireAnimationFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -165.29,
+      "durationMs": 129.39,
+      "phase": "X"
+    },
+    {
+      "name": "AsyncTask Run",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -165.28,
+      "durationMs": 129.38,
+      "phase": "X"
+    },
+    {
+      "name": "FunctionCall",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -165.27,
+      "durationMs": 129.36,
+      "phase": "X"
+    },
+    {
+      "name": "GLES2::ReadPixels",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -164.52,
+      "durationMs": 86.42,
+      "phase": "X"
+    },
+    {
+      "name": "ImplementationBase::WaitForCmd",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -164.48,
+      "durationMs": 86.08,
+      "phase": "X"
+    },
+    {
+      "name": "CommandBufferHelper::Finish",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -164.47,
+      "durationMs": 86.07,
+      "phase": "X"
+    },
+    {
+      "name": "CommandBufferProxyImpl::WaitForGetOffset",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -164.4,
+      "durationMs": 85.88,
+      "phase": "X"
+    },
+    {
+      "name": "ThreadControllerImpl::RunTask",
+      "pid": 8419,
+      "tid": 8438,
+      "startMs": -163,
+      "durationMs": 82.64,
+      "phase": "X"
+    },
+    {
+      "name": "Scheduler::RunTask",
+      "pid": 8419,
+      "tid": 8438,
+      "startMs": -162.99,
+      "durationMs": 82.62,
+      "phase": "X"
+    },
+    {
+      "name": "GpuChannel::ExecuteDeferredRequest",
+      "pid": 8419,
+      "tid": 8438,
+      "startMs": -162.99,
+      "durationMs": 82.58,
+      "phase": "X"
+    },
+    {
+      "name": "WebGL",
+      "pid": 8419,
+      "tid": 8438,
+      "startMs": -162.97,
+      "durationMs": 82.5,
+      "phase": "X"
+    },
+    {
+      "name": "CommandBuffer::Flush",
+      "pid": 8419,
+      "tid": 8438,
+      "startMs": -162.96,
+      "durationMs": 82.5,
+      "phase": "X"
+    },
+    {
+      "name": "CommandBufferStub::OnAsyncFlush",
+      "pid": 8419,
+      "tid": 8438,
+      "startMs": -162.96,
+      "durationMs": 82.49,
+      "phase": "X"
+    },
+    {
+      "name": "CommandBufferService:PutChanged",
+      "pid": 8419,
+      "tid": 8438,
+      "startMs": -162.95,
+      "durationMs": 82.37,
+      "phase": "X"
+    },
+    {
+      "name": "ThreadControllerImpl::RunTask",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -213.69,
+      "durationMs": 31.9,
+      "phase": "X"
+    },
+    {
+      "name": "HandlePostMessage",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -213.65,
+      "durationMs": 31.86,
+      "phase": "X"
+    },
+    {
+      "name": "FunctionCall",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -213.48,
+      "durationMs": 31.67,
+      "phase": "X"
+    }
+  ],
+  "pairedBeginEndOver20ms": [],
+  "eventsNearGap": [
+    {
+      "name": "Extend_VSync",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": -22.09,
+      "durationMs": 0.4,
+      "phase": "X"
+    },
+    {
+      "name": "ExternalBeginFrameSource::OnBeginFrame",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": -22.07,
+      "durationMs": 0.28,
+      "phase": "X"
+    },
+    {
+      "name": "DisplayScheduler::BeginFrame",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": -21.89,
+      "durationMs": 0.09,
+      "phase": "X"
+    },
+    {
+      "name": "Swap throttled",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": -21.84,
+      "durationMs": 0,
+      "phase": "I",
+      "pendingSwaps": 2,
+      "maxPendingSwaps": 2
+    },
+    {
+      "name": "WorkerAnimationFrameProvider::BeginFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -21.78,
+      "durationMs": 0.01,
+      "phase": "X"
+    },
+    {
+      "name": "ExternalBeginFrameSource::OnBeginFrame",
+      "pid": 5724,
+      "tid": 5757,
+      "startMs": -21.78,
+      "durationMs": 0.23,
+      "phase": "X"
+    },
+    {
+      "name": "FireAnimationFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -21.68,
+      "durationMs": 0.37,
+      "phase": "X"
+    },
+    {
+      "name": "GLSurfaceEGLSurfaceControl::OnTransactionAckOnGpuThread",
+      "pid": 8419,
+      "tid": 8462,
+      "startMs": -21.58,
+      "durationMs": 0.32,
+      "phase": "X"
+    },
+    {
+      "name": "FireAnimationFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -21.29,
+      "durationMs": 0.64,
+      "phase": "X"
+    },
+    {
+      "name": "FireAnimationFrame",
+      "pid": 5724,
+      "tid": 5738,
+      "startMs": -18.02,
+      "durationMs": 0.3,
+      "phase": "X"
+    },
+    {
+      "name": "Extend_VSync",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": -5.1,
+      "durationMs": 0.57,
+      "phase": "X"
+    },
+    {
+      "name": "ExternalBeginFrameSource::OnBeginFrame",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": -5.03,
+      "durationMs": 0.41,
+      "phase": "X"
+    },
+    {
+      "name": "GLSurfaceEGLSurfaceControl::OnTransactionAckOnGpuThread",
+      "pid": 8419,
+      "tid": 8462,
+      "startMs": -5,
+      "durationMs": 0.14,
+      "phase": "X"
+    },
+    {
+      "name": "DisplayScheduler::BeginFrame",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": -4.76,
+      "durationMs": 0.12,
+      "phase": "X"
+    },
+    {
+      "name": "Swap throttled",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": -4.69,
+      "durationMs": 0,
+      "phase": "I",
+      "pendingSwaps": 2,
+      "maxPendingSwaps": 2
+    },
+    {
+      "name": "WorkerAnimationFrameProvider::BeginFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -4.65,
+      "durationMs": 0.01,
+      "phase": "X"
+    },
+    {
+      "name": "ExternalBeginFrameSource::OnBeginFrame",
+      "pid": 5724,
+      "tid": 5757,
+      "startMs": -4.62,
+      "durationMs": 0.21,
+      "phase": "X"
+    },
+    {
+      "name": "FireAnimationFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -4.57,
+      "durationMs": 0.14,
+      "phase": "X"
+    },
+    {
+      "name": "FireAnimationFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": -4.43,
+      "durationMs": 0.95,
+      "phase": "X"
+    },
+    {
+      "name": "FireAnimationFrame",
+      "pid": 5724,
+      "tid": 5738,
+      "startMs": 0.11,
+      "durationMs": 0.64,
+      "phase": "X"
+    },
+    {
+      "name": "Extend_VSync",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 11.35,
+      "durationMs": 0.45,
+      "phase": "X"
+    },
+    {
+      "name": "ExternalBeginFrameSource::OnBeginFrame",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 11.36,
+      "durationMs": 0.34,
+      "phase": "X"
+    },
+    {
+      "name": "DisplayScheduler::BeginFrame",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 11.59,
+      "durationMs": 0.11,
+      "phase": "X"
+    },
+    {
+      "name": "Swap throttled",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 11.64,
+      "durationMs": 0,
+      "phase": "I",
+      "pendingSwaps": 2,
+      "maxPendingSwaps": 2
+    },
+    {
+      "name": "ExternalBeginFrameSource::OnBeginFrame",
+      "pid": 5724,
+      "tid": 5757,
+      "startMs": 11.69,
+      "durationMs": 0.13,
+      "phase": "X"
+    },
+    {
+      "name": "WorkerAnimationFrameProvider::BeginFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": 11.96,
+      "durationMs": 0.01,
+      "phase": "X"
+    },
+    {
+      "name": "FireAnimationFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": 12.04,
+      "durationMs": 0.13,
+      "phase": "X"
+    },
+    {
+      "name": "FireAnimationFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": 12.17,
+      "durationMs": 0.67,
+      "phase": "X"
+    },
+    {
+      "name": "Swap throttled",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 15.24,
+      "durationMs": 0,
+      "phase": "I",
+      "pendingSwaps": 2,
+      "maxPendingSwaps": 2
+    },
+    {
+      "name": "Extend_VSync",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 28.02,
+      "durationMs": 0.11,
+      "phase": "X"
+    },
+    {
+      "name": "Extend_VSync",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 45.36,
+      "durationMs": 0.14,
+      "phase": "X"
+    },
+    {
+      "name": "Extend_VSync",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 61.76,
+      "durationMs": 0.13,
+      "phase": "X"
+    },
+    {
+      "name": "Extend_VSync",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 78.28,
+      "durationMs": 0.1,
+      "phase": "X"
+    },
+    {
+      "name": "Extend_VSync",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 95.01,
+      "durationMs": 0.11,
+      "phase": "X"
+    },
+    {
+      "name": "Extend_VSync",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 111.65,
+      "durationMs": 0.12,
+      "phase": "X"
+    },
+    {
+      "name": "Extend_VSync",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 128.31,
+      "durationMs": 0.14,
+      "phase": "X"
+    },
+    {
+      "name": "Extend_VSync",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 145.23,
+      "durationMs": 0.05,
+      "phase": "X"
+    },
+    {
+      "name": "GLSurfaceEGLSurfaceControl::OnTransactionAckOnGpuThread",
+      "pid": 8419,
+      "tid": 8462,
+      "startMs": 145.24,
+      "durationMs": 0.09,
+      "phase": "X"
+    },
+    {
+      "name": "ExternalBeginFrameSource::OnBeginFrame",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 145.33,
+      "durationMs": 0.28,
+      "phase": "X"
+    },
+    {
+      "name": "WorkerAnimationFrameProvider::BeginFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": 145.52,
+      "durationMs": 0.01,
+      "phase": "X"
+    },
+    {
+      "name": "DisplayScheduler::BeginFrame",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 145.57,
+      "durationMs": 0.04,
+      "phase": "X"
+    },
+    {
+      "name": "FireAnimationFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": 145.59,
+      "durationMs": 0.22,
+      "phase": "X"
+    },
+    {
+      "name": "FireAnimationFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": 145.81,
+      "durationMs": 0.47,
+      "phase": "X"
+    },
+    {
+      "name": "ExternalBeginFrameSource::OnBeginFrame",
+      "pid": 5724,
+      "tid": 5757,
+      "startMs": 148.16,
+      "durationMs": 0.27,
+      "phase": "X"
+    },
+    {
+      "name": "FireAnimationFrame",
+      "pid": 5724,
+      "tid": 5738,
+      "startMs": 149.41,
+      "durationMs": 0.13,
+      "phase": "X"
+    },
+    {
+      "name": "Extend_VSync",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 161.79,
+      "durationMs": 0.21,
+      "phase": "X"
+    },
+    {
+      "name": "ExternalBeginFrameSource::OnBeginFrame",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 161.8,
+      "durationMs": 0.15,
+      "phase": "X"
+    },
+    {
+      "name": "DisplayScheduler::BeginFrame",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 161.91,
+      "durationMs": 0.04,
+      "phase": "X"
+    },
+    {
+      "name": "Swap throttled",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 161.93,
+      "durationMs": 0,
+      "phase": "I",
+      "pendingSwaps": 2,
+      "maxPendingSwaps": 2
+    },
+    {
+      "name": "ExternalBeginFrameSource::OnBeginFrame",
+      "pid": 5724,
+      "tid": 5757,
+      "startMs": 161.98,
+      "durationMs": 0.09,
+      "phase": "X"
+    },
+    {
+      "name": "WorkerAnimationFrameProvider::BeginFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": 162.07,
+      "durationMs": 0.01,
+      "phase": "X"
+    },
+    {
+      "name": "FireAnimationFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": 162.12,
+      "durationMs": 0.1,
+      "phase": "X"
+    },
+    {
+      "name": "FireAnimationFrame",
+      "pid": 5724,
+      "tid": 5759,
+      "startMs": 162.22,
+      "durationMs": 0.41,
+      "phase": "X"
+    },
+    {
+      "name": "Swap throttled",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 163.72,
+      "durationMs": 0,
+      "phase": "I",
+      "pendingSwaps": 2,
+      "maxPendingSwaps": 2
+    },
+    {
+      "name": "DisplayScheduler:pending_swaps",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": -21.26,
+      "durationMs": 0,
+      "phase": "e"
+    },
+    {
+      "name": "DisplayScheduler:pending_swaps",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": -20.61,
+      "durationMs": 0,
+      "phase": "b"
+    },
+    {
+      "name": "DisplayScheduler:pending_swaps",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": -4.44,
+      "durationMs": 0,
+      "phase": "e"
+    },
+    {
+      "name": "DisplayScheduler:pending_swaps",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": -3.35,
+      "durationMs": 0,
+      "phase": "b"
+    },
+    {
+      "name": "DisplayScheduler:pending_swaps",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 145.61,
+      "durationMs": 0,
+      "phase": "e"
+    },
+    {
+      "name": "DisplayScheduler:pending_swaps",
+      "pid": 8419,
+      "tid": 8460,
+      "startMs": 146.08,
+      "durationMs": 0,
+      "phase": "b"
+    }
+  ],
+  "eventsOver5msOverlappingGap": [
+    {
+      "name": "ThreadControllerImpl::RunTask",
+      "pid": 5724,
+      "tid": 5738,
+      "startMs": -1.77,
+      "durationMs": 5.02,
+      "phase": "X"
+    }
+  ],
+  "conclusion": "Observed Chrome Swap throttled pending=2/max=2, absent BeginFrame delivery while Android Extend_VSync continued, then transaction acknowledgement and resumed frames. The reason for delayed Android presentation acknowledgement is not established. Separate earlier solver readback wait must not be confused with this post-goal frame gap."
+}

@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-17T19:29:37.284Z",
+  "ownBootstrapExactMatchesClosed": 1,
+  "ownBootstrapRemaining": 0,
+  "remainingBrowserContexts": 0,
+  "forward19336Removed": true,
+  "remainingAdbForwardMappings": 0,
+  "remainingAdbReverseMappings": 0,
+  "userTargetsUntouched": true,
+  "qaCleanupFinish": {
+    "worker-802-ui-profile-20261017": "removed"
+  },
+  "remaining": "Published worker stand unchanged; compact evidence and five gzipped private timeline reports preserved outside TTL. No temporary runtime/process/context/maps remain."
+}
