@@ -294,7 +294,13 @@ export function joinRoom(
   // board, the board goes; the lesson stays, this person is still in it. A
   // socket new to the server has nothing to leave.
   const from = boardOfSocket.get(socketId)
-  if (from !== undefined && from !== roomId) removeSocketFromBoard(from, socketId)
+  if (from !== undefined && from !== roomId) {
+    const previousBoard = rooms.get(from)
+    const previousLessonId = previousBoard?.lessonId ?? previousBoard?.room.id
+    // Cross-lesson departures are completed by the handler's leaveRoom.
+    // Keep the old board resident until it can resolve that lesson (#780).
+    if (previousLessonId === lessonId) removeSocketFromBoard(from, socketId)
+  }
 
   const role = userId === lesson.room.ownerId ? 'owner' : 'member'
   // Kept across a reconnect or a board switch: a colour that changed every

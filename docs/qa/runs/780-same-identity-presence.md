@@ -46,3 +46,32 @@ mock row store, identity — test cookie. GPU/browser в этом прогоне
 брались из текущего worktree. Собственные links/generated shared dist/tsbuildinfo
 и disposable QA config/log copies удалены. Постоянных сервисов не создавалось.
 Компактные исходные логи сохранены отдельно в ignored `temp/qa780-evidence`.
+
+## Adversarial model: child-board departure (17.10.2026)
+
+Отдельная reference Map/socket с независимым порядком join проверяет presence,
+latest живую доску, роли, participant/room freeze и socket roster каждой доски.
+Три сокета alice + отдельный bob, три целевых доски двух уроков; permanent teacher
+anchors сохраняют уроки для проверки. Seeds `0x780`, `0x164`, `0x176`, `0x595`,
+по 240 случайных join/turn/cross-lesson/disconnect/reconnect; затем закрываются
+все модельные подключения и anchors, проверяется выселение всех записей.
+В сообщении assertion сохраняются seed, шаг и последние восемь действий.
+
+- Старый baseline `4c6beeca`: 4/4 FAIL на гарантированном latest-disconnect шаге 3.
+- Baseline после первых фиксов `1a0ffa09`: 4/4 FAIL. Минимальный seed `0x164`
+  (356), шаг 6: bob с child-board урока B переходит на child-board урока A;
+  старая child-board удалялась в joinRoom до handler leaveRoom, поэтому выход
+  терял lessonId и оставлял ghost participant в уроке B.
+- Узкий фикс: joinRoom сам снимает старую доску только при переходе внутри
+  одного урока. Для cross-lesson старая доска остаётся до handler leaveRoom,
+  который снимает socket, logical participant/seat и при необходимости урок.
+- Actual Socket.IO baseline на `1a0ffa09`: child→main и child→child дали 2 FAIL.
+  После фикса оба проходят с выселением опустевшего старого урока. Ещё четыре
+  Socket.IO случая: child→main/child и оставшийся sibling старше/новее;
+  проверены board fallback event только при смене seat, отсутствие peer_left
+  до ухода sibling и выселение старой child-board.
+- Финальный прогон: 16 rooms suites / 385 tests PASS, включая все четыре seed;
+  server `tsc --noEmit` и `git diff --check` PASS.
+
+В исходники интеграции/backend 4558 ничего не переносилось. Scoped dependencies,
+собственные generated shared types и disposable QA ресурсы после проверки убраны.
