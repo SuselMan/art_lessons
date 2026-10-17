@@ -1,0 +1,1300 @@
+{
+  "issue": 801,
+  "device": "Samsung SM-T970 / Adreno650 / Chrome155",
+  "scope": "801 diagnostic causal control: owned response ONLY changes default60ms debounce to0 and step4 to100000; baseline original bytes. Both have ONE diagnostic GPU finish at first existing draw after goalReady, before that draw. Live files/assets unchanged; ops/math/order unchanged but time-dependent preview copies may differ. Host and fenced completion times separately. Single fresh context per arm.",
+  "miniBundleSHA": "2fed32ad961d8dd78db4f7f54a82663a016e2ec93b0f07e72b0abcd68be542af",
+  "bundleStable": true,
+  "htmlSHA": "59182da44dc35b4c61d6e60feb5cd78794d6cc3569f3c73b9a31eced3fe269d3",
+  "serverControllerSHA": "d83ae10fa6a2fce07484f947004b49cd36ed2cef8e714810310a446c33888850",
+  "serverControllerStable": true,
+  "qualification": [
+    "Only owned CDP response changes: exact step4→100000 and default launch debounce60→0. Original live assets on server unchanged.",
+    "Both arms add exactly ONE diagnostic gl.finish immediately before first existing draw after native goalReady/target.done; source confirms this precedes initial morph drawing.",
+    "Explicit fence completion is elapsed wall until previously submitted goal GPU work completes; it is NOT pure GPU execution duration. Earlier existing readPixels/driver calls can already wait for GPU.",
+    "Native job.ops array/functions/tags/order remain untouched. All90 observed operations execute in both arms; time-dependent preview insertion could differ in general.",
+    "Single fresh authoring per arm with same pointer command settings/spec; raw source hashes differ, so final pixel equivalence is NOT established. No artificial seed forcing/retry.",
+    "One178ms callback blocks main thread; <200ms response target is NOT passed. No production implementation or runtime setting changed.",
+    "Extra raw/goal SHA readbacks occur only AFTER timing endpoints; no GPU arrays saved."
+  ],
+  "cases": [
+    {
+      "id": "baseline",
+      "control": {
+        "originalSHA": "d83ae10fa6a2fce07484f947004b49cd36ed2cef8e714810310a446c33888850",
+        "responseSHA": "d83ae10fa6a2fce07484f947004b49cd36ed2cef8e714810310a446c33888850",
+        "counts": [
+          1,
+          1
+        ],
+        "changes": []
+      },
+      "interceptCount": 1,
+      "input": {
+        "points": [
+          [
+            200,
+            700
+          ],
+          [
+            206.24,
+            720.1680959245041
+          ],
+          [
+            212.48,
+            736.9755618853648
+          ],
+          [
+            218.72,
+            747.5337584102913
+          ],
+          [
+            224.96,
+            749.8317373478377
+          ],
+          [
+            231.2,
+            743.018673559185
+          ],
+          [
+            237.44,
+            727.5233607804264
+          ],
+          [
+            243.68,
+            704.9939888166115
+          ],
+          [
+            249.92000000000002,
+            678.0666601816797
+          ],
+          [
+            256.15999999999997,
+            649.9951573342844
+          ],
+          [
+            262.4,
+            624.1939586009893
+          ],
+          [
+            268.64,
+            603.758684842369
+          ],
+          [
+            274.88,
+            591.0313287026353
+          ],
+          [
+            281.12,
+            587.2713287026353
+          ],
+          [
+            287.36,
+            592.478684842369
+          ],
+          [
+            293.6,
+            605.3939586009892
+          ],
+          [
+            299.84000000000003,
+            623.6751573342844
+          ],
+          [
+            306.08000000000004,
+            644.2266601816798
+          ],
+          [
+            312.32,
+            663.6339888166115
+          ],
+          [
+            318.56,
+            678.6433607804263
+          ],
+          [
+            324.8,
+            686.6186735591849
+          ],
+          [
+            331.03999999999996,
+            685.9117373478376
+          ],
+          [
+            337.28,
+            676.0937584102912
+          ],
+          [
+            343.52,
+            658.0155618853647
+          ],
+          [
+            349.76,
+            633.6880959245041
+          ],
+          [
+            356,
+            606
+          ],
+          [
+            362.24,
+            578.3119040754959
+          ],
+          [
+            368.48,
+            553.9844381146352
+          ],
+          [
+            374.72,
+            535.9062415897088
+          ],
+          [
+            380.96,
+            526.0882626521624
+          ],
+          [
+            387.2,
+            525.3813264408151
+          ],
+          [
+            393.44,
+            533.3566392195737
+          ],
+          [
+            399.68,
+            548.3660111833885
+          ],
+          [
+            405.92,
+            567.7733398183202
+          ],
+          [
+            412.16,
+            588.3248426657156
+          ],
+          [
+            418.4,
+            606.6060413990107
+          ],
+          [
+            424.64,
+            619.521315157631
+          ],
+          [
+            430.88,
+            624.7286712973647
+          ],
+          [
+            437.12,
+            620.9686712973647
+          ],
+          [
+            443.36,
+            608.241315157631
+          ],
+          [
+            449.6,
+            587.8060413990108
+          ],
+          [
+            455.84,
+            562.0048426657156
+          ],
+          [
+            462.08,
+            533.9333398183204
+          ],
+          [
+            468.32,
+            507.00601118338847
+          ],
+          [
+            474.56,
+            484.4766392195737
+          ],
+          [
+            480.8,
+            468.981326440815
+          ],
+          [
+            487.04,
+            462.1682626521623
+          ],
+          [
+            493.28,
+            464.46624158970866
+          ],
+          [
+            499.52,
+            475.02443811463525
+          ],
+          [
+            505.76,
+            491.8319040754958
+          ],
+          [
+            512,
+            511.99999999999994
+          ],
+          [
+            518.24,
+            532.1680959245041
+          ],
+          [
+            524.48,
+            548.9755618853648
+          ],
+          [
+            530.72,
+            559.5337584102913
+          ],
+          [
+            536.96,
+            561.8317373478376
+          ],
+          [
+            543.2,
+            555.018673559185
+          ],
+          [
+            549.44,
+            539.5233607804262
+          ],
+          [
+            555.68,
+            516.9939888166116
+          ],
+          [
+            561.92,
+            490.06666018168005
+          ],
+          [
+            568.16,
+            461.9951573342846
+          ],
+          [
+            574.4,
+            436.1939586009893
+          ],
+          [
+            580.64,
+            415.7586848423691
+          ],
+          [
+            586.88,
+            403.0313287026353
+          ],
+          [
+            593.12,
+            399.27132870263523
+          ],
+          [
+            599.36,
+            404.4786848423691
+          ],
+          [
+            605.6,
+            417.3939586009892
+          ],
+          [
+            611.84,
+            435.67515733428445
+          ],
+          [
+            618.08,
+            456.2266601816799
+          ],
+          [
+            624.32,
+            475.63398881661146
+          ],
+          [
+            630.56,
+            490.6433607804262
+          ],
+          [
+            636.8,
+            498.61867355918497
+          ],
+          [
+            643.04,
+            497.9117373478377
+          ],
+          [
+            649.28,
+            488.09375841029134
+          ],
+          [
+            655.52,
+            470.0155618853648
+          ],
+          [
+            661.76,
+            445.6880959245042
+          ],
+          [
+            668,
+            418.00000000000006
+          ],
+          [
+            674.24,
+            390.31190407549593
+          ],
+          [
+            680.48,
+            365.98443811463534
+          ],
+          [
+            686.72,
+            347.9062415897087
+          ],
+          [
+            692.96,
+            338.0882626521623
+          ],
+          [
+            699.2,
+            337.381326440815
+          ],
+          [
+            705.44,
+            345.3566392195737
+          ],
+          [
+            711.68,
+            360.3660111833884
+          ],
+          [
+            717.92,
+            379.77333981832
+          ],
+          [
+            724.16,
+            400.32484266571544
+          ],
+          [
+            730.4,
+            418.60604139901056
+          ],
+          [
+            736.64,
+            431.52131515763097
+          ],
+          [
+            742.88,
+            436.7286712973647
+          ],
+          [
+            749.12,
+            432.96867129736484
+          ],
+          [
+            755.36,
+            420.241315157631
+          ],
+          [
+            761.6,
+            399.8060413990108
+          ],
+          [
+            767.84,
+            374.0048426657157
+          ],
+          [
+            774.08,
+            345.9333398183201
+          ],
+          [
+            780.32,
+            319.0060111833885
+          ],
+          [
+            786.56,
+            296.4766392195738
+          ],
+          [
+            792.8,
+            280.9813264408151
+          ],
+          [
+            799.04,
+            274.16826265216235
+          ],
+          [
+            805.28,
+            276.4662415897087
+          ],
+          [
+            811.52,
+            287.024438114635
+          ],
+          [
+            817.76,
+            303.83190407549597
+          ],
+          [
+            824,
+            323.9999999999999
+          ]
+        ],
+        "size": 320,
+        "water": 0.95,
+        "pigment": 0.34,
+        "paint": "PB15",
+        "color": "#2688d3",
+        "force": 0.75
+      },
+      "inputSHA": "5bc1e1bed97bb9d620c4020191c56c2995493001ce99f7b208ec6869be6b0ca5",
+      "before": {
+        "version": "mini-M70-morph",
+        "canvas": [
+          1024,
+          1024
+        ],
+        "model": "front8-detail-flow-v4",
+        "asyncFinish": false,
+        "materialPresentation": false,
+        "joinedTouch": false,
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "settings": {
+          "paint": "PB15",
+          "size": "320",
+          "water": "95",
+          "pigment": "34",
+          "color": "#2688d3"
+        },
+        "visibility": "visible",
+        "hidden": false,
+        "gl": 0
+      },
+      "after": {
+        "state": {
+          "diagnostic": true,
+          "live": true,
+          "active": true,
+          "done": false,
+          "dry": false,
+          "progress": 0.10450597972541749,
+          "durationMs": 120000,
+          "cancellations": 0,
+          "liveInputs": 100,
+          "epoch": 1,
+          "drawing": false,
+          "showingEffect": false,
+          "effectRequested": false,
+          "calculating": false,
+          "goalReady": true,
+          "regions": {
+            "revision": 0,
+            "selected": 0,
+            "background": 0,
+            "resolution": 256,
+            "lastUpdateMs": 0
+          },
+          "target": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 5
+          }
+        },
+        "UI": {
+          "phase": "ready",
+          "message": "Цель готова за 759 мс.",
+          "pending": null,
+          "latest": {
+            "id": 1,
+            "epoch": 1,
+            "version": "mini-M70-morph",
+            "pointerUpAt": 10110,
+            "goalReadyAt": 10868.700000047684,
+            "latencyMs": 758.7000000476837,
+            "confirmationFrames": 2
+          },
+          "results": [
+            {
+              "id": 1,
+              "epoch": 1,
+              "version": "mini-M70-morph",
+              "pointerUpAt": 10110,
+              "goalReadyAt": 10868.700000047684,
+              "latencyMs": 758.7000000476837,
+              "confirmationFrames": 2
+            }
+          ],
+          "controller": {
+            "epoch": 1,
+            "drawing": false,
+            "goalReady": true,
+            "calculating": false,
+            "targetDone": true,
+            "animationProgress": 0.10450597972541749
+          },
+          "qualification": "trusted pointerup capture → controller goalReady + target.done, confirmed on two RAF; includes handler/browser wait, excludes waiting for animation.done; no GPU reads or forced finish"
+        },
+        "gl": 0,
+        "lost": false,
+        "asyncError": ""
+      },
+      "dispatchWallMs": 5750,
+      "pass": true,
+      "contextClosed": true,
+      "readbackHashes": {
+        "qualification": "Additional readbacks AFTER all timing boundaries; SHA only, no arrays persisted; fresh authoring seeds may differ",
+        "Raw": {
+          "p": "257824983868df5f2ab2d729c677c98677c91cc9f23ed738f0ab80f371682b79",
+          "c": "bef815e3e0bb779e295607d676692ce085e0b1ab622baae5bdfcfdc9e7004a79",
+          "coverage": "92f0824aecf5791f0fb676110ec2acc94de0b14b558982d7d5fd0aad9faf7aef"
+        },
+        "Goal": {
+          "p": "801af28b69f2524fabe0aa9f491dcea7972e8250684c487f87a6a4bfc745d0b6",
+          "c": "3d2ebc5cd960c5272fa06073c58c14319557fe0866f0b727dfd833e0df0e087b",
+          "coverage": "d7ca2a3f4abcbb396c4a466cc341cb10205f5c74847fcc4fd3c8bef1850b954d"
+        },
+        "gl": 0
+      },
+      "observedOps": {
+        "initial": 78,
+        "nativeAtFinish": 80,
+        "final": 90,
+        "advancingCallbacks": 23,
+        "deltas": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          2
+        ]
+      },
+      "timingsMs": {
+        "upToFirstAdvancingCallback": 104.29999995231628,
+        "upToGoalJSBeforeDiagnosticFence": 553.2999999523163,
+        "upToGoalGPUComplete": 553.5,
+        "diagnosticFenceWall": 0.20000004768371582,
+        "upToGoalAtCallbackEnd": 554.6000001430511,
+        "upToObserver2RAFConfirmation": 759,
+        "upToUI2RAFConfirmation": 758.7000000476837,
+        "largestAdvancingCallback": 89.30000019073486,
+        "advancingCallbackInclusiveWall": 137.59999990463257,
+        "betweenAdvancingCallbacks": 312.7000002861023,
+        "prepare": 4,
+        "onEnd": 25.90000009536743
+      },
+      "GLExistingCallStats": {
+        "drawing:outside:drawArrays": {
+          "count": 1118,
+          "wallMs": 9.79999852180481,
+          "maxMs": 0.10000014305114746,
+          "logicalBytes": 0
+        },
+        "drawing:_display:drawArrays": {
+          "count": 588,
+          "wallMs": 6.599999904632568,
+          "maxMs": 0.3000001907348633,
+          "logicalBytes": 0
+        },
+        "postUP:_onEnd:drawArrays": {
+          "count": 55,
+          "wallMs": 0.2999997138977051,
+          "maxMs": 0.09999990463256836,
+          "logicalBytes": 0
+        },
+        "postUP:_display:drawArrays": {
+          "count": 12,
+          "wallMs": 0.2999999523162842,
+          "maxMs": 0.10000014305114746,
+          "logicalBytes": 0
+        },
+        "postUP:raf:drawArrays": {
+          "count": 232,
+          "wallMs": 1.1999998092651367,
+          "maxMs": 0.10000014305114746,
+          "logicalBytes": 0
+        },
+        "postUP:raf:readPixels": {
+          "count": 1,
+          "wallMs": 23.200000047683716,
+          "maxMs": 23.200000047683716,
+          "logicalBytes": 262144
+        },
+        "postUP:finish:drawArrays": {
+          "count": 1,
+          "wallMs": 0,
+          "maxMs": 0,
+          "logicalBytes": 0
+        }
+      }
+    },
+    {
+      "id": "no-pauses",
+      "control": {
+        "originalSHA": "d83ae10fa6a2fce07484f947004b49cd36ed2cef8e714810310a446c33888850",
+        "responseSHA": "720847354ea68be673a256f324a3109684f9ec4cafe9268778cbfd35ecf5923d",
+        "counts": [
+          1,
+          1
+        ],
+        "changes": [
+          [
+            ".step(4)",
+            ".step(100000)"
+          ],
+          [
+            "function $(t=60){",
+            "function $(t=0){"
+          ]
+        ]
+      },
+      "interceptCount": 1,
+      "input": {
+        "points": [
+          [
+            200,
+            700
+          ],
+          [
+            206.24,
+            720.1680959245041
+          ],
+          [
+            212.48,
+            736.9755618853648
+          ],
+          [
+            218.72,
+            747.5337584102913
+          ],
+          [
+            224.96,
+            749.8317373478377
+          ],
+          [
+            231.2,
+            743.018673559185
+          ],
+          [
+            237.44,
+            727.5233607804264
+          ],
+          [
+            243.68,
+            704.9939888166115
+          ],
+          [
+            249.92000000000002,
+            678.0666601816797
+          ],
+          [
+            256.15999999999997,
+            649.9951573342844
+          ],
+          [
+            262.4,
+            624.1939586009893
+          ],
+          [
+            268.64,
+            603.758684842369
+          ],
+          [
+            274.88,
+            591.0313287026353
+          ],
+          [
+            281.12,
+            587.2713287026353
+          ],
+          [
+            287.36,
+            592.478684842369
+          ],
+          [
+            293.6,
+            605.3939586009892
+          ],
+          [
+            299.84000000000003,
+            623.6751573342844
+          ],
+          [
+            306.08000000000004,
+            644.2266601816798
+          ],
+          [
+            312.32,
+            663.6339888166115
+          ],
+          [
+            318.56,
+            678.6433607804263
+          ],
+          [
+            324.8,
+            686.6186735591849
+          ],
+          [
+            331.03999999999996,
+            685.9117373478376
+          ],
+          [
+            337.28,
+            676.0937584102912
+          ],
+          [
+            343.52,
+            658.0155618853647
+          ],
+          [
+            349.76,
+            633.6880959245041
+          ],
+          [
+            356,
+            606
+          ],
+          [
+            362.24,
+            578.3119040754959
+          ],
+          [
+            368.48,
+            553.9844381146352
+          ],
+          [
+            374.72,
+            535.9062415897088
+          ],
+          [
+            380.96,
+            526.0882626521624
+          ],
+          [
+            387.2,
+            525.3813264408151
+          ],
+          [
+            393.44,
+            533.3566392195737
+          ],
+          [
+            399.68,
+            548.3660111833885
+          ],
+          [
+            405.92,
+            567.7733398183202
+          ],
+          [
+            412.16,
+            588.3248426657156
+          ],
+          [
+            418.4,
+            606.6060413990107
+          ],
+          [
+            424.64,
+            619.521315157631
+          ],
+          [
+            430.88,
+            624.7286712973647
+          ],
+          [
+            437.12,
+            620.9686712973647
+          ],
+          [
+            443.36,
+            608.241315157631
+          ],
+          [
+            449.6,
+            587.8060413990108
+          ],
+          [
+            455.84,
+            562.0048426657156
+          ],
+          [
+            462.08,
+            533.9333398183204
+          ],
+          [
+            468.32,
+            507.00601118338847
+          ],
+          [
+            474.56,
+            484.4766392195737
+          ],
+          [
+            480.8,
+            468.981326440815
+          ],
+          [
+            487.04,
+            462.1682626521623
+          ],
+          [
+            493.28,
+            464.46624158970866
+          ],
+          [
+            499.52,
+            475.02443811463525
+          ],
+          [
+            505.76,
+            491.8319040754958
+          ],
+          [
+            512,
+            511.99999999999994
+          ],
+          [
+            518.24,
+            532.1680959245041
+          ],
+          [
+            524.48,
+            548.9755618853648
+          ],
+          [
+            530.72,
+            559.5337584102913
+          ],
+          [
+            536.96,
+            561.8317373478376
+          ],
+          [
+            543.2,
+            555.018673559185
+          ],
+          [
+            549.44,
+            539.5233607804262
+          ],
+          [
+            555.68,
+            516.9939888166116
+          ],
+          [
+            561.92,
+            490.06666018168005
+          ],
+          [
+            568.16,
+            461.9951573342846
+          ],
+          [
+            574.4,
+            436.1939586009893
+          ],
+          [
+            580.64,
+            415.7586848423691
+          ],
+          [
+            586.88,
+            403.0313287026353
+          ],
+          [
+            593.12,
+            399.27132870263523
+          ],
+          [
+            599.36,
+            404.4786848423691
+          ],
+          [
+            605.6,
+            417.3939586009892
+          ],
+          [
+            611.84,
+            435.67515733428445
+          ],
+          [
+            618.08,
+            456.2266601816799
+          ],
+          [
+            624.32,
+            475.63398881661146
+          ],
+          [
+            630.56,
+            490.6433607804262
+          ],
+          [
+            636.8,
+            498.61867355918497
+          ],
+          [
+            643.04,
+            497.9117373478377
+          ],
+          [
+            649.28,
+            488.09375841029134
+          ],
+          [
+            655.52,
+            470.0155618853648
+          ],
+          [
+            661.76,
+            445.6880959245042
+          ],
+          [
+            668,
+            418.00000000000006
+          ],
+          [
+            674.24,
+            390.31190407549593
+          ],
+          [
+            680.48,
+            365.98443811463534
+          ],
+          [
+            686.72,
+            347.9062415897087
+          ],
+          [
+            692.96,
+            338.0882626521623
+          ],
+          [
+            699.2,
+            337.381326440815
+          ],
+          [
+            705.44,
+            345.3566392195737
+          ],
+          [
+            711.68,
+            360.3660111833884
+          ],
+          [
+            717.92,
+            379.77333981832
+          ],
+          [
+            724.16,
+            400.32484266571544
+          ],
+          [
+            730.4,
+            418.60604139901056
+          ],
+          [
+            736.64,
+            431.52131515763097
+          ],
+          [
+            742.88,
+            436.7286712973647
+          ],
+          [
+            749.12,
+            432.96867129736484
+          ],
+          [
+            755.36,
+            420.241315157631
+          ],
+          [
+            761.6,
+            399.8060413990108
+          ],
+          [
+            767.84,
+            374.0048426657157
+          ],
+          [
+            774.08,
+            345.9333398183201
+          ],
+          [
+            780.32,
+            319.0060111833885
+          ],
+          [
+            786.56,
+            296.4766392195738
+          ],
+          [
+            792.8,
+            280.9813264408151
+          ],
+          [
+            799.04,
+            274.16826265216235
+          ],
+          [
+            805.28,
+            276.4662415897087
+          ],
+          [
+            811.52,
+            287.024438114635
+          ],
+          [
+            817.76,
+            303.83190407549597
+          ],
+          [
+            824,
+            323.9999999999999
+          ]
+        ],
+        "size": 320,
+        "water": 0.95,
+        "pigment": 0.34,
+        "paint": "PB15",
+        "color": "#2688d3",
+        "force": 0.75
+      },
+      "inputSHA": "5bc1e1bed97bb9d620c4020191c56c2995493001ce99f7b208ec6869be6b0ca5",
+      "before": {
+        "version": "mini-M70-morph",
+        "canvas": [
+          1024,
+          1024
+        ],
+        "model": "front8-detail-flow-v4",
+        "asyncFinish": false,
+        "materialPresentation": false,
+        "joinedTouch": false,
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "settings": {
+          "paint": "PB15",
+          "size": "320",
+          "water": "95",
+          "pigment": "34",
+          "color": "#2688d3"
+        },
+        "visibility": "visible",
+        "hidden": false,
+        "gl": 0
+      },
+      "after": {
+        "state": {
+          "diagnostic": true,
+          "live": true,
+          "active": true,
+          "done": false,
+          "dry": false,
+          "progress": 0.07719212877579343,
+          "durationMs": 120000,
+          "cancellations": 0,
+          "liveInputs": 100,
+          "epoch": 1,
+          "drawing": false,
+          "showingEffect": false,
+          "effectRequested": false,
+          "calculating": false,
+          "goalReady": true,
+          "regions": {
+            "revision": 0,
+            "selected": 0,
+            "background": 0,
+            "resolution": 256,
+            "lastUpdateMs": 0
+          },
+          "target": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 5
+          }
+        },
+        "UI": {
+          "phase": "ready",
+          "message": "Цель готова за 224 мс.",
+          "pending": null,
+          "latest": {
+            "id": 1,
+            "epoch": 1,
+            "version": "mini-M70-morph",
+            "pointerUpAt": 10256.300000190735,
+            "goalReadyAt": 10480.600000143051,
+            "latencyMs": 224.29999995231628,
+            "confirmationFrames": 2
+          },
+          "results": [
+            {
+              "id": 1,
+              "epoch": 1,
+              "version": "mini-M70-morph",
+              "pointerUpAt": 10256.300000190735,
+              "goalReadyAt": 10480.600000143051,
+              "latencyMs": 224.29999995231628,
+              "confirmationFrames": 2
+            }
+          ],
+          "controller": {
+            "epoch": 1,
+            "drawing": false,
+            "goalReady": true,
+            "calculating": false,
+            "targetDone": true,
+            "animationProgress": 0.07719212877579343
+          },
+          "qualification": "trusted pointerup capture → controller goalReady + target.done, confirmed on two RAF; includes handler/browser wait, excludes waiting for animation.done; no GPU reads or forced finish"
+        },
+        "gl": 0,
+        "lost": false,
+        "asyncError": ""
+      },
+      "dispatchWallMs": 6018,
+      "pass": true,
+      "contextClosed": true,
+      "readbackHashes": {
+        "qualification": "Additional readbacks AFTER all timing boundaries; SHA only, no arrays persisted; fresh authoring seeds may differ",
+        "Raw": {
+          "p": "294ac34dd24bdf5e41ab9d5ae2bc14b3b09c2f846f2df8c8269edc910389d39e",
+          "c": "22cd7c0ef336bc7ee4219d66ac570b98359899d24320a9c0f735837d16226d6d",
+          "coverage": "f4fffa0706d43b40a59c72c27f893c3f3057b4e309e257c13065703c35bd0343"
+        },
+        "Goal": {
+          "p": "26c5ea0ac36f46fccef0294d97884e2812623782823caa80201e4143b6d6ae1d",
+          "c": "671ff27bead61b31046cedbffab824a4d540a0842d752aa9f8daeccf5df6d9cc",
+          "coverage": "8525742e38bf91eb9d15a01391012542eb8406cc47fb5da8ad2530fa3117516e"
+        },
+        "gl": 0
+      },
+      "observedOps": {
+        "initial": 78,
+        "nativeAtFinish": 80,
+        "final": 90,
+        "advancingCallbacks": 1,
+        "deltas": [
+          90
+        ]
+      },
+      "timingsMs": {
+        "upToFirstAdvancingCallback": 37.40000009536743,
+        "upToGoalJSBeforeDiagnosticFence": 215.0,
+        "upToGoalGPUComplete": 215.0,
+        "diagnosticFenceWall": 0,
+        "upToGoalAtCallbackEnd": 215.59999990463257,
+        "upToObserver2RAFConfirmation": 224.70000004768372,
+        "upToUI2RAFConfirmation": 224.29999995231628,
+        "largestAdvancingCallback": 178.19999980926514,
+        "advancingCallbackInclusiveWall": 178.19999980926514,
+        "betweenAdvancingCallbacks": 0,
+        "prepare": 6.599999904632568,
+        "onEnd": 27.799999952316284
+      },
+      "GLExistingCallStats": {
+        "drawing:outside:drawArrays": {
+          "count": 1118,
+          "wallMs": 7.399999141693115,
+          "maxMs": 0.20000004768371582,
+          "logicalBytes": 0
+        },
+        "drawing:_display:drawArrays": {
+          "count": 588,
+          "wallMs": 5.3999998569488525,
+          "maxMs": 0.20000004768371582,
+          "logicalBytes": 0
+        },
+        "postUP:_onEnd:drawArrays": {
+          "count": 55,
+          "wallMs": 0.20000004768371582,
+          "maxMs": 0.10000014305114746,
+          "logicalBytes": 0
+        },
+        "postUP:_display:drawArrays": {
+          "count": 12,
+          "wallMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836,
+          "logicalBytes": 0
+        },
+        "postUP:raf:drawArrays": {
+          "count": 232,
+          "wallMs": 1.3000001907348633,
+          "maxMs": 0.10000014305114746,
+          "logicalBytes": 0
+        },
+        "postUP:raf:readPixels": {
+          "count": 1,
+          "wallMs": 79.5,
+          "maxMs": 79.5,
+          "logicalBytes": 262144
+        },
+        "postUP:finish:drawArrays": {
+          "count": 1,
+          "wallMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836,
+          "logicalBytes": 0
+        }
+      }
+    }
+  ],
+  "cleanup": {
+    "owner": "puddle_undo/#801-no-pauses",
+    "serial": "R52RB0JXVSY",
+    "forward": "19336 chrome_devtools_remote",
+    "reverse": "15483:5383",
+    "ownBootstrapURL": "http://127.0.0.1:15483/robots.txt?qa801-nopauses-bootstrap=owned-20261017",
+    "expires": "2026-10-17T23:07:51+03:00",
+    "state": "cleaned",
+    "measuredContextsClosed": 2,
+    "ownBootstrapClosed": true,
+    "mapsRemaining": [],
+    "userTargetsUntouched": true
+  },
+  "fixedInputSpecSHAEqual": true,
+  "rawPlaneSHAEqual": {
+    "p": false,
+    "c": false,
+    "coverage": false
+  },
+  "goalPlaneSHAEqual": {
+    "p": false,
+    "c": false,
+    "coverage": false
+  }
+}

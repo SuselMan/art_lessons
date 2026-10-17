@@ -1,0 +1,3 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),{matchesOwnedController,makeMiniControl}=require('./mini-no-pauses-control.cjs');
+test('interception is confined to exact own origin and controller path',()=>{const base='http://127.0.0.1:15483';assert.equal(matchesOwnedController(base+'/mini-assets/chunk-7Q6CHNG6.js',base),true);for(const url of ['http://example.com/mini-assets/chunk-7Q6CHNG6.js',base+'/mini-assets/mini-VF3ACYIS.js',base+'/mini-assets/chunk-7Q6CHNG6.js.other'])assert.equal(matchesOwnedController(url,base),false)});
+test('source mismatch fails closed before constructing altered response',()=>{assert.throws(()=>makeMiniControl('.step(4);function $(t=60){',true),/Frozen deployed/)});
