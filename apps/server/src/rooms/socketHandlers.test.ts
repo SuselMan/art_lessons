@@ -41,7 +41,7 @@ vi.mock('../health/memory.js', () => ({
 }))
 vi.mock('../instrument.js', () => ({ reportException: () => {}, reportIssue: () => {} }))
 
-const { registerRoomHandlers } = await import('./socketHandlers.js')
+const { registerRoomHandlers, removeUserFromRoom } = await import('./socketHandlers.js')
 const { _flushPendingWrites, isRoomResident } = await import('./rooms.js')
 const { noteBoardCreated } = await import('./classroom.js')
 
@@ -407,4 +407,71 @@ it('#780 keeps the old owner socket authorized after its newer tab leaves a froz
   expect(verdict).toMatchObject({ ok: true })
   const refused = await new Promise(resolve => student.emit('operation', stroke(fresh('student-still-frozen'), 'student'), resolve))
   expect(refused).toEqual({ ok: false, reason: 'room_frozen' })
+})
+
+it.each(['board', 'lesson'] as const)('#780 cancels only the moving socket live tail on joining another %s', async target => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const sibling = client('student')
+  await join(sibling, lessonId, 'Alice')
+  for (const [sender, strokeId] of [[sibling, 'sibling-held'], [student, 'moving-held']] as const) {
+    const relayed = next(teacher, 'peer_stroke_live')
+    sender.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'watercolor', preset: 'normal', color: [0, 0, 1], packetSeq: 0, dabsPacked: '' })
+    await relayed
+  }
+  let destination = boardId
+  if (target === 'lesson') {
+    destination = fresh('second-lesson')
+    rows.set(destination, row(destination))
+    const otherTeacher = client('teacher')
+    await createLesson(otherTeacher, destination)
+  }
+  const cancelled: unknown[] = []
+  teacher.on('peer_stroke_live_end', event => cancelled.push(event))
+  const ended = next(teacher, 'peer_stroke_live_end', 300)
+  await join(student, destination, 'Alice')
+  expect(await ended).toEqual({ userId: 'student', strokeId: 'moving-held', cancelled: true })
+  await new Promise(resolve => setTimeout(resolve, 20))
+  expect(cancelled).toHaveLength(1)
+})
+
+it('#780 announces the old lesson board fallback when the latest socket moves to another lesson', async () => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const movedToBoard = next(teacher, 'peer_board_changed')
+  await join(student, boardId, 'Alice')
+  await movedToBoard
+  const newer = client('student')
+  const movedToLesson = next(teacher, 'peer_board_changed')
+  await join(newer, lessonId, 'Alice')
+  await movedToLesson
+  const destination = fresh('second-lesson')
+  rows.set(destination, row(destination))
+  await createLesson(client('teacher'), destination)
+  const fallback = next(teacher, 'peer_board_changed', 300)
+  await join(newer, destination, 'Alice')
+  expect(await fallback).toEqual({ userId: 'student', boardId })
+  await silent(teacher, 'peer_left', 20)
+})
+
+it('#780 kicking both same-identity sockets emits one logical departure for observer cleanup', async () => {
+  const { lessonId, teacher, student } = await classroom()
+  const sibling = client('student')
+  await join(sibling, lessonId, 'Alice')
+  for (const [sender, strokeId] of [[student, 'kick-old'], [sibling, 'kick-new']] as const) {
+    const live = next(teacher, 'peer_stroke_live')
+    sender.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'watercolor', preset: 'normal', color: [0, 0, 1], packetSeq: 0, dabsPacked: '' })
+    await live
+  }
+  const departures: string[] = []
+  teacher.on('peer_left', userId => departures.push(userId))
+  const oldKicked = next(student, 'kicked')
+  const newKicked = next(sibling, 'kicked')
+  const left = next(teacher, 'peer_left')
+  await removeUserFromRoom(io as never, lessonId, 'student')
+  expect(await oldKicked).toEqual({ roomId: lessonId })
+  expect(await newKicked).toEqual({ roomId: lessonId })
+  expect(await left).toBe('student')
+  await new Promise(resolve => setTimeout(resolve, 20))
+  expect(departures).toEqual(['student'])
+  expect(student.connected).toBe(true)
+  expect(sibling.connected).toBe(true)
 })
