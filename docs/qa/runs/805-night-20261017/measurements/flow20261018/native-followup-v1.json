@@ -1,0 +1,513 @@
+{
+  "qualification": "Native followup: identity1024 recorded dab geometry, native fine paper/real absorption, fixed-input same-target repeats. Raw endpoint and fixedINITIALscale conversion outside timer. Support distance cannot quantify redistribution inside already pigmented area.",
+  "cases": [
+    {
+      "id": "native-flow-near-colors",
+      "title": "Native: близкие раздельные цвета, зазор28px",
+      "transform": {
+        "policy": "Identity1024 world geometry. Native fine-paper/pigment deposits are a separate functional reference, not identical synthetic flat-paper tracer input.",
+        "scale": 1,
+        "size": 1024
+      },
+      "operationSHA": "61c7ea541ae64362cbdd9468a90d4108b627749bc883e71b843923664c6da946",
+      "variants": [
+        {
+          "id": "original",
+          "label": "Native current front8 control",
+          "sourceHashes": {
+            "entry.js": "4eec5c5b0f700f69bebb6e8e9560ffa279ac83e07394a6d691fdf2fb86a9ebbd",
+            "worker.js": "b8491d1d49c50ce5985bfe57decb0951fd03af8fff56081684c80ba040784897",
+            "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+            "chunk-ZSHUORIB.js": "3d209d2d04a34408e4357c0780bbabfdfeb107f120176e0d482e97e45d1108d6",
+            "chunk-4OB2IP27.js": "d6237b3e8f7e6232c48c8276d1085841dba712728a9a1daca706d4b01b64c5d3",
+            "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+            "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+            "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+            "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+            "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+          },
+          "replay": {
+            "operationCount": 3,
+            "sourceReady": true,
+            "epoch": 1,
+            "model": "front8-detail-flow-v4",
+            "presetOverrides": [
+              {
+                "original": "normal:100:0:PB29:round",
+                "replayed": "normal:100:0:PB29:round:wc@front8-detail-flow-v4"
+              },
+              {
+                "original": "normal:100:34:PB15:round",
+                "replayed": "normal:100:34:PB15:round:wc@front8-detail-flow-v4"
+              },
+              {
+                "original": "normal:100:34:PY154:round",
+                "replayed": "normal:100:34:PY154:round:wc@front8-detail-flow-v4"
+              }
+            ],
+            "operationSHA": "4b8a327cf14bf4488c0e13983afde4c77440e71cc717d199180d12ee2d95d1e6"
+          },
+          "rawSHA": {
+            "p": "5fc0f6a1f958e3bfb233970fd900d20de3c95ad340745c7b958fcd9370d192ed",
+            "c": "b94869fc7a32d7fbdf52fcc87c6e8757746303742f8ea7eb1a780da870352ab5",
+            "coverage": "36455816fd3588896e8cf8a087d6c8419fc7fe66f5dff603b6f562a79f4a6cfe",
+            "water": "af9295c1072a3d647470f63a8e65ff90ad9f1716310e8acd8c5558fc30156e29",
+            "foreignWater": "absent",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+          },
+          "commonSHA": {
+            "rgba": "9ee71a57298cfab34afe51792e863484b29fc7c044e1c6981d36895f203d24ca",
+            "water": "99334c692ac80ed49e2032cd315465ebde96d092c03b1c3bd80b2de77cd2a0cc",
+            "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+          },
+          "captureMetadata": {
+            "version": 1,
+            "conversion": "native-optical-depth-linear",
+            "rawRows": "gl-bottom-up",
+            "inputRows": "top-left",
+            "pigmentScale": 1,
+            "nativeMassPerAlpha": 2,
+            "nativeDepthPerRGB": 8,
+            "nativeWaterPerByteFraction": 4,
+            "saturatedWaterPixels": 0,
+            "depthWithoutMassPixels": 0,
+            "tileOrigin": [
+              0,
+              0
+            ],
+            "paperWorldSize": [
+              1024,
+              1024
+            ],
+            "paperScale": 1,
+            "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+            "rawSHA": {
+              "inkColor": "b94869fc7a32d7fbdf52fcc87c6e8757746303742f8ea7eb1a780da870352ab5",
+              "solvent": "af9295c1072a3d647470f63a8e65ff90ad9f1716310e8acd8c5558fc30156e29",
+              "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+            },
+            "commonSHA": {
+              "rgba": "9ee71a57298cfab34afe51792e863484b29fc7c044e1c6981d36895f203d24ca",
+              "water": "99334c692ac80ed49e2032cd315465ebde96d092c03b1c3bd80b2de77cd2a0cc",
+              "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+            },
+            "carrierViolations": 0,
+            "validForBoundedCarrier": true,
+            "nativeMaterialModel": "front8-detail-flow-v4",
+            "scope": "One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim"
+          },
+          "commonAvailable": true,
+          "endpoint": {
+            "file": "goal-native-c.bin",
+            "bytes": 4194304,
+            "sha256": "0124a70020d559cc54933685728179c4a6e247249694fdaa1efa1fd63d497ae2",
+            "metadata": {
+              "size": 1024,
+              "rows": "gl-bottom-up",
+              "channels": "native inkColor optical-depth RGB and pigment-mass A",
+              "sha256": "0124a70020d559cc54933685728179c4a6e247249694fdaa1efa1fd63d497ae2",
+              "qualification": "Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale."
+            }
+          },
+          "samples": [
+            {
+              "submitJsMs": 147,
+              "runToDependentMs": 184.5,
+              "totalReadyMs": 331.5,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                16,
+                8,
+                25
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded."
+            },
+            {
+              "submitJsMs": 14.300000190734863,
+              "runToDependentMs": 156.89999985694885,
+              "totalReadyMs": 171.20000004768372,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                16,
+                8,
+                25
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded."
+            },
+            {
+              "submitJsMs": 12.900000095367432,
+              "runToDependentMs": 154.59999990463257,
+              "totalReadyMs": 167.5,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                16,
+                8,
+                25
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded."
+            }
+          ],
+          "hashes": [
+            {
+              "p": "3cd2f203cf1d20c003242d005018823fdcd5343935eaf7d38e06eef37ef6c093",
+              "c": "0124a70020d559cc54933685728179c4a6e247249694fdaa1efa1fd63d497ae2",
+              "coverage": "e148684e876bc1a496e19d31e1ec85625d09a60b9827ef34e0f50ed14fde4afb"
+            },
+            {
+              "p": "3cd2f203cf1d20c003242d005018823fdcd5343935eaf7d38e06eef37ef6c093",
+              "c": "0124a70020d559cc54933685728179c4a6e247249694fdaa1efa1fd63d497ae2",
+              "coverage": "e148684e876bc1a496e19d31e1ec85625d09a60b9827ef34e0f50ed14fde4afb"
+            },
+            {
+              "p": "3cd2f203cf1d20c003242d005018823fdcd5343935eaf7d38e06eef37ef6c093",
+              "c": "0124a70020d559cc54933685728179c4a6e247249694fdaa1efa1fd63d497ae2",
+              "coverage": "e148684e876bc1a496e19d31e1ec85625d09a60b9827ef34e0f50ed14fde4afb"
+            }
+          ],
+          "repeatExact": true,
+          "warmMedianMs": 169.35000002384186,
+          "warmSampleCount": 2,
+          "png": {
+            "file": "original.png",
+            "sha256": "8de7bc793f43809173f58465d1308de31a4e2893f06a1380a4ce454614e77ef6",
+            "bytes": 1163887
+          },
+          "sourceStable": true,
+          "pass": true,
+          "errors": [],
+          "contextClosed": true,
+          "transport": {
+            "conversion": {
+              "scale": 1,
+              "source": "INITIALcapturepigmentScale",
+              "rawRows": "gl-bottom-up",
+              "convertedRows": "top-left",
+              "clippedChannels": 0,
+              "invalidPremulPixels": 0,
+              "maxCode": 48,
+              "qualification": "Native optical-depth/mass endpoints, not pure R/B tracers. Only generic initial-support travel is interpreted. Conversion clipping, if any, invalidates bounded-carrier quantification."
+            },
+            "metrics": {
+              "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+              "supportPixels": 3856,
+              "inputAlpha": 307904,
+              "outputAlpha": 278820,
+              "alphaRatio": 0.9055419871128664,
+              "channelRatios": [
+                0.8733811140450145,
+                0.7496799332034512,
+                0.8466567361800729
+              ],
+              "rmsDistanceFromSupport": 17.456223130680147,
+              "beyond": [
+                {
+                  "distance": 10,
+                  "pixels": 20152,
+                  "alpha": 113434,
+                  "fraction": 0.40683595150993473
+                },
+                {
+                  "distance": 25,
+                  "pixels": 13201,
+                  "alpha": 49382,
+                  "fraction": 0.17711068072591638
+                },
+                {
+                  "distance": 50,
+                  "pixels": 984,
+                  "alpha": 2146,
+                  "fraction": 0.0076967218994333265
+                },
+                {
+                  "distance": 100,
+                  "pixels": 0,
+                  "alpha": 0,
+                  "fraction": 0
+                }
+              ],
+              "changedDryPixels": 0
+            },
+            "rgba": {
+              "file": "native-flow-near-colors/goal-common-rgba.bin",
+              "sha256": "f356a10f6674dfbe828927940ea2c618ad0c08cba703ef783cbc89d5fcb2b15e",
+              "bytes": 4194304
+            }
+          }
+        }
+      ],
+      "commonAvailable": true,
+      "capture": {
+        "file": "fixture.bin",
+        "manifestFile": "capture-manifest.json",
+        "binarySHA": "c4fff84fd8fcf871b022dbea6d4c37b1ec602394af8dcf16938581589fc508f3",
+        "commonAvailable": true
+      },
+      "pass": true
+    },
+    {
+      "id": "native-flow-waterdrop-after-color",
+      "title": "Native: чистая вода после цветного пятна",
+      "transform": {
+        "policy": "Identity1024 world geometry. Native fine-paper/pigment deposits are a separate functional reference, not identical synthetic flat-paper tracer input.",
+        "scale": 1,
+        "size": 1024
+      },
+      "operationSHA": "e5645c3584e793555b2e06d42161f2b83da90f62909d97f34e6c76bd73185da9",
+      "variants": [
+        {
+          "id": "original",
+          "label": "Native current front8 control",
+          "sourceHashes": {
+            "entry.js": "4eec5c5b0f700f69bebb6e8e9560ffa279ac83e07394a6d691fdf2fb86a9ebbd",
+            "worker.js": "b8491d1d49c50ce5985bfe57decb0951fd03af8fff56081684c80ba040784897",
+            "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+            "chunk-ZSHUORIB.js": "3d209d2d04a34408e4357c0780bbabfdfeb107f120176e0d482e97e45d1108d6",
+            "chunk-4OB2IP27.js": "d6237b3e8f7e6232c48c8276d1085841dba712728a9a1daca706d4b01b64c5d3",
+            "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+            "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+            "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+            "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+            "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+          },
+          "replay": {
+            "operationCount": 2,
+            "sourceReady": true,
+            "epoch": 1,
+            "model": "front8-detail-flow-v4",
+            "presetOverrides": [
+              {
+                "original": "normal:100:34:PB15:round",
+                "replayed": "normal:100:34:PB15:round:wc@front8-detail-flow-v4"
+              },
+              {
+                "original": "normal:100:0:PB29:round",
+                "replayed": "normal:100:0:PB29:round:wc@front8-detail-flow-v4"
+              }
+            ],
+            "operationSHA": "52d1f2b5c336f688dc90ef58ffce7f6702666939eca08a722d571eea27c57295"
+          },
+          "rawSHA": {
+            "p": "4534b601f58fcda64e356998f1af10b42585b2035e5aacacdb68bcb3816f4408",
+            "c": "291e81834eb6298da7ce53b83c6a0f2d092d977bdbc491843791e4e1ca65733b",
+            "coverage": "b1a11257410fc965d5784614e763ea2d16340c759e16d23549aa17e0c6561b98",
+            "water": "cdb6f89b5bfcc1b6f4834289fa1d2dcc684774553d4bc4454b50dcd26fe87f63",
+            "foreignWater": "absent",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+          },
+          "commonSHA": {
+            "rgba": "215756df86d306e5516f5c1102ccbb6d5127a27675aeacc0b81733eaa3f6631c",
+            "water": "ea5073473a8ee999f60e742c6d03f5519c31d1f85883ca401307fe50893d028d",
+            "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+          },
+          "captureMetadata": {
+            "version": 1,
+            "conversion": "native-optical-depth-linear",
+            "rawRows": "gl-bottom-up",
+            "inputRows": "top-left",
+            "pigmentScale": 1,
+            "nativeMassPerAlpha": 2,
+            "nativeDepthPerRGB": 8,
+            "nativeWaterPerByteFraction": 4,
+            "saturatedWaterPixels": 0,
+            "depthWithoutMassPixels": 0,
+            "tileOrigin": [
+              0,
+              0
+            ],
+            "paperWorldSize": [
+              1024,
+              1024
+            ],
+            "paperScale": 1,
+            "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+            "rawSHA": {
+              "inkColor": "291e81834eb6298da7ce53b83c6a0f2d092d977bdbc491843791e4e1ca65733b",
+              "solvent": "cdb6f89b5bfcc1b6f4834289fa1d2dcc684774553d4bc4454b50dcd26fe87f63",
+              "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+            },
+            "commonSHA": {
+              "rgba": "215756df86d306e5516f5c1102ccbb6d5127a27675aeacc0b81733eaa3f6631c",
+              "water": "ea5073473a8ee999f60e742c6d03f5519c31d1f85883ca401307fe50893d028d",
+              "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+            },
+            "carrierViolations": 0,
+            "validForBoundedCarrier": true,
+            "nativeMaterialModel": "front8-detail-flow-v4",
+            "scope": "One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim"
+          },
+          "commonAvailable": true,
+          "endpoint": {
+            "file": "goal-native-c.bin",
+            "bytes": 4194304,
+            "sha256": "4b0974a9d3a39eefe8775d05cb6b4b9dbf47f79a9a9eac092e29c2ab1a738ccc",
+            "metadata": {
+              "size": 1024,
+              "rows": "gl-bottom-up",
+              "channels": "native inkColor optical-depth RGB and pigment-mass A",
+              "sha256": "4b0974a9d3a39eefe8775d05cb6b4b9dbf47f79a9a9eac092e29c2ab1a738ccc",
+              "qualification": "Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale."
+            }
+          },
+          "samples": [
+            {
+              "submitJsMs": 126,
+              "runToDependentMs": 153.09999990463257,
+              "totalReadyMs": 279.09999990463257,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                94,
+                144,
+                169
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded."
+            },
+            {
+              "submitJsMs": 11,
+              "runToDependentMs": 119.69999980926514,
+              "totalReadyMs": 130.69999980926514,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                94,
+                144,
+                169
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded."
+            },
+            {
+              "submitJsMs": 10.099999904632568,
+              "runToDependentMs": 114.79999995231628,
+              "totalReadyMs": 124.89999985694885,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                94,
+                144,
+                169
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded."
+            }
+          ],
+          "hashes": [
+            {
+              "p": "94efc43a4493f6af827f1d6031c85f58fe4d76e566d78c0dafd18585b514cb28",
+              "c": "4b0974a9d3a39eefe8775d05cb6b4b9dbf47f79a9a9eac092e29c2ab1a738ccc",
+              "coverage": "1b8c873806244b20479f0459a1cf05ba323d4d68554be9368de3193164acbdf1"
+            },
+            {
+              "p": "94efc43a4493f6af827f1d6031c85f58fe4d76e566d78c0dafd18585b514cb28",
+              "c": "4b0974a9d3a39eefe8775d05cb6b4b9dbf47f79a9a9eac092e29c2ab1a738ccc",
+              "coverage": "1b8c873806244b20479f0459a1cf05ba323d4d68554be9368de3193164acbdf1"
+            },
+            {
+              "p": "94efc43a4493f6af827f1d6031c85f58fe4d76e566d78c0dafd18585b514cb28",
+              "c": "4b0974a9d3a39eefe8775d05cb6b4b9dbf47f79a9a9eac092e29c2ab1a738ccc",
+              "coverage": "1b8c873806244b20479f0459a1cf05ba323d4d68554be9368de3193164acbdf1"
+            }
+          ],
+          "repeatExact": true,
+          "warmMedianMs": 127.799999833107,
+          "warmSampleCount": 2,
+          "png": {
+            "file": "original.png",
+            "sha256": "50f7af401b5ad8c244ec26ed32689fcb2767b7332bc1c5a131051d1d2398dd38",
+            "bytes": 1219112
+          },
+          "sourceStable": true,
+          "pass": true,
+          "errors": [],
+          "contextClosed": true,
+          "transport": {
+            "conversion": {
+              "scale": 1,
+              "source": "INITIALcapturepigmentScale",
+              "rawRows": "gl-bottom-up",
+              "convertedRows": "top-left",
+              "clippedChannels": 0,
+              "invalidPremulPixels": 0,
+              "maxCode": 170,
+              "qualification": "Native optical-depth/mass endpoints, not pure R/B tracers. Only generic initial-support travel is interpreted. Conversion clipping, if any, invalidates bounded-carrier quantification."
+            },
+            "metrics": {
+              "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+              "supportPixels": 43127,
+              "inputAlpha": 3755936,
+              "outputAlpha": 3605392,
+              "alphaRatio": 0.9599183798658976,
+              "channelRatios": [
+                0.9595000044814512,
+                0.9595485020792668,
+                0.8960884353741496
+              ],
+              "rmsDistanceFromSupport": 0.13492985101234475,
+              "beyond": [
+                {
+                  "distance": 10,
+                  "pixels": 0,
+                  "alpha": 0,
+                  "fraction": 0
+                },
+                {
+                  "distance": 25,
+                  "pixels": 0,
+                  "alpha": 0,
+                  "fraction": 0
+                },
+                {
+                  "distance": 50,
+                  "pixels": 0,
+                  "alpha": 0,
+                  "fraction": 0
+                },
+                {
+                  "distance": 100,
+                  "pixels": 0,
+                  "alpha": 0,
+                  "fraction": 0
+                }
+              ],
+              "changedDryPixels": 0
+            },
+            "rgba": {
+              "file": "native-flow-waterdrop-after-color/goal-common-rgba.bin",
+              "sha256": "20fa185079883d3f4d0b6390518a978a686308be0b57600d0ddaf6e72e36ed47",
+              "bytes": 4194304
+            }
+          }
+        }
+      ],
+      "commonAvailable": true,
+      "capture": {
+        "file": "fixture.bin",
+        "manifestFile": "capture-manifest.json",
+        "binarySHA": "63a722411be803961485418d0a7bbaf9c8a3b8d9c735a1723b7720ac99ce5a2f",
+        "commonAvailable": true
+      },
+      "pass": true
+    }
+  ],
+  "pass": true,
+  "protectedCanonicalCases": 2
+}

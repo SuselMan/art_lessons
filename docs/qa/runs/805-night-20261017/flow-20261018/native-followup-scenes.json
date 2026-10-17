@@ -1,0 +1,107 @@
+{
+  "qualification": "Own deterministic packed native brush reference, identity1024 geometry. Native fine paper/real pigment absorption; separate from synthetic flat128 pure-channel tracers. One shared wash, lifted gestures do not join ribbon segments. No initial geometric overlap of the two pigment dots. Water-drop case may redistribute inside initial pigment support; support-distance alone cannot measure that internal rearrangement.",
+  "scenes": [
+    {
+      "id": "native-flow-near-colors",
+      "label": "Native: близкие раздельные цвета, зазор28px",
+      "operations": [
+        {
+          "id": "native-flow-near-colors-0",
+          "seq": 1,
+          "type": "stroke",
+          "tool": "watercolor",
+          "layerId": "native-flow-layer",
+          "userId": "native-flow-qa",
+          "strokeId": "native-flow-near-colors-gesture-0",
+          "washId": "native-flow-near-colors-shared-wash",
+          "timestamp": 1792282000000,
+          "preset": "normal:100:0:PB29:round",
+          "color": [
+            0.14901960784313725,
+            0.5333333333333333,
+            0.8274509803921568
+          ],
+          "dabsPacked": "1:AADEQwAAAEQAAIA/AAAAAAAAAAAAAMpDAACAPwAAAAAAAIA/AAAAAAAAyUMAAABEAACAPwAAAAAAAAAAAADKQwAAgD8AAAAAAACAPwAAgEEAAM5DAAAARAAAgD8AAAAAAAAAAAAAykMAAIA/AAAAAAAAgD8AAABCAADTQwAAAEQAAIA/AAAAAAAAAAAAAMpDAACAPwAAAAAAAIA/AABAQgAA2EMAAABEAACAPwAAAAAAAAAAAADKQwAAgD8AAAAAAACAPwAAgEIAAN1DAAAARAAAgD8AAAAAAAAAAAAAykMAAIA/AAAAAAAAgD8AAKBCAADiQwAAAEQAAIA/AAAAAAAAAAAAAMpDAACAPwAAAAAAAIA/AADAQgAA50MAAABEAACAPwAAAAAAAAAAAADKQwAAgD8AAAAAAACAPwAA4EIAAOxDAAAARAAAgD8AAAAAAAAAAAAAykMAAIA/AAAAAAAAgD8AAABDAADxQwAAAEQAAIA/AAAAAAAAAAAAAMpDAACAPwAAAAAAAIA/AAAQQwAA9kMAAABEAACAPwAAAAAAAAAAAADKQwAAgD8AAAAAAACAPwAAIEMAAPtDAAAARAAAgD8AAAAAAAAAAAAAykMAAIA/AAAAAAAAgD8AADBDAAAARAAAAEQAAIA/AAAAAAAAAAAAAMpDAACAPwAAAAAAAIA/AABAQwCAAkQAAABEAACAPwAAAAAAAAAAAADKQwAAgD8AAAAAAACAPwAAUEMAAAVEAAAARAAAgD8AAAAAAAAAAAAAykMAAIA/AAAAAAAAgD8AAGBDAIAHRAAAAEQAAIA/AAAAAAAAAAAAAMpDAACAPwAAAAAAAIA/AABwQwAACkQAAABEAACAPwAAAAAAAAAAAADKQwAAgD8AAAAAAACAPwAAgEMAgAxEAAAARAAAgD8AAAAAAAAAAAAAykMAAIA/AAAAAAAAgD8AAIhDAAAPRAAAAEQAAIA/AAAAAAAAAAAAAMpDAACAPwAAAAAAAIA/AACQQwCAEUQAAABEAACAPwAAAAAAAAAAAADKQwAAgD8AAAAAAACAPwAAmEMAABREAAAARAAAgD8AAAAAAAAAAAAAykMAAIA/AAAAAAAAgD8AAKBDAIAWRAAAAEQAAIA/AAAAAAAAAAAAAMpDAACAPwAAAAAAAIA/AACoQwAAGUQAAABEAACAPwAAAAAAAAAAAADKQwAAgD8AAAAAAACAPwAAsEMAgBtEAAAARAAAgD8AAAAAAAAAAAAAykMAAIA/AAAAAAAAgD8AALhDAAAeRAAAAEQAAIA/AAAAAAAAAAAAAMpDAACAPwAAAAAAAIA/AADAQw=="
+        },
+        {
+          "id": "native-flow-near-colors-1",
+          "seq": 2,
+          "type": "stroke",
+          "tool": "watercolor",
+          "layerId": "native-flow-layer",
+          "userId": "native-flow-qa",
+          "strokeId": "native-flow-near-colors-gesture-1",
+          "washId": "native-flow-near-colors-shared-wash",
+          "timestamp": 1792282002000,
+          "preset": "normal:100:34:PB15:round",
+          "color": [
+            0.14901960784313725,
+            0.5333333333333333,
+            0.8274509803921568
+          ],
+          "dabsPacked": "1:AADsQwAAAEQAAIA/AAAAAAAAAAAAAFBCAACAPwAAAAAAAIA/AAAAAA=="
+        },
+        {
+          "id": "native-flow-near-colors-2",
+          "seq": 3,
+          "type": "stroke",
+          "tool": "watercolor",
+          "layerId": "native-flow-layer",
+          "userId": "native-flow-qa",
+          "strokeId": "native-flow-near-colors-gesture-2",
+          "washId": "native-flow-near-colors-shared-wash",
+          "timestamp": 1792282004000,
+          "preset": "normal:100:34:PY154:round",
+          "color": [
+            0.8588235294117647,
+            0.7372549019607844,
+            0.1803921568627451
+          ],
+          "dabsPacked": "1:AAAKRAAAAEQAAIA/AAAAAAAAAAAAAFBCAACAPwAAAAAAAIA/AAAAAA=="
+        }
+      ]
+    },
+    {
+      "id": "native-flow-waterdrop-after-color",
+      "label": "Native: чистая вода после цветного пятна",
+      "operations": [
+        {
+          "id": "native-flow-waterdrop-after-color-0",
+          "seq": 1,
+          "type": "stroke",
+          "tool": "watercolor",
+          "layerId": "native-flow-layer",
+          "userId": "native-flow-qa",
+          "strokeId": "native-flow-waterdrop-after-color-gesture-0",
+          "washId": "native-flow-waterdrop-after-color-shared-wash",
+          "timestamp": 1792282000000,
+          "preset": "normal:100:34:PB15:round",
+          "color": [
+            0.14901960784313725,
+            0.5333333333333333,
+            0.8274509803921568
+          ],
+          "dabsPacked": "1:AAAARAAAAEQAAIA/AAAAAAAAAAAAAHBDAACAPwAAAAAAAIA/AAAAAA=="
+        },
+        {
+          "id": "native-flow-waterdrop-after-color-1",
+          "seq": 2,
+          "type": "stroke",
+          "tool": "watercolor",
+          "layerId": "native-flow-layer",
+          "userId": "native-flow-qa",
+          "strokeId": "native-flow-waterdrop-after-color-gesture-1",
+          "washId": "native-flow-waterdrop-after-color-shared-wash",
+          "timestamp": 1792282002000,
+          "preset": "normal:100:0:PB29:round",
+          "color": [
+            0.14901960784313725,
+            0.5333333333333333,
+            0.8274509803921568
+          ],
+          "dabsPacked": "1:AAAARAAAAEQAAIA/AAAAAAAAAAAAACBDAACAPwAAAAAAAIA/AAAAAA=="
+        }
+      ]
+    }
+  ]
+}

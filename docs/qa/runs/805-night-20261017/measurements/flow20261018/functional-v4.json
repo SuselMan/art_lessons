@@ -1,0 +1,4091 @@
+{
+  "qualification": "Fixed1024 flow experiment on physical Samsung. TotalReady includes upload/reduction plus dependent result readiness, not pureGPUtime. Flow metrics/fullRGBA/PNG computed aftertiming. Technical repeat/premul checks do not imply50–200px material transport or artistic acceptance.",
+  "startedAt": "2026-10-17T23:20:05.247Z",
+  "finishedAt": "2026-10-17T23:21:09.519Z",
+  "sourceHashes": {
+    "entry.js": "8ae71d2be42f50fff43df5d365dfea06858cda9abc10cfab0e2858e170c44859",
+    "worker.js": "46b61cac84e74df34fe8a607f951583ecd9b825917d597a99e3c5de2ae4aaee4",
+    "chunk-7H4SXYYS.js": "54ce095678a5bf06c8ffe4279aac5117682782a24dabc600ae6eff022a499fdd",
+    "fixtures/native-flow-pool-drop.bin": "3c20c7068cd00c803b1a913343cb2024f93bc5b23667c74a3c73055cf7ccc538",
+    "fixtures/native-flow-separated-colors.bin": "3471744208958a1c64c1e42d53be00c988d5eea11ae46f1d977c89cf3ef24e85",
+    "fixtures/mini-wave.bin": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+    "fixtures/gallery-sheet-7-slot-1.bin": "60d1685ff317b9c4638ccdee4fd0cbf0eafaac4ae90b6b39a38ae7e259c3395f",
+    "fixtures/gallery-sheet-3-slot-1.bin": "566b5bff0205a1220745f8177cd37da5d2e97319e11b90814a5f2cb1ec08b03d",
+    "index.html": "7f174c6068b1a87f196251529b71ac6c4844f011e315c79534a94c0af5b824e4"
+  },
+  "checks": {
+    "pass": true,
+    "partial": false,
+    "sourceStable": true,
+    "contextClosed": true,
+    "errors": []
+  },
+  "cases": [
+    {
+      "request": {
+        "algorithm": "macro3-local-hydraulic-residual",
+        "fixture": "flow-pool-drop",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "001-macro3-local-hydraulic-residual-flow-pool-drop.png",
+        "bytes": 665177,
+        "sha256": "3c656d842c9323f1c5cbed7fca8c356bcd13661438538e514ba236a481a16328"
+      },
+      "fixtureSHA": {
+        "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
+        "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgl1",
+      "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "createMs": 99,
+      "samples": [
+        {
+          "uploadJsMs": 84.90000009536743,
+          "submitJsMs": 4.199999809265137,
+          "runToDependentMs": 38,
+          "totalReadyMs": 122.90000009536743
+        },
+        {
+          "uploadJsMs": 55.700000047683716,
+          "submitJsMs": 2.1000001430511475,
+          "runToDependentMs": 26,
+          "totalReadyMs": 81.70000004768372
+        },
+        {
+          "uploadJsMs": 79.69999980926514,
+          "submitJsMs": 2.200000047683716,
+          "runToDependentMs": 26.200000047683716,
+          "totalReadyMs": 105.89999985694885
+        }
+      ],
+      "hashes": [
+        "174932cb78748a4a6f96b6fc573af29bb77c64f98c9c06da37545982448c0a70",
+        "174932cb78748a4a6f96b6fc573af29bb77c64f98c9c06da37545982448c0a70",
+        "174932cb78748a4a6f96b6fc573af29bb77c64f98c9c06da37545982448c0a70"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "family": "local hydraulic integer pairs + capacity-bound pigment transfer + conservative bounded residual",
+        "passes": 385,
+        "coarseResolution": 128,
+        "physicalCellPx": 8,
+        "quanta": 128,
+        "headGain": 6,
+        "diffusion": 0.25,
+        "blockedCoarseCells": 11504,
+        "conservation": "pair integer water/pigment codes conserved; initial/final fine quantization device-gated",
+        "deposition": "initial fixed fraction only; no evaporation rim/physical adsorption"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 379620,
+        "outputMass": 377409,
+        "massRatio": 0.9941757547020705,
+        "lostPixels": 0,
+        "addedPixels": 20738,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 29055
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 377409,
+        "massBeyond25px": 0.22949373226393646,
+        "massBeyond50px": 0.04621511410697678,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0.5044850945127953,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9932813700126719,
+        "blueMassRatio": 0,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.799999999999955,
+        "maxTimer": 23.09999990463257,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 93.79999995231628,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-implicit-fine-paper",
+        "fixture": "flow-pool-drop",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "002-wgsl-macro-implicit-fine-paper-flow-pool-drop.png",
+        "bytes": 721976,
+        "sha256": "40201ad545db15335ffc11ef1e770fc900e262b815751f3281146f4917e6183a"
+      },
+      "fixtureSHA": {
+        "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
+        "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 75.59999990463257,
+      "samples": [
+        {
+          "uploadJsMs": 97,
+          "submitJsMs": 0.39999985694885254,
+          "runToDependentMs": 80.29999995231628,
+          "totalReadyMs": 177.29999995231628
+        },
+        {
+          "uploadJsMs": 92,
+          "submitJsMs": 0.19999980926513672,
+          "runToDependentMs": 50.799999952316284,
+          "totalReadyMs": 142.79999995231628
+        },
+        {
+          "uploadJsMs": 95.60000014305115,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 83.20000004768372,
+          "totalReadyMs": 178.80000019073486
+        }
+      ],
+      "hashes": [
+        "c8e41ccbaf630c93f2690c500189d3acda1d9b3436637523dba5d2dc0d6d8f11",
+        "c8e41ccbaf630c93f2690c500189d3acda1d9b3436637523dba5d2dc0d6d8f11",
+        "c8e41ccbaf630c93f2690c500189d3acda1d9b3436637523dba5d2dc0d6d8f11"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "implicit-plus-conservative-fine-paper",
+        "grid": 256,
+        "cycles": 3,
+        "sigmaFinePixels": 96,
+        "paperDrag": 0.5,
+        "paperGain": 2,
+        "fineSteps": 8,
+        "fineRate": 0.2,
+        "dispatches": 16,
+        "coarse": "concentration implicit Wcapacity mode",
+        "reconstruction": "positive actual fine-paper/water weights normalized per coarse cell; no raw hard-disk fraction",
+        "fine": "pair-symmetric positive capacity concentration flux; zero at excluded/dry faces",
+        "allocatedGPUBytes": 58458192,
+        "limitations": "Coarse admitted cells conservatively shrink wet edges; final clipping/rounding not an exact mass certificate; paper height is affinity proxy not calibrated absorption",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 379620,
+        "outputMass": 357467,
+        "massRatio": 0.9416442758548021,
+        "lostPixels": 0,
+        "addedPixels": 68908,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 125938
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 357467,
+        "massBeyond25px": 0.7951531190291691,
+        "massBeyond50px": 0.6095136054516921,
+        "massBeyond100px": 0.27395256065594864,
+        "blueCrossFraction": 0.47229778254709004,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9393576401886651,
+        "blueMassRatio": 0,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.800000000000182,
+        "maxTimer": 11.200000047683716,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 160.80000007152557,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-paper-particles-compact",
+        "fixture": "flow-pool-drop",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "003-wgsl-macro-paper-particles-compact-flow-pool-drop.png",
+        "bytes": 795902,
+        "sha256": "e7e03a23e13d0a31c3b0514b7f8a328a9487656cb719c06cc512f6c097d95e21"
+      },
+      "fixtureSHA": {
+        "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
+        "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 111.29999995231628,
+      "samples": [
+        {
+          "uploadJsMs": 51.90000009536743,
+          "submitJsMs": 0.2999999523162842,
+          "runToDependentMs": 29.299999952316284,
+          "totalReadyMs": 81.20000004768372
+        },
+        {
+          "uploadJsMs": 31.200000047683716,
+          "submitJsMs": 0,
+          "runToDependentMs": 20.09999990463257,
+          "totalReadyMs": 51.299999952316284
+        },
+        {
+          "uploadJsMs": 33,
+          "submitJsMs": 0,
+          "runToDependentMs": 18.299999952316284,
+          "totalReadyMs": 51.299999952316284
+        }
+      ],
+      "hashes": [
+        "27a41d4c154a13a39f3a520c86ab6b55f7eb7c3fb0009de49a09ea5cf5a54ba1",
+        "27a41d4c154a13a39f3a520c86ab6b55f7eb7c3fb0009de49a09ea5cf5a54ba1",
+        "27a41d4c154a13a39f3a520c86ab6b55f7eb7c3fb0009de49a09ea5cf5a54ba1"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "compact-deterministic-paper-particle-transport",
+        "size": 1024,
+        "samples": 8,
+        "steps": 32,
+        "stepPixels": 12,
+        "paperGain": 4,
+        "persistence": 2,
+        "quantumUnitsPerCode": 256,
+        "inputAlphaSum": 379620,
+        "occupiedCount": 2109,
+        "estimatedWork": {
+          "occupiedWetPixels": 2109,
+          "estimatedEnvironmentReads": 15726813,
+          "unconditionalSourceReads": 1048576,
+          "estimatedWalks": 16872
+        },
+        "walkGroups": 33,
+        "occupiedGPUCapacityBytes": 4194304,
+        "maxEstimatedReads": 128000000,
+        "seedUsed": true,
+        "precision": "same fixedpoint accumulator and f32 trajectories as macro2; only scheduling/list and literal dry pack differ",
+        "limitations": "Active path cost unchanged; still rejects dense inputs above budget. Diagonal corner-cut limitation same as baseline; no stronger geometry claim.",
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 379620,
+        "outputMass": 380554,
+        "massRatio": 1.002460355091934,
+        "lostPixels": 335,
+        "addedPixels": 32343,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 37806
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 380554,
+        "massBeyond25px": 0.7545000183942357,
+        "massBeyond50px": 0.5309601265523421,
+        "massBeyond100px": 0.17491341570447294,
+        "blueCrossFraction": 0.5055914640402175,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 1.0013559265636829,
+        "blueMassRatio": 0,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.800000000000182,
+        "maxTimer": 11.599999904632568,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 51.299999952316284,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "macro3-local-hydraulic-residual",
+        "fixture": "flow-separated-colors",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "004-macro3-local-hydraulic-residual-flow-separated-colors.png",
+        "bytes": 680386,
+        "sha256": "fea45670fd824bee42f778a6f414794dd2e1df7d80ef8568dcd224e9a91b4d13"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgl1",
+      "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "createMs": 75.5,
+      "samples": [
+        {
+          "uploadJsMs": 72,
+          "submitJsMs": 5.700000047683716,
+          "runToDependentMs": 34.90000009536743,
+          "totalReadyMs": 106.90000009536743
+        },
+        {
+          "uploadJsMs": 52.09999990463257,
+          "submitJsMs": 2.5,
+          "runToDependentMs": 26.5,
+          "totalReadyMs": 78.59999990463257
+        },
+        {
+          "uploadJsMs": 38,
+          "submitJsMs": 2,
+          "runToDependentMs": 20.799999952316284,
+          "totalReadyMs": 58.799999952316284
+        }
+      ],
+      "hashes": [
+        "9edfa11246d949234d14e53b7c5de4ab46e113cb03b4a4a97f2d16844f9ad11e",
+        "9edfa11246d949234d14e53b7c5de4ab46e113cb03b4a4a97f2d16844f9ad11e",
+        "9edfa11246d949234d14e53b7c5de4ab46e113cb03b4a4a97f2d16844f9ad11e"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "family": "local hydraulic integer pairs + capacity-bound pigment transfer + conservative bounded residual",
+        "passes": 385,
+        "coarseResolution": 128,
+        "physicalCellPx": 8,
+        "quanta": 128,
+        "headGain": 6,
+        "diffusion": 0.25,
+        "blockedCoarseCells": 12384,
+        "conservation": "pair integer water/pigment codes conserved; initial/final fine quantization device-gated",
+        "deposition": "initial fixed fraction only; no evaporation rim/physical adsorption"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 754814,
+        "massRatio": 0.9941704862757494,
+        "lostPixels": 0,
+        "addedPixels": 39684,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 59262
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 754814,
+        "massBeyond25px": 0.22835294522889082,
+        "massBeyond50px": 0.046133219574623685,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9917757092272328,
+        "blueMassRatio": 0.9917757092272328,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.900000000000546,
+        "maxTimer": 11.100000143051147,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 68.69999992847443,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-implicit-fine-paper",
+        "fixture": "flow-separated-colors",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "005-wgsl-macro-implicit-fine-paper-flow-separated-colors.png",
+        "bytes": 755742,
+        "sha256": "c68af98e0007ec0be5b1593c6f5a53a30ecf4484a21a48b9eb62782831081dd0"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 48.09999990463257,
+      "samples": [
+        {
+          "uploadJsMs": 95.30000019073486,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 80.69999980926514,
+          "totalReadyMs": 176
+        },
+        {
+          "uploadJsMs": 78.5,
+          "submitJsMs": 0,
+          "runToDependentMs": 81.09999990463257,
+          "totalReadyMs": 159.59999990463257
+        },
+        {
+          "uploadJsMs": 73.59999990463257,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 74.60000014305115,
+          "totalReadyMs": 148.20000004768372
+        }
+      ],
+      "hashes": [
+        "f912ffd541fe1e7af54de454ea6fead3da589b48d0592274337fef69d0d6c28b",
+        "f912ffd541fe1e7af54de454ea6fead3da589b48d0592274337fef69d0d6c28b",
+        "f912ffd541fe1e7af54de454ea6fead3da589b48d0592274337fef69d0d6c28b"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "implicit-plus-conservative-fine-paper",
+        "grid": 256,
+        "cycles": 3,
+        "sigmaFinePixels": 96,
+        "paperDrag": 0.5,
+        "paperGain": 2,
+        "fineSteps": 8,
+        "fineRate": 0.2,
+        "dispatches": 16,
+        "coarse": "concentration implicit Wcapacity mode",
+        "reconstruction": "positive actual fine-paper/water weights normalized per coarse cell; no raw hard-disk fraction",
+        "fine": "pair-symmetric positive capacity concentration flux; zero at excluded/dry faces",
+        "allocatedGPUBytes": 58458192,
+        "limitations": "Coarse admitted cells conservatively shrink wet edges; final clipping/rounding not an exact mass certificate; paper height is affinity proxy not calibrated absorption",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 753603,
+        "massRatio": 0.9925754702070492,
+        "lostPixels": 0,
+        "addedPixels": 145646,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 229733
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 753603,
+        "massBeyond25px": 0.798489390302321,
+        "massBeyond50px": 0.6129022840938797,
+        "massBeyond100px": 0.25335753705863695,
+        "blueCrossFraction": 0.05857935497824694,
+        "yellowCrossFraction": 0.05710142275239228,
+        "mixedCarrierFraction": 0.041210185254506586,
+        "redMassRatio": 0.9746394594040023,
+        "blueMassRatio": 0.9746976893791298,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000109,
+        "maxTimer": 11.299999952316284,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 153.89999997615814,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-paper-particles-compact",
+        "fixture": "flow-separated-colors",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "006-wgsl-macro-paper-particles-compact-flow-separated-colors.png",
+        "bytes": 879818,
+        "sha256": "bde24d47e7ecf37572d8925c6085b487e9f201825c844c731ef98e0091515bc9"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 33.200000047683716,
+      "samples": [
+        {
+          "uploadJsMs": 68.20000004768372,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 50.40000009536743,
+          "totalReadyMs": 118.60000014305115
+        },
+        {
+          "uploadJsMs": 50,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 37,
+          "totalReadyMs": 87
+        },
+        {
+          "uploadJsMs": 51.59999990463257,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 58.10000014305115,
+          "totalReadyMs": 109.70000004768372
+        }
+      ],
+      "hashes": [
+        "94f29ba960a4f90fba8a976b8ecd9ef5d48670a9d9c7f344f3122f4335751d1f",
+        "94f29ba960a4f90fba8a976b8ecd9ef5d48670a9d9c7f344f3122f4335751d1f",
+        "94f29ba960a4f90fba8a976b8ecd9ef5d48670a9d9c7f344f3122f4335751d1f"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "compact-deterministic-paper-particle-transport",
+        "size": 1024,
+        "samples": 8,
+        "steps": 32,
+        "stepPixels": 12,
+        "paperGain": 4,
+        "persistence": 2,
+        "quantumUnitsPerCode": 256,
+        "inputAlphaSum": 759240,
+        "occupiedCount": 4218,
+        "estimatedWork": {
+          "occupiedWetPixels": 4218,
+          "estimatedEnvironmentReads": 31453626,
+          "unconditionalSourceReads": 1048576,
+          "estimatedWalks": 33744
+        },
+        "walkGroups": 66,
+        "occupiedGPUCapacityBytes": 4194304,
+        "maxEstimatedReads": 128000000,
+        "seedUsed": true,
+        "precision": "same fixedpoint accumulator and f32 trajectories as macro2; only scheduling/list and literal dry pack differ",
+        "limitations": "Active path cost unchanged; still rejects dense inputs above budget. Diagonal corner-cut limitation same as baseline; no stronger geometry claim.",
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 760916,
+        "massRatio": 1.0022074706285233,
+        "lostPixels": 676,
+        "addedPixels": 63025,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 74022
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 760916,
+        "massBeyond25px": 0.7551700844771302,
+        "massBeyond50px": 0.5303555188746195,
+        "massBeyond100px": 0.14667453437698774,
+        "blueCrossFraction": 0.03598335177282546,
+        "yellowCrossFraction": 0.03607485601945436,
+        "mixedCarrierFraction": 0.01742185398695094,
+        "redMassRatio": 1.0017053064144477,
+        "blueMassRatio": 1.0015749821844004,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000109,
+        "maxTimer": 11.200000047683716,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 98.35000002384186,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "macro3-local-hydraulic-residual",
+        "fixture": "flow-paper-drop",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "007-macro3-local-hydraulic-residual-flow-paper-drop.png",
+        "bytes": 665209,
+        "sha256": "770a1287c3f9903f40eb5240944328a36170ddc8d5e53746cdf0bebf5ff34a66"
+      },
+      "fixtureSHA": {
+        "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
+        "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "backend": "webgl1",
+      "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "createMs": 70.10000014305115,
+      "samples": [
+        {
+          "uploadJsMs": 84.59999990463257,
+          "submitJsMs": 2,
+          "runToDependentMs": 34.700000047683716,
+          "totalReadyMs": 119.29999995231628
+        },
+        {
+          "uploadJsMs": 48.39999985694885,
+          "submitJsMs": 2.1000001430511475,
+          "runToDependentMs": 33.5,
+          "totalReadyMs": 81.89999985694885
+        },
+        {
+          "uploadJsMs": 29,
+          "submitJsMs": 1.9000000953674316,
+          "runToDependentMs": 35.40000009536743,
+          "totalReadyMs": 64.40000009536743
+        }
+      ],
+      "hashes": [
+        "a10cfcd7a31d14e7d0ffb464fcac7db66650675fdecc566d5597cbbda19b14fd",
+        "a10cfcd7a31d14e7d0ffb464fcac7db66650675fdecc566d5597cbbda19b14fd",
+        "a10cfcd7a31d14e7d0ffb464fcac7db66650675fdecc566d5597cbbda19b14fd"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "family": "local hydraulic integer pairs + capacity-bound pigment transfer + conservative bounded residual",
+        "passes": 385,
+        "coarseResolution": 128,
+        "physicalCellPx": 8,
+        "quanta": 128,
+        "headGain": 6,
+        "diffusion": 0.25,
+        "blockedCoarseCells": 11504,
+        "conservation": "pair integer water/pigment codes conserved; initial/final fine quantization device-gated",
+        "deposition": "initial fixed fraction only; no evaporation rim/physical adsorption"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 379620,
+        "outputMass": 377409,
+        "massRatio": 0.9941757547020705,
+        "lostPixels": 0,
+        "addedPixels": 20738,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 29055
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 377409,
+        "massBeyond25px": 0.22949373226393646,
+        "massBeyond50px": 0.04621511410697678,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0.5046570115822193,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9934116942427191,
+        "blueMassRatio": 0,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 17,
+        "maxTimer": 11.100000143051147,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 73.14999997615814,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-implicit-fine-paper",
+        "fixture": "flow-paper-drop",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "008-wgsl-macro-implicit-fine-paper-flow-paper-drop.png",
+        "bytes": 746897,
+        "sha256": "c020b7388cb6c37b14df4a7894bdb4a4c9c0e984e58614375b7796a90a4d1b23"
+      },
+      "fixtureSHA": {
+        "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
+        "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 58.40000009536743,
+      "samples": [
+        {
+          "uploadJsMs": 76.70000004768372,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 89.29999995231628,
+          "totalReadyMs": 166
+        },
+        {
+          "uploadJsMs": 70.90000009536743,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 86.20000004768372,
+          "totalReadyMs": 157.10000014305115
+        },
+        {
+          "uploadJsMs": 81.29999995231628,
+          "submitJsMs": 0,
+          "runToDependentMs": 73.79999995231628,
+          "totalReadyMs": 155.09999990463257
+        }
+      ],
+      "hashes": [
+        "71c36e4084b02a6294ab14d58c91d1d321a3743728bb40aba139919c50feabf2",
+        "71c36e4084b02a6294ab14d58c91d1d321a3743728bb40aba139919c50feabf2",
+        "71c36e4084b02a6294ab14d58c91d1d321a3743728bb40aba139919c50feabf2"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "implicit-plus-conservative-fine-paper",
+        "grid": 256,
+        "cycles": 3,
+        "sigmaFinePixels": 96,
+        "paperDrag": 0.5,
+        "paperGain": 2,
+        "fineSteps": 8,
+        "fineRate": 0.2,
+        "dispatches": 16,
+        "coarse": "concentration implicit Wcapacity mode",
+        "reconstruction": "positive actual fine-paper/water weights normalized per coarse cell; no raw hard-disk fraction",
+        "fine": "pair-symmetric positive capacity concentration flux; zero at excluded/dry faces",
+        "allocatedGPUBytes": 58458192,
+        "limitations": "Coarse admitted cells conservatively shrink wet edges; final clipping/rounding not an exact mass certificate; paper height is affinity proxy not calibrated absorption",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 379620,
+        "outputMass": 357588,
+        "massRatio": 0.9419630156472262,
+        "lostPixels": 0,
+        "addedPixels": 68785,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 125807
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 357588,
+        "massBeyond25px": 0.7947721959349866,
+        "massBeyond50px": 0.6097995458460574,
+        "massBeyond100px": 0.2744219604684721,
+        "blueCrossFraction": 0.4724669267605556,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9395156929782968,
+        "blueMassRatio": 0,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000109,
+        "maxTimer": 12.099999904632568,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 156.10000002384186,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-paper-particles-compact",
+        "fixture": "flow-paper-drop",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "009-wgsl-macro-paper-particles-compact-flow-paper-drop.png",
+        "bytes": 791329,
+        "sha256": "18d60f399a2ebde431515f7de26b640be77ef066be36d407b0a20c2aa3522c84"
+      },
+      "fixtureSHA": {
+        "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
+        "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 40.09999990463257,
+      "samples": [
+        {
+          "uploadJsMs": 100.20000004768372,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 28.5,
+          "totalReadyMs": 128.70000004768372
+        },
+        {
+          "uploadJsMs": 36,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 18,
+          "totalReadyMs": 54
+        },
+        {
+          "uploadJsMs": 37.80000019073486,
+          "submitJsMs": 0.19999980926513672,
+          "runToDependentMs": 17.09999990463257,
+          "totalReadyMs": 54.90000009536743
+        }
+      ],
+      "hashes": [
+        "b6b75d11419fedf77cab43127173e7097b0102c255bd045a990dcfee0de63f82",
+        "b6b75d11419fedf77cab43127173e7097b0102c255bd045a990dcfee0de63f82",
+        "b6b75d11419fedf77cab43127173e7097b0102c255bd045a990dcfee0de63f82"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "compact-deterministic-paper-particle-transport",
+        "size": 1024,
+        "samples": 8,
+        "steps": 32,
+        "stepPixels": 12,
+        "paperGain": 4,
+        "persistence": 2,
+        "quantumUnitsPerCode": 256,
+        "inputAlphaSum": 379620,
+        "occupiedCount": 2109,
+        "estimatedWork": {
+          "occupiedWetPixels": 2109,
+          "estimatedEnvironmentReads": 15726813,
+          "unconditionalSourceReads": 1048576,
+          "estimatedWalks": 16872
+        },
+        "walkGroups": 33,
+        "occupiedGPUCapacityBytes": 4194304,
+        "maxEstimatedReads": 128000000,
+        "seedUsed": true,
+        "precision": "same fixedpoint accumulator and f32 trajectories as macro2; only scheduling/list and literal dry pack differ",
+        "limitations": "Active path cost unchanged; still rejects dense inputs above budget. Diagonal corner-cut limitation same as baseline; no stronger geometry claim.",
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 379620,
+        "outputMass": 380663,
+        "massRatio": 1.0027474843264317,
+        "lostPixels": 340,
+        "addedPixels": 32466,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 38026
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 380663,
+        "massBeyond25px": 0.7578593138813071,
+        "massBeyond50px": 0.5323081045439142,
+        "massBeyond100px": 0.17594302572091325,
+        "blueCrossFraction": 0.5079067987655246,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 1.0015001150735223,
+        "blueMassRatio": 0,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000109,
+        "maxTimer": 14,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 54.450000047683716,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "macro3-local-hydraulic-residual",
+        "fixture": "flow-near-colors",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "010-macro3-local-hydraulic-residual-flow-near-colors.png",
+        "bytes": 673573,
+        "sha256": "88879b16ef230703d33d685d506b449b78fc79ccbcfc70f507791d255a4aa101"
+      },
+      "fixtureSHA": {
+        "rgba": "d6bfc7d034cba96be9ccad1eb9e1ae0939ad343ce13b67d98082549f92a7eca1",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgl1",
+      "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "createMs": 75.79999995231628,
+      "samples": [
+        {
+          "uploadJsMs": 56.5,
+          "submitJsMs": 2.5999999046325684,
+          "runToDependentMs": 24.59999990463257,
+          "totalReadyMs": 81.09999990463257
+        },
+        {
+          "uploadJsMs": 48.200000047683716,
+          "submitJsMs": 1.8999998569488525,
+          "runToDependentMs": 19.59999990463257,
+          "totalReadyMs": 67.79999995231628
+        },
+        {
+          "uploadJsMs": 32.299999952316284,
+          "submitJsMs": 1.9000000953674316,
+          "runToDependentMs": 36.40000009536743,
+          "totalReadyMs": 68.70000004768372
+        }
+      ],
+      "hashes": [
+        "e25bd7a8cf83a8ec7e093060d444efa670bf840f185c3a2eba3ce253f7090a5e",
+        "e25bd7a8cf83a8ec7e093060d444efa670bf840f185c3a2eba3ce253f7090a5e",
+        "e25bd7a8cf83a8ec7e093060d444efa670bf840f185c3a2eba3ce253f7090a5e"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "family": "local hydraulic integer pairs + capacity-bound pigment transfer + conservative bounded residual",
+        "passes": 385,
+        "coarseResolution": 128,
+        "physicalCellPx": 8,
+        "quanta": 128,
+        "headGain": 6,
+        "diffusion": 0.25,
+        "blockedCoarseCells": 12384,
+        "conservation": "pair integer water/pigment codes conserved; initial/final fine quantization device-gated",
+        "deposition": "initial fixed fraction only; no evaporation rim/physical adsorption"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 756496,
+        "massRatio": 0.9963858595437542,
+        "lostPixels": 0,
+        "addedPixels": 31813,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 45127
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 756496,
+        "massBeyond25px": 0.18112851885535416,
+        "massBeyond50px": 0.03339475687908462,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0.08571452338765358,
+        "yellowCrossFraction": 0.08074556551010845,
+        "mixedCarrierFraction": 0.14584390484667492,
+        "redMassRatio": 0.9918173020666096,
+        "blueMassRatio": 0.9918173020666096,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000109,
+        "maxTimer": 18.5,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 68.25,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-implicit-fine-paper",
+        "fixture": "flow-near-colors",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "011-wgsl-macro-implicit-fine-paper-flow-near-colors.png",
+        "bytes": 733171,
+        "sha256": "61d8ca06ccd6d41ed9ee0e7d2643edd4ee8869b4c2e03e8f2b15271ca2f1f3b1"
+      },
+      "fixtureSHA": {
+        "rgba": "d6bfc7d034cba96be9ccad1eb9e1ae0939ad343ce13b67d98082549f92a7eca1",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 34.09999990463257,
+      "samples": [
+        {
+          "uploadJsMs": 69.59999990463257,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 87.80000019073486,
+          "totalReadyMs": 157.40000009536743
+        },
+        {
+          "uploadJsMs": 66.20000004768372,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 85.59999990463257,
+          "totalReadyMs": 151.79999995231628
+        },
+        {
+          "uploadJsMs": 62.10000014305115,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 75.29999995231628,
+          "totalReadyMs": 137.40000009536743
+        }
+      ],
+      "hashes": [
+        "85f4687ac756ea828461afce89efa715393a9e60067b45a920d5e09704d6b30c",
+        "85f4687ac756ea828461afce89efa715393a9e60067b45a920d5e09704d6b30c",
+        "85f4687ac756ea828461afce89efa715393a9e60067b45a920d5e09704d6b30c"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "implicit-plus-conservative-fine-paper",
+        "grid": 256,
+        "cycles": 3,
+        "sigmaFinePixels": 96,
+        "paperDrag": 0.5,
+        "paperGain": 2,
+        "fineSteps": 8,
+        "fineRate": 0.2,
+        "dispatches": 16,
+        "coarse": "concentration implicit Wcapacity mode",
+        "reconstruction": "positive actual fine-paper/water weights normalized per coarse cell; no raw hard-disk fraction",
+        "fine": "pair-symmetric positive capacity concentration flux; zero at excluded/dry faces",
+        "allocatedGPUBytes": 58458192,
+        "limitations": "Coarse admitted cells conservatively shrink wet edges; final clipping/rounding not an exact mass certificate; paper height is affinity proxy not calibrated absorption",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 746887,
+        "massRatio": 0.9837297824139929,
+        "lostPixels": 0,
+        "addedPixels": 115960,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 169735
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 746887,
+        "massBeyond25px": 0.7099614801168048,
+        "massBeyond50px": 0.5211725468511301,
+        "massBeyond100px": 0.23190388907558976,
+        "blueCrossFraction": 0.2875035700520465,
+        "yellowCrossFraction": 0.2831169119257762,
+        "mixedCarrierFraction": 0.4323714296013465,
+        "redMassRatio": 0.963215292855182,
+        "blueMassRatio": 0.9632652042624342,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 18.299999952316284,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 144.60000002384186,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-paper-particles-compact",
+        "fixture": "flow-near-colors",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "012-wgsl-macro-paper-particles-compact-flow-near-colors.png",
+        "bytes": 871998,
+        "sha256": "8bc42f0f820d7b6339c84a2882e42fa76c08c4a7da7dd3d99f15d496f05cae20"
+      },
+      "fixtureSHA": {
+        "rgba": "d6bfc7d034cba96be9ccad1eb9e1ae0939ad343ce13b67d98082549f92a7eca1",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 42.5,
+      "samples": [
+        {
+          "uploadJsMs": 65.5,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 49.5,
+          "totalReadyMs": 115
+        },
+        {
+          "uploadJsMs": 44.89999985694885,
+          "submitJsMs": 0,
+          "runToDependentMs": 31.700000047683716,
+          "totalReadyMs": 76.59999990463257
+        },
+        {
+          "uploadJsMs": 44.700000047683716,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 35.60000014305115,
+          "totalReadyMs": 80.30000019073486
+        }
+      ],
+      "hashes": [
+        "bbb6be64031eb591c2f6728239604634d2edd967d9a1345a23a991cbc907caf8",
+        "bbb6be64031eb591c2f6728239604634d2edd967d9a1345a23a991cbc907caf8",
+        "bbb6be64031eb591c2f6728239604634d2edd967d9a1345a23a991cbc907caf8"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "compact-deterministic-paper-particle-transport",
+        "size": 1024,
+        "samples": 8,
+        "steps": 32,
+        "stepPixels": 12,
+        "paperGain": 4,
+        "persistence": 2,
+        "quantumUnitsPerCode": 256,
+        "inputAlphaSum": 759240,
+        "occupiedCount": 4218,
+        "estimatedWork": {
+          "occupiedWetPixels": 4218,
+          "estimatedEnvironmentReads": 31453626,
+          "unconditionalSourceReads": 1048576,
+          "estimatedWalks": 33744
+        },
+        "walkGroups": 66,
+        "occupiedGPUCapacityBytes": 4194304,
+        "maxEstimatedReads": 128000000,
+        "seedUsed": true,
+        "precision": "same fixedpoint accumulator and f32 trajectories as macro2; only scheduling/list and literal dry pack differ",
+        "limitations": "Active path cost unchanged; still rejects dense inputs above budget. Diagonal corner-cut limitation same as baseline; no stronger geometry claim.",
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 760331,
+        "massRatio": 1.0014369632790685,
+        "lostPixels": 247,
+        "addedPixels": 52076,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 60657
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 760331,
+        "massBeyond25px": 0.6469905869943485,
+        "massBeyond50px": 0.42486890577919356,
+        "massBeyond100px": 0.1211695958733762,
+        "blueCrossFraction": 0.2708303871738775,
+        "yellowCrossFraction": 0.2769694902658892,
+        "mixedCarrierFraction": 0.22046700440052241,
+        "redMassRatio": 1.0011396437989235,
+        "blueMassRatio": 1.0013503808517659,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 12.100000143051147,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 78.45000004768372,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "macro3-local-hydraulic-residual",
+        "fixture": "flow-one-pixel-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "013-macro3-local-hydraulic-residual-flow-one-pixel-wall.png",
+        "bytes": 680386,
+        "sha256": "fea45670fd824bee42f778a6f414794dd2e1df7d80ef8568dcd224e9a91b4d13"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "50bf4382d51a3a9667ba3e596ec7777159c90fda2614aca3936466bb2d69709b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgl1",
+      "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "createMs": 82.5,
+      "samples": [
+        {
+          "uploadJsMs": 50.200000047683716,
+          "submitJsMs": 3,
+          "runToDependentMs": 28.299999952316284,
+          "totalReadyMs": 78.5
+        },
+        {
+          "uploadJsMs": 25.399999856948853,
+          "submitJsMs": 2.1000001430511475,
+          "runToDependentMs": 34.10000014305115,
+          "totalReadyMs": 59.5
+        },
+        {
+          "uploadJsMs": 34.19999980926514,
+          "submitJsMs": 2.200000047683716,
+          "runToDependentMs": 19.100000143051147,
+          "totalReadyMs": 53.299999952316284
+        }
+      ],
+      "hashes": [
+        "9edfa11246d949234d14e53b7c5de4ab46e113cb03b4a4a97f2d16844f9ad11e",
+        "9edfa11246d949234d14e53b7c5de4ab46e113cb03b4a4a97f2d16844f9ad11e",
+        "9edfa11246d949234d14e53b7c5de4ab46e113cb03b4a4a97f2d16844f9ad11e"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "family": "local hydraulic integer pairs + capacity-bound pigment transfer + conservative bounded residual",
+        "passes": 385,
+        "coarseResolution": 128,
+        "physicalCellPx": 8,
+        "quanta": 128,
+        "headGain": 6,
+        "diffusion": 0.25,
+        "blockedCoarseCells": 12434,
+        "conservation": "pair integer water/pigment codes conserved; initial/final fine quantization device-gated",
+        "deposition": "initial fixed fraction only; no evaporation rim/physical adsorption"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 754814,
+        "massRatio": 0.9941704862757494,
+        "lostPixels": 0,
+        "addedPixels": 39684,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 59262
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 754814,
+        "massBeyond25px": 0.22835294522889082,
+        "massBeyond50px": 0.046133219574623685,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9917757092272328,
+        "blueMassRatio": 0.9917757092272328,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 17.200000000000728,
+        "maxTimer": 11.100000143051147,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 56.39999997615814,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-implicit-fine-paper",
+        "fixture": "flow-one-pixel-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "014-wgsl-macro-implicit-fine-paper-flow-one-pixel-wall.png",
+        "bytes": 757336,
+        "sha256": "50d827e1555817253c69db078a28406182fd015a2b4399400162af385cd8e15c"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "50bf4382d51a3a9667ba3e596ec7777159c90fda2614aca3936466bb2d69709b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 53.89999985694885,
+      "samples": [
+        {
+          "uploadJsMs": 71.79999995231628,
+          "submitJsMs": 0,
+          "runToDependentMs": 84.90000009536743,
+          "totalReadyMs": 156.70000004768372
+        },
+        {
+          "uploadJsMs": 57.60000014305115,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 80.29999995231628,
+          "totalReadyMs": 137.90000009536743
+        },
+        {
+          "uploadJsMs": 58.299999952316284,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 77.09999990463257,
+          "totalReadyMs": 135.39999985694885
+        }
+      ],
+      "hashes": [
+        "0a0c8c7bf903309d49dd1b46d612e4a1cee2cb397bd9a0d8c4f345359479cd5d",
+        "0a0c8c7bf903309d49dd1b46d612e4a1cee2cb397bd9a0d8c4f345359479cd5d",
+        "0a0c8c7bf903309d49dd1b46d612e4a1cee2cb397bd9a0d8c4f345359479cd5d"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "implicit-plus-conservative-fine-paper",
+        "grid": 256,
+        "cycles": 3,
+        "sigmaFinePixels": 96,
+        "paperDrag": 0.5,
+        "paperGain": 2,
+        "fineSteps": 8,
+        "fineRate": 0.2,
+        "dispatches": 16,
+        "coarse": "concentration implicit Wcapacity mode",
+        "reconstruction": "positive actual fine-paper/water weights normalized per coarse cell; no raw hard-disk fraction",
+        "fine": "pair-symmetric positive capacity concentration flux; zero at excluded/dry faces",
+        "allocatedGPUBytes": 58458192,
+        "limitations": "Coarse admitted cells conservatively shrink wet edges; final clipping/rounding not an exact mass certificate; paper height is affinity proxy not calibrated absorption",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 753259,
+        "massRatio": 0.9921223855434381,
+        "lostPixels": 0,
+        "addedPixels": 145081,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 228150
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 753259,
+        "massBeyond25px": 0.7978145631183962,
+        "massBeyond50px": 0.6113116471227028,
+        "massBeyond100px": 0.2514208260372594,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.99296249157745,
+        "blueMassRatio": 0.9921056790862885,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 14.799999952316284,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 136.64999997615814,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-paper-particles-compact",
+        "fixture": "flow-one-pixel-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "015-wgsl-macro-paper-particles-compact-flow-one-pixel-wall.png",
+        "bytes": 884849,
+        "sha256": "de9cdde36ea762ff654ebe6f16b4e17da408a3117d7334dddb9f8078751ac51c"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "50bf4382d51a3a9667ba3e596ec7777159c90fda2614aca3936466bb2d69709b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 42.59999990463257,
+      "samples": [
+        {
+          "uploadJsMs": 81.60000014305115,
+          "submitJsMs": 0,
+          "runToDependentMs": 54.89999985694885,
+          "totalReadyMs": 136.5
+        },
+        {
+          "uploadJsMs": 43,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 42.09999990463257,
+          "totalReadyMs": 85.09999990463257
+        },
+        {
+          "uploadJsMs": 42.5,
+          "submitJsMs": 0,
+          "runToDependentMs": 43.09999990463257,
+          "totalReadyMs": 85.59999990463257
+        }
+      ],
+      "hashes": [
+        "547fcb701ebd5bda771346929f87c458264526b23b4c9e620fc53c66f08fbfe0",
+        "547fcb701ebd5bda771346929f87c458264526b23b4c9e620fc53c66f08fbfe0",
+        "547fcb701ebd5bda771346929f87c458264526b23b4c9e620fc53c66f08fbfe0"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "compact-deterministic-paper-particle-transport",
+        "size": 1024,
+        "samples": 8,
+        "steps": 32,
+        "stepPixels": 12,
+        "paperGain": 4,
+        "persistence": 2,
+        "quantumUnitsPerCode": 256,
+        "inputAlphaSum": 759240,
+        "occupiedCount": 4218,
+        "estimatedWork": {
+          "occupiedWetPixels": 4218,
+          "estimatedEnvironmentReads": 31453626,
+          "unconditionalSourceReads": 1048576,
+          "estimatedWalks": 33744
+        },
+        "walkGroups": 66,
+        "occupiedGPUCapacityBytes": 4194304,
+        "maxEstimatedReads": 128000000,
+        "seedUsed": true,
+        "precision": "same fixedpoint accumulator and f32 trajectories as macro2; only scheduling/list and literal dry pack differ",
+        "limitations": "Active path cost unchanged; still rejects dense inputs above budget. Diagonal corner-cut limitation same as baseline; no stronger geometry claim.",
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 761011,
+        "massRatio": 1.0023325957536484,
+        "lostPixels": 676,
+        "addedPixels": 62841,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 73910
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 761011,
+        "massBeyond25px": 0.7551507139844233,
+        "massBeyond50px": 0.5309910106424217,
+        "massBeyond100px": 0.1446220882483959,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 1.0015250707771484,
+        "blueMassRatio": 1.00152229792119,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 13.200000047683716,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 85.34999990463257,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "macro3-local-hydraulic-residual",
+        "fixture": "flow-diagonal-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "016-macro3-local-hydraulic-residual-flow-diagonal-wall.png",
+        "bytes": 680150,
+        "sha256": "58ffdb9fee12bb779715bc433c6177cc49acec9fb2e80c033189323084230261"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "dfdbe13c3b1c92915d505b28c571d189c5d54a5c5eed5c89bc220c07f42621e8",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgl1",
+      "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "createMs": 75.09999990463257,
+      "samples": [
+        {
+          "uploadJsMs": 49.799999952316284,
+          "submitJsMs": 3,
+          "runToDependentMs": 27.90000009536743,
+          "totalReadyMs": 77.70000004768372
+        },
+        {
+          "uploadJsMs": 32.700000047683716,
+          "submitJsMs": 2.0999999046325684,
+          "runToDependentMs": 34.5,
+          "totalReadyMs": 67.20000004768372
+        },
+        {
+          "uploadJsMs": 41.80000019073486,
+          "submitJsMs": 2.799999952316284,
+          "runToDependentMs": 24.5,
+          "totalReadyMs": 66.30000019073486
+        }
+      ],
+      "hashes": [
+        "f84be7a360952614c0a1ae5ecddede81d98c4dad6fb453fdee8d8f98a5e0a929",
+        "f84be7a360952614c0a1ae5ecddede81d98c4dad6fb453fdee8d8f98a5e0a929",
+        "f84be7a360952614c0a1ae5ecddede81d98c4dad6fb453fdee8d8f98a5e0a929"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "family": "local hydraulic integer pairs + capacity-bound pigment transfer + conservative bounded residual",
+        "passes": 385,
+        "coarseResolution": 128,
+        "physicalCellPx": 8,
+        "quanta": 128,
+        "headGain": 6,
+        "diffusion": 0.25,
+        "blockedCoarseCells": 12484,
+        "conservation": "pair integer water/pigment codes conserved; initial/final fine quantization device-gated",
+        "deposition": "initial fixed fraction only; no evaporation rim/physical adsorption"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 755831,
+        "massRatio": 0.9955099836678784,
+        "lostPixels": 0,
+        "addedPixels": 39940,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 56702
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 755831,
+        "massBeyond25px": 0.22914910872933236,
+        "massBeyond50px": 0.04477720548641165,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9940827253846645,
+        "blueMassRatio": 0.9939052626033236,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 11.5,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 66.75000011920929,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-implicit-fine-paper",
+        "fixture": "flow-diagonal-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "017-wgsl-macro-implicit-fine-paper-flow-diagonal-wall.png",
+        "bytes": 748075,
+        "sha256": "ede5197f9d03ddfce219526dae600ed7a492d320dd3961b31687999fbb3ab4c0"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "dfdbe13c3b1c92915d505b28c571d189c5d54a5c5eed5c89bc220c07f42621e8",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 51.700000047683716,
+      "samples": [
+        {
+          "uploadJsMs": 75.09999990463257,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 89.20000004768372,
+          "totalReadyMs": 164.29999995231628
+        },
+        {
+          "uploadJsMs": 68.09999990463257,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 87.40000009536743,
+          "totalReadyMs": 155.5
+        },
+        {
+          "uploadJsMs": 72.20000004768372,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 76.79999995231628,
+          "totalReadyMs": 149
+        }
+      ],
+      "hashes": [
+        "36930d8dc004f85e11380f2e1aee0bdf18647232f9bc6e406061b12cd79a6833",
+        "36930d8dc004f85e11380f2e1aee0bdf18647232f9bc6e406061b12cd79a6833",
+        "36930d8dc004f85e11380f2e1aee0bdf18647232f9bc6e406061b12cd79a6833"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "implicit-plus-conservative-fine-paper",
+        "grid": 256,
+        "cycles": 3,
+        "sigmaFinePixels": 96,
+        "paperDrag": 0.5,
+        "paperGain": 2,
+        "fineSteps": 8,
+        "fineRate": 0.2,
+        "dispatches": 16,
+        "coarse": "concentration implicit Wcapacity mode",
+        "reconstruction": "positive actual fine-paper/water weights normalized per coarse cell; no raw hard-disk fraction",
+        "fine": "pair-symmetric positive capacity concentration flux; zero at excluded/dry faces",
+        "allocatedGPUBytes": 58458192,
+        "limitations": "Coarse admitted cells conservatively shrink wet edges; final clipping/rounding not an exact mass certificate; paper height is affinity proxy not calibrated absorption",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 752069,
+        "massRatio": 0.9905550287129234,
+        "lostPixels": 0,
+        "addedPixels": 125591,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 199866
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 752069,
+        "massBeyond25px": 0.7745472822307528,
+        "massBeyond50px": 0.5540528861048654,
+        "massBeyond100px": 0.2038429984482807,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9906665668438521,
+        "blueMassRatio": 0.9898596657599428,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 17.40000009536743,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 152.25,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-paper-particles-compact",
+        "fixture": "flow-diagonal-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "018-wgsl-macro-paper-particles-compact-flow-diagonal-wall.png",
+        "bytes": 880827,
+        "sha256": "80e08cebf0cea488b0a6ffbceb8efd26f2dba040157121cac8ab8523e2c5e6ba"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "dfdbe13c3b1c92915d505b28c571d189c5d54a5c5eed5c89bc220c07f42621e8",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 27.600000143051147,
+      "samples": [
+        {
+          "uploadJsMs": 76.69999980926514,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 52.80000019073486,
+          "totalReadyMs": 129.5
+        },
+        {
+          "uploadJsMs": 42.299999952316284,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 40.40000009536743,
+          "totalReadyMs": 82.70000004768372
+        },
+        {
+          "uploadJsMs": 42.799999952316284,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 45,
+          "totalReadyMs": 87.79999995231628
+        }
+      ],
+      "hashes": [
+        "e616e4ee0a109e06c30a3dffdf59f19f671b297978b0c17a2d523f357a140814",
+        "e616e4ee0a109e06c30a3dffdf59f19f671b297978b0c17a2d523f357a140814",
+        "e616e4ee0a109e06c30a3dffdf59f19f671b297978b0c17a2d523f357a140814"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "compact-deterministic-paper-particle-transport",
+        "size": 1024,
+        "samples": 8,
+        "steps": 32,
+        "stepPixels": 12,
+        "paperGain": 4,
+        "persistence": 2,
+        "quantumUnitsPerCode": 256,
+        "inputAlphaSum": 759240,
+        "occupiedCount": 4218,
+        "estimatedWork": {
+          "occupiedWetPixels": 4218,
+          "estimatedEnvironmentReads": 31453626,
+          "unconditionalSourceReads": 1048576,
+          "estimatedWalks": 33744
+        },
+        "walkGroups": 66,
+        "occupiedGPUCapacityBytes": 4194304,
+        "maxEstimatedReads": 128000000,
+        "seedUsed": true,
+        "precision": "same fixedpoint accumulator and f32 trajectories as macro2; only scheduling/list and literal dry pack differ",
+        "limitations": "Active path cost unchanged; still rejects dense inputs above budget. Diagonal corner-cut limitation same as baseline; no stronger geometry claim.",
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 760878,
+        "massRatio": 1.0021574205784731,
+        "lostPixels": 629,
+        "addedPixels": 61172,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 71805
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 760878,
+        "massBeyond25px": 0.7456359626641853,
+        "massBeyond50px": 0.5088647588706731,
+        "massBeyond100px": 0.12761835668793156,
+        "blueCrossFraction": 0.05022196711947405,
+        "yellowCrossFraction": 0.050041731482174695,
+        "mixedCarrierFraction": 0.009056147560302685,
+        "redMassRatio": 1.001497342217564,
+        "blueMassRatio": 1.001364245131558,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 11.200000047683716,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 85.25,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "macro3-local-hydraulic-residual",
+        "fixture": "flow-thin-neck",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "019-macro3-local-hydraulic-residual-flow-thin-neck.png",
+        "bytes": 680697,
+        "sha256": "abf659dd78e22877e0e58fdf49128d0a3702730e2bbd5b1d27e8abf8925699aa"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "06295beb498adc09df992a50c632558f140ac5eccef9a399e2c376a8b302af5f",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgl1",
+      "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "createMs": 81.79999995231628,
+      "samples": [
+        {
+          "uploadJsMs": 53.5,
+          "submitJsMs": 2.5,
+          "runToDependentMs": 25.09999990463257,
+          "totalReadyMs": 78.59999990463257
+        },
+        {
+          "uploadJsMs": 39.200000047683716,
+          "submitJsMs": 2.200000047683716,
+          "runToDependentMs": 30.59999990463257,
+          "totalReadyMs": 69.79999995231628
+        },
+        {
+          "uploadJsMs": 37.200000047683716,
+          "submitJsMs": 1.7000000476837158,
+          "runToDependentMs": 20.200000047683716,
+          "totalReadyMs": 57.40000009536743
+        }
+      ],
+      "hashes": [
+        "75e6fbaacd195ca1c6d9750753634e782327a5de3a56240b46ded9f68f2361ac",
+        "75e6fbaacd195ca1c6d9750753634e782327a5de3a56240b46ded9f68f2361ac",
+        "75e6fbaacd195ca1c6d9750753634e782327a5de3a56240b46ded9f68f2361ac"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "family": "local hydraulic integer pairs + capacity-bound pigment transfer + conservative bounded residual",
+        "passes": 385,
+        "coarseResolution": 128,
+        "physicalCellPx": 8,
+        "quanta": 128,
+        "headGain": 6,
+        "diffusion": 0.25,
+        "blockedCoarseCells": 14576,
+        "conservation": "pair integer water/pigment codes conserved; initial/final fine quantization device-gated",
+        "deposition": "initial fixed fraction only; no evaporation rim/physical adsorption"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 755966,
+        "massRatio": 0.9956877930562141,
+        "lostPixels": 0,
+        "addedPixels": 39684,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 60286
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 755966,
+        "massBeyond25px": 0.22952884124418294,
+        "massBeyond50px": 0.047557694393663204,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9937277998219827,
+        "blueMassRatio": 0.99319541147796,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 11.799999952316284,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 63.60000002384186,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-implicit-fine-paper",
+        "fixture": "flow-thin-neck",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "020-wgsl-macro-implicit-fine-paper-flow-thin-neck.png",
+        "bytes": 717011,
+        "sha256": "a1bc08cf56892075ba0f79b2ba89c5d932aa9b96de39867f2760042acdff5685"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "06295beb498adc09df992a50c632558f140ac5eccef9a399e2c376a8b302af5f",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 54.09999990463257,
+      "samples": [
+        {
+          "uploadJsMs": 72.90000009536743,
+          "submitJsMs": 0,
+          "runToDependentMs": 84.79999995231628,
+          "totalReadyMs": 157.70000004768372
+        },
+        {
+          "uploadJsMs": 66,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 89,
+          "totalReadyMs": 155
+        },
+        {
+          "uploadJsMs": 64.70000004768372,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 85.09999990463257,
+          "totalReadyMs": 149.79999995231628
+        }
+      ],
+      "hashes": [
+        "9346f5cb42690136ea42d09a1a0c3cd96bf00a2a8a4a0f942ee418e244ad4570",
+        "9346f5cb42690136ea42d09a1a0c3cd96bf00a2a8a4a0f942ee418e244ad4570",
+        "9346f5cb42690136ea42d09a1a0c3cd96bf00a2a8a4a0f942ee418e244ad4570"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "implicit-plus-conservative-fine-paper",
+        "grid": 256,
+        "cycles": 3,
+        "sigmaFinePixels": 96,
+        "paperDrag": 0.5,
+        "paperGain": 2,
+        "fineSteps": 8,
+        "fineRate": 0.2,
+        "dispatches": 16,
+        "coarse": "concentration implicit Wcapacity mode",
+        "reconstruction": "positive actual fine-paper/water weights normalized per coarse cell; no raw hard-disk fraction",
+        "fine": "pair-symmetric positive capacity concentration flux; zero at excluded/dry faces",
+        "allocatedGPUBytes": 58458192,
+        "limitations": "Coarse admitted cells conservatively shrink wet edges; final clipping/rounding not an exact mass certificate; paper height is affinity proxy not calibrated absorption",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 760416,
+        "massRatio": 1.0015489173383911,
+        "lostPixels": 0,
+        "addedPixels": 115558,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 119776
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 760416,
+        "massBeyond25px": 0.7802150401885284,
+        "massBeyond50px": 0.5638347956907798,
+        "massBeyond100px": 0.12060503724277238,
+        "blueCrossFraction": 0.00283385878953746,
+        "yellowCrossFraction": 0.0026785788558641743,
+        "mixedCarrierFraction": 0.0029392273159586178,
+        "redMassRatio": 0.9959544031566192,
+        "blueMassRatio": 0.9959072646053255,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 11.600000143051147,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 152.39999997615814,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-paper-particles-compact",
+        "fixture": "flow-thin-neck",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "021-wgsl-macro-paper-particles-compact-flow-thin-neck.png",
+        "bytes": 863842,
+        "sha256": "5679d9853d167ace8609ec924250975900bcddc6e80c516589f514d10202498b"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "06295beb498adc09df992a50c632558f140ac5eccef9a399e2c376a8b302af5f",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 33.299999952316284,
+      "samples": [
+        {
+          "uploadJsMs": 61.40000009536743,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 43.89999985694885,
+          "totalReadyMs": 105.29999995231628
+        },
+        {
+          "uploadJsMs": 38.09999990463257,
+          "submitJsMs": 0,
+          "runToDependentMs": 36.40000009536743,
+          "totalReadyMs": 74.5
+        },
+        {
+          "uploadJsMs": 44.69999980926514,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 36.80000019073486,
+          "totalReadyMs": 81.5
+        }
+      ],
+      "hashes": [
+        "754076727a2c2139f371c579be6f20e6f2bfa1c55b6f3d2d9469cf2cf6901fc6",
+        "754076727a2c2139f371c579be6f20e6f2bfa1c55b6f3d2d9469cf2cf6901fc6",
+        "754076727a2c2139f371c579be6f20e6f2bfa1c55b6f3d2d9469cf2cf6901fc6"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "compact-deterministic-paper-particle-transport",
+        "size": 1024,
+        "samples": 8,
+        "steps": 32,
+        "stepPixels": 12,
+        "paperGain": 4,
+        "persistence": 2,
+        "quantumUnitsPerCode": 256,
+        "inputAlphaSum": 759240,
+        "occupiedCount": 4218,
+        "estimatedWork": {
+          "occupiedWetPixels": 4218,
+          "estimatedEnvironmentReads": 31453626,
+          "unconditionalSourceReads": 1048576,
+          "estimatedWalks": 33744
+        },
+        "walkGroups": 66,
+        "occupiedGPUCapacityBytes": 4194304,
+        "maxEstimatedReads": 128000000,
+        "seedUsed": true,
+        "precision": "same fixedpoint accumulator and f32 trajectories as macro2; only scheduling/list and literal dry pack differ",
+        "limitations": "Active path cost unchanged; still rejects dense inputs above budget. Diagonal corner-cut limitation same as baseline; no stronger geometry claim.",
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 760969,
+        "massRatio": 1.0022772772772772,
+        "lostPixels": 643,
+        "addedPixels": 57717,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 67823
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 760969,
+        "massBeyond25px": 0.74901737127268,
+        "massBeyond50px": 0.5081534201787458,
+        "massBeyond100px": 0.07912280263716394,
+        "blueCrossFraction": 0.006213970202889871,
+        "yellowCrossFraction": 0.006150194515845486,
+        "mixedCarrierFraction": 0.004749902256827465,
+        "redMassRatio": 1.0013864279792257,
+        "blueMassRatio": 1.0012172837657602,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 13.600000143051147,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 78,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "macro3-local-hydraulic-residual",
+        "fixture": "flow-water-only",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "022-macro3-local-hydraulic-residual-flow-water-only.png",
+        "bytes": 632770,
+        "sha256": "4c4b4e3330f10afd83ad489b82a59cfd6ea3b0387136c320123a6e6944d639e5"
+      },
+      "fixtureSHA": {
+        "rgba": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgl1",
+      "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "createMs": 78.5,
+      "samples": [
+        {
+          "uploadJsMs": 50.90000009536743,
+          "submitJsMs": 2.299999952316284,
+          "runToDependentMs": 24.5,
+          "totalReadyMs": 75.40000009536743
+        },
+        {
+          "uploadJsMs": 31.199999809265137,
+          "submitJsMs": 1.6000001430511475,
+          "runToDependentMs": 28.100000143051147,
+          "totalReadyMs": 59.299999952316284
+        },
+        {
+          "uploadJsMs": 30,
+          "submitJsMs": 1.7000000476837158,
+          "runToDependentMs": 28.90000009536743,
+          "totalReadyMs": 58.90000009536743
+        }
+      ],
+      "hashes": [
+        "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "family": "local hydraulic integer pairs + capacity-bound pigment transfer + conservative bounded residual",
+        "passes": 385,
+        "coarseResolution": 128,
+        "physicalCellPx": 8,
+        "quanta": 128,
+        "headGain": 6,
+        "diffusion": 0.25,
+        "blockedCoarseCells": 12384,
+        "conservation": "pair integer water/pigment codes conserved; initial/final fine quantization device-gated",
+        "deposition": "initial fixed fraction only; no evaporation rim/physical adsorption"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 0,
+        "outputMass": 0,
+        "massRatio": 1,
+        "lostPixels": 0,
+        "addedPixels": 0,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 0
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 0,
+        "massBeyond25px": 0,
+        "massBeyond50px": 0,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0,
+        "blueMassRatio": 0,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 12.200000047683716,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 59.10000002384186,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-implicit-fine-paper",
+        "fixture": "flow-water-only",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "023-wgsl-macro-implicit-fine-paper-flow-water-only.png",
+        "bytes": 632770,
+        "sha256": "4c4b4e3330f10afd83ad489b82a59cfd6ea3b0387136c320123a6e6944d639e5"
+      },
+      "fixtureSHA": {
+        "rgba": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 33.89999985694885,
+      "samples": [
+        {
+          "uploadJsMs": 71.70000004768372,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 86.20000004768372,
+          "totalReadyMs": 157.90000009536743
+        },
+        {
+          "uploadJsMs": 63,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 81.89999985694885,
+          "totalReadyMs": 144.89999985694885
+        },
+        {
+          "uploadJsMs": 59.5,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 27.699999809265137,
+          "totalReadyMs": 87.19999980926514
+        }
+      ],
+      "hashes": [
+        "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "implicit-plus-conservative-fine-paper",
+        "grid": 256,
+        "cycles": 3,
+        "sigmaFinePixels": 96,
+        "paperDrag": 0.5,
+        "paperGain": 2,
+        "fineSteps": 8,
+        "fineRate": 0.2,
+        "dispatches": 16,
+        "coarse": "concentration implicit Wcapacity mode",
+        "reconstruction": "positive actual fine-paper/water weights normalized per coarse cell; no raw hard-disk fraction",
+        "fine": "pair-symmetric positive capacity concentration flux; zero at excluded/dry faces",
+        "allocatedGPUBytes": 58458192,
+        "limitations": "Coarse admitted cells conservatively shrink wet edges; final clipping/rounding not an exact mass certificate; paper height is affinity proxy not calibrated absorption",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 0,
+        "outputMass": 0,
+        "massRatio": 1,
+        "lostPixels": 0,
+        "addedPixels": 0,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 0
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 0,
+        "massBeyond25px": 0,
+        "massBeyond50px": 0,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0,
+        "blueMassRatio": 0,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 17,
+        "maxTimer": 12.900000095367432,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 116.049999833107,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-paper-particles-compact",
+        "fixture": "flow-water-only",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "024-wgsl-macro-paper-particles-compact-flow-water-only.png",
+        "bytes": 632770,
+        "sha256": "4c4b4e3330f10afd83ad489b82a59cfd6ea3b0387136c320123a6e6944d639e5"
+      },
+      "fixtureSHA": {
+        "rgba": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 29.40000009536743,
+      "samples": [
+        {
+          "uploadJsMs": 59.799999952316284,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 13.400000095367432,
+          "totalReadyMs": 73.20000004768372
+        },
+        {
+          "uploadJsMs": 45.5,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 6.700000047683716,
+          "totalReadyMs": 52.200000047683716
+        },
+        {
+          "uploadJsMs": 50.40000009536743,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 4.799999952316284,
+          "totalReadyMs": 55.200000047683716
+        }
+      ],
+      "hashes": [
+        "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "compact-deterministic-paper-particle-transport",
+        "size": 1024,
+        "samples": 8,
+        "steps": 32,
+        "stepPixels": 12,
+        "paperGain": 4,
+        "persistence": 2,
+        "quantumUnitsPerCode": 256,
+        "inputAlphaSum": 0,
+        "occupiedCount": 0,
+        "estimatedWork": {
+          "occupiedWetPixels": 0,
+          "estimatedEnvironmentReads": 0,
+          "unconditionalSourceReads": 1048576,
+          "estimatedWalks": 0
+        },
+        "walkGroups": 0,
+        "occupiedGPUCapacityBytes": 4194304,
+        "maxEstimatedReads": 128000000,
+        "seedUsed": true,
+        "precision": "same fixedpoint accumulator and f32 trajectories as macro2; only scheduling/list and literal dry pack differ",
+        "limitations": "Active path cost unchanged; still rejects dense inputs above budget. Diagonal corner-cut limitation same as baseline; no stronger geometry claim.",
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 0,
+        "outputMass": 0,
+        "massRatio": 1,
+        "lostPixels": 0,
+        "addedPixels": 0,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 0
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 0,
+        "massBeyond25px": 0,
+        "massBeyond50px": 0,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0,
+        "blueMassRatio": 0,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 17.099999999998545,
+        "maxTimer": 11.100000143051147,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 53.700000047683716,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "macro3-local-hydraulic-residual",
+        "fixture": "flow-dry-pigment",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "025-macro3-local-hydraulic-residual-flow-dry-pigment.png",
+        "bytes": 643367,
+        "sha256": "841f18470e95e9cc31e1c8d7c692f483c872a0b9614c88ee496623c1b68eb38d"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgl1",
+      "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "createMs": 46.80000019073486,
+      "samples": [
+        {
+          "uploadJsMs": 56.89999985694885,
+          "submitJsMs": 2.200000047683716,
+          "runToDependentMs": 20.5,
+          "totalReadyMs": 77.39999985694885
+        },
+        {
+          "uploadJsMs": 40.299999952316284,
+          "submitJsMs": 2.3000001907348633,
+          "runToDependentMs": 16.5,
+          "totalReadyMs": 56.799999952316284
+        },
+        {
+          "uploadJsMs": 34.90000009536743,
+          "submitJsMs": 1.7000000476837158,
+          "runToDependentMs": 20.59999990463257,
+          "totalReadyMs": 55.5
+        }
+      ],
+      "hashes": [
+        "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "family": "local hydraulic integer pairs + capacity-bound pigment transfer + conservative bounded residual",
+        "passes": 385,
+        "coarseResolution": 128,
+        "physicalCellPx": 8,
+        "quanta": 128,
+        "headGain": 6,
+        "diffusion": 0.25,
+        "blockedCoarseCells": 16384,
+        "conservation": "pair integer water/pigment codes conserved; initial/final fine quantization device-gated",
+        "deposition": "initial fixed fraction only; no evaporation rim/physical adsorption"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 759240,
+        "massRatio": 1,
+        "lostPixels": 0,
+        "addedPixels": 0,
+        "outsideWetPixels": 4218,
+        "invalidPremul": 0,
+        "changedPixels": 0
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 759240,
+        "massBeyond25px": 0,
+        "massBeyond50px": 0,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 1,
+        "blueMassRatio": 1,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.900000000001455,
+        "maxTimer": 18.299999952316284,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 56.14999997615814,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-implicit-fine-paper",
+        "fixture": "flow-dry-pigment",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "026-wgsl-macro-implicit-fine-paper-flow-dry-pigment.png",
+        "bytes": 643367,
+        "sha256": "841f18470e95e9cc31e1c8d7c692f483c872a0b9614c88ee496623c1b68eb38d"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 37.39999985694885,
+      "samples": [
+        {
+          "uploadJsMs": 77.20000004768372,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 78,
+          "totalReadyMs": 155.20000004768372
+        },
+        {
+          "uploadJsMs": 60.59999990463257,
+          "submitJsMs": 0,
+          "runToDependentMs": 79.90000009536743,
+          "totalReadyMs": 140.5
+        },
+        {
+          "uploadJsMs": 65,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 59.200000047683716,
+          "totalReadyMs": 124.20000004768372
+        }
+      ],
+      "hashes": [
+        "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "implicit-plus-conservative-fine-paper",
+        "grid": 256,
+        "cycles": 3,
+        "sigmaFinePixels": 96,
+        "paperDrag": 0.5,
+        "paperGain": 2,
+        "fineSteps": 8,
+        "fineRate": 0.2,
+        "dispatches": 16,
+        "coarse": "concentration implicit Wcapacity mode",
+        "reconstruction": "positive actual fine-paper/water weights normalized per coarse cell; no raw hard-disk fraction",
+        "fine": "pair-symmetric positive capacity concentration flux; zero at excluded/dry faces",
+        "allocatedGPUBytes": 58458192,
+        "limitations": "Coarse admitted cells conservatively shrink wet edges; final clipping/rounding not an exact mass certificate; paper height is affinity proxy not calibrated absorption",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 759240,
+        "massRatio": 1,
+        "lostPixels": 0,
+        "addedPixels": 0,
+        "outsideWetPixels": 4218,
+        "invalidPremul": 0,
+        "changedPixels": 0
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 759240,
+        "massBeyond25px": 0,
+        "massBeyond50px": 0,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 1,
+        "blueMassRatio": 1,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 11.399999856948853,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 132.35000002384186,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-paper-particles-compact",
+        "fixture": "flow-dry-pigment",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "027-wgsl-macro-paper-particles-compact-flow-dry-pigment.png",
+        "bytes": 643367,
+        "sha256": "841f18470e95e9cc31e1c8d7c692f483c872a0b9614c88ee496623c1b68eb38d"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 29.700000047683716,
+      "samples": [
+        {
+          "uploadJsMs": 46.700000047683716,
+          "submitJsMs": 0,
+          "runToDependentMs": 8.799999952316284,
+          "totalReadyMs": 55.5
+        },
+        {
+          "uploadJsMs": 37.40000009536743,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 5.5,
+          "totalReadyMs": 42.90000009536743
+        },
+        {
+          "uploadJsMs": 40.59999990463257,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 5.700000047683716,
+          "totalReadyMs": 46.299999952316284
+        }
+      ],
+      "hashes": [
+        "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "compact-deterministic-paper-particle-transport",
+        "size": 1024,
+        "samples": 8,
+        "steps": 32,
+        "stepPixels": 12,
+        "paperGain": 4,
+        "persistence": 2,
+        "quantumUnitsPerCode": 256,
+        "inputAlphaSum": 759240,
+        "occupiedCount": 0,
+        "estimatedWork": {
+          "occupiedWetPixels": 0,
+          "estimatedEnvironmentReads": 0,
+          "unconditionalSourceReads": 1048576,
+          "estimatedWalks": 0
+        },
+        "walkGroups": 0,
+        "occupiedGPUCapacityBytes": 4194304,
+        "maxEstimatedReads": 128000000,
+        "seedUsed": true,
+        "precision": "same fixedpoint accumulator and f32 trajectories as macro2; only scheduling/list and literal dry pack differ",
+        "limitations": "Active path cost unchanged; still rejects dense inputs above budget. Diagonal corner-cut limitation same as baseline; no stronger geometry claim.",
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 759240,
+        "massRatio": 1,
+        "lostPixels": 0,
+        "addedPixels": 0,
+        "outsideWetPixels": 4218,
+        "invalidPremul": 0,
+        "changedPixels": 0
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 759240,
+        "massBeyond25px": 0,
+        "massBeyond50px": 0,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 1,
+        "blueMassRatio": 1,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 11.300000190734863,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 44.60000002384186,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-implicit",
+        "fixture": "flow-one-pixel-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "028-wgsl-macro-implicit-flow-one-pixel-wall.png",
+        "bytes": 748437,
+        "sha256": "f23fb1f198ab209c1db25b5565393bd32fe282074f7f2824d604db9c551609cc"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "50bf4382d51a3a9667ba3e596ec7777159c90fda2614aca3936466bb2d69709b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 52.80000019073486,
+      "samples": [
+        {
+          "uploadJsMs": 59,
+          "submitJsMs": 0.19999980926513672,
+          "runToDependentMs": 21.699999809265137,
+          "totalReadyMs": 80.69999980926514
+        },
+        {
+          "uploadJsMs": 51.39999985694885,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 10.5,
+          "totalReadyMs": 61.89999985694885
+        },
+        {
+          "uploadJsMs": 63.09999990463257,
+          "submitJsMs": 0,
+          "runToDependentMs": 16.40000009536743,
+          "totalReadyMs": 79.5
+        }
+      ],
+      "hashes": [
+        "987fa0af7a933614bb1d0cd4b38608a4214cd8e147d23e9f10f4d2b197a3fba9",
+        "987fa0af7a933614bb1d0cd4b38608a4214cd8e147d23e9f10f4d2b197a3fba9",
+        "987fa0af7a933614bb1d0cd4b38608a4214cd8e147d23e9f10f4d2b197a3fba9"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "macro-implicit-diffusion",
+        "grid": 256,
+        "cycles": 2,
+        "sigmaFinePixels": 96,
+        "lambda": 144,
+        "mobile": 1,
+        "paperDrag": 0.5,
+        "concentration": false,
+        "precision": "f32 carriers; RGBA8 only final",
+        "steps": 5,
+        "solver": "per-row/column Thomas; Lie-split backward Euler; static wet-domain no-flux faces",
+        "limitations": "Coarse-grid loss; bilinear final reconstruction not an exact mass certificate; implicit tails not finite-speed advection",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 754437,
+        "massRatio": 0.9936739370949897,
+        "lostPixels": 0,
+        "addedPixels": 117271,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 198948
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 754437,
+        "massBeyond25px": 0.7162188492876145,
+        "massBeyond50px": 0.4987493985581301,
+        "massBeyond100px": 0.1643941111053673,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9929652644334085,
+        "blueMassRatio": 0.9937693926613594,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 11.299999952316284,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 70.69999992847443,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-darcy",
+        "fixture": "flow-one-pixel-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "029-wgsl-macro-darcy-flow-one-pixel-wall.png",
+        "bytes": 729849,
+        "sha256": "1b82fbd7ccf2035867c9a4d3d444a9bde9e58bdd5bc4a0d861143b4586a9afcc"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "50bf4382d51a3a9667ba3e596ec7777159c90fda2614aca3936466bb2d69709b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 73,
+      "samples": [
+        {
+          "uploadJsMs": 60.90000009536743,
+          "submitJsMs": 0.5,
+          "runToDependentMs": 53.09999990463257,
+          "totalReadyMs": 114
+        },
+        {
+          "uploadJsMs": 64.70000004768372,
+          "submitJsMs": 0.8999998569488525,
+          "runToDependentMs": 56.39999985694885,
+          "totalReadyMs": 121.09999990463257
+        },
+        {
+          "uploadJsMs": 59.60000014305115,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 53.5,
+          "totalReadyMs": 113.10000014305115
+        }
+      ],
+      "hashes": [
+        "d2167cbb4d87c6d9145e50a8799ad69b62c706a21867d761ecf574539679050c",
+        "d2167cbb4d87c6d9145e50a8799ad69b62c706a21867d761ecf574539679050c",
+        "d2167cbb4d87c6d9145e50a8799ad69b62c706a21867d761ecf574539679050c"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "macro-darcy-water-pigment",
+        "grid": 128,
+        "steps": 128,
+        "flow": 0.2,
+        "mixing": 0.2,
+        "paperHead": 0.2,
+        "solutalPressure": 0.5,
+        "mobile": 1,
+        "dispatches": 385,
+        "precision": "f32 conserved coarse carriers; RGBA8 final",
+        "coupling": "donor-limited Darcy water flux transports pigment concentration; separate symmetric concentration diffusion",
+        "limitations": "Phenomenological solutal pressure, not calibrated Navier-Stokes/MoXi; coarse reconstruction may lose details or alter full-resolution mass; static initial wet domain",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 748621,
+        "massRatio": 0.9860136452241716,
+        "lostPixels": 0,
+        "addedPixels": 103649,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 145743
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 748621,
+        "massBeyond25px": 0.6934390031805145,
+        "massBeyond50px": 0.4369313711477503,
+        "massBeyond100px": 0.07679720445993367,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9847964307798103,
+        "blueMassRatio": 0.985586694727969,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 17,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 117.10000002384186,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "macro2-dense-wetpath-exchange",
+        "fixture": "flow-one-pixel-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "030-macro2-dense-wetpath-exchange-flow-one-pixel-wall.png",
+        "bytes": 685994,
+        "sha256": "0db83f43267ea4a781666664ce17736e9373c693797121bdfac42ff7e6b8cc83"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "50bf4382d51a3a9667ba3e596ec7777159c90fda2614aca3936466bb2d69709b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgl1",
+      "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "createMs": 122.69999980926514,
+      "samples": [
+        {
+          "uploadJsMs": 96.60000014305115,
+          "submitJsMs": 0.7000000476837158,
+          "runToDependentMs": 47.200000047683716,
+          "totalReadyMs": 143.80000019073486
+        },
+        {
+          "uploadJsMs": 47.09999990463257,
+          "submitJsMs": 0.2999999523162842,
+          "runToDependentMs": 38.90000009536743,
+          "totalReadyMs": 86
+        },
+        {
+          "uploadJsMs": 32.90000009536743,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 44.299999952316284,
+          "totalReadyMs": 77.20000004768372
+        }
+      ],
+      "hashes": [
+        "16c2d2d10c675f7cc2a7914f9d46808a7c9c8e5451dc0b4d2cbad00501b4b37b",
+        "16c2d2d10c675f7cc2a7914f9d46808a7c9c8e5451dc0b4d2cbad00501b4b37b",
+        "16c2d2d10c675f7cc2a7914f9d46808a7c9c8e5451dc0b4d2cbad00501b4b37b"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "family": "dense radial conservative wet-path coarse kernel + fine detail",
+        "radiusPx": 96,
+        "sigmaPx": 48,
+        "donorCount": 160,
+        "resolution": 1024,
+        "passes": 27,
+        "paperGain": 1,
+        "fineSmooth": 0,
+        "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+        "fixedFraction": 0.6
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 730571,
+        "massRatio": 0.9622398714503978,
+        "lostPixels": 0,
+        "addedPixels": 47814,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 78880
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 730571,
+        "massBeyond25px": 0.18432705377027012,
+        "massBeyond50px": 0.08652136479548189,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9639695096758809,
+        "blueMassRatio": 0.9638364125898752,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 13.600000143051147,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 81.60000002384186,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-implicit-sorption",
+        "fixture": "flow-one-pixel-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "031-wgsl-macro-implicit-sorption-flow-one-pixel-wall.png",
+        "bytes": 739528,
+        "sha256": "9dbcc076a132c4c5c28f6e897c5b9e361d9677582770da1434279556803b265b"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "50bf4382d51a3a9667ba3e596ec7777159c90fda2614aca3936466bb2d69709b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 85.79999995231628,
+      "samples": [
+        {
+          "uploadJsMs": 69.40000009536743,
+          "submitJsMs": 0.5999999046325684,
+          "runToDependentMs": 37.19999980926514,
+          "totalReadyMs": 106.59999990463257
+        },
+        {
+          "uploadJsMs": 60.700000047683716,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 35.200000047683716,
+          "totalReadyMs": 95.90000009536743
+        },
+        {
+          "uploadJsMs": 54.700000047683716,
+          "submitJsMs": 0.2999999523162842,
+          "runToDependentMs": 33.89999985694885,
+          "totalReadyMs": 88.59999990463257
+        }
+      ],
+      "hashes": [
+        "7a5e1d9e45a787606ab84ea972452518fab06cd1af449e1159073cec6275eb1f",
+        "7a5e1d9e45a787606ab84ea972452518fab06cd1af449e1159073cec6275eb1f",
+        "7a5e1d9e45a787606ab84ea972452518fab06cd1af449e1159073cec6275eb1f"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "macro-implicit-capacity-sorption",
+        "grid": 256,
+        "cycles": 6,
+        "sigmaFinePixels": 112,
+        "lambda": 65.33333333333333,
+        "paperDrag": 0.5,
+        "capacityGain": 2,
+        "deposition": 0.08,
+        "desorption": 0.01,
+        "edgeGain": 2,
+        "mobile": 0.9,
+        "dispatches": 20,
+        "transport": "positive implicit concentration diffusion with paper-dependent capacity",
+        "depositionModel": "conservative reversible mobile/fixed exchange; paper valleys and lower-water cells increase fixation",
+        "limitations": "Phenomenological material settings; no universal pigment calibration; coarse reconstruction and RGBA8 saturation still require mass checks",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 747922,
+        "massRatio": 0.9850929877245667,
+        "lostPixels": 0,
+        "addedPixels": 104776,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 170797
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 747922,
+        "massBeyond25px": 0.6037046643901369,
+        "massBeyond50px": 0.4035501028182083,
+        "massBeyond100px": 0.11063052029489706,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.982608647428592,
+        "blueMassRatio": 0.9830855786534457,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 11.799999952316284,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 92.25,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-paper-particles",
+        "fixture": "flow-one-pixel-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "032-wgsl-macro-paper-particles-flow-one-pixel-wall.png",
+        "bytes": 884849,
+        "sha256": "de9cdde36ea762ff654ebe6f16b4e17da408a3117d7334dddb9f8078751ac51c"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "50bf4382d51a3a9667ba3e596ec7777159c90fda2614aca3936466bb2d69709b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 77.70000004768372,
+      "samples": [
+        {
+          "uploadJsMs": 48.59999990463257,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 94.40000009536743,
+          "totalReadyMs": 143
+        },
+        {
+          "uploadJsMs": 35.90000009536743,
+          "submitJsMs": 0,
+          "runToDependentMs": 42,
+          "totalReadyMs": 77.90000009536743
+        },
+        {
+          "uploadJsMs": 40.700000047683716,
+          "submitJsMs": 0,
+          "runToDependentMs": 42.10000014305115,
+          "totalReadyMs": 82.80000019073486
+        }
+      ],
+      "hashes": [
+        "547fcb701ebd5bda771346929f87c458264526b23b4c9e620fc53c66f08fbfe0",
+        "547fcb701ebd5bda771346929f87c458264526b23b4c9e620fc53c66f08fbfe0",
+        "547fcb701ebd5bda771346929f87c458264526b23b4c9e620fc53c66f08fbfe0"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "deterministic-paper-particle-transport",
+        "size": 1024,
+        "samples": 8,
+        "steps": 32,
+        "stepPixels": 12,
+        "paperGain": 4,
+        "persistence": 2,
+        "quantumUnitsPerCode": 256,
+        "inputAlphaSum": 759240,
+        "estimatedWork": {
+          "occupiedWetPixels": 4218,
+          "estimatedEnvironmentReads": 31453626,
+          "unconditionalSourceReads": 1048576,
+          "estimatedWalks": 33744
+        },
+        "maxEstimatedReads": 128000000,
+        "workPolicy": "reject before upload when worst-case environment read budget exceeded; never silently reduce samples/steps",
+        "seedUsed": true,
+        "precision": "fixedpoint u32 atomic accumulation, f32 trajectories, RGBA8 final",
+        "domain": "path checked <=1px, fully dry input preserved",
+        "limitations": "Statistical finite-particle granulation, not calibrated MoXi; final saturation/byte quantization can lose mass; deterministic input seed is mandatory",
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 761011,
+        "massRatio": 1.0023325957536484,
+        "lostPixels": 676,
+        "addedPixels": 62841,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 73910
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 761011,
+        "massBeyond25px": 0.7551507139844233,
+        "massBeyond50px": 0.5309910106424217,
+        "massBeyond100px": 0.1446220882483959,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 1.0015250707771484,
+        "blueMassRatio": 1.00152229792119,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 17,
+        "maxTimer": 12.5,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 80.35000014305115,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-implicit",
+        "fixture": "flow-diagonal-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "033-wgsl-macro-implicit-flow-diagonal-wall.png",
+        "bytes": 740219,
+        "sha256": "a4951d303d14f9906ed01d134998ed0ebeb8a5ddcacccd2a7f43c1b64be01c90"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "dfdbe13c3b1c92915d505b28c571d189c5d54a5c5eed5c89bc220c07f42621e8",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 14.399999856948853,
+      "samples": [
+        {
+          "uploadJsMs": 57.90000009536743,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 12,
+          "totalReadyMs": 69.90000009536743
+        },
+        {
+          "uploadJsMs": 67.90000009536743,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 14.899999856948853,
+          "totalReadyMs": 82.79999995231628
+        },
+        {
+          "uploadJsMs": 57.700000047683716,
+          "submitJsMs": 0,
+          "runToDependentMs": 20,
+          "totalReadyMs": 77.70000004768372
+        }
+      ],
+      "hashes": [
+        "c83b3e6877b34c2ece25d50ee6cbf24d69e9a6df71f66a2beef866a7353597b5",
+        "c83b3e6877b34c2ece25d50ee6cbf24d69e9a6df71f66a2beef866a7353597b5",
+        "c83b3e6877b34c2ece25d50ee6cbf24d69e9a6df71f66a2beef866a7353597b5"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "macro-implicit-diffusion",
+        "grid": 256,
+        "cycles": 2,
+        "sigmaFinePixels": 96,
+        "lambda": 144,
+        "mobile": 1,
+        "paperDrag": 0.5,
+        "concentration": false,
+        "precision": "f32 carriers; RGBA8 only final",
+        "steps": 5,
+        "solver": "per-row/column Thomas; Lie-split backward Euler; static wet-domain no-flux faces",
+        "limitations": "Coarse-grid loss; bilinear final reconstruction not an exact mass certificate; implicit tails not finite-speed advection",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 751194,
+        "massRatio": 0.989402560455192,
+        "lostPixels": 0,
+        "addedPixels": 102977,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 168551
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 751194,
+        "massBeyond25px": 0.6998777945510747,
+        "massBeyond50px": 0.453110647848625,
+        "massBeyond100px": 0.12822386760277638,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9891137675071193,
+        "blueMassRatio": 0.9889723518532383,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 12.399999856948853,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 80.25,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-darcy",
+        "fixture": "flow-diagonal-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "034-wgsl-macro-darcy-flow-diagonal-wall.png",
+        "bytes": 724378,
+        "sha256": "4a6b2f9ce79ca106347d21749a57cf36b6e2330772a0ae76c84efcb7a197bac0"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "dfdbe13c3b1c92915d505b28c571d189c5d54a5c5eed5c89bc220c07f42621e8",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 39.19999980926514,
+      "samples": [
+        {
+          "uploadJsMs": 72.30000019073486,
+          "submitJsMs": 0.5,
+          "runToDependentMs": 53.39999985694885,
+          "totalReadyMs": 125.70000004768372
+        },
+        {
+          "uploadJsMs": 63,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 49.90000009536743,
+          "totalReadyMs": 112.90000009536743
+        },
+        {
+          "uploadJsMs": 56,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 48.80000019073486,
+          "totalReadyMs": 104.80000019073486
+        }
+      ],
+      "hashes": [
+        "dd880a82799107403a7ab8519c4cb3d5ddf7e4b109a26b60986a647698438d2a",
+        "dd880a82799107403a7ab8519c4cb3d5ddf7e4b109a26b60986a647698438d2a",
+        "dd880a82799107403a7ab8519c4cb3d5ddf7e4b109a26b60986a647698438d2a"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "macro-darcy-water-pigment",
+        "grid": 128,
+        "steps": 128,
+        "flow": 0.2,
+        "mixing": 0.2,
+        "paperHead": 0.2,
+        "solutalPressure": 0.5,
+        "mobile": 1,
+        "dispatches": 385,
+        "precision": "f32 conserved coarse carriers; RGBA8 final",
+        "coupling": "donor-limited Darcy water flux transports pigment concentration; separate symmetric concentration diffusion",
+        "limitations": "Phenomenological solutal pressure, not calibrated Navier-Stokes/MoXi; coarse reconstruction may lose details or alter full-resolution mass; static initial wet domain",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 749780,
+        "massRatio": 0.9875401717506981,
+        "lostPixels": 0,
+        "addedPixels": 90849,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 127533
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 749780,
+        "massBeyond25px": 0.6777748139454239,
+        "massBeyond50px": 0.38966763583984637,
+        "massBeyond100px": 0.060475072687988476,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9868732998926905,
+        "blueMassRatio": 0.9866708814077235,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 14.900000095367432,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 108.85000014305115,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "macro2-dense-wetpath-exchange",
+        "fixture": "flow-diagonal-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "035-macro2-dense-wetpath-exchange-flow-diagonal-wall.png",
+        "bytes": 685688,
+        "sha256": "c2b2f89e3eafb0568130c58536e83fffe6b225885ad8fc2f3342fe9ea401144e"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "dfdbe13c3b1c92915d505b28c571d189c5d54a5c5eed5c89bc220c07f42621e8",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgl1",
+      "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "createMs": 77.39999985694885,
+      "samples": [
+        {
+          "uploadJsMs": 69.60000014305115,
+          "submitJsMs": 0.2999999523162842,
+          "runToDependentMs": 43.39999985694885,
+          "totalReadyMs": 113
+        },
+        {
+          "uploadJsMs": 31.399999856948853,
+          "submitJsMs": 0.3000001907348633,
+          "runToDependentMs": 38.30000019073486,
+          "totalReadyMs": 69.70000004768372
+        },
+        {
+          "uploadJsMs": 22.700000047683716,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 47.10000014305115,
+          "totalReadyMs": 69.80000019073486
+        }
+      ],
+      "hashes": [
+        "2ea02180bf5fbb989d081031855295b0e2d4e5518cb848a895fe7e7b51f8d9b0",
+        "2ea02180bf5fbb989d081031855295b0e2d4e5518cb848a895fe7e7b51f8d9b0",
+        "2ea02180bf5fbb989d081031855295b0e2d4e5518cb848a895fe7e7b51f8d9b0"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "family": "dense radial conservative wet-path coarse kernel + fine detail",
+        "radiusPx": 96,
+        "sigmaPx": 48,
+        "donorCount": 160,
+        "resolution": 1024,
+        "passes": 27,
+        "paperGain": 1,
+        "fineSmooth": 0,
+        "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+        "fixedFraction": 0.6
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 731711,
+        "massRatio": 0.9637413729518993,
+        "lostPixels": 0,
+        "addedPixels": 47798,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 72752
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 731711,
+        "massBeyond25px": 0.18088425621591037,
+        "massBeyond50px": 0.0797869650722758,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9653642562229819,
+        "blueMassRatio": 0.964474169460319,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.89999999999418,
+        "maxTimer": 17.5,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 69.75000011920929,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-implicit-sorption",
+        "fixture": "flow-diagonal-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "036-wgsl-macro-implicit-sorption-flow-diagonal-wall.png",
+        "bytes": 733642,
+        "sha256": "90f0950aa91d3d81dded041975024cfb083efe4da287d119248a265b4042023a"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "dfdbe13c3b1c92915d505b28c571d189c5d54a5c5eed5c89bc220c07f42621e8",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 38,
+      "samples": [
+        {
+          "uploadJsMs": 77.90000009536743,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 39.69999980926514,
+          "totalReadyMs": 117.59999990463257
+        },
+        {
+          "uploadJsMs": 55.09999990463257,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 36.700000047683716,
+          "totalReadyMs": 91.79999995231628
+        },
+        {
+          "uploadJsMs": 69.70000004768372,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 33.69999980926514,
+          "totalReadyMs": 103.39999985694885
+        }
+      ],
+      "hashes": [
+        "2d7f47a7c33f9f1fd10c52baa06bc04033ae5b088c7965df7def43e39b96ae9b",
+        "2d7f47a7c33f9f1fd10c52baa06bc04033ae5b088c7965df7def43e39b96ae9b",
+        "2d7f47a7c33f9f1fd10c52baa06bc04033ae5b088c7965df7def43e39b96ae9b"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "macro-implicit-capacity-sorption",
+        "grid": 256,
+        "cycles": 6,
+        "sigmaFinePixels": 112,
+        "lambda": 65.33333333333333,
+        "paperDrag": 0.5,
+        "capacityGain": 2,
+        "deposition": 0.08,
+        "desorption": 0.01,
+        "edgeGain": 2,
+        "mobile": 0.9,
+        "dispatches": 20,
+        "transport": "positive implicit concentration diffusion with paper-dependent capacity",
+        "depositionModel": "conservative reversible mobile/fixed exchange; paper valleys and lower-water cells increase fixation",
+        "limitations": "Phenomenological material settings; no universal pigment calibration; coarse reconstruction and RGBA8 saturation still require mass checks",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 747651,
+        "massRatio": 0.984736051841315,
+        "lostPixels": 0,
+        "addedPixels": 92851,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 148101
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 747651,
+        "massBeyond25px": 0.5900145923699694,
+        "massBeyond50px": 0.3655769871236713,
+        "massBeyond100px": 0.08624746037924112,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.983068941517695,
+        "blueMassRatio": 0.983412775656543,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000291,
+        "maxTimer": 11.200000047683716,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 97.59999990463257,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-paper-particles",
+        "fixture": "flow-diagonal-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "037-wgsl-macro-paper-particles-flow-diagonal-wall.png",
+        "bytes": 880827,
+        "sha256": "80e08cebf0cea488b0a6ffbceb8efd26f2dba040157121cac8ab8523e2c5e6ba"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "dfdbe13c3b1c92915d505b28c571d189c5d54a5c5eed5c89bc220c07f42621e8",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 26.59999990463257,
+      "samples": [
+        {
+          "uploadJsMs": 70.90000009536743,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 89.09999990463257,
+          "totalReadyMs": 160
+        },
+        {
+          "uploadJsMs": 44.5,
+          "submitJsMs": 0,
+          "runToDependentMs": 45.299999952316284,
+          "totalReadyMs": 89.79999995231628
+        },
+        {
+          "uploadJsMs": 36.799999952316284,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 37.60000014305115,
+          "totalReadyMs": 74.40000009536743
+        }
+      ],
+      "hashes": [
+        "e616e4ee0a109e06c30a3dffdf59f19f671b297978b0c17a2d523f357a140814",
+        "e616e4ee0a109e06c30a3dffdf59f19f671b297978b0c17a2d523f357a140814",
+        "e616e4ee0a109e06c30a3dffdf59f19f671b297978b0c17a2d523f357a140814"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "deterministic-paper-particle-transport",
+        "size": 1024,
+        "samples": 8,
+        "steps": 32,
+        "stepPixels": 12,
+        "paperGain": 4,
+        "persistence": 2,
+        "quantumUnitsPerCode": 256,
+        "inputAlphaSum": 759240,
+        "estimatedWork": {
+          "occupiedWetPixels": 4218,
+          "estimatedEnvironmentReads": 31453626,
+          "unconditionalSourceReads": 1048576,
+          "estimatedWalks": 33744
+        },
+        "maxEstimatedReads": 128000000,
+        "workPolicy": "reject before upload when worst-case environment read budget exceeded; never silently reduce samples/steps",
+        "seedUsed": true,
+        "precision": "fixedpoint u32 atomic accumulation, f32 trajectories, RGBA8 final",
+        "domain": "path checked <=1px, fully dry input preserved",
+        "limitations": "Statistical finite-particle granulation, not calibrated MoXi; final saturation/byte quantization can lose mass; deterministic input seed is mandatory",
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 760878,
+        "massRatio": 1.0021574205784731,
+        "lostPixels": 629,
+        "addedPixels": 61172,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 71805
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 760878,
+        "massBeyond25px": 0.7456359626641853,
+        "massBeyond50px": 0.5088647588706731,
+        "massBeyond100px": 0.12761835668793156,
+        "blueCrossFraction": 0.05022196711947405,
+        "yellowCrossFraction": 0.050041731482174695,
+        "mixedCarrierFraction": 0.009056147560302685,
+        "redMassRatio": 1.001497342217564,
+        "blueMassRatio": 1.001364245131558,
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 17.10000000000582,
+        "maxTimer": 15.900000095367432,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 82.10000002384186,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    }
+  ],
+  "physicalQualification": {
+    "passed": false,
+    "reason": "Два particle-варианта пересекают диагональный сухой барьер; checks.pass означает только выполнение/детерминизм/валидность байтов, не физические требования.",
+    "diagonalLeak": {
+      "blueCrossFraction": 0.0502219671,
+      "yellowCrossFraction": 0.0500417315,
+      "mixedCarrierFraction": 0.00905614756,
+      "changedDryPixels": 0
+    },
+    "schema2OnePixelBoundary": "Сухая x=513; допустимый x=512 не считается пересечением."
+  }
+}
