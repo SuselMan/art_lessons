@@ -35,6 +35,42 @@ function pixels(seed: number) {
   return Uint8Array.from({ length: 36 }, (_, i) => ((i - i % 4 + 3) * seed + 17) % 256)
 }
 
+it('charges only allocated levels and rejects an oversized mip chain before its GL allocation',()=>{
+ const {gl,cache,unbind}=fixture(64)
+ const buffer=new AccumulationBuffer(gl,4,4,'nearest',cache);unbind()
+ expect(cache.residentBytes).toBe(64)
+ const generate=vi.spyOn(gl,'generateMipmap')
+ expect(()=>buffer.ensureMipmaps()).toThrow('mipmaps exceed')
+ expect(generate).not.toHaveBeenCalled()
+ expect(buffer.mipmapsAllocated).toBe(false)
+ expect(cache.residentBytes).toBe(64)
+ cache.dispose();expect(cache.residentBytes).toBe(0)
+})
+it('accounts for an admitted mip chain across invalidation, eviction and hydration',()=>{
+ const {gl,cache,unbind}=fixture(100)
+ const buffer=new AccumulationBuffer(gl,4,4,'nearest',cache);buffer.clear();unbind()
+ const generate=vi.spyOn(gl,'generateMipmap')
+ expect(buffer.ensureMipmaps()).toBe(true);unbind()
+ expect(cache.residentBytes).toBe(84)
+ expect(buffer.mipmapsAllocated).toBe(true)
+ expect(buffer.ensureMipmaps()).toBe(true);expect(generate).toHaveBeenCalledTimes(1)
+ buffer.clear();unbind();expect(cache.residentBytes).toBe(84)
+ expect(buffer.ensureMipmaps()).toBe(true);unbind();expect(generate).toHaveBeenCalledTimes(2)
+ const other=new AccumulationBuffer(gl,3,3,'nearest',cache);unbind()
+ expect(cache.residentBytes).toBe(36)
+ void buffer.texture;unbind()
+ expect(cache.residentBytes).toBe(84);expect(generate).toHaveBeenCalledTimes(3)
+ other.destroy();buffer.destroy();cache.dispose();expect(cache.residentBytes).toBe(0)
+})
+it('charges mip levels already allocated before attaching an ordinary buffer to a cache',()=>{
+ const {gl,cache,unbind}=fixture(64)
+ const buffer=new AccumulationBuffer(gl,4,4)
+ buffer.ensureMipmaps();unbind()
+ expect(()=>buffer.enableResidency(cache)).toThrow('exceeds')
+ expect(cache.bufferCount).toBe(0);expect(cache.residentBytes).toBe(0)
+ buffer.destroy();cache.dispose()
+})
+
 it('preserves exact pixel bytes through repeated LRU eviction and readback', () => {
   const { make, unbind, cache } = fixture()
   const buffers = Array.from({ length: 7 }, (_, i) => {

@@ -3,6 +3,7 @@ export interface ResidentBuffer {
   readonly gl: WebGLRenderingContext
   readonly width: number
   readonly height: number
+  readonly mipmapsAllocated?: boolean
   _texture: WebGLTexture
   _fbo: WebGLFramebuffer
   destroy(): void
@@ -46,6 +47,7 @@ export class BufferResidency {
   private entries = new Map<ResidentBuffer, boolean>()
   private pins = new Map<ResidentBuffer, number>()
   private used = 0
+  private allocatedBytes = new WeakMap<ResidentBuffer, number>()
   private disposed = false
   readonly gl: WebGLRenderingContext
   readonly budgetBytes: number
@@ -60,10 +62,12 @@ export class BufferResidency {
   get residentBytes(): number { return this.used }
   get bufferCount(): number { return this.entries.size }
   private bytes(buffer: ResidentBuffer): number {
+    return this.allocatedBytes.get(buffer) ?? this.allocationBytes(buffer, buffer.mipmapsAllocated === true)
+  }
+  private allocationBytes(buffer: ResidentBuffer, mipmaps: boolean): number {
     let { width, height } = buffer
     let bytes = width * height * 4
-    // Reserve the possible mip chain up front; generating it cannot exceed cap.
-    if ((width & (width - 1)) === 0 && (height & (height - 1)) === 0) {
+    if (mipmaps && (width & (width - 1)) === 0 && (height & (height - 1)) === 0) {
       while (width > 1 || height > 1) {
         width = Math.max(1, width >> 1); height = Math.max(1, height >> 1)
         bytes += width * height * 4
@@ -99,9 +103,24 @@ export class BufferResidency {
   register(buffer: ResidentBuffer): void {
     if (this.disposed || buffer.gl !== this.gl) throw new Error('Invalid residency cache/context')
     if (this.entries.has(buffer)) return
+    this.allocatedBytes.set(buffer, this.allocationBytes(buffer, buffer.mipmapsAllocated === true))
     this.reserve(this.bytes(buffer), buffer)
     this.entries.set(buffer, true)
     this.used += this.bytes(buffer)
+  }
+  /** Admit the additional levels before generateMipmap can allocate them.
+   * Data fields never generate mips and pay only for their level zero. */
+  requireMipmaps(buffer: ResidentBuffer): void {
+    const required = this.allocationBytes(buffer, true)
+    if (required > this.budgetBytes) throw new Error('Buffer mipmaps exceed residency budget')
+    this.runPinned([buffer], () => {
+      this.touch(buffer)
+      const extra = required - this.bytes(buffer)
+      if (extra <= 0) return
+      this.reserve(extra, buffer)
+      this.allocatedBytes.set(buffer, required)
+      this.used += extra
+    })
   }
   touch(buffer: ResidentBuffer): void {
     if (!this.entries.has(buffer)) throw new Error('Buffer residency unavailable')
@@ -129,11 +148,13 @@ export class BufferResidency {
     if (this.entries.get(buffer)) this.used -= this.bytes(buffer)
     this.entries.delete(buffer)
     this.pins.delete(buffer)
+    this.allocatedBytes.delete(buffer)
   }
   /** Context loss invalidates current pixels; never fabricate stale CPU data. */
   forgetContext(): void {
     for (const buffer of this.entries.keys()) buffer._residencyForget()
     this.entries.clear()
+    this.allocatedBytes = new WeakMap()
     this.pins.clear()
     this.used = 0
     draws.delete(this.gl)

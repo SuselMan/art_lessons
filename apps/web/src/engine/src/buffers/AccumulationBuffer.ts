@@ -186,6 +186,8 @@ export class AccumulationBuffer {
   // has generated it yet, and the constructor leaves the plain LINEAR min
   // filter in place, so the texture is complete from the moment it exists.
   private _mipsValid = false
+  private _mipsAllocated = false
+  get mipmapsAllocated(): boolean { return this._mipsAllocated }
   // Whether the min filter is currently asking for mip levels. Tracked so
   // setMipSampling can skip redundant GL state changes on the per-draw path.
   private _mipSampling = false
@@ -231,9 +233,11 @@ export class AccumulationBuffer {
     this._ensureResident()
     if (!this._mipCapable) return false
     if (this._mipsValid) return true
+    this._residency?.requireMipmaps(this)
     const { gl } = this
     gl.bindTexture(gl.TEXTURE_2D, this._texture)
     gl.generateMipmap(gl.TEXTURE_2D)
+    this._mipsAllocated = true
     this._mipsValid = true
     return true
   }
