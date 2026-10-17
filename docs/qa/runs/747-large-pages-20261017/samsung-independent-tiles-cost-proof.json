@@ -1,0 +1,723 @@
+{
+  "source": "afc07e0d+3a27cd5b",
+  "sourceHashes": {
+    "apps/web/src/engine/index.ts": "53984a3dfb5759ca6d47645e0bda26894cf82b0c598535a29fe0ae0c73c55789",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "c3421bee929598cdde7cc7fadc9445f28f0aa2a9400df9e26dbaf319e36bfdc2",
+    "apps/web/src/engine/src/watercolor/puddle/M70IndependentTilesQA.ts": "3b2db730f822598b79aff608683ef77aff0388b90f7d3608b7ae5bd5bccd2980",
+    "apps/web/qa-independent-tiles.ts": "a3f01355d1ae7d69e8052c5784606d333ffa6970407a27715cbd632c769a6e24"
+  },
+  "sourceHashesMatchAllArms": true,
+  "sourceStableVerifiedByFinalIndependentArm": true,
+  "device": "Samsung SM-T970 / Adreno650 / real Chrome WebGL1",
+  "correctnessScope": "No semantic oracle: independent1536 nonoverlap windows intentionally lose interactions; shared Contrast/coarse retained. No shader/model tuning or resolution reduction. No Room/backend/fixture operations.",
+  "inputQualification": "Fixed world-pointer geometry/settings; packed operation hashes differ, so not strict identical-material benchmark. One order only. All other diagnostic optimizations and precision controls OFF.",
+  "responseClock": "PRIMARY capture-phase trusted pointerup→same two-RAF natural ready time, includes engine end callback; page-bubble clock and observation delay separate. No pureGPU timing claim.",
+  "cases": [
+    {
+      "pattern": "small",
+      "mode": "normal",
+      "freshEngineAndContext": true,
+      "geometry": {
+        "backing": [
+          1752,
+          1472
+        ],
+        "canvasRect": {
+          "x": 0,
+          "y": 304.9926452636719,
+          "width": 824.4705810546875,
+          "height": 692.8602905273438
+        },
+        "maxTexture": 4096,
+        "maxRenderbuffer": 16384,
+        "corners": [
+          {
+            "world": [
+              0,
+              0
+            ],
+            "screen": [
+              12.000003485790357,
+              368.4111676215292
+            ],
+            "inside": true
+          },
+          {
+            "world": [
+              3508,
+              0
+            ],
+            "screen": [
+              812.47057756885,
+              368.4111676215292
+            ],
+            "inside": true
+          },
+          {
+            "world": [
+              0,
+              2480
+            ],
+            "screen": [
+              12.000003485790357,
+              934.4344134333364
+            ],
+            "inside": true
+          },
+          {
+            "world": [
+              3508,
+              2480
+            ],
+            "screen": [
+              812.47057756885,
+              934.4344134333364
+            ],
+            "inside": true
+          }
+        ]
+      },
+      "settings": {
+        "mode": "normal",
+        "format": "a2l",
+        "size": "140",
+        "water": "95",
+        "pigment": "34",
+        "color": "#2688d3"
+      },
+      "worldPoints": [
+        [
+          1466,
+          1170
+        ],
+        [
+          1496,
+          1190
+        ],
+        [
+          1536,
+          1220
+        ],
+        [
+          1576,
+          1250
+        ],
+        [
+          1606,
+          1270
+        ]
+      ],
+      "fixedPointerSettingsSHA": "9e61ba7b3fb8a4b0a269fdcc4630952e336e799a90308866b351799aa44ce07e",
+      "actualPackedOperationSHA": "9acea0cd24239e82c500070e2cd9e9dd834314a1ccc8facc0c14386fa8b616bd",
+      "strokeChunks": 1,
+      "responseMs": {
+        "primary_captureUP_to_same_naturalGoalReady": 22030.5,
+        "pageBubbleUP_to_naturalGoalReady": 22008.10000014305,
+        "captureUP_to_pageBubbleUP": 22.399999856948853,
+        "runnerObservedIncludingPolling": 22279.5
+      },
+      "plan": {
+        "kind": "plan",
+        "epoch": 2,
+        "supportRadius": 612,
+        "independentTiles": false,
+        "usesProductionWindowPolicy": true,
+        "plannedWindows": 60,
+        "plannedFieldPixels": 141557760,
+        "plannedCorePixels": 8699840
+      },
+      "actualWindows": {
+        "reported": 60,
+        "kept": 36,
+        "completed": 36,
+        "keptFieldPixels": 84934656
+      },
+      "hostWindowTotalsMs": {
+        "restoreHostMs": 1873.8,
+        "allocationHostMs": 329.2,
+        "resetHostMs": 123.4,
+        "stepHostMs": 13714.2,
+        "readbackScatterHostMs": 409.7,
+        "cleanupHostMs": 3.4,
+        "activeHostMs": 16453.7,
+        "elapsedHostMs": 19749.8
+      },
+      "readPixels": {
+        "count": 247,
+        "sumMs": 7175.700000286102,
+        "maxMs": 184.90000009536743,
+        "bytes": 582086816
+      },
+      "readPixelsQualification": "Through runner observation after goal, includes polling delay, driver waits and overlapping window work",
+      "RAF": {
+        "count": 266,
+        "maxMs": 434.7000000000007,
+        "over50": 107,
+        "over100": 65
+      },
+      "device": {
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "visibility": "visible",
+        "hidden": false,
+        "initialGL": 0,
+        "dither": true
+      },
+      "finalGL": 0,
+      "contextLost": false,
+      "contextClosed": true,
+      "qualification": "Single order normal→independent; fixed command geometry/settings, actual packed material input differs. Host time not GPU execution time; nested read durations overlap.",
+      "interactiveFinalPreview": {
+        "open": true,
+        "width": 1024,
+        "height": 724,
+        "nonwhite": 2299,
+        "gl": 0,
+        "screenshot": "small-normal-final-preview.png",
+        "qualification": "Trusted button click after measurement; WebGL reads and2D preview work excluded from timing"
+      }
+    },
+    {
+      "pattern": "small",
+      "mode": "independent",
+      "freshEngineAndContext": true,
+      "geometry": {
+        "backing": [
+          1752,
+          1472
+        ],
+        "canvasRect": {
+          "x": 0,
+          "y": 304.9926452636719,
+          "width": 824.4705810546875,
+          "height": 692.8602905273438
+        },
+        "maxTexture": 4096,
+        "maxRenderbuffer": 16384,
+        "corners": [
+          {
+            "world": [
+              0,
+              0
+            ],
+            "screen": [
+              12.000003485790357,
+              368.4111676215292
+            ],
+            "inside": true
+          },
+          {
+            "world": [
+              3508,
+              0
+            ],
+            "screen": [
+              812.47057756885,
+              368.4111676215292
+            ],
+            "inside": true
+          },
+          {
+            "world": [
+              0,
+              2480
+            ],
+            "screen": [
+              12.000003485790357,
+              934.4344134333364
+            ],
+            "inside": true
+          },
+          {
+            "world": [
+              3508,
+              2480
+            ],
+            "screen": [
+              812.47057756885,
+              934.4344134333364
+            ],
+            "inside": true
+          }
+        ]
+      },
+      "settings": {
+        "mode": "independent",
+        "format": "a2l",
+        "size": "140",
+        "water": "95",
+        "pigment": "34",
+        "color": "#2688d3"
+      },
+      "worldPoints": [
+        [
+          1466,
+          1170
+        ],
+        [
+          1496,
+          1190
+        ],
+        [
+          1536,
+          1220
+        ],
+        [
+          1576,
+          1250
+        ],
+        [
+          1606,
+          1270
+        ]
+      ],
+      "fixedPointerSettingsSHA": "9e61ba7b3fb8a4b0a269fdcc4630952e336e799a90308866b351799aa44ce07e",
+      "actualPackedOperationSHA": "4817f56eeae4753487dbb6d479f118624de04f8bbac99b2a394372dd582477d1",
+      "strokeChunks": 1,
+      "responseMs": {
+        "primary_captureUP_to_same_naturalGoalReady": 4678.299999952316,
+        "pageBubbleUP_to_naturalGoalReady": 4655.199999809265,
+        "captureUP_to_pageBubbleUP": 23.100000143051147,
+        "runnerObservedIncludingPolling": 4922.900000095367
+      },
+      "plan": {
+        "kind": "plan",
+        "epoch": 2,
+        "supportRadius": 612,
+        "independentTiles": true,
+        "usesProductionWindowPolicy": false,
+        "plannedWindows": 6,
+        "plannedFieldPixels": 14155776,
+        "plannedCorePixels": 8699840
+      },
+      "actualWindows": {
+        "reported": 6,
+        "kept": 4,
+        "completed": 4,
+        "keptFieldPixels": 9437184
+      },
+      "hostWindowTotalsMs": {
+        "restoreHostMs": 242.9,
+        "allocationHostMs": 131.8,
+        "resetHostMs": 93.5,
+        "stepHostMs": 1525.5,
+        "readbackScatterHostMs": 230.4,
+        "cleanupHostMs": 0.7,
+        "activeHostMs": 2224.8,
+        "elapsedHostMs": 2766.0
+      },
+      "readPixels": {
+        "count": 151,
+        "sumMs": 1616.0999991893768,
+        "maxMs": 175.09999990463257,
+        "bytes": 310571168
+      },
+      "readPixelsQualification": "Through runner observation after goal, includes polling delay, driver waits and overlapping window work",
+      "RAF": {
+        "count": 86,
+        "maxMs": 468,
+        "over50": 27,
+        "over100": 15
+      },
+      "device": {
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "visibility": "visible",
+        "hidden": false,
+        "initialGL": 0,
+        "dither": true
+      },
+      "finalGL": 0,
+      "contextLost": false,
+      "contextClosed": true,
+      "qualification": "Single order normal→independent; fixed command geometry/settings, actual packed material input differs. Host time not GPU execution time; nested read durations overlap."
+    },
+    {
+      "pattern": "broad",
+      "mode": "normal",
+      "freshEngineAndContext": true,
+      "geometry": {
+        "backing": [
+          1752,
+          1472
+        ],
+        "canvasRect": {
+          "x": 0,
+          "y": 304.9926452636719,
+          "width": 824.4705810546875,
+          "height": 692.8602905273438
+        },
+        "maxTexture": 4096,
+        "maxRenderbuffer": 16384,
+        "corners": [
+          {
+            "world": [
+              0,
+              0
+            ],
+            "screen": [
+              12.000003485790357,
+              368.4111676215292
+            ],
+            "inside": true
+          },
+          {
+            "world": [
+              3508,
+              0
+            ],
+            "screen": [
+              812.47057756885,
+              368.4111676215292
+            ],
+            "inside": true
+          },
+          {
+            "world": [
+              0,
+              2480
+            ],
+            "screen": [
+              12.000003485790357,
+              934.4344134333364
+            ],
+            "inside": true
+          },
+          {
+            "world": [
+              3508,
+              2480
+            ],
+            "screen": [
+              812.47057756885,
+              934.4344134333364
+            ],
+            "inside": true
+          }
+        ]
+      },
+      "settings": {
+        "mode": "normal",
+        "format": "a2l",
+        "size": "400",
+        "water": "95",
+        "pigment": "34",
+        "color": "#2688d3"
+      },
+      "worldPoints": [
+        [
+          360,
+          350
+        ],
+        [
+          650,
+          560
+        ],
+        [
+          980,
+          780
+        ],
+        [
+          1300,
+          1050
+        ],
+        [
+          1536,
+          1260
+        ],
+        [
+          1840,
+          1510
+        ],
+        [
+          2170,
+          1730
+        ],
+        [
+          2500,
+          1950
+        ],
+        [
+          2810,
+          2090
+        ],
+        [
+          3150,
+          2070
+        ]
+      ],
+      "fixedPointerSettingsSHA": "c58b2fb0acbb0b9d96794cc88692490456b2c8c349e7f1bb1eee1e6213771cfb",
+      "actualPackedOperationSHA": "32a9ebad5145e5e0e36446e024b7b62b00134c960973f3549c8b90687cfd9075",
+      "strokeChunks": 2,
+      "responseMs": {
+        "primary_captureUP_to_same_naturalGoalReady": 35169.89999985695,
+        "pageBubbleUP_to_naturalGoalReady": 34741.5,
+        "captureUP_to_pageBubbleUP": 428.39999985694885,
+        "runnerObservedIncludingPolling": null
+      },
+      "plan": {
+        "kind": "plan",
+        "epoch": 2,
+        "supportRadius": 612,
+        "independentTiles": false,
+        "usesProductionWindowPolicy": true,
+        "plannedWindows": 60,
+        "plannedFieldPixels": 141557760,
+        "plannedCorePixels": 8699840
+      },
+      "actualWindows": {
+        "reported": 60,
+        "kept": 48,
+        "completed": 48,
+        "keptFieldPixels": 113246208
+      },
+      "hostWindowTotalsMs": {
+        "restoreHostMs": 3060.4,
+        "allocationHostMs": 395.6,
+        "resetHostMs": 149.9,
+        "stepHostMs": 17089.5,
+        "readbackScatterHostMs": 1025.3,
+        "cleanupHostMs": 5.3,
+        "activeHostMs": 21726.0,
+        "elapsedHostMs": 31325.5
+      },
+      "readPixels": {
+        "count": 469,
+        "sumMs": 10893.599998950958,
+        "maxMs": 207.19999980926514,
+        "bytes": 1404844704
+      },
+      "readPixelsQualification": "Includes post-goal idle guard overrun: DO NOT interpret as latency scope",
+      "RAF": null,
+      "device": {
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "visibility": "visible",
+        "hidden": false,
+        "initialGL": 0,
+        "dither": true
+      },
+      "finalGL": 0,
+      "contextLost": false,
+      "contextClosed": true,
+      "qualification": "Single order normal→independent; fixed command geometry/settings, actual packed material input differs. Host time not GPU execution time; nested read durations overlap.",
+      "recovery": "Natural goal already completed; incorrect QA strokeCount===1 guard rejected valid two-chunk gesture. Read-only recovery captured authoritative ready timestamps and screenshot BEFORE finally close; 152.9s idle guard wait excluded from response."
+    },
+    {
+      "pattern": "broad",
+      "mode": "independent",
+      "freshEngineAndContext": true,
+      "geometry": {
+        "backing": [
+          1752,
+          1472
+        ],
+        "canvasRect": {
+          "x": 0,
+          "y": 304.9926452636719,
+          "width": 824.4705810546875,
+          "height": 692.8602905273438
+        },
+        "maxTexture": 4096,
+        "maxRenderbuffer": 16384,
+        "corners": [
+          {
+            "world": [
+              0,
+              0
+            ],
+            "screen": [
+              12.000003485790357,
+              368.4111676215292
+            ],
+            "inside": true
+          },
+          {
+            "world": [
+              3508,
+              0
+            ],
+            "screen": [
+              812.47057756885,
+              368.4111676215292
+            ],
+            "inside": true
+          },
+          {
+            "world": [
+              0,
+              2480
+            ],
+            "screen": [
+              12.000003485790357,
+              934.4344134333364
+            ],
+            "inside": true
+          },
+          {
+            "world": [
+              3508,
+              2480
+            ],
+            "screen": [
+              812.47057756885,
+              934.4344134333364
+            ],
+            "inside": true
+          }
+        ]
+      },
+      "settings": {
+        "mode": "independent",
+        "format": "a2l",
+        "size": "400",
+        "water": "95",
+        "pigment": "34",
+        "color": "#2688d3"
+      },
+      "worldPoints": [
+        [
+          360,
+          350
+        ],
+        [
+          650,
+          560
+        ],
+        [
+          980,
+          780
+        ],
+        [
+          1300,
+          1050
+        ],
+        [
+          1536,
+          1260
+        ],
+        [
+          1840,
+          1510
+        ],
+        [
+          2170,
+          1730
+        ],
+        [
+          2500,
+          1950
+        ],
+        [
+          2810,
+          2090
+        ],
+        [
+          3150,
+          2070
+        ]
+      ],
+      "fixedPointerSettingsSHA": "c58b2fb0acbb0b9d96794cc88692490456b2c8c349e7f1bb1eee1e6213771cfb",
+      "actualPackedOperationSHA": "36fbc7334f13ccf0293a76ee39da4e3264321cba010038440ef4492ef1ba8e40",
+      "strokeChunks": 2,
+      "responseMs": {
+        "primary_captureUP_to_same_naturalGoalReady": 8070.200000047684,
+        "pageBubbleUP_to_naturalGoalReady": 7635.299999952316,
+        "captureUP_to_pageBubbleUP": 434.90000009536743,
+        "runnerObservedIncludingPolling": 8311.900000095367
+      },
+      "plan": {
+        "kind": "plan",
+        "epoch": 2,
+        "supportRadius": 612,
+        "independentTiles": true,
+        "usesProductionWindowPolicy": false,
+        "plannedWindows": 6,
+        "plannedFieldPixels": 14155776,
+        "plannedCorePixels": 8699840
+      },
+      "actualWindows": {
+        "reported": 6,
+        "kept": 6,
+        "completed": 6,
+        "keptFieldPixels": 14155776
+      },
+      "hostWindowTotalsMs": {
+        "restoreHostMs": 456.5,
+        "allocationHostMs": 69.0,
+        "resetHostMs": 74.2,
+        "stepHostMs": 2222.5,
+        "readbackScatterHostMs": 312.9,
+        "cleanupHostMs": 0.8,
+        "activeHostMs": 3135.9,
+        "elapsedHostMs": 4319.6
+      },
+      "readPixels": {
+        "count": 343,
+        "sumMs": 3286.7999970912933,
+        "maxMs": 172.70000004768372,
+        "bytes": 1028897440
+      },
+      "readPixelsQualification": "Through runner observation after goal, includes polling delay, driver waits and overlapping window work",
+      "RAF": {
+        "count": 95,
+        "maxMs": 1053.2000000000007,
+        "over50": 40,
+        "over100": 32
+      },
+      "device": {
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "visibility": "visible",
+        "hidden": false,
+        "initialGL": 0,
+        "dither": true
+      },
+      "finalGL": 0,
+      "contextLost": false,
+      "contextClosed": true,
+      "qualification": "Single order normal→independent; fixed command geometry/settings, actual packed material input differs. Host time not GPU execution time; nested read durations overlap."
+    }
+  ],
+  "pairs": [
+    {
+      "pattern": "small",
+      "fixedPointerSettingsSHAMatches": true,
+      "packedOperationSHAMatches": false
+    },
+    {
+      "pattern": "broad",
+      "fixedPointerSettingsSHAMatches": true,
+      "packedOperationSHAMatches": false
+    }
+  ],
+  "artifacts": [
+    {
+      "privateArtifact": "small-normal-final-preview.png",
+      "sha256": "44c15b2edb0bec166a9d0c515307d2335e215fcd8db4ca33aebc0c1f16e3fc2a",
+      "bytes": 393542,
+      "qualification": "After timing; preview canonical for small, live presentation after goal for broad"
+    },
+    {
+      "privateArtifact": "broad-normal-presentation.png",
+      "sha256": "fa87b7774242dd0baf2a30256961265d16e8073e281f11dd53f2979a5b3edc2a",
+      "bytes": 1727087,
+      "qualification": "After timing; preview canonical for small, live presentation after goal for broad"
+    },
+    {
+      "privateArtifact": "broad-independent-presentation.png",
+      "sha256": "dc2602b6cdb52744e434bbcda66bef20618fc71c8f3f110bb501ff56d8ce445f",
+      "bytes": 1704028,
+      "qualification": "After timing; preview canonical for small, live presentation after goal for broad"
+    }
+  ],
+  "pageAndHarnessQARepairs": [
+    "Empty PREWARM has no material and must not block initial ready; no stroke sent in rejected attempts",
+    "Room viewport backing/camera replaces full-A2 framebuffer whose diagonal4297 exceededSamsung4096",
+    "A long trusted gesture can produce2strokechunks; chunk count1 wait was wrong. Completed normal broad recovered read-only, no repeated stroke or forced solve"
+  ],
+  "cleanup": {
+    "allOwnedContextsClosed": true,
+    "newRoomsCreated": 0,
+    "servicesChanged": false,
+    "protectedExistingFixturesRetained": 17,
+    "rawGPUDumpsSaved": false
+  },
+  "status": "4 completed diagnostic cases, no GLerrors or contextloss; both independent responses remain multi-second"
+}
