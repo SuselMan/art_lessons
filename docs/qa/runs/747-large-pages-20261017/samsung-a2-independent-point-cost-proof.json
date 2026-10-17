@@ -1,0 +1,143 @@
+{
+  "date": "2026-10-17",
+  "device": "Samsung SM-T970 Adreno650",
+  "sourceHashes": {
+    "apps/web/src/engine/index.ts": "53984a3dfb5759ca6d47645e0bda26894cf82b0c598535a29fe0ae0c73c55789",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "c3421bee929598cdde7cc7fadc9445f28f0aa2a9400df9e26dbaf319e36bfdc2",
+    "apps/web/src/engine/src/watercolor/puddle/M70IndependentTilesQA.ts": "3b2db730f822598b79aff608683ef77aff0388b90f7d3608b7ae5bd5bccd2980",
+    "apps/web/qa-independent-tiles.ts": "a3f01355d1ae7d69e8052c5784606d333ffa6970407a27715cbd632c769a6e24"
+  },
+  "sourceLabel": "ec22-app-unchanged-3a27-page",
+  "page": "Existing qa-independent-tiles.html / A2landscape3508x2480 / independent mode",
+  "scope": "Tiny trusted pen movement1worldpixel in fresh engine per case; brush40 water95 pigment34 PB15/#2688d3 force.75. All7diagnostic optimizationsOFF. Intentionally non-equivalent independent1536fields without halo; no semantic oracle. No Room/fixtures/auth/serverwrites.",
+  "primaryClock": "Capture pointerUP before engine handler to page natural readyAt+2RAF. Poll end retained only for audit, excluded from primary.",
+  "qualification": "Read timings include driver waits/nestedwork, native host totals are inclusive, do not add to reads or infer pure GPU cost. Single sample per geometry, not strict same-input A/B.",
+  "cases": [
+    {
+      "case": "pointinner",
+      "spec": {
+        "worldPoints": [
+          [
+            512,
+            512
+          ],
+          [
+            513,
+            513
+          ]
+        ],
+        "settings": {
+          "mode": "independent",
+          "format": "a2l",
+          "size": "40",
+          "water": "95",
+          "pigment": "34",
+          "color": "#2688d3"
+        },
+        "pointerType": "pen",
+        "force": 0.75
+      },
+      "fixedSpecSHA": "05aa4fed070c2a01654ee247b85012a37bed0f33948e53d96712f2594b3a1764",
+      "packedInputSHA": "63cde346959feeab12a7f84cacf1f67d00c814e8b90acadebaef058b5e3ae657",
+      "captureUPToReadyMs": 3140.9000000953674,
+      "pageBubbleUPToReadyMs": 3134.0999999046326,
+      "observedPollEndMs": 3384.9000000953674,
+      "plannedWindows": 6,
+      "keptWindows": 1,
+      "fixedFieldExtent": [
+        1536,
+        1536
+      ],
+      "nativeHostTotals": {
+        "restoreHostMs": 134.20000004768372,
+        "allocationHostMs": 21.09999990463257,
+        "resetHostMs": 119.60000014305115,
+        "stepHostMs": 519.2999999523163,
+        "readbackScatterHostMs": 71.59999990463257,
+        "cleanupHostMs": 0.3000001907348633,
+        "activeHostMs": 866.1000001430511,
+        "elapsedHostMs": 1056.7999999523163
+      },
+      "reads": {
+        "count": 136,
+        "sumMs": 1122.4000008106232,
+        "maxMs": 114.40000009536743,
+        "bytes": 210432160
+      },
+      "RAF": {
+        "count": 54,
+        "maxMs": 601.8999999999996,
+        "over50": 23,
+        "over100": 11
+      },
+      "GL": 0,
+      "contextLost": false,
+      "contextClosed": true,
+      "pageErrors": 0
+    },
+    {
+      "case": "pointjunction",
+      "spec": {
+        "worldPoints": [
+          [
+            1536,
+            1536
+          ],
+          [
+            1537,
+            1537
+          ]
+        ],
+        "settings": {
+          "mode": "independent",
+          "format": "a2l",
+          "size": "40",
+          "water": "95",
+          "pigment": "34",
+          "color": "#2688d3"
+        },
+        "pointerType": "pen",
+        "force": 0.75
+      },
+      "fixedSpecSHA": "8edbc48fa9a7df609cf28bd4e324414056685e2d661f6303051111d80f11fa1b",
+      "packedInputSHA": "375a078138d73518d8f6399c65794a293a15d8ad3a986d19c6bb078d38d90d89",
+      "captureUPToReadyMs": 4907,
+      "pageBubbleUPToReadyMs": 4895.200000047684,
+      "observedPollEndMs": 5136.399999856949,
+      "plannedWindows": 6,
+      "keptWindows": 4,
+      "fixedFieldExtent": [
+        1536,
+        1536
+      ],
+      "nativeHostTotals": {
+        "restoreHostMs": 220.99999976158142,
+        "allocationHostMs": 42.200000286102295,
+        "resetHostMs": 168.7999997138977,
+        "stepHostMs": 1341.0000002384186,
+        "readbackScatterHostMs": 221.70000004768372,
+        "cleanupHostMs": 0.9000003337860107,
+        "activeHostMs": 1995.6000003814697,
+        "elapsedHostMs": 2489.0
+      },
+      "reads": {
+        "count": 145,
+        "sumMs": 1769.4000008106232,
+        "maxMs": 139.5,
+        "bytes": 280817824
+      },
+      "RAF": {
+        "count": 68,
+        "maxMs": 518.1999999999989,
+        "over50": 30,
+        "over100": 18
+      },
+      "GL": 0,
+      "contextLost": false,
+      "contextClosed": true,
+      "pageErrors": 0
+    }
+  ],
+  "cleanup": "Both measured contexts closed. Own ChromeMain bootstrap tab closed. Own ADB19336forward/15484reverse removed afterrun. Services/protected17fixtures remain, cacheTTL21:07.",
+  "pass": true
+}
