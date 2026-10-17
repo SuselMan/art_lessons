@@ -1,0 +1,241 @@
+[
+  {
+    "id": "QA-025",
+    "title": "Живые вода и пигмент до отпускания пера",
+    "source_tool": "docs/qa/harness/728-night/short-live.cjs",
+    "issues": [
+      "743"
+    ]
+  },
+  {
+    "id": "QA-026",
+    "title": "Чужой пигмент зависит от воды автора",
+    "source_tool": "docs/qa/harness/728-night/online-three.cjs",
+    "issues": [
+      "775",
+      "779"
+    ]
+  },
+  {
+    "id": "QA-027",
+    "title": "Один жест из нескольких принятых частей",
+    "source_tool": "docs/qa/harness/728-night/accepted-tail-reject.cjs",
+    "issues": [
+      "761",
+      "773"
+    ]
+  },
+  {
+    "id": "QA-028",
+    "title": "Послойная сушка и переход через её границу",
+    "source_tool": "docs/qa/harness/728-night/samsung-dry-order-postfix.cjs",
+    "issues": [
+      "781",
+      "782"
+    ]
+  },
+  {
+    "id": "QA-029",
+    "title": "Ластик над сухой подложкой и мокрой акварелью",
+    "source_tool": "docs/qa/harness/728-night/wet-erase-layers.cjs",
+    "issues": [
+      "745"
+    ]
+  },
+  {
+    "id": "QA-030",
+    "title": "Несколько мокрых слоёв и выгрузка",
+    "source_tool": "docs/qa/harness/728-night/eight-wet-residency.cjs",
+    "issues": [
+      "747",
+      "758"
+    ]
+  },
+  {
+    "id": "QA-031",
+    "title": "Следующее действие не стирается поздней акварелью",
+    "source_tool": "docs/qa/harness/728-night/760-wet-shape.cjs",
+    "issues": [
+      "760"
+    ]
+  },
+  {
+    "id": "QA-032",
+    "title": "Живой обычный мазок во время Undo и snapshot",
+    "source_tool": "docs/qa/harness/728-night/774-held-public-screen.cjs",
+    "issues": [
+      "770",
+      "774"
+    ]
+  },
+  {
+    "id": "QA-033",
+    "title": "Отключение после UP при живой соседней вкладке",
+    "source_tool": "docs/qa/harness/728-night/samsung-ended-live-disconnect.cjs",
+    "issues": [
+      "780",
+      "792"
+    ]
+  },
+  {
+    "id": "QA-034",
+    "title": "Позднее подтверждение после ухода с доски",
+    "source_tool": "docs/qa/harness/728-night/join-ack-gate.cjs",
+    "issues": [
+      "776",
+      "783",
+      "784",
+      "786"
+    ]
+  },
+  {
+    "id": "QA-035",
+    "title": "Устаревшее восстановление снимка",
+    "source_tool": "docs/qa/harness/728-night/788-board-late-blob.cjs",
+    "issues": [
+      "788"
+    ]
+  },
+  {
+    "id": "QA-036",
+    "title": "Пустой и частичный снимок, холодный хвост, Undo головы",
+    "source_tool": "docs/qa/harness/728-night/789-cold-head-undo.cjs",
+    "issues": [
+      "759",
+      "769",
+      "771",
+      "789"
+    ]
+  },
+  {
+    "id": "QA-037",
+    "title": "Защищённая вода переживает обратимую границу",
+    "source_tool": "docs/qa/harness/728-night/protected-water-boundaries.cjs",
+    "issues": [
+      "779"
+    ]
+  },
+  {
+    "id": "QA-038",
+    "title": "Переход естественного времени через 120 секунд",
+    "source_tool": "docs/qa/harness/728-night/samsung-clock-postfix.cjs",
+    "issues": [
+      "753"
+    ]
+  },
+  {
+    "id": "QA-039",
+    "title": "Потеря GPU-контекста с входящими действиями",
+    "source_tool": "docs/qa/harness/728-night/samsung-contextlost-operations.cjs",
+    "issues": [
+      "745"
+    ]
+  },
+  {
+    "id": "QA-040",
+    "title": "Заполненная мокрая комната",
+    "source_tool": "docs/qa/harness/728-night/samsung-long-wet-load.cjs",
+    "issues": [
+      "787"
+    ]
+  },
+  {
+    "id": "QA-041",
+    "title": "Видимая стоимость Undo100",
+    "source_tool": "docs/qa/harness/728-night/undo100-original-instrumented.cjs",
+    "issues": [
+      "744"
+    ]
+  },
+  {
+    "id": "QA-042",
+    "title": "Один M70-журнал на разных GPU",
+    "source_tool": "docs/qa/harness/728-night/samsung-shared-determinism.cjs",
+    "issues": [
+      "748"
+    ]
+  },
+  {
+    "id": "QA-043",
+    "title": "Смена доски и проверка своего replay",
+    "source_tool": "docs/qa/harness/728-night/790-material-capture.cjs",
+    "issues": [
+      "791",
+      "752"
+    ]
+  },
+  {
+    "id": "QA-044",
+    "title": "Подтверждённый checkpoint обгоняет pending мазки",
+    "source_tool": "docs/qa/harness/728-night/wet-prefix-followup.cjs",
+    "issues": [
+      "752"
+    ]
+  },
+  {
+    "id": "QA-045",
+    "title": "Восстановление отвергнутого рисунка и несколько пачек",
+    "source_tool": "docs/qa/harness/728-night/lost-work-material.cjs",
+    "issues": [
+      "777",
+      "778"
+    ]
+  },
+  {
+    "id": "QA-046",
+    "title": "Две модели акварели на разных слоях",
+    "source_tool": "apps/web/src/engine/index.m70LegacyOwnership.test.ts",
+    "issues": [
+      "785"
+    ]
+  },
+  {
+    "id": "QA-047",
+    "title": "Реальный получасовой онлайн soak",
+    "source_tool": "docs/qa/harness/728-night/samsung-wallclock-soak.cjs",
+    "issues": [
+      "745"
+    ]
+  },
+  {
+    "id": "QA-048",
+    "title": "Непрерывная мокрая эпоха без Dry",
+    "source_tool": null,
+    "issues": [
+      "745",
+      "753"
+    ]
+  },
+  {
+    "id": "QA-049",
+    "title": "Размер страницы и границы тайлов M70",
+    "source_tool": "docs/qa/harness/728-night/rect-room.cjs",
+    "issues": [
+      "747"
+    ]
+  },
+  {
+    "id": "QA-050",
+    "title": "Загрузка по готовому review export без replay",
+    "source_tool": null,
+    "issues": [
+      "745"
+    ]
+  },
+  {
+    "id": "QA-051",
+    "title": "Аппаратное перо, ладонь и жесты",
+    "source_tool": null,
+    "issues": [
+      "696"
+    ]
+  },
+  {
+    "id": "QA-052",
+    "title": "Настоящий урок и длительная touch-серия",
+    "source_tool": "docs/qa/harness/728-night/endurance-touch-sentinel.cjs",
+    "issues": [
+      "745"
+    ]
+  }
+]

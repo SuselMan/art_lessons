@@ -1,0 +1,266 @@
+{
+  "QA-001": {
+    "title": "Вход и первые штрихи",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-002": {
+    "title": "Одновременное рисование",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-003": {
+    "title": "Материалы и перезаход",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-004": {
+    "title": "Слои и локальный активный слой",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-005": {
+    "title": "Конфликт структуры слоёв",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-006": {
+    "title": "Авторские Undo/Redo",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-007": {
+    "title": "Preview фильтра",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-008": {
+    "title": "Отключение и возврат сети",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-009": {
+    "title": "Фигуры и выделение онлайн",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-010": {
+    "title": "Совместная мокрая акварель",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-011": {
+    "title": "Рост числа участников",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-012": {
+    "title": "Потеря графического контекста",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-013": {
+    "title": "Несколько источников ввода в одном жесте",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-014": {
+    "title": "Одновременная анимация входящих штрихов",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-015": {
+    "title": "Удаление слоя во время настройки фильтра",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-016": {
+    "title": "Запрет редактирования посреди живого жеста",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-017": {
+    "title": "Разные инструменты на одной области",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-018": {
+    "title": "Финальный кадр акварели на уменьшенном холсте",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-019": {
+    "title": "Cache overflow при повторном построении акварели",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-020": {
+    "title": "Один шаг фоновой выгрузки не блокирует кадр",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-021": {
+    "title": "Локальный zoom при активной совместной комнате",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-022": {
+    "title": "Одинаковый шум акварели и угля на разных GPU",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-023": {
+    "title": "Сохранение всех буферов заливки без CPU-readback",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-024": {
+    "title": "Маркерная лента у границы субпикселя",
+    "file": "../scenarios/collaboration.md"
+  },
+  "QA-025": {
+    "title": "Живые вода и пигмент до отпускания пера",
+    "file": "watercolor.md"
+  },
+  "QA-026": {
+    "title": "Чужой пигмент зависит от воды автора",
+    "file": "watercolor.md"
+  },
+  "QA-027": {
+    "title": "Один жест из нескольких принятых частей",
+    "file": "watercolor.md"
+  },
+  "QA-028": {
+    "title": "Послойная сушка и переход через её границу",
+    "file": "watercolor.md"
+  },
+  "QA-029": {
+    "title": "Ластик над сухой подложкой и мокрой акварелью",
+    "file": "watercolor.md"
+  },
+  "QA-030": {
+    "title": "Несколько мокрых слоёв и выгрузка",
+    "file": "watercolor.md"
+  },
+  "QA-031": {
+    "title": "Следующее действие не стирается поздней акварелью",
+    "file": "watercolor.md"
+  },
+  "QA-032": {
+    "title": "Живой обычный мазок во время Undo и snapshot",
+    "file": "watercolor.md"
+  },
+  "QA-033": {
+    "title": "Отключение после UP при живой соседней вкладке",
+    "file": "watercolor.md"
+  },
+  "QA-034": {
+    "title": "Позднее подтверждение после ухода с доски",
+    "file": "watercolor.md"
+  },
+  "QA-035": {
+    "title": "Устаревшее восстановление снимка",
+    "file": "watercolor.md"
+  },
+  "QA-036": {
+    "title": "Пустой и частичный снимок, холодный хвост, Undo головы",
+    "file": "watercolor.md"
+  },
+  "QA-037": {
+    "title": "Защищённая вода переживает обратимую границу",
+    "file": "watercolor.md"
+  },
+  "QA-038": {
+    "title": "Переход естественного времени через 120 секунд",
+    "file": "watercolor.md"
+  },
+  "QA-039": {
+    "title": "Потеря GPU-контекста с входящими действиями",
+    "file": "watercolor.md"
+  },
+  "QA-040": {
+    "title": "Заполненная мокрая комната",
+    "file": "watercolor.md"
+  },
+  "QA-041": {
+    "title": "Видимая стоимость Undo100",
+    "file": "watercolor.md"
+  },
+  "QA-042": {
+    "title": "Один M70-журнал на разных GPU",
+    "file": "watercolor.md"
+  },
+  "QA-043": {
+    "title": "Смена доски и проверка своего replay",
+    "file": "watercolor.md"
+  },
+  "QA-044": {
+    "title": "Подтверждённый checkpoint обгоняет pending мазки",
+    "file": "watercolor.md"
+  },
+  "QA-045": {
+    "title": "Восстановление отвергнутого рисунка и несколько пачек",
+    "file": "watercolor.md"
+  },
+  "QA-046": {
+    "title": "Две модели акварели на разных слоях",
+    "file": "watercolor.md"
+  },
+  "QA-047": {
+    "title": "Реальный получасовой онлайн soak",
+    "file": "watercolor.md"
+  },
+  "QA-048": {
+    "title": "Непрерывная мокрая эпоха без Dry",
+    "file": "watercolor.md"
+  },
+  "QA-049": {
+    "title": "Размер страницы и границы тайлов M70",
+    "file": "watercolor.md"
+  },
+  "QA-050": {
+    "title": "Загрузка по готовому review export без replay",
+    "file": "watercolor.md"
+  },
+  "QA-051": {
+    "title": "Аппаратное перо, ладонь и жесты",
+    "file": "watercolor.md"
+  },
+  "QA-052": {
+    "title": "Настоящий урок и длительная touch-серия",
+    "file": "watercolor.md"
+  },
+  "QA-101": {
+    "title": "Цвет, инструмент и его настройки",
+    "file": "interface.md"
+  },
+  "QA-102": {
+    "title": "Плавающая панель и пустые слоты",
+    "file": "interface.md"
+  },
+  "QA-103": {
+    "title": "Фигуры, заливка и цифровая кисть",
+    "file": "interface.md"
+  },
+  "QA-104": {
+    "title": "Выделение, Cut и clipboard между комнатами",
+    "file": "interface.md"
+  },
+  "QA-105": {
+    "title": "Импорт и преобразование без шва",
+    "file": "interface.md"
+  },
+  "QA-106": {
+    "title": "Пипетка, линейка и растушёвка",
+    "file": "interface.md"
+  },
+  "QA-107": {
+    "title": "Ластик через несколько слоёв",
+    "file": "interface.md"
+  },
+  "QA-108": {
+    "title": "Структура и локальное Solo",
+    "file": "interface.md"
+  },
+  "QA-109": {
+    "title": "Доски, камера и бесконечная комната",
+    "file": "interface.md"
+  },
+  "QA-110": {
+    "title": "Класс, ограничения урока и копия ученика",
+    "file": "interface.md"
+  },
+  "QA-111": {
+    "title": "Вход, пароль, бумага и снимки доступа",
+    "file": "interface.md"
+  },
+  "QA-112": {
+    "title": "Проекты, копии и превью",
+    "file": "interface.md"
+  },
+  "QA-113": {
+    "title": "Аннотация, ссылка и готовый review",
+    "file": "interface.md"
+  },
+  "QA-114": {
+    "title": "Заголовок, выход, версия и метрики входа",
+    "file": "interface.md"
+  }
+}

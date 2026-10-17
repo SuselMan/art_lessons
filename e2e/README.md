@@ -74,12 +74,11 @@ clearly (`4491 is already used`), which is the intended behaviour of
 | A lesson with two boards: the teacher turns pages and a student follows, both boards keep their ink and leak none of it into the other, a student who steps off by hand gets the chip back, a reload lands on the teacher's board, and deleting the board under a student moves them to the first one | `specs/boards.spec.ts` |
 | Operations reaching the server in a different order from the one they were painted in: the author whose line went out late ends with the server's order — the same pixels as a peer and a fresh joiner (#537) | `specs/trueOrder.spec.ts` |
 
-## What is not covered, on purpose
+## CI and coverage limits
 
-- **CI.** These run locally only for now. Wiring them into `ci.yml` needs a
-  browser download and a Postgres service on the runner, and is worth doing
-  once the suite has proved stable on more than one machine (#491 says as
-  much).
+- **CI.** Single-browser specs run on every PR with explicit SwiftShader.
+  `@two-browsers` is advisory and runs with `e2e-full` or a manual workflow.
+  See `.github/workflows/ci.yml`; software rendering does not replace real devices.
 - **Most touch and pen input.** Playwright's mouse is a mouse. The tablet is
   the target device and its gestures — two-finger pan, palm rejection,
   pressure — are not reachable this way, so §9's device passes still need
@@ -114,3 +113,8 @@ version used a fixed one. Two strokes far apart make a tall bounding box, ten
 steps put the samples 35 world pixels apart, and a stroke 32 pixels tall fits
 between two rows of them: the test reported blank paper over a canvas that
 plainly had ink on it. The spacing is what matters, not the count.
+
+## Единая библиотека QA
+
+Выбор набора, стабильные ID, ручные/device gates и история результатов: [docs/qa/README.md](../docs/qa/README.md).
+Существование E2E файла не означает его прохождения на текущем кандидате.
