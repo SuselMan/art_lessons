@@ -42,7 +42,7 @@ interface TileState {
   presentation: Presentation
 }
 export interface PagedPuddleSolver {
-  readonly state: {done: boolean}
+  readonly state: {done: boolean; admissionBlocked?:boolean; executing?:boolean}
   resetFromScratch(source: RibbonStrokeScratch, target: ILayerBuffer, epoch: number): void
   step(maxOps?: number): unknown
   buffers(tile: PaintTarget): Material
@@ -51,6 +51,8 @@ export interface PagedPuddleSolver {
   destroy(): void
 }
 export interface PagedPuddleRoomHost extends PuddleRoomHost {
+  /** After solver cancellation, before any raw mutation or CPU rehydrate. */
+  beginInput?():void
   /** Opt-in proof: current raw painting lies inside these world bounds and
    * canonical output outside retained raw support equals the dry substrate.
    * Unknown/foreign/historical inputs return null and retain whole tiles. */
@@ -102,8 +104,7 @@ export class PagedPuddleRoomController {
     if (!layer?.tiles.size || !layer.context) return target.allResident()
     if (!layer.goalReady || layer.dirty) {
       this.cancelCurrent(); this.start(layer)
-      while (!this.solver.state.done) this.solver.step(16)
-      this.complete(layer)
+      this.finishField(layer)
     }
     return target.allResident().map(tile => {
       const state=layer.tiles.get(tile.buffer)
@@ -189,6 +190,7 @@ export class PagedPuddleRoomController {
   captureUndo(_target: ILayerBuffer, _valid: () => boolean, _readWet: () => Float64Array): boolean { return false }
   restoreUndo(_target: ILayerBuffer): {wet:Float64Array} | null { return null }
   source(target: ILayerBuffer, gesture: string, profile: RibbonProfile, timestamp: number, boundary='', request?: {pin?: boolean; beforeRecordedOpId?: string}): {scratch: RibbonStrokeScratch; prevDab?: Dab; release: () => void; recordTimestamp: (at: number) => boolean} {
+    this.cancelCurrent();this.host.beginInput?.()
     const parked=this.parked.get(target)
     const prior=this.layers.get(target) ?? parked
     // Empty prewarm placeholders are not an earlier material epoch.
@@ -209,7 +211,7 @@ export class PagedPuddleRoomController {
         epoch:0,presentationDirty:true,dirty:false,goalReady:false,active:false,started:0,after:0}
       this.layers.set(target,layer)
     }
-    this.cancelCurrent()
+    this.cancelCurrent();this.host.beginInput?.()
     if (layer.gesture !== gesture) {
       layer.scratch.releaseFilm()
       layer.scratch.beginStroke()
@@ -244,7 +246,7 @@ export class PagedPuddleRoomController {
   beforePaint(scratch: RibbonStrokeScratch): void {
     const layer = this.find(scratch)
     if (!layer) return
-    this.cancelCurrent()
+    this.cancelCurrent();this.host.beginInput?.()
     layer.active = false
     layer.goalReady = false
   }
@@ -328,6 +330,19 @@ export class PagedPuddleRoomController {
     scratch.releaseFilm()
     this.request()
   }
+  private finishField(layer:Layer):void {
+    const epoch=layer.epoch
+    while(!this.solver.state.done){
+      this.solver.step(16)
+      if(this.solver.state.admissionBlocked){this.cancelCurrent();throw new MaterialSourceBusy()}
+      if(this.solving!==layer||layer.epoch!==epoch||this.disposed)throw new MaterialSourceBusy()
+    }
+    if(this.solving!==layer||layer.epoch!==epoch||this.disposed)throw new MaterialSourceBusy()
+    this.complete(layer)
+  }
+  get fieldWorkPending():boolean {return this.solver.state.executing===true}
+  /** Retire only speculative solver work; raw and the last shown goal stay owned. */
+  cancelFieldWork():void {this.cancelCurrent()}
   private cancelCurrent(): void {
     if (!this.solving) return
     this.cancellations++
@@ -339,6 +354,7 @@ export class PagedPuddleRoomController {
     if (!this.raf && !this.disposed) this.raf=requestAnimationFrame(this.frame)
   }
   private start(layer: Layer): void {
+    if(this.fieldWorkPending)throw new MaterialSourceBusy()
     if (!layer.tiles.size) return
     this.computations++
     this.solver.resetFromScratch(layer.scratch,layer.target,layer.epoch)
@@ -374,9 +390,11 @@ export class PagedPuddleRoomController {
       if (next) this.start(next)
     }
     if (this.solving) {
+      const layer=this.solving,epoch=layer.epoch
       this.solver.step(4)
-      if (this.solver.state.done) this.complete(this.solving)
+      if (!this.disposed&&this.solving===layer&&layer.epoch===epoch&&this.solver.state.done) this.complete(layer)
     }
+    if(this.disposed)return
     let moving=false
     for (const layer of this.layers.values()) if (layer.active) {
       const progress=morphProgress(at-layer.started+(layer.dryAt===undefined?0:99*Math.max(0,at-layer.dryAt)),120000)
@@ -491,8 +509,7 @@ export class PagedPuddleRoomController {
       if (layer.context && layer.tiles.size) {
         if (!layer.goalReady || layer.dirty) {
           this.start(layer)
-          while (!this.solver.state.done) this.solver.step(16)
-          this.complete(layer)
+          this.finishField(layer)
         }
         this.commit(layer)
       }
@@ -510,6 +527,7 @@ export class PagedPuddleRoomController {
     layer.scratch.destroy();this.destroyTiles(layer)
   }
   forget(target: ILayerBuffer): void {
+    if(this.fieldWorkPending){this.cancelCurrent();queueMicrotask(()=>this.forget(target));return}
     // Caller must cancel/finish the operation before disposing its material.
     this.residency.forget(target)
     this.parked.delete(target)
@@ -522,6 +540,10 @@ export class PagedPuddleRoomController {
     this.disposed=true
     this.closing.clear()
     if (this.raf) cancelAnimationFrame(this.raf)
+    if(this.fieldWorkPending){this.cancelCurrent();queueMicrotask(()=>this.destroyNow());return}
+    this.destroyNow()
+  }
+  private destroyNow():void {
     for (const target of [...this.layers.keys(),...this.parked.keys()]) this.forget(target)
     this.solver.destroy()
   }

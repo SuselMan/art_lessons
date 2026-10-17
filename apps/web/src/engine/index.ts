@@ -1,3 +1,5 @@
+import {M70PhaseOwner} from './src/watercolor/puddle/M70PhaseOwner'
+import type {FieldLease} from './src/watercolor/puddle/FieldJobLease'
 import {PagedPuddleRoomController} from './src/watercolor/puddle/PagedPuddleRoomController'
 import {createPagedPuddleTarget} from './src/watercolor/puddle/PagedPuddleTarget'
 import {BufferResidency} from './src/buffers/BufferResidency'
@@ -1669,6 +1671,73 @@ export class PencilEngine implements PencilEngineAPI {
   /** QA prototype: capture cost on real devices must be measured before enabling. */
   diagnosticOpenWetUndoCache=false
   private _puddle: PuddleRoomController | PagedPuddleRoomController | null = null
+  /** QA-only phase budget; toggling is allowed only without active field ownership. */
+  private _diagnosticM70PhaseBudget=false
+  get diagnosticM70PhaseBudget():boolean{return this._diagnosticM70PhaseBudget}
+  set diagnosticM70PhaseBudget(enabled:boolean){
+    enabled=!!enabled
+    if(enabled===this._diagnosticM70PhaseBudget)return
+    const owner=this._fieldPhaseOwner
+    if(owner&&(owner.state.activeLeases||owner.state.executing||owner.state.phase==='lost'||owner.state.transitioning))
+      throw new Error('Cannot change field-phase diagnostic while owned')
+    if(!enabled&&this._fieldPhaseCaches)for(const cache of this._fieldPhaseCaches){const result=cache.trySetBudget(120*1024*1024);if(!result.ok)throw new Error(result.reason)}
+    this._diagnosticM70PhaseBudget=enabled
+    this._fieldPhaseOwner=null
+  }
+  private _fieldDestroyQueued=false
+  private _fieldPhaseOwner:M70PhaseOwner|null=null
+  private _fieldPhaseCache:BufferResidency|null=null
+  private readonly _fieldPhaseCaches=new Set<BufferResidency>()
+  private readonly _pagedFieldControllers=new Set<PagedPuddleRoomController>()
+  private readonly _pagedFieldFamilies=new Map<WatercolorSettlePlan,FieldLease>()
+  private _getFieldPhaseOwner():M70PhaseOwner {
+    if(!this._fieldPhaseOwner)this._fieldPhaseOwner=new M70PhaseOwner({
+      // Callers retire the current paged generator before entering input.
+      // A foreign/actively unwinding lease deliberately makes input fail busy.
+      cancelAll:()=>{},
+      releaseTextures:()=>{for(const field of this._fieldCache)destroyField(field);this._fieldCache=[];this._watercolorPasses.releaseFrontPathTextures()},
+      setBudget:bytes=>{
+        for(const cache of this._fieldPhaseCaches){
+          const target=bytes===224*1024*1024&&cache===this._fieldPhaseCache?bytes:120*1024*1024
+          const result=cache.trySetBudget(target);if(!result.ok)return result
+        }
+        return {ok:true}
+      },
+    },this.diagnosticM70PhaseBudget)
+    return this._fieldPhaseOwner
+  }
+  private _cancelPagedFieldWork():void {for(const controller of this._pagedFieldControllers)controller.cancelFieldWork()}
+  private _acquireSharedField(plan?:WatercolorSettlePlan):FieldLease {
+    const owner=this._getFieldPhaseOwner(),parent=plan&&this._pagedFieldFamilies.get(plan)
+    if(parent)return owner.acquire(parent)
+    if(owner.state.executing)throw new MaterialSourceBusy()
+    // Preserve the historic drain-before-clear order, but BEFORE taking a new lease.
+    this._completeSettle()
+    this._cancelPagedFieldWork()
+    if(owner.state.enabled){const admission=owner.beginSolveSnapshot(undefined);if(!admission)throw new MaterialSourceBusy();return admission.lease}
+    return owner.acquire()
+  }
+  private _beginPagedInput(cache:BufferResidency):void {
+    const owner=this._getFieldPhaseOwner()
+    if(!owner.state.enabled)return
+    if(owner.state.activeLeases)return // Keep old120/no field release on busy input.
+    // Never retain two enlarged caches when replay temporarily owns another controller.
+    for(const other of this._fieldPhaseCaches)if(other!==cache&&!other.trySetBudget(120*1024*1024).ok)return
+    this._fieldPhaseCache=cache
+    owner.beginInput()
+  }
+  /** Existing operation queue is the retry boundary; no operation has mutated yet. */
+  private _sharedFieldOperationBusy(op?:Operation):boolean {
+    if(!this._fieldPhaseOwner)return false
+    if(this._fieldPhaseOwner.state.executing)return true
+    this._cancelPagedFieldWork()
+    if(this._pagedFieldFamilies.size)return true // Reentrant cancellation is still unwinding.
+    const owner=this._fieldPhaseOwner
+    if(owner.state.enabled&&!owner.state.activeLeases&&(!op||op.type==='paper_dry'||op.type==='stroke'&&op.tool==='watercolor'&&ribbonProfileFor(op.tool,op.preset,wetAt(op.wet,0)).materialModel!=='m70-r2-v1')){
+      for(const cache of this._fieldPhaseCaches)if(!cache.trySetBudget(120*1024*1024).ok)return true
+    }
+    return false
+  }
   private _puddleStrokeRecorded: ((at: number) => boolean) | null = null
   private _puddleStrokeRelease: (() => void) | null = null
   private _m70GeometrySupported(): boolean {
@@ -1681,6 +1750,7 @@ export class PencilEngine implements PencilEngineAPI {
     const {w,h}=this._paper.pageSize()
     const large=w>1024 || h>1024
     const cache=large?new BufferResidency(this.gl,120*1024*1024):null
+    if(cache)this._fieldPhaseCaches.add(cache)
     const make=(width:number,height:number,filter:'nearest'|'linear'='linear')=>new AccumulationBuffer(this.gl,width,height,filter,cache??undefined)
     const pool=large?new RibbonScratchPool(this.gl,(width,height)=>make(width,height,'nearest'),{discardIdleContents:true}):this._ribbonScratchPool
     const bounds={minX:0,minY:0,maxX:w,maxY:h}
@@ -1693,7 +1763,7 @@ export class PencilEngine implements PencilEngineAPI {
       gl:this.gl, size:{width:w,height:h}, settlePlan, pool, passes:this._watercolorPasses,
       invalidateFrontPaths:()=>this._watercolorPasses.invalidateFrontPaths(),
       hasActiveSettle:()=>!!this._settle,
-      finishLegacySettle:()=>this._completeSettle(),
+      finishLegacySettle:()=>{if(this._fieldPhaseOwner?.state.executing)throw new MaterialSourceBusy();this._completeSettle()},
       drawing:()=>!!this._strokeLayerId || !!this._settle || this._rebuildJobs.size > 0,
       deferPresentation:target=>this._hiddenM70Replay.has(target),
       render:(scratch,tile,ctx,output,material,samplingOrigin)=>{
@@ -1722,16 +1792,22 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if(!large)return this._puddle=new PuddleRoomController(host)
     let controller:PagedPuddleRoomController
-    try{controller=new PagedPuddleRoomController({...host,makeBuffer:make,
+    try{controller=new PagedPuddleRoomController({...host,makeBuffer:make,beginInput:()=>this._beginPagedInput(cache!),
       // RAW reachBounds includes brush/composite reads. Foreign-water donors
       // can extend beyond it; retain whole tiles until their bounds are proven.
       presentationBounds:(scratch,context)=>scratch.foreignSources?.length || scratch.foreignImportedGestures.size ? null : context.bounds,
-      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make,{
-        skipEmptyFixedWindows:true,omitZeroForeignSolventLoad:true,detachedWindowSource:true,
-      })})}
-    catch(error){try{settlePlan.destroyTextures()}finally{try{pool.destroy()}finally{cache!.dispose()}}throw error}
+      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make,{skipEmptyFixedWindows:true,omitZeroForeignSolventLoad:true,detachedWindowSource:true,sourceCaptured:raw=>{
+        const owner=this._getFieldPhaseOwner()
+        const admission=owner.state.enabled?owner.beginSolveSnapshot(raw):{snapshot:raw,lease:owner.acquire()}
+        if(!admission)return {defer:true}
+        const lease=admission.lease;this._pagedFieldFamilies.set(settlePlan,lease)
+        return {release:()=>{if(this._pagedFieldFamilies.get(settlePlan)===lease)this._pagedFieldFamilies.delete(settlePlan);lease.release()}}
+      }})})}
+    catch(error){this._fieldPhaseCaches.delete(cache!);if(this._fieldPhaseCache===cache)this._fieldPhaseCache=null;try{settlePlan.destroyTextures()}finally{try{pool.destroy()}finally{cache!.dispose()}}throw error}
+    this._pagedFieldControllers.add(controller)
     const destroy=controller.destroy.bind(controller)
-    controller.destroy=()=>{try{destroy()}finally{try{settlePlan.destroyTextures()}finally{try{pool.destroy()}finally{cache!.dispose()}}}}
+    let destroyQueued=false
+    controller.destroy=()=>{if(controller.fieldWorkPending){controller.cancelFieldWork();if(!destroyQueued){destroyQueued=true;queueMicrotask(()=>{destroyQueued=false;controller.destroy()})}return}try{destroy()}finally{this._pagedFieldControllers.delete(controller);this._fieldPhaseCaches.delete(cache!);if(this._fieldPhaseCache===cache)this._fieldPhaseCache=null;try{settlePlan.destroyTextures()}finally{try{pool.destroy()}finally{cache!.dispose()}}}}
     return this._puddle=controller
   }
   /** QA cache miss: reconstruct material without touching the operation stream.
@@ -1991,6 +2067,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private readonly _settlePlan = new WatercolorSettlePlan({
     gl: () => this.gl,
+    acquireFieldLease:plan=>this._acquireSharedField(plan),
     fieldFor: (w, h, scale, compact, nativeMinimum) => this._diffuseFieldFor(w, h, scale, compact, nativeMinimum),
     paperWorldSize: () => this._paperWorldSize(),
     pool: () => this._ribbonScratchPool,
@@ -2981,6 +3058,7 @@ export class PencilEngine implements PencilEngineAPI {
     try{this._puddle.assertSourceAvailable(target);return false}catch(error){if(error instanceof MaterialHistoryNotReady){this._snapshotIO.requireMaterialHistory(op.layerId);queueMicrotask(()=>{if(!this._destroyed)this._onSnapshotHistoryRepairNeeded?.()});return false}if(error instanceof MaterialSourceBusy)return true;throw error}
   }
   private _shouldQueue(op: Operation, source: OperationSource): boolean {
+    if(this._sharedFieldOperationBusy(op))return true
     if(this._puddle?.state.drying || source==='remote' && (this._m70DestructiveDuringInput(op) || this._m70SourceBusy(op))) return true
     if ([...pixelWriteLayerIds(op), ...pixelReadLayerIds(op)].some(id => this.isSnapshotHistoryRepairPending(id))) return false
     if (source !== 'remote' || this._displaySuspendDepth !== 0 || this._destroyed || this._contextLost) return false
@@ -3000,10 +3078,10 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** (§17.58) Applies every queued operation now, in order. */
   private _flushOpQueue(): void {
-    if(this._puddle?.state.drying){this._scheduleOpDrain();return}
+    if(this._opQueue.length&&this._sharedFieldOperationBusy(this._opQueue[0].op)||this._puddle?.state.drying){this._scheduleOpDrain();return}
     if (this._wcAsyncFinish && this._wcCanonical.pending && !this._contextLost && !this.gl.isContextLost()) { this._scheduleOpDrain(); return }
     while (this._opQueue.length) {
-      if(this._m70DestructiveDuringInput(this._opQueue[0].op) || this._m70SourceBusy(this._opQueue[0].op)){this._scheduleOpDrain();break}
+      if(this._sharedFieldOperationBusy(this._opQueue[0].op)||this._m70DestructiveDuringInput(this._opQueue[0].op) || this._m70SourceBusy(this._opQueue[0].op)){this._scheduleOpDrain();break}
       const { op, source } = this._opQueue.shift()!
       this._appendOperationNow(op, source)
       this._onQueuedOperationApplied?.(op)
@@ -3019,7 +3097,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (!this._opQueue.length || this._destroyed) return
       // Not under this user's own pen either: a peer's operation lands in
       // 30-280 ms on the iPad, and the stroke in hand would stutter by it.
-      if (!this._puddle?.state.drying && !this._settle && !this._strokeLayerId && !this._m70SourceBusy(this._opQueue[0].op) && !(this._wcAsyncFinish && this._wcCanonical.pending)) {
+      if (!this._sharedFieldOperationBusy(this._opQueue[0].op) && !this._puddle?.state.drying && !this._settle && !this._strokeLayerId && !this._m70SourceBusy(this._opQueue[0].op) && !(this._wcAsyncFinish && this._wcCanonical.pending)) {
         const { op, source } = this._opQueue.shift()!
         this._appendOperationNow(op, source)
         this._onQueuedOperationApplied?.(op)
@@ -4411,6 +4489,12 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   destroy(): void {
+    if(this._fieldPhaseOwner?.state.executing||[...this._pagedFieldControllers].some(c=>c.fieldWorkPending)){
+      this._destroyed=true
+      this._cancelPagedFieldWork()
+      if(!this._fieldDestroyQueued){this._fieldDestroyQueued=true;queueMicrotask(()=>{this._fieldDestroyQueued=false;this.destroy()})}
+      return
+    }
     this._cancelDeferredSnapshots()
     cancelRestoreGeneration(this)
     this._cancelLiveDabFlush()
@@ -5501,6 +5585,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._continuationGpuFence?.forget()
     e.preventDefault()
     this._contextLost = true
+    this._fieldPhaseOwner?.contextLost()
     this._cancelDeferredSnapshots()
     if(this._dwellTimer){clearInterval(this._dwellTimer);this._dwellTimer=null}
     this._dwellCfg=null
@@ -5538,6 +5623,7 @@ export class PencilEngine implements PencilEngineAPI {
   // let _syncBuffersToLog do exactly what it already does for a layer
   // add/delete — recreate and replay each live layer from the log.
   private _handleContextRestored = (): void => {
+    this._fieldPhaseOwner?.contextRestored()
     this._continuationGpuFence?.forget()
     // The replacement GL scene is rebuilt from the accepted journal.
     this._cancelledPeerLayers.clear()
@@ -8449,6 +8535,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  the tiles keep the result as their settled deposit. Synchronous: this
    *  is a dev probe run by the rig after a replay, not a frame's work. */
   watercolorDryWash(): number {
+    if(this._fieldPhaseOwner?.state.executing)throw new MaterialSourceBusy()
     if (this._settle) this._completeSettle()
     const scratches = new Set<RibbonStrokeScratch>()
     if (this._wash) scratches.add(this._wash.scratch)
@@ -8548,6 +8635,10 @@ export class PencilEngine implements PencilEngineAPI {
     if (y1 - y0 > CAP) { const c = (y0 + y1) * 0.5; y0 = Math.floor(c - CAP / 2); y1 = y0 + CAP }
     const w = x1 - x0, h = y1 - y0
     if (w <= 0 || h <= 0) return false
+    const fieldLease=this._acquireSharedField()
+    let fieldEntered=false
+    try{
+    fieldLease.enter?.();fieldEntered=true
     const field = this._diffuseFieldFor(w, h)
     const overlaps: Array<{ tile: PaintTarget; ox0: number; oy0: number; ox1: number; oy1: number }> = []
     for (const tile of tiles) {
@@ -8601,6 +8692,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     target.markContentPainted(bounds)
     return true
+    }finally{try{if(fieldEntered)fieldLease.leave?.()}finally{fieldLease.release()}}
   }
 
   /** (#536, §17.22) Composites the live gesture's rects gathered since the
@@ -8740,8 +8832,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._fieldReleaseTimer = setTimeout(() => {
       this._fieldReleaseTimer = 0
       if (this._settle) return
-      for (const f of this._fieldCache) destroyField(f)
-      this._fieldCache = []
+      this._getFieldPhaseOwner().releaseIdleTextures()
     }, WET_FIELD_RELEASE_MS) as unknown as number
   }
 
@@ -8811,8 +8902,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (idle) this._ribbonScratchPool.trimFree()
     if (this._washGpuBytes() > this._gpuBudget && !this._settle && this._fieldCache.length && idle) {
       if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
-      for (const f of this._fieldCache) destroyField(f)
-      this._fieldCache = []
+      this._getFieldPhaseOwner().releaseIdleTextures()
     }
     if (this._washGpuBytes() > this._gpuBudget) {
       for (const cp of [...this._checkpoints.all()]) if (cp.washes) this._checkpoints.remove(cp)

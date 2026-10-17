@@ -51,10 +51,11 @@ export class BufferResidency {
   private allocatedBytes = new WeakMap<ResidentBuffer, number>()
   private disposed = false
   readonly gl: WebGLRenderingContext
-  readonly budgetBytes: number
+  private _budgetBytes: number
+  get budgetBytes():number{return this._budgetBytes}
   constructor(gl: WebGLRenderingContext, budgetBytes = 96 * 1024 * 1024) {
     this.gl = gl
-    this.budgetBytes = budgetBytes
+    this._budgetBytes = budgetBytes
     if (!Number.isSafeInteger(budgetBytes) || budgetBytes <= 0) throw new Error('Invalid residency budget')
     const caches = registries.get(gl) ?? new Set()
     caches.add(this)
@@ -105,6 +106,21 @@ export class BufferResidency {
       this.entries.set(victim[0], false)
       this.used -= this.bytes(victim[0])
     }
+  }
+  /** Commit a lower cap only after lossless eviction; never evict pins/bound draws. */
+  trySetBudget(bytes:number):{ok:true}|{ok:false;reason:string}{
+    if(this.disposed||!Number.isSafeInteger(bytes)||bytes<=0)return {ok:false,reason:'invalid-budget'}
+    if(bytes>=this.used){this._budgetBytes=bytes;return {ok:true}}
+    const victims:ResidentBuffer[]=[];let remaining=this.used
+    try{
+      for(const [buffer,resident]of this.entries){
+        if(!resident||this.pins.has(buffer)||draws.get(this.gl)?.some(scope=>scope.has(buffer))||this.bound(buffer))continue
+        victims.push(buffer);remaining-=this.bytes(buffer);if(remaining<=bytes)break
+      }
+      if(remaining>bytes)return {ok:false,reason:'pinned-or-bound'}
+      for(const buffer of victims){buffer._residencyEvict();this.entries.set(buffer,false);this.used-=this.bytes(buffer)}
+    }catch{return {ok:false,reason:'eviction-failed'}}
+    this._budgetBytes=bytes;return {ok:true}
   }
   register(buffer: ResidentBuffer): void {
     if (this.disposed || buffer.gl !== this.gl) throw new Error('Invalid residency cache/context')

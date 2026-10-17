@@ -93,6 +93,12 @@ export function createWatercolorFrontPaths(ctx: WatercolorPassesContext, origina
     function ensure(field: WatercolorPassField) { if (buffers[0]?.width === field.w && buffers[0]?.height === field.h)
         return; for (const b of buffers)
         b.destroy(); scratch?.destroy(); buffers = Array.from({ length: 4 }, () => new AccumulationBuffer(gl, field.w, field.h, 'nearest')); scratch = new AccumulationBuffer(gl, field.w, field.h, 'nearest'); stats.extraBytes = field.w * field.h * 4 * 5; cached = null; }
+    function releaseTextures():number {
+        const bytes=stats.extraBytes;
+        for(const buffer of buffers)buffer.destroy();scratch?.destroy();
+        buffers=[];scratch=null;cached=null;stats.extraBytes=0;
+        return bytes;
+    }
     const step = (...args: FrontArgs) => {
         if (disposed)
             throw new Error('Disposed fast-front');
@@ -136,7 +142,7 @@ export function createWatercolorFrontPaths(ctx: WatercolorPassesContext, origina
         });
         stats.jumpDraws++;
     };
-    return { step, stats, forget() { disposed = true; buffers = []; scratch = null; cached = null; }, invalidate() { cached = null; }, dispose() { if (disposed)
+    return { step, stats, releaseTextures, forget() { disposed = true; buffers = []; scratch = null; cached = null; }, invalidate() { cached = null; }, dispose() { if (disposed)
             return; disposed = true; const current = gl.getParameter(gl.CURRENT_PROGRAM); if (current === build || current === jump)
             gl.useProgram(null); for (const b of buffers)
             b.destroy(); scratch?.destroy(); gl.deleteProgram(build); gl.deleteProgram(jump); stats.extraBytes = 0; } };

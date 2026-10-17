@@ -20,7 +20,10 @@ import { watercolorSettleScale } from '../watercolor/settleResolution'
 
 export type WatercolorSettlePreview = (tile: PaintTarget, pigment: AccumulationBuffer, color: AccumulationBuffer | null, coverage: AccumulationBuffer) => void
 
+import {fieldJobScope,type FieldLease} from '../watercolor/puddle/FieldJobLease'
+
 export interface WatercolorSettlePlanContext {
+  acquireFieldLease?(plan:WatercolorSettlePlan):FieldLease
   gl(): WebGLRenderingContext
   fieldFor(w: number, h: number, scale?: number, compact?: boolean | 'tight', nativeMinimum?: number): SettleField
   paperWorldSize(): { w: number; h: number }
@@ -125,7 +128,16 @@ export class WatercolorSettlePlan {
    *  — a list so that the author's pen-up can spread it over frames under
    *  the reveal (see _startSettle) while a replay runs it in one go. Null
    *  when the wash holds no deposit here. */
-  prepare(
+  prepare(...args:Parameters<WatercolorSettlePlan['_prepareFieldJob']>):ReturnType<WatercolorSettlePlan['_prepareFieldJob']>{
+    if(!this.ctx.acquireFieldLease)return this._prepareFieldJob(...args)
+    const scope=fieldJobScope(this.ctx.acquireFieldLease(this))
+    try{
+      const job=scope.run(()=>this._prepareFieldJob(...args))
+      if(!job){scope.retire();return null}
+      return scope.wrapJob(job)
+    }catch(error){scope.retire();throw error}
+  }
+  private _prepareFieldJob(
     scratch: RibbonStrokeScratch, targets: PaintTarget[],
     bounds: { minX: number; minY: number; maxX: number; maxY: number },
     /** (#536, §17.23) How strongly this operation blooms the wash under it,
