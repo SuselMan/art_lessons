@@ -1,4 +1,4 @@
-import { BufferResidency, beginResidencyDraw, endResidencyDraw, preserveResidencyState, releaseResidencyTexture } from './BufferResidency'
+import { BufferResidency, beginResidencyDraw, endResidencyDraw, preserveResidencyState, preserveResidencyBindings, preserveResidencyReadback, preserveResidencyUpload, releaseResidencyTexture } from './BufferResidency'
 
 // Persistent WebGL framebuffer that accumulates graphite over strokes.
 // Blending: ONE, ONE_MINUS_SRC_ALPHA  →  result = src + dst*(1-src.a)
@@ -114,7 +114,7 @@ export class AccumulationBuffer {
       // nonresident backing; the capture scope must not keep their array alive.
       this._backing=this._capturedRead.backing??=uniformReadback(this._capturedRead.pixels)
       if(!this._capturedRead.persist||!(this._backing instanceof Uint8Array))this._capturedRead=undefined
-    } else if (!this._backing || this._backing instanceof Uint8Array) preserveResidencyState(gl, () => {
+    } else if (!this._backing || this._backing instanceof Uint8Array) preserveResidencyReadback(gl, () => {
       const pixels = new Uint8Array(width * height * 4)
       gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
@@ -129,7 +129,7 @@ export class AccumulationBuffer {
   _residencyHydrate(): void {
     if ((!this._backing && !this._discardedPoolContents) || this._destroyed) throw new Error('Residency pixels unavailable after context loss')
     const { gl, width, height } = this
-    preserveResidencyState(gl, () => {
+    preserveResidencyUpload(gl, () => {
       this._texture = this._makeTexture(this._baseFilter)
       this._fbo = this._makeFBO(this._texture)
       if (!this._discardedPoolContents) {
@@ -642,7 +642,7 @@ export class AccumulationBuffer {
     const caches = [...new Set([this._residency, dest._residency].filter((cache): cache is BufferResidency => !!cache))]
     const pinned = (index: number): void => {
       if (index < caches.length) { caches[index].runPinned([this, dest], () => pinned(index + 1)); return }
-      preserveResidencyState(this.gl, () => { this._ensureResident(); dest._ensureResident(); run() })
+      preserveResidencyBindings(this.gl, () => { this._ensureResident(); dest._ensureResident(); run() })
     }
     pinned(0)
   }

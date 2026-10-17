@@ -44,6 +44,36 @@ export function preserveResidencyState<T>(gl: WebGLRenderingContext, run: () => 
   }
 }
 
+/** Known copy operations touch only these bindings. Nested residency transfers
+ * preserve their own pixel-store state; released textures must never rebind. */
+export function preserveResidencyBindings<T>(gl:WebGLRenderingContext,run:()=>T):T {
+ const fbo=gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer|null
+ const active=gl.getParameter(gl.ACTIVE_TEXTURE) as number
+ const texture=gl.getParameter(gl.TEXTURE_BINDING_2D) as WebGLTexture|null
+ try{return run()}finally{
+  gl.bindFramebuffer(gl.FRAMEBUFFER,fbo)
+  gl.activeTexture(active)
+  gl.bindTexture(gl.TEXTURE_2D,texture&&!releasedTextures.has(texture)?texture:null)
+ }
+}
+/** Internal only: normalize exactly the pixel-store parameters this operation reads. */
+function preserveResidencyPixelStore<T>(gl:WebGLRenderingContext,keys:readonly number[],run:()=>T):T {
+ const saved=keys.filter(key=>typeof key==='number').map(key=>[key,gl.getParameter(key)] as const)
+ try{
+  for(const[key]of saved)gl.pixelStorei(key,key===gl.PACK_ALIGNMENT||key===gl.UNPACK_ALIGNMENT?1:0)
+  return run()
+ }finally{for(const[key,value]of saved)if(value!==null)gl.pixelStorei(key,Number(value))}
+}
+/** readPixels changes its source framebuffer and reads PACK only. */
+export function preserveResidencyReadback<T>(gl:WebGLRenderingContext,run:()=>T):T {
+ const fbo=gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer|null
+ try{return preserveResidencyPixelStore(gl,[gl.PACK_ALIGNMENT],run)}finally{gl.bindFramebuffer(gl.FRAMEBUFFER,fbo)}
+}
+/** Texture creation/upload needs the current bindings and three UNPACK states. */
+export function preserveResidencyUpload<T>(gl:WebGLRenderingContext,run:()=>T):T {
+ return preserveResidencyBindings(gl,()=>preserveResidencyPixelStore(gl,[gl.UNPACK_ALIGNMENT,gl.UNPACK_FLIP_Y_WEBGL,gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL],run))
+}
+
 export class BufferResidency {
   private entries = new Map<ResidentBuffer, boolean>()
   private pins = new Map<ResidentBuffer, number>()
