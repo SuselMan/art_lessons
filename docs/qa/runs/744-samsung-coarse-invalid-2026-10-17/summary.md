@@ -1,0 +1,13 @@
+#744: первая Samsung OFF/ON пара — QA-invalid, ускорение не доказано
+
+Runtime e5d08c61. Один seed100M70штрихов×8dabs,512², rawCDP Adreno650/300MiB, OFFcontextзатемfreshONcontext. Initialeffective100 OFF/ONhashсовпал сисходным100reference,100effectiveopsпроверены; acceptednativeOFF103иON107 presetsобаnormal:95:75:PB29:round:wc@m70-r2-v1. ONjournalсодержиттакжеOFFnative/UndoRedo/Undo, поэтомуэтоsameeffectiveprefix, неидентичныеrawжурналы.
+
+CompositorROI256/440расположенвнеprefix(y≤224), cursorпослепрохода400/440. Background2screenshotsstable; negativeдоcross0changedchannels, heldinkпослепрохода2028changedchannelsвкаждомслучае. Firstinkточногокадранет: первыйsampleужеположительный, верхниеграницы969/923мсвключаютнесколькоMOVE+CDP/readback. ЭтоN/Aдляexactlatency.
+
+Undo sampledinterval OFF1009→1282мс; ONpreinputnegative−1→firstsample554мс. ONнижняяграницафактически0, первыйsampleужепоказываетbackground. Скриншотыдобавляютreadbackoverhead, n1, sharedQA. ЭтичислаНЕявляютсяspeedupclaim.
+
+QAошибка: общий748helperтребуетflagsOFFивыбросил`Diagnostic flags must be OFF` вONpostUndoproofДОactual/oraclecapture. ПоэтомуpostONUndoматериальнаякорректностьнепроверена, паранедействительна, cachedefaultOFF/#744OPEN. OFFUndo/Redo/secondUndoactualfullAPIoraclesпрошли. ONдиагностикасохранилаcapture1/18.3мс/6314096CPUbytes; вerror-state restorehit1/34.4мс, allqueuesquiet/goalready/GL0. Counterhit не заменяетmissingpixelgate.
+
+ПервоначальныеexecutedharnessSHAсохраненывreport. ДляодногоразрешённогодозавершенияON-only будущийharnessисправлен: actualприcacheONпишетсянадискпередотдельнымOFForacle; сравнениестрогосэтимисохранённымиbytes. ЭтоQAonlyизменение, безproductiondefault/resourcepolicy/physics. НоваяпроверкадоrootconfigGOнеRUN.
+
+Cleanupпервойпары: roomDELETE200/auth0, обаowncontexts/NodeSocketsзакрытыfinally, originaltabrestored, ownSSH4090792/session90042остановлен. Remote9235/userChromeнетронут. RawID744-samsung-cache-coarse-20261017ожидаетguardedfinishпослеcompactcommit. Runtimeнеизменён.
