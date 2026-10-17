@@ -4641,6 +4641,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  the tail of its done pixel operations. */
   private _rebuildLayer(layerId: string): void {
     if (this._snapshotIO.historyRepairPending(layerId) || this._snapshotDependentLayers.has(layerId)) return
+    // Unrecorded physical ink has no replayable operation yet. Keep it visible
+    // and settle only after its owning gesture commits or is cancelled.
+    if (this._hasUnrecordedInk(layerId)) { this._unsettledLayers.add(layerId); return }
     const buf = this._layers.get(layerId)
     if (!buf) return
     // (#536, §17.53) A watercolour replay settles every operation: 5 s on the

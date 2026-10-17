@@ -161,8 +161,8 @@ it('fast Undo preserves foreign pencil ink that has streamed but has no journal 
  }finally{engine.destroy()}
 })
 
-it('fast Undo preserves foreign live erasing of the dry substrate before its operation arrives',async()=>{
- const {engine,state}=await setup(true,true,true)
+for(const enabled of [true,false])it(`cache ${enabled}: Undo preserves foreign live erasing of the dry substrate before its operation arrives`,async()=>{
+ const {engine,state}=await setup(enabled,true,true)
  try{
   draw(engine)
   const own=engine.getOperations().find(op=>op.type==='stroke' && op.userId==='A')!
