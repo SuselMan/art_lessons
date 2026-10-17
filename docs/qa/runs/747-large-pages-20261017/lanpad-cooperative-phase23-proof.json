@@ -1,0 +1,741 @@
+{
+  "source": "b528d98a+phase2-83afe5+phase3-5c13",
+  "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x000046D1) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "size": {
+    "width": 2048,
+    "height": 512
+  },
+  "inputHashes": {
+    "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+    "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+    "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+    "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+  },
+  "finalInputHashes": {
+    "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+    "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+    "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+    "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+  },
+  "cooperativeCaptureProof": {
+    "requested": true,
+    "stepBudgetMs": 8,
+    "steps": [
+      {
+        "phase": "read",
+        "plane": "original",
+        "tileIndex": 0,
+        "bytes": 4194304,
+        "rows": 512,
+        "elapsedMs": 10.900000095367432,
+        "attempt": "solve"
+      },
+      {
+        "phase": "write",
+        "plane": "original",
+        "tileIndex": 0,
+        "bytes": 2097152,
+        "rows": 256,
+        "elapsedMs": 9.700000286102295,
+        "attempt": "solve"
+      },
+      {
+        "phase": "write",
+        "plane": "original",
+        "tileIndex": 0,
+        "bytes": 2097152,
+        "rows": 256,
+        "elapsedMs": 7.5,
+        "attempt": "solve"
+      },
+      {
+        "phase": "read",
+        "plane": "coverage",
+        "tileIndex": 0,
+        "bytes": 4194304,
+        "rows": 512,
+        "elapsedMs": 5,
+        "attempt": "solve"
+      },
+      {
+        "phase": "write",
+        "plane": "coverage",
+        "tileIndex": 0,
+        "bytes": 2097152,
+        "rows": 256,
+        "elapsedMs": 9.400000095367432,
+        "attempt": "solve"
+      },
+      {
+        "phase": "write",
+        "plane": "coverage",
+        "tileIndex": 0,
+        "bytes": 2097152,
+        "rows": 256,
+        "elapsedMs": 6.799999713897705,
+        "attempt": "solve"
+      },
+      {
+        "phase": "read",
+        "plane": "inkLoad",
+        "tileIndex": 0,
+        "bytes": 4194304,
+        "rows": 512,
+        "elapsedMs": 4,
+        "attempt": "solve"
+      },
+      {
+        "phase": "write",
+        "plane": "inkLoad",
+        "tileIndex": 0,
+        "bytes": 2097152,
+        "rows": 256,
+        "elapsedMs": 5.199999809265137,
+        "attempt": "solve"
+      },
+      {
+        "phase": "write",
+        "plane": "inkLoad",
+        "tileIndex": 0,
+        "bytes": 2097152,
+        "rows": 256,
+        "elapsedMs": 8.900000095367432,
+        "attempt": "solve"
+      },
+      {
+        "phase": "read",
+        "plane": "inkColor",
+        "tileIndex": 0,
+        "bytes": 4194304,
+        "rows": 512,
+        "elapsedMs": 4.300000190734863,
+        "attempt": "solve"
+      },
+      {
+        "phase": "write",
+        "plane": "inkColor",
+        "tileIndex": 0,
+        "bytes": 2097152,
+        "rows": 256,
+        "elapsedMs": 5.099999904632568,
+        "attempt": "solve"
+      },
+      {
+        "phase": "write",
+        "plane": "inkColor",
+        "tileIndex": 0,
+        "bytes": 2097152,
+        "rows": 256,
+        "elapsedMs": 8.200000286102295,
+        "attempt": "solve"
+      },
+      {
+        "phase": "read",
+        "plane": "solventLoad",
+        "tileIndex": 0,
+        "bytes": 4194304,
+        "rows": 512,
+        "elapsedMs": 5.399999618530273,
+        "attempt": "solve"
+      },
+      {
+        "phase": "write",
+        "plane": "solventLoad",
+        "tileIndex": 0,
+        "bytes": 2097152,
+        "rows": 256,
+        "elapsedMs": 7.300000190734863,
+        "attempt": "solve"
+      },
+      {
+        "phase": "write",
+        "plane": "solventLoad",
+        "tileIndex": 0,
+        "bytes": 2097152,
+        "rows": 256,
+        "elapsedMs": 9.800000190734863,
+        "attempt": "solve"
+      },
+      {
+        "phase": "read",
+        "plane": "foreignSolventLoad",
+        "tileIndex": 0,
+        "bytes": 4194304,
+        "rows": 512,
+        "elapsedMs": 4.099999904632568,
+        "attempt": "solve"
+      },
+      {
+        "phase": "write",
+        "plane": "foreignSolventLoad",
+        "tileIndex": 0,
+        "bytes": 2097152,
+        "rows": 256,
+        "elapsedMs": 16.300000190734863,
+        "attempt": "solve"
+      },
+      {
+        "phase": "write",
+        "plane": "foreignSolventLoad",
+        "tileIndex": 0,
+        "bytes": 2097152,
+        "rows": 256,
+        "elapsedMs": 16.299999713897705,
+        "attempt": "solve"
+      },
+      {
+        "phase": "read",
+        "plane": "water",
+        "tileIndex": 0,
+        "bytes": 4194304,
+        "rows": 512,
+        "elapsedMs": 5.799999713897705,
+        "attempt": "solve"
+      },
+      {
+        "phase": "write",
+        "plane": "water",
+        "tileIndex": 0,
+        "bytes": 2097152,
+        "rows": 256,
+        "elapsedMs": 13,
+        "attempt": "solve"
+      },
+      {
+        "phase": "write",
+        "plane": "water",
+        "tileIndex": 0,
+        "bytes": 2097152,
+        "rows": 256,
+        "elapsedMs": 8.400000095367432,
+        "attempt": "solve"
+      }
+    ],
+    "phases": {
+      "read": 7,
+      "write": 14
+    },
+    "maxCaptureStepMs": 16.300000190734863,
+    "solverStepCalls": {
+      "count": 110,
+      "maxMs": 896,
+      "sumMs": 12232.400000095367
+    },
+    "qualification": "Observed indivisible capture/solver step durations; budget does not guarantee every GPU read <= requested milliseconds"
+  },
+  "capturedBackingProof": {
+    "requested": true,
+    "handles": [
+      {
+        "attempt": "solve",
+        "width": 2048,
+        "height": 512,
+        "revisionAtCapture": 1,
+        "hasResidency": false,
+        "pixelBytes": 4194304,
+        "retainedAtCapture": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 1,
+        "retainedAfterRelease": 0
+      },
+      {
+        "attempt": "solve",
+        "width": 2048,
+        "height": 512,
+        "revisionAtCapture": 2,
+        "hasResidency": false,
+        "pixelBytes": 4194304,
+        "retainedAtCapture": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 2,
+        "retainedAfterRelease": 0
+      },
+      {
+        "attempt": "solve",
+        "width": 2048,
+        "height": 512,
+        "revisionAtCapture": 2,
+        "hasResidency": false,
+        "pixelBytes": 4194304,
+        "retainedAtCapture": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 2,
+        "retainedAfterRelease": 0
+      },
+      {
+        "attempt": "solve",
+        "width": 2048,
+        "height": 512,
+        "revisionAtCapture": 2,
+        "hasResidency": false,
+        "pixelBytes": 4194304,
+        "retainedAtCapture": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 2,
+        "retainedAfterRelease": 0
+      },
+      {
+        "attempt": "solve",
+        "width": 2048,
+        "height": 512,
+        "revisionAtCapture": 1,
+        "hasResidency": false,
+        "pixelBytes": 4194304,
+        "retainedAtCapture": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 1,
+        "retainedAfterRelease": 0
+      },
+      {
+        "attempt": "solve",
+        "width": 2048,
+        "height": 512,
+        "revisionAtCapture": 1,
+        "hasResidency": false,
+        "pixelBytes": 4194304,
+        "retainedAtCapture": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 1,
+        "retainedAfterRelease": 0
+      }
+    ],
+    "qualification": "Uncached standalone buffers: capture path/release proof only, no120MiB memory savings claim",
+    "expectedHandles": 6
+  },
+  "referenceSchedule": {
+    "requested": false,
+    "kept": [
+      {
+        "x": 0,
+        "y": 0,
+        "width": 512,
+        "height": 512
+      },
+      {
+        "x": 512,
+        "y": 0,
+        "width": 512,
+        "height": 512
+      },
+      {
+        "x": 1024,
+        "y": 0,
+        "width": 512,
+        "height": 512
+      },
+      {
+        "x": 1536,
+        "y": 0,
+        "width": 512,
+        "height": 512
+      }
+    ],
+    "empty": []
+  },
+  "windowSchedule": {
+    "requestedTight32": false,
+    "requestedSkip": false,
+    "allGroups": 4,
+    "kept": 4,
+    "skipped": 0,
+    "decisions": [
+      {
+        "field": {
+          "x": 0,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 0,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 512,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 0,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 512,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 612,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      },
+      {
+        "field": {
+          "x": 128,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 768,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 768,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 612,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      },
+      {
+        "field": {
+          "x": 384,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 1024,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1024,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 612,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      },
+      {
+        "field": {
+          "x": 512,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 1280,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1536,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1792,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1280,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1536,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1792,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 612,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      }
+    ],
+    "sourceSupport": {
+      "width": 2048,
+      "height": 512,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 2048,
+        "height": 512
+      },
+      "rects": [
+        {
+          "x": 0,
+          "y": 0,
+          "width": 2048,
+          "height": 512
+        }
+      ],
+      "noForeignStencil": true
+    }
+  },
+  "postphaseSchedule": {
+    "requested": false,
+    "rectangles": [
+      {
+        "interior": {
+          "x": 0,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": -21,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": false
+      },
+      {
+        "interior": {
+          "x": 512,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": 491,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": false
+      },
+      {
+        "interior": {
+          "x": 1024,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": 1003,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": false
+      },
+      {
+        "interior": {
+          "x": 1536,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": 1515,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": false
+      }
+    ],
+    "kept": 4,
+    "skipped": 0
+  },
+  "highFloat": {
+    "precision": 23,
+    "rangeMin": 127,
+    "rangeMax": 127
+  },
+  "dither": {
+    "requestedOff": false,
+    "initial": true,
+    "atCapture": true
+  },
+  "stageDiffs": {
+    "referenceP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9",
+      "referenceHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9"
+    },
+    "referenceC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2",
+      "referenceHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2"
+    },
+    "solvedP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "3c3095c66529d8568eb5f96804f22947c3ac5cb62a525236eac30ea9c58d781e",
+      "referenceHash": "3c3095c66529d8568eb5f96804f22947c3ac5cb62a525236eac30ea9c58d781e"
+    },
+    "solvedC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "6dd7c79a29c3dadd73dfc7384259e083bbf32010824655d8b304c52d00609c4e",
+      "referenceHash": "6dd7c79a29c3dadd73dfc7384259e083bbf32010824655d8b304c52d00609c4e"
+    },
+    "solvedCoverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+      "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+    },
+    "coarse:gate": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "7ab82cb851ef6a91c742a698cbe96cbb4741238b30167b80be1e33c3e1ead411",
+      "referenceHash": "7ab82cb851ef6a91c742a698cbe96cbb4741238b30167b80be1e33c3e1ead411"
+    },
+    "coarse:beforeP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "a0f71c16e1437310fa6edacf4ab16ee9494a9ba552bdc7eb734b4abdc365c3f4",
+      "referenceHash": "a0f71c16e1437310fa6edacf4ab16ee9494a9ba552bdc7eb734b4abdc365c3f4"
+    },
+    "coarse:afterP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "8bc95a3c0d439d32f8819df9e62588c87708eaf4b6687a46cfd4eac1603bb0e6",
+      "referenceHash": "8bc95a3c0d439d32f8819df9e62588c87708eaf4b6687a46cfd4eac1603bb0e6"
+    },
+    "coarse:beforeC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "5f7558deb46761c0bf7cab2b56f2c6c5f979a338ee7cb822fcf80a4c4de74029",
+      "referenceHash": "5f7558deb46761c0bf7cab2b56f2c6c5f979a338ee7cb822fcf80a4c4de74029"
+    },
+    "coarse:afterC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "034fa9aa1478d4c33dc93004092c37a1f7fb0bb75a52259b5c1e0b177ac693c9",
+      "referenceHash": "034fa9aa1478d4c33dc93004092c37a1f7fb0bb75a52259b5c1e0b177ac693c9"
+    }
+  },
+  "diffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "0ade849aac0db2a5ba7b8dbf4605f559e2f7b6a0a8feb17bf9e29397049a90c8",
+      "referenceHash": "0ade849aac0db2a5ba7b8dbf4605f559e2f7b6a0a8feb17bf9e29397049a90c8"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "d9adcc38a561d4e9e5fd5bad30ab3e41f2fa651938727f658fe99fbb8d6fb85d",
+      "referenceHash": "d9adcc38a561d4e9e5fd5bad30ab3e41f2fa651938727f658fe99fbb8d6fb85d"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+    }
+  },
+  "reference": {
+    "ms": 4100.5,
+    "steps": 27,
+    "gl": 0
+  },
+  "actual": {
+    "ms": 12373.60000038147,
+    "steps": 110,
+    "gl": 0
+  },
+  "errors": [],
+  "lost": false,
+  "runtimeSourceSHA256": {
+    "apps/web/src/engine/index.ts": "0b60f783606eba72b35e9799cb90e125eea8fe84be60e6dba8a0b3dc0282979e",
+    "apps/web/src/engine/src/buffers/AccumulationBuffer.ts": "954c40f4a7b0779c2edee4cdc592e3fc8c08c464f8dece71cd9a66548817a486",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "f3b257aadbd0517bee4bbe81bc800dde723000b583972563129b769e633193d5",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleSource.ts": "3f666a232e9976c0d1fc60e272a71b667e891058baf61e63d94612854206b565",
+    "apps/web/src/engine/src/watercolor/puddle/CapturedReadScope.ts": "491424d1b0853479420e5e89caa1da20a832c6e031ac7a254ee3a3437c5f80d7"
+  },
+  "matchesBaselineStageSHA": {
+    "referenceP": true,
+    "referenceC": true,
+    "solvedP": true,
+    "solvedC": true,
+    "solvedCoverage": true,
+    "coarse:gate": true,
+    "coarse:beforeP": true,
+    "coarse:afterP": true,
+    "coarse:beforeC": true,
+    "coarse:afterC": true
+  },
+  "matchesBaselineFinalSHA": {
+    "p": true,
+    "c": true,
+    "coverage": true
+  },
+  "qualification": "Real Intel hidden standalone correctness; capture/deadline observational timers, not Room latency or managed-memory proof. Cancellation preflight OFF, not tested by this run."
+}
