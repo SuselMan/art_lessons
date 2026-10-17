@@ -135,7 +135,14 @@ export function createPuddlePresentation(gl: WebGLRenderingContext, size: number
   const width = typeof size === 'number' ? size : size.width
   const height = typeof size === 'number' ? size : size.height
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) throw new Error('Invalid presentation size')
-  const allocate=(w:number,h:number)=>options.bufferFactory?.(w,h,'linear') ?? new AccumulationBuffer(gl,w,h)
+  const buffers:AccumulationBuffer[]=[]
+  const programHandles:WebGLProgram[]=[]
+  let allocatedQuad:WebGLBuffer|undefined
+  try {
+  const allocate=(w:number,h:number)=>{
+    const buffer=options.bufferFactory?.(w,h,'linear') ?? new AccumulationBuffer(gl,w,h)
+    buffers.push(buffer);return buffer
+  }
   let current = allocate(width, height)
   let next = allocate(width, height)
   const target = allocate(width, height)
@@ -145,12 +152,13 @@ export function createPuddlePresentation(gl: WebGLRenderingContext, size: number
   const sourceFeature = allocate(fw, fh)
   const targetFeature = allocate(fw, fh)
   const flow = allocate(fw, fh)
-  const buffers = [current, next, target, wet, anchor, sourceFeature, targetFeature, flow]
   const quad = createFullscreenQuad(gl)
+  allocatedQuad=quad
   const state = new PresentationEpoch()
   let destroyed = false
   const make = (frag: string) => {
     const program = createProgram(gl, VERT, frag)
+    programHandles.push(program)
     return { program, position: gl.getAttribLocation(program, 'a_position'), uniforms: getUniforms(gl, program,
       ['u_current', 'u_target', 'u_extra', 'u_after', 'u_flow', 'u_texel', 'u_advance', 'u_travel', 'u_progress']) }
   }
@@ -229,5 +237,12 @@ export function createPuddlePresentation(gl: WebGLRenderingContext, size: number
       for (const p of programs) gl.deleteProgram(p.program)
       gl.deleteBuffer(quad)
     },
+  }
+  }catch(error){
+    for(const buffer of buffers)buffer.destroy()
+    if(programHandles.length)gl.useProgram(null)
+    for(const program of programHandles)gl.deleteProgram(program)
+    if(allocatedQuad)gl.deleteBuffer(allocatedQuad)
+    throw error
   }
 }
