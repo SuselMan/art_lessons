@@ -6253,6 +6253,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._strokeChunkTail=undefined;this._strokeChunkBox=null;this._liveDabQueue=[]
       this._paperWet.dropPending()
       this._puddleRebuildAtPenUp.delete(id)
+      this._dryAtPenUp=false;this._puddleDryAtPenUp=null
       if(strokeId)this._onLiveStrokeEnd?.(strokeId,true)
     }
   }
