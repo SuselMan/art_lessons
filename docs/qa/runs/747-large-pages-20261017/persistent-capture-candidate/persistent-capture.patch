@@ -56,7 +56,7 @@
 + private leases:Array<{release():void;retainedBytes():number;persistent?:boolean}>=[]
 + private reservedBytes=0
   private closed=false
-+ constructor(privateOptions:{persistUntilRelease?:boolean;maxRetainedBytes?:number}={}){this.options=privateOptions;if(privateOptions.maxRetainedBytes!==undefined&&(!Number.isSafeInteger(privateOptions.maxRetainedBytes)||privateOptions.maxRetainedBytes<0))throw new RangeError('Invalid captured CPU byte limit')}
++ constructor(privateOptions:{persistUntilRelease?:boolean;maxRetainedBytes?:number}={}){this.options={...privateOptions};if(privateOptions.maxRetainedBytes!==undefined&&(!Number.isSafeInteger(privateOptions.maxRetainedBytes)||privateOptions.maxRetainedBytes<0))throw new RangeError('Invalid captured CPU byte limit')}
 + private readonly options:{persistUntilRelease?:boolean;maxRetainedBytes?:number}
   read(buffer:AccumulationBuffer):Uint8Array {
    if(this.closed)throw new Error('Captured read scope is closed')
@@ -150,7 +150,7 @@
    if(radius===32&&!metadataKnown())throw Error('M70 support metadata changed after window solve')
 --- /dev/null
 +++ b/apps/web/src/engine/src/watercolor/puddle/CapturedReadPersistent.test.ts
-@@ -0,0 +1,22 @@
+@@ -0,0 +1,24 @@
 +import {it,expect,vi} from 'vitest'
 +import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
 +import {BufferResidency} from '../../buffers/BufferResidency'
@@ -173,3 +173,5 @@
 +it('scope cancelled reentrantly during read retires just-created proof',()=>{const f=fixture(),original=MockGL.prototype.readPixels.bind(f.gl) as WebGLRenderingContext['readPixels'];f.read.mockImplementationOnce((...args)=>{original(...args);f.scope.dispose()});expect(()=>f.scope.read(f.a)).toThrow('closed during read');expect(Reflect.get(f.a,'_capturedRead')).toBeUndefined();f.finish()})
 +it('reentrant mutation during upload prevents stale adoption',()=>{const f=fixture(),original=f.gl.texImage2D.bind(f.gl);vi.spyOn(f.gl,'texImage2D').mockImplementationOnce((...args)=>{original(...args);f.a.clear()});f.scope.upload(f.a,f.pixels);expect(f.scope.retainedBytes).toBe(0);f.finish()})
 +it('failed upload and failed read publish no lease',()=>{const f=fixture();vi.spyOn(f.gl,'texImage2D').mockImplementationOnce(()=>{throw Error('uploadfailed')});expect(()=>f.scope.upload(f.a,f.pixels)).toThrow('uploadfailed');expect(f.scope.retainedBytes).toBe(0);f.read.mockImplementationOnce(()=>{throw Error('readfailed')});expect(()=>f.scope.read(f.a)).toThrow('readfailed');expect(f.scope.persistentRetainedBytes).toBe(0);f.finish()})
++
++it('owns copied constructor policy and cannot be expanded by caller mutation',()=>{const f=fixture(),options={persistUntilRelease:true,maxRetainedBytes:0},scope=new CapturedReadScope(options);options.maxRetainedBytes=1e9;scope.read(f.a);expect(scope.persistentRetainedBytes).toBe(0);scope.dispose();f.finish()})

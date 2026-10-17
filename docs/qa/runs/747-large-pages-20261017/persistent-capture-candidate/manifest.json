@@ -8,10 +8,10 @@
   },
   "new": {
     "apps/web/src/engine/src/buffers/AccumulationBuffer.ts": "d3fad5177957dd84e81684f7a4902b0e5dc336f9f94f8c7e76422e7366168b7b",
-    "apps/web/src/engine/src/watercolor/puddle/CapturedReadScope.ts": "2c189eaf26dc6b0e3d4f7f405c9ded1d99a2fb9288b08ca471883af91e1f4dd4",
+    "apps/web/src/engine/src/watercolor/puddle/CapturedReadScope.ts": "f4f52d5d9e23a5bb5f0d205eda93564c12a32b29ba8047b1f18b3bc84e129d46",
     "apps/web/src/engine/src/watercolor/puddle/PagedPuddleSource.ts": "602f11af4c5f3de0d1004b7fddc142172858e08f9d776bcde2b4c6f2b72f7195",
     "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "b29af6cafe8ad59ae66fa3ca581ed70cf9fdd586218464f94f8d107520b48db5",
-    "apps/web/src/engine/src/watercolor/puddle/CapturedReadPersistent.test.ts": "315fcc1cdadd986d933387bf5676c6a6c53b78114f74af35827d44da3e827ec5"
+    "apps/web/src/engine/src/watercolor/puddle/CapturedReadPersistent.test.ts": "30730e1b6b45465ae425ee89c4d8e1759b64ddf3549b0aa9144bd5776762dd05"
   },
-  "patchSHA": "c0d562a861171d2d48d859262c87f8a40ef4532c203f94508f5dd3216002e305"
+  "patchSHA": "30e55cc5c6e173d69c65f868062a6c20ece8f4f97e23f355fe6c97c7f6e28748"
 }

@@ -2,7 +2,8 @@
   "externalOnly": true,
   "applied": false,
   "gpuRuns": 0,
-  "cpuTests": 24,
+  "cpuTests": 25,
   "overlayWebAndProductionTestDiagnostics": 0,
-  "qualification": "Source/current external overlay; pending native parity and CPU memory validation. Persistent caps exclude raw snapshots, temporary arrays and legacy one-shot proofs."
+  "qualification": "Source/current external overlay; pending native parity and CPU memory validation. Persistent caps exclude raw snapshots, temporary arrays and legacy one-shot proofs.",
+  "lastAmendment": "Owned constructor policy copy plus external mutation regression"
 }
