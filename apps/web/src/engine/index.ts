@@ -1726,7 +1726,9 @@ export class PencilEngine implements PencilEngineAPI {
       // RAW reachBounds includes brush/composite reads. Foreign-water donors
       // can extend beyond it; retain whole tiles until their bounds are proven.
       presentationBounds:(scratch,context)=>scratch.foreignSources?.length || scratch.foreignImportedGestures.size ? null : context.bounds,
-      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make)})}
+      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make,{
+        skipEmptyFixedWindows:true,omitZeroForeignSolventLoad:true,detachedWindowSource:true,
+      })})}
     catch(error){try{settlePlan.destroyTextures()}finally{try{pool.destroy()}finally{cache!.dispose()}}throw error}
     const destroy=controller.destroy.bind(controller)
     controller.destroy=()=>{try{destroy()}finally{try{settlePlan.destroyTextures()}finally{try{pool.destroy()}finally{cache!.dispose()}}}}
