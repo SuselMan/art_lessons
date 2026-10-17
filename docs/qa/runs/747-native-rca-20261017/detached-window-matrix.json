@@ -1,0 +1,588 @@
+{
+  "qualification": "Same Samsung sequential Paged/Paged comparisons using uncached ordinary GPU buffers/global engine pool. Every full stage and final field exact, input arrays immutable. No managed120MiB memory or Room latency claim; engine defaults were OFF during these inspection-only tests. No artistic shader or window geometry overrides.",
+  "reports": [
+    {
+      "case": "detached-only-wide",
+      "source": "a95306b6",
+      "actualFlags": {
+        "detachedWindowSource": true,
+        "omitZeroForeignSolventLoad": false,
+        "skipEmptyFixedWindows": false
+      },
+      "baselineFlags": {
+        "detachedWindowSource": false,
+        "omitZeroForeignSolventLoad": false,
+        "skipEmptyFixedWindows": false
+      },
+      "size": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "scheduledWindows": {
+        "baseline": 4,
+        "optimized": 4
+      },
+      "dither": {
+        "baseline": true,
+        "optimized": true
+      },
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "finalInputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "referenceDestroyedBuffers": 10,
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0",
+          "referenceHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386",
+          "referenceHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6",
+          "referenceHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4",
+          "referenceHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9",
+          "referenceHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70",
+          "referenceHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3",
+          "referenceHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256",
+          "referenceHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "errors": [],
+      "lost": false
+    },
+    {
+      "case": "detached-omit-wide",
+      "source": "a95306b6",
+      "actualFlags": {
+        "detachedWindowSource": true,
+        "omitZeroForeignSolventLoad": true,
+        "skipEmptyFixedWindows": false
+      },
+      "baselineFlags": {
+        "detachedWindowSource": false,
+        "omitZeroForeignSolventLoad": false,
+        "skipEmptyFixedWindows": false
+      },
+      "size": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "scheduledWindows": {
+        "baseline": 4,
+        "optimized": 4
+      },
+      "dither": {
+        "baseline": true,
+        "optimized": true
+      },
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "finalInputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "referenceDestroyedBuffers": 10,
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0",
+          "referenceHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386",
+          "referenceHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6",
+          "referenceHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4",
+          "referenceHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9",
+          "referenceHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70",
+          "referenceHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3",
+          "referenceHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256",
+          "referenceHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "errors": [],
+      "lost": false
+    },
+    {
+      "case": "detached-all-square",
+      "source": "a95306b6",
+      "actualFlags": {
+        "skipEmptyFixedWindows": true,
+        "omitZeroForeignSolventLoad": true,
+        "detachedWindowSource": true
+      },
+      "baselineFlags": {
+        "detachedWindowSource": false,
+        "omitZeroForeignSolventLoad": false,
+        "skipEmptyFixedWindows": false
+      },
+      "size": 2048,
+      "domain": null,
+      "scheduledWindows": {
+        "baseline": 16,
+        "optimized": 4
+      },
+      "dither": {
+        "baseline": true,
+        "optimized": true
+      },
+      "inputHashes": {
+        "p": "e79675e984d50b173e20f3d78b2447c4f23e58008b818d33da475a774f6fdec4",
+        "c": "182674cd96d33ee4085fb5b29d409aeb52f9220965b64848aebc3f373c004ae9",
+        "coverage": "3046bf1b3e787d1778151cdddf428e7c6367d1a4640eda1bbc494da02eedec16",
+        "water": "1624d79d18248a0f0a2426392d7cac6960e82fc216a77e9eefe6e343ceef1944"
+      },
+      "finalInputHashes": {
+        "p": "e79675e984d50b173e20f3d78b2447c4f23e58008b818d33da475a774f6fdec4",
+        "c": "182674cd96d33ee4085fb5b29d409aeb52f9220965b64848aebc3f373c004ae9",
+        "coverage": "3046bf1b3e787d1778151cdddf428e7c6367d1a4640eda1bbc494da02eedec16",
+        "water": "1624d79d18248a0f0a2426392d7cac6960e82fc216a77e9eefe6e343ceef1944"
+      },
+      "referenceDestroyedBuffers": 10,
+      "stageDiffs": {
+        "referenceP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "8f9883fb0f0c286fdecc0859058775906c0c8eee5ecc03bd1f4bf30561ccd338",
+          "referenceHash": "8f9883fb0f0c286fdecc0859058775906c0c8eee5ecc03bd1f4bf30561ccd338"
+        },
+        "referenceC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "fce6d4b2b18695c2be3b132d62aeb3ff06b504e11a5b53287e261f034a16cdb7",
+          "referenceHash": "fce6d4b2b18695c2be3b132d62aeb3ff06b504e11a5b53287e261f034a16cdb7"
+        },
+        "solvedP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "f236a9a564ff10442be0e26932df297ee90a99180879eb967a676bf62711ac38",
+          "referenceHash": "f236a9a564ff10442be0e26932df297ee90a99180879eb967a676bf62711ac38"
+        },
+        "solvedC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "852b1a0538df3d97c65d747759adffdbbbd461ba2978d3e6d6ec2029df8c78ec",
+          "referenceHash": "852b1a0538df3d97c65d747759adffdbbbd461ba2978d3e6d6ec2029df8c78ec"
+        },
+        "solvedCoverage": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "3046bf1b3e787d1778151cdddf428e7c6367d1a4640eda1bbc494da02eedec16",
+          "referenceHash": "3046bf1b3e787d1778151cdddf428e7c6367d1a4640eda1bbc494da02eedec16"
+        },
+        "coarse:gate": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "bc182240378e3e415570af935b210c7f854f37d17f48188f520e326808e897e6",
+          "referenceHash": "bc182240378e3e415570af935b210c7f854f37d17f48188f520e326808e897e6"
+        },
+        "coarse:beforeP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "92bfa0f7cee4add704b98cdfaa989848c4d0720b163d43761fc2704fe10f68e1",
+          "referenceHash": "92bfa0f7cee4add704b98cdfaa989848c4d0720b163d43761fc2704fe10f68e1"
+        },
+        "coarse:afterP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "92bfa0f7cee4add704b98cdfaa989848c4d0720b163d43761fc2704fe10f68e1",
+          "referenceHash": "92bfa0f7cee4add704b98cdfaa989848c4d0720b163d43761fc2704fe10f68e1"
+        },
+        "coarse:beforeC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "ccda30b75cca2e95dd5b8fabc5d82c25907c3b41030f2e3b4fececf2a6e11a6b",
+          "referenceHash": "ccda30b75cca2e95dd5b8fabc5d82c25907c3b41030f2e3b4fececf2a6e11a6b"
+        },
+        "coarse:afterC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "ccda30b75cca2e95dd5b8fabc5d82c25907c3b41030f2e3b4fececf2a6e11a6b",
+          "referenceHash": "ccda30b75cca2e95dd5b8fabc5d82c25907c3b41030f2e3b4fececf2a6e11a6b"
+        }
+      },
+      "diffs": {
+        "p": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "86f70698a901396c4948bd99d0c71dab2318822a05f5cdd9c056eb618966bbfe",
+          "referenceHash": "86f70698a901396c4948bd99d0c71dab2318822a05f5cdd9c056eb618966bbfe"
+        },
+        "c": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "8e410ba5d36ae2e9f388942ab2fc13986dfbee512e426a1e1b9bce4b14d3669b",
+          "referenceHash": "8e410ba5d36ae2e9f388942ab2fc13986dfbee512e426a1e1b9bce4b14d3669b"
+        },
+        "coverage": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "61b211f1dbf638053b246dd79daadb2906759bf024ec5b367935787587746f0a",
+          "referenceHash": "61b211f1dbf638053b246dd79daadb2906759bf024ec5b367935787587746f0a"
+        }
+      },
+      "errors": [],
+      "lost": false
+    },
+    {
+      "case": "detached-omit-y",
+      "source": "a95306b6",
+      "actualFlags": {
+        "detachedWindowSource": true,
+        "omitZeroForeignSolventLoad": true,
+        "skipEmptyFixedWindows": false
+      },
+      "baselineFlags": {
+        "detachedWindowSource": false,
+        "omitZeroForeignSolventLoad": false,
+        "skipEmptyFixedWindows": false
+      },
+      "size": {
+        "width": 512,
+        "height": 2048
+      },
+      "domain": {
+        "width": 1536,
+        "height": 2048
+      },
+      "scheduledWindows": {
+        "baseline": 4,
+        "optimized": 4
+      },
+      "dither": {
+        "baseline": true,
+        "optimized": true
+      },
+      "inputHashes": {
+        "p": "a70ecc19e9d433e5f5e04513b833d7220066bdefb0220046a4c608b79946899e",
+        "c": "769bbd9688c7f8255aec83840e6a450ab059116068c644b7a05df0180cf1a4d4",
+        "coverage": "ea81f65a4d0d37b0d9ae1ca3780b6487eb28458f638c91d43fbbdef11c58ed8e",
+        "water": "877bfcfa46e130dd29155ebe769302e958b3cc3e417a4d4aa2ff7b252b8869ec"
+      },
+      "finalInputHashes": {
+        "p": "a70ecc19e9d433e5f5e04513b833d7220066bdefb0220046a4c608b79946899e",
+        "c": "769bbd9688c7f8255aec83840e6a450ab059116068c644b7a05df0180cf1a4d4",
+        "coverage": "ea81f65a4d0d37b0d9ae1ca3780b6487eb28458f638c91d43fbbdef11c58ed8e",
+        "water": "877bfcfa46e130dd29155ebe769302e958b3cc3e417a4d4aa2ff7b252b8869ec"
+      },
+      "referenceDestroyedBuffers": 10,
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "c6655b11d1db0e70dc2cc652f3c3b22b7f304cfb2cd004fd85a4269b5a4d2eda",
+          "referenceHash": "c6655b11d1db0e70dc2cc652f3c3b22b7f304cfb2cd004fd85a4269b5a4d2eda"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "0d6a7fbb840c33f2bfc8430f61c7805e98a5a9be38fa9b19ab79cfcc8cd4b046",
+          "referenceHash": "0d6a7fbb840c33f2bfc8430f61c7805e98a5a9be38fa9b19ab79cfcc8cd4b046"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "3b41407378a741259d9a8b6b433315f07fcc0fe08ee596e03e9f3e4219466850",
+          "referenceHash": "3b41407378a741259d9a8b6b433315f07fcc0fe08ee596e03e9f3e4219466850"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "95a93ae1833a26c41ef8563fca89c9a515b5333f162515e2cbaec93ec405e082",
+          "referenceHash": "95a93ae1833a26c41ef8563fca89c9a515b5333f162515e2cbaec93ec405e082"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "ea81f65a4d0d37b0d9ae1ca3780b6487eb28458f638c91d43fbbdef11c58ed8e",
+          "referenceHash": "ea81f65a4d0d37b0d9ae1ca3780b6487eb28458f638c91d43fbbdef11c58ed8e"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "30e6ce04079d75f7a16dda66cd0a10c5cf45e9aaf526dde1049b506ec8518564",
+          "referenceHash": "30e6ce04079d75f7a16dda66cd0a10c5cf45e9aaf526dde1049b506ec8518564"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "03550327848f69cf3e5552bf67780e7783728d2a5bafb58e285c19ff24a2f205",
+          "referenceHash": "03550327848f69cf3e5552bf67780e7783728d2a5bafb58e285c19ff24a2f205"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "f9067409f78fcdb1c827f7d297c131429fccbb80d011ca419968e72223ebf10a",
+          "referenceHash": "f9067409f78fcdb1c827f7d297c131429fccbb80d011ca419968e72223ebf10a"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "c81a86be3a2db2f537b1e76abb0f2f24d5a9e7d650f120f2580fb091a54d2009",
+          "referenceHash": "c81a86be3a2db2f537b1e76abb0f2f24d5a9e7d650f120f2580fb091a54d2009"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "4acd667ddd22e44ad6a54f15644c1c068a99f296e35f35e19cd5ce22e4c2a7d6",
+          "referenceHash": "4acd667ddd22e44ad6a54f15644c1c068a99f296e35f35e19cd5ce22e4c2a7d6"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "16ab0fd0a86e85443b968dc7aa1a55cb13e96c4d3c380c4e3fadff470228651e",
+          "referenceHash": "16ab0fd0a86e85443b968dc7aa1a55cb13e96c4d3c380c4e3fadff470228651e"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "5e9ae13a5dd6bd46131b274dd952267a919ba5e14e90ac9794b21101de13fdd4",
+          "referenceHash": "5e9ae13a5dd6bd46131b274dd952267a919ba5e14e90ac9794b21101de13fdd4"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "ec113594f6725f8372d5bffb45c7d3283ff9f330267273a84c61337bf1e26b80",
+          "referenceHash": "ec113594f6725f8372d5bffb45c7d3283ff9f330267273a84c61337bf1e26b80"
+        }
+      },
+      "errors": [],
+      "lost": false
+    }
+  ]
+}
