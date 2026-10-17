@@ -1,0 +1,92 @@
+{
+  "qualification": "Published HTTPS files, no Fetch interception/substitution. Own browser context. 18 flow cards /185 variants, trusted independent navigation, swipe and zoom at390CSSpx. Real HTTPS; no algorithm execution or downloads.",
+  "errors": [],
+  "browser": "Chrome/155.0.8059.39",
+  "catalog": {
+    "scenes": 18,
+    "variants": [
+      16,
+      16,
+      11,
+      11,
+      11,
+      4,
+      4,
+      19,
+      15,
+      4,
+      4,
+      9,
+      6,
+      6,
+      10,
+      10,
+      18,
+      11
+    ],
+    "cards": 18,
+    "initial": [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "horizontalOverflow": false
+  },
+  "initialSelections": [
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0"
+  ],
+  "independentSelections": true,
+  "swipe": true,
+  "zoom": {
+    "open": true,
+    "actual": true,
+    "width": 1024
+  },
+  "firstImage": {
+    "bytes": 1148759,
+    "sha256": "c193d7b5a3ba6169b687a82bf8d12685fea8b65c07ef34868065004bb7ddd895"
+  },
+  "reportLink": {
+    "status": 200,
+    "text": "Измерения и ограничения исследования"
+  },
+  "screenshot": {
+    "file": "published-cards-mobile.png",
+    "sha256": "876c5676927cf7673a4dcf5f35822ac316ca1a1d0dee9a8323b87bc43cb6b9f7"
+  },
+  "finalOverflow": false,
+  "pass": true,
+  "contextClosed": true
+}
