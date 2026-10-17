@@ -90,12 +90,14 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
  function* solve(source:RibbonStrokeScratch,target:ILayerBuffer,epoch:number):Generator<void>{
   const captureReads=inspect.capturedBacking===true?new CapturedReadScope({persistUntilRelease:inspect.persistCapturedBacking===true,maxRetainedBytes:64*1024*1024}):undefined
   try{
+  if(inspect.diagnosticMetrics)inspect.diagnosticMetrics({kind:'stage',epoch,stage:'capture-start',atHostMs:performance.now()})
   let raw:ReturnType<typeof capturePagedPuddleSource>
   if(inspect.cooperativeCapture===true){
    const capture=capturePagedPuddleSourceSteps(source,target,size,host.pool,host.passes,{captureReads,reuseSingleWaterRead:inspect.capturedBacking===true,validateRevision:true,rowBatchHeight:256})
    try{while(true){const step=capture.next();if(step.done){if(!step.value)return;raw=step.value;break}inspect.captureStep?.(step.value);if(pendingCancel)return;yield}}
    finally{capture.return(undefined)}
   }else raw=capturePagedPuddleSource(source,target,size,host.pool,host.passes,{captureReads,reuseSingleWaterRead:inspect.capturedBacking===true})
+  if(inspect.diagnosticMetrics)inspect.diagnosticMetrics({kind:'stage',epoch,stage:'capture-done',atHostMs:performance.now()})
   let capturedLease:{release():void}|void
   while(true){
    const admission=inspect.sourceCaptured?.(raw)
@@ -103,6 +105,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
    capturedLease=admission;break
   }
   try{
+  if(inspect.diagnosticMetrics)inspect.diagnosticMetrics({kind:'stage',epoch,stage:'solve-admitted',atHostMs:performance.now()})
   if(pendingCancel)return
   contrast.prepare({p:raw.inkLoad,c:raw.inkColor,water:raw.water},true);yield
   const referenceP=new MaterialFieldPages(size)
@@ -120,7 +123,9 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
    }finally{for(const b of bufs)b.destroy()}
    yield
   }
-  background.capture({initialP:raw.inkLoad,referenceP:referenceP.snapshot(),coverage:raw.coverage});yield
+  background.capture({initialP:raw.inkLoad,referenceP:referenceP.snapshot(),coverage:raw.coverage});
+  if(inspect.diagnosticMetrics)inspect.diagnosticMetrics({kind:'stage',epoch,stage:'reference-done',atHostMs:performance.now()})
+  yield
   const solvedP=new MaterialFieldPages(size),solvedC=new MaterialFieldPages(size)
   // Native publishes the captured contour verbatim (not its expanded front).
   // Keep that immutable CPU snapshot instead of round-tripping it through GPU.
@@ -208,6 +213,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
    yield
   }
   if(radius===32&&!metadataKnown())throw Error('M70 support metadata changed after window solve')
+  if(inspect.diagnosticMetrics)inspect.diagnosticMetrics({kind:'stage',epoch,stage:'windows-done',atHostMs:performance.now()})
   inspect.solved?.(solvedP.snapshot(),solvedC.snapshot(),solvedCoverage)
   background.prepareSolved({p:solvedP.snapshot(),c:solvedC.snapshot()});inspect.coarse?.(background.readback());yield
   const finalP=new MaterialFieldPages(size),finalC=new MaterialFieldPages(size),coverage=solvedCoverage
@@ -228,6 +234,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
    }finally{for(const b of bufs)b.destroy()}
    yield
   }
+  if(inspect.diagnosticMetrics)inspect.diagnosticMetrics({kind:'stage',epoch,stage:'postphase-done',atHostMs:performance.now()})
   // Publish only after every window and global postphase completed successfully.
   const pending=new Map<AccumulationBuffer,{p:AccumulationBuffer;c:AccumulationBuffer;coverage:AccumulationBuffer}>()
   try{for(const tile of target.allResident()){
@@ -249,6 +256,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
   if(radius===32&&!metadataKnown())throw Error('M70 support metadata changed before publication')
   if(pendingCancel)return
   destroyOutputs();for(const [key,value]of pending)outputs.set(key,value);pending.clear()
+  if(inspect.diagnosticMetrics)inspect.diagnosticMetrics({kind:'stage',epoch,stage:'output-ready',atHostMs:performance.now()})
   }finally{for(const value of pending.values())for(const b of Object.values(value))b.destroy()}
  }finally{capturedLease?.release()}
   }finally{captureReads?.dispose()}

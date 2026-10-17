@@ -10,7 +10,8 @@ export function independentM70TilesQA(page:{width:number;height:number}):Indepen
 }
 export type IndependentTimingPhase='restoreHostMs'|'allocationHostMs'|'resetHostMs'|'stepHostMs'|'readbackScatterHostMs'|'cleanupHostMs'
 export type IndependentWindowEvent={kind:'window';epoch:number;supportRadius:32|612;independentTiles:boolean;field:MaterialRect;corePixels:number;kept:boolean;completed:boolean;activeHostMs:number;elapsedHostMs:number}&Record<IndependentTimingPhase,number>
-export type IndependentTileDiagnosticEvent={kind:'plan';epoch:number;supportRadius:32|612;independentTiles:boolean;usesProductionWindowPolicy:boolean;plannedWindows:number;plannedFieldPixels:number;plannedCorePixels:number}|IndependentWindowEvent
+export type PagedDiagnosticStage='capture-start'|'capture-done'|'solve-admitted'|'reference-done'|'windows-done'|'postphase-done'|'output-ready'
+export type IndependentTileDiagnosticEvent={kind:'stage';epoch:number;stage:PagedDiagnosticStage;atHostMs:number}|{kind:'plan';epoch:number;supportRadius:32|612;independentTiles:boolean;usesProductionWindowPolicy:boolean;plannedWindows:number;plannedFieldPixels:number;plannedCorePixels:number}|IndependentWindowEvent
 /** Host wall time includes driver stalls/nested eviction. Not pure GPU time.
  * elapsed additionally includes scheduling waits between generator yields. */
 export function createIndependentWindowTiming(independentTiles:boolean,window:IndependentTileGroup,kept:boolean,epoch:number,supportRadius:32|612){
