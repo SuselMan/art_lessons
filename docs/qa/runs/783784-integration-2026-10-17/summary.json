@@ -1,0 +1,65 @@
+{
+  "runtimeFreeze": "e8e1f005",
+  "backendPid": 4040793,
+  "backendHealth": "ok/db up",
+  "fingerprints": {
+    "apps/web/src/engine/index.ts": "4f333bb04439571750ef52318b86b8cd47646fdbab79b81013115b0603402d63",
+    "apps/web/src/pages/Room/net/joinFlow.ts": "d53d71a5d5c44bd48736879bf222ff23135b831a4ac2770a74fcfd912c34d42d",
+    "apps/server/src/rooms/socketHandlers.ts": "41a1cbb27b482e60bd5e479efe727f076b3bfe90d536a8e2ff4fe1da14b0a582",
+    "apps/server/src/rooms/roomRegistry.ts": "63719e79d0a7cc1fa21eb8173dddc19ea48915f8c2c87f2355c6e602be6193dc",
+    "apps/server/src/rooms/roomLoader.ts": "800b0cd04a0fc68b9567e74529986e5879e00ea7522abf296cb14529bfc0ed6e",
+    "apps/server/src/rooms/rooms.ts": "ca60fedb32ff38d343cbac9b497dd594aab375a3f6adbeb4d36ad8bb5e298efb"
+  },
+  "checks": {
+    "engine85e": {
+      "passed": 2246,
+      "failed": 1,
+      "failure": "index.charcoal chisel tilt geometry: 5000ms timeout",
+      "durationSeconds": 265.47
+    },
+    "isolatedCharcoalUnchanged": {
+      "passed": 27,
+      "durationSeconds": 17.37,
+      "timeoutChanged": false
+    },
+    "serverRoom783": {
+      "files": 108,
+      "passed": 1382,
+      "expectedFail": 4,
+      "expectedFailIssues": [
+        777,
+        778
+      ],
+      "durationSeconds": 41.9
+    },
+    "target784Integrated": {
+      "files": 17,
+      "passed": 424,
+      "durationSeconds": 12.42
+    },
+    "realNativeOwnershipControlIntegrated": {
+      "passed": 1
+    },
+    "server784IsolatedCandidate": {
+      "files": 38,
+      "passed": 721,
+      "durationSeconds": 25.19
+    },
+    "fullTypecheck": "PASS server/web/shared/e2e/scripts",
+    "mapCheck": {
+      "result": "PASS",
+      "files": 1121
+    },
+    "lint": "PASS, existing warnings only"
+  },
+  "native85e": {
+    "samsung781": 5,
+    "samsung782": 5,
+    "vega776": 1,
+    "vega780": 3,
+    "strictCrossGPU": "OPEN #748",
+    "touchSoak": "22/24 incomplete, Surface SSH/CDP lost; final oracle not run"
+  },
+  "changesSince85e": "server join generation, residency leases and UI stale ACK; engine runtime unchanged",
+  "resourceScope": "same 3 QA services; no new runtime/dependency copies; raw logs owned annotation cache until final cleanup"
+}
