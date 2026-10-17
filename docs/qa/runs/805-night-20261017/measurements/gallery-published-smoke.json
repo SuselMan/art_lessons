@@ -1,0 +1,124 @@
+{
+  "qualification": "Published HTTPS files, no Fetch interception/substitution. Own browser context. 13 static scene cards /104 variants, trusted variant navigation and zoom, actual native original PNG SHA verified. No algorithm execution or downloads.",
+  "errors": [],
+  "browser": "Chrome/155.0.8059.39",
+  "catalog": {
+    "scenes": 13,
+    "variants": [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    "cards": 13,
+    "initial": [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "horizontalOverflow": false
+  },
+  "firstCard": [
+    {
+      "index": "0",
+      "label": "Оригинал",
+      "metric": "136,4 мс · оригинал",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "index": "1",
+      "label": "Точная оптимизация шума",
+      "metric": "138,4 мс · на 2% медленнее",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "index": "2",
+      "label": "Одна октава",
+      "metric": "129,1 мс · на 5% быстрее",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "index": "3",
+      "label": "Новый перенос пигмента",
+      "metric": "другая модель · 69 мс",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "index": "4",
+      "label": "Бумажное осаждение",
+      "metric": "другая модель · 63,9 мс",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "index": "5",
+      "label": "Stable Fluids",
+      "metric": "другая модель · 25,3 мс",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "index": "6",
+      "label": "Быстрый фронт",
+      "metric": "другая модель · 34,5 мс",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "index": "7",
+      "label": "LBM",
+      "metric": "другая модель · 137,5 мс",
+      "width": 1024,
+      "height": 1024
+    }
+  ],
+  "zoom": {
+    "open": true,
+    "counter": "LBM · 8 / 8"
+  },
+  "originalPNG": {
+    "bytes": 1254901,
+    "sha256": "d2ec683d17760f4d1ced46de4f6d50d631bbce64b38f6d1ac7fbe59caa6a6eec"
+  },
+  "screenshot": {
+    "file": "published-cards-mobile.png",
+    "sha256": "27cd67824eb4ef1cd9a8a1f518016185edbcf4d5dabf9d89034d79006c8939ad"
+  },
+  "pass": true,
+  "contextClosed": true,
+  "cleanup": {
+    "ownBootstrapClosed": 1,
+    "remainingOwnGalleryTargets": 0,
+    "remainingOwnCommonTargets": 0,
+    "publishedContextClosed": true,
+    "userTabs": "untouched",
+    "downloads": "No Android download actions; all native blobs exported by private CDP bridge",
+    "ownForward19336Removed": true,
+    "remainingForwardMappings": [],
+    "remainingReverseMappings": [],
+    "remainingResources": "Parent-owned registered compare cache retains canonical inputs/builds/PNGs pending evidence preservation; no own services or processes created."
+  }
+}
