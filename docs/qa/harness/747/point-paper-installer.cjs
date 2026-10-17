@@ -1,0 +1,8 @@
+// QA-only synthetic engine control; no paper pixels, shaders, mipmaps or assets change.
+module.exports=()=>{globalThis.__qa747PointPaperControl=(gl,ctx)=>{
+ const texture=ctx.paperTex();if(!texture||!gl.isTexture(texture))throw Error('Actual paper texture unavailable');let restored=false;
+ const bound=fn=>{const active=gl.getParameter(gl.ACTIVE_TEXTURE),binding=gl.getParameter(gl.TEXTURE_BINDING_2D);try{gl.bindTexture(gl.TEXTURE_2D,texture);return fn()}finally{gl.activeTexture(active);gl.bindTexture(gl.TEXTURE_2D,binding)}};
+ const original=bound(()=>({min:gl.getTexParameter(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER),mag:gl.getTexParameter(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER)}));
+ try{bound(()=>{gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST)})}catch(error){bound(()=>{gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,original.min);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,original.mag)});throw error}
+ return{summary(){const current=bound(()=>({min:gl.getTexParameter(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER),mag:gl.getTexParameter(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER)}));if(ctx.paperTex()!==texture||current.min!==gl.NEAREST||current.mag!==gl.NEAREST)throw Error('Point-paper control was overwritten');return{requested:true,textureIdentityStable:true,textureClass:Object.prototype.toString.call(texture),original,current,worldSize:ctx.paperWorldSize(),worldScale:ctx.paperScale(),qualification:'QA sampler control only; historical hashes comparable only with control OFF'}},restore(){if(restored)return;restored=true;bound(()=>{gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,original.min);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,original.mag)})}}
+}}
