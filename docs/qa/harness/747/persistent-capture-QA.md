@@ -1,0 +1,5 @@
+# Optional persistent capture QA
+
+`QA_PERSIST_CAPTURED_BACKING=1` requires `QA_CAPTURED_BACKING=1`; default OFF. Actual source buffer prototype retainCapturedPixels is intercepted across the source job and all restored windows. Report records buffer/array WeakMap identities, revision, managed admission, byte counts and exact lease release counts. No pixel arrays are stored in telemetry and no GL reads are added. Standalone ordinary source/window buffers are uncached, so failed residency admissions do not establish memory savings.
+
+`QA_MANAGED_CAPTURE_PROBE=1` separately runs one 2×2 managed lossless cache probe: three eviction/hydration cycles must reuse the identical owned array with zero additional GL reads; mutation must force one fallback read; owned upload must retain the same array; disposal must leave zero retained proof bytes. This diagnostic introduces its own tiny reads before the ordinary fixture and is not performance telemetry. Every owned cache/buffer and temporary readPixels wrapper is cleaned up in finally. Native gate not run at preparation.
