@@ -2,7 +2,7 @@
 module.exports=()=>{globalThis.__qa748PostReferenceProbe=(plan,passes,getRect,selectedWindow)=>{
  const fieldFor=plan.ctx.fieldFor,fieldOp=passes.fieldOp,arrays={},captures={},events=[],restoration={};let current,selected,restored=false,started=false;
  const read=(name,buffer)=>{if(arrays[name])throw Error('Duplicate post-reference stage '+name);const pixels=buffer.readPixels();if(pixels.byteLength!==buffer.width*buffer.height*4)throw Error('Invalid post-reference plane '+name);arrays[name]=pixels;captures[name]={width:buffer.width,height:buffer.height,bytes:pixels.byteLength,pointSampling:buffer._pointSampling,baseFilter:buffer._baseFilter};events.push(name)};
- const wrappedFieldFor=function(...args){const field=fieldFor.apply(this,args);current={field,args:[...args],rect:{...getRect()}};return field};
+ const wrappedFieldFor=function(...args){if(args.some(v=>v!==undefined&&typeof v!=='number'&&typeof v!=='boolean'&&typeof v!=='string')||args.some(v=>typeof v==='number'&&!Number.isFinite(v)))throw Error('Non-scalar fieldFor metadata');if(selected&&events.length!==9)throw Error('Field changed during initial split capture');const field=fieldFor.apply(this,args);current={field,args:[...args],rect:{...getRect()}};return field};
  const wrappedFieldOp=function(...args){const[out,a,b,mode,k]=args,field=current?.field;
   if(!started&&field&&mode===0&&out===field.c&&a===field.a&&b===field.b&&(selectedWindow===undefined||current.rect.x===selectedWindow)){
    selected=current;started=true;
