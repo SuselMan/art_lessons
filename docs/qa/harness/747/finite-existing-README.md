@@ -15,3 +15,11 @@ All physical/goal bytes are captured before oracle; compare full clipped finite 
 Scope is one real pointer author, not a peer observer proof. Wet cold join, full API pagination/covered-history independent replay, all seam intersections, water eligibility after UndoDry via fresh water and native two-device convergence remain separate checklist gaps. The script intentionally does not claim these. Host fit must expose test world coordinates; occlusion fails before pen input instead of forcing engine transforms. Runtime phase diagnostics are available via inherited telemetry, no fixed120MiB assertion is applied by this runner.
 
 Validation during preparation: node --check for both scripts; offline six-format ledger plan. GPU execution remains pending operator gate.
+
+## Read-only fixture and Undo API inspection (2026-10-17)
+
+Private prepared map: `~/.cache/codex-qa/puddle-747-native-gate-20261017/six-existing-layer-map.json`; companion `six-existing-layer-inspection.json` records fresh GET operations/snapshots/index metadata. All six select initial `layer-1`, without layer creation. A4P history6/A4L8; A3P/A3L/A2P/A2L0. Selected layer has no referring operation and no snapshot coverage; this is metadata eligibility, not a readback-zero proof. Recheck immediately before run if another operator touched these fixtures.
+
+Production API verification: `OperationLog.ts` undoTarget(userId) scans latest done own non-meta entry; redoTarget(userId) scans earliest undone own non-meta entry. `engine/index.ts` undo()/redo() append operation_undo/operation_redo but RETURN THE TARGET operation, not the appended meta operation. Runner therefore prechecks the read-only target ID, invokes actual method, then finds the newly appended meta ID and waits for its ACK. Existing old undone actions can make Redo select a different target; this is refused BEFORE mutation. No forging target/ACK/server sequence.
+
+QA_PHASE_BUDGET=1 is allowed only as explicit diagnostic opt-in and telemetry must show actual input224/solve120 samples. No direct cache override allowed. Cold reload intentionally records runtime default phase flag/owner after natural restore; it does not toggle the diagnostic flag during restore. Thus a diagnostic ON active phase and default OFF cold replay are distinguished in proof, not falsely claimed as an ON reload test.
