@@ -1,0 +1,163 @@
+{
+  "scope": "VPS CPU only; final effective journal resolution of UndoDry; no UI/GPU latency claim",
+  "oldSourceSha256": "7d98c8d485b5356bf41142debcba4775b5b5b53c746c8f8ffde7d1c7da737efe",
+  "candidateSourceSha256": "8a9f5ce4196ac02fec221be81c88fc705d7450d02d5df3f84bed9e6de80ceaa4",
+  "harness": "docs/qa/harness/728-night/boundary-resolver-cost.mjs",
+  "baseline": [
+    {
+      "source": "728-watercolor-room-integration",
+      "independentPools": 240,
+      "entries": 728,
+      "samples": [
+        {
+          "ms": 355.05,
+          "waterOnly": 240
+        },
+        {
+          "ms": 260.24,
+          "waterOnly": 240
+        },
+        {
+          "ms": 255.4,
+          "waterOnly": 240
+        }
+      ]
+    },
+    {
+      "source": "728-watercolor-room-integration",
+      "independentPools": 480,
+      "entries": 1448,
+      "samples": [
+        {
+          "ms": 1178.83,
+          "waterOnly": 480
+        },
+        {
+          "ms": 1239.57,
+          "waterOnly": 480
+        },
+        {
+          "ms": 1508.9,
+          "waterOnly": 480
+        }
+      ]
+    },
+    {
+      "source": "728-watercolor-room-integration",
+      "independentPools": 960,
+      "entries": 2888,
+      "samples": [
+        {
+          "ms": 6180.27,
+          "waterOnly": 960
+        },
+        {
+          "ms": 6230.01,
+          "waterOnly": 960
+        },
+        {
+          "ms": 5951.18,
+          "waterOnly": 960
+        }
+      ]
+    }
+  ],
+  "candidate": [
+    {
+      "source": "774-held-snapshot-preview",
+      "independentPools": 240,
+      "entries": 728,
+      "samples": [
+        {
+          "ms": 20.33,
+          "waterOnly": 240
+        },
+        {
+          "ms": 21.76,
+          "waterOnly": 240
+        },
+        {
+          "ms": 19.44,
+          "waterOnly": 240
+        }
+      ]
+    },
+    {
+      "source": "774-held-snapshot-preview",
+      "independentPools": 480,
+      "entries": 1448,
+      "samples": [
+        {
+          "ms": 33.49,
+          "waterOnly": 480
+        },
+        {
+          "ms": 31.02,
+          "waterOnly": 480
+        },
+        {
+          "ms": 29.74,
+          "waterOnly": 480
+        }
+      ]
+    },
+    {
+      "source": "774-held-snapshot-preview",
+      "independentPools": 960,
+      "entries": 2888,
+      "samples": [
+        {
+          "ms": 90.9,
+          "waterOnly": 960
+        },
+        {
+          "ms": 75.65,
+          "waterOnly": 960
+        },
+        {
+          "ms": 86.42,
+          "waterOnly": 960
+        }
+      ]
+    }
+  ],
+  "dense60WarmAlternatingSameProcess": {
+    "oldMs": [
+      45.48,
+      47.79,
+      45.27
+    ],
+    "newMs": [
+      43.53,
+      43.02,
+      43.54
+    ],
+    "coldJitGcRangeMs": [
+      42,
+      124
+    ]
+  },
+  "transientInstrumentation": {
+    "independentPools": 240,
+    "undoDryCycles": 3,
+    "geometryProofBatches": 3,
+    "prodCounterAdded": false
+  },
+  "checks": {
+    "targetFiles": 6,
+    "tests": 70,
+    "independentGraphOraclePrefixes": 10000,
+    "newReferenceRandomActions": 5760,
+    "webTypecheck": "PASS",
+    "scopedLint": "PASS",
+    "uniqueTests": 71,
+    "additionalComponentClockTest": "PASS (new test file15/15 rerun)"
+  },
+  "semantics": "Guarded exact batching; unchanged slow fallback; no caches/new wire/physics",
+  "cleanup": {
+    "registeredDisposable": "puddle-744-independent-proof-batch-20261017",
+    "status": "finished/removed via privileged guarded tool",
+    "rawProfiles": 0,
+    "ownProcesses": 0
+  }
+}

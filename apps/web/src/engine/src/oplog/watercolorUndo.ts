@@ -302,6 +302,44 @@ function clockOnlyStroke(op: StrokeOperation): StrokeOperation {
   if(!projected){const preset=op.preset.split(':');preset[1]='0';preset[2]='0';projected={...op,preset:preset.join(':')};clockProjections.set(op,projected)}
   return projected
 }
+/** Conservative full-journal partition, not the current wet graph. Every
+ * chunk of a gesture and every potential bridge (even rejected/gone) belongs
+ * to it. AABBs may over-merge, but different returned components cannot touch.
+ * No expiration may occur: otherwise distant material can affect layer clocks.
+ * Bound broad-phase work; an awkward dense grid simply keeps the old path. */
+function independentProofComponents(entries: readonly WatercolorHistoryEntry[], options: WatercolorUndoOptions): Map<string, number> | undefined {
+  let first = Infinity, last = -Infinity
+  for (const {op} of entries) if (op.type === 'stroke') {
+    if (!Number.isFinite(op.timestamp)) return
+    first = Math.min(first, op.timestamp); last = Math.max(last, op.timestamp)
+  }
+  if (!(last - first < (options.dryAfterMs ?? WATERCOLOR_UNDO_DRY_MS))) return
+  const groups = new Map<string, number>(), parent: number[] = [], sizes: number[] = []
+  const nodes: {group: number; bounds: Bounds}[] = []
+  const layers = new Map<string, {index: WatercolorFootprintIndex; roots: Set<number>}>()
+  const root = (id: number): number => { while (parent[id] !== id) { parent[id] = parent[parent[id]]; id = parent[id] } return id }
+  let work = 0
+  for (const {op} of entries) if (isM70WatercolorStroke(op)) {
+    const group = groupOf(op)
+    let id = groups.get(group)
+    const layer = layers.get(op.layerId) ?? {index: new WatercolorFootprintIndex(16), roots: new Set<number>()}
+    layers.set(op.layerId, layer)
+    if (id === undefined) { id = parent.length; groups.set(group, id); parent.push(id); sizes.push(1); layer.roots.add(id) }
+    const bounds = geometryOf(op).bounds
+    if (layer.roots.size > 1) for (const candidate of layer.index.candidates(bounds)) {
+      if (++work > entries.length * 8) return
+      let a = root(id), b = root(nodes[candidate].group)
+      if (a === b || !overlap(bounds, nodes[candidate].bounds)) continue
+      if (sizes[a] < sizes[b]) [a, b] = [b, a]
+      parent[b] = a; sizes[a] += sizes[b]
+      layer.roots.delete(b)
+      if (layer.roots.size === 1) break
+    }
+    layer.index.add(nodes.length, bounds); nodes.push({group: id, bounds})
+  }
+  return new Map([...groups].map(([group, id]) => [group, root(id)]))
+}
+
 /** Reopening an original material barrier may restore an already observed
  * whole-water dependency, never grant eligibility to a new foreign gesture. */
 function enableHistoricalBoundarySources(boundary: Operation, entries: readonly WatercolorHistoryEntry[], eligibility: Eligibility, reactivators: Eligibility, enabled: Set<string>, options: WatercolorUndoOptions): void {
@@ -318,6 +356,7 @@ function enableHistoricalBoundarySources(boundary: Operation, entries: readonly 
     groups.set(id,{layer:entry.op.layerId,first:prior?.first??index,last:index})
     if(isRemovedWaterCandidate(entry))removed.add(entry.op.id)
   }
+  const pending: {source: string; historical: Set<string>}[] = []
   for(const [source,consumers]of eligibility){
     const from=groups.get(source)
     if(enabled.has(source) || !consumers.size || !from || layers && !layers.includes(from.layer))continue
@@ -326,12 +365,41 @@ function enableHistoricalBoundarySources(boundary: Operation, entries: readonly 
     // A whole gesture/connector can lie on either side of the barrier. The
     // already observed component, not only the source/consumer pair, spans it.
     if(!members.some(group=>group.first<at) || !members.some(group=>at<group.last))continue
+    pending.push({source, historical})
+  }
+  const resolveProof = (batch: typeof pending) => {
+    const historical = batch.length === 1 ? batch[0].historical : new Set(batch.flatMap(item => [...item.historical]))
+    const candidates = new Set(batch.map(item => item.source))
     const probe=entries.map(entry=>isM70WatercolorStroke(entry.op) && !historical.has(groupOf(entry.op)) ? {...entry,op:clockOnlyStroke(entry.op)} : entry)
-    const candidateEnabled=new Set(enabled);candidateEnabled.add(source)
-    // Recheck old connectors as well as active consumers and dry/expiry
-    // boundaries. A replacement bridge drawn while water was absent cannot
-    // be the path that resurrects it merely because Dry was undone.
-    if(resolveGeometry(probe,options,eligibility,undefined,undefined,candidateEnabled).some(op=>removed.has(op.id) && isM70WatercolorStroke(op) && groupOf(op)===source))enabled.add(source)
+    const candidateEnabled=new Set(enabled)
+    for (const source of candidates) candidateEnabled.add(source)
+    // Each proof still uses only its original connectors. Batch unions are
+    // permitted solely across spatially disjoint full-journal components.
+    const resolved = resolveGeometry(probe,options,eligibility,undefined,undefined,candidateEnabled)
+    if (batch.length === 1) {
+      const source = batch[0].source
+      if (resolved.some(op=>removed.has(op.id) && isM70WatercolorStroke(op) && groupOf(op)===source)) enabled.add(source)
+    } else for (const op of resolved) {
+      if (removed.has(op.id) && isM70WatercolorStroke(op) && candidates.has(groupOf(op))) enabled.add(groupOf(op))
+    }
+  }
+  const components = pending.length > 1 ? independentProofComponents(entries, options) : undefined
+  if (!components || new Set(pending.map(item => components.get(item.source))).size < 2) {
+    for (const item of pending) resolveProof([item])
+    return
+  }
+  // Keep per-component source order: earlier proofs can enable an old source
+  // used by a later proof in that same component. Never union their whitelists.
+  let remaining = pending
+  while (remaining.length) {
+    const occupied = new Set<number>(), batch: typeof pending = [], next: typeof pending = []
+    for (const item of remaining) {
+      const component = components.get(item.source)!
+      if (occupied.has(component)) next.push(item)
+      else { occupied.add(component); batch.push(item) }
+    }
+    resolveProof(batch)
+    remaining = next
   }
 }
 
