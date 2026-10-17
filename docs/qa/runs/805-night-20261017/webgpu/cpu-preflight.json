@@ -1,0 +1,22 @@
+{
+  "status": "CPU READY; GPU compilation/numeric/determinism not yet tested",
+  "sourceBase": "c78c3068",
+  "sourceFiles": {
+    "docs/qa/prototypes/805-algorithm-search/webgpu/README.md": "91c1e94f24595305f01e0ea0e90374051696286dbecb7ff58b35a4830536c6c5",
+    "docs/qa/prototypes/805-algorithm-search/webgpu/contract.ts": "ad640612c27fc00c37a68529f945b175bb577fb82eff1d81d4da692bbe9e1dd9",
+    "docs/qa/prototypes/805-algorithm-search/webgpu/cpu.test.cjs": "2de7003dddb3a1628c800eb064ec7882a539515c880ee1a52d9f88f490303a8a",
+    "docs/qa/prototypes/805-algorithm-search/webgpu/diffusion.ts": "de70a979ec3a450ab69746166870f29354326ff7ab188e18bceb7f8750d23176",
+    "docs/qa/prototypes/805-algorithm-search/webgpu/gl-diffusion.ts": "74ed6d3215854ef3a8113860bd6570e4a47f92d0b8b58772d05f32e9ee27fe5a",
+    "docs/qa/prototypes/805-algorithm-search/webgpu/index.ts": "63352934aaec3dfc0468d761dd7b20915404cd07aac1a8b29bec7edfd5fc5ccc",
+    "docs/qa/prototypes/805-algorithm-search/webgpu/lbm.ts": "3677f397bef2f382d9edb7f8b2f61a4b92a165f2231e35d953260a912f8d940c"
+  },
+  "checks": {
+    "cpuTests": 6,
+    "strictTypecheck": 0,
+    "oxlintErrors": 0,
+    "esbuild": "PASS"
+  },
+  "requiredFeatures": [],
+  "gpuOperator": "puddle_undo only; this author opened no GPU/browser/device",
+  "resources": "No dependencies/services/runtime copies created. Small source/logs only. Existing toolchain reused read-only."
+}
