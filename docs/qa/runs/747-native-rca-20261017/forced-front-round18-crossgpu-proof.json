@@ -1,0 +1,353 @@
+{
+  "sourcePair": [
+    "509fb989",
+    "509fb989"
+  ],
+  "inputExact": true,
+  "forcedExact": true,
+  "samsungSHA": "ef5f2d31e206e97b4b8b071d0032a10250cd7e463520f0ae4928303f2229f7a1",
+  "intelRoundSHA": "9fc03fba47fb6e57e13af44270541370334aac9ea26e810f8f2f94d4df65d3a7",
+  "pairs": {
+    "SamsungRound_minus_IntelRound": {
+      "R": {
+        "changed": 49,
+        "max": 1,
+        "histogram": {
+          "-1": 49
+        },
+        "first": [
+          {
+            "byte": 9941056,
+            "x": 1040,
+            "y": 1213,
+            "difference": -1,
+            "a": 207,
+            "b": 208
+          },
+          {
+            "byte": 9949248,
+            "x": 1040,
+            "y": 1214,
+            "difference": -1,
+            "a": 207,
+            "b": 208
+          },
+          {
+            "byte": 9982076,
+            "x": 1055,
+            "y": 1218,
+            "difference": -1,
+            "a": 176,
+            "b": 177
+          },
+          {
+            "byte": 9982084,
+            "x": 1057,
+            "y": 1218,
+            "difference": -1,
+            "a": 176,
+            "b": 177
+          },
+          {
+            "byte": 9990268,
+            "x": 1055,
+            "y": 1219,
+            "difference": -1,
+            "a": 176,
+            "b": 177
+          },
+          {
+            "byte": 9990280,
+            "x": 1058,
+            "y": 1219,
+            "difference": -1,
+            "a": 176,
+            "b": 177
+          }
+        ]
+      },
+      "G": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      },
+      "B": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      },
+      "A": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      }
+    },
+    "SamsungRound_minus_SamsungOFF": {
+      "R": {
+        "changed": 2545,
+        "max": 1,
+        "histogram": {
+          "1": 2545
+        },
+        "first": [
+          {
+            "byte": 9827248,
+            "x": 1260,
+            "y": 1199,
+            "difference": 1,
+            "a": 103,
+            "b": 102
+          },
+          {
+            "byte": 9827252,
+            "x": 1261,
+            "y": 1199,
+            "difference": 1,
+            "a": 103,
+            "b": 102
+          },
+          {
+            "byte": 9827256,
+            "x": 1262,
+            "y": 1199,
+            "difference": 1,
+            "a": 103,
+            "b": 102
+          },
+          {
+            "byte": 9827260,
+            "x": 1263,
+            "y": 1199,
+            "difference": 1,
+            "a": 103,
+            "b": 102
+          },
+          {
+            "byte": 9827264,
+            "x": 1264,
+            "y": 1199,
+            "difference": 1,
+            "a": 103,
+            "b": 102
+          },
+          {
+            "byte": 9827268,
+            "x": 1265,
+            "y": 1199,
+            "difference": 1,
+            "a": 103,
+            "b": 102
+          }
+        ]
+      },
+      "G": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      },
+      "B": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      },
+      "A": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      }
+    },
+    "IntelRound_minus_IntelOFF": {
+      "R": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      },
+      "G": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      },
+      "B": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      },
+      "A": {
+        "changed": 0,
+        "max": 0,
+        "histogram": {},
+        "first": []
+      }
+    }
+  },
+  "samsungControlMetadata": {
+    "requested": true,
+    "highpSamplers": false,
+    "roundR": true,
+    "outputAnchorCount": 1,
+    "samplerCount": 5,
+    "samplersChanged": 0,
+    "originalFragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+    "patchedFragmentSHA": "21e96400cc135e153cc3383380204bb294d1caf65eef7b2ebf8de8992ca1fa00",
+    "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+    "uniformKeys": [
+      "u_wcNoiseTex",
+      "u_cost",
+      "u_paperHeightMap",
+      "u_resolution",
+      "u_paperOrigin",
+      "u_paperTexSize",
+      "u_paperScale",
+      "u_climb",
+      "u_floor",
+      "u_costMax",
+      "u_film",
+      "u_dryCost",
+      "u_stride",
+      "u_foreignFilm",
+      "u_foreignWet"
+    ],
+    "modifiedProperties": [
+      "_waterFrontProg",
+      "_waterFrontUni",
+      "_waterFrontPosLoc"
+    ],
+    "qualification": "Only owned native water-front program replaced (optional sampler precision / R output quantization). Exported shader strings and prefix build/jump programs unchanged. QA control, not product fix.",
+    "restoration": {
+      "restored": true,
+      "ownershipExact": true,
+      "deletedOwnedProgram": true
+    }
+  },
+  "sameGPU": {
+    "stageDiffs": {
+      "referenceP": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9",
+        "referenceHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9"
+      },
+      "referenceC": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2",
+        "referenceHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2"
+      },
+      "solvedP": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "bdbf27170f6c6d0db5f66a721f8eccef9db55bc2f81d3b370eee7fed2a6a4b2c",
+        "referenceHash": "bdbf27170f6c6d0db5f66a721f8eccef9db55bc2f81d3b370eee7fed2a6a4b2c"
+      },
+      "solvedC": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "a9a29d020e6bd074bb5e140c56e5799b88b190f78e8e2a0cb1906bb57b9186b8",
+        "referenceHash": "a9a29d020e6bd074bb5e140c56e5799b88b190f78e8e2a0cb1906bb57b9186b8"
+      },
+      "solvedCoverage": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+      },
+      "coarse:gate": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+        "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+      },
+      "coarse:beforeP": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "db68df4ad20f9a2bb4b5090a784667e3180a8890c27b5e9bc2382aef8192408f",
+        "referenceHash": "db68df4ad20f9a2bb4b5090a784667e3180a8890c27b5e9bc2382aef8192408f"
+      },
+      "coarse:afterP": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "d56edb929ca9f12a3cf9b9cb375af37057794ffb0a2278f4e817f7565b098c1d",
+        "referenceHash": "d56edb929ca9f12a3cf9b9cb375af37057794ffb0a2278f4e817f7565b098c1d"
+      },
+      "coarse:beforeC": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "4918c310651c83a23428be58c61db6f6a08ec28626928d425b8cc953275a0734",
+        "referenceHash": "4918c310651c83a23428be58c61db6f6a08ec28626928d425b8cc953275a0734"
+      },
+      "coarse:afterC": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "3a8fb2cb360eccc9ebf521397f074f680ce31be1e686ecd4d8e38863320e782c",
+        "referenceHash": "3a8fb2cb360eccc9ebf521397f074f680ce31be1e686ecd4d8e38863320e782c"
+      }
+    },
+    "diffs": {
+      "p": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "3a54a4a1228f49c06b58ecf788823398435b91a67d68ff284297db751e1e9380",
+        "referenceHash": "3a54a4a1228f49c06b58ecf788823398435b91a67d68ff284297db751e1e9380"
+      },
+      "c": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "ce5a4cf5d8b5a93065c402773fb4f91b469777f1d508b9f1d8334d1c0b6f156a",
+        "referenceHash": "ce5a4cf5d8b5a93065c402773fb4f91b469777f1d508b9f1d8334d1c0b6f156a"
+      },
+      "coverage": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+        "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+      }
+    },
+    "highFloat": {
+      "precision": 23,
+      "rangeMin": 127,
+      "rangeMax": 127
+    },
+    "dither": {
+      "requestedOff": false,
+      "initial": true,
+      "atCapture": true
+    },
+    "errors": []
+  },
+  "qualification": "QA nativefront R quantization only, original samplerprecision. Prefix17exact, no product change/no closure of fullsolverdeterminism."
+}
