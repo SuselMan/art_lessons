@@ -1,3 +1,4 @@
+import type {ControlBeforeState,HistoryGoneReason} from './controlHistory'
 import type { Dab, Operation, StrokeOperation } from '@grafetto/shared'
 import { operationLayerIds, strokeDabs } from '@grafetto/shared'
 
@@ -9,7 +10,8 @@ import { watercolorMaterialBoundaryLayers } from './watercolorMaterialBoundaries
 export interface WatercolorHistoryEntry {
   op: Operation
   state: 'done' | 'undone' | 'gone'
-  goneReason?: 'branch' | 'revoke'
+  goneReason?: HistoryGoneReason
+  controlBefore?: readonly ControlBeforeState[]
 }
 
 /** Historical inactivity, not the replay client's wall clock. */
@@ -311,7 +313,7 @@ export function effectiveWatercolorOperations(
   const isControl = (op: Operation): boolean => op.type === 'operation_undo' || op.type === 'operation_redo' || op.type === 'operation_revoke'
   // Resolved historical entries and direct unit callers may have no controls.
   // Their previous contract treats the resolved changes as final transitions.
-  if (!entries.some(e => isControl(e.op))) return resolveGeometry(entries, options)
+  if (!entries.some(e => isControl(e.op) && e.goneReason !== 'reject')) return resolveGeometry(entries, options)
   const cached = timelines.get(entries)
   const reusable = cached && cached.source.length < entries.length && cached.dryAfterMs === options.dryAfterMs && cached.dryingScope === options.dryingScope
     && cached.source.every((op, i) => entries[i]?.op === op)
@@ -326,6 +328,11 @@ export function effectiveWatercolorOperations(
     const original = entries[cursor]
     state.source.push(original.op)
     const op = original.op
+    if (original.goneReason === 'reject') {
+      const removed = {...original}
+      simulated.push(removed); byId.set(op.id, removed)
+      continue
+    }
     const present = new Set(view.filter(isM70WatercolorStroke).filter(source => byId.get(source.id)?.state !== 'done').map(groupOf))
     if (!isControl(op)) {
       for (const entry of simulated) if (entry.state === 'undone' && entry.op.userId === op.userId) {
