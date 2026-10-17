@@ -1,0 +1,726 @@
+{
+  "date": "2026-10-17",
+  "device": "Samsung SM-T970 Adreno650 Chrome actualWebGL1",
+  "runtimeFullSHA": "52d9900153536bec644c1a2d4ae670c1b1f7c8f8",
+  "sourceProof": {
+    "independent": {
+      "source": "52d99001",
+      "sourceHashes": {
+        "apps/web/src/engine/index.ts": "63857f5546b3371906039e41b2a28b7c2396cc604da7f842323d1eb48bc16152",
+        "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "bfefef037bbe8d57ff0758451e65bd66dcb5c87ab71106e07077b8db0e1a39a8",
+        "apps/web/src/engine/src/watercolor/puddle/M70IndependentTilesQA.ts": "2b3de2fdc2b3954f27a528e5e7fe297aaf57189f5db463f5108e9e73ee1cda7f",
+        "apps/web/qa-independent-tiles-v2.ts": "f979423d113265f4677973b57cd8d21665a929373c515afec2ab4acbdb597546",
+        "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "a165e80276011246de4736ef97b8dba870b6ce3a7416aeae8820cf1b3f6c5a90",
+        "apps/web/src/engine/src/buffers/BufferResidency.ts": "d1bac870e865778877916a0e6473d1fad0cdaa54b18f96060d093c6f4386a37c"
+      },
+      "sourceStable": true,
+      "runPass": true,
+      "contextClosed": true
+    },
+    "normal": {
+      "source": "52d99001",
+      "sourceHashes": {
+        "apps/web/src/engine/index.ts": "63857f5546b3371906039e41b2a28b7c2396cc604da7f842323d1eb48bc16152",
+        "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "bfefef037bbe8d57ff0758451e65bd66dcb5c87ab71106e07077b8db0e1a39a8",
+        "apps/web/src/engine/src/watercolor/puddle/M70IndependentTilesQA.ts": "2b3de2fdc2b3954f27a528e5e7fe297aaf57189f5db463f5108e9e73ee1cda7f",
+        "apps/web/qa-independent-tiles-v2.ts": "f979423d113265f4677973b57cd8d21665a929373c515afec2ab4acbdb597546",
+        "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "a165e80276011246de4736ef97b8dba870b6ce3a7416aeae8820cf1b3f6c5a90",
+        "apps/web/src/engine/src/buffers/BufferResidency.ts": "d1bac870e865778877916a0e6473d1fad0cdaa54b18f96060d093c6f4386a37c"
+      },
+      "sourceStable": true,
+      "runPass": true,
+      "contextClosed": true
+    }
+  },
+  "fixedPointerSpecSHA": "886ed6205b9a9327672445ae67b2562d55fab47b138f44afc62af64f287415d2",
+  "input": {
+    "waveWorldPoints": [
+      [
+        300,
+        2100
+      ],
+      [
+        329,
+        2137.218682902702
+      ],
+      [
+        358,
+        2166.6820658893034
+      ],
+      [
+        387,
+        2181.724057869903
+      ],
+      [
+        416,
+        2177.7040092642405
+      ],
+      [
+        445,
+        2152.658477444273
+      ],
+      [
+        474,
+        2107.5769864163685
+      ],
+      [
+        503,
+        2046.2630511152572
+      ],
+      [
+        532,
+        1974.7999850346457
+      ],
+      [
+        561,
+        1900.696516925272
+      ],
+      [
+        590,
+        1831.8322121561291
+      ],
+      [
+        619,
+        1775.3508111746978
+      ],
+      [
+        648,
+        1736.6569123906968
+      ],
+      [
+        677,
+        1718.6569123906968
+      ],
+      [
+        706,
+        1721.3508111746978
+      ],
+      [
+        735,
+        1741.8322121561291
+      ],
+      [
+        764,
+        1774.696516925272
+      ],
+      [
+        793,
+        1812.7999850346457
+      ],
+      [
+        822,
+        1848.2630511152572
+      ],
+      [
+        851,
+        1873.5769864163683
+      ],
+      [
+        880,
+        1882.658477444273
+      ],
+      [
+        909,
+        1871.7040092642408
+      ],
+      [
+        938,
+        1839.724057869903
+      ],
+      [
+        967,
+        1788.6820658893032
+      ],
+      [
+        996,
+        1723.2186829027016
+      ],
+      [
+        1025,
+        1650
+      ],
+      [
+        1054,
+        1576.7813170972984
+      ],
+      [
+        1083,
+        1511.3179341106966
+      ],
+      [
+        1112,
+        1460.275942130097
+      ],
+      [
+        1141,
+        1428.2959907357592
+      ],
+      [
+        1170,
+        1417.341522555727
+      ],
+      [
+        1199,
+        1426.4230135836315
+      ],
+      [
+        1228,
+        1451.7369488847428
+      ],
+      [
+        1257,
+        1487.2000149653545
+      ],
+      [
+        1286,
+        1525.303483074728
+      ],
+      [
+        1315,
+        1558.1677878438709
+      ],
+      [
+        1344,
+        1578.6491888253022
+      ],
+      [
+        1373,
+        1581.3430876093032
+      ],
+      [
+        1402,
+        1563.3430876093032
+      ],
+      [
+        1431,
+        1524.6491888253022
+      ],
+      [
+        1460,
+        1468.167787843871
+      ],
+      [
+        1489,
+        1399.3034830747283
+      ],
+      [
+        1518,
+        1325.2000149653545
+      ],
+      [
+        1547,
+        1253.7369488847428
+      ],
+      [
+        1576,
+        1192.423013583632
+      ],
+      [
+        1605,
+        1147.341522555727
+      ],
+      [
+        1634,
+        1122.2959907357592
+      ],
+      [
+        1663,
+        1118.275942130097
+      ],
+      [
+        1692,
+        1133.3179341106968
+      ],
+      [
+        1721,
+        1162.781317097298
+      ],
+      [
+        1750,
+        1200
+      ],
+      [
+        1779,
+        1237.2186829027019
+      ],
+      [
+        1808,
+        1266.6820658893032
+      ],
+      [
+        1837,
+        1281.724057869903
+      ],
+      [
+        1866,
+        1277.7040092642408
+      ],
+      [
+        1895.0000000000002,
+        1252.658477444273
+      ],
+      [
+        1924.0000000000002,
+        1207.5769864163683
+      ],
+      [
+        1952.9999999999998,
+        1146.2630511152574
+      ],
+      [
+        1981.9999999999998,
+        1074.7999850346462
+      ],
+      [
+        2011,
+        1000.6965169252721
+      ],
+      [
+        2040,
+        931.8322121561291
+      ],
+      [
+        2069,
+        875.350811174698
+      ],
+      [
+        2098,
+        836.6569123906968
+      ],
+      [
+        2127,
+        818.6569123906967
+      ],
+      [
+        2156,
+        821.3508111746978
+      ],
+      [
+        2185,
+        841.8322121561289
+      ],
+      [
+        2214,
+        874.6965169252718
+      ],
+      [
+        2243,
+        912.7999850346459
+      ],
+      [
+        2272,
+        948.2630511152572
+      ],
+      [
+        2301,
+        973.5769864163682
+      ],
+      [
+        2330,
+        982.658477444273
+      ],
+      [
+        2359,
+        971.7040092642408
+      ],
+      [
+        2388,
+        939.724057869903
+      ],
+      [
+        2417,
+        888.6820658893033
+      ],
+      [
+        2446,
+        823.2186829027021
+      ],
+      [
+        2475,
+        750.0000000000001
+      ],
+      [
+        2504,
+        676.7813170972983
+      ],
+      [
+        2533,
+        611.3179341106969
+      ],
+      [
+        2562,
+        560.2759421300971
+      ],
+      [
+        2591,
+        528.2959907357592
+      ],
+      [
+        2620,
+        517.3415225557269
+      ],
+      [
+        2649,
+        526.4230135836317
+      ],
+      [
+        2678,
+        551.7369488847424
+      ],
+      [
+        2707,
+        587.2000149653537
+      ],
+      [
+        2736,
+        625.3034830747279
+      ],
+      [
+        2765,
+        658.1677878438704
+      ],
+      [
+        2794,
+        678.6491888253023
+      ],
+      [
+        2823,
+        681.3430876093032
+      ],
+      [
+        2852,
+        663.3430876093034
+      ],
+      [
+        2881,
+        624.6491888253022
+      ],
+      [
+        2910,
+        568.1677878438711
+      ],
+      [
+        2939,
+        499.3034830747287
+      ],
+      [
+        2968,
+        425.2000149653541
+      ],
+      [
+        2997,
+        353.7369488847428
+      ],
+      [
+        3026,
+        292.42301358363187
+      ],
+      [
+        3055,
+        247.34152255572718
+      ],
+      [
+        3084,
+        222.29599073575926
+      ],
+      [
+        3113,
+        218.27594213009692
+      ],
+      [
+        3142,
+        233.31793411069623
+      ],
+      [
+        3171,
+        262.7813170972984
+      ],
+      [
+        3200,
+        299.9999999999998
+      ]
+    ],
+    "shortWorldPoints": [
+      [
+        1500,
+        1350
+      ],
+      [
+        1550,
+        1325
+      ],
+      [
+        1600,
+        1300
+      ],
+      [
+        1650,
+        1275
+      ],
+      [
+        1700,
+        1250
+      ]
+    ],
+    "brushSize": 320,
+    "water": 95,
+    "pigment": 34,
+    "paint": "PB15",
+    "color": "#2688d3",
+    "pressure": 0.75,
+    "page": [
+      3508,
+      2480
+    ]
+  },
+  "scope": "Onefreshengine independent:2consecutivewaves+short/noreset. Separatefreshengine normal:1wave+1secondreadonlystabletail. Nooptimizations/forcedfinish/Dry/semanticpixeloracle. Independentnohalo intentionallynon-equivalent. NoRoom/backend/auth/fixturemutations.",
+  "results": [
+    {
+      "mode": "independent",
+      "gesture": 1,
+      "kind": "wave320",
+      "genuineDOWN": true,
+      "chunksBefore": 0,
+      "chunksAfter": 2,
+      "planSerialBefore": 0,
+      "planSerialAfter": 1,
+      "newPlans": 1,
+      "windowsPlanned": 6,
+      "windowsKeptCompleted": 6,
+      "captureUPToPageFirstValidatedReadyMs": 15934.500000047687,
+      "independentMaterial2RAFConfirmationMs": 15951.200000047684,
+      "independentStrict2RAFConfirmationMs": 15951.200000047684,
+      "UIFirstGoalMs": 15934.70000009537,
+      "UIFirstIdleMs": 15934.70000009537,
+      "ready": true,
+      "strictReady": true,
+      "FIFOAtEnd": 0,
+      "canonicalPendingAtEnd": false,
+      "asyncOwnersAtEnd": 0,
+      "asyncError": "",
+      "GL": 0,
+      "contextLost": false,
+      "pageErrors": 0,
+      "dispatchWallMs": 11934,
+      "stageBudget": {
+        "captureWaitAfterUPMs": 8180.800000190735,
+        "captureMs": 793.0,
+        "admissionMs": 182.79999995231628,
+        "referenceMs": 762.5,
+        "windowsSpanMs": 3847.4000000953674,
+        "postphaseMs": 1033.8999998569489,
+        "outputMs": 563.7000000476837,
+        "outputToUIIdleMs": 570.3000000000029,
+        "totalStageSpanMs": 7183.599999904633,
+        "windowActiveHostMs": 2717.600000143051,
+        "windowElapsedHostMs": 3827.699999809265
+      },
+      "readsInputAndSolve": {
+        "count": 978,
+        "sumMs": 9637.800003767014,
+        "maxMs": 177.5,
+        "bytes": 3332848288
+      },
+      "RAF": {
+        "count": 515,
+        "maxMs": 1170.2000000000044,
+        "over50": 160,
+        "over100": 71
+      },
+      "packedOperationInputSHA": "0a16b496073c04c9af993997d701af61b49772ccd0bbe57ce9fc58ace19a9ba6",
+      "hiddenDurationAfterUPMs": 0,
+      "tail1s": {}
+    },
+    {
+      "mode": "independent",
+      "gesture": 2,
+      "kind": "wave320",
+      "genuineDOWN": true,
+      "chunksBefore": 2,
+      "chunksAfter": 4,
+      "planSerialBefore": 1,
+      "planSerialAfter": 2,
+      "newPlans": 1,
+      "windowsPlanned": 6,
+      "windowsKeptCompleted": 6,
+      "captureUPToPageFirstValidatedReadyMs": 30300.69999990464,
+      "independentMaterial2RAFConfirmationMs": 30305.199999809265,
+      "independentStrict2RAFConfirmationMs": 30305.199999809265,
+      "UIFirstGoalMs": 30300.80000004769,
+      "UIFirstIdleMs": 30300.80000004769,
+      "ready": true,
+      "strictReady": true,
+      "FIFOAtEnd": 0,
+      "canonicalPendingAtEnd": false,
+      "asyncOwnersAtEnd": 0,
+      "asyncError": "",
+      "GL": 0,
+      "contextLost": false,
+      "pageErrors": 0,
+      "dispatchWallMs": 10514,
+      "stageBudget": {
+        "captureWaitAfterUPMs": 21660.299999952316,
+        "captureMs": 868.2000000476837,
+        "admissionMs": 266.0,
+        "referenceMs": 888.0,
+        "windowsSpanMs": 4047.0999999046326,
+        "postphaseMs": 1169.6000001430511,
+        "outputMs": 665.8999998569489,
+        "outputToUIIdleMs": 735.3000000476895,
+        "totalStageSpanMs": 7905.200000047684,
+        "windowActiveHostMs": 2743.49999833107,
+        "windowElapsedHostMs": 4044.2999997138977
+      },
+      "readsInputAndSolve": {
+        "count": 1565,
+        "sumMs": 17429.700001955032,
+        "maxMs": 183.5,
+        "bytes": 5894617760
+      },
+      "RAF": {
+        "count": 675,
+        "maxMs": 1404.199999999997,
+        "over50": 341,
+        "over100": 83
+      },
+      "packedOperationInputSHA": "9bae5d19e2fa03c0b561681547d5ae3d8c1ed893c7251516c85d7281029ca302",
+      "hiddenDurationAfterUPMs": 0,
+      "tail1s": {}
+    },
+    {
+      "mode": "independent",
+      "gesture": 3,
+      "kind": "short320",
+      "genuineDOWN": true,
+      "chunksBefore": 4,
+      "chunksAfter": 5,
+      "planSerialBefore": 2,
+      "planSerialAfter": 3,
+      "newPlans": 1,
+      "windowsPlanned": 6,
+      "windowsKeptCompleted": 6,
+      "captureUPToPageFirstValidatedReadyMs": 9272.500000047687,
+      "independentMaterial2RAFConfirmationMs": 9283.600000143051,
+      "independentStrict2RAFConfirmationMs": 9283.600000143051,
+      "UIFirstGoalMs": 9272.70000009537,
+      "UIFirstIdleMs": 9272.70000009537,
+      "ready": true,
+      "strictReady": true,
+      "FIFOAtEnd": 0,
+      "canonicalPendingAtEnd": false,
+      "asyncOwnersAtEnd": 0,
+      "asyncError": "",
+      "GL": 0,
+      "contextLost": false,
+      "pageErrors": 0,
+      "dispatchWallMs": 550,
+      "stageBudget": {
+        "captureWaitAfterUPMs": 164.5,
+        "captureMs": 1295.0,
+        "admissionMs": 271.30000019073486,
+        "referenceMs": 903.0,
+        "windowsSpanMs": 4047.0,
+        "postphaseMs": 1086.0,
+        "outputMs": 728.8999998569489,
+        "outputToUIIdleMs": 776.5000000476866,
+        "totalStageSpanMs": 8331.700000047684,
+        "windowActiveHostMs": 2696.199999332428,
+        "windowElapsedHostMs": 4043.2999997138977
+      },
+      "readsInputAndSolve": {
+        "count": 369,
+        "sumMs": 3813.300001144409,
+        "maxMs": 185,
+        "bytes": 1082636960
+      },
+      "RAF": {
+        "count": 95,
+        "maxMs": 1755.300000000003,
+        "over50": 37,
+        "over100": 25
+      },
+      "packedOperationInputSHA": "bc181635c5eb69035c42284de49218ce1fbf0efbdc67cf526329e1cba9e102d7",
+      "hiddenDurationAfterUPMs": 0,
+      "tail1s": {}
+    },
+    {
+      "mode": "normal",
+      "gesture": 1,
+      "kind": "wave320",
+      "genuineDOWN": true,
+      "chunksBefore": 0,
+      "chunksAfter": 2,
+      "planSerialBefore": 0,
+      "planSerialAfter": 1,
+      "newPlans": 1,
+      "windowsPlanned": 60,
+      "windowsKeptCompleted": 60,
+      "captureUPToPageFirstValidatedReadyMs": 48668.200000047684,
+      "independentMaterial2RAFConfirmationMs": 48691.200000047684,
+      "independentStrict2RAFConfirmationMs": 48691.200000047684,
+      "UIFirstGoalMs": 48668.5,
+      "UIFirstIdleMs": 48668.5,
+      "ready": true,
+      "strictReady": true,
+      "FIFOAtEnd": 0,
+      "canonicalPendingAtEnd": false,
+      "asyncOwnersAtEnd": 0,
+      "asyncError": "",
+      "GL": 0,
+      "contextLost": false,
+      "pageErrors": 0,
+      "dispatchWallMs": 11090,
+      "stageBudget": {
+        "captureWaitAfterUPMs": 9354.5,
+        "captureMs": 790.2000000476837,
+        "admissionMs": 202.90000009536743,
+        "referenceMs": 689.5999999046326,
+        "windowsSpanMs": 35491.10000014305,
+        "postphaseMs": 995.5,
+        "outputMs": 550.3999998569489,
+        "outputToUIIdleMs": 593.5,
+        "totalStageSpanMs": 38720.5,
+        "windowActiveHostMs": 23723.100001335144,
+        "windowElapsedHostMs": 35436.900000572205
+      },
+      "readsInputAndSolve": {
+        "count": 1142,
+        "sumMs": 18700.400005340576,
+        "maxMs": 179.20000004768372,
+        "bytes": 3938843296
+      },
+      "RAF": {
+        "count": 834,
+        "maxMs": 1170.2999999999956,
+        "over50": 301,
+        "over100": 189
+      },
+      "packedOperationInputSHA": "3aaa574d8d89b84b53081af4191f3bce8a77097d6197e29a3f774f40c418c604",
+      "hiddenDurationAfterUPMs": 0,
+      "tail1s": {
+        "at": 75363.5,
+        "ready": true,
+        "strictReady": true,
+        "latestSerial": 1,
+        "fifo": 0,
+        "canonical": false,
+        "owners": 0,
+        "error": ""
+      }
+    }
+  ],
+  "comparison": {
+    "priorOwnershipFixedBaselineRuntime": "c1b9468a",
+    "priorFirstWaveStrict2RAFMs": 167436.60000014305,
+    "priorFullGoalPlans": 8,
+    "newFirstWaveStrict2RAFMs": 15951.200000047684,
+    "newFullGoalPlans": 1,
+    "qualification": "Samefixedpointercommands/settingsSHA, differentgeneratedpackedgesture/seeds/timestamps. Characterization of schedulingfix andrealresponse, NOT strictidenticalrawmaterial A/B orpureGPUbenchmark."
+  },
+  "timingQualification": "PrimarycaptureUPbeforeenginehandler toUIfirstreadytimestamp validated2RAF. Independentobserver recordsactualsecondconfirmationRAF, differs4–23ms; bothlabelsretained. Stage plan event occursAFTERcapture/reference. Stageelapsed includesRAF/browser/GPUdriverwait; nestedactivehost/readtimings cannotbeaddedtogether. Instrumentedhostresponse, notpureGPU.",
+  "functionalResult": "PASS:4genuinegestures,1plan each,FIFO0/owners0,UIgoal=idle,asyncerrornone,GL0,sourceStabletrue. Normal+1stailunchanged.",
+  "performanceResult": "FAIL:15.93s/30.30s/9.27s independent,48.67s normal. No claimstandresponseisacceptable, no200msclaim.",
+  "limitations": "Samsungonly; no crossGPU/online/Undo/replaycorrectness claim. No modelpictureequivalenceclaimforindependentdiagnosticmode.",
+  "validation": "Ownedrunnernode--check0; nativeGPUgatesactual. ParentCPU/tsc gatesareseparate.",
+  "cleanup": "Allmeasuredcontexts+ownChromeMainbootstrapclosed; own15485targets0; ownCDPforward19336/reverse15485removedverifiedlistsEMPTY. USERCustomTab untouched. ExistingQAservices5383/5384/5385+backend4558 keptforreview;17protectedfixtures/auth retained. Ownregisteredactivecacheexpires23:07:51."
+}
