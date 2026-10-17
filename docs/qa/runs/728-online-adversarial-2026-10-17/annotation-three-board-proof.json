@@ -1,0 +1,280 @@
+{
+  "source": "ec218f98",
+  "scope": "Three real browser identities on independent lesson boards, true preview review exports, annotations and WC history. Desktop1600x1000; native phone/narrow-menu UX not covered.",
+  "functionalPass": true,
+  "cases": [
+    {
+      "name": "three-boards-seeded-with-real-exported-watercolor",
+      "seeded": [
+        {
+          "board": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+          "layer": "qa-annotation-62259298-01ce-4bea-834f-2be56536338d",
+          "proof": {
+            "layerId": "qa-annotation-62259298-01ce-4bea-834f-2be56536338d",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "00463ffaed940dfdb4a441c7b1ee579dcd43533abb30d21e6b2972f1771045bb",
+            "oracleHash": "00463ffaed940dfdb4a441c7b1ee579dcd43533abb30d21e6b2972f1771045bb",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 3092,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          "uploaded": {
+            "bytes": 256655,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 512,
+              "height": 512
+            }
+          }
+        },
+        {
+          "board": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+          "layer": "qa-annotation-3081a289-8409-4860-b1d3-bcbca32968f4",
+          "proof": {
+            "layerId": "qa-annotation-3081a289-8409-4860-b1d3-bcbca32968f4",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "8d6c76f0dbc095ad71d966640bd1df1d5d35a27ad2306f364248d3c189f4749a",
+            "oracleHash": "8d6c76f0dbc095ad71d966640bd1df1d5d35a27ad2306f364248d3c189f4749a",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 3092,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          "uploaded": {
+            "bytes": 256753,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 512,
+              "height": 512
+            }
+          }
+        },
+        {
+          "board": "efe76c8a-1436-443d-a29f-5d8fd86310a8",
+          "layer": "qa-annotation-208c31bc-8b3e-4176-a196-9db92133591f",
+          "proof": {
+            "layerId": "qa-annotation-208c31bc-8b3e-4176-a196-9db92133591f",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "5dcded4e1b6ea4f10ddbb9cc10c7e5ce3af51558b67ff9de3b8ca1fc0bc91701",
+            "oracleHash": "5dcded4e1b6ea4f10ddbb9cc10c7e5ce3af51558b67ff9de3b8ca1fc0bc91701",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 3092,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          "uploaded": {
+            "bytes": 256592,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 512,
+              "height": 512
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "early-actual-review-image-or-full-history-actor-0",
+      "board": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+      "reviewBoard": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+      "annotation": true,
+      "earlyHistory": true,
+      "history": 0,
+      "image": {
+        "width": 512,
+        "height": 512
+      },
+      "user": "6eb154e6-f85d-487d-ba93-110a8013b10c",
+      "at": 8330.100000023842
+    },
+    {
+      "name": "early-actual-review-image-or-full-history-actor-1",
+      "board": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+      "reviewBoard": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+      "annotation": true,
+      "earlyHistory": true,
+      "history": 0,
+      "image": {
+        "width": 512,
+        "height": 512
+      },
+      "user": "eb0660e7-d6a6-4653-89de-b5991c633ba0",
+      "at": 9362.799999952316
+    },
+    {
+      "name": "early-actual-review-image-or-full-history-actor-2",
+      "board": "efe76c8a-1436-443d-a29f-5d8fd86310a8",
+      "reviewBoard": "efe76c8a-1436-443d-a29f-5d8fd86310a8",
+      "annotation": true,
+      "earlyHistory": true,
+      "history": 0,
+      "image": {
+        "width": 512,
+        "height": 512
+      },
+      "user": "c0d7e415-ff7e-4b31-9bb7-a6239cda3511",
+      "at": 11589.40000000596
+    },
+    {
+      "name": "annotation-ink-real-pointer-undo-redo-on-third-board"
+    },
+    {
+      "name": "normal-mode-hydration-board-0",
+      "proof": {
+        "layerId": "qa-annotation-62259298-01ce-4bea-834f-2be56536338d",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "00463ffaed940dfdb4a441c7b1ee579dcd43533abb30d21e6b2972f1771045bb",
+        "oracleHash": "00463ffaed940dfdb4a441c7b1ee579dcd43533abb30d21e6b2972f1771045bb",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 3092,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    },
+    {
+      "name": "normal-mode-hydration-board-1",
+      "proof": {
+        "layerId": "qa-annotation-3081a289-8409-4860-b1d3-bcbca32968f4",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "9899db04c2e94c9d7bf2855ded6a261af97f5fe5a400f76266b787bb709b5673",
+        "oracleHash": "9899db04c2e94c9d7bf2855ded6a261af97f5fe5a400f76266b787bb709b5673",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 3092,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    },
+    {
+      "name": "normal-mode-hydration-board-2",
+      "proof": {
+        "layerId": "qa-annotation-208c31bc-8b3e-4176-a196-9db92133591f",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "5dcded4e1b6ea4f10ddbb9cc10c7e5ce3af51558b67ff9de3b8ca1fc0bc91701",
+        "oracleHash": "5dcded4e1b6ea4f10ddbb9cc10c7e5ce3af51558b67ff9de3b8ca1fc0bc91701",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 3092,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    },
+    {
+      "name": "board-local-watercolor-dry-undo-redo",
+      "dry": "625b32f3-5a43-443c-b3b5-bf336edb0e0d",
+      "undo": "625b32f3-5a43-443c-b3b5-bf336edb0e0d",
+      "redo": "625b32f3-5a43-443c-b3b5-bf336edb0e0d",
+      "proof": {
+        "layerId": "qa-annotation-62259298-01ce-4bea-834f-2be56536338d",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "a10c5356d92680196bb2aa82d427e702cb198c435d5c8f33e8492a978e02d0d3",
+        "oracleHash": "a10c5356d92680196bb2aa82d427e702cb198c435d5c8f33e8492a978e02d0d3",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 6185,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      },
+      "otherBoards": [
+        {
+          "board": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+          "ids": [
+            "3358ddcd-46be-433d-a159-494e1e5efad1",
+            "incaKwnMVT",
+            "0d076a7f-53fe-41c9-9931-1e84cd149050"
+          ]
+        },
+        {
+          "board": "efe76c8a-1436-443d-a29f-5d8fd86310a8",
+          "ids": [
+            "67a6e735-8054-4bf0-8029-6b2895299525",
+            "ENlIz4oAId",
+            "80381727-caca-4d81-aafc-929d7c004780",
+            "crxCRBv4o0",
+            "f1AOS0b6D2",
+            "JqvI4oebSu",
+            "_oUhMy3aQ7",
+            "6MRAxEFaEO",
+            "NrQO-Te09P"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "held-watercolor-switch-cancels-unrecorded-tail",
+      "board": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+      "scope": "Activate actual board control in-page while held, intentionally bypassing chrome pointer guard to exercise navigation cancellation; not a trusted second-pointer UX test"
+    },
+    {
+      "name": "board-zero-fresh-document-rejoin-preserves-history-and-actual",
+      "beforeOps": 7,
+      "afterOps": 7,
+      "beforePhysical": {
+        "layerId": "qa-annotation-62259298-01ce-4bea-834f-2be56536338d",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "a10c5356d92680196bb2aa82d427e702cb198c435d5c8f33e8492a978e02d0d3",
+        "oracleHash": "a10c5356d92680196bb2aa82d427e702cb198c435d5c8f33e8492a978e02d0d3",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 6185,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      },
+      "physical": {
+        "layerId": "qa-annotation-62259298-01ce-4bea-834f-2be56536338d",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "a10c5356d92680196bb2aa82d427e702cb198c435d5c8f33e8492a978e02d0d3",
+        "oracleHash": "a10c5356d92680196bb2aa82d427e702cb198c435d5c8f33e8492a978e02d0d3",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 6185,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      },
+      "strokes": [
+        {
+          "id": "1yUOTwkD_J",
+          "strokeId": "JJuCcwFF8Q"
+        },
+        {
+          "id": "7FlwyeA2QG",
+          "strokeId": "uVjy3WCKHq"
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "findings": [],
+  "harnessCorrections": [
+    "Early blob image may disappear on full hydration: captured atomically before history via preload load/MutationObserver; fast full hydration classified separately.",
+    "At1100px header folds Annotations/Boards into Menu. Primary gate widened1600px; responsive Menu remains separate queued check.",
+    "Final reload gate initially waited for dev handles without complete document/form handling; focused fresh-document rejoin through common load helper passes, only2recordedstrokes remain (held-switch tail absent)."
+  ],
+  "remaining": "Narrow Menu control routing and same-identity two tabs are queued; no claim for those."
+}
