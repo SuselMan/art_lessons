@@ -1,0 +1,16 @@
+// QA-only timing: no shader edits, GL synchronization, or operation wrappers.
+module.exports=async function installPhaseTiming(){
+ const rows=new Map(),restores=[];let arm='setup';
+ function measure(label,fn){const start=performance.now();try{return fn()}finally{const ms=performance.now()-start,key=arm+':'+label,row=rows.get(key)||{count:0,totalMs:0,maxMs:0,topMs:[]};row.count++;row.totalMs+=ms;row.maxMs=Math.max(row.maxMs,ms);row.topMs.push(ms);row.topMs.sort((a,b)=>b-a);row.topMs.length=Math.min(8,row.topMs.length);rows.set(key,row)}}
+ function wrap(object,label,methods){const cache=new Map();return new Proxy(object,{get(target,key){const value=Reflect.get(target,key,target);if(!methods.includes(key)||typeof value!=='function')return value;if(!cache.has(key))cache.set(key,function(...args){return measure(label+'.'+key,()=>value.apply(target,args))});return cache.get(key)}})}
+ function instrument(object,key,label,filter=()=>true){const descriptor=Object.getOwnPropertyDescriptor(object,key),original=object[key];if(typeof original!=='function')throw Error('Missing timing method '+label);const wrapped=function(...args){return filter(this)?measure(label,()=>original.apply(this,args)):original.apply(this,args)};Object.defineProperty(object,key,{configurable:true,writable:true,value:wrapped});restores.push(()=>{if(object[key]!==wrapped)throw Error('Timing wrapper ownership changed '+label);if(descriptor)Object.defineProperty(object,key,descriptor);else delete object[key]})}
+ const timing={wrap,instrument,setArm(value){arm=value},summary(){return{qualification:'Standalone QA transformed factories; nested timings overlap; observer overhead included; no responsiveness claim',rows:Object.fromEntries(rows)}},restore(){for(const restore of restores.reverse())restore()}};
+ globalThis.__qa747Timing=timing;
+ const url='/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts',response=await fetch(url);if(!response.ok)throw Error('Timing module fetch '+response.status);const original=await response.text();let patched=original;
+ for(const[name,label,methods]of [['createNativePuddleTarget','paged.native',['resetFromScratch','step','dry']],['createPagedContrastPhase','paged.contrast',['prepare','renderReference']],['createPagedBackgroundMix','paged.background',['capture','prepareSolved','reconstruct']]]){
+  const anchor=new RegExp('import\\s*\\{'+name+'(?=[,}])','g'),matches=[...patched.matchAll(anchor)];if(matches.length!==1)throw Error('Nonunique timing import '+name);patched=patched.replace(anchor,'import {'+name+' as __qaOriginal_'+name);patched+='\nconst '+name+'=(...args)=>globalThis.__qa747Timing.wrap(__qaOriginal_'+name+'(...args),'+JSON.stringify(label)+','+JSON.stringify(methods)+');\n';
+ }
+ patched=patched.replace(/(from\s*["'])(\/?[^"']+)(["'])/g,(all,prefix,spec,suffix)=>spec.startsWith('/')?prefix+location.origin+spec+suffix:all);
+ const sha=async text=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(x=>x.toString(16).padStart(2,'0')).join('');
+ const blob=URL.createObjectURL(new Blob([patched],{type:'text/javascript'}));try{globalThis.__qa747TimedPagedFactory=(await import(blob)).createPagedPuddleTarget;timing.module={url,originalSHA:await sha(original),patchedSHA:await sha(patched)}}finally{URL.revokeObjectURL(blob)}
+};
