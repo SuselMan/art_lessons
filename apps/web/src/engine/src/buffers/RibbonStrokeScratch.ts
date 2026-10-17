@@ -568,13 +568,12 @@ export class RibbonStrokeScratch {
       entry.strokeInk ??= this.pool.acquire(tile.width, tile.height)
       entry.inkBase ??= this.pool.acquire(tile.width, tile.height)
       entry.strokeInk.clear()
-      // Same-sized pooled storage already exists; copy all texels without redefining it.
-      entry.inkLoad.copyRegionInto(entry.inkBase,0,0,0,0,tile.width,tile.height)
+      entry.inkLoad.copyTo(entry.inkBase)
       if (entry.inkColor) {
         entry.strokeColor ??= this.pool.acquire(tile.width, tile.height)
         entry.colorBase ??= this.pool.acquire(tile.width, tile.height)
         entry.strokeColor.clear()
-        entry.inkColor.copyRegionInto(entry.colorBase,0,0,0,0,tile.width,tile.height)
+        entry.inkColor.copyTo(entry.colorBase)
       }
       entry.filmGesture = this.materialGesture
     }
@@ -622,7 +621,7 @@ export class RibbonStrokeScratch {
     if (entry.solventGesture !== this.materialGesture) {
       entry.strokeSolvent ??= this.pool.acquire(tile.width, tile.height)
       entry.solventBase ??= this.pool.acquire(tile.width, tile.height)
-      entry.strokeSolvent.clear(); entry.solventLoad.copyRegionInto(entry.solventBase,0,0,0,0,tile.width,tile.height)
+      entry.strokeSolvent.clear(); entry.solventLoad.copyTo(entry.solventBase)
       entry.solventGesture = this.materialGesture
     }
     return { load: entry.solventLoad, base: entry.solventBase!, film: entry.strokeSolvent! }

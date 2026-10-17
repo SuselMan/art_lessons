@@ -6,7 +6,6 @@ vi.mock('./AccumulationBuffer',()=>({AccumulationBuffer:class{
   constructor(_gl:unknown,w:number,h:number){this.width=w;this.height=h;this.pixels=new Uint8Array(w*h*4);memory.allocations++}
   clear(){this.pixels.fill(0)}
   copyTo(other:{pixels:Uint8Array}){memory.copies++;other.pixels.set(this.pixels)}
-  copyRegionInto(other:{pixels:Uint8Array}){this.copyTo(other)}
   readPixels(){return this.pixels.slice()}
   restorePixelsRect(_w:number,_h:number,pixels:Uint8Array){this.pixels.set(pixels)}
   destroy(){}
