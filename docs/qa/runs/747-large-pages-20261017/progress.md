@@ -227,3 +227,11 @@ Samsung rawcoverage3ee37518 DEFAULT and7flagscompact NativePaged all10stage/fina
 Updatedmode11highp preband-b crossGPU exacte0c3... andexactcorrectedmode11output, sohomecopy preservesit (proofb6f73452/f448fdb5). QA mode6highpsamplersONLY thenfixes all398R discrepancies, butremainingG7747/max230,B173/max36,A557/max1; fullband/finalNOTdeterministic. Notappshaderfix; laterround/noisecontrolsawaitreview.
 
 Outside-role cache QAdefaultOFF approvedsourceaudit, actualPlan199drawunchanged, clears199to31;11CPU/29actualwriter-matrix checksPASS. NumericalNative/PagednewnativeScopewiring underpreparation; noGPU/performancePASSyet.
+
+### 15:44 — clean A2 outside-cache still FAIL; allocation batch pending GPU
+
+Fixture16 CLEAN A2l3508x2480, app3ee37518 +7flags+scopedoutsidecache, bothgesturesUNPROFILED: seamUP3952ms/edge4414ms. DOWN78.8/32.1,MOVEsum49.7/7.4,max23.2/7.3,UPcallback116.1/26ms;RAFmax284.1/384.6ms,outerstepmax284.6/281.3. Read94/127calls741/961ms;evict101/110calls207/214ms;hydrate58/56calls11.6/41.2ms. Scope4/5:113clear687skip /140clear860skip,84/105runs=snapshots=detaches. NaturalgoalFIRST independentfullAPIall7+factoryOFF rawall5physicalROI/full/outside0,GL0/historyunchanged. Proofb2794c84. StillPERF_FAIL, nostrictspeedABdifferentfixtures.
+
+App3d9be901 allocation-only batch snapshot: PagedallocateMany6/8/3 captures3bindingsonce, eachmanagedctor restorescachebaselinebefore nextadmission. Native4outputconstructorblock andall8pinnedmodelkernelsunchanged. Root208tests17filesinclR32guardPASS, actualwebtypecheck0, oxlint0. DefaultSamsungall10 GPUgateRUN; no speedclaim. Memoryinput224/solve120 unchanged; noNativeoutputretention.
+
+#748 mode6highp+ROUND fixesR/A, remainsG7803max229/B176max36. NEUTRALrim diagnostic then fullBANDcrossGPUexactc51e4f1d...; notproductcandidate/artisticremoval. Canonicalexisting251latticeQAvariantapproveddefaultOFF andIntelcaseRUN, needspairbeforecausality/promotion. ActualSamsungEXT_disjoint_timer_query absent/null(GL0), repeatedemptycapabilitycontextclosed; nobarrierimplemented.
