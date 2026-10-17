@@ -8,6 +8,7 @@ import {extractMaterialTileRect,materialTileIntersection} from './MaterialTileCo
 import {createNativePuddleTarget,type PuddleTargetHost} from './PuddleTarget'
 import {createPagedContrastPhase,type PagedBufferFactory} from './PagedContrastPhase'
 import {createPagedBackgroundMix} from './PagedBackgroundMix'
+import {keepM70FixedGroup} from './M70FixedWindowSkip'
 import {m70WindowGroups} from './M70WindowGroups'
 import {APPROVED_M70_PARAMETERS} from './PuddleParameters'
 
@@ -15,6 +16,11 @@ import {APPROVED_M70_PARAMETERS} from './PuddleParameters'
  * Windows share global phases and immutable input; only their interiors commit.
  * The 640px halo is certified separately against the approved M70 pass graph. */
 export interface PagedPuddleInspection {
+ /** QA-only; default preserves the six-plane baseline. */
+ omitZeroForeignSolventLoad?:boolean
+ /** QA candidate only, default OFF: preserve all existing field/core geometry. */
+ skipEmptyFixedWindows?:boolean
+ windowSkipped?(field:MaterialRect,cores:readonly MaterialRect[]):void
  reference?(rect:MaterialRect,p:AccumulationBuffer,c:AccumulationBuffer):void
  windowReference?(rect:MaterialRect,p:AccumulationBuffer,c:AccumulationBuffer):void
  solved?(p:MaterialFieldSnapshot,c:MaterialFieldSnapshot,coverage:MaterialFieldSnapshot):void
@@ -62,13 +68,20 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
   const solvedP=new MaterialFieldPages(size),solvedC=new MaterialFieldPages(size),solvedCoverage=new MaterialFieldPages(size)
   const domain={width:Math.max(1536,Math.ceil(size.width/256)*256),height:Math.max(1536,Math.ceil(size.height/256)*256)}
   for(const window of m70WindowGroups(size,domain,612)){
+   if(inspect.skipEmptyFixedWindows===true&&!keepM70FixedGroup(size,window,raw.materialSupport)){
+    // Native output coverage is the captured contour, not the front's temporary coverage.
+    // Keep P/C pages zero; preserve exact raw coverage for every skipped core.
+    for(const core of window.cores){const interior={...core,y:size.height-core.y-core.height};solvedCoverage.writeRect(interior,raw.coverage.readRect(interior))}
+    inspect.windowSkipped?.(window.field,window.cores)
+    yield;continue
+   }
    // Certified geometry is world top-down; material snapshots are bottom-up.
    const {x:ox,y:oy}=window.field
    const rect={x:ox,y:size.height-oy-1536,width:1536,height:1536}
    const key=host.pool.acquire(1536,1536),windowSource=new RibbonStrokeScratch(host.pool,true,true)
    let native:ReturnType<typeof createNativePuddleTarget>|undefined
    try{
-    restorePagedPuddleWindow(raw,rect,windowSource,key,host.pool)
+    restorePagedPuddleWindow(raw,rect,windowSource,key,host.pool,{omitZeroForeignSolventLoad:inspect.omitZeroForeignSolventLoad})
     const context=source.finishContext;if(!context)throw Error('Missing paged finish context')
     const metadata=source.captureFinishMetadata()
     windowSource.gesture=source.gesture;for(const paint of source.paints)windowSource.paints.add(paint)
