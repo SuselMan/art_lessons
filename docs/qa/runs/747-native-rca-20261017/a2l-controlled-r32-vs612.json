@@ -1,0 +1,204 @@
+{
+  "diagnosticPhaseRequested": false,
+  "startedWallAt": 1792231364410,
+  "source": "aa12e9d8-controlledR32goal-vs612",
+  "geometry": {
+    "width": 3508,
+    "height": 2480
+  },
+  "cases": [
+    {
+      "name": "bootstrap-engine-available",
+      "wallAt": 1792231393676,
+      "elapsedMs": 28443
+    },
+    {
+      "name": "bootstrap-paper-ready",
+      "wallAt": 1792231393766,
+      "elapsedMs": 28534
+    },
+    {
+      "name": "bootstrap-initial-idle",
+      "wallAt": 1792231393809,
+      "elapsedMs": 28577
+    },
+    {
+      "name": "room-native-ready",
+      "wallAt": 1792231393898,
+      "roomReadyElapsedMs": 28666
+    },
+    {
+      "name": "RAF-foreground-probe",
+      "wallAt": 1792231399182,
+      "times": [
+        133.70000000000073,
+        100.20000000000073,
+        67,
+        66.89999999999782,
+        133.70000000000073,
+        83.60000000000218,
+        116.89999999999782,
+        217.40000000000146,
+        83.5,
+        100.39999999999782,
+        451.3000000000029,
+        16.799999999999272,
+        150.39999999999782,
+        16.80000000000291,
+        350.90000000000146,
+        167.29999999999563,
+        16.599999999998545,
+        16.80000000000291,
+        16.69999999999709,
+        167.20000000000437
+      ],
+      "hidden": false,
+      "visibility": "visible"
+    },
+    {
+      "name": "early-R32-controlled-cold",
+      "wallAt": 1792231399478,
+      "early": [
+        {
+          "applied": true,
+          "large": 0,
+          "existing": false,
+          "phaseDefault": true,
+          "page": {
+            "w": 3508,
+            "h": 2480
+          }
+        }
+      ]
+    },
+    {
+      "name": "cold-full-API-oracle",
+      "wallAt": 1792231427529,
+      "actualSource": "canonical-goal",
+      "actualCapturedBeforeOracle": true,
+      "oracleTightSupport32": false,
+      "oracleControllers": [
+        {
+          "type": "PagedPuddleRoomController",
+          "tightFlagAtCreation": false,
+          "createdWhilePuddleNull": true
+        }
+      ],
+      "oracleNativePrepare": 29,
+      "liveControllerRestored": true,
+      "liveTightFlagRestored": true,
+      "oracleLog": "complete-api",
+      "oracleOperationCount": 10,
+      "liveLogUnchanged": true,
+      "page": {
+        "width": 3508,
+        "height": 2480
+      },
+      "physicalChanged": 0,
+      "max": 0,
+      "alpha": 6045,
+      "tiles": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 2028
+        },
+        {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 300
+        },
+        {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 291
+        },
+        {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1559
+        },
+        {
+          "x": 3072,
+          "y": 2048,
+          "w": 436,
+          "h": 432,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1867
+        }
+      ],
+      "actualHash": "f1447bd69771282431c71cfe6a54953be943620387a19c68588ec8edd42f99f1",
+      "oracleHash": "f1447bd69771282431c71cfe6a54953be943620387a19c68588ec8edd42f99f1",
+      "glError": 0,
+      "historyCount": 10,
+      "localHistoryCount": 10,
+      "phase": {
+        "flag": true,
+        "owner": {
+          "generation": 0,
+          "activeLeases": 2,
+          "executing": 0,
+          "transitioning": false,
+          "phase": "solve",
+          "enabled": true
+        }
+      }
+    }
+  ],
+  "errors": [],
+  "navigationStartedWallAt": 1792231365232,
+  "inputLineage": {
+    "operations": [],
+    "controller": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 0,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "layerCount": 2
+  },
+  "pass": true,
+  "scope": "Read-only cold existing layer, no new operations; complete API oracle after physical capture",
+  "qualification": "Read-only freshcontext SAMEactualnewA2l layer, original10APIoperations unchanged. EarlyR32true beforelargecontroller/defaultphaseTRUE, naturalgoalready wait, noforcedgoal. LivecanonicalGOAL capturedFIRST, then flagfalse ONLYaroundisolatedfullAPIbake. NEWPagedcontroller instantiated whilepuddleNULL/flagFALSE withseparateplan,29actualNativeprepare vspreviousR32natural5. All5tiles exactlyequal/GL0. Liveflag/logobject/entryJSON/controllerobject restored; serverhistory unchanged. Nooperations/reset/delete. This is controlledsameinput R32-vs612 material proof, notperformancebenchmark or crossGPU proof. Reportphase snapshot was read before naturalgoalreadinesswait, not afterbaselinebake. Owncontextclosed/GPU0.",
+  "helperSHA256": {
+    "docs/qa/harness/747/actual-page-raster-proof.cjs": "d17e2f81246840d36fab939532ae2920aba1dd6568bca552998d50c18d4e4121",
+    "docs/qa/harness/747/finite-existing-android.cjs": "6838201b006861b64327121c526bfaf444799af3a2161d44d4d42cb508591ff6"
+  }
+}
