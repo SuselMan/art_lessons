@@ -1,0 +1,192 @@
+{
+  "source": "85e83641",
+  "scope": "Samsung trusted pen offline UP, independent SocketB WC, reconnect accepted-order convergence; B recorded input fixture, no second GPU",
+  "cases": [
+    {
+      "name": "offline-UP-reconnect",
+      "proof": {
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "f890bfd9f24f55ed1da137cb3f4025e5300404b85df5534ef3d42ca48fad0970",
+        "oracleHash": "f890bfd9f24f55ed1da137cb3f4025e5300404b85df5534ef3d42ca48fad0970",
+        "physicalHash": "907de060839dfaeb71599590af8fd305897ad999ac369bab25dfff6872cb7687",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 18469,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    },
+    {
+      "name": "later-dependent-B",
+      "proof": {
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "a1bf89bab19a5a9130e3cd4be7ec5c478ef8b6e0a26ee30ee5c3b82af8c3ce27",
+        "oracleHash": "a1bf89bab19a5a9130e3cd4be7ec5c478ef8b6e0a26ee30ee5c3b82af8c3ce27",
+        "physicalHash": "bea989eb338dbfcc83b2e738477dc948959044ad475583efcd3b1f6662e4deb4",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 23184,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    },
+    {
+      "name": "A-undo-with-dependent-B",
+      "proof": {
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "81e773f347c6a17a956d9e0d2e97eb65ec33a0c4764537f1ac83294803f996f1",
+        "oracleHash": "81e773f347c6a17a956d9e0d2e97eb65ec33a0c4764537f1ac83294803f996f1",
+        "physicalHash": "d083a89dc9b40ff86994fdaadf434bbfc6e8b1035ee59ce4ce37b1ed09eb32f2",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 21180,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    },
+    {
+      "name": "A-redo-no-double-pigment",
+      "proof": {
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "a1bf89bab19a5a9130e3cd4be7ec5c478ef8b6e0a26ee30ee5c3b82af8c3ce27",
+        "oracleHash": "a1bf89bab19a5a9130e3cd4be7ec5c478ef8b6e0a26ee30ee5c3b82af8c3ce27",
+        "physicalHash": "ea67730c352fc57d23003f7a0b09264c98e62684bffe9dbe420a0d3d726408b3",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 22231,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    },
+    {
+      "name": "fresh-context-rejoin",
+      "proof": {
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "a1bf89bab19a5a9130e3cd4be7ec5c478ef8b6e0a26ee30ee5c3b82af8c3ce27",
+        "oracleHash": "a1bf89bab19a5a9130e3cd4be7ec5c478ef8b6e0a26ee30ee5c3b82af8c3ce27",
+        "physicalHash": "5879e7b31c533d0b4820293bed6712896130bd66723260c8de157fcb460b7534",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 22191,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      },
+      "allAcceptedIdsPresent": true
+    }
+  ],
+  "errors": [],
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "gpuBudget": "314572800",
+    "scratchHolding": false,
+    "touch": 5,
+    "deviceMemory": 4,
+    "DPR": 2.125,
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "flags": {
+      "hidden": false,
+      "undoCache": false
+    }
+  },
+  "offline": {
+    "sockets": [
+      {
+        "state": 3
+      }
+    ],
+    "pending": [
+      {
+        "id": "_YMwAPbXRa",
+        "type": "stroke",
+        "strokeId": "YJdL4LXhX5"
+      }
+    ],
+    "strokeHeld": false
+  },
+  "bBeforeReconnect": {
+    "id": "4ac68dc8-e1f1-4e89-9912-a157a70e77ae",
+    "seq": 1
+  },
+  "acceptedOrder": [
+    {
+      "id": "4ac68dc8-e1f1-4e89-9912-a157a70e77ae",
+      "type": "stroke",
+      "userId": "f7aa715d-6f93-4067-a497-5389c746d101",
+      "strokeId": "4ac68dc8-e1f1-4e89-9912-a157a70e77ae",
+      "state": "done",
+      "serverSeq": 1
+    },
+    {
+      "id": "_YMwAPbXRa",
+      "type": "stroke",
+      "userId": "e067aded-b6d7-4e33-88e0-8b40c1a67888",
+      "strokeId": "YJdL4LXhX5",
+      "state": "done",
+      "serverSeq": 2,
+      "pending": false
+    }
+  ],
+  "reconnectState": {
+    "unsettled": [],
+    "pending": [],
+    "jobs": 0,
+    "queue": 0,
+    "wash": null,
+    "source": {
+      "gesture": "YJdL4LXhX5",
+      "timestamp": 1792204157242,
+      "epoch": 2,
+      "dirty": false,
+      "goalReady": true
+    }
+  },
+  "apiHistory": [
+    {
+      "id": "4ac68dc8-e1f1-4e89-9912-a157a70e77ae",
+      "seq": 1,
+      "type": "stroke",
+      "timestamp": 1792204157206
+    },
+    {
+      "id": "_YMwAPbXRa",
+      "seq": 2,
+      "type": "stroke",
+      "timestamp": 1792204157242
+    }
+  ],
+  "undoStates": [
+    {
+      "id": "4ac68dc8-e1f1-4e89-9912-a157a70e77ae",
+      "state": "done"
+    },
+    {
+      "id": "_YMwAPbXRa",
+      "state": "undone"
+    },
+    {
+      "id": "4281029e-5dda-4385-b3e4-326d927a12e9",
+      "state": "done"
+    }
+  ],
+  "pass": true,
+  "cleanup": {
+    "ownContextsClosed": true,
+    "nodePeerSocketClosed": true,
+    "originalTabRestored": true,
+    "ownerFixtureDeleted": 200,
+    "privateAuthRemoved": true,
+    "sharedForwardRetained": true
+  },
+  "harnessSha256": "51c08cc2 source before narrow empty-oracle followups (no empty oracle reached)"
+}
