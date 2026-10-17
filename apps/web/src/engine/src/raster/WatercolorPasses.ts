@@ -1,6 +1,6 @@
 import { withDiscreteGrid } from './discreteGridSampling'
 import { WatercolorMaterialReconstruction } from './WatercolorMaterialReconstruction'
-import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_ADD_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_BRUSH_JUMP_FRAG, WC_RESAMPLE_FRAG } from './shaders'
+import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_ADD_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_M70_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_BRUSH_JUMP_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
 import { createWatercolorFrontPaths } from './WatercolorFrontPaths'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -31,6 +31,8 @@ export class WatercolorPasses {
   private readonly _additiveZeroFaceCarry = new Map<15 | 16, { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number }>()
 
   private _plainAdd: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } | null = null
+
+  private _m70Field: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } | null = null
 
   private _gradientField: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } | null = null
 
@@ -116,10 +118,11 @@ export class WatercolorPasses {
     // combined control flow crashes the Galaxy Tab's Adreno linker.
     const gradient = mode === 1 && opts.gradientFibres && !!opts.world?.[2] ? this.gradientField() : null
     const additive = opts.additiveZeroFaces && (mode === 15 || mode === 16) ? this.additiveZeroFaceCarry(mode) : null
+    const m70 = mode === 6 && opts.discreteGrid ? this.m70Field() : null
     const high = mode >= 10
-    const prog = gradient ? gradient.program : additive ? additive.program : mode === 15 ? this._fieldOpCarryProg : mode === 16 ? this._fieldOpCarryColourProg : high ? this._fieldOpHighProg : this._fieldOpProg
-    const u = gradient ? gradient.uniforms : additive ? additive.uniforms : mode === 15 ? this._fieldOpCarryUni : mode === 16 ? this._fieldOpCarryColourUni : high ? this._fieldOpHighUni : this._fieldOpUni
-    const pos = gradient ? gradient.position : additive ? additive.position : mode === 15 ? this._fieldOpCarryPosLoc : mode === 16 ? this._fieldOpCarryColourPosLoc : high ? this._fieldOpHighPosLoc : this._fieldOpPosLoc
+    const prog = gradient ? gradient.program : m70 ? m70.program : additive ? additive.program : mode === 15 ? this._fieldOpCarryProg : mode === 16 ? this._fieldOpCarryColourProg : high ? this._fieldOpHighProg : this._fieldOpProg
+    const u = gradient ? gradient.uniforms : m70 ? m70.uniforms : additive ? additive.uniforms : mode === 15 ? this._fieldOpCarryUni : mode === 16 ? this._fieldOpCarryColourUni : high ? this._fieldOpHighUni : this._fieldOpUni
+    const pos = gradient ? gradient.position : m70 ? m70.position : additive ? additive.position : mode === 15 ? this._fieldOpCarryPosLoc : mode === 16 ? this._fieldOpCarryColourPosLoc : high ? this._fieldOpHighPosLoc : this._fieldOpPosLoc
     gl.useProgram(prog)
     if (gradient) this.ctx.stamps().bindNoise(u.u_wcFibreNoiseTex)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
@@ -152,7 +155,7 @@ export class WatercolorPasses {
     gl.uniform1f(u.u_k, k)
     gl.uniform1f(u.u_mode, mode)
     gl.uniform2f(u.u_dir, opts.dir ? opts.dir[0] / out.width : 0, opts.dir ? opts.dir[1] / out.height : 0)
-    if (mode === 6) {
+    if (m70) {
       gl.uniform1f(u.u_mode6DiscreteGrid, opts.discreteGrid ? 1 : 0)
       gl.uniform2f(u.u_mode6Resolution, out.width, out.height)
       gl.uniform2f(u.u_mode6DirPx, opts.dir ? opts.dir[0] : 0, opts.dir ? opts.dir[1] : 0)
@@ -472,6 +475,30 @@ export class WatercolorPasses {
     this._plainAdd = null
   }
 
+  private m70Field(): NonNullable<WatercolorPasses['_m70Field']> {
+    if (!this._m70Field) {
+      const { gl } = this
+      const program = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_M70_FRAG)
+      try {
+        this._m70Field = {
+          program,
+          uniforms: getUniforms(gl, program, [...Object.keys(this._fieldOpUni), 'u_mode6Resolution', 'u_mode6DirPx', 'u_mode6DiscreteGrid']),
+          position: gl.getAttribLocation(program, 'a_position'),
+        }
+      } catch (error) { gl.deleteProgram(program); throw error }
+    }
+    return this._m70Field
+  }
+
+  private releaseM70Field(): void {
+    const cached = this._m70Field
+    if (!cached) return
+    const { gl } = this
+    if (gl.getParameter(gl.CURRENT_PROGRAM) === cached.program) gl.useProgram(null)
+    if (gl.isProgram?.(cached.program) !== false) gl.deleteProgram(cached.program)
+    this._m70Field = null
+  }
+
   private gradientField(): NonNullable<WatercolorPasses['_gradientField']> {
     if (!this._gradientField) {
       const { gl } = this
@@ -530,6 +557,7 @@ export class WatercolorPasses {
     // Context restoration invalidates the optional cached program too.
     this.releasePlainAdd()
     this.releaseGradientField()
+    this.releaseM70Field()
     this.releaseCostDomain()
     this.releaseAdditiveZeroFaceCarry()
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
@@ -552,7 +580,7 @@ export class WatercolorPasses {
 
   initFieldUniforms(): void {
     const { gl } = this
-    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world', 'u_mode6Resolution', 'u_mode6DirPx', 'u_mode6DiscreteGrid'])
+    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
     this._fieldOpHighUni = getUniforms(gl, this._fieldOpHighProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world'])
     this._fieldOpCarryUni = getUniforms(gl, this._fieldOpCarryProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world', 'u_path', 'u_pathEnabled'])
     this._fieldOpCarryColourUni = getUniforms(gl, this._fieldOpCarryColourProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world', 'u_path', 'u_pathEnabled'])
@@ -591,11 +619,12 @@ export class WatercolorPasses {
     // A final field pass may still be active when a connected canvas is retired.
     const current = this.gl.getParameter(this.gl.CURRENT_PROGRAM)
     if ([this._fieldOpProg, this._fieldOpHighProg, this._fieldOpCarryProg, this._fieldOpCarryColourProg,
-      this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg, this._gradientField?.program, this._costDomain?.program, this._brushJump?.program].includes(current)) {
+      this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg, this._m70Field?.program, this._gradientField?.program, this._costDomain?.program, this._brushJump?.program].includes(current)) {
       this.gl.useProgram(null)
     }
     this.releasePlainAdd()
     this.releaseGradientField()
+    this.releaseM70Field()
     this.releaseCostDomain()
     this.releaseAdditiveZeroFaceCarry()
     this.gl.deleteProgram(this._fieldOpProg)

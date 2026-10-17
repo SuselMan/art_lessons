@@ -39,16 +39,18 @@ it('restores earlier inputs when a later input hydration fails',()=>{
  expect(f.src.pointSampling).toBe(false)
  }finally{f.destroy()}
 })
-it('manual mode6 flag resets on the next legacy call; legacy does not change filters',()=>{
+it('M70 manual mode6 uses its own program; next legacy call keeps frozen program and filters',()=>{
  const f=fixture();try{
  const flag=vi.spyOn(f.gl,'uniform1f'),draw=vi.spyOn(f.gl,'drawArrays').mockImplementation(()=>{expect(f.src.pointSampling).toBe(true)})
  f.passes.fieldOp(f.dst,f.src,f.src,6,0,{c:f.gate,d:f.src,dir:[1,1],discreteGrid:true})
  expect(flag.mock.calls.some(([u,v])=>String((u as unknown as {name?:string})?.name).includes('mode6DiscreteGrid')&&v===1)).toBe(true)
+ const m70Program=f.gl.getParameter(f.gl.CURRENT_PROGRAM)
  expect(f.src.pointSampling).toBe(false)
  draw.mockImplementation(()=>{expect(f.src.pointSampling).toBe(false)})
  f.passes.fieldOp(f.dst,f.src,f.src,6,0,{c:f.gate,d:f.src,dir:[1,1]})
  const values=flag.mock.calls.filter(([u])=>String((u as unknown as {name?:string})?.name).includes('mode6DiscreteGrid')).map(([,v])=>v)
- expect(values).toEqual([1,0])
+ expect(values).toEqual([1])
+ expect(f.gl.getParameter(f.gl.CURRENT_PROGRAM)).not.toBe(m70Program)
  }finally{f.destroy()}
 })
 it.each([1,6] as const)('field mode %s closes draw and restores all aliases after draw throw',mode=>{

@@ -5,7 +5,7 @@ import {RibbonStrokeScratch} from '../../buffers/RibbonStrokeScratch'
 import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
 import {ribbonProfileFor} from '../../dabs/ribbonProfile'
 import {M70DependencyGraph,m70FieldReads,m70WindowGeometry,m70Windows} from './M70WindowPolicy'
-import {WC_FIELD_OP_FRAG,WC_DIFFUSE_FRAG,WC_WATER_FRONT_FRAG} from '../../raster/shaders'
+import {WC_FIELD_OP_FRAG,WC_FIELD_OP_M70_FRAG,WC_DIFFUSE_FRAG,WC_WATER_FRONT_FRAG} from '../../raster/shaders'
 
 for(const twoPaints of [false,true])it(`bounds the actual radius40 M70 operator graph including linear supports (twoPaints=${twoPaints})`,()=>{
  const {engine}=createTestEngine({paper:'flat'},{width:1024,height:1024})
@@ -84,8 +84,9 @@ it('tracks aliases as pre-write versions and includes bilinear support',()=>{
 // Explicit mode6 bilinear uses four nearest taps within the existing 10+1 bound.
 // The graph keeps conservative linear supports for the other data-field reads.
 it('pins shader source sampling contracts until this proof is reviewed',()=>{
- expect([WC_FIELD_OP_FRAG,WC_DIFFUSE_FRAG,WC_WATER_FRONT_FRAG].map(source=>createHash('sha256').update(source).digest('hex'))).toMatchInlineSnapshot(`
+ expect([WC_FIELD_OP_FRAG,WC_FIELD_OP_M70_FRAG,WC_DIFFUSE_FRAG,WC_WATER_FRONT_FRAG].map(source=>createHash('sha256').update(source).digest('hex'))).toMatchInlineSnapshot(`
    [
+     "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
      "b53ec815e0e503925fa25ec9ac2f7105d6d79dd102a36dfa9f68953ae68c2461",
      "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
      "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
