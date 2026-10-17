@@ -207,3 +207,38 @@ it('a previously scheduled wet replay cannot swap over a later foreign pencil ta
   expect(Array.from(readTilePixels(engine,'L',0,0,32,32)!)).toEqual(Array.from(replay))
  }finally{engine.destroy()}
 })
+it('a wet replay waiting for foreign eraser input does not deadlock Dry on another layer',async()=>{
+ const {engine,state}=await setup(false,true,true)
+ const work=state as unknown as {_startRebuildJob(id:string):void;_rebuildJobs:Map<string,{timer:ReturnType<typeof setTimeout>}>;_stepRebuildJob(job:unknown):void;_opQueue:unknown[];_flushOpQueue():void}
+ const controller=state._puddle as unknown as {frame(at:number):void}
+ try{
+  engine.appendOperation(makeLayerAdd('B','K'),'remote')
+  engine.appendOperation({...fillStroke('B','K',8,8,4),tool:'watercolor',preset:'normal:80:60:PB29:round:wc@m70-r2-v1',strokeId:'K-wet',washId:'m70:K',timestamp:Date.now()},'remote')
+  work._startRebuildJob('L')
+  const dabs=[dab(27,27,{size:9,opacity:1,pressure:1})]
+  engine.appendPeerLiveDabs('C',{strokeId:'blocked-eraser',layerId:'L',tool:'eraser',preset:'HB',color:[0,0,0],packetSeq:0,dabs})
+  engine.appendOperation({id:'dry-K',type:'paper_dry',userId:'B',layerId:'K',timestamp:Date.now()},'remote')
+  expect(state._puddle.state.drying).toBe(true)
+  engine.endPeerLiveStroke('C','blocked-eraser')
+  const eraser=makeStroke('C','L',dabs,{id:'blocked-eraser-op',tool:'eraser',strokeId:'blocked-eraser',color:[0,0,0]})
+  engine.appendOperation(eraser,'remote')
+  expect(work._opQueue.length).toBeGreaterThan(0)
+  const physical=readTilePixels(engine,'L',0,0,32,32)!.slice()
+  for(const job of [...work._rebuildJobs.values()]){clearTimeout(job.timer);work._stepRebuildJob(job)}
+  expect(Array.from(readTilePixels(engine,'L',0,0,32,32)!)).toEqual(Array.from(physical))
+  for(let i=0;i<30;i++){
+   for(const job of [...work._rebuildJobs.values()]){clearTimeout(job.timer);work._stepRebuildJob(job)}
+   controller.frame(performance.now()+i*10000)
+   work._flushOpQueue()
+  }
+  expect.soft(work._opQueue).toHaveLength(0)
+  expect.soft(work._rebuildJobs.size).toBe(0)
+  expect.soft(state._puddle.state.drying).toBe(false)
+  expect(state._log.entries.some(entry=>entry.op.id===eraser.id)).toBe(true)
+  const target=state._layers.get('L')!
+  const canonical=state._puddle.hasMaterial(target)?state._puddle.canonicalTiles(target)![0].buffer.readPixels():readTilePixels(engine,'L',0,0,32,32)!
+  const encoded=engine.bakeLayerByFullReplay('L')
+  const replay=encoded?decodeLayerTiles(encoded,0).tiles[0].pixels:new Uint8Array(4096)
+  expect(Array.from(canonical)).toEqual(Array.from(replay))
+ }finally{engine.destroy()}
+})
