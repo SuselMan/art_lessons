@@ -1,0 +1,117 @@
+{
+  "source": "ed934037-global-uv-dedup-dirty",
+  "transport": "raw Android CDP; exact shared browser function",
+  "stageDiffs": {
+    "referenceP": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "296307e2da1afefbe809c3a59087eda0f733d255795253496afc7ca0a6f389b6",
+      "referenceHash": "296307e2da1afefbe809c3a59087eda0f733d255795253496afc7ca0a6f389b6"
+    },
+    "referenceC": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "9d206eb828e46ec7051d0fe90ea0b2460c19f8bc776cbedb6de84cde1b288b4f",
+      "referenceHash": "9d206eb828e46ec7051d0fe90ea0b2460c19f8bc776cbedb6de84cde1b288b4f"
+    },
+    "solvedP": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "573454b17dae6382c268f9033fbb6140d5a3fc4a26e1bf0221f19e6ff551e4ae",
+      "referenceHash": "573454b17dae6382c268f9033fbb6140d5a3fc4a26e1bf0221f19e6ff551e4ae"
+    },
+    "solvedC": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "9edd38656f30d8a7b6fbb44b4f07de624aba43da126b3ec261dd45ad7217b8e7",
+      "referenceHash": "9edd38656f30d8a7b6fbb44b4f07de624aba43da126b3ec261dd45ad7217b8e7"
+    },
+    "solvedCoverage": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214",
+      "referenceHash": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214"
+    },
+    "coarse:gate": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "2901c5ec5e67b3be424208232336f4221d45fff4175838e9edad3bcdc313e1dc",
+      "referenceHash": "2901c5ec5e67b3be424208232336f4221d45fff4175838e9edad3bcdc313e1dc"
+    },
+    "coarse:beforeP": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "ef4fb6e0764668dbc1d060a4a44876afc6ef5a409d0c61bae690bd4b0a2fb225",
+      "referenceHash": "ef4fb6e0764668dbc1d060a4a44876afc6ef5a409d0c61bae690bd4b0a2fb225"
+    },
+    "coarse:afterP": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "107dc6d6ddc4d80b687a553e7cd23271a2dab7d8c963026e2a114a0d011786e9",
+      "referenceHash": "107dc6d6ddc4d80b687a553e7cd23271a2dab7d8c963026e2a114a0d011786e9"
+    },
+    "coarse:beforeC": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "2a5366a055554430fc251b50d23cc8122452e4f6c71010dea17c6272ae4dddc6",
+      "referenceHash": "2a5366a055554430fc251b50d23cc8122452e4f6c71010dea17c6272ae4dddc6"
+    },
+    "coarse:afterC": {
+      "changed": 0,
+      "max": 0,
+      "actualHash": "3338288e0cd26858e8458eb9dd5d7beb503f6001d8ee1f789bf3803b7c822934",
+      "referenceHash": "3338288e0cd26858e8458eb9dd5d7beb503f6001d8ee1f789bf3803b7c822934"
+    }
+  },
+  "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+  "size": 1536,
+  "inputHashes": {
+    "p": "088d44b0a654b21c2fa37aa10bdaea9be502c587c117bb2a35aeda96bbf10c8a",
+    "c": "2c690c2d6e2cd5042c0c4d439e5bb1114b10518ff86616c261350de37b0f7d93",
+    "coverage": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214",
+    "water": "12d0114d4d8ff826948a2eb1dc51cabd4915faef81c36fe8727f9b6b0c7d373f"
+  },
+  "reference": {
+    "ms": 820.5,
+    "steps": 23,
+    "gl": 0
+  },
+  "actual": {
+    "ms": 2784.5,
+    "steps": 11,
+    "gl": 0
+  },
+  "diffs": {
+    "p": {
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "be34b004bc1fd908f8a41426dc3eb48816e091c6ac3ad9ea4c7805fce78cdb0b",
+      "referenceHash": "be34b004bc1fd908f8a41426dc3eb48816e091c6ac3ad9ea4c7805fce78cdb0b"
+    },
+    "c": {
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "2d4fc8468a2dc2c4cf89a9c9d8d4cb681b002e46d1c908bbccc8da82d35628c7",
+      "referenceHash": "2d4fc8468a2dc2c4cf89a9c9d8d4cb681b002e46d1c908bbccc8da82d35628c7"
+    },
+    "coverage": {
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "691cd783f8a78c7304d5206372c6555795adb68b754aeb83caf996e7ed267563",
+      "referenceHash": "691cd783f8a78c7304d5206372c6555795adb68b754aeb83caf996e7ed267563"
+    }
+  },
+  "lost": false,
+  "sequential": true,
+  "errors": [],
+  "sourceHead": "6cddeca210b1874b1b0b2648aac47415948835fa",
+  "dirtyRuntimeSha256": {},
+  "harnessSha256": {
+    "docs/qa/harness/747/native-paged-ab.cjs": "64c86a3b9ee809f9cdb8075f394becb5cd92eee3986ea3f5823951a61006b7aa",
+    "docs/qa/harness/747/native-paged-ab-android.cjs": "26d65c2663b0f4f51bf55c469393dd554d865275bacb0833ebcab73bb86dd4bb"
+  },
+  "qualification": "Same Adreno context sequential synthetic immutable raw material. Exact within-device monolithic/paged1536; not crossGPU and not public large-page authoring proof."
+}
