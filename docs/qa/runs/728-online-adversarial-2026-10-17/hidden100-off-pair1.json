@@ -272,7 +272,8 @@
     "changedChannels": 0,
     "liveHash": "b518926df3e2997eb0e0fcd0e399ca9cc683c2cf09039efd1102de87bf52c345",
     "targetHash": "b518926df3e2997eb0e0fcd0e399ca9cc683c2cf09039efd1102de87bf52c345",
-    "liveMatchesTarget": true
+    "liveMatchesTarget": true,
+    "oracleHiddenReplay": false
   },
   "pass": true,
   "assessment": "Single pair on one Intel device with intrusive 8x8 natural-screen-cache polling each RAF until firstchange; same original100 SPEC, random actual stroke identities differ. Each final physical target equals own fullReplay. Swap is submission/rebuild boundary, screenshot completion includes CDP/SSH transport. Legacy readyDisplay remains null, no invented ready timing."

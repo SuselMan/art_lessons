@@ -272,8 +272,9 @@
     "changedChannels": 0,
     "liveHash": "54de84b1c522e2b35efc84c480c077a5eb916e11d3220b0fd5dda829d36b378b",
     "targetHash": "54de84b1c522e2b35efc84c480c077a5eb916e11d3220b0fd5dda829d36b378b",
-    "liveMatchesTarget": true
+    "liveMatchesTarget": true,
+    "oracleHiddenReplay": true
   },
   "pass": true,
-  "assessment": "Single pair on one Intel device with intrusive 8x8 natural-screen-cache polling each RAF until firstchange; same original100 SPEC, random actual stroke identities differ. Each final physical target equals own fullReplay. Swap is submission/rebuild boundary, screenshot completion includes CDP/SSH transport. Legacy readyDisplay remains null, no invented ready timing."
+  "assessment": "Single pair on one Intel device with intrusive 8x8 natural-screen-cache polling each RAF until firstchange; same original100 SPEC, random actual stroke identities differ. Each final physical target equals own fullReplay. Swap is submission/rebuild boundary, screenshot completion includes CDP/SSH transport. Legacy readyDisplay remains null, no invented ready timing. CORRECTION: pair1 ON fullReplay inherited hiddenReplay ON. It proves own ON replay consistency, not OFF-baseline art equality. Timing remains valid; following pairs explicitly force oracle OFF."
 }

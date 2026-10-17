@@ -28,5 +28,9 @@
     true,
     true
   ],
-  "assessment": "ON swap about29% lower in this single pair; insufficient for enabling production. Two further pairs without between-Undo-and-screenshot readPixels and additional lifecycle gates are queued."
+  "assessment": "ON swap about29% lower in this single pair; insufficient for enabling production. Two further pairs without between-Undo-and-screenshot readPixels and additional lifecycle gates are queued. Pair1 ON oracle inherited ON, art equivalence with OFF is NOT claimed; same-input material gate is separately positive.",
+  "oracleModes": {
+    "OFF": "OFF",
+    "ON": "ON inherited, not OFF-independent verification"
+  }
 }
