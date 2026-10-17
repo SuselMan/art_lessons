@@ -1,0 +1,267 @@
+{
+  "source": "85e83641",
+  "traceDiagnostic": true,
+  "enabled": true,
+  "scope": "Open wet Undo prototype cost; actual trusted pen event + natural screen-cache ROI; no forced presentation",
+  "errors": [
+    {
+      "actor": 0,
+      "message": "Native puddle target requires exclusive settle-field ownership"
+    }
+  ],
+  "identity": [
+    {
+      "page": {
+        "w": 1024,
+        "h": 1024
+      },
+      "DPR": 1.5,
+      "touch": 1,
+      "budget": "Infinity",
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "prototypeField": true
+    },
+    {
+      "page": {
+        "w": 1024,
+        "h": 1024
+      },
+      "DPR": 1.5,
+      "touch": 1,
+      "budget": "Infinity",
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "prototypeField": true
+    }
+  ],
+  "spec": {
+    "prefix": 100,
+    "authors": 2,
+    "prefixDabs": 0,
+    "prefixInput": "manual engine pointer callbacks",
+    "blue": [
+      0.1,
+      0.25,
+      0.8
+    ],
+    "size": 32,
+    "water": 0.95,
+    "pigment": 0.34,
+    "moves": 4,
+    "deltaX": 4,
+    "lastRed": {
+      "x": 650,
+      "y": 650
+    },
+    "newGesture": {
+      "input": "trusted CDP pen",
+      "moves": 4,
+      "deltaXCSS": 3,
+      "force": 0.75
+    },
+    "DPR": 1.5,
+    "hasTouch": true
+  },
+  "specSHA": "3242b6ed5cedee9c907174969ae3dcc332068d3cb9983bbc53d5518e3442aee7",
+  "before": {
+    "point": {
+      "x": 541.757004337313,
+      "y": 531.0903173255941
+    },
+    "before": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 7,
+      "computations": 10,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 92,
+          "ready": true,
+          "active": true
+        }
+      ]
+    }
+  },
+  "metrics": {
+    "before": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 7,
+      "computations": 10,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 92,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "traceNoReadback": true,
+    "trace": [
+      {
+        "method": "restoreUndo",
+        "at": 29311.69999998808,
+        "layer": "layer-1",
+        "restoreUndo": true,
+        "source": {
+          "epoch": 92,
+          "dirty": false,
+          "goalReady": true,
+          "active": false
+        },
+        "closing": false,
+        "unsettled": false,
+        "pendingRebuild": false,
+        "rebuildJob": false,
+        "state": {
+          "undoCaptureLastMs": 128.7000000178814,
+          "undoRestoreLastMs": 12.599999994039536,
+          "undoCaptures": 1,
+          "undoHits": 1,
+          "layers": 1,
+          "residentLayers": 1,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 7,
+          "computations": 11,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 92,
+              "ready": true,
+              "active": false
+            }
+          ]
+        },
+        "last": [
+          {
+            "id": "Z5BaM5AFHf",
+            "type": "stroke",
+            "state": "done",
+            "seq": 99
+          },
+          {
+            "id": "vOKT5NzYl8",
+            "type": "stroke",
+            "state": "done",
+            "seq": 100
+          },
+          {
+            "id": "tNLSpRRXf8",
+            "type": "stroke",
+            "state": "undone",
+            "pending": false,
+            "seq": 101
+          },
+          {
+            "id": "UnRPdcBvgN",
+            "type": "operation_undo",
+            "state": "done",
+            "pending": true
+          }
+        ],
+        "stack": "Error\n    at record (eval at evaluate (:311:30), <anonymous>:1:3233)\n    at c.restoreUndo (eval at evaluate (:311:30), <anonymous>:1:3574)\n    at PencilEngine._applyHistoryChange (<qa-origin>/src/engine/index.ts?t=1792204079510:3593:44)\n    at host.<computed> [as _applyHistoryChange] (eval at evaluate (:311:30), <anonymous>:1:3473)\n    at PencilEngine._appendOperationNow (<qa-origin>/src/engine/index.ts?t=1792204079510:2359:62)\n    at PencilEngine.appendOperation (<qa-origin>/src/engine/index.ts?t=1792204079510:1890:8)\n    at PencilEngine.undo (<qa-origin>/src/engine/index.ts?t=1792204079510:2569:8)\n    at e.undo (eval at evaluate (:311:30), <anonymous>:1:1526)\n    at <qa-origin>/src/pages/Room/useOperationDispatch.ts?t=1792204079510:181:37\n    at Object.undo (<qa-origin>/src/pages/Room/index.tsx?t=1792204079510:1560:9)"
+      }
+    ],
+    "downAt": 27453,
+    "downCPU": 131.90000000596046,
+    "afterDown": {
+      "undoCaptureLastMs": 128.7000000178814,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 1,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 25166944,
+      "drying": false,
+      "cancellations": 7,
+      "computations": 10,
+      "pending": true,
+      "revisions": [
+        {
+          "epoch": 93,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "undoBefore": {
+      "undoCaptureLastMs": 128.7000000178814,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 1,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 25166944,
+      "drying": false,
+      "cancellations": 7,
+      "computations": 11,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 93,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "undoAt": 29292.09999999404,
+    "undoCPU": 20.80000001192093,
+    "readyDisplayMs": 101.69999998807907,
+    "readyDisplayCompleteMs": 101.90000000596046,
+    "idleCompleteMs": 103.19999998807907,
+    "idlePlusTwoRAFsMs": 125.90000000596046,
+    "after": {
+      "undoCaptureLastMs": 128.7000000178814,
+      "undoRestoreLastMs": 12.599999994039536,
+      "undoCaptures": 1,
+      "undoHits": 1,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 7,
+      "computations": 11,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 92,
+          "ready": true,
+          "active": false
+        }
+      ]
+    }
+  },
+  "goal": {
+    "readMs": 13.100000023841858,
+    "bytes": 4194304,
+    "canonicalHash": "5461262bfbdf0f8237c0fb9f79ba072cb03d0937ba41e6f94e5414880b0a0159",
+    "oracleHash": "b41b1cd45faef5afd484f47635b30534488838d5c029c2affe4e05e8e0d5a7d4",
+    "changed": 5209,
+    "max": 28,
+    "glError": 0
+  },
+  "pass": false,
+  "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n5209 !== 0\n\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/open-wet-undo-cost.cjs:7:896",
+  "qualification": "Diagnostic CPU undo-cache flag explicitly ON; default OFF unaffected. One real AMD GPU with two browser authors, shared VPS CPU tests; trace is not clean performance benchmark. Old extra-computation symptom not reproduced (11 before/after Undo). New prototype canonical mismatch and exclusive ownership pageerror remain unresolved.",
+  "scopeLimit": "Prefix100 engine callback gestures; new101 is trusted CDP pen. Trace readback disabled until settle, then canonical target captured before full replay. This is not original100 foreign-Dry workload."
+}
