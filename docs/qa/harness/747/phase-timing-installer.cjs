@@ -8,7 +8,7 @@ module.exports=async function installPhaseTiming(){
  globalThis.__qa747Timing=timing;
  const url='/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts',response=await fetch(url);if(!response.ok)throw Error('Timing module fetch '+response.status);const original=await response.text();let patched=original;
  for(const[name,label,methods]of [['createNativePuddleTarget','paged.native',['resetFromScratch','step','dry']],['createPagedContrastPhase','paged.contrast',['prepare','renderReference']],['createPagedBackgroundMix','paged.background',['capture','prepareSolved','reconstruct']]]){
-  const anchor=new RegExp('import\\s*\\{'+name+'(?=[,}])','g'),matches=[...patched.matchAll(anchor)];if(matches.length!==1)throw Error('Nonunique timing import '+name);patched=patched.replace(anchor,'import {'+name+' as __qaOriginal_'+name);patched+='\nconst '+name+'=(...args)=>globalThis.__qa747Timing.wrap(__qaOriginal_'+name+'(...args),'+JSON.stringify(label)+','+JSON.stringify(methods)+');\n';
+  const anchor=new RegExp('import\\s*\\{\\s*'+name+'(?=\\s*[,}])','g'),matches=[...patched.matchAll(anchor)];if(matches.length!==1)throw Error('Nonunique timing import '+name);patched=patched.replace(anchor,'import {'+name+' as __qaOriginal_'+name);patched+='\nconst '+name+'=(...args)=>globalThis.__qa747Timing.wrap(__qaOriginal_'+name+'(...args),'+JSON.stringify(label)+','+JSON.stringify(methods)+');\n';
  }
  patched=patched.replace(/(from\s*["'])(\/?[^"']+)(["'])/g,(all,prefix,spec,suffix)=>spec.startsWith('/')?prefix+location.origin+spec+suffix:all);
  const sha=async text=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(x=>x.toString(16).padStart(2,'0')).join('');
