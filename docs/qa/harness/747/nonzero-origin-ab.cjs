@@ -7,6 +7,7 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chr
  const errors=[];page.on('pageerror',e=>errors.push({message:e.message,stack:e.stack}));
  await page.goto(process.env.QA_BASE_URL);await page.waitForLoadState('domcontentloaded');
  await page.evaluate(compact=>{globalThis.__qa747CompactSource=compact},process.env.QA_COMPACT_SOURCE==='1');
+ await page.evaluate(required=>{globalThis.__qa747RequireHighPrecision=required},process.env.QA_REQUIRE_HIGH_PRECISION==='1');
  await page.evaluate(flags=>{globalThis.__qa747TightMaterialSupport32=flags.tight;globalThis.__qa747SkipFixedWindows=flags.skip},{tight:process.env.QA_TIGHT_SUPPORT32==='1',skip:process.env.QA_SKIP_EMPTY_FIXED_WINDOWS==='1'});
  await page.evaluate(off=>{globalThis.__qa747DisableDither=off},process.env.QA_DISABLE_DITHER==='1');
  if(process.env.QA_EXPORT_CONTRAST==='1')await page.evaluate(require('./contrast-readback-installer.cjs'));
