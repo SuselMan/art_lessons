@@ -1,0 +1,7 @@
+{
+  "primarySource": "https://www.w3.org/TR/WGSL/#reserved-words",
+  "reservedWordCount": 146,
+  "shaderIdentifierCount": 129,
+  "issues": [],
+  "renamed": "from \u2192 sourcePos; pull-stream token only"
+}

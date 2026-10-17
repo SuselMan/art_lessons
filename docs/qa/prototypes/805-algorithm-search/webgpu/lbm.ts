@@ -36,7 +36,7 @@ fn idx(pos:vec2i)->u32{let c=clamp(pos,vec2i(0),vec2i(i32(p.n)-1));return u32(c.
 @compute @workgroup_size(8,8) fn main(@builtin(global_invocation_id) gid:vec3u){
  if(any(gid.xy>=vec2u(p.n))){return;}let pos=vec2i(gid.xy);let i=gid.y*p.n+gid.x;
  // Pull streaming, on-link bounce-back at the four domain edges.
- for(var q=0u;q<9u;q++){let from=pos-vec2i(CX[q],CY[q]);if(any(from<vec2i(0))||any(from>=vec2i(i32(p.n)))){next[i*9u+q]=post[i*9u+OPP[q]];}else{next[i*9u+q]=post[(u32(from.y)*p.n+u32(from.x))*9u+q];}}
+ for(var q=0u;q<9u;q++){let sourcePos=pos-vec2i(CX[q],CY[q]);if(any(sourcePos<vec2i(0))||any(sourcePos>=vec2i(i32(p.n)))){next[i*9u+q]=post[i*9u+OPP[q]];}else{next[i*9u+q]=post[(u32(sourcePos.y)*p.n+u32(sourcePos.x))*9u+q];}}
  // Fluid velocity advects independent water/pigment tracers; convex local mixing.
  let back=clamp(vec2f(gid.xy)-fluidMacro[i].yz,vec2f(0),vec2f(f32(p.n)-1.0));let base=vec2i(floor(back));let t=fract(back);
  let a=idx(base);let b=idx(base+vec2i(1,0));let c=idx(base+vec2i(0,1));let d=idx(base+vec2i(1,1));

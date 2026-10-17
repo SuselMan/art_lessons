@@ -1,5 +1,5 @@
 {
-  "status": "CPU READY; GPU compilation/numeric/determinism not yet tested",
+  "status": "CPU READY; actual diffusion direct/tiled smoke passed by operator; D2Q9 reserved-name repair awaiting actual recompile",
   "sourceBase": "c78c3068",
   "sourceFiles": {
     "docs/qa/prototypes/805-algorithm-search/webgpu/README.md": "91c1e94f24595305f01e0ea0e90374051696286dbecb7ff58b35a4830536c6c5",
@@ -8,7 +8,7 @@
     "docs/qa/prototypes/805-algorithm-search/webgpu/diffusion.ts": "de70a979ec3a450ab69746166870f29354326ff7ab188e18bceb7f8750d23176",
     "docs/qa/prototypes/805-algorithm-search/webgpu/gl-diffusion.ts": "74ed6d3215854ef3a8113860bd6570e4a47f92d0b8b58772d05f32e9ee27fe5a",
     "docs/qa/prototypes/805-algorithm-search/webgpu/index.ts": "63352934aaec3dfc0468d761dd7b20915404cd07aac1a8b29bec7edfd5fc5ccc",
-    "docs/qa/prototypes/805-algorithm-search/webgpu/lbm.ts": "3677f397bef2f382d9edb7f8b2f61a4b92a165f2231e35d953260a912f8d940c"
+    "docs/qa/prototypes/805-algorithm-search/webgpu/lbm.ts": "8f7fab1949847f149fab1fb6920b1b9a078234eb20e5bda5f724f79ee44ac984"
   },
   "checks": {
     "cpuTests": 6,
@@ -18,5 +18,6 @@
   },
   "requiredFeatures": [],
   "gpuOperator": "puddle_undo only; this author opened no GPU/browser/device",
-  "resources": "No dependencies/services/runtime copies created. Small source/logs only. Existing toolchain reused read-only."
+  "resources": "No dependencies/services/runtime copies created. Small source/logs only. Existing toolchain reused read-only.",
+  "narrowRepair": "Only WGSL from\u2192sourcePos; W3C reserved-word audit0remaining; no algorithm change"
 }
