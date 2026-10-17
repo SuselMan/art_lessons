@@ -2903,6 +2903,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  applying a `room_state` snapshot or a `peer_operation` must pass
    *  'remote' so the op is not echoed back to the server. */
   appendOperation(op: Operation, source: OperationSource = 'local'): void {
+    // Hidden restoration batches consume recorded Dry boundaries canonically.
+    // Never animate a past boundary or leave its ordered tail behind join.
+    if (this._displaySuspendDepth > 0 && !this._strokeLayerId) this._puddle?.finishDrying()
     // Start consuming earlier work when Dry is accepted, not when its queued log entry finally runs.
     if (op.type === 'paper_dry' && this._wcDryWorkScheduler && !this._log.entries.some(e => e.op.id === op.id)
       && !this._opQueue.some(e => e.op.id === op.id)) this._wcDryTickets.set(op.id, this._startDryWorkClock())
