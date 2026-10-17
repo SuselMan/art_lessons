@@ -1,0 +1,220 @@
+{
+  "source": "dfe322c3",
+  "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+  "inputHashes": {
+    "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+    "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+    "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+    "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+  },
+  "contrastPatch": {
+    "originalSHA": "32b0c2714a481d87f3adbbad48737e80c3276b85b9c100e0d56723045bf5d5fb",
+    "patchedSHA": "eebcb777d1da4eea4ff83187c44937e62bec1b59adae1dcd2f20b9c6e1b860b3",
+    "qualification": "Only readback getter + captured minCells; shader math and retainedComponents unchanged",
+    "originalBytes": 14492,
+    "patchedBytes": 14943
+  },
+  "contrastMetadata": {
+    "background": {
+      "width": 256,
+      "height": 64,
+      "baseFilter": "linear",
+      "pointSampling": false
+    },
+    "selection": {
+      "width": 256,
+      "height": 64,
+      "baseFilter": "nearest",
+      "pointSampling": false
+    },
+    "regionKeep": {
+      "width": 256,
+      "height": 64,
+      "baseFilter": "nearest",
+      "pointSampling": false
+    },
+    "minCells": 47,
+    "parameters": {
+      "massThreshold": 0.298116,
+      "compositionThreshold": 0.474721,
+      "hueThreshold": 0.505521,
+      "hueStrength": 1,
+      "backgroundStrength": 0.877969,
+      "minimumRegionArea": 2994.2784,
+      "backgroundDistortion": 0.597529
+    },
+    "lowDimensions": {
+      "width": 256,
+      "height": 64
+    },
+    "input": {
+      "p": {
+        "width": 2048,
+        "height": 512,
+        "baseFilter": "nearest",
+        "pointSampling": false
+      },
+      "c": {
+        "width": 2048,
+        "height": 512,
+        "baseFilter": "nearest",
+        "pointSampling": false
+      },
+      "volume": true
+    }
+  },
+  "stageDiffs": {
+    "referenceP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+      "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+    },
+    "referenceC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+      "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+    },
+    "solvedP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0",
+      "referenceHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0"
+    },
+    "solvedC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386",
+      "referenceHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386"
+    },
+    "solvedCoverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+      "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+    },
+    "coarse:gate": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+      "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+    },
+    "coarse:beforeP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6",
+      "referenceHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6"
+    },
+    "coarse:afterP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4",
+      "referenceHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4"
+    },
+    "coarse:beforeC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9",
+      "referenceHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9"
+    },
+    "coarse:afterC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70",
+      "referenceHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70"
+    }
+  },
+  "diffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3",
+      "referenceHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256",
+      "referenceHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+    }
+  },
+  "dither": {
+    "requestedOff": false,
+    "initial": true,
+    "atCapture": true
+  },
+  "errors": [],
+  "qualification": "QA-only readback getter instrumentation; unchanged shader math/retainedComponents. SameSamsung native defaultX dfe, all10phase and final hashes exactly priorSamsungbaseline. All9arrays exported privately for independentIntel comparison; no crossdevice parity claim here. Contextclosed/GPU0.",
+  "priorSamsungBaselineExact": true,
+  "exports": {
+    "referenceP": {
+      "bytes": 4194304,
+      "sha256": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+    },
+    "referenceC": {
+      "bytes": 4194304,
+      "sha256": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+    },
+    "actualP": {
+      "bytes": 4194304,
+      "sha256": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+    },
+    "actualC": {
+      "bytes": 4194304,
+      "sha256": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+    },
+    "contrastReferenceP": {
+      "bytes": 4194304,
+      "sha256": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+    },
+    "contrastReferenceC": {
+      "bytes": 4194304,
+      "sha256": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+    },
+    "contrastBackground": {
+      "bytes": 65536,
+      "sha256": "4e5facf551aa47817061f26a3e338a8ecd19e6a663ef882ce0f9d2e88f3c8d0e"
+    },
+    "contrastSelection": {
+      "bytes": 65536,
+      "sha256": "495dbdc449b11589692c2a9d7abb807b7ccb99e25b22cec4258934eb11b72a5d"
+    },
+    "contrastRegionKeep": {
+      "bytes": 65536,
+      "sha256": "adbec6957b97547109247a55415a742acd98b64627c6a569e4c8ceed9314b235"
+    }
+  }
+}
