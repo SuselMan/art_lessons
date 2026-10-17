@@ -1,11 +1,11 @@
-import {readNativeCapture,armNativeCapture} from './native-capture-805'
+import {readNativeCapture,armNativeCapture,captureNativeOnce} from './native-capture-805'
 import {installFrontLazy} from './front-lazy'
 import {installFrontJumpZero} from './front-jump-zero'
 import {installFrontZero} from './front-zero'
 import {installGatherSpecialization} from './gather-specialization'
 declare const __QA_GATHER_SPECIALIZE__: boolean
 import {PencilEngine} from '../../../../apps/web/src/engine/index'
-import {watercolorPresetString} from '../../../../apps/web/src/engine/src/presets/watercolorPresets'
+import {watercolorPresetString,withWatercolorModel} from '../../../../apps/web/src/engine/src/presets/watercolorPresets'
 import {createNativePuddleTarget} from '../mini-puddle/native-target-v70'
 import {installInteractivePuddle} from './controller'
 import {createCanvasAdapter} from './canvas-adapter'
@@ -37,7 +37,31 @@ export async function createMiniRuntime(source:HTMLCanvasElement|OffscreenCanvas
  function stateLoop(){if(destroyed)return;const now=performance.now();if(now-lastStateAt>=100){lastStateAt=now;emit({type:'state',state:puddle.state,asyncError:String(e._wcAsyncError||''),stepMax})}requestAnimationFrame(stateLoop)}requestAnimationFrame(stateLoop)
  const dbg=e.gl.getExtension('WEBGL_debug_renderer_info')
  emit({type:'ready',renderer:dbg?e.gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL):e.gl.getParameter(e.gl.RENDERER),budgetBytes:Number.isFinite(e._gpuBudget)?e._gpuBudget:null,flags:{model:e._watercolorModel,asyncFinish:e._wcAsyncFinish,joinedTouch:e._wcJoinedTouch,materialPresentation:e._wcMaterialPresentation},tuning:APPROVED_TUNING,glError:e.gl.getError()})
- return {handle(message:any){if(destroyed)return;if(message.type==='pointer'){if(message.event.type==='pointerdown')stepMax=0;if(message.event.type==='pointerup')activeGesture={id:message.gestureId,captureUpEpoch:message.captureUpEpoch,dequeuedUpEpoch:performance.timeOrigin+performance.now()};const dequeuedEpoch=performance.timeOrigin+performance.now();host.pointer(message.event);emit({type:'processed',eventType:message.event.type,sequence:message.sequence,inputEpoch:message.sentEpoch,dequeuedEpoch,processedEpoch:performance.timeOrigin+performance.now(),gestureId:message.gestureId})}else if(message.type==='qa-native-capture'){
+ async function rawSceneHashes(){
+  const f=puddle.diagnosticSource(),hashes:Record<string,string>={}
+  for(const [name,buffer] of Object.entries({p:f.entry.inkLoad,c:f.entry.inkColor,coverage:f.entry.coverage,water:f.entry.solventLoad,foreignWater:f.entry.foreignSolventLoad,original:f.entry.original})){
+   hashes[name]=buffer?(await goalHashes({[name]:(buffer as any).readPixels()}))[name]:'absent'
+  }
+  return hashes
+ }
+ let replayedScene=false,sceneRawSHA:Record<string,string>|null=null
+ return {handle(message:any){if(destroyed)return;if(message.type==='qa-replay-scene'){
+   void(async()=>{if(replayedScene)throw Error('One scene per fresh engine');replayedScene=true
+    const operations=message.operations.map((op:any)=>({...op,preset:withWatercolorModel(op.preset,'front8-detail-flow-v4')}))
+    const replay={...puddle.diagnosticReplayScene(operations),model:'front8-detail-flow-v4',presetOverrides:message.operations.map((op:any,i:number)=>({original:op.preset,replayed:operations[i].preset})),operationSHA:(await goalHashes({operations:new TextEncoder().encode(JSON.stringify(operations))})).operations}
+    const f=puddle.diagnosticSource();armNativeCapture();captureNativeOnce(e,f.scratch,f.tile)
+    const capture=await readNativeCapture();if(capture.manifest.nativeMaterialModel!=='front8-detail-flow-v4')throw Error('Unexpected replay material model '+capture.manifest.nativeMaterialModel);sceneRawSHA=await rawSceneHashes()
+    emit({type:'qa-scene-ready',requestId:message.requestId,replay,rawSHA:sceneRawSHA,...capture,...(!message.capture?{blob:undefined}:{})})
+   })().catch(error=>emit({type:'qa-scene-error',requestId:message.requestId,message:String((error as Error).stack??error)}))
+  }else if(message.type==='qa-run-scene-goal'){
+   void(async()=>{if(!replayedScene||!sceneRawSHA)throw Error('Replay scene first')
+    const repeats=Math.max(1,Math.min(5,message.repeats??3)),samples=[],hashes:Record<string,string>[]=[]
+    for(let i=0;i<repeats;i++){samples.push(puddle.diagnosticRunGoal());hashes.push(await goalHashes(puddle.diagnosticGoalReadback()))}
+    const rawSHAAfter=await rawSceneHashes();if(JSON.stringify(rawSHAAfter)!==JSON.stringify(sceneRawSHA))throw Error('Native run changed raw source')
+    const blob=await new Promise<Blob>((resolve,reject)=>{if('convertToBlob'in source)source.convertToBlob({type:'image/png'}).then(resolve,reject);else source.toBlob(value=>value?resolve(value):reject(Error('PNG missing')),'image/png')})
+    emit({type:'qa-scene-goal',requestId:message.requestId,samples,hashes,repeatExact:hashes.every(value=>JSON.stringify(value)===JSON.stringify(hashes[0])),rawSHAAfter,blob})
+   })().catch(error=>emit({type:'qa-scene-error',requestId:message.requestId,message:String((error as Error).stack??error)}))
+  }else if(message.type==='pointer'){if(message.event.type==='pointerdown')stepMax=0;if(message.event.type==='pointerup')activeGesture={id:message.gestureId,captureUpEpoch:message.captureUpEpoch,dequeuedUpEpoch:performance.timeOrigin+performance.now()};const dequeuedEpoch=performance.timeOrigin+performance.now();host.pointer(message.event);emit({type:'processed',eventType:message.event.type,sequence:message.sequence,inputEpoch:message.sentEpoch,dequeuedEpoch,processedEpoch:performance.timeOrigin+performance.now(),gestureId:message.gestureId})}else if(message.type==='qa-native-capture'){
    void readNativeCapture().then(record=>emit({type:'qa-native-capture',requestId:message.requestId,...record})).catch(error=>emit({type:'error',message:String(error)}))
   }else if(message.type==='qa-arm-native-capture'){
    armNativeCapture();emit({type:'qa-native-armed',requestId:message.requestId})
