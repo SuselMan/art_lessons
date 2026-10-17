@@ -1,0 +1,43 @@
+--- a/apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts
++++ b/apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts
+@@ -18,6 +18,9 @@
+  * Windows share global phases and immutable input; only their interiors commit.
+  * The 640px halo is certified separately against the approved M70 pass graph. */
+ export interface PagedPuddleInspection {
++ /** QA-only OFF: omit global reference GPU rectangles whose whole raw P/C/water support is zero. */
++ skipEmptyReference?:boolean
++ referenceEmpty?(rect:MaterialRect):void
+  /** QA-only OFF: zero raw allocated-halo postphase rectangles need no GPU work. */
+  skipEmptyPostphase?:boolean
+  postphaseRect?(interior:MaterialRect,allocated:MaterialRect,decision:{skipped:boolean}):void
+@@ -77,6 +80,11 @@
+   const referenceP=new MaterialFieldPages(size)
+   // Eligibility is global too; build its reference from the same shared selector.
+   for(const rect of rects()){
++   if(inspect.skipEmptyReference===true&&emptyM70PostphaseRect(size,rect,raw.materialSupport)){
++    inspect.referenceEmpty?.(rect)
++    if(pendingCancel)return
++    yield;continue
++   }
+    const bufs=allocateMany(6,rect.width,rect.height)
+    try{const [p,c,w,aligned,rp,rc]=bufs as [AccumulationBuffer,AccumulationBuffer,AccumulationBuffer,AccumulationBuffer,AccumulationBuffer,AccumulationBuffer]
+     p.writePixels(raw.inkLoad.readRect(rect));c.writePixels(raw.inkColor.readRect(rect));w.writePixels(raw.water.readRect(rect));draw(align,aligned,{p,c})
+--- /dev/null
++++ b/apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.emptyReference.test.ts
+@@ -0,0 +1,16 @@
++import {it,expect,vi} from 'vitest'
++const state=vi.hoisted(()=>({raw:null as any,events:[] as string[],references:0,globalReference:null as Uint8Array|null}))
++vi.mock('./PagedPuddleSource',()=>({capturePagedPuddleSource:()=>state.raw,restorePagedPuddleWindow(){throw Error('No windows in control-flow unit')},createDetachedPagedPuddleWindow(){throw Error('No windows in control-flow unit')}}))
++vi.mock('./M70WindowGroups',()=>({m70WindowGroups:()=>[]}))
++vi.mock('./PuddleTarget',()=>({createNativePuddleTarget(){throw Error('No native windows in control-flow unit')}}))
++vi.mock('../../buffers/RibbonStrokeScratch',()=>({RibbonStrokeScratch:class{}}))
++vi.mock('./PagedContrastPhase',()=>({createPagedContrastPhase:()=>({prepare(){state.events.push('contrast.prepare')},renderReference(_rect:any,_p:any,_c:any,_w:any,p:any,c:any){state.references++;p.clear();c.clear()},destroy(){}})}))
++vi.mock('./PagedBackgroundMix',()=>({createPagedBackgroundMix:()=>({reconstructionHalo:2,capture(value:any){state.events.push('background.capture');state.globalReference=value.referenceP.readRect({x:0,y:0,width:7,height:5})},prepareSolved(){state.events.push('background.prepareSolved')},reconstruct(_rect:any,_p:any,_c:any,_cov:any,p:any,c:any){p.clear();c.clear()},destroy(){}})}))
++import {createPagedPuddleTarget} from './PagedPuddleTarget'
++import {MaterialFieldPages} from './MaterialFieldPages'
++import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
++import {MockGL} from '../../../testing/mockGL'
++function run(skip:boolean,kind:'empty'|'dry'|'unknown'='empty',cancel=false){state.events=[];state.references=0;state.globalReference=null;const size={width:7,height:5},raw=new MaterialFieldPages(size),bytes=new Uint8Array(140);if(kind==='dry')bytes[0]=17;raw.writeRect({x:0,y:0,width:7,height:5},bytes);state.raw=Object.fromEntries(['original','coverage','inkLoad','inkColor','solventLoad','foreignSolventLoad','water'].map(n=>[n,raw.snapshot()]));state.raw.materialSupport=kind==='unknown'?undefined:{...size,rect:kind==='dry'?{x:0,y:0,width:1,height:1}:null,rects:kind==='dry'?[{x:0,y:0,width:1,height:1}]:[]};const gl=new MockGL() as unknown as WebGLRenderingContext,allocations:Array<[number,number]>=[],empty:Array<unknown>=[],reference:Array<unknown>=[];let released=0;const solver=createPagedPuddleTarget({gl,settlePlan:{},pool:{},passes:{}} as any,size,(w,h,f)=>{allocations.push([w,h]);return new AccumulationBuffer(gl,w,h,f)},{skipEmptyReference:skip,sourceCaptured:()=>({release(){released++}}),referenceEmpty(rect){empty.push(rect);if(cancel)solver.cancel()},reference(rect){reference.push(rect)}});try{solver.resetFromScratch({foreignSources:null} as any,{allResident:()=>[]} as any,1);let n=0;while(!solver.state.done&&++n<30)solver.step(1);expect(solver.state.done).toBe(true);return{allocations,empty,reference,released,global:state.globalReference as Uint8Array|null,events:[...state.events],renders:state.references}}finally{solver.destroy()}}
++it('OFF reference allocates; ON empty skips six GPU buffers and preserves global phases/zero reference',()=>{const off=run(false),on=run(true);expect(off.allocations.length-on.allocations.length).toBe(6);expect(off.reference).toHaveLength(1);expect(on.reference).toHaveLength(0);expect(on.empty).toEqual([{x:0,y:0,width:7,height:5}]);expect(on.renders).toBe(0);expect(on.global).toEqual(off.global);expect(on.global?.every(v=>v===0)).toBe(true);expect(on.events).toEqual(off.events);expect(on.events).toEqual(['contrast.prepare','background.capture','background.prepareSolved']);expect(on.released).toBe(1)})
++it('dry nonzero P/C and unknown metadata retain ordinary reference work',()=>{for(const kind of ['dry','unknown'] as const){const q=run(true,kind);expect(q.empty).toHaveLength(0);expect(q.reference).toHaveLength(1);expect(q.renders).toBe(1);expect(q.released).toBe(1)}})
++it('cancel inside referenceEmpty does not enter global background and releases outer capture lease',()=>{const q=run(true,'empty',true);expect(q.empty).toHaveLength(1);expect(q.allocations).toHaveLength(0);expect(q.events).toEqual(['contrast.prepare']);expect(q.released).toBe(1)})

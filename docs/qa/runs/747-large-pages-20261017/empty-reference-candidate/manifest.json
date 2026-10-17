@@ -1,0 +1,14 @@
+{
+  "baseHEAD": "81e604705ac0eedf138a8477785026910f26bbe8",
+  "files": {
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": {
+      "base": "8071d038ca395009d2b74ea2ae34aa9516526bb5c74580772724c0d102724611",
+      "candidate": "9fb235e8df8daac48240a592ef2f6ba98e4cf9a1cdfef41b8db0df2b23f61a0e"
+    },
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.emptyReference.test.ts": {
+      "base": null,
+      "candidate": "a3a81f74504679337421fbd6fea5e626bff19f45f1ea03097cddcf2ce9b91552"
+    }
+  },
+  "patchSHA256": "e080d29f4e9154aef54433a99e21492054f39e28d27fa210f8ee65d7af4307da"
+}
