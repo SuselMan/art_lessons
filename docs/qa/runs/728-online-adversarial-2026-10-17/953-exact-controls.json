@@ -1,0 +1,55 @@
+{
+  "source": "f6e407cb33a6f6fff1aadcb2ffaba7800b0a05d1",
+  "scope": "Exact original stroke IDs, dabs, timestamps and meta-ops; per-device pixel controls after GPU-copy optimization; no cross-GPU equality claim",
+  "cases": [
+    {
+      "mode": "square",
+      "device": "vega",
+      "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+      "target": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+      "beforeTarget": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+      "exact": true
+    },
+    {
+      "mode": "square",
+      "device": "surface",
+      "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+      "target": "2d5bebe503d733ede35a380a3e109b4a004a716d925a729c2d2045412cad501a",
+      "beforeTarget": "2d5bebe503d733ede35a380a3e109b4a004a716d925a729c2d2045412cad501a",
+      "exact": true
+    },
+    {
+      "mode": "portrait",
+      "device": "vega",
+      "inputSHA": "409757c9eeb0eee17f4469fd3b597451208e4b5c84101da60cf93c3116025d31",
+      "target": "893f9239a757127b0bd8c75aab8a4dd0cfaf6a976c146b3525ac1d6d36eeb9c9",
+      "beforeTarget": "893f9239a757127b0bd8c75aab8a4dd0cfaf6a976c146b3525ac1d6d36eeb9c9",
+      "exact": true
+    },
+    {
+      "mode": "portrait",
+      "device": "surface",
+      "inputSHA": "409757c9eeb0eee17f4469fd3b597451208e4b5c84101da60cf93c3116025d31",
+      "target": "9c4c9c0531b2db330c7be6b6b0883d24ff0d3e4712dd8ca554fa8ad2a6ced16b",
+      "beforeTarget": "9c4c9c0531b2db330c7be6b6b0883d24ff0d3e4712dd8ca554fa8ad2a6ced16b",
+      "exact": true
+    },
+    {
+      "mode": "landscape",
+      "device": "vega",
+      "inputSHA": "64e52d474f03e81df69e09a588415a128f541e6c8565caaf22dd9e745239a6ba",
+      "target": "401d217f8fb5c47c47399e9a5cff9d66f1b33641a2cf8478e50f9df2da7860f1",
+      "beforeTarget": "401d217f8fb5c47c47399e9a5cff9d66f1b33641a2cf8478e50f9df2da7860f1",
+      "exact": true
+    },
+    {
+      "mode": "landscape",
+      "device": "surface",
+      "inputSHA": "64e52d474f03e81df69e09a588415a128f541e6c8565caaf22dd9e745239a6ba",
+      "target": "a1c0a6a8c24bc415a5c34e294bafb15e0cacf5400cd571d9ec2666e78c9ec9e9",
+      "beforeTarget": "a1c0a6a8c24bc415a5c34e294bafb15e0cacf5400cd571d9ec2666e78c9ec9e9",
+      "exact": true
+    }
+  ],
+  "pass": true
+}
