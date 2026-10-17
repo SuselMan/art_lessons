@@ -1,0 +1,1457 @@
+{
+  "source": "466745f1",
+  "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x000046D1) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "inputHashes": {
+    "p": "4878344c60ac3888c9513370994f5d1d09477feebecac29e4ca33dc5b95ea53e",
+    "c": "254437fcdf1c452af05e87937690a82ca314d1ec18fd6b874a92ea4b4c2e5af7",
+    "coverage": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2",
+    "water": "c2ec028c4fadb0e897c6558a7610474b740b02a7beb7d47ebfb0ef73d4f6eeae"
+  },
+  "diffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "3765e0a071bd5865c1a750eb64377c5d209318fdc28a080e47f41835dc4980ef",
+      "referenceHash": "3765e0a071bd5865c1a750eb64377c5d209318fdc28a080e47f41835dc4980ef"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "476250a2de2c6f510317a6fa90a35860a3a26cae8287a8c765623f10de992b24",
+      "referenceHash": "476250a2de2c6f510317a6fa90a35860a3a26cae8287a8c765623f10de992b24"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "b166be41b9904ad4cb36540f94e82a76c61e8e4078dea9e45db46830fa156954",
+      "referenceHash": "b166be41b9904ad4cb36540f94e82a76c61e8e4078dea9e45db46830fa156954"
+    }
+  },
+  "stageDiffs": {
+    "referenceP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "b7aaee7062c3e966dbe56fa318687899354c68c39b68bd7dabdba22808d9d548",
+      "referenceHash": "b7aaee7062c3e966dbe56fa318687899354c68c39b68bd7dabdba22808d9d548"
+    },
+    "referenceC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "6bb8ffd862f0688b4147eda854f50286c9902a6423824ce0ee04048c641179f4",
+      "referenceHash": "6bb8ffd862f0688b4147eda854f50286c9902a6423824ce0ee04048c641179f4"
+    },
+    "solvedP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "a3aa036fb4f6a299b5a1bcc4063f9ee907d8648970a54a8ca0d65b0e092b64f0",
+      "referenceHash": "a3aa036fb4f6a299b5a1bcc4063f9ee907d8648970a54a8ca0d65b0e092b64f0"
+    },
+    "solvedC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fb1570506bfe5a7de45d592f04f439a215daed3205fb807792a38a8990c06530",
+      "referenceHash": "fb1570506bfe5a7de45d592f04f439a215daed3205fb807792a38a8990c06530"
+    },
+    "solvedCoverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2",
+      "referenceHash": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2"
+    },
+    "coarse:gate": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "499a4f2bb5e1a3a45e3ff146b58e73b0c0912652b6d0c4d404bab56851d7543a",
+      "referenceHash": "499a4f2bb5e1a3a45e3ff146b58e73b0c0912652b6d0c4d404bab56851d7543a"
+    },
+    "coarse:beforeP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "56b417690772c06d80f1f5ca41333f74efa7195bfea15397b4236a7b234eeed7",
+      "referenceHash": "56b417690772c06d80f1f5ca41333f74efa7195bfea15397b4236a7b234eeed7"
+    },
+    "coarse:afterP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "56b417690772c06d80f1f5ca41333f74efa7195bfea15397b4236a7b234eeed7",
+      "referenceHash": "56b417690772c06d80f1f5ca41333f74efa7195bfea15397b4236a7b234eeed7"
+    },
+    "coarse:beforeC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "cc10a957b36d73a902edbb138d763b23ef1e53366ce0708c6cf1bb14ca26c3b6",
+      "referenceHash": "cc10a957b36d73a902edbb138d763b23ef1e53366ce0708c6cf1bb14ca26c3b6"
+    },
+    "coarse:afterC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "cc10a957b36d73a902edbb138d763b23ef1e53366ce0708c6cf1bb14ca26c3b6",
+      "referenceHash": "cc10a957b36d73a902edbb138d763b23ef1e53366ce0708c6cf1bb14ca26c3b6"
+    }
+  },
+  "passObserver": {
+    "disabled": true,
+    "observerGLreads": 0,
+    "qualification": "Only pass trace/prefront sample reads omitted; required stage/final numerical readbacks retained"
+  },
+  "traceCounts": {
+    "reference": 0,
+    "actual": 0
+  },
+  "phaseTiming": {
+    "qualification": "Standalone QA transformed factories; nested timings overlap; observer overhead included; no responsiveness claim",
+    "rows": {
+      "native:passes.invalidateFrontPaths": {
+        "count": 1,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836
+        ]
+      },
+      "native:passes.plainAdd": {
+        "count": 42,
+        "totalMs": 7.09999942779541,
+        "maxMs": 6.799999713897705,
+        "topMs": [
+          6.799999713897705,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "native:passes.fieldOpDraw:mode1": {
+        "count": 50,
+        "totalMs": 8.899998664855957,
+        "maxMs": 7.099999904632568,
+        "topMs": [
+          7.099999904632568,
+          0.7999997138977051,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836
+        ]
+      },
+      "native:passes.fieldOp:mode1": {
+        "count": 50,
+        "totalMs": 9.799998760223389,
+        "maxMs": 7.099999904632568,
+        "topMs": [
+          7.099999904632568,
+          0.7999997138977051,
+          0.2999997138977051,
+          0.19999980926513672,
+          0.19999980926513672,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.09999990463256836
+        ]
+      },
+      "native:native.contrast.prepare": {
+        "count": 1,
+        "totalMs": 28.299999713897705,
+        "maxMs": 28.299999713897705,
+        "topMs": [
+          28.299999713897705
+        ]
+      },
+      "native:native.plan.prepare": {
+        "count": 1,
+        "totalMs": 5.800000190734863,
+        "maxMs": 5.800000190734863,
+        "topMs": [
+          5.800000190734863
+        ]
+      },
+      "native:native.target.resetFromScratch": {
+        "count": 1,
+        "totalMs": 63,
+        "maxMs": 63,
+        "topMs": [
+          63
+        ]
+      },
+      "native:passes.fieldOpDraw:mode0": {
+        "count": 2,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0
+        ]
+      },
+      "native:passes.fieldOp:mode0": {
+        "count": 2,
+        "totalMs": 0.20000028610229492,
+        "maxMs": 0.10000038146972656,
+        "topMs": [
+          0.10000038146972656,
+          0.09999990463256836
+        ]
+      },
+      "native:passes.fieldOpDraw:mode4": {
+        "count": 1,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0
+        ]
+      },
+      "native:passes.fieldOp:mode4": {
+        "count": 1,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0
+        ]
+      },
+      "native:passes.fieldOpDraw:mode10": {
+        "count": 1,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0
+        ]
+      },
+      "native:passes.fieldOp:mode10": {
+        "count": 1,
+        "totalMs": 0.10000038146972656,
+        "maxMs": 0.10000038146972656,
+        "topMs": [
+          0.10000038146972656
+        ]
+      },
+      "native:passes.waterFrontStepDraw:stride8": {
+        "count": 17,
+        "totalMs": 29.499999523162842,
+        "maxMs": 29.09999990463257,
+        "topMs": [
+          29.09999990463257,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0,
+          0
+        ]
+      },
+      "native:passes.waterFrontStep:stride8": {
+        "count": 17,
+        "totalMs": 30.099998950958252,
+        "maxMs": 29.299999713897705,
+        "topMs": [
+          29.299999713897705,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836
+        ]
+      },
+      "native:native.target.step": {
+        "count": 23,
+        "totalMs": 1973.5999999046326,
+        "maxMs": 1906.5999999046326,
+        "topMs": [
+          1906.5999999046326,
+          31.199999809265137,
+          16.800000190734863,
+          3.6999998092651367,
+          2.8000001907348633,
+          2.3000001907348633,
+          2.1999998092651367,
+          1.3999996185302734
+        ]
+      },
+      "native:passes.nativeWaterFrontStep:stride1": {
+        "count": 28,
+        "totalMs": 0.6999998092651367,
+        "maxMs": 0.2999997138977051,
+        "topMs": [
+          0.2999997138977051,
+          0.10000038146972656,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0,
+          0
+        ]
+      },
+      "native:passes.waterFrontStepDraw:stride1": {
+        "count": 28,
+        "totalMs": 0.9000000953674316,
+        "maxMs": 0.2999997138977051,
+        "topMs": [
+          0.2999997138977051,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0
+        ]
+      },
+      "native:passes.waterFrontStep:stride1": {
+        "count": 28,
+        "totalMs": 1,
+        "maxMs": 0.2999997138977051,
+        "topMs": [
+          0.2999997138977051,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836
+        ]
+      },
+      "native:passes.fieldOpDraw:mode12": {
+        "count": 1,
+        "totalMs": 0.10000038146972656,
+        "maxMs": 0.10000038146972656,
+        "topMs": [
+          0.10000038146972656
+        ]
+      },
+      "native:passes.fieldOp:mode12": {
+        "count": 1,
+        "totalMs": 0.20000028610229492,
+        "maxMs": 0.20000028610229492,
+        "topMs": [
+          0.20000028610229492
+        ]
+      },
+      "native:passes.fieldOpDraw:mode11": {
+        "count": 1,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836
+        ]
+      },
+      "native:passes.fieldOp:mode11": {
+        "count": 1,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836
+        ]
+      },
+      "native:passes.m70Field": {
+        "count": 2,
+        "totalMs": 15.700000286102295,
+        "maxMs": 15.700000286102295,
+        "topMs": [
+          15.700000286102295,
+          0
+        ]
+      },
+      "native:passes.fieldOpDraw:mode6": {
+        "count": 2,
+        "totalMs": 15.800000190734863,
+        "maxMs": 15.800000190734863,
+        "topMs": [
+          15.800000190734863,
+          0
+        ]
+      },
+      "native:passes.fieldOp:mode6": {
+        "count": 2,
+        "totalMs": 15.800000190734863,
+        "maxMs": 15.800000190734863,
+        "topMs": [
+          15.800000190734863,
+          0
+        ]
+      },
+      "native:passes.fieldOpDraw:mode5": {
+        "count": 20,
+        "totalMs": 0.5,
+        "maxMs": 0.20000028610229492,
+        "topMs": [
+          0.20000028610229492,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "native:passes.fieldOp:mode5": {
+        "count": 20,
+        "totalMs": 0.7999997138977051,
+        "maxMs": 0.20000028610229492,
+        "topMs": [
+          0.20000028610229492,
+          0.19999980926513672,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0
+        ]
+      },
+      "native:passes.fieldOpDraw:mode16": {
+        "count": 14,
+        "totalMs": 0.8000006675720215,
+        "maxMs": 0.3000001907348633,
+        "topMs": [
+          0.3000001907348633,
+          0.20000028610229492,
+          0.10000038146972656,
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0,
+          0
+        ]
+      },
+      "native:passes.fieldOp:mode16": {
+        "count": 14,
+        "totalMs": 1.200000286102295,
+        "maxMs": 0.40000009536743164,
+        "topMs": [
+          0.40000009536743164,
+          0.40000009536743164,
+          0.19999980926513672,
+          0.10000038146972656,
+          0.09999990463256836,
+          0,
+          0,
+          0
+        ]
+      },
+      "native:passes.fieldOpDraw:mode15": {
+        "count": 14,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "native:passes.fieldOp:mode15": {
+        "count": 14,
+        "totalMs": 0.39999961853027344,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "native:passes.fieldOpDraw:mode18": {
+        "count": 2,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0
+        ]
+      },
+      "native:passes.fieldOp:mode18": {
+        "count": 2,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0
+        ]
+      },
+      "native:passes.fieldOpDraw:mode3": {
+        "count": 2,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0
+        ]
+      },
+      "native:passes.fieldOp:mode3": {
+        "count": 2,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0
+        ]
+      },
+      "native:passes.diffuseStepDraw": {
+        "count": 26,
+        "totalMs": 0.5999999046325684,
+        "maxMs": 0.3000001907348633,
+        "topMs": [
+          0.3000001907348633,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "native:passes.diffuseStep": {
+        "count": 26,
+        "totalMs": 1.299999713897705,
+        "maxMs": 0.40000009536743164,
+        "topMs": [
+          0.40000009536743164,
+          0.20000028610229492,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836
+        ]
+      },
+      "native:passes.fieldOpDraw:mode19": {
+        "count": 2,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0
+        ]
+      },
+      "native:passes.fieldOp:mode19": {
+        "count": 2,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0
+        ]
+      },
+      "native:passes.fieldOpDraw:mode7": {
+        "count": 2,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0
+        ]
+      },
+      "native:passes.fieldOp:mode7": {
+        "count": 2,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0
+        ]
+      },
+      "native:passes.fieldOpDraw:mode14": {
+        "count": 2,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0
+        ]
+      },
+      "native:passes.fieldOp:mode14": {
+        "count": 2,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0
+        ]
+      },
+      "native:passes.fieldOpDraw:mode20": {
+        "count": 1,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836
+        ]
+      },
+      "native:passes.fieldOp:mode20": {
+        "count": 1,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836
+        ]
+      },
+      "native:native.background.ops": {
+        "count": 1,
+        "totalMs": 0.20000028610229492,
+        "maxMs": 0.20000028610229492,
+        "topMs": [
+          0.20000028610229492
+        ]
+      },
+      "native:native.target.dry": {
+        "count": 1,
+        "totalMs": 6.900000095367432,
+        "maxMs": 6.900000095367432,
+        "topMs": [
+          6.900000095367432
+        ]
+      },
+      "paged:passes.plainAdd": {
+        "count": 81,
+        "totalMs": 0.8000011444091797,
+        "maxMs": 0.10000038146972656,
+        "topMs": [
+          0.10000038146972656,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode1": {
+        "count": 97,
+        "totalMs": 1.4000005722045898,
+        "maxMs": 0.10000038146972656,
+        "topMs": [
+          0.10000038146972656,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836
+        ]
+      },
+      "paged:passes.fieldOp:mode1": {
+        "count": 97,
+        "totalMs": 2.500000476837158,
+        "maxMs": 0.5999999046325684,
+        "topMs": [
+          0.5999999046325684,
+          0.19999980926513672,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.09999990463256836
+        ]
+      },
+      "paged:paged.contrast.prepare": {
+        "count": 1,
+        "totalMs": 25.300000190734863,
+        "maxMs": 25.300000190734863,
+        "topMs": [
+          25.300000190734863
+        ]
+      },
+      "paged:paged.contrast.renderReference": {
+        "count": 4,
+        "totalMs": 0.5,
+        "maxMs": 0.19999980926513672,
+        "topMs": [
+          0.19999980926513672,
+          0.10000038146972656,
+          0.09999990463256836,
+          0.09999990463256836
+        ]
+      },
+      "paged:paged.background.capture": {
+        "count": 1,
+        "totalMs": 12.200000286102295,
+        "maxMs": 12.200000286102295,
+        "topMs": [
+          12.200000286102295
+        ]
+      },
+      "paged:passes.invalidateFrontPaths": {
+        "count": 2,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0
+        ]
+      },
+      "paged:paged.plan.prepare": {
+        "count": 2,
+        "totalMs": 3.8000001907348633,
+        "maxMs": 3.3000001907348633,
+        "topMs": [
+          3.3000001907348633,
+          0.5
+        ]
+      },
+      "paged:paged.native.resetFromScratch": {
+        "count": 2,
+        "totalMs": 274.80000019073486,
+        "maxMs": 140.2000002861023,
+        "topMs": [
+          140.2000002861023,
+          134.59999990463257
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode0": {
+        "count": 4,
+        "totalMs": 0.19999980926513672,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode0": {
+        "count": 4,
+        "totalMs": 0.3000001907348633,
+        "maxMs": 0.20000028610229492,
+        "topMs": [
+          0.20000028610229492,
+          0.09999990463256836,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode4": {
+        "count": 2,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode4": {
+        "count": 2,
+        "totalMs": 0.39999961853027344,
+        "maxMs": 0.39999961853027344,
+        "topMs": [
+          0.39999961853027344,
+          0
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode10": {
+        "count": 2,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode10": {
+        "count": 2,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0
+        ]
+      },
+      "paged:passes.waterFrontStepDraw:stride8": {
+        "count": 34,
+        "totalMs": 2.0000009536743164,
+        "maxMs": 0.40000009536743164,
+        "topMs": [
+          0.40000009536743164,
+          0.3000001907348633,
+          0.19999980926513672,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.09999990463256836
+        ]
+      },
+      "paged:passes.waterFrontStep:stride8": {
+        "count": 34,
+        "totalMs": 7.000000476837158,
+        "maxMs": 4.799999713897705,
+        "topMs": [
+          4.799999713897705,
+          0.40000009536743164,
+          0.3000001907348633,
+          0.20000028610229492,
+          0.19999980926513672,
+          0.19999980926513672,
+          0.10000038146972656,
+          0.10000038146972656
+        ]
+      },
+      "paged:paged.native.step": {
+        "count": 40,
+        "totalMs": 30.700000762939453,
+        "maxMs": 5.099999904632568,
+        "topMs": [
+          5.099999904632568,
+          5.099999904632568,
+          2.4000000953674316,
+          1.6999998092651367,
+          1.5,
+          1,
+          0.9000000953674316,
+          0.7000002861022949
+        ]
+      },
+      "paged:passes.nativeWaterFrontStep:stride1": {
+        "count": 56,
+        "totalMs": 0.8000001907348633,
+        "maxMs": 0.20000028610229492,
+        "topMs": [
+          0.20000028610229492,
+          0.10000038146972656,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0
+        ]
+      },
+      "paged:passes.waterFrontStepDraw:stride1": {
+        "count": 56,
+        "totalMs": 1.0999999046325684,
+        "maxMs": 0.20000028610229492,
+        "topMs": [
+          0.20000028610229492,
+          0.10000038146972656,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836
+        ]
+      },
+      "paged:passes.waterFrontStep:stride1": {
+        "count": 56,
+        "totalMs": 1.5999994277954102,
+        "maxMs": 0.20000028610229492,
+        "topMs": [
+          0.20000028610229492,
+          0.19999980926513672,
+          0.10000038146972656,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode12": {
+        "count": 2,
+        "totalMs": 0.20000028610229492,
+        "maxMs": 0.20000028610229492,
+        "topMs": [
+          0.20000028610229492,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode12": {
+        "count": 2,
+        "totalMs": 0.8000001907348633,
+        "maxMs": 0.7000002861022949,
+        "topMs": [
+          0.7000002861022949,
+          0.09999990463256836
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode11": {
+        "count": 2,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode11": {
+        "count": 2,
+        "totalMs": 0.20000028610229492,
+        "maxMs": 0.10000038146972656,
+        "topMs": [
+          0.10000038146972656,
+          0.09999990463256836
+        ]
+      },
+      "paged:passes.m70Field": {
+        "count": 4,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode6": {
+        "count": 4,
+        "totalMs": 0.19999980926513672,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode6": {
+        "count": 4,
+        "totalMs": 0.2999997138977051,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode5": {
+        "count": 40,
+        "totalMs": 0.3000006675720215,
+        "maxMs": 0.10000038146972656,
+        "topMs": [
+          0.10000038146972656,
+          0.10000038146972656,
+          0.09999990463256836,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode5": {
+        "count": 40,
+        "totalMs": 0.7000007629394531,
+        "maxMs": 0.10000038146972656,
+        "topMs": [
+          0.10000038146972656,
+          0.10000038146972656,
+          0.10000038146972656,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode16": {
+        "count": 28,
+        "totalMs": 0.4999995231628418,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode16": {
+        "count": 28,
+        "totalMs": 0.8999991416931152,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode15": {
+        "count": 28,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode15": {
+        "count": 28,
+        "totalMs": 0.5,
+        "maxMs": 0.19999980926513672,
+        "topMs": [
+          0.19999980926513672,
+          0.10000038146972656,
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode18": {
+        "count": 4,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode18": {
+        "count": 4,
+        "totalMs": 0.19999980926513672,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode3": {
+        "count": 4,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode3": {
+        "count": 4,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0,
+          0,
+          0
+        ]
+      },
+      "paged:passes.diffuseStepDraw": {
+        "count": 52,
+        "totalMs": 0.2999997138977051,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "paged:passes.diffuseStep": {
+        "count": 52,
+        "totalMs": 0.5999994277954102,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode19": {
+        "count": 4,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode19": {
+        "count": 4,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode7": {
+        "count": 4,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode7": {
+        "count": 4,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode14": {
+        "count": 4,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode14": {
+        "count": 4,
+        "totalMs": 0.19999980926513672,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0.09999990463256836,
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOpDraw:mode20": {
+        "count": 2,
+        "totalMs": 0,
+        "maxMs": 0,
+        "topMs": [
+          0,
+          0
+        ]
+      },
+      "paged:passes.fieldOp:mode20": {
+        "count": 2,
+        "totalMs": 0.09999990463256836,
+        "maxMs": 0.09999990463256836,
+        "topMs": [
+          0.09999990463256836,
+          0
+        ]
+      },
+      "paged:buffer.readPixelsRegion": {
+        "count": 6,
+        "totalMs": 2817.999999523163,
+        "maxMs": 1413.8000001907349,
+        "topMs": [
+          1413.8000001907349,
+          1389.7999997138977,
+          9,
+          2.1999998092651367,
+          1.6999998092651367,
+          1.5
+        ]
+      },
+      "paged:paged.background.prepareSolved": {
+        "count": 1,
+        "totalMs": 11.400000095367432,
+        "maxMs": 11.400000095367432,
+        "topMs": [
+          11.400000095367432
+        ]
+      },
+      "paged:paged.background.reconstruct": {
+        "count": 2,
+        "totalMs": 0.5,
+        "maxMs": 0.40000009536743164,
+        "topMs": [
+          0.40000009536743164,
+          0.09999990463256836
+        ]
+      }
+    },
+    "longest": [
+      {
+        "arm": "native",
+        "label": "native.target.step",
+        "ordinal": 473,
+        "ms": 1906.5999999046326
+      },
+      {
+        "arm": "paged",
+        "label": "buffer.readPixelsRegion",
+        "ordinal": 950,
+        "ms": 1413.8000001907349
+      },
+      {
+        "arm": "paged",
+        "label": "buffer.readPixelsRegion",
+        "ordinal": 1419,
+        "ms": 1389.7999997138977
+      },
+      {
+        "arm": "paged",
+        "label": "paged.native.resetFromScratch",
+        "ordinal": 484,
+        "ms": 140.2000002861023
+      },
+      {
+        "arm": "paged",
+        "label": "paged.native.resetFromScratch",
+        "ordinal": 953,
+        "ms": 134.59999990463257
+      },
+      {
+        "arm": "native",
+        "label": "native.target.resetFromScratch",
+        "ordinal": 0,
+        "ms": 63
+      },
+      {
+        "arm": "native",
+        "label": "native.target.step",
+        "ordinal": 7,
+        "ms": 31.199999809265137
+      },
+      {
+        "arm": "native",
+        "label": "passes.waterFrontStep:stride8",
+        "ordinal": 25,
+        "ms": 29.299999713897705
+      },
+      {
+        "arm": "native",
+        "label": "passes.waterFrontStepDraw:stride8",
+        "ordinal": 26,
+        "ms": 29.09999990463257
+      },
+      {
+        "arm": "native",
+        "label": "native.contrast.prepare",
+        "ordinal": 5,
+        "ms": 28.299999713897705
+      },
+      {
+        "arm": "paged",
+        "label": "paged.contrast.prepare",
+        "ordinal": 480,
+        "ms": 25.300000190734863
+      },
+      {
+        "arm": "native",
+        "label": "native.target.step",
+        "ordinal": 117,
+        "ms": 16.800000190734863
+      },
+      {
+        "arm": "native",
+        "label": "passes.fieldOpDraw:mode6",
+        "ordinal": 133,
+        "ms": 15.800000190734863
+      },
+      {
+        "arm": "native",
+        "label": "passes.fieldOp:mode6",
+        "ordinal": 132,
+        "ms": 15.800000190734863
+      },
+      {
+        "arm": "native",
+        "label": "passes.m70Field",
+        "ordinal": 134,
+        "ms": 15.700000286102295
+      },
+      {
+        "arm": "paged",
+        "label": "paged.background.capture",
+        "ordinal": 483,
+        "ms": 12.200000286102295
+      },
+      {
+        "arm": "paged",
+        "label": "paged.background.prepareSolved",
+        "ordinal": 1422,
+        "ms": 11.400000095367432
+      },
+      {
+        "arm": "paged",
+        "label": "buffer.readPixelsRegion",
+        "ordinal": 951,
+        "ms": 9
+      },
+      {
+        "arm": "native",
+        "label": "passes.fieldOpDraw:mode1",
+        "ordinal": 3,
+        "ms": 7.099999904632568
+      },
+      {
+        "arm": "native",
+        "label": "passes.fieldOp:mode1",
+        "ordinal": 2,
+        "ms": 7.099999904632568
+      },
+      {
+        "arm": "native",
+        "label": "native.target.dry",
+        "ordinal": 476,
+        "ms": 6.900000095367432
+      },
+      {
+        "arm": "native",
+        "label": "passes.plainAdd",
+        "ordinal": 4,
+        "ms": 6.799999713897705
+      },
+      {
+        "arm": "native",
+        "label": "native.plan.prepare",
+        "ordinal": 6,
+        "ms": 5.800000190734863
+      },
+      {
+        "arm": "paged",
+        "label": "paged.native.step",
+        "ordinal": 538,
+        "ms": 5.099999904632568
+      },
+      {
+        "arm": "paged",
+        "label": "paged.native.step",
+        "ordinal": 1029,
+        "ms": 5.099999904632568
+      },
+      {
+        "arm": "paged",
+        "label": "passes.waterFrontStep:stride8",
+        "ordinal": 541,
+        "ms": 4.799999713897705
+      },
+      {
+        "arm": "native",
+        "label": "native.target.step",
+        "ordinal": 148,
+        "ms": 3.6999998092651367
+      },
+      {
+        "arm": "paged",
+        "label": "paged.plan.prepare",
+        "ordinal": 490,
+        "ms": 3.3000001907348633
+      },
+      {
+        "arm": "native",
+        "label": "native.target.step",
+        "ordinal": 214,
+        "ms": 2.8000001907348633
+      },
+      {
+        "arm": "paged",
+        "label": "paged.native.step",
+        "ordinal": 491,
+        "ms": 2.4000000953674316
+      },
+      {
+        "arm": "native",
+        "label": "native.target.step",
+        "ordinal": 171,
+        "ms": 2.3000001907348633
+      },
+      {
+        "arm": "native",
+        "label": "native.target.step",
+        "ordinal": 419,
+        "ms": 2.1999998092651367
+      }
+    ],
+    "module": {
+      "url": "/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts",
+      "originalSHA": "8a8a636c05ab0d39d147a1040f0a5b0cf302e237b9015d4a211b1dff8180a0ac",
+      "patchedSHA": "88f89f0ac8506309feea7be7301ba166e8871faaf0041987cbdb02c1e4d4c690"
+    }
+  },
+  "highFloat": {
+    "precision": 23,
+    "rangeMin": 127,
+    "rangeMax": 127
+  },
+  "dither": {
+    "requestedOff": false,
+    "initial": true,
+    "atCapture": true
+  },
+  "errors": [],
+  "lost": false,
+  "samePreviousComboAllHashes": true,
+  "qualification": "No per-pass observer reads; mandatory numerical stage reads remain. Native background.ops solved-stage callback reads pixels inside target.step; Paged required solved readPixelsRegion synchronizes queued GPU. Timings are nested/observer-inclusive, not pure kernels or responsiveness."
+}
