@@ -7,8 +7,8 @@ import {createNativePuddleTarget} from '../watercolor/puddle/PuddleTarget'
 
 it('keeps native source, settle-created scratch entries and released leases in the same pool',()=>{
   const {engine}=createTestEngine({paper:'flat'},{width:64,height:64})
-  engine.gl.colorMask=()=>{}
-  const pool=new RibbonScratchPool(engine.gl),owned=new Set<ReturnType<typeof pool.acquire>>()
+  engine['gl'].colorMask=()=>{}
+  const pool=new RibbonScratchPool(engine['gl']),owned=new Set<ReturnType<typeof pool.acquire>>()
   const acquire=pool.acquire.bind(pool),release=pool.release.bind(pool)
   vi.spyOn(pool,'acquire').mockImplementation((w,h)=>{const b=acquire(w,h);owned.add(b);return b})
   vi.spyOn(pool,'release').mockImplementation(b=>{expect(owned.has(b),'foreign pool lease returned').toBe(true);release(b)})
@@ -21,7 +21,7 @@ it('keeps native source, settle-created scratch entries and released leases in t
   source.noteFinish({target:engine['_layers'].get('material')!,preset:engine['_resolvePreset']('watercolor',preset),
     profile:ribbonProfileFor('watercolor',preset)!,color:[0,0,1],opacity:1,
     bounds:{minX:0,minY:0,maxX:64,maxY:64},fieldSeed:[0,0],landedWet:0,wetPeak:1,radiusPx:40,dwellMs:0})
-  const native=createNativePuddleTarget({gl:engine.gl,settlePlan:plan,pool,passes:engine['_watercolorPasses'],
+  const native=createNativePuddleTarget({gl:engine['gl'],settlePlan:plan,pool,passes:engine['_watercolorPasses'],
     invalidateFrontPaths:()=>engine['_watercolorPasses'].invalidateFrontPaths(),hasActiveSettle:()=>false},64,{portableNoise:true})
   try{
     native.resetFromScratch(source,{buffer:key,originX:0,originY:0,contentRect:null},1)

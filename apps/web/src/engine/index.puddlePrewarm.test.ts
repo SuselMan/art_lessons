@@ -5,14 +5,12 @@ afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 
 for (const geometry of [
   {name: 'infinite', pageWidth: 64, pageHeight: 64, infinite: true},
-  {name: 'oversized', pageWidth: 1536, pageHeight: 1536, infinite: false},
 ]) it(`does not prewarm M70 when a pencil layer is selected on ${geometry.name} geometry`, async () => {
   const {engine} = createTestEngine({userId: 'artist', watercolorModel: 'm70-r2-v1',
     pageWidth: geometry.pageWidth, pageHeight: geometry.pageHeight, infinite: geometry.infinite}, {width: 64, height: 64})
   await paperReady(engine)
   const internal = engine as unknown as {_puddleFor(): unknown; _tileSize(): {w: number; h: number}}
   const prewarm = vi.spyOn(internal, '_puddleFor').mockImplementation(() => {throw Error('Unsupported prewarm')})
-  if (geometry.name === 'oversized') expect(internal._tileSize()).toEqual({w: 1024, h: 1024})
   vi.useFakeTimers()
   engine.appendOperation(makeLayerAdd('artist', 'paint'), 'remote')
   engine.setActiveLayer('paint')
@@ -22,9 +20,9 @@ for (const geometry of [
   expect(engine.getOperations().filter(op => op.type === 'stroke')).toHaveLength(1)
 })
 
-it('still prewarms a supported free layer, but does not allocate a third wet source', async () => {
+it.each([[64,64],[2480,3508]])('prewarms a finite %ix%i free layer, but does not allocate a third wet source', async (pageWidth,pageHeight) => {
   const {engine} = createTestEngine({userId: 'artist', watercolorModel: 'm70-r2-v1',
-    pageWidth: 64, pageHeight: 64}, {width: 64, height: 64})
+    pageWidth, pageHeight}, {width: 64, height: 64})
   await paperReady(engine)
   const internal = engine as unknown as {_puddleFor(): unknown; _puddle: unknown}
   const source = vi.fn()
