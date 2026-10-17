@@ -168,12 +168,17 @@ export async function removeUserFromRoom(io: AppServer, lessonId: string, userId
  *  seat in the lesson. */
 export async function evacuateBoard(io: AppServer, lessonId: string, boardId: string): Promise<void> {
   if (boardId === lessonId) return
-  for (const socket of await io.in(boardId).fetchSockets()) {
-    const userId = socket.data.userId
-    if (!userId || socket.data.roomId !== boardId) continue
+  for (const candidate of await io.in(boardId).fetchSockets()) {
+    const userId = candidate.data.userId
+    if (!userId || candidate.data.roomId !== boardId) continue
 
-    const name = getParticipant(lessonId, userId)?.name ?? FALLBACK_PARTICIPANT_NAME
     const replay = await prepareSnapshotReplay(lessonId)
+    // The snapshot query yielded: the socket may have disconnected or moved.
+    // This process owns the sockets (no cross-process adapter); use its live
+    // registry, never a handle captured before the await (#786).
+    const socket = io.sockets.sockets.get(candidate.id)
+    if (!socket?.connected || socket.data.roomId !== boardId || socket.data.lessonId !== lessonId) continue
+    const name = getParticipant(lessonId, userId)?.name ?? FALLBACK_PARTICIPANT_NAME
     const result = joinRoom(lessonId, userId, name, socket.id)
     void socket.leave(boardId)
     socket.data.roomId = lessonId

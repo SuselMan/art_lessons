@@ -41,8 +41,8 @@ vi.mock('../health/memory.js', () => ({
 }))
 vi.mock('../instrument.js', () => ({ reportException: () => {}, reportIssue: () => {} }))
 
-const { registerRoomHandlers, removeUserFromRoom } = await import('./socketHandlers.js')
-const { _flushPendingWrites, getParticipant, isRoomResident } = await import('./rooms.js')
+const { registerRoomHandlers, removeUserFromRoom, evacuateBoard } = await import('./socketHandlers.js')
+const { _flushPendingWrites, getParticipant, getRoomSnapshot, isRoomResident } = await import('./rooms.js')
 const { noteBoardCreated } = await import('./classroom.js')
 
 type Row = {
@@ -802,4 +802,82 @@ it.each([false, true])('#784 cold child load retains its newly discovered parent
     expect(isRoomResident(boardId)).toBe(false)
     expect(isRoomResident(lessonId)).toBe(false)
   }
+})
+
+it.each(['disconnect', 'move'] as const)('#786 rechecks a socket after snapshot await: %s', async action => {
+  const { lessonId, boardId, student } = await classroom()
+  await join(student, boardId, 'Alice')
+  const thirdId = fresh('third-board')
+  rows.set(thirdId, row(thirdId, { lessonId, boardOrder: 2 }))
+  noteBoardCreated(lessonId, { id: thirdId, name: thirdId, order: 2 })
+  let entered!: () => void
+  let release!: (value: null) => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const evacuation = evacuateBoard(io as never, lessonId, boardId)
+  await reached
+  if (action === 'disconnect') {
+    const serverSocket = io.sockets.sockets.get(student.id!)!
+    const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+    student.close()
+    await disconnected
+  } else await join(student, thirdId, 'Alice')
+  release(null)
+  await evacuation
+  if (action === 'disconnect') expect(getParticipant(lessonId, 'student')).toBeUndefined()
+  else {
+    const op = { id: fresh('dry-after-move'), type: 'paper_dry' as const, layerId: 'layer-1', userId: 'student', timestamp: 0 }
+    const verdict = await new Promise(resolve => student.emit('operation', op, resolve))
+    expect(verdict).toMatchObject({ ok: true })
+    expect(getRoomSnapshot(lessonId)?.tailOperations.map(operation => operation.id) ?? []).not.toContain(op.id)
+    expect(getRoomSnapshot(thirdId)?.tailOperations.map(operation => operation.id) ?? []).toContain(op.id)
+    expect(getParticipant(lessonId, 'student')?.boardId).toBe(thirdId)
+  }
+})
+
+it('#786 B-C-B still evacuates a socket currently back on the board being deleted', async () => {
+  const { lessonId, boardId, student } = await classroom()
+  await join(student, boardId, 'Alice')
+  const thirdId = fresh('aba-board')
+  rows.set(thirdId, row(thirdId, { lessonId, boardOrder: 2 }))
+  noteBoardCreated(lessonId, { id: thirdId, name: thirdId, order: 2 })
+  let entered!: () => void
+  let release!: (value: null) => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const evacuation = evacuateBoard(io as never, lessonId, boardId)
+  await reached
+  await join(student, thirdId, 'Alice')
+  await join(student, boardId, 'Alice updated')
+  release(null)
+  await evacuation
+  expect(getParticipant(lessonId, 'student')).toMatchObject({ boardId: lessonId, name: 'Alice updated' })
+  expect(io.sockets.sockets.get(student.id!)?.data.roomId).toBe(lessonId)
+})
+
+it('#786 evacuation of B lets an independently pending C join finish on C', async () => {
+  const { lessonId, boardId, student } = await classroom()
+  await join(student, boardId, 'Alice')
+  const thirdId = fresh('pending-C-board')
+  rows.set(thirdId, row(thirdId, { lessonId, boardOrder: 2 }))
+  noteBoardCreated(lessonId, { id: thirdId, name: thirdId, order: 2 })
+  const { ensureRoomLoaded } = await import('./roomLoader.js')
+  await ensureRoomLoaded(thirdId)
+  const releases: ((value: null) => void)[] = []
+  mockPrisma.roomLayerState.findUnique.mockImplementation(() => new Promise<null>(resolve => { releases.push(resolve) }))
+  const evacuation = evacuateBoard(io as never, lessonId, boardId)
+  await vi.waitFor(() => expect(releases).toHaveLength(1))
+  const joining = join(student, thirdId, 'Alice')
+  await vi.waitFor(() => expect(releases).toHaveLength(2))
+  releases[0](null)
+  await evacuation
+  expect(getParticipant(lessonId, 'student')?.boardId).toBe(lessonId)
+  releases[1](null)
+  await joining
+  expect(getParticipant(lessonId, 'student')?.boardId).toBe(thirdId)
+  const op = { id: fresh('dry-after-pending-C'), type: 'paper_dry' as const, layerId: 'layer-1', userId: 'student', timestamp: 0 }
+  const verdict = await new Promise(resolve => student.emit('operation', op, resolve))
+  expect(verdict).toMatchObject({ ok: true })
+  expect(getRoomSnapshot(thirdId)?.tailOperations.map(operation => operation.id) ?? []).toContain(op.id)
+  expect(getRoomSnapshot(lessonId)?.tailOperations.map(operation => operation.id) ?? []).not.toContain(op.id)
 })
