@@ -1,0 +1,1351 @@
+{
+  "source": "3d9be901",
+  "qualification": "Extra own layer, one edge gesture under CDP CPU sampling, attribution-only; existing original17two-stroke layer already wet. Not ordinary input latency/clean-room benchmark.",
+  "cpu": {
+    "intervalUs": 2000,
+    "sampleCount": 1363,
+    "nodeCount": 1557,
+    "sampledWallMs": 3150.957,
+    "profileWallMs": 3152.963,
+    "specialSamples": {
+      "idle": 344,
+      "gc": 33,
+      "program": 44,
+      "unknown": 0
+    },
+    "topSelf": [
+      {
+        "functionName": "(idle)",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 748.1439999999997,
+        "inclusiveMs": 748.1439999999997,
+        "selfSamples": 344,
+        "inclusiveSamples": 344
+      },
+      {
+        "functionName": "readPixels",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 576.0070000000003,
+        "inclusiveMs": 576.0070000000003,
+        "selfSamples": 269,
+        "inclusiveSamples": 269
+      },
+      {
+        "functionName": "(program)",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 442.18400000000014,
+        "inclusiveMs": 442.18400000000014,
+        "selfSamples": 44,
+        "inclusiveSamples": 44
+      },
+      {
+        "functionName": "getParameter",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 241.117,
+        "inclusiveMs": 241.117,
+        "selfSamples": 111,
+        "inclusiveSamples": 111
+      },
+      {
+        "functionName": "buildPagedTapAtlas",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedContrastPhase.ts",
+        "line": 8,
+        "column": 35,
+        "selfMs": 146.981,
+        "inclusiveMs": 198.29,
+        "selfSamples": 121,
+        "inclusiveSamples": 149
+      },
+      {
+        "functionName": "(garbage collector)",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 78.294,
+        "inclusiveMs": 78.294,
+        "selfSamples": 33,
+        "inclusiveSamples": 33
+      },
+      {
+        "functionName": "exports.jsxDEV",
+        "url": "http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/react_jsx-dev-runtime.js",
+        "line": 191,
+        "column": 28,
+        "selfMs": 70.08,
+        "inclusiveMs": 80.52099999999999,
+        "selfSamples": 34,
+        "inclusiveSamples": 39
+      },
+      {
+        "functionName": "readRect",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/MaterialFieldPages.ts",
+        "line": 34,
+        "column": 10,
+        "selfMs": 68.087,
+        "inclusiveMs": 68.087,
+        "selfSamples": 36,
+        "inclusiveSamples": 36
+      },
+      {
+        "functionName": "uniformReadback",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts",
+        "line": 10,
+        "column": 25,
+        "selfMs": 60.019,
+        "inclusiveMs": 60.019,
+        "selfSamples": 29,
+        "inclusiveSamples": 29
+      },
+      {
+        "functionName": "restoreOwnedEntry",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleSource.ts",
+        "line": 211,
+        "column": 27,
+        "selfMs": 37.818999999999996,
+        "inclusiveMs": 112.82300000000001,
+        "selfSamples": 14,
+        "inclusiveSamples": 49
+      },
+      {
+        "functionName": "texSubImage2D",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 37.766000000000005,
+        "inclusiveMs": 37.766000000000005,
+        "selfSamples": 17,
+        "inclusiveSamples": 17
+      },
+      {
+        "functionName": "measure",
+        "url": "",
+        "line": 9,
+        "column": 16,
+        "selfMs": 36.835,
+        "inclusiveMs": 1608.9130000000011,
+        "selfSamples": 22,
+        "inclusiveSamples": 812
+      },
+      {
+        "functionName": "object.<computed>",
+        "url": "",
+        "line": 10,
+        "column": 258,
+        "selfMs": 30.273000000000003,
+        "inclusiveMs": 1620.9670000000006,
+        "selfSamples": 15,
+        "inclusiveSamples": 818
+      },
+      {
+        "functionName": "now",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 26.491999999999997,
+        "inclusiveMs": 26.491999999999997,
+        "selfSamples": 13,
+        "inclusiveSamples": 13
+      },
+      {
+        "functionName": "solve",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts",
+        "line": 97,
+        "column": 17,
+        "selfMs": 23.204,
+        "inclusiveMs": 1174.254999999999,
+        "selfSamples": 11,
+        "inclusiveSamples": 604
+      },
+      {
+        "functionName": "texImage2D",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 21.78,
+        "inclusiveMs": 21.78,
+        "selfSamples": 10,
+        "inclusiveSamples": 10
+      },
+      {
+        "functionName": "getShaderParameter",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 19.782999999999998,
+        "inclusiveMs": 19.782999999999998,
+        "selfSamples": 9,
+        "inclusiveSamples": 9
+      },
+      {
+        "functionName": "roleOf",
+        "url": "",
+        "line": 6,
+        "column": 15,
+        "selfMs": 19.756000000000004,
+        "inclusiveMs": 19.756000000000004,
+        "selfSamples": 8,
+        "inclusiveSamples": 8
+      },
+      {
+        "functionName": "writeRect",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/MaterialFieldPages.ts",
+        "line": 115,
+        "column": 11,
+        "selfMs": 15.561,
+        "inclusiveMs": 28.41,
+        "selfSamples": 7,
+        "inclusiveSamples": 13
+      },
+      {
+        "functionName": "getProgramParameter",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 14.862000000000002,
+        "inclusiveMs": 14.862000000000002,
+        "selfSamples": 7,
+        "inclusiveSamples": 7
+      },
+      {
+        "functionName": "compress",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/MaterialFieldPages.ts",
+        "line": 10,
+        "column": 18,
+        "selfMs": 12.849,
+        "inclusiveMs": 12.849,
+        "selfSamples": 6,
+        "inclusiveSamples": 6
+      },
+      {
+        "functionName": "resolveExisting",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/TiledLayerBuffer.ts",
+        "line": 538,
+        "column": 17,
+        "selfMs": 12.597999999999999,
+        "inclusiveMs": 24.543,
+        "selfSamples": 6,
+        "inclusiveSamples": 12
+      },
+      {
+        "functionName": "(anonymous)",
+        "url": "",
+        "line": 10,
+        "column": 492,
+        "selfMs": 11.082,
+        "inclusiveMs": 1603.6650000000013,
+        "selfSamples": 6,
+        "inclusiveSamples": 808
+      },
+      {
+        "functionName": "extractMaterialTileRect",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/MaterialTileCoordinates.ts",
+        "line": 31,
+        "column": 40,
+        "selfMs": 11.064,
+        "inclusiveMs": 11.064,
+        "selfSamples": 3,
+        "inclusiveSamples": 3
+      },
+      {
+        "functionName": "step",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts",
+        "line": 528,
+        "column": 7,
+        "selfMs": 10.443999999999999,
+        "inclusiveMs": 1184.698999999999,
+        "selfSamples": 5,
+        "inclusiveSamples": 609
+      },
+      {
+        "functionName": "(anonymous)",
+        "url": "http://127.0.0.1:15484/src/engine/index.ts",
+        "line": 9706,
+        "column": 46,
+        "selfMs": 10.246,
+        "inclusiveMs": 96.898,
+        "selfSamples": 5,
+        "inclusiveSamples": 46
+      },
+      {
+        "functionName": "prepare",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedContrastPhase.ts",
+        "line": 129,
+        "column": 10,
+        "selfMs": 8.937,
+        "inclusiveMs": 120.17899999999997,
+        "selfSamples": 6,
+        "inclusiveSamples": 113
+      },
+      {
+        "functionName": "(anonymous)",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/TiledLayerBuffer.ts",
+        "line": 541,
+        "column": 33,
+        "selfMs": 8.762,
+        "inclusiveMs": 8.762,
+        "selfSamples": 4,
+        "inclusiveSamples": 4
+      },
+      {
+        "functionName": "setProp",
+        "url": "http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/react-dom_client.js",
+        "line": 9566,
+        "column": 19,
+        "selfMs": 8.41,
+        "inclusiveMs": 8.41,
+        "selfSamples": 4,
+        "inclusiveSamples": 4
+      },
+      {
+        "functionName": "capture",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedBackgroundMix.ts",
+        "line": 45,
+        "column": 10,
+        "selfMs": 7.979000000000001,
+        "inclusiveMs": 79.77999999999999,
+        "selfSamples": 5,
+        "inclusiveSamples": 39
+      },
+      {
+        "functionName": "captureFinishMetadata",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/RibbonStrokeScratch.ts",
+        "line": 195,
+        "column": 23,
+        "selfMs": 6.857,
+        "inclusiveMs": 9.256,
+        "selfSamples": 3,
+        "inclusiveSamples": 4
+      },
+      {
+        "functionName": "getContext",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 6.515000000000001,
+        "inclusiveMs": 6.515000000000001,
+        "selfSamples": 3,
+        "inclusiveSamples": 3
+      },
+      {
+        "functionName": "_updateWetTexture",
+        "url": "http://127.0.0.1:15484/src/engine/index.ts",
+        "line": 9334,
+        "column": 19,
+        "selfMs": 6.426,
+        "inclusiveMs": 8.5,
+        "selfSamples": 3,
+        "inclusiveSamples": 4
+      },
+      {
+        "functionName": "useNavigateUnstable",
+        "url": "http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/react-router-dom.js",
+        "line": 3945,
+        "column": 29,
+        "selfMs": 6.380000000000001,
+        "inclusiveMs": 6.380000000000001,
+        "selfSamples": 3,
+        "inclusiveSamples": 3
+      },
+      {
+        "functionName": "loseContext",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 6.3469999999999995,
+        "inclusiveMs": 6.3469999999999995,
+        "selfSamples": 3,
+        "inclusiveSamples": 3
+      },
+      {
+        "functionName": "(anonymous)",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts",
+        "line": 122,
+        "column": 99,
+        "selfMs": 6.309,
+        "inclusiveMs": 447.8929999999999,
+        "selfSamples": 3,
+        "inclusiveSamples": 213
+      },
+      {
+        "functionName": "unionM70Support",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/M70FixedWindowSkip.ts",
+        "line": 48,
+        "column": 32,
+        "selfMs": 6.308999999999999,
+        "inclusiveMs": 6.308999999999999,
+        "selfSamples": 3,
+        "inclusiveSamples": 3
+      },
+      {
+        "functionName": "createTask",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 6.275,
+        "inclusiveMs": 6.275,
+        "selfSamples": 3,
+        "inclusiveSamples": 3
+      },
+      {
+        "functionName": "reserve",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts",
+        "line": 166,
+        "column": 9,
+        "selfMs": 6.273000000000001,
+        "inclusiveMs": 563.7579999999999,
+        "selfSamples": 3,
+        "inclusiveSamples": 267
+      },
+      {
+        "functionName": "useStore",
+        "url": "http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/zustand.js",
+        "line": 35,
+        "column": 18,
+        "selfMs": 6.268,
+        "inclusiveMs": 12.559999999999999,
+        "selfSamples": 3,
+        "inclusiveSamples": 5
+      }
+    ],
+    "topInclusive": [
+      {
+        "functionName": "(root)",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 0,
+        "inclusiveMs": 3150.957000000003,
+        "selfSamples": 0,
+        "inclusiveSamples": 1363
+      },
+      {
+        "functionName": "object.<computed>",
+        "url": "",
+        "line": 10,
+        "column": 258,
+        "selfMs": 30.273000000000003,
+        "inclusiveMs": 1620.9670000000006,
+        "selfSamples": 15,
+        "inclusiveSamples": 818
+      },
+      {
+        "functionName": "measure",
+        "url": "",
+        "line": 9,
+        "column": 16,
+        "selfMs": 36.835,
+        "inclusiveMs": 1608.9130000000011,
+        "selfSamples": 22,
+        "inclusiveSamples": 812
+      },
+      {
+        "functionName": "(anonymous)",
+        "url": "",
+        "line": 10,
+        "column": 492,
+        "selfMs": 11.082,
+        "inclusiveMs": 1603.6650000000013,
+        "selfSamples": 6,
+        "inclusiveSamples": 808
+      },
+      {
+        "functionName": "frame",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleRoomController.ts",
+        "line": 503,
+        "column": 10,
+        "selfMs": 0.148,
+        "inclusiveMs": 1415.1200000000006,
+        "selfSamples": 1,
+        "inclusiveSamples": 718
+      },
+      {
+        "functionName": "step",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts",
+        "line": 528,
+        "column": 7,
+        "selfMs": 10.443999999999999,
+        "inclusiveMs": 1184.698999999999,
+        "selfSamples": 5,
+        "inclusiveSamples": 609
+      },
+      {
+        "functionName": "solve",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts",
+        "line": 97,
+        "column": 17,
+        "selfMs": 23.204,
+        "inclusiveMs": 1174.254999999999,
+        "selfSamples": 11,
+        "inclusiveSamples": 604
+      },
+      {
+        "functionName": "(idle)",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 748.1439999999997,
+        "inclusiveMs": 748.1439999999997,
+        "selfSamples": 344,
+        "inclusiveSamples": 344
+      },
+      {
+        "functionName": "preserveResidencyPixelStore",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts",
+        "line": 84,
+        "column": 37,
+        "selfMs": 2.083,
+        "inclusiveMs": 661.5169999999999,
+        "selfSamples": 1,
+        "inclusiveSamples": 311
+      },
+      {
+        "functionName": "_residencyEvict",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts",
+        "line": 111,
+        "column": 17,
+        "selfMs": 0,
+        "inclusiveMs": 644.626,
+        "selfSamples": 0,
+        "inclusiveSamples": 304
+      },
+      {
+        "functionName": "preserveResidencyReadback",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts",
+        "line": 94,
+        "column": 42,
+        "selfMs": 0,
+        "inclusiveMs": 626.827,
+        "selfSamples": 0,
+        "inclusiveSamples": 295
+      },
+      {
+        "functionName": "readPixels",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 576.0070000000003,
+        "inclusiveMs": 576.0070000000003,
+        "selfSamples": 269,
+        "inclusiveSamples": 269
+      },
+      {
+        "functionName": "reserve",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts",
+        "line": 166,
+        "column": 9,
+        "selfMs": 6.273000000000001,
+        "inclusiveMs": 563.7579999999999,
+        "selfSamples": 3,
+        "inclusiveSamples": 267
+      },
+      {
+        "functionName": "(anonymous)",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts",
+        "line": 122,
+        "column": 99,
+        "selfMs": 6.309,
+        "inclusiveMs": 447.8929999999999,
+        "selfSamples": 3,
+        "inclusiveSamples": 213
+      },
+      {
+        "functionName": "(program)",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 442.18400000000014,
+        "inclusiveMs": 442.18400000000014,
+        "selfSamples": 44,
+        "inclusiveSamples": 44
+      },
+      {
+        "functionName": "_ensureResident",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts",
+        "line": 108,
+        "column": 17,
+        "selfMs": 0,
+        "inclusiveMs": 395.29200000000003,
+        "selfSamples": 0,
+        "inclusiveSamples": 187
+      },
+      {
+        "functionName": "touch",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts",
+        "line": 239,
+        "column": 7,
+        "selfMs": 3.0940000000000003,
+        "inclusiveMs": 354.3780000000001,
+        "selfSamples": 2,
+        "inclusiveSamples": 168
+      },
+      {
+        "functionName": "run",
+        "url": "",
+        "line": 63,
+        "column": 23,
+        "selfMs": 0,
+        "inclusiveMs": 321.103,
+        "selfSamples": 0,
+        "inclusiveSamples": 153
+      },
+      {
+        "functionName": "run",
+        "url": "",
+        "line": 74,
+        "column": 33,
+        "selfMs": 0,
+        "inclusiveMs": 321.103,
+        "selfSamples": 0,
+        "inclusiveSamples": 153
+      },
+      {
+        "functionName": "AccumulationBuffer",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts",
+        "line": 39,
+        "column": 13,
+        "selfMs": 1.802,
+        "inclusiveMs": 259.3940000000001,
+        "selfSamples": 1,
+        "inclusiveSamples": 126
+      },
+      {
+        "functionName": "make",
+        "url": "http://127.0.0.1:15484/src/engine/index.ts",
+        "line": 675,
+        "column": 16,
+        "selfMs": 0,
+        "inclusiveMs": 259.3940000000001,
+        "selfSamples": 0,
+        "inclusiveSamples": 126
+      },
+      {
+        "functionName": "register",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts",
+        "line": 217,
+        "column": 10,
+        "selfMs": 0,
+        "inclusiveMs": 253.07900000000006,
+        "selfSamples": 0,
+        "inclusiveSamples": 122
+      },
+      {
+        "functionName": "getParameter",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 241.117,
+        "inclusiveMs": 241.117,
+        "selfSamples": 111,
+        "inclusiveSamples": 111
+      },
+      {
+        "functionName": "buildPagedTapAtlas",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedContrastPhase.ts",
+        "line": 8,
+        "column": 35,
+        "selfMs": 146.981,
+        "inclusiveMs": 198.29,
+        "selfSamples": 121,
+        "inclusiveSamples": 149
+      },
+      {
+        "functionName": "tick",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PuddlePresentation.ts",
+        "line": 270,
+        "column": 8,
+        "selfMs": 4.395,
+        "inclusiveMs": 188.69300000000007,
+        "selfSamples": 2,
+        "inclusiveSamples": 88
+      },
+      {
+        "functionName": "draw",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PuddlePresentation.ts",
+        "line": 194,
+        "column": 16,
+        "selfMs": 5.178,
+        "inclusiveMs": 184.9830000000001,
+        "selfSamples": 3,
+        "inclusiveSamples": 87
+      },
+      {
+        "functionName": "readPixels",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts",
+        "line": 462,
+        "column": 12,
+        "selfMs": 0,
+        "inclusiveMs": 180.07899999999992,
+        "selfSamples": 0,
+        "inclusiveSamples": 81
+      },
+      {
+        "functionName": "(anonymous)",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts",
+        "line": 85,
+        "column": 66,
+        "selfMs": 0,
+        "inclusiveMs": 176.85100000000003,
+        "selfSamples": 0,
+        "inclusiveSamples": 81
+      },
+      {
+        "functionName": "_emit",
+        "url": "http://127.0.0.1:15484/src/engine/src/input/PointerInput.ts",
+        "line": 168,
+        "column": 7,
+        "selfMs": 0,
+        "inclusiveMs": 173.61999999999998,
+        "selfSamples": 0,
+        "inclusiveSamples": 84
+      },
+      {
+        "functionName": "o.<computed>",
+        "url": "",
+        "line": 4,
+        "column": 95,
+        "selfMs": 3.509,
+        "inclusiveMs": 162.93,
+        "selfSamples": 1,
+        "inclusiveSamples": 76
+      },
+      {
+        "functionName": "RibbonScratchPool.discardIdleContents",
+        "url": "http://127.0.0.1:15484/src/engine/index.ts",
+        "line": 676,
+        "column": 55,
+        "selfMs": 0,
+        "inclusiveMs": 162.20100000000002,
+        "selfSamples": 0,
+        "inclusiveSamples": 79
+      },
+      {
+        "functionName": "acquire",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/RibbonScratchPool.ts",
+        "line": 57,
+        "column": 9,
+        "selfMs": 0,
+        "inclusiveMs": 162.20100000000002,
+        "selfSamples": 0,
+        "inclusiveSamples": 79
+      },
+      {
+        "functionName": "step",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PuddleTarget.ts",
+        "line": 313,
+        "column": 7,
+        "selfMs": 0,
+        "inclusiveMs": 154.61999999999998,
+        "selfSamples": 0,
+        "inclusiveSamples": 73
+      },
+      {
+        "functionName": "(anonymous)",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts",
+        "line": 317,
+        "column": 41,
+        "selfMs": 0,
+        "inclusiveMs": 154.61999999999998,
+        "selfSamples": 0,
+        "inclusiveSamples": 73
+      },
+      {
+        "functionName": "performWorkOnRoot",
+        "url": "http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/react-dom_client.js",
+        "line": 7978,
+        "column": 29,
+        "selfMs": 0,
+        "inclusiveMs": 148.003,
+        "selfSamples": 0,
+        "inclusiveSamples": 70
+      },
+      {
+        "functionName": "run",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 0,
+        "inclusiveMs": 143.88599999999997,
+        "selfSamples": 0,
+        "inclusiveSamples": 68
+      },
+      {
+        "functionName": "preserveResidencyBindings",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts",
+        "line": 39,
+        "column": 42,
+        "selfMs": 2.109,
+        "inclusiveMs": 142.17199999999997,
+        "selfSamples": 1,
+        "inclusiveSamples": 68
+      },
+      {
+        "functionName": "(anonymous)",
+        "url": "http://127.0.0.1:15484/src/engine/index.ts",
+        "line": 1852,
+        "column": 29,
+        "selfMs": 0,
+        "inclusiveMs": 140.635,
+        "selfSamples": 0,
+        "inclusiveSamples": 70
+      },
+      {
+        "functionName": "_handleDown",
+        "url": "http://127.0.0.1:15484/src/engine/src/input/PointerInput.ts",
+        "line": 274,
+        "column": 13,
+        "selfMs": 0,
+        "inclusiveMs": 140.635,
+        "selfSamples": 0,
+        "inclusiveSamples": 70
+      },
+      {
+        "functionName": "runWithFiberInDEV",
+        "url": "http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/react-dom_client.js",
+        "line": 848,
+        "column": 29,
+        "selfMs": 0,
+        "inclusiveMs": 139.67099999999996,
+        "selfSamples": 0,
+        "inclusiveSamples": 66
+      }
+    ],
+    "profileSHA256": "f60d7c53795d22392330b9604757de13c40794dc27db1bef7bb08679ec4fa5d5",
+    "qualification": "Actual page-target CDP V8 sampling, edge gesture only. Sampling can distort timings. JS/native-call wait attribution is not GPU shader time; inclusive stacks overlap; no trace/video/extra GPU readback.",
+    "stopReason": "edge-goal-stable-before-capture",
+    "rawBytes": 348129,
+    "rawSaved": true
+  },
+  "getParameterCallers": {
+    "sampleIntervalUs": 2000,
+    "qualification": "Sampled native getParameter stack time; includes driver synchronization; not direct GPU execution time. Extra own-layer edge CDP profiling adds overhead.",
+    "immediateCallers": [
+      {
+        "function": "",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+        "line": 85,
+        "sampleMs": 176.85100000000003
+      },
+      {
+        "function": "snapshot",
+        "url": "",
+        "line": 45,
+        "sampleMs": 57.41
+      },
+      {
+        "function": "readPixelsRegion",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts?t=1792240863020",
+        "line": 504,
+        "sampleMs": 6.856
+      }
+    ],
+    "topPaths": [
+      {
+        "sampleMs": 111.91000000000001,
+        "path": [
+          {
+            "function": "",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+            "line": 85
+          },
+          {
+            "function": "preserveResidencyPixelStore",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+            "line": 84
+          },
+          {
+            "function": "preserveResidencyReadback",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+            "line": 94
+          },
+          {
+            "function": "_residencyEvict",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts?t=1792240863020",
+            "line": 111
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "measure",
+            "url": "",
+            "line": 9
+          },
+          {
+            "function": "object.<computed>",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "reserve",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+            "line": 166
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "measure",
+            "url": "",
+            "line": 9
+          },
+          {
+            "function": "object.<computed>",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "touch",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+            "line": 239
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "measure",
+            "url": "",
+            "line": 9
+          },
+          {
+            "function": "object.<computed>",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "_ensureResident",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts?t=1792240863020",
+            "line": 108
+          }
+        ]
+      },
+      {
+        "sampleMs": 57.41,
+        "path": [
+          {
+            "function": "snapshot",
+            "url": "",
+            "line": 45
+          },
+          {
+            "function": "attach",
+            "url": "",
+            "line": 61
+          },
+          {
+            "function": "run",
+            "url": "",
+            "line": 63
+          },
+          {
+            "function": "run",
+            "url": "",
+            "line": 74
+          },
+          {
+            "function": "solve",
+            "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts?t=1792240863020",
+            "line": 97
+          },
+          {
+            "function": "step",
+            "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts?t=1792240863020",
+            "line": 528
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "measure",
+            "url": "",
+            "line": 9
+          },
+          {
+            "function": "object.<computed>",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "frame",
+            "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleRoomController.ts?t=1792240863020",
+            "line": 503
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "measure",
+            "url": "",
+            "line": 9
+          },
+          {
+            "function": "object.<computed>",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "(root)",
+            "url": "",
+            "line": 0
+          }
+        ]
+      },
+      {
+        "sampleMs": 53.693000000000005,
+        "path": [
+          {
+            "function": "",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+            "line": 85
+          },
+          {
+            "function": "preserveResidencyPixelStore",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+            "line": 84
+          },
+          {
+            "function": "preserveResidencyReadback",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+            "line": 94
+          },
+          {
+            "function": "_residencyEvict",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts?t=1792240863020",
+            "line": 111
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "measure",
+            "url": "",
+            "line": 9
+          },
+          {
+            "function": "object.<computed>",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "reserve",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+            "line": 166
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "measure",
+            "url": "",
+            "line": 9
+          },
+          {
+            "function": "object.<computed>",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "register",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+            "line": 217
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "measure",
+            "url": "",
+            "line": 9
+          },
+          {
+            "function": "object.<computed>",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "AccumulationBuffer",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts?t=1792240863020",
+            "line": 39
+          }
+        ]
+      },
+      {
+        "sampleMs": 11.248,
+        "path": [
+          {
+            "function": "",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+            "line": 85
+          },
+          {
+            "function": "preserveResidencyPixelStore",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+            "line": 84
+          },
+          {
+            "function": "preserveResidencyReadback",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+            "line": 94
+          },
+          {
+            "function": "_residencyEvict",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts?t=1792240863020",
+            "line": 111
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "measure",
+            "url": "",
+            "line": 9
+          },
+          {
+            "function": "object.<computed>",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "trySetBudget",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts?t=1792240863000",
+            "line": 181
+          },
+          {
+            "function": "setBudget",
+            "url": "http://127.0.0.1:15484/src/engine/index.ts?t=1792240863020",
+            "line": 611
+          },
+          {
+            "function": "",
+            "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/M70PhaseOwner.ts",
+            "line": 91
+          },
+          {
+            "function": "transition",
+            "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/M70PhaseOwner.ts",
+            "line": 26
+          },
+          {
+            "function": "beginSolve",
+            "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/M70PhaseOwner.ts",
+            "line": 89
+          },
+          {
+            "function": "beginSolveSnapshot",
+            "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/M70PhaseOwner.ts",
+            "line": 105
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "measure",
+            "url": "",
+            "line": 9
+          },
+          {
+            "function": "object.<computed>",
+            "url": "",
+            "line": 10
+          }
+        ]
+      },
+      {
+        "sampleMs": 6.856,
+        "path": [
+          {
+            "function": "readPixelsRegion",
+            "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts?t=1792240863020",
+            "line": 504
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "measure",
+            "url": "",
+            "line": 9
+          },
+          {
+            "function": "object.<computed>",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "solve",
+            "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts?t=1792240863020",
+            "line": 97
+          },
+          {
+            "function": "step",
+            "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts?t=1792240863020",
+            "line": 528
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "measure",
+            "url": "",
+            "line": 9
+          },
+          {
+            "function": "object.<computed>",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "frame",
+            "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleRoomController.ts?t=1792240863020",
+            "line": 503
+          },
+          {
+            "function": "",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "measure",
+            "url": "",
+            "line": 9
+          },
+          {
+            "function": "object.<computed>",
+            "url": "",
+            "line": 10
+          },
+          {
+            "function": "(root)",
+            "url": "",
+            "line": 0
+          }
+        ]
+      }
+    ]
+  },
+  "edge": [
+    {
+      "name": "trusted-pen-far-right-bottom",
+      "telemetry": {
+        "wallMs": 2683.100000143051,
+        "raf": {
+          "count": 85,
+          "sumMs": 2674.5999999999985,
+          "maxMs": 434.70000000000437,
+          "histogram": [
+            0,
+            39,
+            32,
+            5,
+            4,
+            4,
+            1,
+            0
+          ],
+          "over50": 9,
+          "over100": 5
+        },
+        "visibility": [
+          {
+            "at": 37439.200000047684,
+            "hidden": false,
+            "state": "visible"
+          },
+          {
+            "at": 40122.300000190735,
+            "hidden": false,
+            "state": "visible"
+          }
+        ]
+      },
+      "upToObservedIdleMs": 2609.399999856949
+    }
+  ],
+  "oracle": {
+    "name": "canonical-goal-first-full-API-replay-proof",
+    "wallAt": 1792241507376,
+    "actualSource": "canonical-goal",
+    "actualCapturedBeforeOracle": true,
+    "oracleTightSupport32": false,
+    "oracleControllers": [
+      {
+        "nativeScopeFactoryOff": true,
+        "type": "PagedPuddleRoomController",
+        "tightFlagAtCreation": false,
+        "actualOptions": {
+          "diagnosticM70TightSupport32": false,
+          "diagnosticM70CapturedBacking": false,
+          "diagnosticM70PersistCapturedBacking": false,
+          "diagnosticM70CooperativeCapture": false,
+          "diagnosticM70StepBudgetMs": 0,
+          "diagnosticM70SkipEmptyPostphase": false,
+          "diagnosticM70SkipEmptyReference": false
+        },
+        "createdWhilePuddleNull": true
+      }
+    ],
+    "oracleNativePrepare": 4,
+    "liveControllerRestored": true,
+    "liveTightFlagRestored": true,
+    "oracleLog": "complete-api",
+    "oracleOperationCount": 5,
+    "liveLogUnchanged": true,
+    "page": {
+      "width": 3508,
+      "height": 2480
+    },
+    "physicalChanged": 0,
+    "max": 0,
+    "alpha": 1867,
+    "tiles": [
+      {
+        "x": 3072,
+        "y": 2048,
+        "w": 436,
+        "h": 432,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 1867
+      }
+    ],
+    "actualHash": "1663326fee90b55afa49423089969a41c26b84a39e3a7d543c0231e546e084b5",
+    "oracleHash": "1663326fee90b55afa49423089969a41c26b84a39e3a7d543c0231e546e084b5",
+    "glError": 0,
+    "nativeScopeFactoryRestored": true
+  },
+  "errors": [],
+  "rawProfileSHA": "f60d7c53795d22392330b9604757de13c40794dc27db1bef7bb08679ec4fa5d5",
+  "rawProfileCleanup": "Removed after compact evidence stored; private runtime report and summaries retained."
+}
