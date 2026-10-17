@@ -1,0 +1,33 @@
+// Explicit QA-only continuation of owned wet fixture; never selects arbitrary history.
+const fs=require('fs'),assert=require('assert/strict');
+module.exports=async({env,report,mark,evaluate,page,request,state,f,layer,stroke,capture,append,accepted,idle,wait})=>{
+ const expected=JSON.parse(fs.readFileSync(env.QA_CONTROL_EXPECT_FILE));
+ assert.equal(expected.profileLayer,layer);assert.notEqual(layer,expected.originalLayer);
+ assert.equal(expected.originalStrokeIds.length,2);assert.ok(expected.profileEdgeId);
+ const journal=async()=>{const api=await request.newContext({storageState:state});try{const response=await api.get((f.backend||'http://localhost:4558')+'/api/rooms/'+f.room+'/operations?beforeSeq=2147483647&limit=500');assert.ok(response.ok());const rows=await response.json();assert.ok(Array.isArray(rows)&&rows.length>0&&rows.length<500);rows.sort((a,b)=>a.seq-b.seq);assert.equal(new Set(rows.map(o=>o.id)).size,rows.length);return rows}finally{await api.dispose()}};
+ const before=await journal();assert.deepEqual(before,expected.operations,'Accepted operation payload/revision changed');assert.deepEqual(before.map(o=>({id:o.id,seq:o.seq,type:o.type})),expected.history,'Unexpected history before controls; refuse mutation');
+ const ownStrokes=id=>before.filter(o=>o.type==='stroke'&&o.layerId===id).map(o=>o.id);
+ assert.deepEqual(ownStrokes(layer),[expected.profileEdgeId]);assert.deepEqual(ownStrokes(expected.originalLayer),expected.originalStrokeIds);
+ const originalOperations=before.filter(o=>o.layerId===expected.originalLayer);
+ const target=await evaluate(()=>__engine._log.undoTarget(__roomStore.getState().userId)?.id);assert.equal(target,expected.profileEdgeId,'Latest author operation changed');
+ mark('controls-only-validated',{selectedLayer:layer,originalLayer:expected.originalLayer,historyCount:before.length,profileEdgeId:expected.profileEdgeId,originalStrokeIds:expected.originalStrokeIds,qualification:'Owned latest profile layer; original two-stroke layer remains untouched; no target shortcuts'});
+ const {actualPageRasterProof}=require('./actual-page-raster-proof.cjs');
+ const proof=async(label,id,wet)=>{await idle();if(wet)await wait('(()=>{const e=__engine,l=e._puddle?.layers.get(e._layers.get('+JSON.stringify(id)+'));return !!l?.goalReady&&!l.dirty})()','natural wet goal '+label);const history=await journal(),q=await actualPageRasterProof({evaluate},id,wet?'canonical-goal':'physical',history,{tightSupport32:false,allowClosedPhysical:!wet});assert.equal(q.physicalChanged,0,label);assert.equal(q.glError,0);assert.ok(q.oracleControllers.every(c=>c.nativeScopeFactoryOff===true));assert.equal(q.liveLogUnchanged,true);assert.deepEqual(await journal(),history,'Proof mutated accepted history');assert.equal(await evaluate('__engine.diagnosticM70NativeScopeFactory===window.__qa747RoomScopeFactory'),true);if(wet){const raw=await evaluate(require('./raw-roi-proof.cjs'),{layerId:id,correctOrigin:false});assert.equal(raw.gl,0);for(const tile of raw.tiles){assert.equal(tile.freshVsFull,0);assert.equal(tile.changedOutside,0)}mark(label+'-raw-ROI',raw)}mark(label,q);return q};
+ const originalBefore=await proof('original-wet-before-controls',expected.originalLayer,true);
+ await stroke([[980,980],[1000,1000],[1020,1020],[1040,1040],[1060,1060]],'controls-add-trusted-seam');
+ const afterStroke=await journal(),created=afterStroke.filter(o=>!before.some(b=>b.id===o.id));assert.equal(created.length,1);assert.equal(created[0].type,'stroke');assert.equal(created[0].layerId,layer);const seam=created[0].id;
+ await capture('controls-seam-physical-first');const wet=await proof('controls-two-stroke-wet',layer,true);
+ const meta=async(kind,id)=>{const result=await evaluate(({kind,id})=>{const e=__engine,target=e._log[kind==='undo'?'undoTarget':'redoTarget'](__roomStore.getState().userId);if(target?.id!==id)throw Error('Unexpected '+kind+' target');const op=e[kind]();if(!op||op.targetOpId!==id)throw Error('Unexpected generated control');return{id:op.id,targetOpId:op.targetOpId}},{kind,id});await accepted(result.id);await idle();mark('controls-'+kind+'-accepted',result)};
+ await meta('undo',seam);await proof('controls-UndoSeam',layer,true);
+ await meta('redo',seam);assert.equal((await proof('controls-RedoSeam',layer,true)).actualHash,wet.actualHash);
+ const dry=await append({type:'paper_dry',layerId:layer});await capture('controls-Dry-physical-first');const dried=await proof('controls-Dry',layer,false);
+ assert.equal((await proof('original-wet-after-active-Dry',expected.originalLayer,true)).actualHash,originalBefore.actualHash,'Active-layer Dry changed other wet layer');
+ await meta('undo',dry);await proof('controls-UndoDry',layer,true);
+ await meta('redo',dry);assert.equal((await proof('controls-RedoDry',layer,false)).actualHash,dried.actualHash);
+ assert.equal((await proof('original-wet-after-controls',expected.originalLayer,true)).actualHash,originalBefore.actualHash);
+ const final=await journal();assert.deepEqual(final.filter(o=>o.layerId===expected.originalLayer),originalOperations,'Original layer accepted operations changed');fs.writeFileSync(env.QA_OUTPUT+'/accepted-journal.json',JSON.stringify(final),{mode:0o600});
+ await evaluate('window.__qa747BeforeReload=true');const coldAt=Date.now();await page('Page.reload',{ignoreCache:true});await wait('!window.__qa747BeforeReload&&(!!window.__engine&&!__engine._locked||!!document.querySelector("form input[type=text]"))','cold new document');const nameForm=await evaluate('!!document.querySelector("form input[type=text]")');if(nameForm)await evaluate(`(()=>{const x=document.querySelector('form input[type=text]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(x,'Large page native QA');x.dispatchEvent(new Event('input',{bubbles:true}));x.form.requestSubmit()})()`);await wait('!!window.__engine&&!__engine._locked','cold engine');await evaluate('__engine.paperReady().then(()=>true)');await idle();mark('controls-cold-ready',{elapsedMs:Date.now()-coldAt,nicknameFormHandled:nameForm});
+ // New document has a new early factory, so update the expected identity is inherent in its initializer.
+ assert.equal((await proof('controls-cold-Dry',layer,false)).actualHash,dried.actualHash);assert.equal((await proof('controls-cold-original-wet',expected.originalLayer,true)).actualHash,originalBefore.actualHash);assert.deepEqual(await journal(),final);
+ report.controlsOnly=true;report.controlsTargets={seam,dry,profileEdgeId:expected.profileEdgeId};report.scope='Owned latest profile layer seam/Undo/Redo/Dry/UndoDry/RedoDry/cold; other original wet layer unchanged; no performance claim';
+};
