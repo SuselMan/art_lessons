@@ -400,7 +400,7 @@ export class PagedPuddleRoomController {
     if (this.disposed) return
     if (this.host.drawing()) { this.request();return }
     if (!this.solving) {
-      const next=[...this.layers.values()].find(l => l.dirty && l.context && at>=l.after)
+      const next=[...this.layers.values()].find(l => l.dirty && l.context && at>=l.after && !this.host.sourcePending?.(l.scratch))
       if (next) this.start(next)
     }
     if (this.solving) {

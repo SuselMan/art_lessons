@@ -50,6 +50,9 @@ export interface PuddleRoomHost extends PuddleTargetHost {
   materialReady?(target: ILayerBuffer): boolean
   rehydrate?(target: ILayerBuffer, beforeRecordedOpId?: string): CpuScratchSnapshot
   drawing(): boolean
+  /** Ordered source writes/finish still own this scratch. RAF admission only;
+   * already admitted solves must keep advancing to release their leases. */
+  sourcePending?(scratch:RibbonStrokeScratch):boolean
   /** Synchronous material reads/barriers must acquire the shared field first. */
   finishLegacySettle?(): void
   /** Hidden replay changes material only until its target becomes visible. */
@@ -366,7 +369,7 @@ export class PuddleRoomController {
     if (this.disposed) return
     if (this.host.drawing()) { this.request();return }
     if (!this.solving) {
-      const next=[...this.layers.values()].find(l => l.dirty && l.context && at>=l.after)
+      const next=[...this.layers.values()].find(l => l.dirty && l.context && at>=l.after && !this.host.sourcePending?.(l.scratch))
       if (next) this.start(next)
     }
     if (this.solving) {

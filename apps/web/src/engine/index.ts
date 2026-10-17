@@ -1786,6 +1786,7 @@ export class PencilEngine implements PencilEngineAPI {
       hasActiveSettle:()=>!!this._settle,
       finishLegacySettle:()=>{if(this._fieldPhaseOwner?.state.executing)throw new MaterialSourceBusy();this._completeSettle()},
       drawing:()=>!!this._strokeLayerId || !!this._settle || this._rebuildJobs.size > 0,
+      sourcePending:scratch=>this._wcAsyncFinish&&this._wcAsyncOwners.has(scratch),
       deferPresentation:target=>this._hiddenM70Replay.has(target),
       render:(scratch,tile,ctx,output,material,samplingOrigin)=>{
         const entry=scratch.peek(tile.buffer)
