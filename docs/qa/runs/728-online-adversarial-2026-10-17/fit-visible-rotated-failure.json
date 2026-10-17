@@ -1,0 +1,198 @@
+{
+  "source": "717506a8e7b0d730079973e229f12aea837d9cd5",
+  "cases": [
+    {
+      "name": "landscape-fit-between-actual-panels",
+      "viewport": {
+        "cx": 461.66668701171875,
+        "cy": 425,
+        "angle": 0,
+        "zoom": 0.7738194910685221
+      },
+      "locked": false,
+      "dimensions": {
+        "w": 768,
+        "h": 512
+      },
+      "corners": [
+        {
+          "x": 164.51999095320656,
+          "y": 226.90220438268346
+        },
+        {
+          "x": 758.8133778051523,
+          "y": 226.90220438268346
+        },
+        {
+          "x": 164.51999095320656,
+          "y": 623.097795617314
+        },
+        {
+          "x": 758.8133778051523,
+          "y": 623.097795617314
+        }
+      ],
+      "chrome": [
+        {
+          "edge": "top",
+          "hidden": false,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1100,
+            "height": 52,
+            "top": 0,
+            "right": 1100,
+            "bottom": 52,
+            "left": 0
+          }
+        },
+        {
+          "edge": "left",
+          "hidden": false,
+          "rect": {
+            "x": 0,
+            "y": 52,
+            "width": 62,
+            "height": 798,
+            "top": 52,
+            "right": 62,
+            "bottom": 850,
+            "left": 0
+          }
+        },
+        {
+          "edge": "left",
+          "hidden": false,
+          "rect": {
+            "x": 62,
+            "y": 52,
+            "width": 62,
+            "height": 798,
+            "top": 52,
+            "right": 124,
+            "bottom": 850,
+            "left": 62
+          }
+        },
+        {
+          "edge": "right",
+          "hidden": false,
+          "rect": {
+            "x": 799.3333740234375,
+            "y": 52,
+            "width": 300.66668701171875,
+            "height": 798,
+            "top": 52,
+            "right": 1100.0000610351562,
+            "bottom": 850,
+            "left": 799.3333740234375
+          }
+        }
+      ],
+      "screen": {
+        "w": 1100,
+        "h": 850
+      }
+    }
+  ],
+  "errors": [],
+  "scope": "Actual Fit canvas geometry on a rectangular room, dock panels, rotation lock, minimal UI and compact viewport",
+  "currentFit": {
+    "name": "locked-quarter-turn-fit",
+    "viewport": {
+      "cx": 461.66668701171875,
+      "cy": 425,
+      "angle": 1.5707963267948966,
+      "zoom": 0.9739583333333333
+    },
+    "locked": true,
+    "dimensions": {
+      "w": 768,
+      "h": 512
+    },
+    "corners": [
+      {
+        "x": 711.0000251432286,
+        "y": 50.999988853931654
+      },
+      {
+        "x": 711.0000251432286,
+        "y": 799.0000111460708
+      },
+      {
+        "x": 212.33334361513585,
+        "y": 50.999988853931654
+      },
+      {
+        "x": 212.33334361513585,
+        "y": 799.0000111460708
+      }
+    ],
+    "chrome": [
+      {
+        "edge": "top",
+        "hidden": false,
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 1100,
+          "height": 52,
+          "top": 0,
+          "right": 1100,
+          "bottom": 52,
+          "left": 0
+        }
+      },
+      {
+        "edge": "left",
+        "hidden": false,
+        "rect": {
+          "x": 0,
+          "y": 52,
+          "width": 62,
+          "height": 798,
+          "top": 52,
+          "right": 62,
+          "bottom": 850,
+          "left": 0
+        }
+      },
+      {
+        "edge": "left",
+        "hidden": false,
+        "rect": {
+          "x": 62,
+          "y": 52,
+          "width": 62,
+          "height": 798,
+          "top": 52,
+          "right": 124,
+          "bottom": 850,
+          "left": 62
+        }
+      },
+      {
+        "edge": "right",
+        "hidden": false,
+        "rect": {
+          "x": 799.3333740234375,
+          "y": 52,
+          "width": 300.66668701171875,
+          "height": 798,
+          "top": 52,
+          "right": 1100.0000610351562,
+          "bottom": 850,
+          "left": 799.3333740234375
+        }
+      }
+    ],
+    "screen": {
+      "w": 1100,
+      "h": 850
+    }
+  },
+  "pass": false,
+  "failure": "AssertionError [ERR_ASSERTION]: locked-quarter-turn-fit paper under visible top chrome\n    at fit (/home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/fit-visible.cjs:4:1208)\n    at async /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/fit-visible.cjs:5:226",
+  "classification": "RUNTIME_FAIL #768: header is outside viewport.parentElement subtree; full height used for rotated fit. Normal landscape fit passed. Assertion tolerance remains 1px."
+}
