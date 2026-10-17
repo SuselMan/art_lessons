@@ -1,0 +1,537 @@
+{
+  "candidateBase": "82313a4c69517b57a2a0ad16acb16fde7bfa341c",
+  "runtimeModified": false,
+  "samples": 1305,
+  "sampledMs": 1565.137,
+  "scope": "ONLY final watercolorEffectiveOperations for third UndoDry; 480 independent pools; no GPU/DOM/browser; inspector adds overhead",
+  "source": {
+    "OperationLog.ts": "fbd30be908e10d7d4ad633cc7ed0e6c4762a871186c194f58e2c1c560a2296e4",
+    "watercolorUndo.ts": "7d98c8d485b5356bf41142debcba4775b5b5b53c746c8f8ffde7d1c7da737efe",
+    "controlHistory.ts": "65bdf95a8c924e32b530efe25247e983d48f1cbccedcfd9cba0c051057deea91"
+  },
+  "topSelf": [
+    {
+      "function": "enableHistoricalBoundarySources",
+      "file": "watercolorUndo.ts",
+      "line": 1,
+      "selfMs": 578.68,
+      "callers": [
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "watercolorEffectiveOperations",
+          "file": "OperationLog.ts",
+          "line": 1
+        },
+        {
+          "function": "",
+          "file": "scoped.mjs",
+          "line": 0
+        },
+        {
+          "function": "(root)",
+          "file": "",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "function": "resolveGeometry",
+      "file": "watercolorUndo.ts",
+      "line": 1,
+      "selfMs": 490.92,
+      "callers": [
+        {
+          "function": "enableHistoricalBoundarySources",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "watercolorEffectiveOperations",
+          "file": "OperationLog.ts",
+          "line": 1
+        },
+        {
+          "function": "",
+          "file": "scoped.mjs",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "function": "m70WaterResetLayers",
+      "file": "watercolorMaterialBoundaries.ts",
+      "line": 1,
+      "selfMs": 137.87,
+      "callers": [
+        {
+          "function": "closedWaterLayers",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "resolveGeometry",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "enableHistoricalBoundarySources",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "function": "dispatch",
+      "file": "",
+      "line": 0,
+      "selfMs": 85.4,
+      "callers": [
+        {
+          "function": "post",
+          "file": "node:inspector",
+          "line": 112
+        },
+        {
+          "function": "",
+          "file": "scoped.mjs",
+          "line": 1
+        },
+        {
+          "function": "post",
+          "file": "scoped.mjs",
+          "line": 1
+        },
+        {
+          "function": "",
+          "file": "scoped.mjs",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "function": "(garbage collector)",
+      "file": "",
+      "line": 0,
+      "selfMs": 67.59,
+      "callers": [
+        {
+          "function": "(root)",
+          "file": "",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "function": "candidates",
+      "file": "watercolorFootprintIndex.ts",
+      "line": 1,
+      "selfMs": 55.67,
+      "callers": [
+        {
+          "function": "resolveGeometry",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "enableHistoricalBoundarySources",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "watercolorEffectiveOperations",
+          "file": "OperationLog.ts",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "function": "",
+      "file": "watercolorUndo.ts",
+      "line": 1,
+      "selfMs": 30.85,
+      "callers": [
+        {
+          "function": "resolveGeometry",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "enableHistoricalBoundarySources",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "watercolorEffectiveOperations",
+          "file": "OperationLog.ts",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "function": "isM70WatercolorStroke",
+      "file": "watercolorUndo.ts",
+      "line": 1,
+      "selfMs": 26.19,
+      "callers": [
+        {
+          "function": "resolveGeometry",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "enableHistoricalBoundarySources",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "watercolorEffectiveOperations",
+          "file": "OperationLog.ts",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "function": "isRemovedWaterCandidate",
+      "file": "watercolorUndo.ts",
+      "line": 1,
+      "selfMs": 17.4,
+      "callers": [
+        {
+          "function": "resolveGeometry",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "enableHistoricalBoundarySources",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "watercolorEffectiveOperations",
+          "file": "OperationLog.ts",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "function": "geometryOf",
+      "file": "watercolorUndo.ts",
+      "line": 1,
+      "selfMs": 16.44,
+      "callers": [
+        {
+          "function": "resolveGeometry",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "enableHistoricalBoundarySources",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "watercolorEffectiveOperations",
+          "file": "OperationLog.ts",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "function": "range",
+      "file": "watercolorFootprintIndex.ts",
+      "line": 1,
+      "selfMs": 16.39,
+      "callers": [
+        {
+          "function": "candidates",
+          "file": "watercolorFootprintIndex.ts",
+          "line": 1
+        },
+        {
+          "function": "resolveGeometry",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "enableHistoricalBoundarySources",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "function": "waterLevel",
+      "file": "watercolorUndo.ts",
+      "line": 1,
+      "selfMs": 10.87,
+      "callers": [
+        {
+          "function": "resolveGeometry",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "enableHistoricalBoundarySources",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "watercolorEffectiveOperations",
+          "file": "OperationLog.ts",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "function": "groupOf",
+      "file": "watercolorUndo.ts",
+      "line": 1,
+      "selfMs": 8.77,
+      "callers": [
+        {
+          "function": "resolveGeometry",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "enableHistoricalBoundarySources",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "watercolorEffectiveOperations",
+          "file": "OperationLog.ts",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "function": "resolveGeometry",
+      "file": "watercolorUndo.ts",
+      "line": 1,
+      "selfMs": 6.53,
+      "callers": [
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "watercolorEffectiveOperations",
+          "file": "OperationLog.ts",
+          "line": 1
+        },
+        {
+          "function": "",
+          "file": "scoped.mjs",
+          "line": 0
+        },
+        {
+          "function": "(root)",
+          "file": "",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "function": "set name",
+      "file": "",
+      "line": 0,
+      "selfMs": 4.36,
+      "callers": [
+        {
+          "function": "__name",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "resolveGeometry",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "enableHistoricalBoundarySources",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        }
+      ]
+    }
+  ],
+  "inclusiveResolve": [
+    {
+      "function": "enableHistoricalBoundarySources",
+      "file": "watercolorUndo.ts",
+      "line": 1,
+      "inclusiveMs": 1399.89,
+      "selfMs": 578.68,
+      "callers": [
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "watercolorEffectiveOperations",
+          "file": "OperationLog.ts",
+          "line": 1
+        },
+        {
+          "function": "",
+          "file": "scoped.mjs",
+          "line": 0
+        },
+        {
+          "function": "(root)",
+          "file": "",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "function": "effectiveWatercolorOperations",
+      "file": "watercolorUndo.ts",
+      "line": 1,
+      "inclusiveMs": 1410.68,
+      "selfMs": 1.08,
+      "callers": [
+        {
+          "function": "watercolorEffectiveOperations",
+          "file": "OperationLog.ts",
+          "line": 1
+        },
+        {
+          "function": "",
+          "file": "scoped.mjs",
+          "line": 0
+        },
+        {
+          "function": "(root)",
+          "file": "",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "function": "resolveGeometry",
+      "file": "watercolorUndo.ts",
+      "line": 1,
+      "inclusiveMs": 817.94,
+      "selfMs": 490.92,
+      "callers": [
+        {
+          "function": "enableHistoricalBoundarySources",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "watercolorEffectiveOperations",
+          "file": "OperationLog.ts",
+          "line": 1
+        },
+        {
+          "function": "",
+          "file": "scoped.mjs",
+          "line": 0
+        },
+        {
+          "function": "(root)",
+          "file": "",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "function": "resolveGeometry",
+      "file": "watercolorUndo.ts",
+      "line": 1,
+      "inclusiveMs": 9.71,
+      "selfMs": 6.53,
+      "callers": [
+        {
+          "function": "effectiveWatercolorOperations",
+          "file": "watercolorUndo.ts",
+          "line": 1
+        },
+        {
+          "function": "watercolorEffectiveOperations",
+          "file": "OperationLog.ts",
+          "line": 1
+        },
+        {
+          "function": "",
+          "file": "scoped.mjs",
+          "line": 0
+        },
+        {
+          "function": "(root)",
+          "file": "",
+          "line": 0
+        }
+      ]
+    }
+  ]
+}
