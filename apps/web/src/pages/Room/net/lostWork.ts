@@ -19,17 +19,18 @@ const CONTENT_OP_TYPES: ReadonlySet<Operation['type']> = new Set([
 
 /** An operation that both targets a single layer and carries content — what
  *  `isRecoverableContentOp` narrows to, and the only thing recovery ever
- *  re-emits. */
+ *  re-emits. Layer-scoped Dry is retained only as material context. */
 export type LostContentOp = Extract<Operation, {
   type: 'stroke' | 'image_import' | 'layer_clear' | 'shape' | 'area_paste' | 'area_fill'
-}>
+}> | (Extract<Operation, {type:'paper_dry'}> & {layerId:string})
 
 type ContentOp = LostContentOp
 
-/** Whether a `target_gone` rejection of this operation means real lost work
- *  (and so is worth recovering) rather than a redo-in-one-click annoyance. */
+/** Content, or scoped Dry context, worth retaining after target_gone.
+ * Dry alone must not create a recovered empty layer. */
 export function isRecoverableContentOp(op: Operation): op is ContentOp {
   return CONTENT_OP_TYPES.has(op.type) && 'layerId' in op
+    || op.type==='paper_dry' && typeof op.layerId==='string'
 }
 
 /** Groups rejected operations by the dead layer they targeted, each group
@@ -127,6 +128,9 @@ export function recoveryOperations(input: {
   const layerNames: string[] = []
   const restoredLayerIds: string[] = []
   for (const [deadLayerId, ops] of groupLostOpsByLayer(input.lost)) {
+    // Dry is material context, not content that deserves an empty new layer.
+    if (!ops.some(op=>CONTENT_OP_TYPES.has(op.type))) continue
+    const preserveMaterialTime=ops.some(op=>op.type==='stroke' && op.tool==='watercolor' && op.preset.split(':')[5]==='wc@m70-r2-v1')
     const originalName = resolveDeletedLayerName(deadLayerId, input.live, input.log, input.restored)
       ?? input.unnamedLayer
     const newLayerId = input.newId()
@@ -134,7 +138,9 @@ export function recoveryOperations(input: {
       id: input.newId(), type: 'layer_add', userId: input.userId, timestamp: input.now(),
       layerId: newLayerId, name: input.restoredName(originalName),
     })
-    for (const op of ops) operations.push(retargetToLayer(op, newLayerId, input.newId(), input.now()))
+    // New identities are mandatory, but M70 timestamps encode drying/age.
+    // Restamping collapses independent original wet epochs into one source.
+    for (const op of ops) operations.push(retargetToLayer(op, newLayerId, input.newId(), preserveMaterialTime ? op.timestamp : input.now()))
     layerNames.push(originalName)
     restoredLayerIds.push(newLayerId)
   }
