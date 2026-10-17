@@ -1,0 +1,40 @@
+{
+  "portrait": {
+    "source": "b7c19950015a984a4ea224b02f5451d8b121f017",
+    "ops": 6,
+    "inputSHA": "409757c9eeb0eee17f4469fd3b597451208e4b5c84101da60cf93c3116025d31",
+    "expected": [
+      {
+        "actor": 0,
+        "targetHash": "893f9239a757127b0bd8c75aab8a4dd0cfaf6a976c146b3525ac1d6d36eeb9c9"
+      },
+      {
+        "actor": 1,
+        "targetHash": "9c4c9c0531b2db330c7be6b6b0883d24ff0d3e4712dd8ca554fa8ad2a6ced16b"
+      },
+      {
+        "actor": 2,
+        "targetHash": "893f9239a757127b0bd8c75aab8a4dd0cfaf6a976c146b3525ac1d6d36eeb9c9"
+      }
+    ]
+  },
+  "landscape": {
+    "source": "c8a9d09c30e10592fdb5ccad32f783839b089657",
+    "ops": 6,
+    "inputSHA": "64e52d474f03e81df69e09a588415a128f541e6c8565caaf22dd9e745239a6ba",
+    "expected": [
+      {
+        "actor": 0,
+        "targetHash": "401d217f8fb5c47c47399e9a5cff9d66f1b33641a2cf8478e50f9df2da7860f1"
+      },
+      {
+        "actor": 1,
+        "targetHash": "a1c0a6a8c24bc415a5c34e294bafb15e0cacf5400cd571d9ec2666e78c9ec9e9"
+      },
+      {
+        "actor": 2,
+        "targetHash": "401d217f8fb5c47c47399e9a5cff9d66f1b33641a2cf8478e50f9df2da7860f1"
+      }
+    ]
+  }
+}
