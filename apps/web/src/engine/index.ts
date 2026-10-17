@@ -1,7 +1,7 @@
 import {PagedPuddleRoomController} from './src/watercolor/puddle/PagedPuddleRoomController'
 import {createPagedPuddleTarget} from './src/watercolor/puddle/PagedPuddleTarget'
 import {BufferResidency} from './src/buffers/BufferResidency'
-import { cancelRestoreGeneration } from '../lib/restoreGeneration'
+import { cancelRestoreGeneration } from './restoreGeneration'
 import {exactMaterialHistory} from './src/oplog/exactMaterialHistory'
 import {closedWatercolorCheckpoint} from './src/oplog/closedWatercolorCheckpoint'
 import {PuddleRoomController, MaterialSourceBusy, MaterialHistoryNotReady, type PuddleRoomHost} from './src/watercolor/puddle/PuddleRoomController'

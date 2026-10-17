@@ -68,7 +68,7 @@ it('retires partial old audit synchronously before new pixels can append their a
  const audit:string[]=[];const reports:string[][]=[];const noop=vi.fn()
  const engine={setBaseLayers:noop,restoreLayerFromSnapshot:(_layer:string,_tiles:unknown,seq:number)=>audit.push(String(seq)),takeSnapshotRestoreAudit:()=>{const out=audit.splice(0);reports.push(out);return[]},gpuInfo:()=>null} as unknown as PencilEngineAPI
  const deps={engineRef:{current:engine},boardId:'room',onHistoryRepairFailure:noop,appliedOpIdsRef:{current:new Set<string>()},deferredOpsQueueRef:{current:[]},restoredLayerStateRef:{current:null},markActive:noop,resolveTransformCommit:noop,confirmOwnOperation:noop,noteOperationSeq:noop,syncFromLog:noop,checkSnapshotBoundary:noop} as RemoteOperationsDeps
- const network=await import('./net/snapshotRestore'),generation=await import('../../lib/restoreGeneration')
+ const network=await import('./net/snapshotRestore'),generation=await import('../../engine/restoreGeneration')
  let release!:()=>void
  vi.mocked(network.restoreLatestSnapshot).mockImplementationOnce(async(_room,sink)=>{
   sink.applyLayer('L',[],10)

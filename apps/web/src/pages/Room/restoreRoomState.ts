@@ -1,5 +1,5 @@
 import type { RefObject } from 'react'
-import { beginRestoreGeneration, finishRestoreGeneration, isRestoreCancelled } from '../../lib/restoreGeneration'
+import { beginRestoreGeneration, finishRestoreGeneration, isRestoreCancelled } from '../../engine/restoreGeneration'
 import * as Sentry from '@sentry/react'
 
 import type { Operation, Participant } from '@grafetto/shared'

@@ -1,4 +1,4 @@
-import { isRestoreCancelled } from '../../lib/restoreGeneration'
+import { isRestoreCancelled } from '../../engine/restoreGeneration'
 import { useCallback, useRef, type RefObject } from 'react'
 
 import type { LayerState, Operation } from '@grafetto/shared'

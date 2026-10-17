@@ -1,4 +1,4 @@
-import { awaitRestore } from '../../../lib/restoreGeneration'
+import { awaitRestore } from '../../../engine/restoreGeneration'
 import { isLayerStateShape, type LayerState, type Operation, type SnapshotIndex } from '@grafetto/shared'
 
 import { api, ApiError, apiPath } from '../../../lib/api/api'
