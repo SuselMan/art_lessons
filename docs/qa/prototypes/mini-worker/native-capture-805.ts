@@ -22,7 +22,7 @@ export function captureNativeOnce(engine:any,source:any,tile:any){
   const rawSHA:Record<string,string>={},commonSHA:Record<string,string>={}
   for(const[name,bytes]of Object.entries({inkColor,solvent,...(foreignSolvent?{foreignSolvent}:{}),paperHeightRGBA}))rawSHA[name]=await digest(bytes)
   for(const[name,bytes]of Object.entries({rgba:converted.input.rgba,water:converted.input.water,paper:converted.input.paper}))commonSHA[name]=await digest(bytes)
-  return{input:converted.input,manifest:{...converted.manifest,rawSHA,commonSHA,carrierViolations,validForBoundedCarrier:carrierViolations===0,nativeMaterialModel:source.finishContext?.profile?.materialModel??null,scope:'One owned PB15 wash, converted full1024 before native solve; no capture timing claim'}}
+  return{input:converted.input,manifest:{...converted.manifest,rawSHA,commonSHA,carrierViolations,validForBoundedCarrier:carrierViolations===0,nativeMaterialModel:source.finishContext?.profile?.materialModel??null,scope:'One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim'}}
  })().catch(error=>({error:String(error?.stack??error)}))
 }
 export async function readNativeCapture(){
