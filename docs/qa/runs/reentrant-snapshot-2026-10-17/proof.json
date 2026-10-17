@@ -1,0 +1,12 @@
+{
+  "issue": 788,
+  "scope": "Public restoreRoomState + restoreLatestSnapshot; real gzip/decode + actual engine restore method; CPU MockGL, not physical GPU pixels",
+  "observed": {"installedSeqs": [20,10], "newDecodedRed":202,"finalDecodedRed":41,"latestKnownSeq":20,"restoreFailures":0},
+  "normalTest": {"result":"FAIL at final preservation assertion","expectedRed":202,"receivedRed":41,"durationSeconds":4.29},
+  "savedTest": {"result":"one expected fail","durationSeconds":4.31,"maxWorkers":1},
+  "snapshotRestoreSHA256":"7a5ae8b19bacbb8beef76673fff6bce2841efb41e470d069979a6f31c7f51451",
+  "restoreRoomStateSHA256":"708b9499f2b5333ba5a3cbd3c29f5421aefaf7738eab78c7d39aa6be6f6a0a06",
+  "sameAsIntegration":true,
+  "runtimeChanged":false,
+  "temporaryResources":[]
+}
