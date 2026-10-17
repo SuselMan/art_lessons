@@ -226,6 +226,114 @@
       "annotation/reviewimage firstinteractive timestamp",
       "shadercompile duration"
     ],
-    "interpretation": "Composite harness completion time only. 8948/8823ms do not prove user waited9seconds or replay took9seconds; latency attribution unresolved. Functional load passes, normal loading performance is not established."
-  }
+    "interpretation": "Composite harness completion time only. UI persisted stage records show normal join-submit\u2192ready731ms and annotation987ms; fullnavigation vs UI-timer gap remains unassigned. Does not prove9s userwait/replay; firstvisible and earlyreviewimage not captured."
+  },
+  "persistedUiOpenMeasurements": [
+    {
+      "scope": "first-context-empty-entry",
+      "createdAt": "2026-10-17T00:38:26.942Z",
+      "totalMs": 575,
+      "joinMs": 415,
+      "paperMs": 157,
+      "snapshotMs": 0,
+      "replayMs": 3,
+      "reached": "replay",
+      "facts": {
+        "layers": 2,
+        "latestSeq": 0,
+        "snapshotSeq": null,
+        "tailOperations": 0,
+        "restoredFromSnapshot": false
+      },
+      "outcome": "ready",
+      "wasHidden": false,
+      "platform": "android",
+      "browser": "Chrome 155"
+    },
+    {
+      "scope": "second-context-existing-four-ops-entry",
+      "createdAt": "2026-10-17T00:41:37.325Z",
+      "totalMs": 1202,
+      "joinMs": 600,
+      "paperMs": 163,
+      "snapshotMs": 0,
+      "replayMs": 439,
+      "reached": "replay",
+      "facts": {
+        "layers": 2,
+        "latestSeq": 0,
+        "snapshotSeq": null,
+        "tailOperations": 4,
+        "restoredFromSnapshot": false
+      },
+      "outcome": "ready",
+      "wasHidden": false,
+      "platform": "android",
+      "browser": "Chrome 155"
+    },
+    {
+      "scope": "normal-loop-entry",
+      "createdAt": "2026-10-17T00:41:45.797Z",
+      "totalMs": 731,
+      "joinMs": 367,
+      "paperMs": 138,
+      "snapshotMs": 0,
+      "replayMs": 227,
+      "reached": "replay",
+      "facts": {
+        "layers": 2,
+        "latestSeq": 0,
+        "snapshotSeq": null,
+        "tailOperations": 4,
+        "restoredFromSnapshot": false
+      },
+      "outcome": "ready",
+      "wasHidden": false,
+      "platform": "android",
+      "browser": "Chrome 155"
+    },
+    {
+      "scope": "annotation-loop-entry",
+      "createdAt": "2026-10-17T00:41:56.153Z",
+      "totalMs": 987,
+      "joinMs": 378,
+      "paperMs": 126,
+      "snapshotMs": 480,
+      "replayMs": 2,
+      "reached": "replay",
+      "facts": {
+        "layers": 2,
+        "latestSeq": 0,
+        "snapshotSeq": 4,
+        "tailOperations": 0,
+        "restoredFromSnapshot": true
+      },
+      "outcome": "ready",
+      "wasHidden": false,
+      "platform": "android",
+      "browser": "Chrome 155"
+    },
+    {
+      "scope": "normal-final-fit-entry",
+      "createdAt": "2026-10-17T00:42:03.315Z",
+      "totalMs": 981,
+      "joinMs": 387,
+      "paperMs": 135,
+      "snapshotMs": 457,
+      "replayMs": 2,
+      "reached": "replay",
+      "facts": {
+        "layers": 2,
+        "latestSeq": 0,
+        "snapshotSeq": 4,
+        "tailOperations": 0,
+        "restoredFromSnapshot": true
+      },
+      "outcome": "ready",
+      "wasHidden": false,
+      "platform": "android",
+      "browser": "Chrome 155"
+    }
+  ],
+  "persistedUiOpenMeasurementScope": "Read-only exact disposable-room SELECT; records correlated by createdAt and known navigation order. UI OpenTimer starts at join-submit, not page navigation. Normal loop731ms, annotation987ms. Does not separately establish firstvisible/early-reviewimage time or explain prejoin/CDP overhead in8.9s composite."
 }
