@@ -30,6 +30,8 @@ export type NativePuddleTargetOptions = {
   portableNoise?: boolean
   readParameters?: ReadPuddleParameters
   fullResolution?: boolean
+  /** Paged callers consume only completed material; omit intermediate presentation copies. */
+  finalOnly?: boolean
   /** A paged caller supplies whole-sheet phases, shared by every solver window. */
   deferFinalMix?: boolean
   contrast?: ReturnType<typeof createContrastPhase>
@@ -160,7 +162,7 @@ export function createNativePuddleTarget(host: PuddleTargetHost, size: PuddleSiz
       owner.splitQuanta = true
       try {
         job = prepare.call(owner, clone, [tile], bounds, bloom, radius, 1, 0, standing, 1, 0,
-          (_tile, p, c, coverage) => { if (scratch === clone && !destroyed) publish(p, c, coverage) }, false, undefined, true)
+          options.finalOnly ? undefined : (_tile, p, c, coverage) => { if (scratch === clone && !destroyed) publish(p, c, coverage) }, false, undefined, true)
         state.total = job?.ops.length ?? 0
         if (!job) { state.done = true; clone.destroy(); scratch = null; key = null }
       } catch (error) { cancel(); throw error }
