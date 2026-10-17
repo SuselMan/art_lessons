@@ -1,0 +1,38 @@
+{
+  "scope": "index.ts _ribbonDabsWork recordedIndex+boundary only; no GL, actual recorded ids/types, no dry/hide, synthetic same-layer projection; VPS timings do not estimate Adreno or whole resolver",
+  "result": [
+    {
+      "n": 100,
+      "warmSamplesMs": [
+        0.6370470000000026,
+        0.6040630000000036,
+        1.7207690000000042,
+        0.3107169999999968,
+        0.304589
+      ],
+      "checksum": 0
+    },
+    {
+      "n": 300,
+      "warmSamplesMs": [
+        1.848191,
+        2.414087000000002,
+        1.857135999999997,
+        2.030419000000002,
+        2.1807919999999967
+      ],
+      "checksum": 0
+    },
+    {
+      "n": 1000,
+      "warmSamplesMs": [
+        24.87422099999999,
+        23.913066,
+        19.659300999999985,
+        19.65589399999999,
+        20.042207999999988
+      ],
+      "checksum": 0
+    }
+  ]
+}
