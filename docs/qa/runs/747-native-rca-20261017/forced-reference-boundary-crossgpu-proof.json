@@ -1,0 +1,342 @@
+{
+  "sourcePair": [
+    "466745f1",
+    "466745f1"
+  ],
+  "inputExact": true,
+  "manifestExact": true,
+  "samsungRestoration": {
+    "restored": true,
+    "ownershipExact": true
+  },
+  "arrays": {
+    "inputP": {
+      "bytes": 12582912,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "samsungSHA": "8b51d50dc29308effcc97e9f88030cc4ed85c98237313b25f8b21eccf92b2946",
+      "intelSHA": "8b51d50dc29308effcc97e9f88030cc4ed85c98237313b25f8b21eccf92b2946"
+    },
+    "referenceP": {
+      "bytes": 12582912,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "samsungSHA": "8933101496fbaa48b3c9fcf1efd86bb062ede6847194c50cd6c3e51c28e49b24",
+      "intelSHA": "8933101496fbaa48b3c9fcf1efd86bb062ede6847194c50cd6c3e51c28e49b24"
+    },
+    "inputC": {
+      "bytes": 12582912,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "samsungSHA": "b2cdd47fdda634753ddcea8146951960964b61afe3126d1b22f5b68f9dfdfae0",
+      "intelSHA": "b2cdd47fdda634753ddcea8146951960964b61afe3126d1b22f5b68f9dfdfae0"
+    },
+    "referenceC": {
+      "bytes": 12582912,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "samsungSHA": "664c5c68222a69e4d6faf211112b624be9716d088f3fa3527f1d0b0713712730",
+      "intelSHA": "664c5c68222a69e4d6faf211112b624be9716d088f3fa3527f1d0b0713712730"
+    },
+    "coverage": {
+      "bytes": 12582912,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "samsungSHA": "df8f0ffb4a0500bd32359b554d4426bbb1c1dfc94d40aefadb0aed72acc792ac",
+      "intelSHA": "df8f0ffb4a0500bd32359b554d4426bbb1c1dfc94d40aefadb0aed72acc792ac"
+    },
+    "mobileP": {
+      "bytes": 12582912,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "samsungSHA": "831f64f094edee27eb30f544f290e0f9e5327e888ae50520dea23ed475b4ff79",
+      "intelSHA": "831f64f094edee27eb30f544f290e0f9e5327e888ae50520dea23ed475b4ff79"
+    },
+    "fixedP": {
+      "bytes": 12582912,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "samsungSHA": "8933101496fbaa48b3c9fcf1efd86bb062ede6847194c50cd6c3e51c28e49b24",
+      "intelSHA": "8933101496fbaa48b3c9fcf1efd86bb062ede6847194c50cd6c3e51c28e49b24"
+    },
+    "mobileC": {
+      "bytes": 12582912,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "samsungSHA": "85173d78b3a1879cc3d94253bedea55138323a6b0b032de22eab7eaee6eccc25",
+      "intelSHA": "85173d78b3a1879cc3d94253bedea55138323a6b0b032de22eab7eaee6eccc25"
+    },
+    "fixedC": {
+      "bytes": 12582912,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "samsungSHA": "664c5c68222a69e4d6faf211112b624be9716d088f3fa3527f1d0b0713712730",
+      "intelSHA": "664c5c68222a69e4d6faf211112b624be9716d088f3fa3527f1d0b0713712730"
+    }
+  },
+  "samsungOwnAB": {
+    "stageDiffs": {
+      "referenceP": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9",
+        "referenceHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9"
+      },
+      "referenceC": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2",
+        "referenceHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2"
+      },
+      "solvedP": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "917207fc7f27db4c3552c0e3215e3ee1756e56f5c7a204a435b7830df60ac084",
+        "referenceHash": "917207fc7f27db4c3552c0e3215e3ee1756e56f5c7a204a435b7830df60ac084"
+      },
+      "solvedC": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "3d64805256114442064e1666f53fd6c1e9135562d3f28a09c069e6c3ce67cb66",
+        "referenceHash": "3d64805256114442064e1666f53fd6c1e9135562d3f28a09c069e6c3ce67cb66"
+      },
+      "solvedCoverage": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+      },
+      "coarse:gate": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+        "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+      },
+      "coarse:beforeP": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "2f7a94c191c9009f130b63b5f50f5823a5c4a9ab54fba59339844c1af3695128",
+        "referenceHash": "2f7a94c191c9009f130b63b5f50f5823a5c4a9ab54fba59339844c1af3695128"
+      },
+      "coarse:afterP": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "5a0db61e5bfe26fae10a7f6420b430f74be1b39b3d1aa082aea546d015aede34",
+        "referenceHash": "5a0db61e5bfe26fae10a7f6420b430f74be1b39b3d1aa082aea546d015aede34"
+      },
+      "coarse:beforeC": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "d1f20553b5e65e8d864d28cc87e5ae4aa1bf3c5be82fc36afc2911e08d2bc308",
+        "referenceHash": "d1f20553b5e65e8d864d28cc87e5ae4aa1bf3c5be82fc36afc2911e08d2bc308"
+      },
+      "coarse:afterC": {
+        "bytes": 65536,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "730d346ff09b4cf320994e9e022d19c0f7a8025727b3e996b7d1dec9fadb4b14",
+        "referenceHash": "730d346ff09b4cf320994e9e022d19c0f7a8025727b3e996b7d1dec9fadb4b14"
+      }
+    },
+    "diffs": {
+      "p": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "9a974af55ccec26ee742d2b44c9fb9c2818336adafb0538062b2315fbfab1b0d",
+        "referenceHash": "9a974af55ccec26ee742d2b44c9fb9c2818336adafb0538062b2315fbfab1b0d"
+      },
+      "c": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "300e474ed4ccbf6c7c60389fbc41fcec35c61b31790e56bf7bb478cb81670cd0",
+        "referenceHash": "300e474ed4ccbf6c7c60389fbc41fcec35c61b31790e56bf7bb478cb81670cd0"
+      },
+      "coverage": {
+        "bytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "first": [],
+        "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+        "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+      }
+    },
+    "patch": {
+      "module": "http://127.0.0.1:15484/src/engine/src/raster/WatercolorSettlePlan.ts",
+      "originalHash": "bca6152c7034b47e2b915e118fa2d4a0485879546e933a7ee5e203fc41ee8687",
+      "patchedHash": "9f558a0501c8529d9603d379ef07cb92a2d8b1b6fa48e702bdc0399904aa7142",
+      "replacement": "unique const CAP = 1536 * S \u2192 const CAP = 4096 * S",
+      "productionChanged": false
+    },
+    "forcedContrastReference": {
+      "qualification": "QA-only fixed-reference diagnostic; not renderer fix, approved art or golden replacement",
+      "manifest": {
+        "width": 2048,
+        "height": 512,
+        "chosenSource": "dfe322c3",
+        "inputHashes": {
+          "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+          "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+          "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+        },
+        "arrays": {
+          "contrastReferenceP": {
+            "sha256": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9",
+            "bytes": 4194304
+          },
+          "contrastReferenceC": {
+            "sha256": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2",
+            "bytes": 4194304
+          }
+        }
+      },
+      "applications": [
+        {
+          "stage": "native-reference",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 2048,
+            "height": 512
+          },
+          "planes": 2,
+          "uploadReadbackExact": true
+        },
+        {
+          "stage": "paged-global-reference",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 512,
+            "height": 512
+          },
+          "planes": 2,
+          "uploadReadbackExact": true
+        },
+        {
+          "stage": "paged-global-reference",
+          "rect": {
+            "x": 512,
+            "y": 0,
+            "width": 512,
+            "height": 512
+          },
+          "planes": 2,
+          "uploadReadbackExact": true
+        },
+        {
+          "stage": "paged-global-reference",
+          "rect": {
+            "x": 1024,
+            "y": 0,
+            "width": 512,
+            "height": 512
+          },
+          "planes": 2,
+          "uploadReadbackExact": true
+        },
+        {
+          "stage": "paged-global-reference",
+          "rect": {
+            "x": 1536,
+            "y": 0,
+            "width": 512,
+            "height": 512
+          },
+          "planes": 2,
+          "uploadReadbackExact": true
+        },
+        {
+          "stage": "paged-window-reference",
+          "rect": {
+            "x": 0,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "planes": 2,
+          "uploadReadbackExact": true
+        },
+        {
+          "stage": "paged-window-reference",
+          "rect": {
+            "x": 128,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "planes": 2,
+          "uploadReadbackExact": true
+        },
+        {
+          "stage": "paged-window-reference",
+          "rect": {
+            "x": 384,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "planes": 2,
+          "uploadReadbackExact": true
+        },
+        {
+          "stage": "paged-window-reference",
+          "rect": {
+            "x": 512,
+            "y": -1024,
+            "width": 1536,
+            "height": 1536
+          },
+          "planes": 2,
+          "uploadReadbackExact": true
+        }
+      ]
+    },
+    "referenceReleasedBeforeActual": true,
+    "referenceDestroyedBuffers": 10,
+    "errors": [],
+    "dither": {
+      "requestedOff": false,
+      "initial": true,
+      "atCapture": true
+    },
+    "highFloat": {
+      "precision": 23,
+      "rangeMin": 127,
+      "rangeMax": 127
+    }
+  },
+  "qualification": "QA-only forced identical historical Intel Contrast reference. Initial mobile/fixed split exact across these GPUs; later full solver cross-device determinism not established. Private gzip arrays excluded from Git. First QA adapter attempt stopped before solve due stale extraction anchor; corrected unique evaluate end."
+}
