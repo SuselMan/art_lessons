@@ -154,8 +154,9 @@ export function useRemoteOperations({
    *
    *  (#467) The layers arrive one at a time through a sink instead of as a map
    *  handed over whole, and the engine call inside `applyLayer` is what makes
-   *  that worth doing: it copies each layer's pixels into GL and keeps no
-   *  reference, so the decoded buffer dies with the iteration that made it.
+   *  that worth doing: it installs each layer before the next is inflated. A held ordinary
+   *  gesture may defer installation until physical UP; the awaited sink then
+   *  owns the sole decoded layer, and cancellation releases its views.
    *  Room F4uw21Ob measured 431 MiB of inflated pixels across ten layers —
    *  held at once, that killed the tab on iPadOS.
    *
@@ -186,7 +187,7 @@ export function useRemoteOperations({
         replayStructure ? IMPLICIT_LAYER_IDS : Object.values(layerState.items).filter(item => item.kind === 'layer').map(item => item.id),
       ) },
       restoreHistory: (operations, replayStructure) => { checkCurrent(); return engine.restoreHistoricalOperations(operations, replayStructure, signal) },
-      applyLayer: (layerId, tiles, coveredSeq) => { checkCurrent(); engine.restoreLayerFromSnapshot(layerId, tiles, coveredSeq) },
+      applyLayer: (layerId, tiles, coveredSeq) => { checkCurrent(); return engine.restoreLayerFromSnapshot(layerId, tiles, coveredSeq, signal) },
     }, { signal }) } finally { signal?.removeEventListener('abort', retireAudit) }
     checkCurrent()
     if (outcome.status === 'failed' && isRestoreCancelled(outcome.error)) throw outcome.error

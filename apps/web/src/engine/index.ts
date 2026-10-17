@@ -738,7 +738,10 @@ export interface PencilEngineAPI {
   // isCoveredBySnapshot).
   // Omit it and nothing is treated as covered, which is what every caller
   // outside the snapshot-restore path wants.
-  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void
+  // A held ordinary gesture defers installation until physical UP/end. Await
+  // its completion before reusing tile views or decoding another layer (#467).
+  // Cancellation rejects; coverage and installed audit appear only on install.
+  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number, signal?: AbortSignal): void | Promise<void>
   // (#474) What the restoreLayerFromSnapshot calls since the last drain
   // actually did — one record per call, in call order, emptied by reading.
   //
@@ -1190,7 +1193,18 @@ export interface PeerLivePacket {
  *  simply paint the rest. `ended` records that the author's pen came up, so the
  *  entry can be disposed once the operations have caught up to what was painted
  *  rather than at pen-up, when they are still in flight. */
+interface DeferredSnapshotInstall {
+  target: ILayerBuffer
+  tiles: SnapshotTile[] | null
+  coveredSeq?: number
+  signal?: AbortSignal
+  resolve: () => void
+  reject: (error: unknown) => void
+  abort: () => void
+}
+
 interface PeerLiveStroke {
+  tool?: StrokeOperation['tool']
   peerId: string
   strokeId: string
   layerId: string
@@ -2235,6 +2249,7 @@ export class PencilEngine implements PencilEngineAPI {
   private readonly _diagLog: DiagLog
 
   // Layer management
+  private _deferredSnapshotInstalls = new Map<string, DeferredSnapshotInstall>()
   private _layers: Map<string, ILayerBuffer>
   private _baseLayerIds: Set<string> // pre-log layers (background, initial layer)
   // (#373, #374, #522) Each layer's standing with the room's stored snapshot —
@@ -3472,6 +3487,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  it began. Each of those clears on its own (pen-up, the operation
    *  arriving, the wash drying), and each of those moments calls this again. */
   private _settleLayers(): void {
+    this._flushDeferredSnapshots()
     if (this._wcAsyncFinish && (this._wcCanonical.pending || this._wcAsyncOwners.size > 0) && !this._contextLost && !this.gl.isContextLost()) { this._retrySettleIn(16); return }
     if (this._contextLost || this.gl.isContextLost()) return
     if (!this._unsettledLayers.size || this._strokeLayerId) return
@@ -3948,6 +3964,7 @@ export class PencilEngine implements PencilEngineAPI {
   resizeCanvas(width: number, height: number): void {
     const { gl, canvas } = this
     if (canvas.width === width && canvas.height === height) return
+    this._cancelDeferredSnapshots()
     this._clearAsyncPresentations(this._contextLost || gl.isContextLost())
     canvas.width = width
     canvas.height = height
@@ -4067,7 +4084,7 @@ export class PencilEngine implements PencilEngineAPI {
       // Better to let this gesture arrive the old way, whole, and stream the
       // next one.
       live = {
-        peerId, strokeId: packet.strokeId, layerId: packet.layerId,
+        peerId, strokeId: packet.strokeId, layerId: packet.layerId, tool: packet.tool,
         paintedTotal: 0, liveOffset: 0, committedOffset: 0, nextPacketSeq: 0,
         desynced: packet.packetSeq !== 0, ended: false,
       }
@@ -4193,6 +4210,7 @@ export class PencilEngine implements PencilEngineAPI {
       // painted. Once the operations have caught up, the entry has no job left.
       if (owed === 0) this._peerLiveStrokes.delete(liveStrokeKey(live.peerId, live.strokeId, live.layerId))
     }
+    this._flushDeferredSnapshots()
     return outstanding
   }
 
@@ -4373,6 +4391,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   destroy(): void {
+    this._cancelDeferredSnapshots()
     cancelRestoreGeneration(this)
     this._cancelLiveDabFlush()
     this._puddleStrokeRelease?.();this._puddleStrokeRelease=null;this._puddleStrokeRecorded=null
@@ -5462,6 +5481,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._continuationGpuFence?.forget()
     e.preventDefault()
     this._contextLost = true
+    this._cancelDeferredSnapshots()
     if(this._dwellTimer){clearInterval(this._dwellTimer);this._dwellTimer=null}
     this._dwellCfg=null
     this._puddleStrokeRelease?.();this._puddleStrokeRelease=null;this._puddleStrokeRecorded=null
@@ -5978,7 +5998,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return false
     // An idle bootstrap observer can run between native dab chunks. These
     // unrecorded pixels belong to no confirmed watermark yet.
-    if (this._strokeLayerId || this._destroyed || this.gl.isContextLost()) return false
+    if (this._deferredSnapshotInstalls.has(layerId) || this._strokeLayerId || this._destroyed || this.gl.isContextLost()) return false
     // (§17.58) Not with peers' operations still queued: landing them here was a
     // multi-second hitch at every snapshot boundary; the layer stays dirty and
     // goes with the next one.
@@ -6010,6 +6030,7 @@ export class PencilEngine implements PencilEngineAPI {
    *     any watermark this client can have seen, so a joiner restoring these
    *     pixels would then receive the same operations and paint them twice. */
   private _snapshotSettled(layerId: string): boolean {
+    if (this._deferredSnapshotInstalls.has(layerId)) return false
     if (this._log.hasPendingPaperDry()) return false
     if (this._unsettledLayers.has(layerId)) this._settleLayers()
     if (this._unsettledLayers.has(layerId) || this._pendingRebuilds.has(layerId)) return false
@@ -6028,7 +6049,69 @@ export class PencilEngine implements PencilEngineAPI {
 
   }
 
-  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
+  /** Deferred completion must be awaited before decoding another layer (#467).
+   * Tiles remain immutable caller-owned views; no copy or early coverage/audit. */
+  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number, signal?: AbortSignal): void | Promise<void> {
+    signal?.throwIfAborted()
+    if (this._destroyed || this._contextLost || this.gl.isContextLost()) throw new DOMException('Snapshot target unavailable', 'AbortError')
+    this._cancelDeferredSnapshot(layerId)
+    // Existing M70 physical-tail cancellation remains immediate, even if an
+    // ordinary peer also holds ink and delays the bitmap handover below.
+    this._cancelM70PhysicalInput(layerId)
+    const target = this._layers.get(layerId)
+    if (!target || !this._hasPhysicalOrdinaryInk(layerId)) {
+      this._restoreLayerFromSnapshotNow(layerId, tiles, coveredSeq)
+      return
+    }
+    let item!: DeferredSnapshotInstall
+    const completion = new Promise<void>((resolve, reject) => {
+      item = { target, tiles, coveredSeq, signal, resolve, reject,
+        abort: () => this._cancelDeferredSnapshot(layerId) }
+    })
+    // Existing fire-and-forget callers must not create an unhandled rejection
+    // on teardown; awaiting the original promise still receives cancellation.
+    void completion.catch(() => {})
+    this._deferredSnapshotInstalls.set(layerId, item)
+    signal?.addEventListener('abort', item.abort, { once: true })
+    if (signal?.aborted) item.abort()
+    return completion
+  }
+
+  private _hasPhysicalOrdinaryInk(layerId: string): boolean {
+    if (this._strokeLayerId && this._strokeTool !== 'watercolor'
+      && (this._strokeLayerId === layerId || this._strokeExtraLayerIds.includes(layerId))) return true
+    return [...this._peerLiveStrokes.values()].some(live => live.layerId === layerId && live.tool !== 'watercolor' && !live.ended && live.paintedTotal > 0)
+  }
+
+  private _cancelDeferredSnapshot(layerId: string): void {
+    const item = this._deferredSnapshotInstalls.get(layerId)
+    if (!item) return
+    this._deferredSnapshotInstalls.delete(layerId)
+    item.signal?.removeEventListener('abort', item.abort)
+    item.tiles = null
+    item.reject(new DOMException('Snapshot installation retired', 'AbortError'))
+  }
+
+  private _cancelDeferredSnapshots(): void {
+    for (const id of this._deferredSnapshotInstalls.keys()) this._cancelDeferredSnapshot(id)
+  }
+
+  private _flushDeferredSnapshots(): void {
+    for (const [id, item] of this._deferredSnapshotInstalls) {
+      if (item.signal?.aborted || this._destroyed || this._contextLost || this.gl.isContextLost() || this._layers.get(id) !== item.target) {
+        this._cancelDeferredSnapshot(id); continue
+      }
+      if (this._hasPhysicalOrdinaryInk(id)) continue
+      this._deferredSnapshotInstalls.delete(id)
+      item.signal?.removeEventListener('abort', item.abort)
+      const tiles = item.tiles!
+      item.tiles = null
+      try { this._restoreLayerFromSnapshotNow(id, tiles, item.coveredSeq); item.resolve() }
+      catch (error) { item.reject(error) }
+    }
+  }
+
+  private _restoreLayerFromSnapshotNow(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
     const target=this._layers.get(layerId)
     if(target){
       this._cancelM70PhysicalInput(layerId)
@@ -6304,6 +6387,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _destroyBuffer(id: string): void {
+    this._cancelDeferredSnapshot(id)
     this._cancelM70PhysicalInput(id)
     this._wcJoinedRecoveryLayers.delete(id)
     if (!this._wcJoinedRecoveryLayers.size) this._wcJoinedDeferredError = null

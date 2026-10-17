@@ -17,10 +17,9 @@ export interface RestoredSnapshotHead {
 /** Where a restore puts what it decodes.
  *
  *  A sink rather than a return value because the whole point is that no two
- *  layers' pixels exist at once (#467). Both methods are synchronous, and that
- *  is load-bearing: an async sink could let a caller keep a layer alive past
- *  the iteration that decoded it, which is the leak this shape exists to make
- *  unexpressible. */
+ *  layers' pixels exist at once (#467). Deferred installation is awaited
+ *  inside the loop, before decoding the next layer; cancellation must release
+ *  the deferred views before another generation starts decoding. */
 export interface SnapshotRestoreSink {
   /** Called once, after every blob has arrived and before any pixels are
    *  applied, so the layers exist to receive them. */
@@ -29,9 +28,9 @@ export interface SnapshotRestoreSink {
    * carries journal data, never inflated pixel views, and may await rebuild. */
   restoreHistory?: (operations: Operation[], replayStructure?: boolean) => Promise<void>
   /** Called once per covered layer, in index order. The tiles are views into a
-   *  buffer released as soon as this returns — a caller that needs them later
-   *  has to copy. */
-  applyLayer: (layerId: string, tiles: SnapshotTile[], coveredSeq: number) => void
+   *  buffer released after completion. Deferred users retain immutable views
+   *  until their promise settles; the next layer is not inflated meanwhile. */
+  applyLayer: (layerId: string, tiles: SnapshotTile[], coveredSeq: number) => void | Promise<void>
 }
 
 /** Stand-in for a blob already consumed, so the slot holds no bytes. */
@@ -363,11 +362,12 @@ export async function restoreLatestSnapshot(
       const raw = await awaitRestore(decompressLayerTiles(compressed), options.signal)
       checkCurrent()
       // `decodeLayerTiles` hands back subarray *views* into `raw`, so `raw`
-      // stays alive exactly as long as the tiles do. restoreLayerFromSnapshot
-      // copies what it needs into GL, which is what makes dropping the whole
-      // thing at the end of this iteration a real release rather than a
-      // hopeful one.
-      sink.applyLayer(layer.layerId, decodeLayerTiles(raw, 0).tiles, layer.seq)
+      // stays alive exactly as long as the tiles do. Installation may await a
+      // physical UP; do not inflate the next layer until these views have been
+      // consumed or cancelled. The synchronous path adds no extra microtask.
+      const installation = sink.applyLayer(layer.layerId, decodeLayerTiles(raw, 0).tiles, layer.seq)
+      if (installation) await awaitRestore(installation, options.signal)
+      checkCurrent()
       appliedLayerIds.push(layer.layerId)
     }
 
