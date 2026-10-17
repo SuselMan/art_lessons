@@ -6,7 +6,7 @@ import {RibbonStrokeScratch} from '../../buffers/RibbonStrokeScratch'
 import type {ILayerBuffer,PaintTarget} from '../../buffers/ILayerBuffer'
 import {createProgram} from '../../raster/utils'
 import {MaterialFieldPages,type MaterialRect,type MaterialFieldSnapshot} from './MaterialFieldPages'
-import {capturePagedPuddleSource,restorePagedPuddleWindow,createDetachedPagedPuddleWindow,type PagedPuddleSource} from './PagedPuddleSource'
+import {capturePagedPuddleSource,capturePagedPuddleSourceSteps,type PagedCaptureStep,restorePagedPuddleWindow,createDetachedPagedPuddleWindow,type PagedPuddleSource} from './PagedPuddleSource'
 import {extractMaterialTileRect,materialTileIntersection} from './MaterialTileCoordinates'
 import {createNativePuddleTarget,type PuddleTargetHost} from './PuddleTarget'
 import {createPagedContrastPhase,type PagedBufferFactory} from './PagedContrastPhase'
@@ -21,6 +21,11 @@ import {APPROVED_M70_PARAMETERS} from './PuddleParameters'
 export interface PagedPuddleInspection {
  /** QA-only default OFF: capture read ownership and reuse sole-water bytes. */
  capturedBacking?:boolean
+ /** Separate scheduling experiment, default OFF. */
+ cooperativeCapture?:boolean
+ captureStep?(step:PagedCaptureStep):void
+ /** Separate deadline experiment, default OFF; checked after each next(). */
+ stepBudgetMs?:number
  /** QA-only OFF: zero raw allocated-halo postphase rectangles need no GPU work. */
  skipEmptyPostphase?:boolean
  postphaseRect?(interior:MaterialRect,allocated:MaterialRect,decision:{skipped:boolean}):void
@@ -69,7 +74,12 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
  function* solve(source:RibbonStrokeScratch,target:ILayerBuffer,epoch:number):Generator<void>{
   const captureReads=inspect.capturedBacking===true?new CapturedReadScope():undefined
   try{
-  const raw=capturePagedPuddleSource(source,target,size,host.pool,host.passes,{captureReads,reuseSingleWaterRead:inspect.capturedBacking===true})
+  let raw:ReturnType<typeof capturePagedPuddleSource>
+  if(inspect.cooperativeCapture===true){
+   const capture=capturePagedPuddleSourceSteps(source,target,size,host.pool,host.passes,{captureReads,reuseSingleWaterRead:inspect.capturedBacking===true,validateRevision:true,rowBatchHeight:256})
+   try{while(true){const step=capture.next();if(step.done){if(!step.value)return;raw=step.value;break}inspect.captureStep?.(step.value);if(pendingCancel)return;yield}}
+   finally{capture.return(undefined)}
+  }else raw=capturePagedPuddleSource(source,target,size,host.pool,host.passes,{captureReads,reuseSingleWaterRead:inspect.capturedBacking===true})
   let capturedLease:{release():void}|void
   while(true){
    const admission=inspect.sourceCaptured?.(raw)
@@ -211,10 +221,12 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
  },
  step(maxOps=1){
   if(destroyed||state.done)return state
+  const budget=inspect.stepBudgetMs
+  const deadline=typeof budget==='number'&&Number.isFinite(budget)&&budget>0?performance.now()+budget:Infinity
   stepDepth++
   try{for(let i=0;i<maxOps&&!state.done&&!pendingCancel;i++){
    state.iterations++;if(running?.next().done){running=null;state.done=true}
-   if(captureBlocked||pendingCancel)break
+   if(captureBlocked||pendingCancel||(deadline!==Infinity&&performance.now()>=deadline))break
   }return state}catch(error){pendingCancel=true;throw error}finally{stepDepth--;flushCancel()}
  },
  buffers(tile:PaintTarget){const result=outputs.get(tile.buffer);if(!result)throw Error('Paged target has no completed tile');return result},dry(){return state.done&&outputs.size>0},
