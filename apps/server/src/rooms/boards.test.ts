@@ -513,3 +513,86 @@ it('#780 leaving a previous lesson preserves the socket roster in its next lesso
   await _flushPendingWrites(board)
   expect(isRoomResident(board)).toBe(false)
 })
+
+// Independent socket model: no rooms/registry internals are read by the oracle.
+it.each([0x780, 0x164, 0x176, 0x595])('#780 seeded multi-socket presence model seed=%i', async seed => {
+  let randomState = seed
+  const random = (limit: number) => {
+    randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0
+    return Math.floor(randomState / 0x100000000 * limit)
+  }
+  const lessons = [makeLesson(), makeLesson()]
+  // Give each lesson a distinct permanent owner transport (helper uses one id).
+  for (const lesson of lessons) {
+    joinRoom(lesson, 'teacher', 'Teacher', `anchor-${lesson}`)
+    leaveRoom(lesson, 'teacher', sock('teacher'))
+    setRoomFrozen(lesson, true)
+  }
+  const boardA = await makeBoard(lessons[0])
+  const boardB = await makeBoard(lessons[1])
+  releaseRoomIfUnused(boardA)
+  releaseRoomIfUnused(boardB)
+  const targets = [lessons[0], boardA, boardB]
+  const lessonOf = (board: string) => board === boardB ? lessons[1] : lessons[0]
+  const sockets = [`model-${seed}-a`, `model-${seed}-b`, `model-${seed}-c`, `model-${seed}-other`]
+  type Seat = { userId: string; board: string; order: number }
+  const model = new Map<string, Seat>()
+  const trace: string[] = []
+  const everFrozen = new Set<string>()
+  let order = 0
+  const move = async (socket: string, board: string) => {
+    const previous = model.get(socket)
+    const userId = socket === sockets[3] ? 'bob' : 'alice'
+    expect(await ensureRoomLoaded(board)).toBe(true)
+    expect(joinRoom(board, userId, userId, socket).ok).toBe(true)
+    if (previous && lessonOf(previous.board) !== lessonOf(board)) leaveRoom(previous.board, userId, socket)
+    model.set(socket, { userId, board, order: ++order })
+    if (userId === 'alice' && !everFrozen.has(lessonOf(board))) {
+      setParticipantFrozen(lessonOf(board), userId, true)
+      everFrozen.add(lessonOf(board))
+    }
+    trace.push(`join ${socket} ${board}`)
+  }
+  const disconnect = (socket: string) => {
+    const previous = model.get(socket)
+    if (previous) leaveRoom(previous.board, previous.userId, socket)
+    model.delete(socket)
+    trace.push(`leave ${socket}`)
+  }
+  const check = async () => {
+    await Promise.all([...lessons, boardA, boardB].map(_flushPendingWrites))
+    const context = `seed=${seed} step=${trace.length} tail=${trace.slice(-8).join(';')}`
+    for (const lesson of lessons) {
+      expect(getParticipant(lesson, 'teacher')?.role, context).toBe('owner')
+      expect(isRoomFrozen(lesson), context).toBe(true)
+      for (const userId of ['alice', 'bob']) {
+        const seats = [...model.values()].filter(seat => seat.userId === userId && lessonOf(seat.board) === lesson)
+        const expected = seats.sort((a, b) => b.order - a.order)[0]
+        const actual = getParticipant(lesson, userId)
+        if (!expected) expect(actual, context).toBeUndefined()
+        else expect(actual, context).toMatchObject({ userId, role: 'member', boardId: expected.board, frozen: userId === 'alice' })
+      }
+    }
+    for (const board of [...lessons, boardA, boardB]) {
+      const expectedSockets = [...model.values()].filter(seat => seat.board === board).length + (lessons.includes(board) ? 1 : 0)
+      expect(getRoomBacklog(board)?.participants ?? 0, context).toBe(expectedSockets)
+      if (!lessons.includes(board)) expect(isRoomResident(board), context).toBe(expectedSockets > 0)
+    }
+  }
+  // Guaranteed asymmetric disconnect, then board turns/cross-lesson/reconnect.
+  await move(sockets[0], targets[0])
+  await move(sockets[1], targets[0])
+  disconnect(sockets[1])
+  await check()
+  for (let step = 0; step < 240; step++) {
+    const socket = sockets[random(sockets.length)]
+    if (random(4) === 0) disconnect(socket)
+    else await move(socket, targets[random(targets.length)])
+    await check()
+  }
+  for (const socket of sockets) disconnect(socket)
+  await check()
+  for (const lesson of lessons) leaveRoom(lesson, 'teacher', `anchor-${lesson}`)
+  await Promise.all([...lessons, boardA, boardB].map(_flushPendingWrites))
+  for (const room of [...lessons, boardA, boardB]) expect(isRoomResident(room)).toBe(false)
+})

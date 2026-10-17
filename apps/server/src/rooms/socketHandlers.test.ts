@@ -42,7 +42,7 @@ vi.mock('../health/memory.js', () => ({
 vi.mock('../instrument.js', () => ({ reportException: () => {}, reportIssue: () => {} }))
 
 const { registerRoomHandlers, removeUserFromRoom } = await import('./socketHandlers.js')
-const { _flushPendingWrites, isRoomResident } = await import('./rooms.js')
+const { _flushPendingWrites, getParticipant, isRoomResident } = await import('./rooms.js')
 const { noteBoardCreated } = await import('./classroom.js')
 
 type Row = {
@@ -474,4 +474,71 @@ it('#780 kicking both same-identity sockets emits one logical departure for obse
   expect(departures).toEqual(['student'])
   expect(student.connected).toBe(true)
   expect(sibling.connected).toBe(true)
+})
+
+it.each(['main', 'child'] as const)('#780 moving the final socket off a child board to another lesson %s removes the old participant', async target => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const move = next(teacher, 'peer_board_changed')
+  await join(student, boardId, 'Alice')
+  await move
+  const destination = fresh('destination')
+  rows.set(destination, row(destination))
+  await createLesson(client('teacher'), destination)
+  let destinationBoard = destination
+  if (target === 'child') {
+    destinationBoard = fresh('destination-child')
+    rows.set(destinationBoard, row(destinationBoard, { lessonId: destination, boardOrder: 1 }))
+    noteBoardCreated(destination, { id: destinationBoard, name: destinationBoard, order: 1 })
+  }
+  const departure = next(teacher, 'peer_left', 300)
+  await join(student, destinationBoard, 'Alice')
+  expect(await departure).toBe('student')
+  expect(getParticipant(lessonId, 'student')).toBeUndefined()
+  await _flushPendingWrites(boardId)
+  expect(isRoomResident(boardId)).toBe(false)
+  const teacherSocket = io.sockets.sockets.get(teacher.id!)!
+  const disconnected = new Promise<void>(resolve => teacherSocket.once('disconnect', () => resolve()))
+  teacher.close()
+  await disconnected
+  await _flushPendingWrites(lessonId)
+  expect(isRoomResident(lessonId)).toBe(false)
+  expect(getParticipant(destination, 'student')?.boardId).toBe(destinationBoard)
+})
+
+it.each([
+  ['main', 'older'], ['main', 'newer'], ['child', 'older'], ['child', 'newer'],
+] as const)('#780 child-to-%s cross-lesson preserves a %s sibling and its board seat', async (target, siblingOrder) => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const sibling = client('student')
+  if (siblingOrder === 'older') await join(sibling, lessonId, 'Alice')
+  const move = next(teacher, 'peer_board_changed')
+  await join(student, boardId, 'Alice')
+  await move
+  if (siblingOrder === 'newer') {
+    const restored = next(teacher, 'peer_board_changed')
+    await join(sibling, lessonId, 'Alice')
+    await restored
+  }
+  const destination = fresh('sibling-destination')
+  rows.set(destination, row(destination))
+  await createLesson(client('teacher'), destination)
+  let destinationBoard = destination
+  if (target === 'child') {
+    destinationBoard = fresh('sibling-destination-child')
+    rows.set(destinationBoard, row(destinationBoard, { lessonId: destination, boardOrder: 1 }))
+    noteBoardCreated(destination, { id: destinationBoard, name: destinationBoard, order: 1 })
+  }
+  const events: unknown[] = []
+  teacher.on('peer_board_changed', event => events.push(event))
+  teacher.on('peer_left', userId => events.push(userId))
+  await join(student, destinationBoard, 'Alice')
+  await new Promise(resolve => setTimeout(resolve, 20))
+  expect(getParticipant(lessonId, 'student')?.boardId).toBe(lessonId)
+  expect(events).toEqual(siblingOrder === 'older' ? [{ userId: 'student', boardId: lessonId }] : [])
+  await _flushPendingWrites(boardId)
+  expect(isRoomResident(boardId)).toBe(false)
+  const left = next(teacher, 'peer_left')
+  sibling.close()
+  expect(await left).toBe('student')
+  expect(getParticipant(lessonId, 'student')).toBeUndefined()
 })
