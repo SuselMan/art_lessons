@@ -366,11 +366,12 @@ it('#780 broadcasts the remaining socket board seat after the latest tab leaves'
 
 it('#780 bounds tracked live streams, retires ended streams, and ignores refused live packets', async () => {
   const { teacher, student } = await classroom()
+  const { packDabs } = await import('@grafetto/shared')
   const relayed: string[] = []
   const cancelled: string[] = []
   teacher.on('peer_stroke_live', event => relayed.push(event.strokeId))
   teacher.on('peer_stroke_live_end', event => { if (event.cancelled) cancelled.push(event.strokeId) })
-  const packet = (strokeId: string) => student.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'watercolor', preset: 'normal', color: [0, 0, 1], packetSeq: 0, dabsPacked: '' })
+  const packet = (strokeId: string) => student.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'watercolor', preset: 'normal', color: [0, 0, 1], packetSeq: 0, dabsPacked: packDabs([]) })
   for (let i = 0; i < 129; i++) packet(`bounded-${i}`)
   // Ordered ack is a barrier for preceding messages on this transport.
   await new Promise<void>(resolve => student.emit('clock_sync', () => resolve()))
@@ -880,4 +881,172 @@ it('#786 evacuation of B lets an independently pending C join finish on C', asyn
   expect(verdict).toMatchObject({ ok: true })
   expect(getRoomSnapshot(thirdId)?.tailOperations.map(operation => operation.id) ?? []).toContain(op.id)
   expect(getRoomSnapshot(lessonId)?.tailOperations.map(operation => operation.id) ?? []).not.toContain(op.id)
+})
+
+it('#792 cancels unrecorded ended watercolor when one sibling socket disconnects', async () => {
+  const { lessonId, teacher, student } = await classroom()
+  const sibling = client('student')
+  await join(sibling, lessonId, 'Alice')
+  const { packDabs } = await import('@grafetto/shared')
+  const strokeId = 'ended-but-unrecorded'
+  const live = next(teacher, 'peer_stroke_live')
+  student.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'watercolor', preset: 'normal:100:50:PB29:round:wc@m70-r2-v1', color: [0, 0, 1], packetSeq: 0,
+    dabsPacked: packDabs([{ x: 20, y: 20, pressure: 0.5, tiltX: 0, tiltY: 0, size: 10, aspectRatio: 1, angle: 0, opacity: 1, t: 0 }]) })
+  await live
+  const end = next(teacher, 'peer_stroke_live_end')
+  student.emit('stroke_live_end', { strokeId })
+  expect(await end).toEqual({ userId: 'student', strokeId })
+  const cancellations: unknown[] = []
+  const departures: unknown[] = []
+  teacher.on('peer_stroke_live_end', event => cancellations.push(event))
+  teacher.on('peer_left', event => departures.push(event))
+  const serverSocket = io.sockets.sockets.get(student.id!)!
+  const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+  student.close()
+  await disconnected
+  await new Promise(resolve => setTimeout(resolve, 30))
+  expect(getParticipant(lessonId, 'student')).toBeDefined()
+  expect(getRoomSnapshot(lessonId)?.tailOperations).toHaveLength(0)
+  expect(departures).toEqual([])
+  expect(cancellations).toEqual([{ userId: 'student', strokeId, cancelled: true }])
+})
+
+it.each(['chunk-before-UP', 'final-before-UP', 'UP-before-final'] as const)('#792 retires fully covered live ownership: %s', async order => {
+  const { lessonId, teacher, student } = await classroom()
+  await join(client('student'), lessonId, 'Alice')
+  const { packDabs } = await import('@grafetto/shared')
+  const dab = { x: 20, y: 20, pressure: 0.5, tiltX: 0, tiltY: 0, size: 10, aspectRatio: 1, angle: 0, opacity: 1, t: 0 }
+  const strokeId = fresh('covered')
+  for (let packetSeq = 0; packetSeq < 2; packetSeq++) {
+    const relayed = next(teacher, 'peer_stroke_live')
+    student.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'watercolor', preset: 'normal', color: [0, 0, 1], packetSeq, dabsPacked: packDabs([dab]) })
+    await relayed
+  }
+  const send = async (id: string) => {
+    expect(await new Promise(resolve => student.emit('operation', { ...stroke(id, 'student'), tool: 'watercolor', strokeId, dabs: [dab] }, resolve))).toMatchObject({ ok: true })
+  }
+  const up = async () => {
+    const ended = next(teacher, 'peer_stroke_live_end')
+    student.emit('stroke_live_end', { strokeId })
+    expect(await ended).toEqual({ userId: 'student', strokeId })
+  }
+  if (order === 'UP-before-final') await up()
+  await send(fresh('prefix'))
+  if (order === 'chunk-before-UP') await up()
+  await send(fresh('final'))
+  if (order === 'final-before-UP') await up()
+  const cancellations: unknown[] = []
+  teacher.on('peer_stroke_live_end', event => cancellations.push(event))
+  const serverSocket = io.sockets.sockets.get(student.id!)!
+  const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+  student.close()
+  await disconnected
+  await new Promise(resolve => setTimeout(resolve, 20))
+  expect(cancellations).toEqual([])
+})
+
+it('#792 accepted prefix plus duplicate cannot retire an ended unrecorded tail or cancel its sibling', async () => {
+  const { lessonId, teacher, student } = await classroom()
+  const sibling = client('student')
+  await join(sibling, lessonId, 'Alice')
+  const { packDabs } = await import('@grafetto/shared')
+  const dab = { x: 20, y: 20, pressure: 0.5, tiltX: 0, tiltY: 0, size: 10, aspectRatio: 1, angle: 0, opacity: 1, t: 0 }
+  const strokeId = fresh('ended-tail')
+  const packet = async (sender: Client, id: string, dabs: typeof dab[]) => {
+    const live = next(teacher, 'peer_stroke_live')
+    sender.emit('stroke_live', { strokeId: id, layerId: 'layer-1', tool: 'watercolor', preset: 'normal', color: [0, 0, 1], packetSeq: 0, dabsPacked: packDabs(dabs) })
+    await live
+  }
+  await packet(student, strokeId, [dab, dab])
+  await packet(sibling, 'sibling-still-held', [dab])
+  const prefix = { ...stroke(fresh('accepted-prefix'), 'student'), tool: 'watercolor' as const, strokeId, dabs: [dab] }
+  expect(await new Promise(resolve => student.emit('operation', prefix, resolve))).toMatchObject({ ok: true })
+  const ended = next(teacher, 'peer_stroke_live_end')
+  student.emit('stroke_live_end', { strokeId })
+  await ended
+  expect(await new Promise(resolve => student.emit('operation', prefix, resolve))).toMatchObject({ ok: true, duplicate: true })
+  const cancellation = next(teacher, 'peer_stroke_live_end')
+  student.close()
+  expect(await cancellation).toEqual({ userId: 'student', strokeId, cancelled: true })
+  expect(getRoomSnapshot(lessonId)?.tailOperations.map(op => op.id)).toContain(prefix.id)
+  await silent(teacher, 'peer_stroke_live_end', 20)
+  expect(sibling.connected).toBe(true)
+})
+
+it('#792 more than 128 completed gestures release capacity without false cancellations', async () => {
+  const { lessonId, teacher, student } = await classroom()
+  await join(client('student'), lessonId, 'Alice')
+  const { packDabs } = await import('@grafetto/shared')
+  const dab = { x: 20, y: 20, pressure: 0.5, tiltX: 0, tiltY: 0, size: 10, aspectRatio: 1, angle: 0, opacity: 1, t: 0 }
+  const cancellations: unknown[] = []
+  teacher.on('peer_stroke_live_end', event => { if (event.cancelled) cancellations.push(event) })
+  for (let i = 0; i < 140; i++) {
+    const strokeId = `completed-${i}`
+    const live = next(teacher, 'peer_stroke_live')
+    student.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'watercolor', preset: 'normal', color: [0, 0, 1], packetSeq: 0, dabsPacked: packDabs([dab]) })
+    await live
+    student.emit('stroke_live_end', { strokeId })
+    expect(await new Promise(resolve => student.emit('operation', { ...stroke(`completed-op-${i}`, 'student'), strokeId, dabs: [dab] }, resolve))).toMatchObject({ ok: true })
+  }
+  const serverSocket = io.sockets.sockets.get(student.id!)!
+  const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+  student.close()
+  await disconnected
+  await new Promise(resolve => setTimeout(resolve, 20))
+  expect(cancellations).toEqual([])
+})
+
+it('#792 layer deletion rejects an ended final chunk and cancels only its transient tail', async () => {
+  const { lessonId, teacher, student } = await classroom()
+  const sibling = client('student')
+  await join(sibling, lessonId, 'Alice')
+  const { packDabs } = await import('@grafetto/shared')
+  const dab = { x: 20, y: 20, pressure: 0.5, tiltX: 0, tiltY: 0, size: 10, aspectRatio: 1, angle: 0, opacity: 1, t: 0 }
+  const layerId = fresh('deleted-live-layer')
+  const added = { id: fresh('add'), type: 'layer_add' as const, layerId, name: 'Temporary', userId: 'teacher', timestamp: 0 }
+  expect(await new Promise(resolve => teacher.emit('operation', added, resolve))).toMatchObject({ ok: true })
+  const strokeId = fresh('deleted-ended')
+  const live = next(teacher, 'peer_stroke_live')
+  student.emit('stroke_live', { strokeId, layerId, tool: 'watercolor', preset: 'normal', color: [0, 0, 1], packetSeq: 0, dabsPacked: packDabs([dab, dab]) })
+  await live
+  const prefix = { ...stroke(fresh('prefix'), 'student'), tool: 'watercolor' as const, layerId, strokeId, dabs: [dab] }
+  expect(await new Promise(resolve => student.emit('operation', prefix, resolve))).toMatchObject({ ok: true })
+  const ended = next(teacher, 'peer_stroke_live_end')
+  student.emit('stroke_live_end', { strokeId })
+  await ended
+  const deleted = { id: fresh('delete'), type: 'layer_delete' as const, layerIds: [layerId], userId: 'teacher', timestamp: 0 }
+  expect(await new Promise(resolve => teacher.emit('operation', deleted, resolve))).toMatchObject({ ok: true })
+  const cancellation = next(teacher, 'peer_stroke_live_end')
+  const final = { ...prefix, id: fresh('rejected-final') }
+  expect(await new Promise(resolve => student.emit('operation', final, resolve))).toEqual({ ok: false, reason: 'target_gone' })
+  expect(await cancellation).toEqual({ userId: 'student', strokeId, cancelled: true })
+  expect(getRoomSnapshot(lessonId)?.tailOperations.map(op => op.id)).toContain(prefix.id)
+  expect(getRoomSnapshot(lessonId)?.tailOperations.map(op => op.id)).not.toContain(final.id)
+  student.close()
+  await silent(teacher, 'peer_stroke_live_end', 20)
+  expect(sibling.connected).toBe(true)
+})
+
+it('#792 capacity cancels the oldest ended tail and admits new live without touching a sibling held stream', async () => {
+  const { lessonId, teacher, student } = await classroom()
+  const sibling = client('student')
+  await join(sibling, lessonId, 'Alice')
+  const { packDabs } = await import('@grafetto/shared')
+  const dab = { x: 20, y: 20, pressure: 0.5, tiltX: 0, tiltY: 0, size: 10, aspectRatio: 1, angle: 0, opacity: 1, t: 0 }
+  const payload = { layerId: 'layer-1', tool: 'watercolor' as const, preset: 'normal', color: [0, 0, 1] as [number, number, number], packetSeq: 0, dabsPacked: packDabs([dab]) }
+  const siblingLive = next(teacher, 'peer_stroke_live')
+  sibling.emit('stroke_live', { ...payload, strokeId: 'sibling-held-capacity' })
+  await siblingLive
+  const seen: string[] = []
+  const cancelled: unknown[] = []
+  teacher.on('peer_stroke_live', event => seen.push(event.strokeId))
+  teacher.on('peer_stroke_live_end', event => { if (event.cancelled) cancelled.push(event) })
+  for (let i = 0; i < 129; i++) {
+    student.emit('stroke_live', { ...payload, strokeId: `ended-capacity-${i}` })
+    student.emit('stroke_live_end', { strokeId: `ended-capacity-${i}` })
+  }
+  await vi.waitFor(() => expect(seen).toHaveLength(129))
+  expect(cancelled).toEqual([{ userId: 'student', strokeId: 'ended-capacity-0', cancelled: true }])
+  expect(seen).toContain('ended-capacity-128')
+  expect(sibling.connected).toBe(true)
 })

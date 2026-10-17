@@ -13,6 +13,7 @@ import {
   leaveRoom, removePaletteColor, retainRoomForJoin,
 } from './rooms.js'
 import { getRoomBacklog } from './roomStats.js'
+import { createLiveStrokeOwnership } from './liveStrokeOwnership.js'
 import { findDuplicateOperation, getOperationRejectReason, recordOperation, updateAliveIds } from './operationLog.js'
 import { ensureRoomLoaded } from './roomLoader.js'
 import { prepareSnapshotReplay } from './snapshotReplayLoader.js'
@@ -321,12 +322,11 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     }
     // Bounded to this transport, never to userId: a sibling tab's live ink
     // must survive this connection leaving (#780).
-    const activeLiveStrokes = new Map<string, string>()
+    const activeLiveStrokes = createLiveStrokeOwnership()
     const cancelLiveStrokes = (userId: string) => {
-      for (const [strokeId, boardId] of activeLiveStrokes) {
+      for (const { strokeId, boardId } of activeLiveStrokes.drain()) {
         socket.to(boardId).emit('peer_stroke_live_end', { userId, strokeId, cancelled: true })
       }
-      activeLiveStrokes.clear()
     }
     // (#480) Устройство здесь же, рядом с userId — см. clientDescription.ts:
     // до этого связать одно с другим можно было только склейкой с nginx по
@@ -632,7 +632,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
           // its ordinary pen-up has arrived. Accepted chunks remain in the log;
           // cancellation repairs only the unrecorded remainder on observers.
           if (op.type === 'stroke' && op.strokeId) {
-            activeLiveStrokes.delete(op.strokeId)
+            activeLiveStrokes.forget(op.strokeId)
             socket.to(roomId).emit('peer_stroke_live_end', { userId, strokeId: op.strokeId, cancelled: true })
           }
           return
@@ -655,6 +655,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         updateAliveIds(roomId, op)
 
         const stamped = recordOperation(roomId, op)
+        if (stamped.type === 'stroke') activeLiveStrokes.accepted(stamped)
         ack?.({ ok: true, seq: stamped.seq! })
         io.to(roomId).emit('operation_confirmed', { seq: stamped.seq!, operation: stamped })
         // (#480) После рассылки, а не до: проверка — наблюдение за комнатой, и
@@ -713,13 +714,15 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return
       if (typeof data.strokeId !== 'string' || !data.strokeId || data.strokeId.length > 256) return
-      if (!activeLiveStrokes.has(data.strokeId) && activeLiveStrokes.size >= 128) return
       const standIn: Operation = {
         id: data.strokeId, type: 'stroke', userId, timestamp: 0,
         layerId: data.layerId, tool: data.tool, preset: data.preset, color: data.color, dabs: [],
       }
       if (getOperationRejectReason(roomId, userId, standIn)) return
-      activeLiveStrokes.set(data.strokeId, roomId)
+      const slot = activeLiveStrokes.reserve(data.strokeId)
+      if (!slot.allowed) return
+      if (slot.evicted) socket.to(slot.evicted.boardId).emit('peer_stroke_live_end', { userId, strokeId: slot.evicted.strokeId, cancelled: true })
+      activeLiveStrokes.live(roomId, data)
       socket.to(roomId).emit('peer_stroke_live', { ...data, userId })
     })
 
@@ -733,7 +736,8 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     socket.on('stroke_live_end', ({ strokeId, cancelled }) => {
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return
-      activeLiveStrokes.delete(strokeId)
+      if (cancelled === true) activeLiveStrokes.forget(strokeId)
+      else activeLiveStrokes.end(strokeId)
       socket.to(roomId).emit('peer_stroke_live_end', { userId, strokeId, ...(cancelled === true ? { cancelled: true } : {}) })
     })
 
