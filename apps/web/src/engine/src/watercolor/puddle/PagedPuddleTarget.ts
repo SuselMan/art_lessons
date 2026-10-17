@@ -115,7 +115,10 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
    yield
   }
   background.capture({initialP:raw.inkLoad,referenceP:referenceP.snapshot(),coverage:raw.coverage});yield
-  const solvedP=new MaterialFieldPages(size),solvedC=new MaterialFieldPages(size),solvedCoverage=new MaterialFieldPages(size)
+  const solvedP=new MaterialFieldPages(size),solvedC=new MaterialFieldPages(size)
+  // Native publishes the captured contour verbatim (not its expanded front).
+  // Keep that immutable CPU snapshot instead of round-tripping it through GPU.
+  const solvedCoverage=raw.coverage
   const domain={width:Math.max(1536,Math.ceil(size.width/256)*256),height:Math.max(1536,Math.ceil(size.height/256)*256)}
   const noForeign=(value:unknown)=>value===null||(Array.isArray(value)&&value.length===0)
   const metadataKnown=()=>typeof source.captureFinishMetadata==='function'&&noForeign(source.captureFinishMetadata().foreignSources)
@@ -129,9 +132,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
    if(radius===32&&!metadataKnown())throw Error('M70 support metadata changed during window inspection')
    if(pendingCancel)return
    if(!kept){
-    // Native output coverage is the captured contour, not the front's temporary coverage.
-    // Keep P/C pages zero; preserve exact raw coverage for every skipped core.
-    for(const core of window.cores){const interior={...core,y:size.height-core.y-core.height};solvedCoverage.writeRect(interior,raw.coverage.readRect(interior))}
+    // P/C stay zero; captured coverage is already preserved independently.
     inspect.windowSkipped?.(window.field,window.cores)
     yield;continue
    }
@@ -169,7 +170,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
     if(nativeScope)nativeScope.run(reset);else reset()
     while(!native.state.done){if(nativeScope)nativeScope.run(()=>native!.step(4));else native.step(4);yield}
     const material=native.buffers(),readRect=committedReadRect(window.field,window.cores)
-    const planes=[[solvedP,material.p],[solvedC,material.c],[solvedCoverage,material.coverage]] as const
+    const planes=[[solvedP,material.p],[solvedC,material.c]] as const
     for(const [plane,[out,input]]of planes.entries()){
      const pixels=input.readPixelsRegion(readRect.x,readRect.y,readRect.width,readRect.height)
      for(const core of window.cores){
@@ -184,9 +185,9 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
    yield
   }
   if(radius===32&&!metadataKnown())throw Error('M70 support metadata changed after window solve')
-  inspect.solved?.(solvedP.snapshot(),solvedC.snapshot(),solvedCoverage.snapshot())
+  inspect.solved?.(solvedP.snapshot(),solvedC.snapshot(),solvedCoverage)
   background.prepareSolved({p:solvedP.snapshot(),c:solvedC.snapshot()});inspect.coarse?.(background.readback());yield
-  const finalP=new MaterialFieldPages(size),finalC=new MaterialFieldPages(size),coverage=solvedCoverage.snapshot()
+  const finalP=new MaterialFieldPages(size),finalC=new MaterialFieldPages(size),coverage=solvedCoverage
   for(const interior of rects()){
    const halo=background.reconstructionHalo,rect={x:interior.x-halo,y:interior.y-halo,width:interior.width+2*halo,height:interior.height+2*halo}
    const skipped=inspect.skipEmptyPostphase===true&&emptyM70PostphaseRect(size,rect,raw.materialSupport)
