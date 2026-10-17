@@ -1,3 +1,4 @@
+import {committedReadRect} from './CommittedReadRect'
 import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
 import {RibbonStrokeScratch} from '../../buffers/RibbonStrokeScratch'
 import type {ILayerBuffer,PaintTarget} from '../../buffers/ILayerBuffer'
@@ -110,13 +111,13 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
      background:{capture(){},ops:()=>[],readback:()=>background.readback(),destroy(){}}})
     native.resetFromScratch(windowSource,{buffer:key,originX:ox,originY:oy,contentRect:null},epoch)
     while(!native.state.done){native.step(4);yield}
-    const material=native.buffers()
+    const material=native.buffers(),readRect=committedReadRect(window.field,window.cores)
     for(const [out,input]of [[solvedP,material.p],[solvedC,material.c],[solvedCoverage,material.coverage]] as const){
-     const pixels=input.readPixels()
+     const pixels=input.readPixelsRegion(readRect.x,readRect.y,readRect.width,readRect.height)
      for(const core of window.cores){
       const interior={...core,y:size.height-core.y-core.height}
       const local={x:interior.x-rect.x,y:interior.y-rect.y,width:interior.width,height:interior.height}
-      out.writeRect(interior,extractMaterialTileRect(pixels,1536,1536,local))
+      out.writeRect(interior,extractMaterialTileRect(pixels,readRect.width,readRect.height,{...local,x:local.x-readRect.x,y:local.y-readRect.y}))
      }
     }
    }finally{try{native?.destroy()}finally{try{windowSource.destroy()}finally{if(key&&!detachedWindowSource)host.pool.release(key)}}}

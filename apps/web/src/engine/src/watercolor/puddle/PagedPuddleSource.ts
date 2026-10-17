@@ -17,15 +17,17 @@ export function capturePagedPuddleSource(source:RibbonStrokeScratch,target:ILaye
   size:{width:number;height:number},pool:RibbonScratchPool,passes:WatercolorPasses):PagedPuddleSource {
   const fields=Object.fromEntries([...PAGED_RAW_PLANES,'water'].map(name=>[name,new MaterialFieldPages(size)])) as Record<PagedRawPlane|'water',MaterialFieldPages>
   let support:MaterialRect|null=null
+  const supportRects:MaterialRect[]=[]
   for(const tile of target.allResident()){
     const entry=source.peek(tile.buffer)
     if(!entry?.inkLoad||!entry.inkColor)continue
     const clip=materialTileIntersection(size,{...tile,width:tile.buffer.width,height:tile.buffer.height})
     if(!clip)continue
+    const tileSupport={rect:null as MaterialRect|null}
     const write=(name:PagedRawPlane|'water',pixels:Uint8Array)=>{
       const bytes=extractMaterialTileRect(pixels,tile.buffer.width,tile.buffer.height,clip.texture)
       fields[name].writeRect(clip.field,bytes)
-      if(name!=='original')support=unionM70Support(support,clip.field,bytes)
+      if(name!=='original')tileSupport.rect=unionM70Support(tileSupport.rect,clip.field,bytes)
     }
     for(const name of PAGED_RAW_PLANES){const buffer=entry[name];if(buffer)write(name,buffer.readPixels())}
     if(entry.solventLoad&&entry.foreignSolventLoad){
@@ -33,9 +35,10 @@ export function capturePagedPuddleSource(source:RibbonStrokeScratch,target:ILaye
       try{passes.fieldOp(combined,entry.solventLoad,entry.foreignSolventLoad,1,1);write('water',combined.readPixels())}
       finally{pool.release(combined)}
     }else{const water=entry.solventLoad??entry.foreignSolventLoad;if(water)write('water',water.readPixels())}
+    if(tileSupport.rect){const tileRect=tileSupport.rect;supportRects.push(tileRect);if(!support)support={...tileRect};else{const x=Math.min(support.x,tileRect.x),y=Math.min(support.y,tileRect.y);support={x,y,width:Math.max(support.x+support.width,tileRect.x+tileRect.width)-x,height:Math.max(support.y+support.height,tileRect.y+tileRect.height)-y}}}
   }
   const result:PagedPuddleSource=Object.fromEntries(Object.entries(fields).map(([name,field])=>[name,field.snapshot()])) as Record<PagedRawPlane|'water',MaterialFieldSnapshot>
-  result.materialSupport={width:size.width,height:size.height,rect:support}
+  result.materialSupport={width:size.width,height:size.height,rect:support,rects:supportRects}
   return result
 }
 
