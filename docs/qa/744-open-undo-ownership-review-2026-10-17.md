@@ -64,3 +64,16 @@ A12/B1/A4/B1/A34/B48, а не50 concurrent pairs.
 ownership/timing/cache. Состояние читается через log/queue, не forced-flush getter.
 Offline oracle на отдельном контексте возможен, но увеличивает расходы и меняет
 нагрузку; это отдельная контролируемая проверка, не repair actual.
+
+## Exact accepted-run CPU negative
+
+Ещё один изолированный test повторяет A50 optimistic local ahead, затемB50,
+принимая A12/B1/A4/B1/A34/B48 (после base layer op, server seq смещён на1).
+Yield каждые3local gestures,16ms fake-timer scheduling; recorded material clock
+фиксирован с шагом10ms, span1000ms, без120s. На обоих engine проверено100strokes,
+затем synchronous canonical materialization с настоящим NativePuddleTarget guard.
+_startSettle creator trace пуст, исключения нет. Targeted1PASS/2skipped,
+8.7swall/5.2stest, scoped lint PASS. Это отрицательное воспроизведение accepted
+chronology, не нативного GPU slice budget и не утверждение actual pixel parity.
+Тест остаётся в изолированном WT: не добавляем специфичное MockGL=zero-settle
+ожидание в основной CI без настоящего causal regression.
