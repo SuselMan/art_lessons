@@ -29,8 +29,8 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
  const align=createProgram(gl,vertex,'precision highp float;varying vec2 uv;uniform sampler2D p,c;void main(){vec4 v=texture2D(p,uv);v.b=min(texture2D(c,uv).a,v.a);gl_FragColor=v;}')
  const guard=createProgram(gl,vertex,'precision highp float;varying vec2 uv;uniform sampler2D raw,result,water;void main(){float wet=smoothstep(0.,.03,texture2D(water,uv).a*4.);gl_FragColor=mix(texture2D(raw,uv),texture2D(result,uv),wet);}')
  const quad=gl.createBuffer()!;gl.bindBuffer(gl.ARRAY_BUFFER,quad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)
- const state={done:true,epoch:0,iterations:0},outputs=new Map<AccumulationBuffer,{p:AccumulationBuffer;c:AccumulationBuffer;coverage:AccumulationBuffer}>()
- let running:Generator<void>|null=null,destroyed=false,captureBlocked=false
+ const state={done:true,epoch:0,iterations:0,admissionBlocked:false,get executing(){return stepDepth>0}},outputs=new Map<AccumulationBuffer,{p:AccumulationBuffer;c:AccumulationBuffer;coverage:AccumulationBuffer}>()
+ let running:Generator<void>|null=null,destroyed=false,captureBlocked=false,stepDepth=0,pendingCancel=false,pendingDestroy=false
  function draw(program:WebGLProgram,out:AccumulationBuffer,textures:Record<string,AccumulationBuffer>){
   out.beginReplaceDraw()
   try{
@@ -52,10 +52,11 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
   let capturedLease:{release():void}|void
   while(true){
    const admission=inspect.sourceCaptured?.(raw)
-   if(admission&&'defer' in admission){captureBlocked=true;try{yield}finally{captureBlocked=false}continue}
+   if(admission&&'defer' in admission){captureBlocked=true;state.admissionBlocked=true;try{yield}finally{captureBlocked=false;state.admissionBlocked=false}continue}
    capturedLease=admission;break
   }
   try{
+  if(pendingCancel)return
   contrast.prepare({p:raw.inkLoad,c:raw.inkColor,water:raw.water},true);yield
   const referenceP=new MaterialFieldPages(size)
   // Eligibility is global too; build its reference from the same shared selector.
@@ -136,12 +137,37 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
     buffer.writePixels(bytes)
    }
   }
+  if(pendingCancel)return
   destroyOutputs();for(const [key,value]of pending)outputs.set(key,value);pending.clear()
   }finally{for(const value of pending.values())for(const b of Object.values(value))b.destroy()}
  }finally{capturedLease?.release()}
  }
- return {state,resetFromScratch(source:RibbonStrokeScratch,target:ILayerBuffer,epoch:number){if(destroyed)throw Error('Paged target destroyed');running?.return(undefined);destroyOutputs();state.done=false;state.epoch=epoch;state.iterations=0;running=solve(source,target,epoch)},
-  step(maxOps=1){try{for(let i=0;i<maxOps&&!state.done;i++){state.iterations++;if(running?.next().done){running=null;state.done=true}if(captureBlocked)break}return state}catch(error){running?.return(undefined);running=null;state.done=true;throw error}},
-  buffers(tile:PaintTarget){const result=outputs.get(tile.buffer);if(!result)throw Error('Paged target has no completed tile');return result},dry(){return state.done&&outputs.size>0},
-  cancel(){running?.return(undefined);running=null;state.done=true;destroyOutputs()},destroy(){if(destroyed)return;running?.return(undefined);running=null;destroyOutputs();contrast.destroy();background.destroy();gl.deleteProgram(align);gl.deleteProgram(guard);gl.deleteBuffer(quad);destroyed=true;state.done=true}}
+ function finishDestroy():void {
+  if(destroyed)return
+  destroyOutputs();contrast.destroy();background.destroy();gl.deleteProgram(align);gl.deleteProgram(guard);gl.deleteBuffer(quad);destroyed=true;state.done=true
+ }
+ function flushCancel():void {
+  if(stepDepth||!pendingCancel)return
+  pendingCancel=false;const old=running;running=null
+  try{old?.return(undefined)}finally{
+   state.done=true;state.admissionBlocked=false;captureBlocked=false;destroyOutputs()
+   if(pendingDestroy){pendingDestroy=false;finishDestroy()}
+  }
+ }
+ return {state,resetFromScratch(source:RibbonStrokeScratch,target:ILayerBuffer,epoch:number){
+  if(destroyed||pendingDestroy)throw Error('Paged target destroyed')
+  if(stepDepth)throw Error('Cannot reset an executing paged target')
+  pendingCancel=true;flushCancel();destroyOutputs();state.done=false;state.admissionBlocked=false;state.epoch=epoch;state.iterations=0;running=solve(source,target,epoch)
+ },
+ step(maxOps=1){
+  if(destroyed||state.done)return state
+  stepDepth++
+  try{for(let i=0;i<maxOps&&!state.done&&!pendingCancel;i++){
+   state.iterations++;if(running?.next().done){running=null;state.done=true}
+   if(captureBlocked||pendingCancel)break
+  }return state}catch(error){pendingCancel=true;throw error}finally{stepDepth--;flushCancel()}
+ },
+ buffers(tile:PaintTarget){const result=outputs.get(tile.buffer);if(!result)throw Error('Paged target has no completed tile');return result},dry(){return state.done&&outputs.size>0},
+ cancel(){pendingCancel=true;flushCancel()},
+ destroy(){if(destroyed)return;pendingDestroy=true;pendingCancel=true;flushCancel()}}
 }
