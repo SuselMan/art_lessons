@@ -8,19 +8,25 @@ const definitions=[reference,...alternatives,...backendGL]
 let busy=false
 const send=(r:unknown)=>self.postMessage(r)
 const digest=async(bytes:Uint8Array)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes as Uint8Array<ArrayBuffer>)),b=>b.toString(16).padStart(2,'0')).join('')
-declare const __QA_CAPTURED_MANIFEST__:{id:string;label:string;binarySHA:string;source:unknown}|null
-const isCapturedFixture=(id:unknown)=>!!__QA_CAPTURED_MANIFEST__&&id===__QA_CAPTURED_MANIFEST__.id
-let capturedInput:Promise<AlgorithmInput>|null=null
-function loadCapturedInput(){
- if(!__QA_CAPTURED_MANIFEST__)throw Error('Captured native input not included in this build')
- const expected=__QA_CAPTURED_MANIFEST__.binarySHA
- return capturedInput??=(async()=>{
-  const response=await fetch(new URL('./captured-native.bin',import.meta.url));if(!response.ok)throw Error('Captured fixture fetch failed')
+type CapturedRecord={id:string;label:string;binarySHA:string;source:unknown;file?:string}
+declare const __QA_CAPTURED_MANIFEST__:CapturedRecord|null
+declare const __QA_CAPTURED_CATALOG__:CapturedRecord[]
+const capturedFixtures=[...__QA_CAPTURED_CATALOG__,...(__QA_CAPTURED_MANIFEST__?[__QA_CAPTURED_MANIFEST__]:[])]
+const capturedRecord=(id:unknown)=>capturedFixtures.find(f=>f.id===id)
+const isCapturedFixture=(id:unknown)=>!!capturedRecord(id)
+const capturedInputs=new Map<string,Promise<AlgorithmInput>>()
+function loadCapturedInput(id:string){
+ const record=capturedRecord(id);if(!record)throw Error('Captured native input not included')
+ const existing=capturedInputs.get(id);if(existing)return existing
+ const loading=(async()=>{
+  const response=await fetch(new URL(record.file??'./captured-native.bin',import.meta.url));if(!response.ok)throw Error('Captured fixture fetch failed')
   const bytes=new Uint8Array(await response.arrayBuffer()),pixels=1024*1024
-  if(bytes.length!==pixels*6||await digest(bytes)!==expected)throw Error('Captured fixture size/SHA mismatch')
+  if(bytes.length!==pixels*6||await digest(bytes)!==record.binarySHA)throw Error('Captured fixture size/SHA mismatch')
   for(let p=0;p<pixels*4;p+=4)if(bytes[p]>bytes[p+3]||bytes[p+1]>bytes[p+3]||bytes[p+2]>bytes[p+3])throw Error('Captured optical depth exceeds this prototype carrier bounds; do not clamp silently')
   return{size:1024,seed:805,encoding:'optical-density' as const,rgba:bytes.slice(0,pixels*4),water:bytes.slice(pixels*4,pixels*5),paper:bytes.slice(pixels*5)}
  })()
+ // Only retain the current 6MiB fixture. Switching scenes releases the old one.
+ capturedInputs.clear();capturedInputs.set(id,loading);return loading
 }
 function metrics(input:AlgorithmInput,output:Uint8Array){let inputMass=0,outputMass=0,lost=0,added=0,spread=0,invalidPremul=0,changed=0;for(let i=0;i<input.size*input.size;i++){const p=i*4,a=output[p+3],before=input.rgba[p+3];inputMass+=before;outputMass+=a;if(before&&!a)lost++;if(!before&&a>1)added++;if(a&&input.water[i]<5)spread++;if(output[p]>a+1||output[p+1]>a+1||output[p+2]>a+1)invalidPremul++;if(a!==before||output[p]!==input.rgba[p]||output[p+1]!==input.rgba[p+1]||output[p+2]!==input.rgba[p+2])changed++}
 return{quantity:'Sum of alpha as a pigment-mass proxy; not a physical mass measurement',inputMass,outputMass,massRatio:inputMass?outputMass/inputMass:outputMass===0?1:null,lostPixels:lost,addedPixels:added,outsideWetPixels:spread,invalidPremul,changedPixels:changed}}
@@ -52,10 +58,10 @@ async function runGPU(algorithm:string,input:AlgorithmInput,config:AlgorithmConf
  }finally{try{profiler?.destroy();candidate?.destroy()}finally{device.destroy()}}
 }
 self.onmessage=async({data})=>{if(busy){send({requestId:data.requestId,error:'Algorithm worker busy'});return}busy=true;try{
- if(data.type==='list'){const gpuDefinitions=webgpuModule?(await webgpuModule).definitions:[];send({requestId:data.requestId,algorithms:[...definitions.map(d=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgl1'})),...gpuDefinitions.map((d:any)=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgpu'}))],fixtures:[...fixtureIds.map(id=>({id,...fixtureInfo[id]})),...(__QA_CAPTURED_MANIFEST__?[{id:__QA_CAPTURED_MANIFEST__.id,label:__QA_CAPTURED_MANIFEST__.label,description:'Преобразованный native optical input, реальная вода и бумага; не тождественный native composite'}]:[])]});return}
+ if(data.type==='list'){const gpuDefinitions=webgpuModule?(await webgpuModule).definitions:[];send({requestId:data.requestId,algorithms:[...definitions.map(d=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgl1'})),...gpuDefinitions.map((d:any)=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgpu'}))],fixtures:[...fixtureIds.map(id=>({id,...fixtureInfo[id]})),...capturedFixtures.map(f=>({id:f.id,label:f.label,captured:true,description:'Захват Mini: реальная вода и бумага; приближённый общий композитор'}))]});return}
  if(data.type!=='run')throw Error('Unknown request');const encoding=data.encoding??'premultiplied-rgb'
  if(isCapturedFixture(data.fixture)&&encoding!=='optical-density')throw Error('Captured fixture requires optical-density encoding')
- const input=isCapturedFixture(data.fixture)?await loadCapturedInput():createFixture(data.fixture as FixtureId,1024,encoding),fixtureSHA={rgba:await digest(input.rgba),water:await digest(input.water),paper:await digest(input.paper)},repeats=Math.max(1,Math.min(5,Math.floor(data.repeats??3)))
+ const input=isCapturedFixture(data.fixture)?await loadCapturedInput(data.fixture):createFixture(data.fixture as FixtureId,1024,encoding),fixtureSHA={rgba:await digest(input.rgba),water:await digest(input.water),paper:await digest(input.paper)},repeats=Math.max(1,Math.min(5,Math.floor(data.repeats??3)))
  const result=data.algorithm.startsWith('wgsl-')?await runGPU(data.algorithm,input,data.config??{},repeats,!!data.profileGPU):await runGL(data.algorithm,input,data.config??{},repeats)
  const {output,...report}=result
  let control:Record<string,number|boolean>|undefined
@@ -66,5 +72,5 @@ self.onmessage=async({data})=>{if(busy){send({requestId:data.requestId,error:'Al
   control={inputRightAlpha:inputRight,outputRightAlpha:outputRight,noCrossing:inputRight===0&&outputRight===0}
  }
  const paper=isCapturedFixture(data.fixture)?input.paper.slice():undefined
- ;(self as any).postMessage({requestId:data.requestId,result:{algorithm:data.algorithm,fixture:data.fixture,encoding,config:data.config??{},fixtureSHA,...report,...(control?{control}:{}),...(paper?{captureManifest:__QA_CAPTURED_MANIFEST__}:{})},output,paper},[output.buffer,...(paper?[paper.buffer]:[])])
+ ;(self as any).postMessage({requestId:data.requestId,result:{algorithm:data.algorithm,fixture:data.fixture,encoding,config:data.config??{},fixtureSHA,...report,...(control?{control}:{}),...(paper?{captureManifest:capturedRecord(data.fixture)}:{})},output,paper},[output.buffer,...(paper?[paper.buffer]:[])])
  }catch(e){send({requestId:data.requestId,error:String((e as Error).stack??e)})}finally{busy=false}}
