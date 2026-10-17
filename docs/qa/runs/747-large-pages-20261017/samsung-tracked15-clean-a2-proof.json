@@ -1,0 +1,1287 @@
+{
+  "source": "e562d496+4b42aa79",
+  "fixture": "fresh owned A2 landscape #15, blank before own LayerAdd + two strokes",
+  "geometry": {
+    "width": 3508,
+    "height": 2480
+  },
+  "correctness": "PASS",
+  "responsiveness": "FAIL: goals still take seconds after UP",
+  "qualification": "Distinct inputs/lineage from prior fixtures; no clean A/B speed claim. Edge only CDP CPU profiling adds overhead; nested timers overlap and must not be added as independent stages. QA tracked per-field scissor scope, same input224MiB/solve120MiB.",
+  "gestures": [
+    {
+      "name": "trusted-pen-crosses-both1024-seams",
+      "upToIdleMs": 4126.599999904633,
+      "scopeRows": 4,
+      "selectedDelta": 4,
+      "fallbackDelta": 0,
+      "scopeStats": {
+        "draws": 800,
+        "clears": 800,
+        "prefixDraws": 64,
+        "pixelArea": 42688800,
+        "fullArea": 1887436800,
+        "stateSnapshots": 84,
+        "runs": 84,
+        "detaches": 84,
+        "allDisposed": true,
+        "allRestoredExactly": true
+      },
+      "stateSnapshotsEqualRuns": true,
+      "methods": {
+        "engine._onStart@DOWN": {
+          "count": 1,
+          "sumMs": 55.60000014305115,
+          "maxMs": 55.60000014305115
+        },
+        "engine._onMove@DOWN": {
+          "count": 4,
+          "sumMs": 52.10000014305115,
+          "maxMs": 24.200000047683716
+        },
+        "engine._onEnd@UP": {
+          "count": 1,
+          "sumMs": 99.80000019073486,
+          "maxMs": 99.80000019073486
+        },
+        "gl.readPixels@UP": {
+          "count": 98,
+          "sumMs": 768.4999997615814,
+          "maxMs": 74.20000004768372,
+          "nominalBytes": 166908992
+        },
+        "solver.step@UP": {
+          "count": 145,
+          "sumMs": 2762.399999141693,
+          "maxMs": 292.69999980926514
+        },
+        "actualBuffer._residencyEvict@UP": {
+          "count": 101,
+          "sumMs": 173.10000014305115,
+          "maxMs": 19.699999809265137,
+          "nominalBytes": 208250880,
+          "roles": {
+            "presentation.goal": 4,
+            "solverOrOther": 38,
+            "pooledFree": 31,
+            "presentation.next": 4,
+            "presentation.raw": 4,
+            "source.original": 4,
+            "source.coverage": 4,
+            "source.inkLoad": 4,
+            "source.inkColor": 4,
+            "source.solventLoad": 4
+          },
+          "idleDiscardCalls": 31,
+          "capturedBackingReuseCalls": 24,
+          "capturedBackingReuseNominalBytes": 121634816
+        },
+        "plan.prepare@UP": {
+          "count": 4,
+          "sumMs": 11.600000143051147,
+          "maxMs": 9.299999952316284
+        },
+        "actualBuffer._residencyHydrate@UP": {
+          "count": 58,
+          "sumMs": 12.099999904632568,
+          "maxMs": 1.5,
+          "nominalBytes": 88544256,
+          "roles": {
+            "solverOrOther": 34,
+            "source.inkLoad": 4,
+            "source.inkColor": 4,
+            "source.coverage": 4,
+            "presentation.goal": 4,
+            "source.original": 4,
+            "presentation.next": 4
+          }
+        },
+        "controller.complete@UP": {
+          "count": 1,
+          "sumMs": 7.300000190734863,
+          "maxMs": 7.300000190734863
+        }
+      },
+      "RAF": {
+        "count": 180,
+        "sumMs": 4647.300000000003,
+        "maxMs": 284.20000000000437,
+        "histogram": [
+          0,
+          71,
+          87,
+          9,
+          6,
+          6,
+          1,
+          0
+        ],
+        "over50": 13,
+        "over100": 7
+      },
+      "visibility": [
+        {
+          "at": 32834.40000009537,
+          "hidden": false,
+          "state": "visible"
+        },
+        {
+          "at": 37489.40000009537,
+          "hidden": false,
+          "state": "visible"
+        }
+      ],
+      "windowSchedule": {
+        "plannedPerSnapshot": 60,
+        "snapshots": [
+          {
+            "support": {
+              "width": 3508,
+              "height": 2480,
+              "rect": {
+                "x": 968,
+                "y": 1409,
+                "width": 103,
+                "height": 103
+              },
+              "rects": [
+                {
+                  "x": 968,
+                  "y": 1456,
+                  "width": 56,
+                  "height": 56
+                },
+                {
+                  "x": 1024,
+                  "y": 1456,
+                  "width": 24,
+                  "height": 24
+                },
+                {
+                  "x": 1000,
+                  "y": 1432,
+                  "width": 24,
+                  "height": 24
+                },
+                {
+                  "x": 1024,
+                  "y": 1409,
+                  "width": 47,
+                  "height": 47
+                }
+              ],
+              "noForeignStencil": true
+            },
+            "metadataForeignAbsent": true,
+            "radius": 32,
+            "planned": 60,
+            "expectedKept": 4,
+            "expectedSkipped": 56
+          }
+        ],
+        "actualNativePrepare": 4,
+        "qualification": "Actual Native prepare count; planned/skipped inferred from same pure fixed-window grouping/support functions and captured immutable source certificate. No inspection hook injected."
+      }
+    },
+    {
+      "name": "trusted-pen-far-right-bottom",
+      "upToIdleMs": 4977.299999952316,
+      "scopeRows": 5,
+      "selectedDelta": 5,
+      "fallbackDelta": 0,
+      "scopeStats": {
+        "draws": 1000,
+        "clears": 1000,
+        "prefixDraws": 80,
+        "pixelArea": 49313600,
+        "fullArea": 2359296000,
+        "stateSnapshots": 105,
+        "runs": 105,
+        "detaches": 105,
+        "allDisposed": true,
+        "allRestoredExactly": true
+      },
+      "stateSnapshotsEqualRuns": true,
+      "methods": {
+        "engine._onStart@DOWN": {
+          "count": 1,
+          "sumMs": 55.700000047683716,
+          "maxMs": 55.700000047683716
+        },
+        "engine._onMove@DOWN": {
+          "count": 2,
+          "sumMs": 6.900000095367432,
+          "maxMs": 6.900000095367432
+        },
+        "engine._onEnd@UP": {
+          "count": 1,
+          "sumMs": 23.199999809265137,
+          "maxMs": 23.199999809265137
+        },
+        "gl.readPixels@UP": {
+          "count": 132,
+          "sumMs": 914.5000007152557,
+          "maxMs": 75.89999985694885,
+          "nominalBytes": 222738592
+        },
+        "solver.step@UP": {
+          "count": 167,
+          "sumMs": 3098.5999965667725,
+          "maxMs": 263.90000009536743
+        },
+        "actualBuffer._residencyHydrate@UP": {
+          "count": 56,
+          "sumMs": 39.70000123977661,
+          "maxMs": 22.59999990463257,
+          "nominalBytes": 131470336,
+          "roles": {
+            "source.solventLoad": 4,
+            "solverOrOther": 22,
+            "source.inkLoad": 5,
+            "source.inkColor": 5,
+            "source.coverage": 5,
+            "presentation.goal": 5,
+            "source.original": 5,
+            "presentation.next": 2,
+            "presentation.raw": 3
+          }
+        },
+        "actualBuffer._residencyEvict@UP": {
+          "count": 110,
+          "sumMs": 199.60000109672546,
+          "maxMs": 16,
+          "nominalBytes": 236224512,
+          "roles": {
+            "solverOrOther": 61,
+            "presentation.goal": 5,
+            "presentation.next": 5,
+            "pooledFree": 13,
+            "presentation.raw": 1,
+            "source.original": 5,
+            "source.coverage": 5,
+            "source.inkLoad": 5,
+            "source.inkColor": 5,
+            "source.solventLoad": 5
+          },
+          "idleDiscardCalls": 13,
+          "capturedBackingReuseCalls": 26,
+          "capturedBackingReuseNominalBytes": 135266304
+        },
+        "plan.prepare@UP": {
+          "count": 5,
+          "sumMs": 9.399999380111694,
+          "maxMs": 6.3999998569488525
+        },
+        "controller.complete@UP": {
+          "count": 1,
+          "sumMs": 98.10000014305115,
+          "maxMs": 98.10000014305115
+        }
+      },
+      "RAF": {
+        "count": 196,
+        "sumMs": 4898,
+        "maxMs": 351.09999999999854,
+        "histogram": [
+          0,
+          88,
+          82,
+          11,
+          10,
+          3,
+          2,
+          0
+        ],
+        "over50": 15,
+        "over100": 5
+      },
+      "visibility": [
+        {
+          "at": 38750.800000190735,
+          "hidden": false,
+          "state": "visible"
+        },
+        {
+          "at": 43657.200000047684,
+          "hidden": false,
+          "state": "visible"
+        }
+      ],
+      "windowSchedule": {
+        "plannedPerSnapshot": 60,
+        "snapshots": [
+          {
+            "support": {
+              "width": 3508,
+              "height": 2480,
+              "rect": {
+                "x": 968,
+                "y": 33,
+                "width": 2507,
+                "height": 1479
+              },
+              "rects": [
+                {
+                  "x": 968,
+                  "y": 1456,
+                  "width": 56,
+                  "height": 56
+                },
+                {
+                  "x": 1024,
+                  "y": 1456,
+                  "width": 24,
+                  "height": 24
+                },
+                {
+                  "x": 1000,
+                  "y": 1432,
+                  "width": 24,
+                  "height": 24
+                },
+                {
+                  "x": 1024,
+                  "y": 1409,
+                  "width": 47,
+                  "height": 47
+                },
+                {
+                  "x": 3421,
+                  "y": 33,
+                  "width": 54,
+                  "height": 54
+                }
+              ],
+              "noForeignStencil": true
+            },
+            "metadataForeignAbsent": true,
+            "radius": 32,
+            "planned": 60,
+            "expectedKept": 5,
+            "expectedSkipped": 55
+          }
+        ],
+        "actualNativePrepare": 5,
+        "qualification": "Actual Native prepare count; planned/skipped inferred from same pure fixed-window grouping/support functions and captured immutable source certificate. No inspection hook injected."
+      }
+    }
+  ],
+  "oracle": {
+    "name": "canonical-goal-first-full-API-replay-proof",
+    "wallAt": 1792239333784,
+    "actualSource": "canonical-goal",
+    "actualCapturedBeforeOracle": true,
+    "oracleTightSupport32": false,
+    "oracleControllers": [
+      {
+        "nativeScopeFactoryOff": true,
+        "type": "PagedPuddleRoomController",
+        "tightFlagAtCreation": false,
+        "actualOptions": {
+          "diagnosticM70TightSupport32": false,
+          "diagnosticM70CapturedBacking": false,
+          "diagnosticM70PersistCapturedBacking": false,
+          "diagnosticM70CooperativeCapture": false,
+          "diagnosticM70StepBudgetMs": 0,
+          "diagnosticM70SkipEmptyPostphase": false,
+          "diagnosticM70SkipEmptyReference": false
+        },
+        "createdWhilePuddleNull": true
+      }
+    ],
+    "oracleNativePrepare": 29,
+    "liveControllerRestored": true,
+    "liveTightFlagRestored": true,
+    "oracleLog": "complete-api",
+    "oracleOperationCount": 3,
+    "liveLogUnchanged": true,
+    "page": {
+      "width": 3508,
+      "height": 2480
+    },
+    "physicalChanged": 0,
+    "max": 0,
+    "alpha": 6045,
+    "tiles": [
+      {
+        "x": 0,
+        "y": 0,
+        "w": 1024,
+        "h": 1024,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 2028
+      },
+      {
+        "x": 1024,
+        "y": 0,
+        "w": 1024,
+        "h": 1024,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 300
+      },
+      {
+        "x": 0,
+        "y": 1024,
+        "w": 1024,
+        "h": 1024,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 291
+      },
+      {
+        "x": 1024,
+        "y": 1024,
+        "w": 1024,
+        "h": 1024,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 1559
+      },
+      {
+        "x": 3072,
+        "y": 2048,
+        "w": 436,
+        "h": 432,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 1867
+      }
+    ],
+    "actualHash": "c788e0f3706a3d95e5fc468231324bdb68395895e63252cb8b98bb6dda4e205c",
+    "oracleHash": "c788e0f3706a3d95e5fc468231324bdb68395895e63252cb8b98bb6dda4e205c",
+    "glError": 0,
+    "nativeScopeFactoryRestored": true
+  },
+  "cpuProfile": {
+    "intervalUs": 2000,
+    "sampleCount": 2386,
+    "nodeCount": 1762,
+    "sampledWallMs": 5380.875,
+    "profileWallMs": 5381.517,
+    "specialSamples": {
+      "idle": 430,
+      "gc": 71,
+      "program": 81,
+      "unknown": 0
+    },
+    "topSelf": [
+      {
+        "functionName": "(idle)",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 922.7,
+        "inclusiveMs": 922.7,
+        "selfSamples": 430,
+        "inclusiveSamples": 430
+      },
+      {
+        "functionName": "readPixels",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 916.5779999999999,
+        "inclusiveMs": 916.5779999999999,
+        "selfSamples": 427,
+        "inclusiveSamples": 427
+      },
+      {
+        "functionName": "(program)",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 532.1100000000001,
+        "inclusiveMs": 532.1100000000001,
+        "selfSamples": 81,
+        "inclusiveSamples": 81
+      },
+      {
+        "functionName": "getParameter",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 457.88099999999986,
+        "inclusiveMs": 457.88099999999986,
+        "selfSamples": 207,
+        "inclusiveSamples": 207
+      },
+      {
+        "functionName": "compress",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/MaterialFieldPages.ts",
+        "line": 10,
+        "column": 18,
+        "selfMs": 239.81200000000007,
+        "inclusiveMs": 239.81200000000007,
+        "selfSamples": 109,
+        "inclusiveSamples": 109
+      },
+      {
+        "functionName": "(garbage collector)",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 183.43900000000002,
+        "inclusiveMs": 183.43900000000002,
+        "selfSamples": 71,
+        "inclusiveSamples": 71
+      },
+      {
+        "functionName": "readRect",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/MaterialFieldPages.ts",
+        "line": 34,
+        "column": 10,
+        "selfMs": 175.07600000000002,
+        "inclusiveMs": 175.07600000000002,
+        "selfSamples": 84,
+        "inclusiveSamples": 84
+      },
+      {
+        "functionName": "writeRect",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/MaterialFieldPages.ts",
+        "line": 115,
+        "column": 11,
+        "selfMs": 171.51399999999998,
+        "inclusiveMs": 413.4219999999999,
+        "selfSamples": 80,
+        "inclusiveSamples": 190
+      },
+      {
+        "functionName": "buildPagedTapAtlas",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedContrastPhase.ts",
+        "line": 8,
+        "column": 35,
+        "selfMs": 145.39599999999996,
+        "inclusiveMs": 216.99799999999993,
+        "selfSamples": 125,
+        "inclusiveSamples": 158
+      },
+      {
+        "functionName": "restoreOwnedEntry",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleSource.ts",
+        "line": 211,
+        "column": 27,
+        "selfMs": 143.614,
+        "inclusiveMs": 341.854,
+        "selfSamples": 71,
+        "inclusiveSamples": 162
+      },
+      {
+        "functionName": "texImage2D",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 143.46999999999997,
+        "inclusiveMs": 143.46999999999997,
+        "selfSamples": 64,
+        "inclusiveSamples": 64
+      },
+      {
+        "functionName": "unionM70Support",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/M70FixedWindowSkip.ts",
+        "line": 48,
+        "column": 32,
+        "selfMs": 113.77999999999996,
+        "inclusiveMs": 113.77999999999996,
+        "selfSamples": 53,
+        "inclusiveSamples": 53
+      },
+      {
+        "functionName": "getShaderParameter",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 102.65799999999999,
+        "inclusiveMs": 102.65799999999999,
+        "selfSamples": 44,
+        "inclusiveSamples": 44
+      },
+      {
+        "functionName": "exports.jsxDEV",
+        "url": "http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/react_jsx-dev-runtime.js",
+        "line": 191,
+        "column": 28,
+        "selfMs": 102.42999999999998,
+        "inclusiveMs": 133.63899999999998,
+        "selfSamples": 49,
+        "inclusiveSamples": 64
+      },
+      {
+        "functionName": "extractMaterialTileRect",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/MaterialTileCoordinates.ts",
+        "line": 31,
+        "column": 40,
+        "selfMs": 78.81899999999999,
+        "inclusiveMs": 78.81899999999999,
+        "selfSamples": 37,
+        "inclusiveSamples": 37
+      },
+      {
+        "functionName": "wetOverlayPixels",
+        "url": "http://127.0.0.1:15484/src/engine/src/paper/wetOverlayPixels.ts",
+        "line": 7,
+        "column": 33,
+        "selfMs": 49.208000000000006,
+        "inclusiveMs": 55.435,
+        "selfSamples": 23,
+        "inclusiveSamples": 26
+      },
+      {
+        "functionName": "solve",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts",
+        "line": 94,
+        "column": 17,
+        "selfMs": 48.172999999999995,
+        "inclusiveMs": 2986.164000000005,
+        "selfSamples": 25,
+        "inclusiveSamples": 1450
+      },
+      {
+        "functionName": "measure",
+        "url": "",
+        "line": 9,
+        "column": 16,
+        "selfMs": 46.481,
+        "inclusiveMs": 3306.3730000000064,
+        "selfSamples": 28,
+        "inclusiveSamples": 1601
+      },
+      {
+        "functionName": "texSubImage2D",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 45.964999999999996,
+        "inclusiveMs": 45.964999999999996,
+        "selfSamples": 22,
+        "inclusiveSamples": 22
+      },
+      {
+        "functionName": "uniformReadback",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts",
+        "line": 10,
+        "column": 25,
+        "selfMs": 38.352000000000004,
+        "inclusiveMs": 38.352000000000004,
+        "selfSamples": 18,
+        "inclusiveSamples": 18
+      },
+      {
+        "functionName": "now",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 35.157000000000004,
+        "inclusiveMs": 35.157000000000004,
+        "selfSamples": 17,
+        "inclusiveSamples": 17
+      },
+      {
+        "functionName": "getProgramParameter",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 29.25,
+        "inclusiveMs": 29.25,
+        "selfSamples": 14,
+        "inclusiveSamples": 14
+      },
+      {
+        "functionName": "roleOf",
+        "url": "",
+        "line": 6,
+        "column": 15,
+        "selfMs": 21.308,
+        "inclusiveMs": 21.308,
+        "selfSamples": 10,
+        "inclusiveSamples": 10
+      },
+      {
+        "functionName": "_updateWetTexture",
+        "url": "http://127.0.0.1:15484/src/engine/index.ts",
+        "line": 9334,
+        "column": 19,
+        "selfMs": 19.635999999999996,
+        "inclusiveMs": 82.564,
+        "selfSamples": 10,
+        "inclusiveSamples": 40
+      },
+      {
+        "functionName": "step",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts",
+        "line": 534,
+        "column": 7,
+        "selfMs": 18.873,
+        "inclusiveMs": 3005.0370000000057,
+        "selfSamples": 9,
+        "inclusiveSamples": 1459
+      },
+      {
+        "functionName": "tick",
+        "url": "",
+        "line": 4,
+        "column": 13,
+        "selfMs": 16.891000000000002,
+        "inclusiveMs": 18.983,
+        "selfSamples": 8,
+        "inclusiveSamples": 9
+      },
+      {
+        "functionName": "(anonymous)",
+        "url": "",
+        "line": 10,
+        "column": 492,
+        "selfMs": 16.829,
+        "inclusiveMs": 3299.5950000000066,
+        "selfSamples": 8,
+        "inclusiveSamples": 1593
+      },
+      {
+        "functionName": "ReactElement",
+        "url": "http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/react_jsx-dev-runtime.js",
+        "line": 104,
+        "column": 24,
+        "selfMs": 14.581,
+        "inclusiveMs": 14.581,
+        "selfSamples": 7,
+        "inclusiveSamples": 7
+      },
+      {
+        "functionName": "_composePaperToScreen",
+        "url": "http://127.0.0.1:15484/src/engine/index.ts",
+        "line": 9522,
+        "column": 23,
+        "selfMs": 12.683,
+        "inclusiveMs": 38.84,
+        "selfSamples": 4,
+        "inclusiveSamples": 16
+      },
+      {
+        "functionName": "bindFramebuffer",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 11.869,
+        "inclusiveMs": 11.869,
+        "selfSamples": 3,
+        "inclusiveSamples": 3
+      },
+      {
+        "functionName": "sampleInventory",
+        "url": "",
+        "line": 8,
+        "column": 24,
+        "selfMs": 10.778,
+        "inclusiveMs": 14.721,
+        "selfSamples": 5,
+        "inclusiveSamples": 7
+      },
+      {
+        "functionName": "capture",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedBackgroundMix.ts",
+        "line": 45,
+        "column": 10,
+        "selfMs": 10.415,
+        "inclusiveMs": 91.69399999999999,
+        "selfSamples": 5,
+        "inclusiveSamples": 45
+      },
+      {
+        "functionName": "bindTexture",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 10.017,
+        "inclusiveMs": 10.017,
+        "selfSamples": 5,
+        "inclusiveSamples": 5
+      },
+      {
+        "functionName": "beginWrite",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/MaterialFieldPages.ts",
+        "line": 89,
+        "column": 12,
+        "selfMs": 9.098,
+        "inclusiveMs": 9.098,
+        "selfSamples": 1,
+        "inclusiveSamples": 1
+      },
+      {
+        "functionName": "captureFinishMetadata",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/RibbonStrokeScratch.ts",
+        "line": 195,
+        "column": 23,
+        "selfMs": 8.616000000000001,
+        "inclusiveMs": 10.829,
+        "selfSamples": 4,
+        "inclusiveSamples": 5
+      },
+      {
+        "functionName": "draw",
+        "url": "",
+        "line": 24,
+        "column": 21,
+        "selfMs": 8.456,
+        "inclusiveMs": 24.547,
+        "selfSamples": 4,
+        "inclusiveSamples": 12
+      },
+      {
+        "functionName": "prepare",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedContrastPhase.ts",
+        "line": 129,
+        "column": 10,
+        "selfMs": 8.374,
+        "inclusiveMs": 126.55900000000001,
+        "selfSamples": 4,
+        "inclusiveSamples": 114
+      },
+      {
+        "functionName": "_display",
+        "url": "http://127.0.0.1:15484/src/engine/index.ts",
+        "line": 9734,
+        "column": 10,
+        "selfMs": 7.629,
+        "inclusiveMs": 233.64799999999994,
+        "selfSamples": 3,
+        "inclusiveSamples": 106
+      },
+      {
+        "functionName": "toBlob",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 6.615,
+        "inclusiveMs": 6.615,
+        "selfSamples": 3,
+        "inclusiveSamples": 3
+      },
+      {
+        "functionName": "runComposite",
+        "url": "http://127.0.0.1:15484/src/engine/src/raster/LayerCompositor.ts",
+        "line": 360,
+        "column": 14,
+        "selfMs": 6.443,
+        "inclusiveMs": 54.89800000000001,
+        "selfSamples": 3,
+        "inclusiveSamples": 24
+      }
+    ],
+    "topInclusive": [
+      {
+        "functionName": "(root)",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 0,
+        "inclusiveMs": 5380.874999999992,
+        "selfSamples": 0,
+        "inclusiveSamples": 2386
+      },
+      {
+        "functionName": "object.<computed>",
+        "url": "",
+        "line": 10,
+        "column": 258,
+        "selfMs": 4.3759999999999994,
+        "inclusiveMs": 3306.5710000000063,
+        "selfSamples": 3,
+        "inclusiveSamples": 1602
+      },
+      {
+        "functionName": "measure",
+        "url": "",
+        "line": 9,
+        "column": 16,
+        "selfMs": 46.481,
+        "inclusiveMs": 3306.3730000000064,
+        "selfSamples": 28,
+        "inclusiveSamples": 1601
+      },
+      {
+        "functionName": "(anonymous)",
+        "url": "",
+        "line": 10,
+        "column": 492,
+        "selfMs": 16.829,
+        "inclusiveMs": 3299.5950000000066,
+        "selfSamples": 8,
+        "inclusiveSamples": 1593
+      },
+      {
+        "functionName": "frame",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleRoomController.ts",
+        "line": 503,
+        "column": 10,
+        "selfMs": 2.105,
+        "inclusiveMs": 3137.2460000000074,
+        "selfSamples": 1,
+        "inclusiveSamples": 1522
+      },
+      {
+        "functionName": "step",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts",
+        "line": 534,
+        "column": 7,
+        "selfMs": 18.873,
+        "inclusiveMs": 3005.0370000000057,
+        "selfSamples": 9,
+        "inclusiveSamples": 1459
+      },
+      {
+        "functionName": "solve",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts",
+        "line": 94,
+        "column": 17,
+        "selfMs": 48.172999999999995,
+        "inclusiveMs": 2986.164000000005,
+        "selfSamples": 25,
+        "inclusiveSamples": 1450
+      },
+      {
+        "functionName": "(idle)",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 922.7,
+        "inclusiveMs": 922.7,
+        "selfSamples": 430,
+        "inclusiveSamples": 430
+      },
+      {
+        "functionName": "readPixels",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 916.5779999999999,
+        "inclusiveMs": 916.5779999999999,
+        "selfSamples": 427,
+        "inclusiveSamples": 427
+      },
+      {
+        "functionName": "capturePagedPuddleSourceSteps",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleSource.ts",
+        "line": 29,
+        "column": 47,
+        "selfMs": 0,
+        "inclusiveMs": 814.5329999999996,
+        "selfSamples": 0,
+        "inclusiveSamples": 382
+      },
+      {
+        "functionName": "readPixels",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts",
+        "line": 462,
+        "column": 12,
+        "selfMs": 6.368,
+        "inclusiveMs": 723.4009999999998,
+        "selfSamples": 3,
+        "inclusiveSamples": 336
+      },
+      {
+        "functionName": "run",
+        "url": "",
+        "line": 51,
+        "column": 23,
+        "selfMs": 0,
+        "inclusiveMs": 604.4359999999998,
+        "selfSamples": 0,
+        "inclusiveSamples": 279
+      },
+      {
+        "functionName": "run",
+        "url": "",
+        "line": 62,
+        "column": 33,
+        "selfMs": 0,
+        "inclusiveMs": 604.4359999999998,
+        "selfSamples": 0,
+        "inclusiveSamples": 279
+      },
+      {
+        "functionName": "(program)",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 532.1100000000001,
+        "inclusiveMs": 532.1100000000001,
+        "selfSamples": 81,
+        "inclusiveSamples": 81
+      },
+      {
+        "functionName": "getParameter",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 457.88099999999986,
+        "inclusiveMs": 457.88099999999986,
+        "selfSamples": 207,
+        "inclusiveSamples": 207
+      },
+      {
+        "functionName": "write",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleSource.ts",
+        "line": 85,
+        "column": 18,
+        "selfMs": 6.012,
+        "inclusiveMs": 431.22300000000007,
+        "selfSamples": 3,
+        "inclusiveSamples": 202
+      },
+      {
+        "functionName": "writeRect",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/MaterialFieldPages.ts",
+        "line": 97,
+        "column": 11,
+        "selfMs": 0,
+        "inclusiveMs": 422.5199999999999,
+        "selfSamples": 0,
+        "inclusiveSamples": 191
+      },
+      {
+        "functionName": "writeRect",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/MaterialFieldPages.ts",
+        "line": 115,
+        "column": 11,
+        "selfMs": 171.51399999999998,
+        "inclusiveMs": 413.4219999999999,
+        "selfSamples": 80,
+        "inclusiveSamples": 190
+      },
+      {
+        "functionName": "attach",
+        "url": "",
+        "line": 49,
+        "column": 17,
+        "selfMs": 4.218999999999999,
+        "inclusiveMs": 409.2469999999999,
+        "selfSamples": 2,
+        "inclusiveSamples": 185
+      },
+      {
+        "functionName": "snapshot",
+        "url": "",
+        "line": 35,
+        "column": 19,
+        "selfMs": 3.898,
+        "inclusiveMs": 402.948,
+        "selfSamples": 2,
+        "inclusiveSamples": 182
+      },
+      {
+        "functionName": "captureReadPixels",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts",
+        "line": 475,
+        "column": 19,
+        "selfMs": 0,
+        "inclusiveMs": 378.9970000000002,
+        "selfSamples": 0,
+        "inclusiveSamples": 178
+      },
+      {
+        "functionName": "proto.captureReadPixels",
+        "url": "",
+        "line": 11,
+        "column": 360,
+        "selfMs": 0,
+        "inclusiveMs": 378.9970000000002,
+        "selfSamples": 0,
+        "inclusiveSamples": 178
+      },
+      {
+        "functionName": "read",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/CapturedReadScope.ts",
+        "line": 12,
+        "column": 6,
+        "selfMs": 0,
+        "inclusiveMs": 378.9970000000002,
+        "selfSamples": 0,
+        "inclusiveSamples": 178
+      },
+      {
+        "functionName": "createDetachedTile",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/RibbonStrokeScratch.ts",
+        "line": 496,
+        "column": 20,
+        "selfMs": 0,
+        "inclusiveMs": 373.34899999999993,
+        "selfSamples": 0,
+        "inclusiveSamples": 177
+      },
+      {
+        "functionName": "createDetachedPagedPuddleWindow",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleSource.ts",
+        "line": 208,
+        "column": 48,
+        "selfMs": 0,
+        "inclusiveMs": 373.34899999999993,
+        "selfSamples": 0,
+        "inclusiveSamples": 177
+      },
+      {
+        "functionName": "(anonymous)",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleSource.ts",
+        "line": 209,
+        "column": 61,
+        "selfMs": 4.179,
+        "inclusiveMs": 346.03299999999996,
+        "selfSamples": 2,
+        "inclusiveSamples": 164
+      },
+      {
+        "functionName": "restoreOwnedEntry",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedPuddleSource.ts",
+        "line": 211,
+        "column": 27,
+        "selfMs": 143.614,
+        "inclusiveMs": 341.854,
+        "selfSamples": 71,
+        "inclusiveSamples": 162
+      },
+      {
+        "functionName": "o.<computed>",
+        "url": "",
+        "line": 4,
+        "column": 95,
+        "selfMs": 0,
+        "inclusiveMs": 260.62199999999996,
+        "selfSamples": 0,
+        "inclusiveSamples": 120
+      },
+      {
+        "functionName": "compress",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/MaterialFieldPages.ts",
+        "line": 10,
+        "column": 18,
+        "selfMs": 239.81200000000007,
+        "inclusiveMs": 239.81200000000007,
+        "selfSamples": 109,
+        "inclusiveSamples": 109
+      },
+      {
+        "functionName": "_display",
+        "url": "http://127.0.0.1:15484/src/engine/index.ts",
+        "line": 9734,
+        "column": 10,
+        "selfMs": 7.629,
+        "inclusiveMs": 233.64799999999994,
+        "selfSamples": 3,
+        "inclusiveSamples": 106
+      },
+      {
+        "functionName": "buildPagedTapAtlas",
+        "url": "http://127.0.0.1:15484/src/engine/src/watercolor/puddle/PagedContrastPhase.ts",
+        "line": 8,
+        "column": 35,
+        "selfMs": 145.39599999999996,
+        "inclusiveMs": 216.99799999999993,
+        "selfSamples": 125,
+        "inclusiveSamples": 158
+      },
+      {
+        "functionName": "performWorkOnRoot",
+        "url": "http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/react-dom_client.js",
+        "line": 7978,
+        "column": 29,
+        "selfMs": 0,
+        "inclusiveMs": 210.43400000000003,
+        "selfSamples": 0,
+        "inclusiveSamples": 100
+      },
+      {
+        "functionName": "preserveResidencyPixelStore",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/BufferResidency.ts",
+        "line": 52,
+        "column": 37,
+        "selfMs": 0,
+        "inclusiveMs": 202.72699999999998,
+        "selfSamples": 0,
+        "inclusiveSamples": 95
+      },
+      {
+        "functionName": "run",
+        "url": "",
+        "line": 0,
+        "column": 0,
+        "selfMs": 2.113,
+        "inclusiveMs": 202.49500000000006,
+        "selfSamples": 1,
+        "inclusiveSamples": 95
+      },
+      {
+        "functionName": "_residencyEvict",
+        "url": "http://127.0.0.1:15484/src/engine/src/buffers/AccumulationBuffer.ts",
+        "line": 111,
+        "column": 17,
+        "selfMs": 2.095,
+        "inclusiveMs": 201.91699999999997,
+        "selfSamples": 1,
+        "inclusiveSamples": 95
+      },
+      {
+        "functionName": "runWithFiberInDEV",
+        "url": "http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/react-dom_client.js",
+        "line": 848,
+        "column": 29,
+        "selfMs": 0,
+        "inclusiveMs": 200.38200000000006,
+        "selfSamples": 0,
+        "inclusiveSamples": 94
+      },
+      {
+        "functionName": "renderRootSync",
+        "url": "http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/react-dom_client.js",
+        "line": 8306,
+        "column": 26,
+        "selfMs": 4.147,
+        "inclusiveMs": 193.63,
+        "selfSamples": 2,
+        "inclusiveSamples": 92
+      },
+      {
+        "functionName": "performUnitOfWork",
+        "url": "http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/react-dom_client.js",
+        "line": 8465,
+        "column": 29,
+        "selfMs": 2.079,
+        "inclusiveMs": 189.483,
+        "selfSamples": 1,
+        "inclusiveSamples": 90
+      },
+      {
+        "functionName": "workLoopSync",
+        "url": "http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/react-dom_client.js",
+        "line": 8362,
+        "column": 24,
+        "selfMs": 0,
+        "inclusiveMs": 189.483,
+        "selfSamples": 0,
+        "inclusiveSamples": 90
+      },
+      {
+        "functionName": "beginWork",
+        "url": "http://127.0.0.1:15484/@fs/home/suselman/.cache/codex-qa/watercolor-room-integration-cache/vite/deps/react-dom_client.js",
+        "line": 6119,
+        "column": 21,
+        "selfMs": 0,
+        "inclusiveMs": 185.332,
+        "selfSamples": 0,
+        "inclusiveSamples": 88
+      }
+    ],
+    "profileSHA256": "2ecca2c351d8f54b79a71c9187b50d5c78f017c1cb52859a09d44434a5afde6e",
+    "qualification": "Actual page-target CDP V8 sampling, edge gesture only. Sampling can distort timings. JS/native-call wait attribution is not GPU shader time; inclusive stacks overlap; no trace/video/extra GPU readback.",
+    "stopReason": "edge-goal-stable-before-capture",
+    "rawBytes": 406135,
+    "rawSaved": true
+  },
+  "inputSHA": "081ffbce7bd03c23f9384d41f3300e7d001ad39245482c2fae0787f5afb928a4",
+  "errors": [],
+  "cleanup": "Own CDP page/context closed by runner finally; auth fixture preserved in protected active ledger."
+}
