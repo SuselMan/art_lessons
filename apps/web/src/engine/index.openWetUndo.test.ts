@@ -1,4 +1,5 @@
 import {expect,it,vi} from 'vitest'
+import {decodeLayerTiles} from './src/oplog/snapshotCodec'
 import {createTestEngine,makeLayerAdd,fillStroke,paperReady,simulateStrokeStart,simulateStrokeMove,simulateStrokeEnd,readTilePixels,dab,makeStroke} from './testing/engineTestUtils'
 import type {PuddleRoomController} from './src/watercolor/puddle/PuddleRoomController'
 import type {ILayerBuffer} from './src/buffers/ILayerBuffer'
@@ -185,5 +186,24 @@ for(const enabled of [true,false])it(`cache ${enabled}: Undo preserves foreign l
   for(let i=0;i<100 && work._rebuildJobs.size;i++)for(const job of [...work._rebuildJobs.values()]){clearTimeout(job.timer);work._stepRebuildJob(job)}
   expect(work._unsettledLayers.has('L')).toBe(false)
   expect(roi(material())).toEqual(roi(streamed))
+ }finally{engine.destroy()}
+})
+it('a previously scheduled wet replay cannot swap over a later foreign pencil tail',async()=>{
+ const {engine,state}=await setup(false)
+ const work=state as unknown as {_startRebuildJob(id:string):void;_rebuildJobs:Map<string,{timer:ReturnType<typeof setTimeout>}>;_stepRebuildJob(job:unknown):void}
+ try{
+  work._startRebuildJob('L')
+  engine.appendPeerLiveDabs('C',{strokeId:'later-pencil',layerId:'L',tool:'pencil',preset:'HB',color:[0,0,0],packetSeq:0,dabs:[dab(27,27,{size:5,opacity:1,pressure:1})]})
+  const roi=(bytes:Uint8Array|null)=>Array.from((bytes??new Uint8Array(4096)).slice((27*32+25)*4,(27*32+30)*4))
+  const streamed=roi(readTilePixels(engine,'L',0,0,32,32))
+  expect(streamed.some(v=>v>0)).toBe(true)
+  for(let i=0;i<20 && work._rebuildJobs.size;i++)for(const job of [...work._rebuildJobs.values()]){clearTimeout(job.timer);work._stepRebuildJob(job)}
+  expect(roi(readTilePixels(engine,'L',0,0,32,32))).toEqual(streamed)
+  engine.endPeerLiveStroke('C','later-pencil')
+  engine.appendOperation(makeStroke('C','L',[dab(27,27,{size:5,opacity:1,pressure:1})],{strokeId:'later-pencil',color:[0,0,0],seq:4}),'remote')
+  for(let i=0;i<100 && work._rebuildJobs.size;i++)for(const job of [...work._rebuildJobs.values()]){clearTimeout(job.timer);work._stepRebuildJob(job)}
+  expect(work._rebuildJobs.size).toBe(0)
+  const replay=decodeLayerTiles(engine.bakeLayerByFullReplay('L')!,0).tiles[0].pixels
+  expect(Array.from(readTilePixels(engine,'L',0,0,32,32)!)).toEqual(Array.from(replay))
  }finally{engine.destroy()}
 })
