@@ -1,0 +1,22 @@
+{
+  "baseline": {
+    "at": "2026-10-17T20:15:11Z",
+    "usedPercent": 13,
+    "resetsAt": 1792847723
+  },
+  "lastBeforeChange": {
+    "at": "2026-10-17T20:35:48Z",
+    "usedPercent": 16,
+    "resetsAt": 1792847723
+  },
+  "changed": {
+    "at": "2026-10-17T20:41:05Z",
+    "usedPercent": 0,
+    "resetsAt": 1792874438
+  },
+  "observedSpentPreviousEpoch": 3,
+  "conservativePreviousEpochReservation": 4,
+  "newEpochActiveStop": 14,
+  "newEpochFinalCap": 16,
+  "qualification": "Observed meter epoch changed during read-only research; cause not established. Do not interpret as extra user authorization. Account-wide deltas conservatively count all sessions."
+}

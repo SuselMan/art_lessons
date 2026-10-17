@@ -1,3 +1,4 @@
+import {installFrontLazy} from './front-lazy'
 import {installFrontJumpZero} from './front-jump-zero'
 import {installFrontZero} from './front-zero'
 import {installGatherSpecialization} from './gather-specialization'
@@ -40,6 +41,8 @@ export async function createMiniRuntime(source:HTMLCanvasElement|OffscreenCanvas
    let restore:(()=>void)|null=null,restoreFront:(()=>void)|null=null,restoreJump:(()=>void)|null=null
    let frontJumpStats:{transformedShaders:number}|null=null
    try{if(message.specializeFrontJumpZero){const jump=installFrontJumpZero(e._watercolorPasses);restoreJump=jump;frontJumpStats=jump.stats}
+    if(message.specializeFrontLazy&&message.specializeFrontZero)throw Error('Choose one native-front oracle')
+    if(message.specializeFrontLazy)restoreFront=installFrontLazy(e._watercolorPasses)
     if(message.specializeFrontZero)restoreFront=installFrontZero(e._watercolorPasses)
     if(message.specializeGather&&!__QA_GATHER_SPECIALIZE__)restore=installGatherSpecialization(e._watercolorPasses)
     const bytes=message.type==='qa-repeat-goal'?puddle.diagnosticRepeatGoal(!!message.finalOnly,message.maxOps??100000):puddle.diagnosticGoalReadback()
