@@ -37,9 +37,9 @@ CPU69targeted+10000graphprefixesPASS; аппаратный повтор Dry/clea
 Отдельный opt-in prototype прошёл restart/atomicity tests, но старые вкладки,
 crash window и cross-batch mapping пока исключают незаметное внедрение.
 
-## Текущая проверка: 07:19
+## Текущая проверка: 07:33
 
-Работа продолжается. Лимит: **58% использовано, 42% осталось** (07:17).
+Работа продолжается. Лимит: **59% использовано, 41% осталось** (07:25).
 Один reset не использован. Production и push не выполнялись.
 
 Текущий QA-кандидат — **f6a27f98** (последующие коммиты — QA-артефакты): защита мокрых checkpoint, исправления
@@ -49,9 +49,9 @@ crash window и cross-batch mapping пока исключают незаметн
 backend4558:
 PID4062231, health/db up. Последние изменения только клиентские.
 
-Полные проверки на предыдущем e5d08c61: **73 файла, 689 PASS и 4 expected FAIL**
-по открытым 777/778, 53,45с. Полный engine: **232 файла, 2265 PASS**,348,67с с одним worker.
-Общий TypeScript всех workspace/e2e/scripts, lint и map1128 PASS.
+Полные проверки текущего f6a27f98: **73 файла, 689 PASS и 4 expected FAIL**
+по открытым 777/778, 53,82с. Полный engine: **233 файла, 2280 PASS**,343,89с с одним worker.
+Финальный общий TypeScript всех workspace/e2e/scripts, lint и map1129 PASS. Добавленный после полного прогона pointer-codec контроль отдельно2/2PASS, runtime не меняет.
 В первом typecheck исправлена только типизация optional limit в тестовом
 моке; runtime после этого не менялся.
 
@@ -72,13 +72,13 @@ Coverage/jobs/queues/unsettled пусты, полные ID/effective/contenthash
 legacycarry, purepencil и provedclosedM70 сохранены. Старое редкое наблюдение
 5байтов послеclosedDry автоматически закрытым не считаем.
 
-**Новый same-GPU drift после board turn — OPEN/RCA:** после перехода на
+**#791 — same-GPU drift после board turn, OPEN/RCA:** после перехода на
 другую доску настоящий M70-мазок+Dry дал956 отличающихся каналов против
 собственного replay. Оба preset явно M70, но первый helper не сохранил raw
 actual/hash до assert: это ограничение доказательства отмечено. Полная
 принятая3-op история сохранена; холодный readonlyA даёт exact own replay,
 все3IDs/payloads совпадают, pending/jobs/coverage пусты. Причина не доказана.
-Проверяем raw F64 live-dabs против записанных F32 и этап до/после Dry.
+Отдельный нативный захват raw F64 live-dabs и записанных F32 выявил37 округлённых полей, но оба контрольных мазка до/после Dry точно совпали с собственным replay. Исходные956 не повторились; считать округление установленной причиной нельзя. Исходные поля и material-state сохранены. Последующая CPU-проверка настоящего pointer input показала, что `_paintDabs` уже канонизирует значения через `codecDab` перед CPU geometry/нанесением (старое исправление680). Поэтому различия raw recording buffer не означают разные входы материала; дополнительный fround-fix не вводился.
 Guardedbatch здесь не вызывается: в истории нет Undo.
 
 **#744 — независимые исторические лужи:** guarded batch f6a27f98 без нового
@@ -86,7 +86,7 @@ Guardedbatch здесь не вызывается: в истории нет Undo
 clock-span и связные компоненты используют старый путь. CPU960луж:76–91мс
 вместо5951–6230мс.71уникальный тест, 10000 старых и5760 новых differential
 prefixes, typecheck/lint PASS. Это CPU, не скорость видимого Undo; отдельная
-нативная fast/fallback проверка в работе. Общие проверки после f6 ещё впереди.
+нативная fast/fallback проверка Samsung **PASS**:12 независимых луж,42/45 принятых операций, span41/600041мс. Оба actual target точно равны собственному OFF fullAPI oracle; между FAST/FALLBACK совпали все5 непустых raw material buffers и полный scalar-state. Собственные ресурсы серии закрыты/удалены. Полный engine после f6:2280PASS; Room689PASS+4expectedFAIL открытых777/778.
 
 **#790 — конфигурация QA:** default frontend5384 был front8, а нормализация
 URL удалялаqaModel. Выделенный Room-стенд переключён на default M70 через

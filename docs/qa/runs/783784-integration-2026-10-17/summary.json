@@ -8,7 +8,8 @@
     "apps/server/src/rooms/socketHandlers.ts": "41a1cbb27b482e60bd5e479efe727f076b3bfe90d536a8e2ff4fe1da14b0a582",
     "apps/server/src/rooms/roomRegistry.ts": "63719e79d0a7cc1fa21eb8173dddc19ea48915f8c2c87f2355c6e602be6193dc",
     "apps/server/src/rooms/roomLoader.ts": "800b0cd04a0fc68b9567e74529986e5879e00ea7522abf296cb14529bfc0ed6e",
-    "apps/server/src/rooms/rooms.ts": "ca60fedb32ff38d343cbac9b497dd594aab375a3f6adbeb4d36ad8bb5e298efb"
+    "apps/server/src/rooms/rooms.ts": "ca60fedb32ff38d343cbac9b497dd594aab375a3f6adbeb4d36ad8bb5e298efb",
+    "apps/web/src/engine/src/oplog/watercolorUndo.ts": "8a9f5ce4196ac02fec221be81c88fc705d7450d02d5df3f84bed9e6de80ceaa4"
   },
   "checks": {
     "engine85e": {
@@ -107,6 +108,37 @@
     "map789774": {
       "result": "PASS",
       "files": 1128
+    },
+    "engineFinalF6": {
+      "runtimeSource": "f6a27f98",
+      "files": 233,
+      "passed": 2280,
+      "failed": 0,
+      "durationSeconds": 343.89,
+      "workers": 1
+    },
+    "roomFinalF6": {
+      "files": 73,
+      "passed": 689,
+      "expectedFail": 4,
+      "expectedFailIssues": [
+        777,
+        778
+      ],
+      "durationSeconds": 53.82,
+      "workers": 1
+    },
+    "typecheckFinalF6": "PASS all workspaces/e2e/scripts",
+    "lintFinalF6": "PASS existing warnings only",
+    "mapFinalF6": {
+      "result": "PASS",
+      "files": 1129
+    },
+    "codecPointerControl": {
+      "files": 1,
+      "passed": 2,
+      "runtimeChanged": false,
+      "durationSeconds": 5.58
     }
   },
   "native85e": {
