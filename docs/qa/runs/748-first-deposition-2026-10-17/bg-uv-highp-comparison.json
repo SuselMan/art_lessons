@@ -1,0 +1,470 @@
+{
+  "baseline": {
+    "shaAMD": "cf6559085b6917bf4e172e0ff2f24a97873e98bd694aab024b80df5d190e048b",
+    "shaIntel": "ed28661b6f4b3b7ba563fb9e5cb824b744a00b0ed903762a26f2eb50828d90c9",
+    "differentChannels": 34,
+    "differentPixels": 34,
+    "max": 1,
+    "firstDifferences": [
+      {
+        "x": 178,
+        "y": 69,
+        "channel": 3,
+        "amd": 12,
+        "intel": 13
+      },
+      {
+        "x": 168,
+        "y": 71,
+        "channel": 3,
+        "amd": 18,
+        "intel": 19
+      },
+      {
+        "x": 191,
+        "y": 73,
+        "channel": 1,
+        "amd": 7,
+        "intel": 8
+      },
+      {
+        "x": 171,
+        "y": 77,
+        "channel": 3,
+        "amd": 32,
+        "intel": 33
+      },
+      {
+        "x": 156,
+        "y": 80,
+        "channel": 3,
+        "amd": 21,
+        "intel": 22
+      },
+      {
+        "x": 155,
+        "y": 82,
+        "channel": 0,
+        "amd": 7,
+        "intel": 8
+      },
+      {
+        "x": 174,
+        "y": 84,
+        "channel": 3,
+        "amd": 40,
+        "intel": 41
+      },
+      {
+        "x": 172,
+        "y": 87,
+        "channel": 0,
+        "amd": 28,
+        "intel": 29
+      }
+    ]
+  },
+  "pixel-uv": {
+    "shaAMD": "cf6559085b6917bf4e172e0ff2f24a97873e98bd694aab024b80df5d190e048b",
+    "shaIntel": "ed28661b6f4b3b7ba563fb9e5cb824b744a00b0ed903762a26f2eb50828d90c9",
+    "differentChannels": 34,
+    "differentPixels": 34,
+    "max": 1,
+    "firstDifferences": [
+      {
+        "x": 178,
+        "y": 69,
+        "channel": 3,
+        "amd": 12,
+        "intel": 13
+      },
+      {
+        "x": 168,
+        "y": 71,
+        "channel": 3,
+        "amd": 18,
+        "intel": 19
+      },
+      {
+        "x": 191,
+        "y": 73,
+        "channel": 1,
+        "amd": 7,
+        "intel": 8
+      },
+      {
+        "x": 171,
+        "y": 77,
+        "channel": 3,
+        "amd": 32,
+        "intel": 33
+      },
+      {
+        "x": 156,
+        "y": 80,
+        "channel": 3,
+        "amd": 21,
+        "intel": 22
+      },
+      {
+        "x": 155,
+        "y": 82,
+        "channel": 0,
+        "amd": 7,
+        "intel": 8
+      },
+      {
+        "x": 174,
+        "y": 84,
+        "channel": 3,
+        "amd": 40,
+        "intel": 41
+      },
+      {
+        "x": 172,
+        "y": 87,
+        "channel": 0,
+        "amd": 28,
+        "intel": 29
+      }
+    ],
+    "changedFromOwnBaselinevega": 0,
+    "changedFromOwnBaselinesurface": 0,
+    "vegaProbe": {
+      "sourceRuntime": "81eb5d04",
+      "actualFragmentSHA": "8ff4c9fed01ae37257c7f0786493dadcebb120cbd5d9c5a77b6ce11b47b2d56e",
+      "uniforms": {
+        "qaViewport": [
+          256,
+          256
+        ],
+        "stride": [
+          0.046875,
+          0.046875
+        ],
+        "color": 0
+      },
+      "glErrorAfter": 0,
+      "runs": [
+        {
+          "mode": "reused-1",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "28c62c5a2058de3670c80c2770c6d24152c4a6d2df7e7c4307c4b86ea111a394",
+            "c": "2eee41f6b0328e330a1061290a6c5fa34a014ff54184b88eef9f23d124a805d9",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 23
+          }
+        },
+        {
+          "mode": "reused-2",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "28c62c5a2058de3670c80c2770c6d24152c4a6d2df7e7c4307c4b86ea111a394",
+            "c": "2eee41f6b0328e330a1061290a6c5fa34a014ff54184b88eef9f23d124a805d9",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 28
+          }
+        },
+        {
+          "mode": "fresh-solver-local-pool",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "28c62c5a2058de3670c80c2770c6d24152c4a6d2df7e7c4307c4b86ea111a394",
+            "c": "2eee41f6b0328e330a1061290a6c5fa34a014ff54184b88eef9f23d124a805d9",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 5
+          }
+        }
+      ]
+    },
+    "surfaceProbe": {
+      "sourceRuntime": "81eb5d04",
+      "actualFragmentSHA": "8ff4c9fed01ae37257c7f0786493dadcebb120cbd5d9c5a77b6ce11b47b2d56e",
+      "uniforms": {
+        "qaViewport": [
+          256,
+          256
+        ],
+        "stride": [
+          0.046875,
+          0.046875
+        ],
+        "color": 0
+      },
+      "glErrorAfter": 0,
+      "runs": [
+        {
+          "mode": "reused-1",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "88ff905b7fe360db94e7f4ac0c2b0921c7c3809b27e237169923dae64fc00248",
+            "c": "8f1f51ee5f89758b0f1373c59768acbb2cbd100e4b22bc88aa460942a58443ae",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 20
+          }
+        },
+        {
+          "mode": "reused-2",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "88ff905b7fe360db94e7f4ac0c2b0921c7c3809b27e237169923dae64fc00248",
+            "c": "8f1f51ee5f89758b0f1373c59768acbb2cbd100e4b22bc88aa460942a58443ae",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 25
+          }
+        },
+        {
+          "mode": "fresh-solver-local-pool",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "88ff905b7fe360db94e7f4ac0c2b0921c7c3809b27e237169923dae64fc00248",
+            "c": "8f1f51ee5f89758b0f1373c59768acbb2cbd100e4b22bc88aa460942a58443ae",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 5
+          }
+        }
+      ]
+    }
+  },
+  "highp-sampler": {
+    "shaAMD": "cf6559085b6917bf4e172e0ff2f24a97873e98bd694aab024b80df5d190e048b",
+    "shaIntel": "ed28661b6f4b3b7ba563fb9e5cb824b744a00b0ed903762a26f2eb50828d90c9",
+    "differentChannels": 34,
+    "differentPixels": 34,
+    "max": 1,
+    "firstDifferences": [
+      {
+        "x": 178,
+        "y": 69,
+        "channel": 3,
+        "amd": 12,
+        "intel": 13
+      },
+      {
+        "x": 168,
+        "y": 71,
+        "channel": 3,
+        "amd": 18,
+        "intel": 19
+      },
+      {
+        "x": 191,
+        "y": 73,
+        "channel": 1,
+        "amd": 7,
+        "intel": 8
+      },
+      {
+        "x": 171,
+        "y": 77,
+        "channel": 3,
+        "amd": 32,
+        "intel": 33
+      },
+      {
+        "x": 156,
+        "y": 80,
+        "channel": 3,
+        "amd": 21,
+        "intel": 22
+      },
+      {
+        "x": 155,
+        "y": 82,
+        "channel": 0,
+        "amd": 7,
+        "intel": 8
+      },
+      {
+        "x": 174,
+        "y": 84,
+        "channel": 3,
+        "amd": 40,
+        "intel": 41
+      },
+      {
+        "x": 172,
+        "y": 87,
+        "channel": 0,
+        "amd": 28,
+        "intel": 29
+      }
+    ],
+    "changedFromOwnBaselinevega": 0,
+    "changedFromOwnBaselinesurface": 0,
+    "vegaProbe": {
+      "sourceRuntime": "81eb5d04",
+      "actualFragmentSHA": "0b46b68deb07713de4cf09276c42454d7ca7dfb9866121561b3576ccbe3d310c",
+      "uniforms": {
+        "stride": [
+          0.046875,
+          0.046875
+        ],
+        "color": 0
+      },
+      "glErrorAfter": 0,
+      "runs": [
+        {
+          "mode": "reused-1",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "28c62c5a2058de3670c80c2770c6d24152c4a6d2df7e7c4307c4b86ea111a394",
+            "c": "2eee41f6b0328e330a1061290a6c5fa34a014ff54184b88eef9f23d124a805d9",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 23
+          }
+        },
+        {
+          "mode": "reused-2",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "28c62c5a2058de3670c80c2770c6d24152c4a6d2df7e7c4307c4b86ea111a394",
+            "c": "2eee41f6b0328e330a1061290a6c5fa34a014ff54184b88eef9f23d124a805d9",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 28
+          }
+        },
+        {
+          "mode": "fresh-solver-local-pool",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "28c62c5a2058de3670c80c2770c6d24152c4a6d2df7e7c4307c4b86ea111a394",
+            "c": "2eee41f6b0328e330a1061290a6c5fa34a014ff54184b88eef9f23d124a805d9",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 5
+          }
+        }
+      ]
+    },
+    "surfaceProbe": {
+      "sourceRuntime": "81eb5d04",
+      "actualFragmentSHA": "0b46b68deb07713de4cf09276c42454d7ca7dfb9866121561b3576ccbe3d310c",
+      "uniforms": {
+        "stride": [
+          0.046875,
+          0.046875
+        ],
+        "color": 0
+      },
+      "glErrorAfter": 0,
+      "runs": [
+        {
+          "mode": "reused-1",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "88ff905b7fe360db94e7f4ac0c2b0921c7c3809b27e237169923dae64fc00248",
+            "c": "8f1f51ee5f89758b0f1373c59768acbb2cbd100e4b22bc88aa460942a58443ae",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 20
+          }
+        },
+        {
+          "mode": "reused-2",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "88ff905b7fe360db94e7f4ac0c2b0921c7c3809b27e237169923dae64fc00248",
+            "c": "8f1f51ee5f89758b0f1373c59768acbb2cbd100e4b22bc88aa460942a58443ae",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 25
+          }
+        },
+        {
+          "mode": "fresh-solver-local-pool",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "88ff905b7fe360db94e7f4ac0c2b0921c7c3809b27e237169923dae64fc00248",
+            "c": "8f1f51ee5f89758b0f1373c59768acbb2cbd100e4b22bc88aa460942a58443ae",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 5
+          }
+        }
+      ]
+    }
+  },
+  "conclusion": "Both independently patched shader variants were actually compiled and bound, yet first background bytes are unchanged from ownGPU baseline. CrossGPU34pixels/max1 remains, as do final solverP/C differences on equal uploaded material. Neither probe resolves748; no production shader change."
+}
