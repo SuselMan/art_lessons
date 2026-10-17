@@ -3,7 +3,7 @@ import {RibbonStrokeScratch} from '../../buffers/RibbonStrokeScratch'
 import type {ILayerBuffer,PaintTarget} from '../../buffers/ILayerBuffer'
 import {createProgram} from '../../raster/utils'
 import {MaterialFieldPages,type MaterialRect,type MaterialFieldSnapshot} from './MaterialFieldPages'
-import {capturePagedPuddleSource,restorePagedPuddleWindow} from './PagedPuddleSource'
+import {capturePagedPuddleSource,restorePagedPuddleWindow,createDetachedPagedPuddleWindow} from './PagedPuddleSource'
 import {extractMaterialTileRect,materialTileIntersection} from './MaterialTileCoordinates'
 import {createNativePuddleTarget,type PuddleTargetHost} from './PuddleTarget'
 import {createPagedContrastPhase,type PagedBufferFactory} from './PagedContrastPhase'
@@ -18,6 +18,8 @@ import {APPROVED_M70_PARAMETERS} from './PuddleParameters'
 export interface PagedPuddleInspection {
  /** QA-only; default preserves the six-plane baseline. */
  omitZeroForeignSolventLoad?:boolean
+ /** QA-only; scratch owns the key as its original plane. */
+ detachedWindowSource?:boolean
  /** QA candidate only, default OFF: preserve all existing field/core geometry. */
  skipEmptyFixedWindows?:boolean
  windowSkipped?(field:MaterialRect,cores:readonly MaterialRect[]):void
@@ -78,10 +80,14 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
    // Certified geometry is world top-down; material snapshots are bottom-up.
    const {x:ox,y:oy}=window.field
    const rect={x:ox,y:size.height-oy-1536,width:1536,height:1536}
-   const key=host.pool.acquire(1536,1536),windowSource=new RibbonStrokeScratch(host.pool,true,true)
+   const windowSource=new RibbonStrokeScratch(host.pool,true,true)
+   let key:AccumulationBuffer|undefined
+   const detachedWindowSource=inspect.detachedWindowSource===true
    let native:ReturnType<typeof createNativePuddleTarget>|undefined
    try{
-    restorePagedPuddleWindow(raw,rect,windowSource,key,host.pool,{omitZeroForeignSolventLoad:inspect.omitZeroForeignSolventLoad})
+    const restoreOptions={omitZeroForeignSolventLoad:inspect.omitZeroForeignSolventLoad}
+    if(detachedWindowSource)key=createDetachedPagedPuddleWindow(raw,rect,windowSource,restoreOptions)
+    else{key=host.pool.acquire(1536,1536);restorePagedPuddleWindow(raw,rect,windowSource,key,host.pool,restoreOptions)}
     const context=source.finishContext;if(!context)throw Error('Missing paged finish context')
     const metadata=source.captureFinishMetadata()
     windowSource.gesture=source.gesture;for(const paint of source.paints)windowSource.paints.add(paint)
@@ -103,7 +109,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
       out.writeRect(interior,extractMaterialTileRect(pixels,1536,1536,local))
      }
     }
-   }finally{try{native?.destroy()}finally{try{windowSource.destroy()}finally{host.pool.release(key)}}}
+   }finally{try{native?.destroy()}finally{try{windowSource.destroy()}finally{if(key&&!detachedWindowSource)host.pool.release(key)}}}
    yield
   }
   inspect.solved?.(solvedP.snapshot(),solvedC.snapshot(),solvedCoverage.snapshot())

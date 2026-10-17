@@ -600,6 +600,36 @@ export class RibbonStrokeScratch {
   /** Read-only iteration; the scratch retains ownership of these buffers. */
   tileEntries(): IterableIterator<[AccumulationBuffer, RibbonTileScratch]> { return this._tiles.entries() }
 
+  /** A one-owner material tile whose identity is its own original plane.
+   * The initializer must fully write every plane before this entry is published.
+   * Its allocator belongs to this scratch, including all optional planes. */
+  createDetachedTile(width:number,height:number,
+    initialize:(entry:RibbonTileScratch,acquireOwned:()=>AccumulationBuffer)=>void):AccumulationBuffer {
+    if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<=0||height<=0)
+      throw new Error('Invalid detached tile dimensions')
+    if(!this.needsInk||!this.needsColor||typeof initialize!=='function')
+      throw new Error('Detached material tile requires ink, color and initializer')
+    const allocated:AccumulationBuffer[]=[]
+    const acquire=()=>{const buffer=this.pool.acquire(width,height);allocated.push(buffer);return buffer}
+    try{
+      const original=acquire(),coverage=acquire(),inkLoad=acquire(),inkColor=acquire()
+      const entry:RibbonTileScratch={original,coverage,inkLoad,inkColor,inkSettled:null,colorSettled:null,
+        strokeInk:null,inkBase:null,strokeColor:null,colorBase:null,filmGesture:-1,inkDry:null,colorDry:null}
+      const result=initialize(entry,acquire)
+      if(result!==undefined)throw new Error('Detached initializer must be synchronous and return void')
+      if(entry.original!==original||entry.coverage!==coverage||entry.inkLoad!==inkLoad||entry.inkColor!==inkColor)
+        throw new Error('Detached initializer replaced core plane')
+      const planes=[entry.original,entry.coverage,entry.inkLoad,entry.inkColor,entry.inkSettled,entry.colorSettled,
+        entry.strokeInk,entry.inkBase,entry.strokeColor,entry.colorBase,entry.inkDry,entry.colorDry,
+        entry.solventLoad,entry.solventBase,entry.strokeSolvent,entry.foreignSolventLoad,entry.coverageFilm].filter(Boolean) as AccumulationBuffer[]
+      const unique=new Set(planes),owned=new Set(allocated)
+      if(unique.size!==planes.length||unique.size!==owned.size||planes.some(b=>!owned.has(b)))
+        throw new Error('Detached initializer must assign each owned plane exactly once')
+      this._tiles.set(original,entry)
+      return original
+    }catch(error){for(const buffer of new Set(allocated))this.pool.release(buffer);throw error}
+  }
+
   getOrCreate(tile: AccumulationBuffer): RibbonTileScratch {
     let entry = this._tiles.get(tile)
     if (!entry) {

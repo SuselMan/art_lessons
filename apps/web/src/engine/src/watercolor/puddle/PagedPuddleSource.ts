@@ -1,7 +1,7 @@
 import {unionM70Support,type M70CapturedSupport} from './M70FixedWindowSkip'
 import {MaterialFieldPages,type MaterialFieldSnapshot,type MaterialRect} from './MaterialFieldPages'
 import {extractMaterialTileRect,materialTileIntersection} from './MaterialTileCoordinates'
-import type {RibbonStrokeScratch} from '../../buffers/RibbonStrokeScratch'
+import type {RibbonStrokeScratch,RibbonTileScratch} from '../../buffers/RibbonStrokeScratch'
 import type {ILayerBuffer} from '../../buffers/ILayerBuffer'
 import type {RibbonScratchPool} from '../../buffers/RibbonScratchPool'
 import type {WatercolorPasses} from '../../raster/WatercolorPasses'
@@ -34,7 +34,7 @@ export function capturePagedPuddleSource(source:RibbonStrokeScratch,target:ILaye
       finally{pool.release(combined)}
     }else{const water=entry.solventLoad??entry.foreignSolventLoad;if(water)write('water',water.readPixels())}
   }
-  const result=Object.fromEntries(Object.entries(fields).map(([name,field])=>[name,field.snapshot()])) as PagedPuddleSource
+  const result:PagedPuddleSource=Object.fromEntries(Object.entries(fields).map(([name,field])=>[name,field.snapshot()])) as Record<PagedRawPlane|'water',MaterialFieldSnapshot>
   result.materialSupport={width:size.width,height:size.height,rect:support}
   return result
 }
@@ -51,6 +51,18 @@ export function restorePagedPuddleWindow(source:PagedPuddleSource,rect:MaterialR
   if(key.width!==rect.width||key.height!==rect.height)throw new Error('Material window dimensions differ')
   const fresh=scratch.peek(key)===null
   const entry=scratch.getOrCreate(key)
+  restoreOwnedEntry(source,rect,entry,()=>pool.acquire(rect.width,rect.height),fresh,options)
+}
+
+/** Fresh ownership is supplied only by the scratch factory before publication. */
+export function createDetachedPagedPuddleWindow(source:PagedPuddleSource,rect:MaterialRect,
+  scratch:RibbonStrokeScratch,options:PagedWindowRestoreOptions={}):ReturnType<RibbonStrokeScratch['createDetachedTile']> {
+  return scratch.createDetachedTile(rect.width,rect.height,(entry,acquireOwned)=>
+    restoreOwnedEntry(source,rect,entry,acquireOwned,true,options))
+}
+
+function restoreOwnedEntry(source:PagedPuddleSource,rect:MaterialRect,entry:RibbonTileScratch,
+  acquireOwned:()=>NonNullable<RibbonTileScratch['inkLoad']>,fresh:boolean,options:PagedWindowRestoreOptions):void {
   for(const name of PAGED_RAW_PLANES){
     const pixels=source[name].readRect(rect,'zero')
     // Existing entries retain their plane identity and zero overwrite semantics.
@@ -61,7 +73,7 @@ export function restorePagedPuddleWindow(source:PagedPuddleSource,rect:MaterialR
       if(zero)continue
     }
     let buffer=entry[name]
-    if(!buffer){buffer=pool.acquire(rect.width,rect.height);entry[name]=buffer}
+    if(!buffer){buffer=acquireOwned();entry[name]=buffer}
     buffer.restorePixels(pixels)
   }
 }
