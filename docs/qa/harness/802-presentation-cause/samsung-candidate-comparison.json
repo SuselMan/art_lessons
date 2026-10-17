@@ -1,0 +1,368 @@
+{
+  "scope": "Same Samsung, fixed pointer geometry/settings, separate fresh authoring clocks/seeds; not strict same-input speed A/B. Closed diagnostics in all private builds. One order and reverse front-only; thermal observations included.",
+  "cases": [
+    {
+      "name": "local-control-timing",
+      "pass": true,
+      "source": {
+        "entry": "b2cb9f66d067b137d92753a45143a445eace847c6691f03e73d9190f50ca7c5b",
+        "worker": "2f131b6d7466d03b7300786cefe9beeabbd841b52f5bd4b7c1b50295939b4174",
+        "manifest": "0f14ebad8b00eb2c57e3d2a4f9687a56f0165a00e4a8221c0cc47db24427de2a"
+      },
+      "sourceStable": true,
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "dependentGoalMs": [
+        403.3,
+        372.0,
+        384.6
+      ],
+      "maxMainRAFGapMs": 183.2
+    },
+    {
+      "name": "local-front-zero-timing",
+      "pass": true,
+      "source": {
+        "entry": "5d30d09077c328ce69b6c46ff585f996062102652f8633bb2d9adae751172391",
+        "worker": "aa9b121a4fd01ae84b4b93842219d74c77044056097d64d84326d12da981df06",
+        "manifest": "788a8a607d7cbb562a095dcf1606491ba2f8f5c2529e4c30ac2a96abc450da69"
+      },
+      "sourceStable": true,
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "dependentGoalMs": [
+        365.3,
+        291.7,
+        321.0
+      ],
+      "maxMainRAFGapMs": 131.7
+    },
+    {
+      "name": "local-front-zero-reverse",
+      "pass": true,
+      "source": {
+        "entry": "5d30d09077c328ce69b6c46ff585f996062102652f8633bb2d9adae751172391",
+        "worker": "aa9b121a4fd01ae84b4b93842219d74c77044056097d64d84326d12da981df06",
+        "manifest": "788a8a607d7cbb562a095dcf1606491ba2f8f5c2529e4c30ac2a96abc450da69"
+      },
+      "sourceStable": true,
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "dependentGoalMs": [
+        384.1,
+        295.9,
+        357.6
+      ],
+      "maxMainRAFGapMs": 133.5
+    },
+    {
+      "name": "local-front-combined-timing",
+      "pass": true,
+      "source": {
+        "entry": "c768d8fbdeacc0e5c2a73992127feb45238a41b0091b96f78845aa1baf3f5d1f",
+        "worker": "20588ef3b7f57bbec1a62002e4ee99d91f278edb324752a17cc142688cff9c86",
+        "manifest": "7e4d94775db02a94e0b78902cff99d74c1495a41cee82deafdadb0a8ac759050"
+      },
+      "sourceStable": true,
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "dependentGoalMs": [
+        377.4,
+        281.2,
+        297.1
+      ],
+      "maxMainRAFGapMs": 102.3
+    }
+  ],
+  "thermal": {
+    "thermal-before-front-controls": {
+      "at": 1792267029.829152,
+      "thermal": [
+        "Thermal Status: 0",
+        "Temperature{mValue=0.0, mType=2, mName=SUBBAT, mStatus=0}",
+        "Temperature{mValue=30.3, mType=0, mName=AP, mStatus=0}",
+        "Temperature{mValue=29.8, mType=2, mName=BAT, mStatus=0}",
+        "Temperature{mValue=0.0, mType=4, mName=USB, mStatus=0}",
+        "Temperature{mValue=32.9, mType=3, mName=SKIN, mStatus=0}",
+        "Temperature{mValue=30.3, mType=0, mName=AP, mStatus=0}",
+        "Temperature{mValue=29.8, mType=2, mName=BAT, mStatus=0}",
+        "Temperature{mValue=32.9, mType=3, mName=SKIN, mStatus=0}",
+        "Temperature{mValue=0.0, mType=2, mName=SUBBAT, mStatus=0}",
+        "Temperature{mValue=0.0, mType=4, mName=USB, mStatus=0}"
+      ],
+      "battery": [
+        "temperature: 298"
+      ]
+    },
+    "thermal-after-front-controls": {
+      "at": 1792267152.5427516,
+      "thermal": [
+        "Thermal Status: 0",
+        "Temperature{mValue=0.0, mType=2, mName=SUBBAT, mStatus=0}",
+        "Temperature{mValue=41.5, mType=0, mName=AP, mStatus=0}",
+        "Temperature{mValue=29.9, mType=2, mName=BAT, mStatus=0}",
+        "Temperature{mValue=0.0, mType=4, mName=USB, mStatus=0}",
+        "Temperature{mValue=36.7, mType=3, mName=SKIN, mStatus=0}",
+        "Temperature{mValue=41.5, mType=0, mName=AP, mStatus=0}",
+        "Temperature{mValue=29.9, mType=2, mName=BAT, mStatus=0}",
+        "Temperature{mValue=36.7, mType=3, mName=SKIN, mStatus=0}",
+        "Temperature{mValue=0.0, mType=2, mName=SUBBAT, mStatus=0}",
+        "Temperature{mValue=0.0, mType=4, mName=USB, mStatus=0}"
+      ],
+      "battery": [
+        "temperature: 299"
+      ]
+    },
+    "thermal-after-reverse": {
+      "at": 1792267199.742324,
+      "thermal": [
+        "Thermal Status: 0",
+        "Temperature{mValue=0.0, mType=2, mName=SUBBAT, mStatus=0}",
+        "Temperature{mValue=38.1, mType=0, mName=AP, mStatus=0}",
+        "Temperature{mValue=29.9, mType=2, mName=BAT, mStatus=0}",
+        "Temperature{mValue=0.0, mType=4, mName=USB, mStatus=0}",
+        "Temperature{mValue=35.6, mType=3, mName=SKIN, mStatus=0}",
+        "Temperature{mValue=38.1, mType=0, mName=AP, mStatus=0}",
+        "Temperature{mValue=29.9, mType=2, mName=BAT, mStatus=0}",
+        "Temperature{mValue=35.6, mType=3, mName=SKIN, mStatus=0}",
+        "Temperature{mValue=0.0, mType=2, mName=SUBBAT, mStatus=0}",
+        "Temperature{mValue=0.0, mType=4, mName=USB, mStatus=0}"
+      ],
+      "battery": [
+        "temperature: 299"
+      ]
+    }
+  },
+  "exactOracles": {
+    "front-oracle-wave": {
+      "pass": true,
+      "sourceStable": true,
+      "variants": [
+        {
+          "label": "natural",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-1",
+          "hashes": {
+            "p": "ffba941cff94dac4c154f72100757a6f4dc9c7450d54075046a9d271fa1f6ae8",
+            "c": "6c902c0058bee3a40f006c5272fd56e566f93fa767b543957ef5629206ff8e2e",
+            "coverage": "f23b0b556ad920a1840b7e1d40563acc655a2d7003d8ad636e7dd1490f4455cd"
+          }
+        },
+        {
+          "label": "normal-repeat",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-2",
+          "hashes": {
+            "p": "ffba941cff94dac4c154f72100757a6f4dc9c7450d54075046a9d271fa1f6ae8",
+            "c": "6c902c0058bee3a40f006c5272fd56e566f93fa767b543957ef5629206ff8e2e",
+            "coverage": "f23b0b556ad920a1840b7e1d40563acc655a2d7003d8ad636e7dd1490f4455cd"
+          }
+        },
+        {
+          "label": "normal-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-3",
+          "hashes": {
+            "p": "ffba941cff94dac4c154f72100757a6f4dc9c7450d54075046a9d271fa1f6ae8",
+            "c": "6c902c0058bee3a40f006c5272fd56e566f93fa767b543957ef5629206ff8e2e",
+            "coverage": "f23b0b556ad920a1840b7e1d40563acc655a2d7003d8ad636e7dd1490f4455cd"
+          }
+        },
+        {
+          "label": "front-zero",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-4",
+          "hashes": {
+            "p": "ffba941cff94dac4c154f72100757a6f4dc9c7450d54075046a9d271fa1f6ae8",
+            "c": "6c902c0058bee3a40f006c5272fd56e566f93fa767b543957ef5629206ff8e2e",
+            "coverage": "f23b0b556ad920a1840b7e1d40563acc655a2d7003d8ad636e7dd1490f4455cd"
+          }
+        },
+        {
+          "label": "front-zero-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-5",
+          "hashes": {
+            "p": "ffba941cff94dac4c154f72100757a6f4dc9c7450d54075046a9d271fa1f6ae8",
+            "c": "6c902c0058bee3a40f006c5272fd56e566f93fa767b543957ef5629206ff8e2e",
+            "coverage": "f23b0b556ad920a1840b7e1d40563acc655a2d7003d8ad636e7dd1490f4455cd"
+          }
+        }
+      ]
+    },
+    "front-oracle-dot": {
+      "pass": true,
+      "sourceStable": true,
+      "variants": [
+        {
+          "label": "natural",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-1",
+          "hashes": {
+            "p": "f5df65b2a4020d38e7730bc8a762223d6c215511ac5b2a635de393e0058b451f",
+            "c": "1f080d48e965c938360e2a9202ba9683f9bc9287dfbe77c583d8008b368ebfa8",
+            "coverage": "a060a3cf8f00e0b2ec145f4790313f07ae23a96a8c49a8cacef8548a1368d368"
+          }
+        },
+        {
+          "label": "normal-repeat",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-2",
+          "hashes": {
+            "p": "f5df65b2a4020d38e7730bc8a762223d6c215511ac5b2a635de393e0058b451f",
+            "c": "1f080d48e965c938360e2a9202ba9683f9bc9287dfbe77c583d8008b368ebfa8",
+            "coverage": "a060a3cf8f00e0b2ec145f4790313f07ae23a96a8c49a8cacef8548a1368d368"
+          }
+        },
+        {
+          "label": "normal-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-3",
+          "hashes": {
+            "p": "f5df65b2a4020d38e7730bc8a762223d6c215511ac5b2a635de393e0058b451f",
+            "c": "1f080d48e965c938360e2a9202ba9683f9bc9287dfbe77c583d8008b368ebfa8",
+            "coverage": "a060a3cf8f00e0b2ec145f4790313f07ae23a96a8c49a8cacef8548a1368d368"
+          }
+        },
+        {
+          "label": "front-zero",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-4",
+          "hashes": {
+            "p": "f5df65b2a4020d38e7730bc8a762223d6c215511ac5b2a635de393e0058b451f",
+            "c": "1f080d48e965c938360e2a9202ba9683f9bc9287dfbe77c583d8008b368ebfa8",
+            "coverage": "a060a3cf8f00e0b2ec145f4790313f07ae23a96a8c49a8cacef8548a1368d368"
+          }
+        },
+        {
+          "label": "front-zero-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-5",
+          "hashes": {
+            "p": "f5df65b2a4020d38e7730bc8a762223d6c215511ac5b2a635de393e0058b451f",
+            "c": "1f080d48e965c938360e2a9202ba9683f9bc9287dfbe77c583d8008b368ebfa8",
+            "coverage": "a060a3cf8f00e0b2ec145f4790313f07ae23a96a8c49a8cacef8548a1368d368"
+          }
+        }
+      ]
+    },
+    "front-oracle-two-colors": {
+      "pass": true,
+      "sourceStable": true,
+      "variants": [
+        {
+          "label": "natural",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-1",
+          "hashes": {
+            "p": "fec039231435b4f839a2a4bbaaa029e0be49ed04c8bec276f90e766f260de640",
+            "c": "b6f95233c583a8bc1ca34958632af648bb911fd3a3ea9161b7182529d02f8b4f",
+            "coverage": "d6dfb91ca6c2707e623cc6eed8cd85cb7d4d4bd52a263bbdb3630fea430aff77"
+          }
+        },
+        {
+          "label": "normal-repeat",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-2",
+          "hashes": {
+            "p": "fec039231435b4f839a2a4bbaaa029e0be49ed04c8bec276f90e766f260de640",
+            "c": "b6f95233c583a8bc1ca34958632af648bb911fd3a3ea9161b7182529d02f8b4f",
+            "coverage": "d6dfb91ca6c2707e623cc6eed8cd85cb7d4d4bd52a263bbdb3630fea430aff77"
+          }
+        },
+        {
+          "label": "normal-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-3",
+          "hashes": {
+            "p": "fec039231435b4f839a2a4bbaaa029e0be49ed04c8bec276f90e766f260de640",
+            "c": "b6f95233c583a8bc1ca34958632af648bb911fd3a3ea9161b7182529d02f8b4f",
+            "coverage": "d6dfb91ca6c2707e623cc6eed8cd85cb7d4d4bd52a263bbdb3630fea430aff77"
+          }
+        },
+        {
+          "label": "front-zero",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-4",
+          "hashes": {
+            "p": "fec039231435b4f839a2a4bbaaa029e0be49ed04c8bec276f90e766f260de640",
+            "c": "b6f95233c583a8bc1ca34958632af648bb911fd3a3ea9161b7182529d02f8b4f",
+            "coverage": "d6dfb91ca6c2707e623cc6eed8cd85cb7d4d4bd52a263bbdb3630fea430aff77"
+          }
+        },
+        {
+          "label": "front-zero-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-5",
+          "hashes": {
+            "p": "fec039231435b4f839a2a4bbaaa029e0be49ed04c8bec276f90e766f260de640",
+            "c": "b6f95233c583a8bc1ca34958632af648bb911fd3a3ea9161b7182529d02f8b4f",
+            "coverage": "d6dfb91ca6c2707e623cc6eed8cd85cb7d4d4bd52a263bbdb3630fea430aff77"
+          }
+        }
+      ]
+    },
+    "combined-oracle-wave": {
+      "pass": true,
+      "sourceStable": true,
+      "variants": [
+        {
+          "label": "natural",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-1",
+          "hashes": {
+            "p": "91297e71d54387ffa0b7b05d89dc67ae2cbc2fe2db0c74cf838040a8a6fb6fb8",
+            "c": "a6ac0e7e460ca4dd3b1f722dd362fd2d07d886fb80d824b9fc8ef6fc30300477",
+            "coverage": "a68ff8145c11420d53d18a68c7482516aed94efa9328b72a44096c30f2c2cae3"
+          },
+          "frontJumpStats": null
+        },
+        {
+          "label": "normal-repeat",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-2",
+          "hashes": {
+            "p": "91297e71d54387ffa0b7b05d89dc67ae2cbc2fe2db0c74cf838040a8a6fb6fb8",
+            "c": "a6ac0e7e460ca4dd3b1f722dd362fd2d07d886fb80d824b9fc8ef6fc30300477",
+            "coverage": "a68ff8145c11420d53d18a68c7482516aed94efa9328b72a44096c30f2c2cae3"
+          },
+          "frontJumpStats": null
+        },
+        {
+          "label": "normal-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-3",
+          "hashes": {
+            "p": "91297e71d54387ffa0b7b05d89dc67ae2cbc2fe2db0c74cf838040a8a6fb6fb8",
+            "c": "a6ac0e7e460ca4dd3b1f722dd362fd2d07d886fb80d824b9fc8ef6fc30300477",
+            "coverage": "a68ff8145c11420d53d18a68c7482516aed94efa9328b72a44096c30f2c2cae3"
+          },
+          "frontJumpStats": null
+        },
+        {
+          "label": "front-combined",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-4",
+          "hashes": {
+            "p": "91297e71d54387ffa0b7b05d89dc67ae2cbc2fe2db0c74cf838040a8a6fb6fb8",
+            "c": "a6ac0e7e460ca4dd3b1f722dd362fd2d07d886fb80d824b9fc8ef6fc30300477",
+            "coverage": "a68ff8145c11420d53d18a68c7482516aed94efa9328b72a44096c30f2c2cae3"
+          },
+          "frontJumpStats": {
+            "transformedShaders": 1
+          }
+        },
+        {
+          "label": "front-combined-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-5",
+          "hashes": {
+            "p": "91297e71d54387ffa0b7b05d89dc67ae2cbc2fe2db0c74cf838040a8a6fb6fb8",
+            "c": "a6ac0e7e460ca4dd3b1f722dd362fd2d07d886fb80d824b9fc8ef6fc30300477",
+            "coverage": "a68ff8145c11420d53d18a68c7482516aed94efa9328b72a44096c30f2c2cae3"
+          },
+          "frontJumpStats": {
+            "transformedShaders": 1
+          }
+        }
+      ]
+    }
+  },
+  "conclusion": "Native zero-cost shortcut showed directionally lower late-wave target dependency waits; combined shortcut remains about281\u2013297ms on later strokes, not200ms or60Hz. Three-shape same-raw SHA tests passed native shortcut; combined jump passed wave with positive transformedShaders activation. Root will consider larger artistic algorithm changes; no hosted deployment here."
+}

@@ -1,0 +1,26 @@
+{
+  "tools": {
+    "perfetto": "v25.0 --query works non-root",
+    "frameTimeline": true,
+    "surfaceflingerFrame": true,
+    "surfaceflingerTransactionsDatasource": false,
+    "atraceCategories": [
+      "gfx",
+      "view",
+      "sched",
+      "binder_driver",
+      "sync",
+      "freq",
+      "idle"
+    ],
+    "tracefsAvailableEvents": "Permission denied; not bypassed",
+    "SurfaceFlingerLatency": "Command works but this ChromeNativeWindowSurface table contains zero historical rows",
+    "EXT_disjoint_timer_query_WebGL1": false
+  },
+  "layers": [
+    "ChromeNativeWindowSurface",
+    "ChromeChildSurface",
+    "ChromeMain SurfaceView BLAST"
+  ],
+  "systemTraceStarted": false
+}

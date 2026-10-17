@@ -1,0 +1,4890 @@
+{
+  "scope": "802 actual Samsung: correcting gl.finish false-completion assumption, isolating dependent target work and testing bounded queue. Hosted UI unchanged.",
+  "results": [
+    {
+      "case": "dependency-readbacks",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "worker": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "manifest": "c93a8ce7a8ee1eb697295d8371464ec1296596e44c52f0bbcb4a8ddf4c417bf6"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "entry": 1,
+        "worker": 1,
+        "chunk": 0
+      },
+      "patch": {
+        "entrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "workerSHA": "ebfd3431c3843096ecbcd002c580d249a915880566113393a618e1ef405e9526",
+        "originalEntrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "originalWorkerSHA": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "withoutJSON": false
+      },
+      "metrics": {
+        "mainRAFMaxGapMs": 220.9,
+        "mainTimerMaxGapMs": 35.1,
+        "mainCallbackMaxWallMs": 2.4,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 218.5,
+          "upToDependentReadMs": 394.4,
+          "fullyAfterDependentRAFMaxGapMs": 18.8,
+          "fullyAfterJSGoalRAFMaxGapMs": 116.3
+        },
+        {
+          "id": 2,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 138.6,
+          "upToDependentReadMs": 377.2,
+          "fullyAfterDependentRAFMaxGapMs": 24.1,
+          "fullyAfterJSGoalRAFMaxGapMs": 205
+        },
+        {
+          "id": 3,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 159,
+          "upToDependentReadMs": 407.6,
+          "fullyAfterDependentRAFMaxGapMs": 22.1,
+          "fullyAfterJSGoalRAFMaxGapMs": 220.9
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 172.8,
+          "readWallMs": 171.3,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            98,
+            157,
+            189
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 1,
+          "stage": "after-setTarget-six-draws",
+          "probeWallMs": 2.2,
+          "readWallMs": 0.9,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            128,
+            128
+          ],
+          "bytes": [
+            183,
+            88,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 1,
+          "stage": "after-goal-frame",
+          "probeWallMs": 2.8,
+          "readWallMs": 1.8,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            79,
+            171,
+            223,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 2,
+          "stage": "before-goal-forward",
+          "probeWallMs": 228.8,
+          "readWallMs": 225.7,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            92,
+            181,
+            241
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 2,
+          "stage": "after-setTarget-six-draws",
+          "probeWallMs": 7,
+          "readWallMs": 4.1,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            128,
+            128
+          ],
+          "bytes": [
+            159,
+            223,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 2,
+          "stage": "after-goal-frame",
+          "probeWallMs": 4.8,
+          "readWallMs": 2,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            75,
+            163,
+            221,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 3,
+          "stage": "before-goal-forward",
+          "probeWallMs": 239.9,
+          "readWallMs": 235.6,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            86,
+            181,
+            246
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 3,
+          "stage": "after-setTarget-six-draws",
+          "probeWallMs": 3.8,
+          "readWallMs": 1.5,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            128,
+            128
+          ],
+          "bytes": [
+            191,
+            64,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 3,
+          "stage": "after-goal-frame",
+          "probeWallMs": 5.7,
+          "readWallMs": 3.2,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            66,
+            151,
+            212,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "phase-seams",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "worker": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "manifest": "c93a8ce7a8ee1eb697295d8371464ec1296596e44c52f0bbcb4a8ddf4c417bf6"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "entry": 1,
+        "worker": 1,
+        "chunk": 1
+      },
+      "patch": {
+        "entrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "workerSHA": "e011d6b221076191cf780103db50e34f49ddfa74f5d3eba58b250bd8ece333c3",
+        "originalEntrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "originalWorkerSHA": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "withoutJSON": false
+      },
+      "phasePatch": {
+        "originalSHA": "d89294910481452b70b284c531be089af35026096947ef952c98c6a0f6b61749",
+        "patchedSHA": "ea138962163d75fd2bab0198c779e9a2b754140e67022b1202db80641e51959b",
+        "anchor": "u.state.done?(H=!1,u.dry(),Z(E,u.buffers()),Y=!0,o.onGoal",
+        "count": 1
+      },
+      "metrics": {
+        "mainRAFMaxGapMs": 202.7,
+        "mainTimerMaxGapMs": 29.8,
+        "mainCallbackMaxWallMs": 4.5,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 423.2,
+          "upToDependentReadMs": 441,
+          "fullyAfterDependentRAFMaxGapMs": 23,
+          "fullyAfterJSGoalRAFMaxGapMs": 23
+        },
+        {
+          "id": 2,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 324.5,
+          "upToDependentReadMs": 338.2,
+          "fullyAfterDependentRAFMaxGapMs": 22.4,
+          "fullyAfterJSGoalRAFMaxGapMs": 22.4
+        },
+        {
+          "id": 3,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 394.2,
+          "upToDependentReadMs": 409.8,
+          "fullyAfterDependentRAFMaxGapMs": 23.3,
+          "fullyAfterJSGoalRAFMaxGapMs": 23.3
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "after-target-step",
+          "probeWallMs": 206.2,
+          "readWallMs": 131.4,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            35,
+            11,
+            4,
+            73
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 1,
+          "stage": "after-controller-dry",
+          "probeWallMs": 14.1,
+          "readWallMs": 2.8,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            179,
+            0,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 16,
+          "readWallMs": 12.5,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            102,
+            149,
+            182
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 2,
+          "stage": "after-target-step",
+          "probeWallMs": 177.5,
+          "readWallMs": 164.3,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            81,
+            27,
+            8,
+            171
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 2,
+          "stage": "after-controller-dry",
+          "probeWallMs": 5.5,
+          "readWallMs": 2.8,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            179,
+            0,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 2,
+          "stage": "before-goal-forward",
+          "probeWallMs": 12.1,
+          "readWallMs": 10.6,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            94,
+            183,
+            239
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 3,
+          "stage": "after-target-step",
+          "probeWallMs": 238.7,
+          "readWallMs": 227.4,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            119,
+            40,
+            12,
+            251
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 3,
+          "stage": "after-controller-dry",
+          "probeWallMs": 3.7,
+          "readWallMs": 1.3,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            179,
+            0,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        },
+        {
+          "id": 3,
+          "stage": "before-goal-forward",
+          "probeWallMs": 14.2,
+          "readWallMs": 10.8,
+          "bindWallMs": null,
+          "statusWallMs": null,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            86,
+            181,
+            246
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "solver-post",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "worker": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "manifest": "c93a8ce7a8ee1eb697295d8371464ec1296596e44c52f0bbcb4a8ddf4c417bf6"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "entry": 1,
+        "worker": 1,
+        "chunk": 1
+      },
+      "patch": {
+        "entrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "workerSHA": "c2b0a6a97488212a8bda66f03a45d5885f351234768c6d1c628d86955572363f",
+        "originalEntrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "originalWorkerSHA": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "withoutJSON": false
+      },
+      "phasePatch": {
+        "originalSHA": "d89294910481452b70b284c531be089af35026096947ef952c98c6a0f6b61749",
+        "patchedSHA": "e291a213962f61328b96081419881eadfdf9ddbb2c805552712693ce37b881f7",
+        "changes": [
+          [
+            "V.coverage),!v||!R",
+            "V.coverage),globalThis.__qa802DependencyPhase(\"after-native-publish\",{nativeIterations:x.iterations,nativeJobOps:Y.ops.length}),!v||!R"
+          ],
+          [
+            "else if(_<b.length)b[_++](),x.iterations++,_===b.length&&",
+            "else if(_<b.length)b[_++](),x.iterations++,_===8&&globalThis.__qa802DependencyPhase(\"after-background-eight\",{postAt:_,postLength:b.length}),_===b.length&&"
+          ],
+          [
+            "u.state.done?(H=!1,u.dry(),Z(E,u.buffers()),Y=!0,o.onGoal",
+            "u.state.done?(H=!1,globalThis.__qa802DependencyPhase(\"after-target-guards\",{iterations:u.state.iterations,total:u.state.total}),u.dry(),Z(E,u.buffers()),Y=!0,o.onGoal"
+          ]
+        ]
+      },
+      "metrics": {
+        "mainRAFMaxGapMs": 168.1,
+        "mainTimerMaxGapMs": 43.8,
+        "mainCallbackMaxWallMs": 5.9,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 482.2,
+          "upToDependentReadMs": null,
+          "fullyAfterDependentRAFMaxGapMs": 19.8,
+          "fullyAfterJSGoalRAFMaxGapMs": 19.8
+        },
+        {
+          "id": 2,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 372.4,
+          "upToDependentReadMs": null,
+          "fullyAfterDependentRAFMaxGapMs": 22,
+          "fullyAfterJSGoalRAFMaxGapMs": 22
+        },
+        {
+          "id": 3,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 397.4,
+          "upToDependentReadMs": null,
+          "fullyAfterDependentRAFMaxGapMs": 21.9,
+          "fullyAfterJSGoalRAFMaxGapMs": 21.9
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "after-native-publish",
+          "probeWallMs": 220.6,
+          "readWallMs": 156,
+          "bindWallMs": 0,
+          "statusWallMs": 62,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            179,
+            0,
+            242,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "nativeIterations": 81,
+            "nativeJobOps": 81
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-background-eight",
+          "probeWallMs": 17.9,
+          "readWallMs": 3.3,
+          "bindWallMs": 0.1,
+          "statusWallMs": 13.8,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            35,
+            12,
+            3,
+            75
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "postAt": 8,
+            "postLength": 10
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-target-guards",
+          "probeWallMs": 4.2,
+          "readWallMs": 1.5,
+          "bindWallMs": 0,
+          "statusWallMs": 1.6,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            35,
+            12,
+            3,
+            75
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 91,
+            "total": 91
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-native-publish",
+          "probeWallMs": 224,
+          "readWallMs": 211.4,
+          "bindWallMs": 0,
+          "statusWallMs": 9.8,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            179,
+            0,
+            242,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "nativeIterations": 81,
+            "nativeJobOps": 81
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-background-eight",
+          "probeWallMs": 9.8,
+          "readWallMs": 5.1,
+          "bindWallMs": 0,
+          "statusWallMs": 2.7,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            83,
+            27,
+            8,
+            174
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "postAt": 8,
+            "postLength": 10
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-target-guards",
+          "probeWallMs": 3.3,
+          "readWallMs": 1.5,
+          "bindWallMs": 0,
+          "statusWallMs": 1,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            83,
+            27,
+            8,
+            174
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 91,
+            "total": 91
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-native-publish",
+          "probeWallMs": 239.1,
+          "readWallMs": 220.7,
+          "bindWallMs": 0,
+          "statusWallMs": 16.4,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            179,
+            0,
+            242,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "nativeIterations": 81,
+            "nativeJobOps": 81
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-background-eight",
+          "probeWallMs": 8.4,
+          "readWallMs": 2.8,
+          "bindWallMs": 0,
+          "statusWallMs": 4.3,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            120,
+            40,
+            12,
+            252
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "postAt": 8,
+            "postLength": 10
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-target-guards",
+          "probeWallMs": 3.2,
+          "readWallMs": 1.5,
+          "bindWallMs": 0,
+          "statusWallMs": 1.2,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            120,
+            40,
+            12,
+            252
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 91,
+            "total": 91
+          }
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Native-stage lastDraw reads raw contour coverage, a weaker material dependency witness; superseded by explicit out.c control."
+    },
+    {
+      "case": "solver-post-outC",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "worker": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "manifest": "c93a8ce7a8ee1eb697295d8371464ec1296596e44c52f0bbcb4a8ddf4c417bf6"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "entry": 1,
+        "worker": 1,
+        "chunk": 1
+      },
+      "patch": {
+        "entrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "workerSHA": "c601901a308b024b293b48090bfdc5901c0c7cd85770d6c5d51bf3791ef7054a",
+        "originalEntrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "originalWorkerSHA": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "withoutJSON": false
+      },
+      "phasePatch": {
+        "originalSHA": "d89294910481452b70b284c531be089af35026096947ef952c98c6a0f6b61749",
+        "patchedSHA": "036d9ddc7c8ba2d61b4db516b108f7a81d080fe5aa874ea72f01641f6114e744",
+        "changes": [
+          [
+            "V.coverage),!v||!R",
+            "V.coverage),globalThis.__qa802DependencyPhase(\"after-native-publish\",{nativeIterations:x.iterations,nativeJobOps:Y.ops.length},E.c),!v||!R"
+          ],
+          [
+            "else if(_<b.length)b[_++](),x.iterations++,_===b.length&&",
+            "else if(_<b.length)b[_++](),x.iterations++,_===8&&globalThis.__qa802DependencyPhase(\"after-background-eight\",{postAt:_,postLength:b.length},E.c),_===b.length&&"
+          ],
+          [
+            "u.state.done?(H=!1,u.dry(),Z(E,u.buffers()),Y=!0,o.onGoal",
+            "u.state.done?(H=!1,globalThis.__qa802DependencyPhase(\"after-target-guards\",{iterations:u.state.iterations,total:u.state.total},u.buffers().c),u.dry(),Z(E,u.buffers()),Y=!0,o.onGoal"
+          ]
+        ]
+      },
+      "metrics": {
+        "mainRAFMaxGapMs": 215.3,
+        "mainTimerMaxGapMs": 35.9,
+        "mainCallbackMaxWallMs": 5.5,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 367.9,
+          "upToDependentReadMs": null,
+          "fullyAfterDependentRAFMaxGapMs": 21.1,
+          "fullyAfterJSGoalRAFMaxGapMs": 21.1
+        },
+        {
+          "id": 2,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 354.7,
+          "upToDependentReadMs": null,
+          "fullyAfterDependentRAFMaxGapMs": 26.1,
+          "fullyAfterJSGoalRAFMaxGapMs": 26.1
+        },
+        {
+          "id": 3,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 400.5,
+          "upToDependentReadMs": null,
+          "fullyAfterDependentRAFMaxGapMs": 23.9,
+          "fullyAfterJSGoalRAFMaxGapMs": 23.9
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "after-native-publish",
+          "probeWallMs": 202.3,
+          "readWallMs": 183.4,
+          "bindWallMs": 0,
+          "statusWallMs": 17.6,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            37,
+            12,
+            4,
+            78
+          ],
+          "explicitOutputColor": true,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "nativeIterations": 81,
+            "nativeJobOps": 81
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-background-eight",
+          "probeWallMs": 10.7,
+          "readWallMs": 2.8,
+          "bindWallMs": 0,
+          "statusWallMs": 7.4,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            37,
+            12,
+            3,
+            78
+          ],
+          "explicitOutputColor": true,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "postAt": 8,
+            "postLength": 10
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-target-guards",
+          "probeWallMs": 1.8,
+          "readWallMs": 1,
+          "bindWallMs": 0,
+          "statusWallMs": 0.5,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            37,
+            12,
+            3,
+            78
+          ],
+          "explicitOutputColor": true,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 91,
+            "total": 91
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-native-publish",
+          "probeWallMs": 233.1,
+          "readWallMs": 223,
+          "bindWallMs": 0,
+          "statusWallMs": 8.2,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            81,
+            27,
+            8,
+            170
+          ],
+          "explicitOutputColor": true,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "nativeIterations": 81,
+            "nativeJobOps": 81
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-background-eight",
+          "probeWallMs": 9.4,
+          "readWallMs": 3.9,
+          "bindWallMs": 0,
+          "statusWallMs": 3.6,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            82,
+            27,
+            8,
+            172
+          ],
+          "explicitOutputColor": true,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "postAt": 8,
+            "postLength": 10
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-target-guards",
+          "probeWallMs": 2.7,
+          "readWallMs": 1.6,
+          "bindWallMs": 0,
+          "statusWallMs": 0.7,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            82,
+            27,
+            8,
+            172
+          ],
+          "explicitOutputColor": true,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 91,
+            "total": 91
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-native-publish",
+          "probeWallMs": 245.6,
+          "readWallMs": 233.9,
+          "bindWallMs": 0,
+          "statusWallMs": 10.5,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            120,
+            40,
+            12,
+            253
+          ],
+          "explicitOutputColor": true,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "nativeIterations": 81,
+            "nativeJobOps": 81
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-background-eight",
+          "probeWallMs": 4.2,
+          "readWallMs": 2.9,
+          "bindWallMs": 0,
+          "statusWallMs": 0.9,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            119,
+            40,
+            12,
+            251
+          ],
+          "explicitOutputColor": true,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "postAt": 8,
+            "postLength": 10
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-target-guards",
+          "probeWallMs": 1.9,
+          "readWallMs": 1,
+          "bindWallMs": 0,
+          "statusWallMs": 0.5,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            119,
+            40,
+            12,
+            251
+          ],
+          "explicitOutputColor": true,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 91,
+            "total": 91
+          }
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "schedule8",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "worker": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "manifest": "c93a8ce7a8ee1eb697295d8371464ec1296596e44c52f0bbcb4a8ddf4c417bf6"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "entry": 1,
+        "worker": 1,
+        "chunk": 1
+      },
+      "patch": {
+        "entrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "workerSHA": "9d2fe972e9e73712c0cce01f000444f1bc8139cee20e9827566224adb474ac56",
+        "originalEntrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "originalWorkerSHA": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "withoutJSON": false
+      },
+      "schedulingPatch": {
+        "originalSHA": "d89294910481452b70b284c531be089af35026096947ef952c98c6a0f6b61749",
+        "patchedSHA": "cc9c933120dfdecf9c148901d48ecaed5391fba0e1ec2c42ca54c3ebd89809dc",
+        "changes": [
+          [
+            "function dm(n,e,t,r,i,o={}){",
+            "function dm(n,e,t,r,i,o={}){let __qa802Timer=0;"
+          ],
+          [
+            "function de(){!C&&!I&&(C=requestAnimationFrame(we))}",
+            "function de(){if(C||I)return;if(H){C=-1;__qa802Timer=setTimeout(()=>{__qa802Timer=0;we(performance.now())},0)}else C=requestAnimationFrame(we)}"
+          ],
+          [
+            "function ee(){u.cancel(),U=H=!1,Y=!1}",
+            "function ee(){if(__qa802Timer){clearTimeout(__qa802Timer);__qa802Timer=0;C=0}u.cancel(),U=H=!1,Y=!1}"
+          ],
+          [
+            "C&&cancelAnimationFrame(C);for(let J of x)",
+            "C&&(__qa802Timer?clearTimeout(__qa802Timer):cancelAnimationFrame(C));for(let J of x)"
+          ],
+          [
+            "u.step(o.noPauses?1e5:4),o.onStep",
+            "u.step(8),globalThis.__qa802Batch({start:performance.timeOrigin+ge,end:performance.timeOrigin+performance.now(),iterations:u.state.iterations,total:u.state.total,done:u.state.done,epoch:F}),o.onStep"
+          ]
+        ]
+      },
+      "metrics": {
+        "mainRAFMaxGapMs": 140.6,
+        "mainTimerMaxGapMs": 26.2,
+        "mainCallbackMaxWallMs": 5.5,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 284.5,
+          "upToDependentReadMs": 428.4,
+          "fullyAfterDependentRAFMaxGapMs": 21.8,
+          "fullyAfterJSGoalRAFMaxGapMs": 132.9
+        },
+        {
+          "id": 2,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 160.7,
+          "upToDependentReadMs": 401.6,
+          "fullyAfterDependentRAFMaxGapMs": 19.2,
+          "fullyAfterJSGoalRAFMaxGapMs": 117.2
+        },
+        {
+          "id": 3,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 172.7,
+          "upToDependentReadMs": 434.3,
+          "fullyAfterDependentRAFMaxGapMs": 21.2,
+          "fullyAfterJSGoalRAFMaxGapMs": 140.6
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 138.6,
+          "readWallMs": 135,
+          "bindWallMs": 0.1,
+          "statusWallMs": 1.7,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            96,
+            152,
+            176
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 2,
+          "stage": "before-goal-forward",
+          "probeWallMs": 222.5,
+          "readWallMs": 216.3,
+          "bindWallMs": 0,
+          "statusWallMs": 3.2,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            95,
+            182,
+            238
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 3,
+          "stage": "before-goal-forward",
+          "probeWallMs": 241.2,
+          "readWallMs": 235.7,
+          "bindWallMs": 0,
+          "statusWallMs": 2.6,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            85,
+            181,
+            246
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        }
+      ],
+      "batchSummary": {
+        "count": 36,
+        "maxCPUWallMs": 52.7,
+        "maxWithReadProbeMs": 52.7,
+        "operations": [
+          8,
+          16,
+          24,
+          32,
+          40,
+          48,
+          56,
+          64,
+          72,
+          80,
+          88,
+          91,
+          8,
+          16,
+          24,
+          32,
+          40,
+          48,
+          56,
+          64,
+          72,
+          80,
+          88,
+          91,
+          8,
+          16,
+          24,
+          32,
+          40,
+          48,
+          56,
+          64,
+          72,
+          80,
+          88,
+          91
+        ]
+      },
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "final-only",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "worker": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "manifest": "c93a8ce7a8ee1eb697295d8371464ec1296596e44c52f0bbcb4a8ddf4c417bf6"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "entry": 1,
+        "worker": 1,
+        "chunk": 1
+      },
+      "patch": {
+        "entrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "workerSHA": "68613400721e858ee1d508849e0eac2c0a1bf2feef4f2cb823095334342d82db",
+        "originalEntrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "originalWorkerSHA": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "withoutJSON": false
+      },
+      "finalOnlyPatch": {
+        "originalSHA": "d89294910481452b70b284c531be089af35026096947ef952c98c6a0f6b61749",
+        "patchedSHA": "28e65584877d42fa34e0c16071889d9156c13da80f9a6a8839ecf6e4938be3bc",
+        "anchor": "u=i(n,e,{prepare:function(...J){",
+        "count": 1
+      },
+      "metrics": {
+        "mainRAFMaxGapMs": 209.4,
+        "mainTimerMaxGapMs": 45.7,
+        "mainCallbackMaxWallMs": 4.5,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 89,
+          "glError": 0,
+          "upToJSGoalMs": 197.2,
+          "upToDependentReadMs": 359.3,
+          "fullyAfterDependentRAFMaxGapMs": 21.3,
+          "fullyAfterJSGoalRAFMaxGapMs": 130.7
+        },
+        {
+          "id": 2,
+          "operations": 89,
+          "glError": 0,
+          "upToJSGoalMs": 142.7,
+          "upToDependentReadMs": 331.7,
+          "fullyAfterDependentRAFMaxGapMs": 19.2,
+          "fullyAfterJSGoalRAFMaxGapMs": 119.9
+        },
+        {
+          "id": 3,
+          "operations": 89,
+          "glError": 0,
+          "upToJSGoalMs": 155.4,
+          "upToDependentReadMs": 420.9,
+          "fullyAfterDependentRAFMaxGapMs": 19.7,
+          "fullyAfterJSGoalRAFMaxGapMs": 209.4
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 160.1,
+          "readWallMs": 156.4,
+          "bindWallMs": 0,
+          "statusWallMs": 1,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            98,
+            152,
+            184
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 2,
+          "stage": "before-goal-forward",
+          "probeWallMs": 176.4,
+          "readWallMs": 174.3,
+          "bindWallMs": 0,
+          "statusWallMs": 0.6,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            93,
+            185,
+            240
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 3,
+          "stage": "before-goal-forward",
+          "probeWallMs": 245.6,
+          "readWallMs": 243.8,
+          "bindWallMs": 0,
+          "statusWallMs": 0.5,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            86,
+            181,
+            246
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "schedule8-bounded-final-only",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "worker": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "manifest": "c93a8ce7a8ee1eb697295d8371464ec1296596e44c52f0bbcb4a8ddf4c417bf6"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "entry": 1,
+        "worker": 1,
+        "chunk": 1
+      },
+      "patch": {
+        "entrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "workerSHA": "20e8061735c544dcde5e3ef3bb44c7475315d16919cc0d64b15c623c4cb0ba54",
+        "originalEntrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "originalWorkerSHA": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "withoutJSON": false
+      },
+      "finalOnlyPatch": {
+        "originalSHA": "cc9c933120dfdecf9c148901d48ecaed5391fba0e1ec2c42ca54c3ebd89809dc",
+        "patchedSHA": "bc173d06d8bc498d440f99e37a27b9198c5e4611b9913fb25313428d7b6d3bd7",
+        "anchor": "u=i(n,e,{prepare:function(...J){",
+        "count": 1
+      },
+      "schedulingPatch": {
+        "originalSHA": "d89294910481452b70b284c531be089af35026096947ef952c98c6a0f6b61749",
+        "patchedSHA": "cc9c933120dfdecf9c148901d48ecaed5391fba0e1ec2c42ca54c3ebd89809dc",
+        "changes": [
+          [
+            "function dm(n,e,t,r,i,o={}){",
+            "function dm(n,e,t,r,i,o={}){let __qa802Timer=0;"
+          ],
+          [
+            "function de(){!C&&!I&&(C=requestAnimationFrame(we))}",
+            "function de(){if(C||I)return;if(H){C=-1;__qa802Timer=setTimeout(()=>{__qa802Timer=0;we(performance.now())},0)}else C=requestAnimationFrame(we)}"
+          ],
+          [
+            "function ee(){u.cancel(),U=H=!1,Y=!1}",
+            "function ee(){if(__qa802Timer){clearTimeout(__qa802Timer);__qa802Timer=0;C=0}u.cancel(),U=H=!1,Y=!1}"
+          ],
+          [
+            "C&&cancelAnimationFrame(C);for(let J of x)",
+            "C&&(__qa802Timer?clearTimeout(__qa802Timer):cancelAnimationFrame(C));for(let J of x)"
+          ],
+          [
+            "u.step(o.noPauses?1e5:4),o.onStep",
+            "u.step(8),globalThis.__qa802Batch({start:performance.timeOrigin+ge,end:performance.timeOrigin+performance.now(),iterations:u.state.iterations,total:u.state.total,done:u.state.done,epoch:F}),o.onStep"
+          ]
+        ]
+      },
+      "metrics": {
+        "mainRAFMaxGapMs": 89.7,
+        "mainTimerMaxGapMs": 28.7,
+        "mainCallbackMaxWallMs": 5.3,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 89,
+          "glError": 0,
+          "upToJSGoalMs": 608.5,
+          "upToDependentReadMs": 633.4,
+          "fullyAfterDependentRAFMaxGapMs": 22.9,
+          "fullyAfterJSGoalRAFMaxGapMs": 22.9
+        },
+        {
+          "id": 2,
+          "operations": 89,
+          "glError": 0,
+          "upToJSGoalMs": 525,
+          "upToDependentReadMs": 548.1,
+          "fullyAfterDependentRAFMaxGapMs": 19.3,
+          "fullyAfterJSGoalRAFMaxGapMs": 19.9
+        },
+        {
+          "id": 3,
+          "operations": 89,
+          "glError": 0,
+          "upToJSGoalMs": 666.3,
+          "upToDependentReadMs": 683.4,
+          "fullyAfterDependentRAFMaxGapMs": 22.1,
+          "fullyAfterJSGoalRAFMaxGapMs": 22.1
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 47.8,
+          "readWallMs": 23.6,
+          "bindWallMs": 0,
+          "statusWallMs": 19.1,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            255,
+            125,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 8,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 20.4,
+          "readWallMs": 14.6,
+          "bindWallMs": 0,
+          "statusWallMs": 2.3,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            255,
+            125,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 16,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 24.9,
+          "readWallMs": 17,
+          "bindWallMs": 0,
+          "statusWallMs": 2.7,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            255,
+            125,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 24,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 31.3,
+          "readWallMs": 21.7,
+          "bindWallMs": 0,
+          "statusWallMs": 7.8,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            125,
+            255,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 32,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 44.1,
+          "readWallMs": 37.8,
+          "bindWallMs": 0,
+          "statusWallMs": 2.5,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 40,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 16,
+          "readWallMs": 9.9,
+          "bindWallMs": 0,
+          "statusWallMs": 2.1,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 48,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 21.3,
+          "readWallMs": 10.5,
+          "bindWallMs": 0,
+          "statusWallMs": 6,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 56,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 23.7,
+          "readWallMs": 19.1,
+          "bindWallMs": 0,
+          "statusWallMs": 2.6,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            246,
+            246,
+            88,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 64,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 18.3,
+          "readWallMs": 12.3,
+          "bindWallMs": 0,
+          "statusWallMs": 2.3,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            42,
+            14,
+            4,
+            88
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 72,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 65.6,
+          "readWallMs": 56.6,
+          "bindWallMs": 0,
+          "statusWallMs": 7.1,
+          "viewport": [
+            0,
+            0,
+            256,
+            256
+          ],
+          "bytes": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 80,
+            "total": 89,
+            "done": false
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 23.7,
+          "readWallMs": 11.5,
+          "bindWallMs": 0,
+          "statusWallMs": 9.5,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            217,
+            217,
+            78,
+            225
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 88,
+            "total": 89,
+            "done": false
+          }
+        },
+        {
+          "id": 1,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 8.2,
+          "readWallMs": 2.9,
+          "bindWallMs": 0,
+          "statusWallMs": 1.7,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            37,
+            12,
+            4,
+            78
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 89,
+            "total": 89,
+            "done": true
+          }
+        },
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 19.5,
+          "readWallMs": 14.1,
+          "bindWallMs": 0.1,
+          "statusWallMs": 3.4,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            101,
+            155,
+            187
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 2,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 31.3,
+          "readWallMs": 23.9,
+          "bindWallMs": 0,
+          "statusWallMs": 6.8,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            255,
+            125,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 8,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 19.4,
+          "readWallMs": 16.2,
+          "bindWallMs": 0,
+          "statusWallMs": 2,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            255,
+            125,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 16,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 30.6,
+          "readWallMs": 24.4,
+          "bindWallMs": 0,
+          "statusWallMs": 3,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            255,
+            125,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 24,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 30.8,
+          "readWallMs": 24.6,
+          "bindWallMs": 0,
+          "statusWallMs": 3.8,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            125,
+            255,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 32,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 41.7,
+          "readWallMs": 37.4,
+          "bindWallMs": 0,
+          "statusWallMs": 2.2,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 40,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 21.3,
+          "readWallMs": 17.2,
+          "bindWallMs": 0,
+          "statusWallMs": 2.1,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 48,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 25.9,
+          "readWallMs": 19.1,
+          "bindWallMs": 0,
+          "statusWallMs": 2.2,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 56,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 27.4,
+          "readWallMs": 20.5,
+          "bindWallMs": 0,
+          "statusWallMs": 3.7,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            251,
+            251,
+            200,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 64,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 18.5,
+          "readWallMs": 12.7,
+          "bindWallMs": 0,
+          "statusWallMs": 3.1,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            95,
+            31,
+            9,
+            200
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 72,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 63.3,
+          "readWallMs": 56.7,
+          "bindWallMs": 0,
+          "statusWallMs": 4.7,
+          "viewport": [
+            0,
+            0,
+            256,
+            256
+          ],
+          "bytes": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 80,
+            "total": 89,
+            "done": false
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 12.7,
+          "readWallMs": 6.8,
+          "bindWallMs": 0,
+          "statusWallMs": 2.7,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            247,
+            247,
+            184,
+            252
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 88,
+            "total": 89,
+            "done": false
+          }
+        },
+        {
+          "id": 2,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 7.3,
+          "readWallMs": 2.7,
+          "bindWallMs": 0,
+          "statusWallMs": 1.6,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            87,
+            29,
+            9,
+            184
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 89,
+            "total": 89,
+            "done": true
+          }
+        },
+        {
+          "id": 2,
+          "stage": "before-goal-forward",
+          "probeWallMs": 21.6,
+          "readWallMs": 17.1,
+          "bindWallMs": 0,
+          "statusWallMs": 1.1,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            92,
+            181,
+            241
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 3,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 54.2,
+          "readWallMs": 45.6,
+          "bindWallMs": 0,
+          "statusWallMs": 7,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            255,
+            125,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 8,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 36,
+          "readWallMs": 27,
+          "bindWallMs": 0,
+          "statusWallMs": 2,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            255,
+            125,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 16,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 33.9,
+          "readWallMs": 29,
+          "bindWallMs": 0,
+          "statusWallMs": 2.8,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            255,
+            125,
+            0,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 24,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 43.5,
+          "readWallMs": 38.2,
+          "bindWallMs": 0,
+          "statusWallMs": 1.9,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            125,
+            255,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 32,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 68.9,
+          "readWallMs": 61.5,
+          "bindWallMs": 0,
+          "statusWallMs": 5.5,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 40,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 36,
+          "readWallMs": 30.3,
+          "bindWallMs": 0,
+          "statusWallMs": 2.2,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 48,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 37.6,
+          "readWallMs": 33.4,
+          "bindWallMs": 0,
+          "statusWallMs": 2.2,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 56,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 38.4,
+          "readWallMs": 34,
+          "bindWallMs": 0,
+          "statusWallMs": 2.5,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            249,
+            249,
+            255,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 64,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 27.9,
+          "readWallMs": 23.2,
+          "bindWallMs": 0,
+          "statusWallMs": 3.1,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            121,
+            40,
+            12,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 72,
+            "total": 79,
+            "done": false
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 88.3,
+          "readWallMs": 81.9,
+          "bindWallMs": 0,
+          "statusWallMs": 4.9,
+          "viewport": [
+            0,
+            0,
+            256,
+            256
+          ],
+          "bytes": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 80,
+            "total": 89,
+            "done": false
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 7,
+          "readWallMs": 4.1,
+          "bindWallMs": 0,
+          "statusWallMs": 2,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            248,
+            248,
+            251,
+            252
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 88,
+            "total": 89,
+            "done": false
+          }
+        },
+        {
+          "id": 3,
+          "stage": "after-eight-op-batch",
+          "probeWallMs": 6.2,
+          "readWallMs": 2.2,
+          "bindWallMs": 0,
+          "statusWallMs": 1.1,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            119,
+            40,
+            12,
+            251
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": {
+            "iterations": 89,
+            "total": 89,
+            "done": true
+          }
+        },
+        {
+          "id": 3,
+          "stage": "before-goal-forward",
+          "probeWallMs": 15.3,
+          "readWallMs": 12.1,
+          "bindWallMs": 0,
+          "statusWallMs": 1,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            86,
+            181,
+            246
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        }
+      ],
+      "batchSummary": {
+        "count": 36,
+        "maxCPUWallMs": 47.9,
+        "maxWithReadProbeMs": 96.6,
+        "operations": [
+          8,
+          16,
+          24,
+          32,
+          40,
+          48,
+          56,
+          64,
+          72,
+          80,
+          88,
+          89,
+          8,
+          16,
+          24,
+          32,
+          40,
+          48,
+          56,
+          64,
+          72,
+          80,
+          88,
+          89,
+          8,
+          16,
+          24,
+          32,
+          40,
+          48,
+          56,
+          64,
+          72,
+          80,
+          88,
+          89
+        ]
+      },
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "local-control-oracle",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "b2cb9f66d067b137d92753a45143a445eace847c6691f03e73d9190f50ca7c5b",
+        "worker": "2f131b6d7466d03b7300786cefe9beeabbd841b52f5bd4b7c1b50295939b4174",
+        "manifest": "0f14ebad8b00eb2c57e3d2a4f9687a56f0165a00e4a8221c0cc47db24427de2a"
+      },
+      "localBuildHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "0f14ebad8b00eb2c57e3d2a4f9687a56f0165a00e4a8221c0cc47db24427de2a",
+        "entry.js": "b2cb9f66d067b137d92753a45143a445eace847c6691f03e73d9190f50ca7c5b",
+        "worker.js": "2f131b6d7466d03b7300786cefe9beeabbd841b52f5bd4b7c1b50295939b4174",
+        "chunk-OZHX7YP5.js": "09a26218c073b49a98b2970d0b6b88c5226491e642f174756ef717533181ab6b",
+        "chunk-353ZKHAH.js": "5ae0b139613e5c05da0b902c6fb087b72b59c2ff35ecacf1454f5603bfc64051",
+        "chunk-SD7J6WWS.js": "a0df9980286cb820b48e230a48eda4d8e080ddf9ba23cc56eacc3dc93cddfe23"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "index.html": 1,
+        "entry.js": 1,
+        "worker.js": 1,
+        "chunk-SD7J6WWS.js": 1
+      },
+      "patch": {
+        "entrySHA": "b2cb9f66d067b137d92753a45143a445eace847c6691f03e73d9190f50ca7c5b",
+        "workerSHA": "9a1c9f5ace760651e686063e1237af99ac7a37ce74cd23780d92ae85f75f13d6",
+        "originalEntrySHA": "b2cb9f66d067b137d92753a45143a445eace847c6691f03e73d9190f50ca7c5b",
+        "originalWorkerSHA": "2f131b6d7466d03b7300786cefe9beeabbd841b52f5bd4b7c1b50295939b4174",
+        "withoutJSON": false
+      },
+      "oracles": [
+        {
+          "label": "natural",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-1",
+          "hashes": {
+            "p": "dfe644bc8fbda87f8d2305ba9c70e89dee4aea0179501dac659742453d722d30",
+            "c": "c59f1e5376de7531a3a992633ce4346271ab27aecdc42df9e983eb5eb4a5deaa",
+            "coverage": "123012cdbd2d07e6c94c7414c812cd04f2cb40701bdb0839179dcf7be95f6a85"
+          }
+        },
+        {
+          "label": "normal-repeat",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-2",
+          "hashes": {
+            "p": "dfe644bc8fbda87f8d2305ba9c70e89dee4aea0179501dac659742453d722d30",
+            "c": "c59f1e5376de7531a3a992633ce4346271ab27aecdc42df9e983eb5eb4a5deaa",
+            "coverage": "123012cdbd2d07e6c94c7414c812cd04f2cb40701bdb0839179dcf7be95f6a85"
+          }
+        },
+        {
+          "label": "final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-3",
+          "hashes": {
+            "p": "dfe644bc8fbda87f8d2305ba9c70e89dee4aea0179501dac659742453d722d30",
+            "c": "c59f1e5376de7531a3a992633ce4346271ab27aecdc42df9e983eb5eb4a5deaa",
+            "coverage": "123012cdbd2d07e6c94c7414c812cd04f2cb40701bdb0839179dcf7be95f6a85"
+          }
+        },
+        {
+          "label": "eight-ops",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-4",
+          "hashes": {
+            "p": "dfe644bc8fbda87f8d2305ba9c70e89dee4aea0179501dac659742453d722d30",
+            "c": "c59f1e5376de7531a3a992633ce4346271ab27aecdc42df9e983eb5eb4a5deaa",
+            "coverage": "123012cdbd2d07e6c94c7414c812cd04f2cb40701bdb0839179dcf7be95f6a85"
+          }
+        },
+        {
+          "label": "gather-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-5",
+          "hashes": {
+            "p": "dfe644bc8fbda87f8d2305ba9c70e89dee4aea0179501dac659742453d722d30",
+            "c": "c59f1e5376de7531a3a992633ce4346271ab27aecdc42df9e983eb5eb4a5deaa",
+            "coverage": "123012cdbd2d07e6c94c7414c812cd04f2cb40701bdb0839179dcf7be95f6a85"
+          }
+        }
+      ],
+      "metrics": {
+        "mainRAFMaxGapMs": 132.4,
+        "mainTimerMaxGapMs": 27,
+        "mainCallbackMaxWallMs": 4.9,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 196.3,
+          "upToDependentReadMs": 355.7,
+          "fullyAfterDependentRAFMaxGapMs": 19.3,
+          "fullyAfterJSGoalRAFMaxGapMs": 132.4
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 156.2,
+          "readWallMs": 151.6,
+          "bindWallMs": 0,
+          "statusWallMs": 0.4,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            98,
+            152,
+            184
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "local-gather-timing",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "55879bbbf92821f04e0c97e2a7a27ad4a9bfde5cff724ba94084f20ca79d0466",
+        "worker": "ea86e123025641c6aee4f2b314c2c6ef3b408787a56025c27090c2b2ac37b5d3",
+        "manifest": "ad2826b9485f19f9f27fefe741b1869db5e24effb52895de337a0f71eb95fd66"
+      },
+      "localBuildHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "ad2826b9485f19f9f27fefe741b1869db5e24effb52895de337a0f71eb95fd66",
+        "entry.js": "55879bbbf92821f04e0c97e2a7a27ad4a9bfde5cff724ba94084f20ca79d0466",
+        "worker.js": "ea86e123025641c6aee4f2b314c2c6ef3b408787a56025c27090c2b2ac37b5d3",
+        "chunk-OZHX7YP5.js": "09a26218c073b49a98b2970d0b6b88c5226491e642f174756ef717533181ab6b",
+        "chunk-U6JSOMEC.js": "daab0a640cc29f48ecf2e2132b1e9e64fcbcb679004f264b1517fa3dc2dcf48a",
+        "chunk-ZOYJ3WHA.js": "8b84d0cae7089f6b7efdfe80ee76c60ad28bd8d269027720b48c015114d76af4"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "index.html": 1,
+        "entry.js": 1,
+        "worker.js": 1,
+        "chunk-ZOYJ3WHA.js": 1
+      },
+      "patch": {
+        "entrySHA": "55879bbbf92821f04e0c97e2a7a27ad4a9bfde5cff724ba94084f20ca79d0466",
+        "workerSHA": "95dbb6d099dd8dc76cbb9e58ddc935e90602a8ba676766f4246728d58f970bc7",
+        "originalEntrySHA": "55879bbbf92821f04e0c97e2a7a27ad4a9bfde5cff724ba94084f20ca79d0466",
+        "originalWorkerSHA": "ea86e123025641c6aee4f2b314c2c6ef3b408787a56025c27090c2b2ac37b5d3",
+        "withoutJSON": false
+      },
+      "metrics": {
+        "mainRAFMaxGapMs": 199.6,
+        "mainTimerMaxGapMs": 19.6,
+        "mainCallbackMaxWallMs": 3.4,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 209.9,
+          "upToDependentReadMs": 354.6,
+          "fullyAfterDependentRAFMaxGapMs": 21.9,
+          "fullyAfterJSGoalRAFMaxGapMs": 68.3
+        },
+        {
+          "id": 2,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 160.2,
+          "upToDependentReadMs": 402.5,
+          "fullyAfterDependentRAFMaxGapMs": 18.7,
+          "fullyAfterJSGoalRAFMaxGapMs": 130.9
+        },
+        {
+          "id": 3,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 147.3,
+          "upToDependentReadMs": 403.8,
+          "fullyAfterDependentRAFMaxGapMs": 19,
+          "fullyAfterJSGoalRAFMaxGapMs": 199.6
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 140.6,
+          "readWallMs": 136.8,
+          "bindWallMs": 0,
+          "statusWallMs": 2.1,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            102,
+            157,
+            182
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 2,
+          "stage": "before-goal-forward",
+          "probeWallMs": 227.1,
+          "readWallMs": 222.3,
+          "bindWallMs": 0,
+          "statusWallMs": 2.4,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            95,
+            184,
+            239
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 3,
+          "stage": "before-goal-forward",
+          "probeWallMs": 241,
+          "readWallMs": 237.3,
+          "bindWallMs": 0,
+          "statusWallMs": 1.7,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            85,
+            181,
+            246
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "per-op",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "worker": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "manifest": "c93a8ce7a8ee1eb697295d8371464ec1296596e44c52f0bbcb4a8ddf4c417bf6"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "entry": 1,
+        "worker": 1,
+        "chunk": 1
+      },
+      "patch": {
+        "entrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "workerSHA": "62c84b14345bc5c60caf2b2a6632c0f85d9c14ef7f85031c8c57d3e6da7ddca3",
+        "originalEntrySHA": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "originalWorkerSHA": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "withoutJSON": false
+      },
+      "finalOnlyPatch": {
+        "originalSHA": "cc9c933120dfdecf9c148901d48ecaed5391fba0e1ec2c42ca54c3ebd89809dc",
+        "patchedSHA": "bc173d06d8bc498d440f99e37a27b9198c5e4611b9913fb25313428d7b6d3bd7",
+        "anchor": "u=i(n,e,{prepare:function(...J){",
+        "count": 1
+      },
+      "schedulingPatch": {
+        "originalSHA": "d89294910481452b70b284c531be089af35026096947ef952c98c6a0f6b61749",
+        "patchedSHA": "cc9c933120dfdecf9c148901d48ecaed5391fba0e1ec2c42ca54c3ebd89809dc",
+        "changes": [
+          [
+            "function dm(n,e,t,r,i,o={}){",
+            "function dm(n,e,t,r,i,o={}){let __qa802Timer=0;"
+          ],
+          [
+            "function de(){!C&&!I&&(C=requestAnimationFrame(we))}",
+            "function de(){if(C||I)return;if(H){C=-1;__qa802Timer=setTimeout(()=>{__qa802Timer=0;we(performance.now())},0)}else C=requestAnimationFrame(we)}"
+          ],
+          [
+            "function ee(){u.cancel(),U=H=!1,Y=!1}",
+            "function ee(){if(__qa802Timer){clearTimeout(__qa802Timer);__qa802Timer=0;C=0}u.cancel(),U=H=!1,Y=!1}"
+          ],
+          [
+            "C&&cancelAnimationFrame(C);for(let J of x)",
+            "C&&(__qa802Timer?clearTimeout(__qa802Timer):cancelAnimationFrame(C));for(let J of x)"
+          ],
+          [
+            "u.step(o.noPauses?1e5:4),o.onStep",
+            "u.step(8),globalThis.__qa802Batch({start:performance.timeOrigin+ge,end:performance.timeOrigin+performance.now(),iterations:u.state.iterations,total:u.state.total,done:u.state.done,epoch:F}),o.onStep"
+          ]
+        ]
+      },
+      "metrics": {
+        "mainRAFMaxGapMs": 60.5,
+        "mainTimerMaxGapMs": 24.9,
+        "mainCallbackMaxWallMs": 4.7,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 89,
+          "glError": 0,
+          "upToJSGoalMs": 1546.7,
+          "upToDependentReadMs": 1572.7,
+          "fullyAfterDependentRAFMaxGapMs": 23,
+          "fullyAfterJSGoalRAFMaxGapMs": 23
+        }
+      ],
+      "readbacks": "See samsung-per-op-summary.json",
+      "batchSummary": {
+        "count": 89,
+        "maxCPUWallMs": 18.8,
+        "maxWithReadProbeMs": 50.6,
+        "operations": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89
+        ]
+      },
+      "qualification": "Diagnostic readback/validation/timer overhead on every operation. NOT ordinary GPU elapsed."
+    },
+    {
+      "case": "local-front-zero-timing",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "5d30d09077c328ce69b6c46ff585f996062102652f8633bb2d9adae751172391",
+        "worker": "aa9b121a4fd01ae84b4b93842219d74c77044056097d64d84326d12da981df06",
+        "manifest": "788a8a607d7cbb562a095dcf1606491ba2f8f5c2529e4c30ac2a96abc450da69"
+      },
+      "localBuildHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "788a8a607d7cbb562a095dcf1606491ba2f8f5c2529e4c30ac2a96abc450da69",
+        "entry.js": "5d30d09077c328ce69b6c46ff585f996062102652f8633bb2d9adae751172391",
+        "worker.js": "aa9b121a4fd01ae84b4b93842219d74c77044056097d64d84326d12da981df06",
+        "chunk-OZHX7YP5.js": "09a26218c073b49a98b2970d0b6b88c5226491e642f174756ef717533181ab6b",
+        "chunk-FIMH6LSA.js": "de9ee760333f7fec59c379a044e58aa53521d1957cebe901fde588fd10f94330",
+        "chunk-46V5IWLR.js": "4275b59560a1f9bfbc97724ab8c0993f7d7667701593275ffbe9c9d264e4e444"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "index.html": 1,
+        "entry.js": 1,
+        "worker.js": 1,
+        "chunk-46V5IWLR.js": 1
+      },
+      "patch": {
+        "entrySHA": "5d30d09077c328ce69b6c46ff585f996062102652f8633bb2d9adae751172391",
+        "workerSHA": "6aaf2e58aaba53ba440a2c120a4947b1ce37dafabce31bd70ef2b070767d344e",
+        "originalEntrySHA": "5d30d09077c328ce69b6c46ff585f996062102652f8633bb2d9adae751172391",
+        "originalWorkerSHA": "aa9b121a4fd01ae84b4b93842219d74c77044056097d64d84326d12da981df06",
+        "withoutJSON": false
+      },
+      "metrics": {
+        "mainRAFMaxGapMs": 131.7,
+        "mainTimerMaxGapMs": 45.3,
+        "mainCallbackMaxWallMs": 5.8,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 214.3,
+          "upToDependentReadMs": 365.3,
+          "fullyAfterDependentRAFMaxGapMs": 20,
+          "fullyAfterJSGoalRAFMaxGapMs": 131.7
+        },
+        {
+          "id": 2,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 138.1,
+          "upToDependentReadMs": 291.7,
+          "fullyAfterDependentRAFMaxGapMs": 21.1,
+          "fullyAfterJSGoalRAFMaxGapMs": 117.8
+        },
+        {
+          "id": 3,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 149,
+          "upToDependentReadMs": 321,
+          "fullyAfterDependentRAFMaxGapMs": 21.1,
+          "fullyAfterJSGoalRAFMaxGapMs": 117.9
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 147.1,
+          "readWallMs": 144.1,
+          "bindWallMs": 0,
+          "statusWallMs": 1.2,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            102,
+            157,
+            182
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 2,
+          "stage": "before-goal-forward",
+          "probeWallMs": 143.3,
+          "readWallMs": 140,
+          "bindWallMs": 0.1,
+          "statusWallMs": 1.3,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            94,
+            183,
+            239
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 3,
+          "stage": "before-goal-forward",
+          "probeWallMs": 157.3,
+          "readWallMs": 152.4,
+          "bindWallMs": 0,
+          "statusWallMs": 3.2,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            85,
+            181,
+            246
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "front-oracle-wave",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "ad80c2003d6d2668a8f813fcc0c47dbad4758547a50e5f089293d84a684fe6f1",
+        "worker": "aac55af676ee18116d24e043263597c688b361aea7fead57695ef9a6d974f1be",
+        "manifest": "96530a688db97dc8b9a62a4c545ba1d08e667e24a10fde2b935ad10780359fd3"
+      },
+      "localBuildHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "96530a688db97dc8b9a62a4c545ba1d08e667e24a10fde2b935ad10780359fd3",
+        "entry.js": "ad80c2003d6d2668a8f813fcc0c47dbad4758547a50e5f089293d84a684fe6f1",
+        "worker.js": "aac55af676ee18116d24e043263597c688b361aea7fead57695ef9a6d974f1be",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-FB37D2F7.js": "9b0cad2b78d418da2d7052e72dfd51c7bf3118017f2946962b373c8602576d6a",
+        "chunk-TW5MXLR6.js": "5b9d0d59cc950b59810a3713e91fd0499fafc6beac15d327f25d8c212481d21b",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "pattern": "wave",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "index.html": 1,
+        "entry.js": 1,
+        "worker.js": 1,
+        "chunk-TW5MXLR6.js": 1,
+        "chunk-SQE76S5B.js": 1
+      },
+      "patch": {
+        "entrySHA": "ad80c2003d6d2668a8f813fcc0c47dbad4758547a50e5f089293d84a684fe6f1",
+        "workerSHA": "431b2855b420a20c6b542b29ccf96b18ed0953d34394875810a0cc0b9058dcdc",
+        "originalEntrySHA": "ad80c2003d6d2668a8f813fcc0c47dbad4758547a50e5f089293d84a684fe6f1",
+        "originalWorkerSHA": "aac55af676ee18116d24e043263597c688b361aea7fead57695ef9a6d974f1be",
+        "withoutJSON": false
+      },
+      "oracles": [
+        {
+          "label": "natural",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-1",
+          "hashes": {
+            "p": "ffba941cff94dac4c154f72100757a6f4dc9c7450d54075046a9d271fa1f6ae8",
+            "c": "6c902c0058bee3a40f006c5272fd56e566f93fa767b543957ef5629206ff8e2e",
+            "coverage": "f23b0b556ad920a1840b7e1d40563acc655a2d7003d8ad636e7dd1490f4455cd"
+          }
+        },
+        {
+          "label": "normal-repeat",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-2",
+          "hashes": {
+            "p": "ffba941cff94dac4c154f72100757a6f4dc9c7450d54075046a9d271fa1f6ae8",
+            "c": "6c902c0058bee3a40f006c5272fd56e566f93fa767b543957ef5629206ff8e2e",
+            "coverage": "f23b0b556ad920a1840b7e1d40563acc655a2d7003d8ad636e7dd1490f4455cd"
+          }
+        },
+        {
+          "label": "normal-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-3",
+          "hashes": {
+            "p": "ffba941cff94dac4c154f72100757a6f4dc9c7450d54075046a9d271fa1f6ae8",
+            "c": "6c902c0058bee3a40f006c5272fd56e566f93fa767b543957ef5629206ff8e2e",
+            "coverage": "f23b0b556ad920a1840b7e1d40563acc655a2d7003d8ad636e7dd1490f4455cd"
+          }
+        },
+        {
+          "label": "front-zero",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-4",
+          "hashes": {
+            "p": "ffba941cff94dac4c154f72100757a6f4dc9c7450d54075046a9d271fa1f6ae8",
+            "c": "6c902c0058bee3a40f006c5272fd56e566f93fa767b543957ef5629206ff8e2e",
+            "coverage": "f23b0b556ad920a1840b7e1d40563acc655a2d7003d8ad636e7dd1490f4455cd"
+          }
+        },
+        {
+          "label": "front-zero-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-5",
+          "hashes": {
+            "p": "ffba941cff94dac4c154f72100757a6f4dc9c7450d54075046a9d271fa1f6ae8",
+            "c": "6c902c0058bee3a40f006c5272fd56e566f93fa767b543957ef5629206ff8e2e",
+            "coverage": "f23b0b556ad920a1840b7e1d40563acc655a2d7003d8ad636e7dd1490f4455cd"
+          }
+        }
+      ],
+      "metrics": {
+        "mainRAFMaxGapMs": 135.3,
+        "mainTimerMaxGapMs": 28.7,
+        "mainCallbackMaxWallMs": 3.3,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 206.6,
+          "upToDependentReadMs": 370.4,
+          "fullyAfterDependentRAFMaxGapMs": 19.5,
+          "fullyAfterJSGoalRAFMaxGapMs": 135.3
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 160.4,
+          "readWallMs": 158.1,
+          "bindWallMs": 0,
+          "statusWallMs": 0.2,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            98,
+            160,
+            184
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "front-oracle-dot",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "ad80c2003d6d2668a8f813fcc0c47dbad4758547a50e5f089293d84a684fe6f1",
+        "worker": "aac55af676ee18116d24e043263597c688b361aea7fead57695ef9a6d974f1be",
+        "manifest": "96530a688db97dc8b9a62a4c545ba1d08e667e24a10fde2b935ad10780359fd3"
+      },
+      "localBuildHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "96530a688db97dc8b9a62a4c545ba1d08e667e24a10fde2b935ad10780359fd3",
+        "entry.js": "ad80c2003d6d2668a8f813fcc0c47dbad4758547a50e5f089293d84a684fe6f1",
+        "worker.js": "aac55af676ee18116d24e043263597c688b361aea7fead57695ef9a6d974f1be",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-FB37D2F7.js": "9b0cad2b78d418da2d7052e72dfd51c7bf3118017f2946962b373c8602576d6a",
+        "chunk-TW5MXLR6.js": "5b9d0d59cc950b59810a3713e91fd0499fafc6beac15d327f25d8c212481d21b",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331"
+      },
+      "inputSHA": "fdbb7f7f294d1b04c1add0965ce0af1f85b9a533b633d1e70ea10f481edc7bc9",
+      "scenarioSHA": "88c7a750bbeab47b26faae311a9655d6d00562e176a6264558c1ac2c10594bd7",
+      "pattern": "dot",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "index.html": 1,
+        "entry.js": 1,
+        "worker.js": 1,
+        "chunk-TW5MXLR6.js": 1,
+        "chunk-SQE76S5B.js": 1
+      },
+      "patch": {
+        "entrySHA": "ad80c2003d6d2668a8f813fcc0c47dbad4758547a50e5f089293d84a684fe6f1",
+        "workerSHA": "431b2855b420a20c6b542b29ccf96b18ed0953d34394875810a0cc0b9058dcdc",
+        "originalEntrySHA": "ad80c2003d6d2668a8f813fcc0c47dbad4758547a50e5f089293d84a684fe6f1",
+        "originalWorkerSHA": "aac55af676ee18116d24e043263597c688b361aea7fead57695ef9a6d974f1be",
+        "withoutJSON": false
+      },
+      "oracles": [
+        {
+          "label": "natural",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-1",
+          "hashes": {
+            "p": "f5df65b2a4020d38e7730bc8a762223d6c215511ac5b2a635de393e0058b451f",
+            "c": "1f080d48e965c938360e2a9202ba9683f9bc9287dfbe77c583d8008b368ebfa8",
+            "coverage": "a060a3cf8f00e0b2ec145f4790313f07ae23a96a8c49a8cacef8548a1368d368"
+          }
+        },
+        {
+          "label": "normal-repeat",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-2",
+          "hashes": {
+            "p": "f5df65b2a4020d38e7730bc8a762223d6c215511ac5b2a635de393e0058b451f",
+            "c": "1f080d48e965c938360e2a9202ba9683f9bc9287dfbe77c583d8008b368ebfa8",
+            "coverage": "a060a3cf8f00e0b2ec145f4790313f07ae23a96a8c49a8cacef8548a1368d368"
+          }
+        },
+        {
+          "label": "normal-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-3",
+          "hashes": {
+            "p": "f5df65b2a4020d38e7730bc8a762223d6c215511ac5b2a635de393e0058b451f",
+            "c": "1f080d48e965c938360e2a9202ba9683f9bc9287dfbe77c583d8008b368ebfa8",
+            "coverage": "a060a3cf8f00e0b2ec145f4790313f07ae23a96a8c49a8cacef8548a1368d368"
+          }
+        },
+        {
+          "label": "front-zero",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-4",
+          "hashes": {
+            "p": "f5df65b2a4020d38e7730bc8a762223d6c215511ac5b2a635de393e0058b451f",
+            "c": "1f080d48e965c938360e2a9202ba9683f9bc9287dfbe77c583d8008b368ebfa8",
+            "coverage": "a060a3cf8f00e0b2ec145f4790313f07ae23a96a8c49a8cacef8548a1368d368"
+          }
+        },
+        {
+          "label": "front-zero-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-5",
+          "hashes": {
+            "p": "f5df65b2a4020d38e7730bc8a762223d6c215511ac5b2a635de393e0058b451f",
+            "c": "1f080d48e965c938360e2a9202ba9683f9bc9287dfbe77c583d8008b368ebfa8",
+            "coverage": "a060a3cf8f00e0b2ec145f4790313f07ae23a96a8c49a8cacef8548a1368d368"
+          }
+        }
+      ],
+      "metrics": {
+        "mainRAFMaxGapMs": 171.4,
+        "mainTimerMaxGapMs": 18.9,
+        "mainCallbackMaxWallMs": 1,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 171,
+          "upToDependentReadMs": 386.2,
+          "fullyAfterDependentRAFMaxGapMs": 22.4,
+          "fullyAfterJSGoalRAFMaxGapMs": 171.4
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 209.1,
+          "readWallMs": 205.4,
+          "bindWallMs": 0,
+          "statusWallMs": 1.9,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            90,
+            133,
+            158
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "front-oracle-two-colors",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "ad80c2003d6d2668a8f813fcc0c47dbad4758547a50e5f089293d84a684fe6f1",
+        "worker": "aac55af676ee18116d24e043263597c688b361aea7fead57695ef9a6d974f1be",
+        "manifest": "96530a688db97dc8b9a62a4c545ba1d08e667e24a10fde2b935ad10780359fd3"
+      },
+      "localBuildHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "96530a688db97dc8b9a62a4c545ba1d08e667e24a10fde2b935ad10780359fd3",
+        "entry.js": "ad80c2003d6d2668a8f813fcc0c47dbad4758547a50e5f089293d84a684fe6f1",
+        "worker.js": "aac55af676ee18116d24e043263597c688b361aea7fead57695ef9a6d974f1be",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-FB37D2F7.js": "9b0cad2b78d418da2d7052e72dfd51c7bf3118017f2946962b373c8602576d6a",
+        "chunk-TW5MXLR6.js": "5b9d0d59cc950b59810a3713e91fd0499fafc6beac15d327f25d8c212481d21b",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "b5a749f79a0f9be82de08c421de668185da7417b871bfe36e47d21f5b68aadfc",
+      "pattern": "two-colors",
+      "secondSettings": {
+        "paint": "PR122",
+        "color": "#ce267c"
+      },
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "index.html": 1,
+        "entry.js": 1,
+        "worker.js": 1,
+        "chunk-TW5MXLR6.js": 1,
+        "chunk-SQE76S5B.js": 1
+      },
+      "patch": {
+        "entrySHA": "ad80c2003d6d2668a8f813fcc0c47dbad4758547a50e5f089293d84a684fe6f1",
+        "workerSHA": "431b2855b420a20c6b542b29ccf96b18ed0953d34394875810a0cc0b9058dcdc",
+        "originalEntrySHA": "ad80c2003d6d2668a8f813fcc0c47dbad4758547a50e5f089293d84a684fe6f1",
+        "originalWorkerSHA": "aac55af676ee18116d24e043263597c688b361aea7fead57695ef9a6d974f1be",
+        "withoutJSON": false
+      },
+      "oracles": [
+        {
+          "label": "natural",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-1",
+          "hashes": {
+            "p": "fec039231435b4f839a2a4bbaaa029e0be49ed04c8bec276f90e766f260de640",
+            "c": "b6f95233c583a8bc1ca34958632af648bb911fd3a3ea9161b7182529d02f8b4f",
+            "coverage": "d6dfb91ca6c2707e623cc6eed8cd85cb7d4d4bd52a263bbdb3630fea430aff77"
+          }
+        },
+        {
+          "label": "normal-repeat",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-2",
+          "hashes": {
+            "p": "fec039231435b4f839a2a4bbaaa029e0be49ed04c8bec276f90e766f260de640",
+            "c": "b6f95233c583a8bc1ca34958632af648bb911fd3a3ea9161b7182529d02f8b4f",
+            "coverage": "d6dfb91ca6c2707e623cc6eed8cd85cb7d4d4bd52a263bbdb3630fea430aff77"
+          }
+        },
+        {
+          "label": "normal-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-3",
+          "hashes": {
+            "p": "fec039231435b4f839a2a4bbaaa029e0be49ed04c8bec276f90e766f260de640",
+            "c": "b6f95233c583a8bc1ca34958632af648bb911fd3a3ea9161b7182529d02f8b4f",
+            "coverage": "d6dfb91ca6c2707e623cc6eed8cd85cb7d4d4bd52a263bbdb3630fea430aff77"
+          }
+        },
+        {
+          "label": "front-zero",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-4",
+          "hashes": {
+            "p": "fec039231435b4f839a2a4bbaaa029e0be49ed04c8bec276f90e766f260de640",
+            "c": "b6f95233c583a8bc1ca34958632af648bb911fd3a3ea9161b7182529d02f8b4f",
+            "coverage": "d6dfb91ca6c2707e623cc6eed8cd85cb7d4d4bd52a263bbdb3630fea430aff77"
+          }
+        },
+        {
+          "label": "front-zero-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-5",
+          "hashes": {
+            "p": "fec039231435b4f839a2a4bbaaa029e0be49ed04c8bec276f90e766f260de640",
+            "c": "b6f95233c583a8bc1ca34958632af648bb911fd3a3ea9161b7182529d02f8b4f",
+            "coverage": "d6dfb91ca6c2707e623cc6eed8cd85cb7d4d4bd52a263bbdb3630fea430aff77"
+          }
+        }
+      ],
+      "metrics": {
+        "mainRAFMaxGapMs": 165.7,
+        "mainTimerMaxGapMs": 29.1,
+        "mainCallbackMaxWallMs": 2.6,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 218.4,
+          "upToDependentReadMs": 443,
+          "fullyAfterDependentRAFMaxGapMs": 21.6,
+          "fullyAfterJSGoalRAFMaxGapMs": 134.9
+        },
+        {
+          "id": 2,
+          "operations": 90,
+          "glError": 0,
+          "upToJSGoalMs": 139.4,
+          "upToDependentReadMs": 415.1,
+          "fullyAfterDependentRAFMaxGapMs": 22.9,
+          "fullyAfterJSGoalRAFMaxGapMs": 165.7
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 218.2,
+          "readWallMs": 215.6,
+          "bindWallMs": 0,
+          "statusWallMs": 1.7,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            93,
+            149,
+            174
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 2,
+          "stage": "before-goal-forward",
+          "probeWallMs": 263.3,
+          "readWallMs": 260.4,
+          "bindWallMs": 0,
+          "statusWallMs": 2,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            41,
+            0,
+            93,
+            219
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "local-control-timing",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "b2cb9f66d067b137d92753a45143a445eace847c6691f03e73d9190f50ca7c5b",
+        "worker": "2f131b6d7466d03b7300786cefe9beeabbd841b52f5bd4b7c1b50295939b4174",
+        "manifest": "0f14ebad8b00eb2c57e3d2a4f9687a56f0165a00e4a8221c0cc47db24427de2a"
+      },
+      "localBuildHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "0f14ebad8b00eb2c57e3d2a4f9687a56f0165a00e4a8221c0cc47db24427de2a",
+        "entry.js": "b2cb9f66d067b137d92753a45143a445eace847c6691f03e73d9190f50ca7c5b",
+        "worker.js": "2f131b6d7466d03b7300786cefe9beeabbd841b52f5bd4b7c1b50295939b4174",
+        "chunk-OZHX7YP5.js": "09a26218c073b49a98b2970d0b6b88c5226491e642f174756ef717533181ab6b",
+        "chunk-353ZKHAH.js": "5ae0b139613e5c05da0b902c6fb087b72b59c2ff35ecacf1454f5603bfc64051",
+        "chunk-SD7J6WWS.js": "a0df9980286cb820b48e230a48eda4d8e080ddf9ba23cc56eacc3dc93cddfe23"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "pattern": "wave",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "index.html": 1,
+        "entry.js": 1,
+        "worker.js": 1,
+        "chunk-SD7J6WWS.js": 1
+      },
+      "patch": {
+        "entrySHA": "b2cb9f66d067b137d92753a45143a445eace847c6691f03e73d9190f50ca7c5b",
+        "workerSHA": "73a31667a09bb60cf86a72c0cd54d27543244bc97ac14a0af5f39102d722f398",
+        "originalEntrySHA": "b2cb9f66d067b137d92753a45143a445eace847c6691f03e73d9190f50ca7c5b",
+        "originalWorkerSHA": "2f131b6d7466d03b7300786cefe9beeabbd841b52f5bd4b7c1b50295939b4174",
+        "withoutJSON": false
+      },
+      "metrics": {
+        "mainRAFMaxGapMs": 183.2,
+        "mainTimerMaxGapMs": 47.3,
+        "mainCallbackMaxWallMs": 5.9,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 255.7,
+          "upToDependentReadMs": 403.3,
+          "fullyAfterDependentRAFMaxGapMs": 20.4,
+          "fullyAfterJSGoalRAFMaxGapMs": 137.9
+        },
+        {
+          "id": 2,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 126.1,
+          "upToDependentReadMs": 372,
+          "fullyAfterDependentRAFMaxGapMs": 20.7,
+          "fullyAfterJSGoalRAFMaxGapMs": 183.2
+        },
+        {
+          "id": 3,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 140.9,
+          "upToDependentReadMs": 384.6,
+          "fullyAfterDependentRAFMaxGapMs": 21.3,
+          "fullyAfterJSGoalRAFMaxGapMs": 148.6
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 143.3,
+          "readWallMs": 141,
+          "bindWallMs": 0.1,
+          "statusWallMs": 0.7,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            103,
+            157,
+            189
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 2,
+          "stage": "before-goal-forward",
+          "probeWallMs": 237,
+          "readWallMs": 235.1,
+          "bindWallMs": 0,
+          "statusWallMs": 0.6,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            95,
+            184,
+            240
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 3,
+          "stage": "before-goal-forward",
+          "probeWallMs": 231.1,
+          "readWallMs": 228.8,
+          "bindWallMs": 0,
+          "statusWallMs": 0.6,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            85,
+            181,
+            246
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "local-front-zero-reverse",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "5d30d09077c328ce69b6c46ff585f996062102652f8633bb2d9adae751172391",
+        "worker": "aa9b121a4fd01ae84b4b93842219d74c77044056097d64d84326d12da981df06",
+        "manifest": "788a8a607d7cbb562a095dcf1606491ba2f8f5c2529e4c30ac2a96abc450da69"
+      },
+      "localBuildHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "788a8a607d7cbb562a095dcf1606491ba2f8f5c2529e4c30ac2a96abc450da69",
+        "entry.js": "5d30d09077c328ce69b6c46ff585f996062102652f8633bb2d9adae751172391",
+        "worker.js": "aa9b121a4fd01ae84b4b93842219d74c77044056097d64d84326d12da981df06",
+        "chunk-OZHX7YP5.js": "09a26218c073b49a98b2970d0b6b88c5226491e642f174756ef717533181ab6b",
+        "chunk-FIMH6LSA.js": "de9ee760333f7fec59c379a044e58aa53521d1957cebe901fde588fd10f94330",
+        "chunk-46V5IWLR.js": "4275b59560a1f9bfbc97724ab8c0993f7d7667701593275ffbe9c9d264e4e444"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "pattern": "wave",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "index.html": 1,
+        "entry.js": 1,
+        "worker.js": 1,
+        "chunk-46V5IWLR.js": 1
+      },
+      "patch": {
+        "entrySHA": "5d30d09077c328ce69b6c46ff585f996062102652f8633bb2d9adae751172391",
+        "workerSHA": "6aaf2e58aaba53ba440a2c120a4947b1ce37dafabce31bd70ef2b070767d344e",
+        "originalEntrySHA": "5d30d09077c328ce69b6c46ff585f996062102652f8633bb2d9adae751172391",
+        "originalWorkerSHA": "aa9b121a4fd01ae84b4b93842219d74c77044056097d64d84326d12da981df06",
+        "withoutJSON": false
+      },
+      "metrics": {
+        "mainRAFMaxGapMs": 133.5,
+        "mainTimerMaxGapMs": 25.5,
+        "mainCallbackMaxWallMs": 6.5,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 270.3,
+          "upToDependentReadMs": 384.1,
+          "fullyAfterDependentRAFMaxGapMs": 23.9,
+          "fullyAfterJSGoalRAFMaxGapMs": 68.2
+        },
+        {
+          "id": 2,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 143.2,
+          "upToDependentReadMs": 295.9,
+          "fullyAfterDependentRAFMaxGapMs": 21.2,
+          "fullyAfterJSGoalRAFMaxGapMs": 122.6
+        },
+        {
+          "id": 3,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 147.6,
+          "upToDependentReadMs": 357.6,
+          "fullyAfterDependentRAFMaxGapMs": 19.5,
+          "fullyAfterJSGoalRAFMaxGapMs": 133.5
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 107.6,
+          "readWallMs": 103.4,
+          "bindWallMs": 0,
+          "statusWallMs": 0.9,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            101,
+            155,
+            187
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 2,
+          "stage": "before-goal-forward",
+          "probeWallMs": 137.7,
+          "readWallMs": 134.3,
+          "bindWallMs": 0,
+          "statusWallMs": 0.6,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            96,
+            185,
+            240
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 3,
+          "stage": "before-goal-forward",
+          "probeWallMs": 190.8,
+          "readWallMs": 186,
+          "bindWallMs": 0,
+          "statusWallMs": 2.4,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            86,
+            181,
+            246
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "combined-oracle-wave",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "8c0fee385b0290498dc72da4eb7ddecf054354efa4657a2c64ece0d92876f079",
+        "worker": "71917a7069e8a697cdf9f5c4ddc6dacc2662efebce097d28e70b63c8d076a4d1",
+        "manifest": "7687ec382a0a8904465f9824c5b19b8658cefbd08d220085f55a0bc5ed62fee1"
+      },
+      "localBuildHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "7687ec382a0a8904465f9824c5b19b8658cefbd08d220085f55a0bc5ed62fee1",
+        "entry.js": "8c0fee385b0290498dc72da4eb7ddecf054354efa4657a2c64ece0d92876f079",
+        "worker.js": "71917a7069e8a697cdf9f5c4ddc6dacc2662efebce097d28e70b63c8d076a4d1",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-ZY2XGCXL.js": "b173b3f15f0b1808a9b56ec04be82631990b66e06b5c70bdf1a3b6009a6eb0ae",
+        "chunk-UWORC57W.js": "65a8833a5aea44f00d035f7361304143fd2b83b9b8851599af21fdf504324969",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "pattern": "wave",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "index.html": 1,
+        "entry.js": 1,
+        "worker.js": 1,
+        "chunk-UWORC57W.js": 1,
+        "chunk-SQE76S5B.js": 1
+      },
+      "patch": {
+        "entrySHA": "8c0fee385b0290498dc72da4eb7ddecf054354efa4657a2c64ece0d92876f079",
+        "workerSHA": "efb98004ba67a7791d94951db4a67af0f2e9ed65b475b61a122335d20883ce19",
+        "originalEntrySHA": "8c0fee385b0290498dc72da4eb7ddecf054354efa4657a2c64ece0d92876f079",
+        "originalWorkerSHA": "71917a7069e8a697cdf9f5c4ddc6dacc2662efebce097d28e70b63c8d076a4d1",
+        "withoutJSON": false
+      },
+      "oracles": [
+        {
+          "label": "natural",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-1",
+          "hashes": {
+            "p": "91297e71d54387ffa0b7b05d89dc67ae2cbc2fe2db0c74cf838040a8a6fb6fb8",
+            "c": "a6ac0e7e460ca4dd3b1f722dd362fd2d07d886fb80d824b9fc8ef6fc30300477",
+            "coverage": "a68ff8145c11420d53d18a68c7482516aed94efa9328b72a44096c30f2c2cae3"
+          },
+          "frontJumpStats": null
+        },
+        {
+          "label": "normal-repeat",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-2",
+          "hashes": {
+            "p": "91297e71d54387ffa0b7b05d89dc67ae2cbc2fe2db0c74cf838040a8a6fb6fb8",
+            "c": "a6ac0e7e460ca4dd3b1f722dd362fd2d07d886fb80d824b9fc8ef6fc30300477",
+            "coverage": "a68ff8145c11420d53d18a68c7482516aed94efa9328b72a44096c30f2c2cae3"
+          },
+          "frontJumpStats": null
+        },
+        {
+          "label": "normal-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-3",
+          "hashes": {
+            "p": "91297e71d54387ffa0b7b05d89dc67ae2cbc2fe2db0c74cf838040a8a6fb6fb8",
+            "c": "a6ac0e7e460ca4dd3b1f722dd362fd2d07d886fb80d824b9fc8ef6fc30300477",
+            "coverage": "a68ff8145c11420d53d18a68c7482516aed94efa9328b72a44096c30f2c2cae3"
+          },
+          "frontJumpStats": null
+        },
+        {
+          "label": "front-combined",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-4",
+          "hashes": {
+            "p": "91297e71d54387ffa0b7b05d89dc67ae2cbc2fe2db0c74cf838040a8a6fb6fb8",
+            "c": "a6ac0e7e460ca4dd3b1f722dd362fd2d07d886fb80d824b9fc8ef6fc30300477",
+            "coverage": "a68ff8145c11420d53d18a68c7482516aed94efa9328b72a44096c30f2c2cae3"
+          },
+          "frontJumpStats": {
+            "transformedShaders": 1
+          }
+        },
+        {
+          "label": "front-combined-final-only",
+          "type": "qa-goal-hashes",
+          "requestId": "owned-oracle-5",
+          "hashes": {
+            "p": "91297e71d54387ffa0b7b05d89dc67ae2cbc2fe2db0c74cf838040a8a6fb6fb8",
+            "c": "a6ac0e7e460ca4dd3b1f722dd362fd2d07d886fb80d824b9fc8ef6fc30300477",
+            "coverage": "a68ff8145c11420d53d18a68c7482516aed94efa9328b72a44096c30f2c2cae3"
+          },
+          "frontJumpStats": {
+            "transformedShaders": 1
+          }
+        }
+      ],
+      "metrics": {
+        "mainRAFMaxGapMs": 136.4,
+        "mainTimerMaxGapMs": 28.1,
+        "mainCallbackMaxWallMs": 1,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 228.4,
+          "upToDependentReadMs": 453.3,
+          "fullyAfterDependentRAFMaxGapMs": 21.1,
+          "fullyAfterJSGoalRAFMaxGapMs": 136.4
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 220.8,
+          "readWallMs": 217.8,
+          "bindWallMs": 0,
+          "statusWallMs": 0.7,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            96,
+            149,
+            182
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    },
+    {
+      "case": "local-front-combined-timing",
+      "pass": true,
+      "sourceStable": true,
+      "sourceBefore": {
+        "entry": "c768d8fbdeacc0e5c2a73992127feb45238a41b0091b96f78845aa1baf3f5d1f",
+        "worker": "20588ef3b7f57bbec1a62002e4ee99d91f278edb324752a17cc142688cff9c86",
+        "manifest": "7e4d94775db02a94e0b78902cff99d74c1495a41cee82deafdadb0a8ac759050"
+      },
+      "localBuildHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "7e4d94775db02a94e0b78902cff99d74c1495a41cee82deafdadb0a8ac759050",
+        "entry.js": "c768d8fbdeacc0e5c2a73992127feb45238a41b0091b96f78845aa1baf3f5d1f",
+        "worker.js": "20588ef3b7f57bbec1a62002e4ee99d91f278edb324752a17cc142688cff9c86",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-ZBW2V5OR.js": "abf2f5410c9ad3de869d43fcdac94762b4e0521652127041ceb0839622a829ab",
+        "chunk-VXHI4D7M.js": "1cc4a8d32c74ae6f9ca7976f439131552f287bd9c347247ca8261aaf45b0c93a",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "scenarioSHA": "ff8c54265029b7cc20988c5f62c0cb7909b7e17327c923b9b2a68ef2de661634",
+      "pattern": "wave",
+      "contextClosed": true,
+      "errors": [],
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "intercepts": {
+        "index.html": 1,
+        "entry.js": 1,
+        "worker.js": 1,
+        "chunk-VXHI4D7M.js": 1,
+        "chunk-SQE76S5B.js": 1
+      },
+      "patch": {
+        "entrySHA": "c768d8fbdeacc0e5c2a73992127feb45238a41b0091b96f78845aa1baf3f5d1f",
+        "workerSHA": "d6d4c6b0685d188488685125bb5b5cd524cd38abbb16622d6316d1df868e8af5",
+        "originalEntrySHA": "c768d8fbdeacc0e5c2a73992127feb45238a41b0091b96f78845aa1baf3f5d1f",
+        "originalWorkerSHA": "20588ef3b7f57bbec1a62002e4ee99d91f278edb324752a17cc142688cff9c86",
+        "withoutJSON": false
+      },
+      "metrics": {
+        "mainRAFMaxGapMs": 102.3,
+        "mainTimerMaxGapMs": 26.5,
+        "mainCallbackMaxWallMs": 1.4,
+        "longtasks": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 250,
+          "upToDependentReadMs": 377.4,
+          "fullyAfterDependentRAFMaxGapMs": 21.9,
+          "fullyAfterJSGoalRAFMaxGapMs": 66.8
+        },
+        {
+          "id": 2,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 133.9,
+          "upToDependentReadMs": 281.2,
+          "fullyAfterDependentRAFMaxGapMs": 20.1,
+          "fullyAfterJSGoalRAFMaxGapMs": 102.3
+        },
+        {
+          "id": 3,
+          "operations": 91,
+          "glError": 0,
+          "upToJSGoalMs": 141.5,
+          "upToDependentReadMs": 297.1,
+          "fullyAfterDependentRAFMaxGapMs": 20.4,
+          "fullyAfterJSGoalRAFMaxGapMs": 101.9
+        }
+      ],
+      "readbacks": [
+        {
+          "id": 1,
+          "stage": "before-goal-forward",
+          "probeWallMs": 122.6,
+          "readWallMs": 118.7,
+          "bindWallMs": 0,
+          "statusWallMs": 0.5,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            100,
+            159,
+            191
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 2,
+          "stage": "before-goal-forward",
+          "probeWallMs": 137.2,
+          "readWallMs": 133.8,
+          "bindWallMs": 0,
+          "statusWallMs": 0.8,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            92,
+            181,
+            241
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        },
+        {
+          "id": 3,
+          "stage": "before-goal-forward",
+          "probeWallMs": 147.5,
+          "readWallMs": 144.6,
+          "bindWallMs": 0,
+          "statusWallMs": 0.9,
+          "viewport": [
+            0,
+            0,
+            1024,
+            1024
+          ],
+          "bytes": [
+            0,
+            86,
+            181,
+            245
+          ],
+          "explicitOutputColor": false,
+          "status": 36053,
+          "error": 0,
+          "restored": true,
+          "metadata": null
+        }
+      ],
+      "batchSummary": null,
+      "qualification": "Fixed pointer geometry/settings, fresh authoring clocks/seeds; performance characterization, not strict identical-input speed benchmark."
+    }
+  ]
+}

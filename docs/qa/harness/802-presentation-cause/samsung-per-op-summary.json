@@ -1,0 +1,5257 @@
+{
+  "scope": "One wave, finalOnly, per-operation synchronous output-point readbacks. Timer pacing/readbacks perturb execution. Absolute summed waits are NOT ordinary GPU elapsed. Source/RESET work isolated first.",
+  "pass": true,
+  "sourceBefore": {
+    "entry": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+    "worker": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+    "manifest": "c93a8ce7a8ee1eb697295d8371464ec1296596e44c52f0bbcb4a8ddf4c417bf6"
+  },
+  "sourceAfter": {
+    "entry": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+    "worker": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+    "manifest": "c93a8ce7a8ee1eb697295d8371464ec1296596e44c52f0bbcb4a8ddf4c417bf6"
+  },
+  "sourceStable": true,
+  "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+  "programs": [
+    {
+      "id": 1,
+      "vertexSHA": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb",
+      "fragmentSHA": "796b7288b6ff5d91ef699bbb3d37b9cf10194e597b684557e01264bd878581b9",
+      "fragmentChars": 147219,
+      "uniforms": [
+        "u_dabCenter",
+        "u_dabRadius",
+        "u_angle",
+        "u_aspectRatio",
+        "u_wcNoiseTex",
+        "u_resolution",
+        "u_paperHeightMap",
+        "u_paperScale",
+        "u_paperOrigin",
+        "u_paperTexSize",
+        "u_pressure",
+        "u_tiltX",
+        "u_tiltY",
+        "u_hardness",
+        "u_opacity",
+        "u_eraseMode",
+        "u_color",
+        "u_grainMode",
+        "u_paperFillThreshold",
+        "u_paperFillCap",
+        "u_inkMode",
+        "u_rectComposite",
+        "u_wickPx",
+        "u_wickCap",
+        "u_charcoalTooth",
+        "u_charcoalCrumble",
+        "u_charcoalDust",
+        "u_charcoalBroadAspect",
+        "u_charcoalBroadGrain",
+        "u_charcoalPressFloor",
+        "u_charcoalPressGamma",
+        "u_charcoalSkipFloor",
+        "u_charcoalGateRelief",
+        "u_charcoalGrainDepth",
+        "u_original",
+        "u_strokeCoverage",
+        "u_inkLoad",
+        "u_aaPx",
+        "u_nibShape",
+        "u_nibCorner",
+        "u_inkEdge",
+        "u_inkClip",
+        "u_paperRim",
+        "u_acrossLocal",
+        "u_paperWet",
+        "u_washWater",
+        "u_puddle",
+        "u_poolBlot",
+        "u_waterRetain",
+        "u_inkStrength",
+        "u_depthWrite",
+        "u_tau",
+        "u_inkColor",
+        "u_cloudDeposit",
+        "u_granDeposit",
+        "u_mottleSeed",
+        "u_wetEdge",
+        "u_wetEdgeRadiusPx",
+        "u_granulation",
+        "u_saturateInk",
+        "u_bristleCombs",
+        "u_bristleInk",
+        "u_wcDebugView",
+        "u_spreadPx",
+        "u_fieldOffset",
+        "u_inkWater",
+        "u_water",
+        "u_dryContact",
+        "u_edgeSoft",
+        "u_edgeWander",
+        "u_tideLo",
+        "u_tideHi",
+        "u_pigmentOpacity",
+        "u_inkSmoothPx",
+        "u_migrate",
+        "u_migratePx",
+        "u_migrateLo",
+        "u_migrateHi"
+      ],
+      "shaderFunctions": [
+        "wcLattice",
+        "wcNoise",
+        "wcFbm",
+        "wcPoolness",
+        "wcPoolBlot",
+        "wcFilmBlot",
+        "wcCloud",
+        "wcSettling",
+        "wcStandingGate",
+        "wcHairAmp",
+        "wcHairComb",
+        "wcHairField",
+        "wcTipPressure",
+        "wcTipContact",
+        "wcInkAvg",
+        "wcRingAvg",
+        "wcTransportField",
+        "wcFlux"
+      ]
+    },
+    {
+      "id": 2,
+      "vertexSHA": "128af3b29a75b182c389d0897a42fdad7a8d43e484817f642eac387fdc615440",
+      "fragmentSHA": "796b7288b6ff5d91ef699bbb3d37b9cf10194e597b684557e01264bd878581b9",
+      "fragmentChars": 147219,
+      "uniforms": [
+        "u_wcNoiseTex",
+        "u_resolution",
+        "u_paperHeightMap",
+        "u_paperScale",
+        "u_paperOrigin",
+        "u_paperTexSize",
+        "u_hardness",
+        "u_eraseMode",
+        "u_color",
+        "u_grainMode",
+        "u_paperFillThreshold",
+        "u_paperFillCap",
+        "u_inkMode",
+        "u_wickPx",
+        "u_wickCap",
+        "u_charcoalTooth",
+        "u_charcoalCrumble",
+        "u_charcoalDust",
+        "u_charcoalBroadAspect",
+        "u_charcoalBroadGrain",
+        "u_charcoalPressFloor",
+        "u_charcoalPressGamma",
+        "u_charcoalSkipFloor",
+        "u_charcoalGateRelief",
+        "u_charcoalGrainDepth"
+      ],
+      "shaderFunctions": [
+        "wcLattice",
+        "wcNoise",
+        "wcFbm",
+        "wcPoolness",
+        "wcPoolBlot",
+        "wcFilmBlot",
+        "wcCloud",
+        "wcSettling",
+        "wcStandingGate",
+        "wcHairAmp",
+        "wcHairComb",
+        "wcHairField",
+        "wcTipPressure",
+        "wcTipContact",
+        "wcInkAvg",
+        "wcRingAvg",
+        "wcTransportField",
+        "wcFlux"
+      ]
+    },
+    {
+      "id": 3,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "da9279e5e6c995725f381e6c32c24ef8407893832cb5ed0343269a09f31fa370",
+      "fragmentChars": 225,
+      "uniforms": [
+        "u_layer",
+        "u_opacity"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 4,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "6678431bf1a9673f69ffd5568e1a9eea376ee83c8bf86453af7af78e426313ec",
+      "fragmentChars": 2325,
+      "uniforms": [
+        "u_after",
+        "u_before",
+        "u_hold",
+        "u_opacity",
+        "u_wetMask",
+        "u_motionGain",
+        "u_motionAge",
+        "u_texel",
+        "u_motionOrigin"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 5,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+      "fragmentChars": 39511,
+      "uniforms": [
+        "u_a",
+        "u_b",
+        "u_c",
+        "u_k",
+        "u_mode",
+        "u_tau",
+        "u_dir",
+        "u_d",
+        "u_origin",
+        "u_size",
+        "u_band",
+        "u_world"
+      ],
+      "shaderFunctions": [
+        "wcRimHash",
+        "wcRimNoise",
+        "wcFibre",
+        "wcCarryWeight",
+        "wcCapillary",
+        "wcCarryDir"
+      ]
+    },
+    {
+      "id": 6,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+      "fragmentChars": 39533,
+      "uniforms": [
+        "u_a",
+        "u_b",
+        "u_c",
+        "u_k",
+        "u_mode",
+        "u_dir",
+        "u_d",
+        "u_e",
+        "u_origin",
+        "u_size",
+        "u_band"
+      ],
+      "shaderFunctions": [
+        "wcRimHash",
+        "wcRimNoise",
+        "wcFibre",
+        "wcCarryWeight",
+        "wcCapillary",
+        "wcCarryDir"
+      ]
+    },
+    {
+      "id": 7,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+      "fragmentChars": 39556,
+      "uniforms": [
+        "u_a",
+        "u_k",
+        "u_tau",
+        "u_dir",
+        "u_d",
+        "u_e",
+        "u_origin",
+        "u_size",
+        "u_band",
+        "u_path",
+        "u_pathEnabled"
+      ],
+      "shaderFunctions": [
+        "wcRimHash",
+        "wcRimNoise",
+        "wcFibre",
+        "wcCarryWeight",
+        "wcCapillary",
+        "wcCarryDir"
+      ]
+    },
+    {
+      "id": 8,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "e7e5b25bf6fbe2e26806f447a3d70758493da2cde66545b3fb51a7b825cda494",
+      "fragmentChars": 39580,
+      "uniforms": [
+        "u_a",
+        "u_c",
+        "u_k",
+        "u_tau",
+        "u_dir",
+        "u_d",
+        "u_e",
+        "u_origin",
+        "u_size",
+        "u_band",
+        "u_path",
+        "u_pathEnabled"
+      ],
+      "shaderFunctions": [
+        "wcRimHash",
+        "wcRimNoise",
+        "wcFibre",
+        "wcCarryWeight",
+        "wcCapillary",
+        "wcCarryDir"
+      ]
+    },
+    {
+      "id": 9,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "590c99c4f3548ffac56fbe45ecabb672892501ed8debbedc5ff10e6328c2d3d5",
+      "fragmentChars": 2106,
+      "uniforms": [
+        "u_src",
+        "u_old",
+        "u_base",
+        "u_srcSize",
+        "u_baseSize",
+        "u_dstOrigin",
+        "u_srcOrigin",
+        "u_ratio",
+        "u_mode",
+        "u_clamp"
+      ],
+      "shaderFunctions": [
+        "wcTexel",
+        "wcBilerp"
+      ]
+    },
+    {
+      "id": 10,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "847145f179bce84e0386d04f7c81246ba5f664fbaaa81a8c89ec2a64ca60eba7",
+      "fragmentChars": 133,
+      "uniforms": [
+        "u_tex"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 11,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "030409569390ca4c47cb0d421923fbaf84696bf2bfb8498b5eff4db30a80ffaf",
+      "fragmentChars": 37103,
+      "uniforms": [
+        "u_accumulation",
+        "u_paperMap",
+        "u_paperColor",
+        "u_paperScale",
+        "u_paperTexSize",
+        "u_dstSize",
+        "u_srcSize",
+        "u_matrixInv",
+        "u_screenToWorld",
+        "u_sharpResample",
+        "u_pageRect",
+        "u_deskColor",
+        "u_wetMap",
+        "u_wetRect"
+      ],
+      "shaderFunctions": [
+        "wcWetBodyAt",
+        "wcWetAt"
+      ]
+    },
+    {
+      "id": 12,
+      "vertexSHA": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb",
+      "fragmentSHA": "4d9fbeb6f61319a9918f552fea9ecb01568ccf9c6da69b478f430bbcb6fc53e9",
+      "fragmentChars": 7640,
+      "uniforms": [
+        "u_dabCenter",
+        "u_dabRadius",
+        "u_angle",
+        "u_aspectRatio",
+        "u_resolution",
+        "u_paperHeightMap",
+        "u_paperScale",
+        "u_paperOrigin",
+        "u_paperTexSize",
+        "u_hardness",
+        "u_carried",
+        "u_patchOrigin",
+        "u_patchSize",
+        "u_mode",
+        "u_grainRelief",
+        "u_strength",
+        "u_pressure",
+        "u_paperFillThreshold",
+        "u_paperFillCap"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 13,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "e57b474e2c4d21a00e90c557c5464133932e56b80059c5c8b4f990cc43ddad8a",
+      "fragmentChars": 1639,
+      "uniforms": [
+        "u_patch",
+        "u_carried",
+        "u_rate",
+        "u_paint",
+        "u_paintLoad",
+        "u_alphaPickup"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 14,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "5db1982a6ee68696d110aa3136e73e8e00d50c283de5fb3cd0717142d0023bc0",
+      "fragmentChars": 7340,
+      "uniforms": [
+        "u_dstSize",
+        "u_dstOrigin",
+        "u_center",
+        "u_rotCS",
+        "u_half",
+        "u_kind",
+        "u_base",
+        "u_outer",
+        "u_inner",
+        "u_hasInner",
+        "u_strokeContours",
+        "u_band",
+        "u_ringRatio",
+        "u_closePath",
+        "u_sectorMode",
+        "u_sectorDir",
+        "u_sectorCS",
+        "u_starPoints",
+        "u_starRot",
+        "u_lineDir",
+        "u_lineHalfLen",
+        "u_lineCap",
+        "u_fillColor",
+        "u_hasFill",
+        "u_strokeColor",
+        "u_hasStroke"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 15,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "a333a0949a82a685c1f182c20247936d7b5c96ad58900039197fc646dc82cea9",
+      "fragmentChars": 304,
+      "uniforms": [
+        "u_accumulation"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 16,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "672240987a9e22f71e0ac574a404045c8b63738e6996ee26d1d4b9d966276f71",
+      "fragmentChars": 456,
+      "uniforms": [
+        "u_src",
+        "u_tapOffset"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 17,
+      "vertexSHA": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb",
+      "fragmentSHA": "95bd95e9bef864bde3cac476bc487e97ef6dd7fbeb726add804b2378d198dc15",
+      "fragmentChars": 4209,
+      "uniforms": [
+        "u_dabCenter",
+        "u_dabRadius",
+        "u_angle",
+        "u_aspectRatio",
+        "u_resolution",
+        "u_opacity",
+        "u_paperHeightMap",
+        "u_tip",
+        "u_paperScale",
+        "u_paperOrigin",
+        "u_paperTexSize",
+        "u_tipKind",
+        "u_hardness",
+        "u_aaPx",
+        "u_ceiling",
+        "u_paper",
+        "u_paperPressure",
+        "u_texture",
+        "u_texStrength",
+        "u_texPeriod",
+        "u_texOrigin"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 18,
+      "vertexSHA": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb",
+      "fragmentSHA": "b09db8e2797895cad9e65e82b153cec25243dcf6524d6bc122af650e5e75741d",
+      "fragmentChars": 16798,
+      "uniforms": [
+        "u_dabCenter",
+        "u_dabRadius",
+        "u_angle",
+        "u_aspectRatio",
+        "u_resolution",
+        "u_original",
+        "u_strokeCoverage",
+        "u_color",
+        "u_opacity",
+        "u_useCeiling",
+        "u_screentone",
+        "u_screenOrigin",
+        "u_wetEdge",
+        "u_wetEdgePx",
+        "u_mottle",
+        "u_granulation",
+        "u_glaze",
+        "u_cloudTex",
+        "u_grainTex",
+        "u_cloudPeriod",
+        "u_cloudOrigin",
+        "u_grainPeriod",
+        "u_grainOrigin",
+        "u_wetModel",
+        "u_bloom",
+        "u_feather",
+        "u_paperHeightMap",
+        "u_paperScale",
+        "u_paperOrigin",
+        "u_paperTexSize"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 19,
+      "vertexSHA": "af53354739edbe61a9d1c65323669e0762bea9d6b8e39a6c6c0c65e1fc5fd36a",
+      "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+      "fragmentChars": 18127,
+      "uniforms": [
+        "u_wcNoiseTex",
+        "u_resolution",
+        "u_aaPx",
+        "u_mode",
+        "u_worldOrigin",
+        "u_mottleSeed",
+        "u_cloudDeposit",
+        "u_granDeposit",
+        "u_poolBlot",
+        "u_washWater",
+        "u_waterRetain",
+        "u_bristleCombs",
+        "u_bristleInk",
+        "u_depthWrite",
+        "u_tau",
+        "u_availableWater",
+        "u_useAvailableWater"
+      ],
+      "shaderFunctions": [
+        "wcLattice",
+        "wcNoise",
+        "wcFbm",
+        "wcPoolness",
+        "wcPoolBlot",
+        "wcFilmBlot",
+        "wcCloud",
+        "wcSettling",
+        "wcStandingGate",
+        "wcHairAmp",
+        "wcHairComb",
+        "wcHairField",
+        "wcTipPressure",
+        "wcTipContact"
+      ]
+    },
+    {
+      "id": 20,
+      "vertexSHA": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb",
+      "fragmentSHA": "9277fd378538ca6af022a892907c3a9bb68ffef5ce5eb50fa5a5ad0704d45ac3",
+      "fragmentChars": 147227,
+      "uniforms": [
+        "u_dabCenter",
+        "u_dabRadius",
+        "u_angle",
+        "u_aspectRatio",
+        "u_wcNoiseTex",
+        "u_resolution",
+        "u_paperOrigin",
+        "u_pressure",
+        "u_tiltX",
+        "u_tiltY",
+        "u_opacity",
+        "u_wickPx",
+        "u_wickCap",
+        "u_aaPx",
+        "u_nibShape",
+        "u_nibCorner",
+        "u_acrossLocal",
+        "u_paperWet",
+        "u_washWater",
+        "u_puddle",
+        "u_poolBlot",
+        "u_waterRetain",
+        "u_bristleCombs",
+        "u_inkWater"
+      ],
+      "shaderFunctions": [
+        "wcLattice",
+        "wcNoise",
+        "wcFbm",
+        "wcPoolness",
+        "wcPoolBlot",
+        "wcFilmBlot",
+        "wcCloud",
+        "wcSettling",
+        "wcStandingGate",
+        "wcHairAmp",
+        "wcHairComb",
+        "wcHairField",
+        "wcTipPressure",
+        "wcTipContact",
+        "wcInkAvg",
+        "wcRingAvg",
+        "wcTransportField",
+        "wcFlux"
+      ]
+    },
+    {
+      "id": 21,
+      "vertexSHA": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb",
+      "fragmentSHA": "1d8375fb31c0e08f12ffb2676fc7a2727025de0e76e30f588a244c554eb4a535",
+      "fragmentChars": 147227,
+      "uniforms": [
+        "u_dabCenter",
+        "u_dabRadius",
+        "u_angle",
+        "u_aspectRatio",
+        "u_wcNoiseTex",
+        "u_resolution",
+        "u_paperOrigin",
+        "u_pressure",
+        "u_tiltX",
+        "u_tiltY",
+        "u_opacity",
+        "u_wickPx",
+        "u_wickCap",
+        "u_strokeCoverage",
+        "u_aaPx",
+        "u_nibShape",
+        "u_nibCorner",
+        "u_inkEdge",
+        "u_inkClip",
+        "u_acrossLocal",
+        "u_paperWet",
+        "u_puddle",
+        "u_poolBlot",
+        "u_inkStrength",
+        "u_cloudDeposit",
+        "u_granDeposit",
+        "u_mottleSeed",
+        "u_bristleCombs",
+        "u_bristleInk",
+        "u_inkWater"
+      ],
+      "shaderFunctions": [
+        "wcLattice",
+        "wcNoise",
+        "wcFbm",
+        "wcPoolness",
+        "wcPoolBlot",
+        "wcFilmBlot",
+        "wcCloud",
+        "wcSettling",
+        "wcStandingGate",
+        "wcHairAmp",
+        "wcHairComb",
+        "wcHairField",
+        "wcTipPressure",
+        "wcTipContact",
+        "wcInkAvg",
+        "wcRingAvg",
+        "wcTransportField",
+        "wcFlux"
+      ]
+    },
+    {
+      "id": 22,
+      "vertexSHA": "4f52cd9f8c594df30888ceef5db2209e271c3f96461f19447bb53cb98545cbfb",
+      "fragmentSHA": "34b598a6db5bde34e0afc77e4a131480b4865da9bd6f269b9f447fb170cbee98",
+      "fragmentChars": 147227,
+      "uniforms": [
+        "u_dabCenter",
+        "u_dabRadius",
+        "u_angle",
+        "u_aspectRatio",
+        "u_wcNoiseTex",
+        "u_resolution",
+        "u_paperOrigin",
+        "u_pressure",
+        "u_tiltX",
+        "u_tiltY",
+        "u_opacity",
+        "u_wickPx",
+        "u_wickCap",
+        "u_strokeCoverage",
+        "u_aaPx",
+        "u_nibShape",
+        "u_nibCorner",
+        "u_inkEdge",
+        "u_inkClip",
+        "u_acrossLocal",
+        "u_paperWet",
+        "u_puddle",
+        "u_poolBlot",
+        "u_inkStrength",
+        "u_tau",
+        "u_cloudDeposit",
+        "u_granDeposit",
+        "u_mottleSeed",
+        "u_bristleCombs",
+        "u_bristleInk",
+        "u_inkWater"
+      ],
+      "shaderFunctions": [
+        "wcLattice",
+        "wcNoise",
+        "wcFbm",
+        "wcPoolness",
+        "wcPoolBlot",
+        "wcFilmBlot",
+        "wcCloud",
+        "wcSettling",
+        "wcStandingGate",
+        "wcHairAmp",
+        "wcHairComb",
+        "wcHairField",
+        "wcTipPressure",
+        "wcTipContact",
+        "wcInkAvg",
+        "wcRingAvg",
+        "wcTransportField",
+        "wcFlux"
+      ]
+    },
+    {
+      "id": 23,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
+      "fragmentChars": 4372,
+      "uniforms": [
+        "u_ink",
+        "u_coverage",
+        "u_paperHeightMap",
+        "u_resolution",
+        "u_paperOrigin",
+        "u_paperTexSize",
+        "u_paperScale",
+        "u_d",
+        "u_b",
+        "u_radius",
+        "u_stencil"
+      ],
+      "shaderFunctions": [
+        "wcWaterAt",
+        "wcHeightAt"
+      ]
+    },
+    {
+      "id": 24,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "ae22b69e0b4e9670316dc3484f5809e89f0f88460c6eba9ab7805c2bcb090890",
+      "fragmentChars": 3608,
+      "uniforms": [
+        "u_paint",
+        "u_flow",
+        "u_water",
+        "u_pigment",
+        "u_step",
+        "u_flowRect",
+        "u_color",
+        "u_contactGain",
+        "u_texel"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 25,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+      "fragmentChars": 15186,
+      "uniforms": [
+        "u_wcNoiseTex",
+        "u_cost",
+        "u_paperHeightMap",
+        "u_resolution",
+        "u_paperOrigin",
+        "u_paperTexSize",
+        "u_paperScale",
+        "u_climb",
+        "u_floor",
+        "u_costMax",
+        "u_film",
+        "u_dryCost",
+        "u_stride",
+        "u_foreignFilm",
+        "u_foreignWet"
+      ],
+      "shaderFunctions": [
+        "wcLattice",
+        "wcNoise",
+        "wcFbm",
+        "wcPoolness",
+        "wcPoolBlot",
+        "wcFilmBlot",
+        "wcCloud",
+        "wcSettling",
+        "wcStandingGate",
+        "wcHairAmp",
+        "wcHairComb",
+        "wcHairField",
+        "wcTipPressure",
+        "wcTipContact",
+        "wcFrontHeightAt"
+      ]
+    },
+    {
+      "id": 26,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "2b47ad6cc792f64f77bb98810eb2c12277ea1f1e7ea15edbea3c86746b7f3b7b",
+      "fragmentChars": 40170,
+      "uniforms": [
+        "u_a",
+        "u_b",
+        "u_c",
+        "u_k",
+        "u_mode",
+        "u_tau",
+        "u_dir",
+        "u_d",
+        "u_origin",
+        "u_size",
+        "u_band",
+        "u_world",
+        "u_wcFibreNoiseTex"
+      ],
+      "shaderFunctions": [
+        "wcRimHash",
+        "wcRimNoise",
+        "wcFibreLattice",
+        "wcFibreWarp",
+        "wcFibreGradient",
+        "wcFibreGradientNoise",
+        "wcFibre",
+        "wcCarryWeight",
+        "wcCapillary",
+        "wcCarryDir"
+      ]
+    },
+    {
+      "id": 27,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "892d16adc8848ed077a760c63ed89061c3a2fec7e5a5577e82905d69a1d1a2e6",
+      "fragmentChars": 617,
+      "uniforms": [
+        "u_image",
+        "u_bufferSize",
+        "u_imageRect"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 28,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "31d25dfe323e0e3bf0f9de29ec1ee0b57b2ccd68dd4ddab00129da9bb37ca33f",
+      "fragmentChars": 1093,
+      "uniforms": [
+        "u_source",
+        "u_dstSize",
+        "u_srcSize",
+        "u_matrixInv"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 29,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "d041085a98f3ea1dd17fb43a4ab07966dd689aa6fe16850634f981391026b866",
+      "fragmentChars": 1517,
+      "uniforms": [
+        "u_source",
+        "u_mask",
+        "u_dstSize",
+        "u_srcSize",
+        "u_srcOrigin",
+        "u_maskRect",
+        "u_matrixInv"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 30,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "aa3f9dd8b26868435ec8be6ec4ea7d39ab0d9d255e6bb8b9d3c1d6f39584287b",
+      "fragmentChars": 511,
+      "uniforms": [
+        "u_mask",
+        "u_dstSize",
+        "u_dstOrigin",
+        "u_maskRect"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 31,
+      "vertexSHA": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+      "fragmentSHA": "9681c26f542b28f0df04d7927fbfa890f733cbb2b848550c80ea78dea17fd403",
+      "fragmentChars": 528,
+      "uniforms": [
+        "color",
+        "stride"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 32,
+      "vertexSHA": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+      "fragmentSHA": "4d6784f542213a1f29946fa83e07454c9df5712c3c46cd0d8e6f2762706f652a",
+      "fragmentChars": 1316,
+      "uniforms": [
+        "color",
+        "water",
+        "pigment",
+        "background",
+        "regionKeep",
+        "volume",
+        "optical",
+        "massThreshold",
+        "compositionThreshold",
+        "hueThreshold",
+        "hueStrength"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 33,
+      "vertexSHA": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+      "fragmentSHA": "7566bba906185feec2c24a0db1b706c7e285a8f1e86a9b2aadd94bf2665186a9",
+      "fragmentChars": 201,
+      "uniforms": [
+        "raw",
+        "result",
+        "water"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 34,
+      "vertexSHA": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+      "fragmentSHA": "d3030c22b4921c1d419ab395fe68ae49c94a8d13d31a15339f3ec73acb499590",
+      "fragmentChars": 142,
+      "uniforms": [
+        "p",
+        "c"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 35,
+      "vertexSHA": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+      "fragmentSHA": "40afe3aa55b3abcec35e0c1c6ac0655e2b6b99f711876651cbc992b63ed2817c",
+      "fragmentChars": 434,
+      "uniforms": [
+        "initial",
+        "reference",
+        "coverage",
+        "margin"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 36,
+      "vertexSHA": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+      "fragmentSHA": "05d667d057727c861cde1a7eb8b7201a00c63ec67e288ac0081a81eeb4c960f9",
+      "fragmentChars": 268,
+      "uniforms": [
+        "source",
+        "texel"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 37,
+      "vertexSHA": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+      "fragmentSHA": "6a22fb7d6478832ef4d3f5f71b2bd0e4dd981b66d557e82d48f0263a8dcd9faa",
+      "fragmentChars": 1007,
+      "uniforms": [
+        "source",
+        "lowAfter",
+        "coverage",
+        "eligible",
+        "strength",
+        "distortion",
+        "worldSize"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 38,
+      "vertexSHA": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05",
+      "fragmentSHA": "bd9da0df4aed4c4631b22f61d9178d0a38b780ddb5da5ae43d3ec54ab994d137",
+      "fragmentChars": 402,
+      "uniforms": [
+        "source",
+        "eligible",
+        "stride"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 39,
+      "vertexSHA": "0c1b6d191141c7ab7308ed294ef02365ef3f8d68b4c081fbaf77cb35a7eb4d10",
+      "fragmentSHA": "332b97ad6021972d42eb081b783c2a0d3c4d9a8e2b9cb7c1045d5293051cbcb0",
+      "fragmentChars": 173,
+      "uniforms": [
+        "u_current"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 40,
+      "vertexSHA": "0c1b6d191141c7ab7308ed294ef02365ef3f8d68b4c081fbaf77cb35a7eb4d10",
+      "fragmentSHA": "0e0a5dcf051c54ffb301886e682fa105a4548e3cd89cc3dfc1686cea1d5495ac",
+      "fragmentChars": 398,
+      "uniforms": [
+        "u_current",
+        "u_texel"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 41,
+      "vertexSHA": "0c1b6d191141c7ab7308ed294ef02365ef3f8d68b4c081fbaf77cb35a7eb4d10",
+      "fragmentSHA": "833f33097962aa68454c0d2fc2086c3b6e2e4b4b053223f90850b79f50504cb5",
+      "fragmentChars": 1194,
+      "uniforms": [
+        "u_current",
+        "u_target",
+        "u_texel"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 42,
+      "vertexSHA": "0c1b6d191141c7ab7308ed294ef02365ef3f8d68b4c081fbaf77cb35a7eb4d10",
+      "fragmentSHA": "6e816bb44965ea4b1102492479a01b8e49a880774a42096f75f403511068f114",
+      "fragmentChars": 1466,
+      "uniforms": [
+        "u_current",
+        "u_extra",
+        "u_after"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 43,
+      "vertexSHA": "0c1b6d191141c7ab7308ed294ef02365ef3f8d68b4c081fbaf77cb35a7eb4d10",
+      "fragmentSHA": "abf31bdda603b912ac968d08c5f5ef2eacade1da9a7b53b32fb6f7923e7f2926",
+      "fragmentChars": 1908,
+      "uniforms": [
+        "u_current",
+        "u_target",
+        "u_extra",
+        "u_flow",
+        "u_texel",
+        "u_travel",
+        "u_progress"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 44,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+      "fragmentChars": 340,
+      "uniforms": [
+        "u_a",
+        "u_b",
+        "u_k"
+      ],
+      "shaderFunctions": []
+    },
+    {
+      "id": 45,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+      "fragmentChars": 14331,
+      "uniforms": [
+        "u_wcNoiseTex",
+        "u_cost",
+        "u_paperHeightMap",
+        "u_resolution",
+        "u_paperOrigin",
+        "u_paperTexSize",
+        "u_paperScale",
+        "u_climb",
+        "u_floor",
+        "u_costMax",
+        "u_film",
+        "u_dryCost",
+        "u_foreignFilm",
+        "u_foreignWet",
+        "u_directionA",
+        "u_directionB",
+        "u_buildStride"
+      ],
+      "shaderFunctions": [
+        "wcLattice",
+        "wcNoise",
+        "wcFbm",
+        "wcPoolness",
+        "wcPoolBlot",
+        "wcFilmBlot",
+        "wcCloud",
+        "wcSettling",
+        "wcStandingGate",
+        "wcHairAmp",
+        "wcHairComb",
+        "wcHairField",
+        "wcTipPressure",
+        "wcTipContact",
+        "wcFrontHeightAt"
+      ]
+    },
+    {
+      "id": 46,
+      "vertexSHA": "c1a51284893cbba62e744a41ce6736675cfbfb640ea03ca95ba789d665f5ed0f",
+      "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+      "fragmentChars": 14661,
+      "uniforms": [
+        "u_cost",
+        "u_paperHeightMap",
+        "u_resolution",
+        "u_paperOrigin",
+        "u_paperTexSize",
+        "u_paperScale",
+        "u_costMax",
+        "u_stride",
+        "u_edges0",
+        "u_edges1",
+        "u_edges2",
+        "u_edges3"
+      ],
+      "shaderFunctions": [
+        "wcLattice",
+        "wcNoise",
+        "wcFbm",
+        "wcPoolness",
+        "wcPoolBlot",
+        "wcFilmBlot",
+        "wcCloud",
+        "wcSettling",
+        "wcStandingGate",
+        "wcHairAmp",
+        "wcHairComb",
+        "wcHairField",
+        "wcTipPressure",
+        "wcTipContact",
+        "wcFrontHeightAt"
+      ]
+    },
+    {
+      "id": 47,
+      "vertexSHA": "45747a47e8b9ae8be7283ae5adf3f6163cedd4621f7a712dbf0867effe9d12ea",
+      "fragmentSHA": "fb595b734769902964a6650c014416f7d297cee42cbf35c287385758045d5f2a",
+      "fragmentChars": 143,
+      "uniforms": [
+        "u_source"
+      ],
+      "shaderFunctions": []
+    }
+  ],
+  "operations": [
+    {
+      "stage": "before-target-reset",
+      "metadata": {
+        "epoch": 1
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        36,
+        12,
+        4,
+        76
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 70.4,
+      "readWallMs": 65.5,
+      "draws": [
+        {
+          "programId": 20,
+          "fragmentSHA": "9277fd378538ca6af022a892907c3a9bb68ffef5ce5eb50fa5a5ad0704d45ac3",
+          "parameters": {
+            "u_dabRadius": 124.79338073730469
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 0
+          }
+        },
+        {
+          "programId": 21,
+          "fragmentSHA": "1d8375fb31c0e08f12ffb2676fc7a2727025de0e76e30f588a244c554eb4a535",
+          "parameters": {
+            "u_dabRadius": 124.79338073730469
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 1
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 21,
+          "fragmentSHA": "1d8375fb31c0e08f12ffb2676fc7a2727025de0e76e30f588a244c554eb4a535",
+          "parameters": {
+            "u_dabRadius": 124.79338073730469
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 1
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 2
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 20,
+          "fragmentSHA": "9277fd378538ca6af022a892907c3a9bb68ffef5ce5eb50fa5a5ad0704d45ac3",
+          "parameters": {
+            "u_dabRadius": 107.63429260253906
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 0
+          }
+        },
+        {
+          "programId": 21,
+          "fragmentSHA": "1d8375fb31c0e08f12ffb2676fc7a2727025de0e76e30f588a244c554eb4a535",
+          "parameters": {
+            "u_dabRadius": 107.63429260253906
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 1
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 21,
+          "fragmentSHA": "1d8375fb31c0e08f12ffb2676fc7a2727025de0e76e30f588a244c554eb4a535",
+          "parameters": {
+            "u_dabRadius": 107.63429260253906
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 1
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 2
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 20,
+          "fragmentSHA": "9277fd378538ca6af022a892907c3a9bb68ffef5ce5eb50fa5a5ad0704d45ac3",
+          "parameters": {
+            "u_dabRadius": 90.47520446777344
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 0
+          }
+        },
+        {
+          "programId": 21,
+          "fragmentSHA": "1d8375fb31c0e08f12ffb2676fc7a2727025de0e76e30f588a244c554eb4a535",
+          "parameters": {
+            "u_dabRadius": 90.47520446777344
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 1
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 21,
+          "fragmentSHA": "1d8375fb31c0e08f12ffb2676fc7a2727025de0e76e30f588a244c554eb4a535",
+          "parameters": {
+            "u_dabRadius": 90.47520446777344
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 1
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 2
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 20,
+          "fragmentSHA": "9277fd378538ca6af022a892907c3a9bb68ffef5ce5eb50fa5a5ad0704d45ac3",
+          "parameters": {
+            "u_dabRadius": 73.31610870361328
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 0
+          }
+        },
+        {
+          "programId": 21,
+          "fragmentSHA": "1d8375fb31c0e08f12ffb2676fc7a2727025de0e76e30f588a244c554eb4a535",
+          "parameters": {
+            "u_dabRadius": 73.31610870361328
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 1
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 21,
+          "fragmentSHA": "1d8375fb31c0e08f12ffb2676fc7a2727025de0e76e30f588a244c554eb4a535",
+          "parameters": {
+            "u_dabRadius": 73.31610870361328
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 1
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 2
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 20,
+          "fragmentSHA": "9277fd378538ca6af022a892907c3a9bb68ffef5ce5eb50fa5a5ad0704d45ac3",
+          "parameters": {
+            "u_dabRadius": 56.157020568847656
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 0
+          }
+        },
+        {
+          "programId": 21,
+          "fragmentSHA": "1d8375fb31c0e08f12ffb2676fc7a2727025de0e76e30f588a244c554eb4a535",
+          "parameters": {
+            "u_dabRadius": 56.157020568847656
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 1
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 21,
+          "fragmentSHA": "1d8375fb31c0e08f12ffb2676fc7a2727025de0e76e30f588a244c554eb4a535",
+          "parameters": {
+            "u_dabRadius": 56.157020568847656
+          }
+        },
+        {
+          "programId": 19,
+          "fragmentSHA": "f2def7cb1d83ab89c7462478af4df5e02a46ac4f9088be778a7d0f88ced785aa",
+          "parameters": {
+            "u_mode": 1
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 2
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 1,
+          "fragmentSHA": "796b7288b6ff5d91ef699bbb3d37b9cf10194e597b684557e01264bd878581b9",
+          "parameters": {
+            "u_eraseMode": 0,
+            "u_grainMode": 0,
+            "u_inkMode": 9,
+            "u_wetEdgeRadiusPx": 0,
+            "u_dryContact": 0,
+            "u_dabRadius": 190.5
+          }
+        },
+        {
+          "programId": 1,
+          "fragmentSHA": "796b7288b6ff5d91ef699bbb3d37b9cf10194e597b684557e01264bd878581b9",
+          "parameters": {
+            "u_eraseMode": 0,
+            "u_grainMode": 0,
+            "u_inkMode": 9,
+            "u_wetEdgeRadiusPx": 0,
+            "u_dryContact": 0,
+            "u_dabRadius": 513
+          }
+        },
+        {
+          "programId": 42,
+          "fragmentSHA": "6e816bb44965ea4b1102492479a01b8e49a880774a42096f75f403511068f114",
+          "parameters": {}
+        },
+        {
+          "programId": 3,
+          "fragmentSHA": "da9279e5e6c995725f381e6c32c24ef8407893832cb5ed0343269a09f31fa370",
+          "parameters": {}
+        },
+        {
+          "programId": 11,
+          "fragmentSHA": "030409569390ca4c47cb0d421923fbaf84696bf2bfb8498b5eff4db30a80ffaf",
+          "parameters": {}
+        },
+        {
+          "programId": 10,
+          "fragmentSHA": "847145f179bce84e0386d04f7c81246ba5f664fbaaa81a8c89ec2a64ca60eba7",
+          "parameters": {}
+        },
+        {
+          "programId": 1,
+          "fragmentSHA": "796b7288b6ff5d91ef699bbb3d37b9cf10194e597b684557e01264bd878581b9",
+          "parameters": {
+            "u_eraseMode": 0,
+            "u_grainMode": 0,
+            "u_inkMode": 9,
+            "u_wetEdgeRadiusPx": 0,
+            "u_dryContact": 0,
+            "u_dabRadius": 513
+          }
+        },
+        {
+          "programId": 42,
+          "fragmentSHA": "6e816bb44965ea4b1102492479a01b8e49a880774a42096f75f403511068f114",
+          "parameters": {}
+        },
+        {
+          "programId": 3,
+          "fragmentSHA": "da9279e5e6c995725f381e6c32c24ef8407893832cb5ed0343269a09f31fa370",
+          "parameters": {}
+        },
+        {
+          "programId": 11,
+          "fragmentSHA": "030409569390ca4c47cb0d421923fbaf84696bf2bfb8498b5eff4db30a80ffaf",
+          "parameters": {}
+        },
+        {
+          "programId": 10,
+          "fragmentSHA": "847145f179bce84e0386d04f7c81246ba5f664fbaaa81a8c89ec2a64ca60eba7",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-target-reset",
+      "metadata": {
+        "epoch": 1
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        36,
+        12,
+        4,
+        76
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 12.8,
+      "readWallMs": 5.7,
+      "draws": [
+        {
+          "programId": 34,
+          "fragmentSHA": "d3030c22b4921c1d419ab395fe68ae49c94a8d13d31a15339f3ec73acb499590",
+          "parameters": {}
+        },
+        {
+          "programId": 31,
+          "fragmentSHA": "9681c26f542b28f0df04d7927fbfa890f733cbb2b848550c80ea78dea17fd403",
+          "parameters": {}
+        },
+        {
+          "programId": 32,
+          "fragmentSHA": "4d6784f542213a1f29946fa83e07454c9df5712c3c46cd0d8e6f2762706f652a",
+          "parameters": {}
+        },
+        {
+          "programId": 32,
+          "fragmentSHA": "4d6784f542213a1f29946fa83e07454c9df5712c3c46cd0d8e6f2762706f652a",
+          "parameters": {}
+        },
+        {
+          "programId": 32,
+          "fragmentSHA": "4d6784f542213a1f29946fa83e07454c9df5712c3c46cd0d8e6f2762706f652a",
+          "parameters": {}
+        },
+        {
+          "programId": 35,
+          "fragmentSHA": "40afe3aa55b3abcec35e0c1c6ac0655e2b6b99f711876651cbc992b63ed2817c",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 1,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "bytes": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 18.6,
+      "readWallMs": 2.2,
+      "draws": []
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 2,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        211,
+        211,
+        76,
+        222
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 12.7,
+      "readWallMs": 4.1,
+      "draws": [
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 0
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 4
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 3,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        0,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 5.7,
+      "readWallMs": 1.6,
+      "draws": [
+        {
+          "programId": 6,
+          "fragmentSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+          "parameters": {
+            "u_mode": 10
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 4,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 31.7,
+      "readWallMs": 16.7,
+      "draws": [
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 0
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 1
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 2
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 4
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 0
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 1
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 2
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 4
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 0
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 1
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 2
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 4
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 0
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 1
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 2
+          }
+        },
+        {
+          "programId": 45,
+          "fragmentSHA": "574a7ba698a9ec9fdf7af914e64e9ed47e76125d4a756791c507c572a8ea02f9",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_dryCost": 48,
+            "u_buildStride": 4
+          }
+        },
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 5,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 7.6,
+      "readWallMs": 4.0,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 6,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 4.9,
+      "readWallMs": 3.2,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 7,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 4.8,
+      "readWallMs": 3.0,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 8,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 4.0,
+      "readWallMs": 2.1,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 9,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 8.5,
+      "readWallMs": 3.2,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 10,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 7.1,
+      "readWallMs": 3.7,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 11,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 7.3,
+      "readWallMs": 3.3,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 12,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 6.2,
+      "readWallMs": 3.7,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 13,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 7.7,
+      "readWallMs": 4.9,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 14,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 5.1,
+      "readWallMs": 1.9,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 15,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 6.3,
+      "readWallMs": 3.9,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 16,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 6.3,
+      "readWallMs": 4.0,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 17,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 10.3,
+      "readWallMs": 4.3,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 18,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 9.7,
+      "readWallMs": 3.5,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 19,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 8.2,
+      "readWallMs": 3.7,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 20,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 9.2,
+      "readWallMs": 4.3,
+      "draws": [
+        {
+          "programId": 46,
+          "fragmentSHA": "162504c978365e5fba8916059525dd86fbfb542a6f883c26e5b2871771ef3ccf",
+          "parameters": {
+            "u_cost": 0,
+            "u_costMax": 100,
+            "u_stride": 8
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 21,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 6.1,
+      "readWallMs": 4.2,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 100,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 22,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 11.3,
+      "readWallMs": 7.0,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 100,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 23,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 9.4,
+      "readWallMs": 3.7,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 100,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 24,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 9.3,
+      "readWallMs": 4.6,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 100,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 25,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 8.3,
+      "readWallMs": 5.4,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 100,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 26,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 11.4,
+      "readWallMs": 5.5,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 100,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 27,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 11.5,
+      "readWallMs": 5.6,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 100,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 28,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 9.4,
+      "readWallMs": 4.9,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 100,
+            "u_stride": 1
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 29,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        255,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 9.7,
+      "readWallMs": 2.6,
+      "draws": [
+        {
+          "programId": 6,
+          "fragmentSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+          "parameters": {
+            "u_mode": 12
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 30,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        125,
+        255,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 13.2,
+      "readWallMs": 6.2,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 31,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        125,
+        255,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 12.8,
+      "readWallMs": 7.1,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 32,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        125,
+        255,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 11.5,
+      "readWallMs": 7.0,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 33,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        125,
+        255,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 12.5,
+      "readWallMs": 8.2,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 34,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        125,
+        255,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 12.9,
+      "readWallMs": 7.8,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 35,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        125,
+        255,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 12.6,
+      "readWallMs": 7.0,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 36,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        125,
+        255,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 14.3,
+      "readWallMs": 8.9,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 37,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        125,
+        255,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 18.2,
+      "readWallMs": 10.3,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 38,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        125,
+        255,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 13.8,
+      "readWallMs": 8.6,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 39,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        125,
+        255,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 16.9,
+      "readWallMs": 9.0,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 48,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 40,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 16.2,
+      "readWallMs": 11.1,
+      "draws": [
+        {
+          "programId": 6,
+          "fragmentSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+          "parameters": {
+            "u_mode": 11
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 6
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 41,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 7.3,
+      "readWallMs": 4.3,
+      "draws": [
+        {
+          "programId": 7,
+          "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 42,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 10.8,
+      "readWallMs": 4.7,
+      "draws": [
+        {
+          "programId": 7,
+          "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 43,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 9.0,
+      "readWallMs": 5.3,
+      "draws": [
+        {
+          "programId": 7,
+          "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 44,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 10.4,
+      "readWallMs": 5.4,
+      "draws": [
+        {
+          "programId": 7,
+          "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 45,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 10.5,
+      "readWallMs": 3.8,
+      "draws": [
+        {
+          "programId": 7,
+          "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 46,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 8.8,
+      "readWallMs": 3.8,
+      "draws": [
+        {
+          "programId": 7,
+          "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 47,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 8.5,
+      "readWallMs": 3.8,
+      "draws": [
+        {
+          "programId": 7,
+          "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 48,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 7.5,
+      "readWallMs": 3.6,
+      "draws": [
+        {
+          "programId": 7,
+          "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 49,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 7.7,
+      "readWallMs": 4.6,
+      "draws": [
+        {
+          "programId": 7,
+          "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 50,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 9.3,
+      "readWallMs": 4.3,
+      "draws": [
+        {
+          "programId": 7,
+          "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 51,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 12.1,
+      "readWallMs": 7.1,
+      "draws": [
+        {
+          "programId": 7,
+          "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 52,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 11.5,
+      "readWallMs": 5.1,
+      "draws": [
+        {
+          "programId": 7,
+          "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 53,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 15.7,
+      "readWallMs": 7.5,
+      "draws": [
+        {
+          "programId": 7,
+          "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 54,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 7.5,
+      "readWallMs": 4.3,
+      "draws": [
+        {
+          "programId": 7,
+          "fragmentSHA": "e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 55,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        211,
+        211,
+        76,
+        222
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 13.2,
+      "readWallMs": 4.1,
+      "draws": [
+        {
+          "programId": 6,
+          "fragmentSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+          "parameters": {
+            "u_mode": 18
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 3
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 56,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 12.1,
+      "readWallMs": 4.3,
+      "draws": [
+        {
+          "programId": 23,
+          "fragmentSHA": "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
+          "parameters": {
+            "u_radius": 3
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 57,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 11.1,
+      "readWallMs": 5.1,
+      "draws": [
+        {
+          "programId": 23,
+          "fragmentSHA": "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
+          "parameters": {
+            "u_radius": 2
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 58,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        211,
+        211,
+        76,
+        222
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 8.3,
+      "readWallMs": 3.2,
+      "draws": [
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 59,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        211,
+        211,
+        76,
+        222
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 12.1,
+      "readWallMs": 6.4,
+      "draws": [
+        {
+          "programId": 23,
+          "fragmentSHA": "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
+          "parameters": {
+            "u_radius": 21
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 60,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        211,
+        211,
+        76,
+        222
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 12.4,
+      "readWallMs": 5.7,
+      "draws": [
+        {
+          "programId": 23,
+          "fragmentSHA": "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
+          "parameters": {
+            "u_radius": 32
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 61,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        211,
+        211,
+        76,
+        222
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 14.5,
+      "readWallMs": 8.8,
+      "draws": [
+        {
+          "programId": 23,
+          "fragmentSHA": "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
+          "parameters": {
+            "u_radius": 14
+          }
+        },
+        {
+          "programId": 26,
+          "fragmentSHA": "2b47ad6cc792f64f77bb98810eb2c12277ea1f1e7ea15edbea3c86746b7f3b7b",
+          "parameters": {
+            "u_mode": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 62,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        211,
+        211,
+        76,
+        222
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 11.4,
+      "readWallMs": 6.8,
+      "draws": [
+        {
+          "programId": 23,
+          "fragmentSHA": "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
+          "parameters": {
+            "u_radius": 16
+          }
+        },
+        {
+          "programId": 26,
+          "fragmentSHA": "2b47ad6cc792f64f77bb98810eb2c12277ea1f1e7ea15edbea3c86746b7f3b7b",
+          "parameters": {
+            "u_mode": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 63,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        211,
+        211,
+        76,
+        222
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 9.4,
+      "readWallMs": 6.5,
+      "draws": [
+        {
+          "programId": 23,
+          "fragmentSHA": "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
+          "parameters": {
+            "u_radius": 7
+          }
+        },
+        {
+          "programId": 26,
+          "fragmentSHA": "2b47ad6cc792f64f77bb98810eb2c12277ea1f1e7ea15edbea3c86746b7f3b7b",
+          "parameters": {
+            "u_mode": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 64,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        211,
+        211,
+        76,
+        222
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 12.3,
+      "readWallMs": 6.2,
+      "draws": [
+        {
+          "programId": 23,
+          "fragmentSHA": "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
+          "parameters": {
+            "u_radius": 8
+          }
+        },
+        {
+          "programId": 26,
+          "fragmentSHA": "2b47ad6cc792f64f77bb98810eb2c12277ea1f1e7ea15edbea3c86746b7f3b7b",
+          "parameters": {
+            "u_mode": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 65,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 6.4,
+      "readWallMs": 1.6,
+      "draws": [
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 66,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 6.9,
+      "readWallMs": 4.8,
+      "draws": [
+        {
+          "programId": 23,
+          "fragmentSHA": "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
+          "parameters": {
+            "u_radius": 4
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 67,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 8.7,
+      "readWallMs": 4.2,
+      "draws": [
+        {
+          "programId": 23,
+          "fragmentSHA": "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
+          "parameters": {
+            "u_radius": 3
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 68,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 6.8,
+      "readWallMs": 4.3,
+      "draws": [
+        {
+          "programId": 23,
+          "fragmentSHA": "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
+          "parameters": {
+            "u_radius": 2
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 69,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 8.7,
+      "readWallMs": 3.6,
+      "draws": [
+        {
+          "programId": 23,
+          "fragmentSHA": "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
+          "parameters": {
+            "u_radius": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 70,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 7,
+      "readWallMs": 4.4,
+      "draws": [
+        {
+          "programId": 23,
+          "fragmentSHA": "5b8a7c5985ab52ddd49ed256813703a66e625c9d6a826f11e76be3dd28affca7",
+          "parameters": {
+            "u_radius": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 71,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        211,
+        211,
+        76,
+        222
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 8.1,
+      "readWallMs": 5,
+      "draws": [
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 72,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        36,
+        12,
+        4,
+        76
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 9.5,
+      "readWallMs": 5.0,
+      "draws": [
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 2
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 73,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        0,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 8.5,
+      "readWallMs": 2.0,
+      "draws": [
+        {
+          "programId": 6,
+          "fragmentSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+          "parameters": {
+            "u_mode": 19
+          }
+        },
+        {
+          "programId": 6,
+          "fragmentSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+          "parameters": {
+            "u_mode": 19
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 74,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 33.9,
+      "readWallMs": 24.8,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 24,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        },
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 24,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        },
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 24,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        },
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 24,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 75,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 30.1,
+      "readWallMs": 25.2,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 24,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        },
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 24,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        },
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 24,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        },
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 24,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 76,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        255,
+        125,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 19.4,
+      "readWallMs": 14.8,
+      "draws": [
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 24,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        },
+        {
+          "programId": 25,
+          "fragmentSHA": "79df8169a12b5105da3ff9fb4c203bacd1fcffd5e1ee15917088e0687834b7d6",
+          "parameters": {
+            "u_cost": 0,
+            "u_dryCost": 24,
+            "u_costMax": 11,
+            "u_stride": 1
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 77,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        25,
+        0,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 16.8,
+      "readWallMs": 11.1,
+      "draws": [
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 6
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 44,
+          "fragmentSHA": "90faf1ba538960b4842d1693d07b3b859eaff72c3b9ff6948e0b96fb2501e383",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 78,
+        "total": 79,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        209,
+        209,
+        75,
+        220
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 12.2,
+      "readWallMs": 7.7,
+      "draws": [
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 7
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 5
+          }
+        },
+        {
+          "programId": 6,
+          "fragmentSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+          "parameters": {
+            "u_mode": 14
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 79,
+        "total": 89,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        179,
+        0,
+        242,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 15.6,
+      "readWallMs": 5.4,
+      "draws": [
+        {
+          "programId": 5,
+          "fragmentSHA": "ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6",
+          "parameters": {
+            "u_mode": 2
+          }
+        },
+        {
+          "programId": 6,
+          "fragmentSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+          "parameters": {
+            "u_mode": 20
+          }
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 80,
+        "total": 89,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "bytes": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 5.7,
+      "readWallMs": 1.7,
+      "draws": [
+        {
+          "programId": 36,
+          "fragmentSHA": "05d667d057727c861cde1a7eb8b7201a00c63ec67e288ac0081a81eeb4c960f9",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 81,
+        "total": 89,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "bytes": [
+        34,
+        11,
+        3,
+        71
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 7.2,
+      "readWallMs": 1.8,
+      "draws": [
+        {
+          "programId": 36,
+          "fragmentSHA": "05d667d057727c861cde1a7eb8b7201a00c63ec67e288ac0081a81eeb4c960f9",
+          "parameters": {}
+        },
+        {
+          "programId": 36,
+          "fragmentSHA": "05d667d057727c861cde1a7eb8b7201a00c63ec67e288ac0081a81eeb4c960f9",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 82,
+        "total": 89,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "bytes": [
+        34,
+        11,
+        3,
+        73
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 7.1,
+      "readWallMs": 1.1,
+      "draws": [
+        {
+          "programId": 38,
+          "fragmentSHA": "bd9da0df4aed4c4631b22f61d9178d0a38b780ddb5da5ae43d3ec54ab994d137",
+          "parameters": {}
+        },
+        {
+          "programId": 38,
+          "fragmentSHA": "bd9da0df4aed4c4631b22f61d9178d0a38b780ddb5da5ae43d3ec54ab994d137",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 83,
+        "total": 89,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "bytes": [
+        35,
+        11,
+        3,
+        74
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 6.7,
+      "readWallMs": 2.8,
+      "draws": [
+        {
+          "programId": 38,
+          "fragmentSHA": "bd9da0df4aed4c4631b22f61d9178d0a38b780ddb5da5ae43d3ec54ab994d137",
+          "parameters": {}
+        },
+        {
+          "programId": 38,
+          "fragmentSHA": "bd9da0df4aed4c4631b22f61d9178d0a38b780ddb5da5ae43d3ec54ab994d137",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 84,
+        "total": 89,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "bytes": [
+        35,
+        11,
+        3,
+        73
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 3.4,
+      "readWallMs": 1.6,
+      "draws": [
+        {
+          "programId": 38,
+          "fragmentSHA": "bd9da0df4aed4c4631b22f61d9178d0a38b780ddb5da5ae43d3ec54ab994d137",
+          "parameters": {}
+        },
+        {
+          "programId": 38,
+          "fragmentSHA": "bd9da0df4aed4c4631b22f61d9178d0a38b780ddb5da5ae43d3ec54ab994d137",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 85,
+        "total": 89,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "bytes": [
+        34,
+        11,
+        3,
+        72
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 6.0,
+      "readWallMs": 1.9,
+      "draws": [
+        {
+          "programId": 38,
+          "fragmentSHA": "bd9da0df4aed4c4631b22f61d9178d0a38b780ddb5da5ae43d3ec54ab994d137",
+          "parameters": {}
+        },
+        {
+          "programId": 38,
+          "fragmentSHA": "bd9da0df4aed4c4631b22f61d9178d0a38b780ddb5da5ae43d3ec54ab994d137",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 86,
+        "total": 89,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        206,
+        206,
+        73,
+        215
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 18.4,
+      "readWallMs": 3.6,
+      "draws": [
+        {
+          "programId": 37,
+          "fragmentSHA": "6a22fb7d6478832ef4d3f5f71b2bd0e4dd981b66d557e82d48f0263a8dcd9faa",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 87,
+        "total": 89,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        35,
+        12,
+        4,
+        73
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 5.4,
+      "readWallMs": 2.6,
+      "draws": [
+        {
+          "programId": 37,
+          "fragmentSHA": "6a22fb7d6478832ef4d3f5f71b2bd0e4dd981b66d557e82d48f0263a8dcd9faa",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 88,
+        "total": 89,
+        "done": false
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        206,
+        206,
+        73,
+        215
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 3.3,
+      "readWallMs": 2.5,
+      "draws": [
+        {
+          "programId": 33,
+          "fragmentSHA": "7566bba906185feec2c24a0db1b706c7e285a8f1e86a9b2aadd94bf2665186a9",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "after-eight-op-batch",
+      "metadata": {
+        "iterations": 89,
+        "total": 89,
+        "done": true
+      },
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        35,
+        12,
+        4,
+        73
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 4.4,
+      "readWallMs": 1.3,
+      "draws": [
+        {
+          "programId": 33,
+          "fragmentSHA": "7566bba906185feec2c24a0db1b706c7e285a8f1e86a9b2aadd94bf2665186a9",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "stage": "before-goal-forward",
+      "metadata": null,
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        96,
+        149,
+        182
+      ],
+      "status": 36053,
+      "error": 0,
+      "savedBindingRestored": true,
+      "probeWallMs": 22.4,
+      "readWallMs": 19.0,
+      "draws": [
+        {
+          "programId": 47,
+          "fragmentSHA": "fb595b734769902964a6650c014416f7d297cee42cbf35c287385758045d5f2a",
+          "parameters": {}
+        },
+        {
+          "programId": 1,
+          "fragmentSHA": "796b7288b6ff5d91ef699bbb3d37b9cf10194e597b684557e01264bd878581b9",
+          "parameters": {
+            "u_eraseMode": 0,
+            "u_grainMode": 0,
+            "u_inkMode": 9,
+            "u_wetEdgeRadiusPx": 0,
+            "u_dryContact": 0,
+            "u_dabRadius": 513
+          }
+        }
+      ]
+    }
+  ]
+}

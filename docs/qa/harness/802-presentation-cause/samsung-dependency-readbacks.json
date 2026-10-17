@@ -1,0 +1,321 @@
+{
+  "scope": "Actual Samsung three sequential same-input waves, full normal morph/JSON, own worker response prefix only. Adds three synchronous 1px dependent output reads per goal. Not universal GPU finish or pixel-equivalence.",
+  "chrome": {
+    "protocolVersion": "1.3",
+    "product": "Chrome/155.0.8059.39",
+    "revision": "@3ff7ac5a9224be9156d7f8703a06e22890aafd34",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "jsVersion": "15.5.35.20"
+  },
+  "android": {
+    "release": "13",
+    "sdk": 33
+  },
+  "source": {
+    "entry": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+    "worker": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+    "manifest": "c93a8ce7a8ee1eb697295d8371464ec1296596e44c52f0bbcb4a8ddf4c417bf6"
+  },
+  "sourceStable": true,
+  "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+  "pass": true,
+  "contextsClosed": true,
+  "runtimeErrors": [],
+  "goalGlErrors": [
+    0,
+    0,
+    0
+  ],
+  "readbacks": [
+    {
+      "stage": "before-goal-forward",
+      "start": 1792265791446.0999,
+      "end": 1792265791618.9,
+      "id": 1,
+      "goalEpoch": 1792265791443,
+      "draws": 0,
+      "defaultFramebuffer": false,
+      "savedBindingRestored": true,
+      "readStart": 1792265791446.3,
+      "readEnd": 1792265791617.5999,
+      "status": 36053,
+      "error": 0,
+      "x": 512,
+      "y": 512,
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        98,
+        157,
+        189
+      ],
+      "logicalBytes": 4,
+      "probeWallMs": 172.8,
+      "readWallMs": 171.3
+    },
+    {
+      "stage": "after-setTarget-six-draws",
+      "start": 1792265791619.4,
+      "end": 1792265791621.5999,
+      "id": 1,
+      "goalEpoch": 1792265791443,
+      "draws": 6,
+      "defaultFramebuffer": false,
+      "savedBindingRestored": true,
+      "readStart": 1792265791620.0999,
+      "readEnd": 1792265791621,
+      "status": 36053,
+      "error": 0,
+      "x": 64,
+      "y": 64,
+      "viewport": [
+        0,
+        0,
+        128,
+        128
+      ],
+      "bytes": [
+        183,
+        88,
+        0,
+        255
+      ],
+      "logicalBytes": 4,
+      "probeWallMs": 2.2,
+      "readWallMs": 0.9
+    },
+    {
+      "stage": "after-goal-frame",
+      "start": 1792265791622.0999,
+      "end": 1792265791624.9,
+      "id": 1,
+      "goalEpoch": 1792265791443,
+      "draws": 6,
+      "defaultFramebuffer": true,
+      "savedBindingRestored": true,
+      "readStart": 1792265791622.8,
+      "readEnd": 1792265791624.5999,
+      "status": 36053,
+      "error": 0,
+      "x": 512,
+      "y": 512,
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        79,
+        171,
+        223,
+        255
+      ],
+      "logicalBytes": 4,
+      "probeWallMs": 2.8,
+      "readWallMs": 1.8
+    },
+    {
+      "stage": "before-goal-forward",
+      "start": 1792265798203.5,
+      "end": 1792265798432.3,
+      "id": 2,
+      "goalEpoch": 1792265798193.7,
+      "draws": 0,
+      "defaultFramebuffer": false,
+      "savedBindingRestored": true,
+      "readStart": 1792265798204.2,
+      "readEnd": 1792265798429.9,
+      "status": 36053,
+      "error": 0,
+      "x": 512,
+      "y": 512,
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        92,
+        181,
+        241
+      ],
+      "logicalBytes": 4,
+      "probeWallMs": 228.8,
+      "readWallMs": 225.7
+    },
+    {
+      "stage": "after-setTarget-six-draws",
+      "start": 1792265798433,
+      "end": 1792265798440,
+      "id": 2,
+      "goalEpoch": 1792265798193.7,
+      "draws": 6,
+      "defaultFramebuffer": false,
+      "savedBindingRestored": true,
+      "readStart": 1792265798435.5,
+      "readEnd": 1792265798439.5999,
+      "status": 36053,
+      "error": 0,
+      "x": 64,
+      "y": 64,
+      "viewport": [
+        0,
+        0,
+        128,
+        128
+      ],
+      "bytes": [
+        159,
+        223,
+        0,
+        255
+      ],
+      "logicalBytes": 4,
+      "probeWallMs": 7,
+      "readWallMs": 4.1
+    },
+    {
+      "stage": "after-goal-frame",
+      "start": 1792265798440.5,
+      "end": 1792265798445.3,
+      "id": 2,
+      "goalEpoch": 1792265798193.7,
+      "draws": 6,
+      "defaultFramebuffer": true,
+      "savedBindingRestored": true,
+      "readStart": 1792265798441.5999,
+      "readEnd": 1792265798443.5999,
+      "status": 36053,
+      "error": 0,
+      "x": 512,
+      "y": 512,
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        75,
+        163,
+        221,
+        255
+      ],
+      "logicalBytes": 4,
+      "probeWallMs": 4.8,
+      "readWallMs": 2.0
+    },
+    {
+      "stage": "before-goal-forward",
+      "start": 1792265805288.0999,
+      "end": 1792265805528,
+      "id": 3,
+      "goalEpoch": 1792265805279.4,
+      "draws": 0,
+      "defaultFramebuffer": false,
+      "savedBindingRestored": true,
+      "readStart": 1792265805291.0999,
+      "readEnd": 1792265805526.7,
+      "status": 36053,
+      "error": 0,
+      "x": 512,
+      "y": 512,
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        0,
+        86,
+        181,
+        246
+      ],
+      "logicalBytes": 4,
+      "probeWallMs": 239.9,
+      "readWallMs": 235.6
+    },
+    {
+      "stage": "after-setTarget-six-draws",
+      "start": 1792265805528.4,
+      "end": 1792265805532.2,
+      "id": 3,
+      "goalEpoch": 1792265805279.4,
+      "draws": 6,
+      "defaultFramebuffer": false,
+      "savedBindingRestored": true,
+      "readStart": 1792265805529.4,
+      "readEnd": 1792265805530.9,
+      "status": 36053,
+      "error": 0,
+      "x": 64,
+      "y": 64,
+      "viewport": [
+        0,
+        0,
+        128,
+        128
+      ],
+      "bytes": [
+        191,
+        64,
+        0,
+        255
+      ],
+      "logicalBytes": 4,
+      "probeWallMs": 3.8,
+      "readWallMs": 1.5
+    },
+    {
+      "stage": "after-goal-frame",
+      "start": 1792265805532.8,
+      "end": 1792265805538.5,
+      "id": 3,
+      "goalEpoch": 1792265805279.4,
+      "draws": 6,
+      "defaultFramebuffer": true,
+      "savedBindingRestored": true,
+      "readStart": 1792265805534.5,
+      "readEnd": 1792265805537.7,
+      "status": 36053,
+      "error": 0,
+      "x": 512,
+      "y": 512,
+      "viewport": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "bytes": [
+        66,
+        151,
+        212,
+        255
+      ],
+      "logicalBytes": 4,
+      "probeWallMs": 5.7,
+      "readWallMs": 3.2
+    }
+  ],
+  "main": {
+    "maxRAFGapMs": 220.89990234375,
+    "maxTimerGapMs": 35.10009765625,
+    "longtasks": 0
+  },
+  "correction": {
+    "officialSource": "https://chromium.googlesource.com/chromium/src/+/3ff7ac5a9224be9156d7f8703a06e22890aafd34/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc",
+    "finishImplementation": "ContextGL()->Flush(); // Intentionally a flush, not a finish.",
+    "withdrawn": "Previous three short gl.finish calls do not exclude outstanding GPU work. Earlier GPU-complete labels based only on gl.finish are invalid. JS goal timestamps remain host-side signals.",
+    "newObservation": "CPU read of a valid dependent dryImage output point waits171\u2013236ms after JS goal. Morph setup and first-display dependency reads wait0.9\u20134.1ms. Later presentation queue causality still needs separation."
+  }
+}
