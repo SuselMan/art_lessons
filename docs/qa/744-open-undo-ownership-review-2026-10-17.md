@@ -37,3 +37,30 @@ exact journal prefix сам по себе не доказывает, что phys
 
 GPU/браузеры/сервисы в этой подзадаче не запускались. Свой targeted CPU process
 завершён. Рабочая копия и dependency links пока сохранены для продолжения RCA.
+
+## Обновление: #785, ошибка до cache
+
+Native repeat e8e1f005 снабжён sync window.onerror: исключение at26291ms,
+первый capture at29088ms. Stack controller.frame→start→resetFromScratch,
+hasSettle=true, asyncFinish=false, stroke=null, epoch46/ready=false.
+Это default prefix ownership finding, не установленная причина cache divergence.
+Создан #785 «M70 иногда теряет владение settle при онлайн-рисовании».
+Fresh OFF sameSPEC затем прошёл exact/no-errors. Гонка не воспроизводится каждый run.
+Следующий prefix-only OFF case без101/Undo дал A5199channels/max27, Bexact,
+errors0/startSettle ringempty: parity отличается и БЕЗ ownership exception;
+не объединяем причинно #785 и #752. Код исправления пока отсутствует.
+
+Дополнительный CPU negative:2 автора,50 concurrent physical pairs,100 принятых
+мазков на каждом engine, фиксированный material wall span500ms, queued peer A
+под удерживаемым B→UP→confirm→frames. Настоящий NativePuddleTarget guard включён,
+_startSettle creator spy не зарегистрировал ни одного вызова.2 tests PASS,
+17.9swall/14.4stest; scoped lint PASS. Это ИНАЯ network shape, не воспроизведение
+native protocol: у него A50local, затемB50local, accepted server runs
+A12/B1/A4/B1/A34/B48, а не50 concurrent pairs.
+
+Для native минимизации нужен отдельный fresh case на cut: A50→B1/2/4/8/16/32/50,
+с тем же RAF cadence. Actual canonical bytes снимаются ДО forced-OFF oracle;
+не вызывать oracle на живом A между порциями, чтобы не менять shared-field
+ownership/timing/cache. Состояние читается через log/queue, не forced-flush getter.
+Offline oracle на отдельном контексте возможен, но увеличивает расходы и меняет
+нагрузку; это отдельная контролируемая проверка, не repair actual.
