@@ -14,3 +14,11 @@ Paged presentation сравнивает identity/revision шести raw planes,
 - `git apply --check dirty-input-revisions.patch` PASS на исходной рабочей копии.
 
 Это CPU/mock-GL доказательство invalidation/retained-pixel поведения, не native rendering/Undo UI proof. После совместной интеграции обязательны runtime typecheck, существующие engine/undo/replay tests и native long-gesture actual-before-oracle comparison. Foreign fallback умышленно не оптимизирован.
+
+## Production regression patch and lifecycle audit
+
+`production-tests.patch` adds `apps/web/src/engine/src/watercolor/puddle/PagedPuddleRoomController.inputRevision.test.ts` with production imports only. Apply after the implementation patch; it does not reference external copies. Expanded suite: 26 PASS. No runtime source changed during preparation.
+
+`complete()` renders solved material into state.goal and updates presentation targets. It does not replace the six raw scratch planes, state.raw, or input fingerprints. Therefore unchanged same-gesture raw proof remains valid after canonical completion: skipping a duplicate input presentation retains the existing solved target rather than inventing a new material delta. If completion/material code actually writes a raw plane, its contentRevision invalidates that proof. A dedicated regression calls complete→accept unchanged (no input re-render), then performs a same-gesture raw write (one tile re-render and exact changed bytes).
+
+New gesture always changes scratch.gesture, part of the production signature; the regression uses the real signature callback and beginStroke→noteFinish to confirm all ten tiles re-render even with unchanged six-plane bytes. Deferred/resume and recreated tile states retain conservative fallback. The optimization does not replace the solver's complete pass or its global support coverage.
