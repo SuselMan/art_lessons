@@ -43,7 +43,10 @@ export class RibbonScratchPool {
   private _allocatedBytes = 0
   private _freeBytes = 0
 
-  constructor(gl: WebGLRenderingContext) {
+  private readonly bufferFactory?: (width:number,height:number,filter:'linear'|'nearest')=>AccumulationBuffer
+
+  constructor(gl: WebGLRenderingContext, bufferFactory?: (width:number,height:number,filter:'linear'|'nearest')=>AccumulationBuffer) {
+    this.bufferFactory=bufferFactory
     this.gl = gl
   }
 
@@ -60,8 +63,9 @@ export class RibbonScratchPool {
     // its getOrCreate comment. The pool must never hand back a buffer built
     // with a different filter, which is why it is keyed by size alone and
     // used by this one caller.
+    const buffer=this.bufferFactory?.(width,height,'nearest') ?? new AccumulationBuffer(this.gl, width, height, 'nearest')
     this._allocatedBytes += width * height * 4
-    return new AccumulationBuffer(this.gl, width, height, 'nearest')
+    return buffer
   }
 
   /** (§17.70) While set, released buffers are all kept: a rebuild on a
