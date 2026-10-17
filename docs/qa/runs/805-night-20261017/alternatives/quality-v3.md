@@ -1,0 +1,54 @@
+# #805: paper-deposition вместо принудительного мокрого контура
+
+Сохранёнv6 b22797f0. Rootописалегоactualimages: аркинаграницеводянойлужи,
+равномерныйободок/плоскаязаливка. Новаямодель`alternative-paper-deposition`
+неиспользуетgradientводыНИГДЕкакweight/rim. Этоmultiscale deterministic
+paper-guided flux/settling, не физическиполнаяакварель инеStableFluids.
+
+- Постояннаянеподвижнаячастьoriginal сохраняетисходныемелкиедетали;
+  подвижнаячасть40/80% transportнаfull1024, безlowresblur/high-passinjection.
+- Wetgate плавнооткрываетсяприwater.01..15, такчто.6штрих/.95лужаимеют
+  одинаковыйtransportgate иихстыкневыделяетсядугой. Dry0непропускаетничего;
+  thinwater.05существенноменееmobile, wet/drycontrolразличаются.
+- Paper-onlyreceiveraffinity направляетчастьпигментакнизинамреальнойpaper
+  texture. Stride4,2,1,1 (или6,3,1,1,1) даётзаметноемалоеfullresрастекание,
+  анебледныйhaloвдесяткипикселей. Около8–12axialpixelsмаксимальнойreach,
+  диагональныйгеометрическийreachбольше; фактическаяширинаоцениваетсяизPNG.
+- Послепереносафиксируетсячастьmobileпобумаге; дальнейшаяmobileчасть
+  продолжаетдвигаться. Структураобразуетсяотпереноса/адсорбции, неотцветового
+  шумовогоgainилиоднойpaperкомпозицииviewer.
+- Split/deposition вычисляютодинаковуюцелочисленнуюпорциюRGBA/C-mass
+  `d=round(byte*s)`: fixed+=d,mobile-=d. Этоустраняетнезависимоедвойное
+  округлениеприпередачемеждуфазами. SaturationfixedиUNORMflowокругление
+  по-прежнемумогуттерять/накапливатьмассу;actualmassratioобязателен.
+
+Presets15/18fullrespasses,7RGBA8textures≈28MiB, oneCPUauxpack4MiB
+переиспользуется. Compile/allocbeforetimer, uploadbeforetimer, fixedschedule.
+НеиспользуетCPUreduce, предыдущееCPU20–39msнепереноситсякакскоростьновоймодели.
+Highpsamplersснижаютлишнююнеопределённостьbyte-rounding; этоНЕcrossGPUproof.
+
+CPU: strictTS0, FakeGLlifecycledefault+2configs. `deposition-math.cjs`
+296064bytepartitionchecks,300seededfloatdonorcasesсintegerstride1/2/4
+masserror<1e-10,positive/premul/dryblocked;zero-pigmentнеинжектируется.
+GLSLdriver/actualpixels/скорость/качествоещёнепроверены. Soleoperatorвыполняет
+GPUпосленовойсборки;старыеIDs/searchграфынеизменены.
+
+Ограничениепервойверсии: wetdomainфиксирован, pigmentневыходитзаисходнуюводу.
+Приwatermaskсовпадающейскистьюэтоограничиваетвидимуюширинурастекания.
+Неувеличиваемdomainбезотдельногоэксперимента; возможныйследующийшаг —
+несколькопроходовконсервативнойwaterdiffusionпобумаге(нулеваяwaterконтроль
+остаётсянулевой), безводяногоградиентакакрисующегосигнала. СначалаGPUimages
+текущейверсии. Второйpresetmobile.8порекомендацииrootпокажетбольшеетечение,
+ноимеетбольшерискsaturation/masslossиутратыoriginaldetail.
+
+MoXi(LBM+porousflow+shapeevolution)неопровергаетсяпростойLBMнегативной
+проверкой: здешнийpaper-depositionявляетсясамостоятельнымупрощённым
+механизмом, несуррогатомполнойMoXi. Primaryabstract:
+https://researchportal.hkust.edu.hk/en/publications/moxi-real-time-ink-dispersion-in-absorbent-paper/
+
+Acceptanceguardsпередfreeze: finaldrypixelявновозвращаетисходныеbyteRGBA,
+а неupscaled/reconstructedRGB. Coarsedonorпроверяетminwetвсехintegercells
+междуendpoints (≤7samples), чтобынеперепрыгнутьдажеузкуюсухуюперемычку
+междуизолированнымилужами. Симметричныйпутьдаёттотжегейтобратномуface;
+CPUpropertymass300casesпроходитпослеэтойпоправки. Этоувеличиваетtexture
+fetchcostпервыхcoarseпроходов:таймингповторноизмеряется, непереноситсяизv6.
