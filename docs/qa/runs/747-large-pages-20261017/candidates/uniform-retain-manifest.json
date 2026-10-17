@@ -1,0 +1,13 @@
+{
+  "base": "397d03f5",
+  "files": {
+    "apps/web/src/engine/src/buffers/AccumulationBuffer.ts": {
+      "base": "f6304dc5d2daf4362c958140d89a2622c1d04acb5aac19aa251ba61bd11adbf3",
+      "candidate": "2044d2d5b04285c305d3251211f24606763c598fc6c51b5cf5b03c696ed3cc3d"
+    },
+    "apps/web/src/engine/src/watercolor/puddle/ContrastPhase.ts": {
+      "base": "45c39e5812982bf902b5cab1b09f8496f96e2e23d4dc1cd7cf2622cc2fcc3b0d",
+      "candidate": "eeaec137af38f8daa887a9c86fd825546c499ce70e160788d1bc24b5da7f5e8d"
+    }
+  }
+}

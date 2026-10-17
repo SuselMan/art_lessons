@@ -1,0 +1,65 @@
+--- a/apps/web/src/engine/src/buffers/AccumulationBuffer.ts
++++ b/apps/web/src/engine/src/buffers/AccumulationBuffer.ts
+@@ -75,7 +75,7 @@
+ 
+   _residencyEvict(): void {
+     const { gl, width, height } = this
+-    preserveResidencyState(gl, () => {
++    if (!this._backing || this._backing instanceof Uint8Array) preserveResidencyState(gl, () => {
+       const pixels = new Uint8Array(width * height * 4)
+       gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+@@ -102,19 +102,23 @@
+       this._texture = this._makeTexture(this._baseFilter)
+       this._fbo = this._makeFBO(this._texture)
+       const backing = this._backing!
++      const zeroUniform = !(backing instanceof Uint8Array) && backing.every(value => value === 0)
++      if (!zeroUniform) {
+       const pixels = backing instanceof Uint8Array ? backing : new Uint8Array(width * height * 4)
+       if (!(backing instanceof Uint8Array)) {
+         for (let i = 0; i < pixels.length; i += 4) pixels.set(backing, i)
+       }
+       gl.bindTexture(gl.TEXTURE_2D, this._texture)
+       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
++      } // Fresh texImage2D(null) has WebGL security-initialised zero texels.
+       if (this._mipsValid) gl.generateMipmap(gl.TEXTURE_2D)
+       const base = this._baseFilter === 'nearest' ? gl.NEAREST : gl.LINEAR
+       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, this._pointSampling ? gl.NEAREST : base)
+       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
+         this._pointSampling ? gl.NEAREST : this._mipSampling ? gl.LINEAR_MIPMAP_LINEAR : base)
+     })
+-    this._backing = undefined
++    // Keep only previously readback-verified four-byte uniforms, never full arrays.
++    if (this._backing instanceof Uint8Array) this._backing = undefined
+     this._resident = true
+   }
+ 
+@@ -164,7 +168,7 @@
+   }
+ 
+   get texture(): WebGLTexture { this._ensureResident(); return this._texture }
+-  get fbo(): WebGLFramebuffer { this._ensureResident(); return this._fbo }
++  get fbo(): WebGLFramebuffer { this._ensureResident(); this._invalidateMips(); return this._fbo }
+ 
+   /** (#365) Whether a mip chain can legally exist for this buffer at all.
+    *  WebGL1 only allows mipmaps on power-of-two textures, and a texture whose
+@@ -199,6 +203,8 @@
+    *  frame behind the stroke drawing it. Two texParameteri calls per write
+    *  batch is nothing next to the draws around them. */
+   private _invalidateMips(): void {
++    // Every write must invalidate AFTER hydration, including NPOT/no-mip buffers.
++    this._backing = undefined
+     if (!this._mipCapable || !this._mipsValid) return
+     const { gl } = this
+     this._mipsValid = false
+--- a/apps/web/src/engine/src/watercolor/puddle/ContrastPhase.ts
++++ b/apps/web/src/engine/src/watercolor/puddle/ContrastPhase.ts
+@@ -20,7 +20,7 @@
+  run(2,selection);const bytes=selection.readPixels()
+  const minCells=Math.ceil((t.minimumRegionArea??128)/((p.width/nx)*(p.height/ny)))
+  const keep=retainedComponents(bytes,nx,ny,minCells)
+- gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,regionKeep.texture);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,nx,ny,gl.RGBA,gl.UNSIGNED_BYTE,keep);
++ gl.activeTexture(gl.TEXTURE0);regionKeep.writePixels(keep);
+  run(0,referenceP);run(1,referenceC);
+ },destroy(){gl.useProgram(null);gl.deleteProgram(bg);gl.deleteProgram(split);gl.deleteBuffer(quad);background.destroy();selection.destroy();regionKeep.destroy()}}
+ }
