@@ -1,0 +1,3375 @@
+{
+  "source": "0be6e667",
+  "requestedCycles": 60,
+  "completedCycles": 36,
+  "pass": true,
+  "stoppedByCoordinator": true,
+  "wallSecondsApprox": 1830.679,
+  "activeCycleWallSeconds": 214.645,
+  "nonActiveResidualSeconds": 1616.034,
+  "configuredFullIdleSeconds": 1575,
+  "idleAccountingNote": "35 full configured45s intervals; final idle interrupted by stopfile. Exact idle was not timed separately; residual also includes startup, teardown and progress writes. Cycle active includes API verification, pixel reads/hashes and independent replay; not input/Undo latency.",
+  "operations": 1838,
+  "acceptedStrokes": 1080,
+  "authorUndoRedoMetadata": 720,
+  "deepChecks": [
+    {
+      "cycle": 0,
+      "wallMs": 5031,
+      "proofs": [
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "1df0d5f06d1d613e79b69669553f8d4a2f151bfa2da4b212e13c486618ec858d",
+          "oracleHash": "1df0d5f06d1d613e79b69669553f8d4a2f151bfa2da4b212e13c486618ec858d",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "7e1c0910fe08f1df855198ee807b55b7876fcd29fb846c2ced4ddce2abc96cf1",
+          "oracleHash": "7e1c0910fe08f1df855198ee807b55b7876fcd29fb846c2ced4ddce2abc96cf1",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 6,
+      "wallMs": 5887,
+      "proofs": [
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "19b5af390eaad7695463d88a6bb70e85f01629b845ff7979ef0020776e92517a",
+          "oracleHash": "19b5af390eaad7695463d88a6bb70e85f01629b845ff7979ef0020776e92517a",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "883c25792a47be5f9dbf309c67e120f3f417ba7d2fc398adea3fdd702abccfff",
+          "oracleHash": "883c25792a47be5f9dbf309c67e120f3f417ba7d2fc398adea3fdd702abccfff",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 12,
+      "wallMs": 8980,
+      "proofs": [
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "8d827f4b16bc5f279ed2dadfee40fcd42b70b8785bcafa0b4205695c88e7d50d",
+          "oracleHash": "8d827f4b16bc5f279ed2dadfee40fcd42b70b8785bcafa0b4205695c88e7d50d",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "2abf55223ba1edf925c3881184dbfd2d97ba417e8d0d9c61b99f42483781c804",
+          "oracleHash": "2abf55223ba1edf925c3881184dbfd2d97ba417e8d0d9c61b99f42483781c804",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 18,
+      "wallMs": 10332,
+      "proofs": [
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "76b2ecb51225d50175ec1f4e6aeda6cb4d5cd2497252dd3209bd72bd93b1aa63",
+          "oracleHash": "76b2ecb51225d50175ec1f4e6aeda6cb4d5cd2497252dd3209bd72bd93b1aa63",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "0e37920de501feabee613bab0b9536dced5a28265d0cda4beb4232c76946a0df",
+          "oracleHash": "0e37920de501feabee613bab0b9536dced5a28265d0cda4beb4232c76946a0df",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 24,
+      "wallMs": 12284,
+      "proofs": [
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "96e99828383216f9a7279a26edce519ba9da5ba7c5beb179a12eaf8179eef4c5",
+          "oracleHash": "96e99828383216f9a7279a26edce519ba9da5ba7c5beb179a12eaf8179eef4c5",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "02a24ae5def98b1904f3f955a1a123ce62afd3f384218e0f8d7f8c813c121a16",
+          "oracleHash": "02a24ae5def98b1904f3f955a1a123ce62afd3f384218e0f8d7f8c813c121a16",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 30,
+      "wallMs": 14433,
+      "proofs": [
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "24dc53295b7e8d77ec5c1fc1cca855d4cd2c5649112517bcb3a775ad3d2062e4",
+          "oracleHash": "24dc53295b7e8d77ec5c1fc1cca855d4cd2c5649112517bcb3a775ad3d2062e4",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "f979075519c930fc3cc04d59ea349a66ffc3beccacf4d03b0270adb311c01b99",
+          "oracleHash": "f979075519c930fc3cc04d59ea349a66ffc3beccacf4d03b0270adb311c01b99",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    }
+  ],
+  "regularFirstFiveMs": [
+    4127,
+    3540,
+    4351,
+    3977,
+    4230
+  ],
+  "regularLastFiveMs": [
+    5937,
+    6156,
+    5791,
+    6184,
+    6247
+  ],
+  "viewportExclusions": "RealAMD/Intel GPUs, desktop1100x850 DPR1 contexts/hasTouchfalse. Does not cover real Surface touch-budget/DPR1.5 or trusted author pointer path; ten Socket.io identities generate accepted content. CrossGPU exact equality is not claimed (#748 open).",
+  "identity": [
+    {
+      "user": "88bd5c9b-8b54-4142-bf1b-d0ad0bcf4e74",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "ea896b7b-7d62-4a33-b698-b0f493ee38d1",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "errors": [],
+  "samples": [
+    {
+      "cycle": 0,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 5031,
+      "proofs": [
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "1df0d5f06d1d613e79b69669553f8d4a2f151bfa2da4b212e13c486618ec858d",
+          "oracleHash": "1df0d5f06d1d613e79b69669553f8d4a2f151bfa2da4b212e13c486618ec858d",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "7e1c0910fe08f1df855198ee807b55b7876fcd29fb846c2ced4ddce2abc96cf1",
+          "oracleHash": "7e1c0910fe08f1df855198ee807b55b7876fcd29fb846c2ced4ddce2abc96cf1",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 53,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 1,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 105220826,
+            "total": 139311502
+          },
+          "glError": 0
+        },
+        {
+          "operations": 53,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 1,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 93513791,
+            "total": 130516399
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 1,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 4127,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            362,
+            58998,
+            50459,
+            560516
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            351,
+            59016,
+            50546,
+            561268
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 104,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 2,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 106151916,
+            "total": 139073540
+          },
+          "glError": 0
+        },
+        {
+          "operations": 104,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 2,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 102621991,
+            "total": 136238367
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 3540,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            1175,
+            66836,
+            56902,
+            845707
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            1127,
+            66898,
+            57044,
+            846806
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 155,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 3,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 106690117,
+            "total": 133686693
+          },
+          "glError": 0
+        },
+        {
+          "operations": 155,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 3,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 131193226,
+            "total": 157091602
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 3,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 4351,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            491,
+            68117,
+            54076,
+            844566
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            464,
+            68050,
+            54168,
+            845547
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 206,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 4,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 134575369,
+            "total": 167460969
+          },
+          "glError": 0
+        },
+        {
+          "operations": 206,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 4,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 114973459,
+            "total": 139477763
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 4,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 3977,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            871,
+            57319,
+            48208,
+            989936
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            834,
+            57344,
+            48284,
+            990945
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 257,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 1,
+            "computations": 6,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 113613501,
+            "total": 136749765
+          },
+          "glError": 0
+        },
+        {
+          "operations": 257,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 5,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 104779380,
+            "total": 137276368
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 5,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 4230,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            360,
+            60356,
+            54015,
+            991268
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            333,
+            60249,
+            54030,
+            992262
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 308,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 8,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 110799353,
+            "total": 141539433
+          },
+          "glError": 0
+        },
+        {
+          "operations": 308,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 6,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 136443210,
+            "total": 161872218
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 6,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 5887,
+      "proofs": [
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "19b5af390eaad7695463d88a6bb70e85f01629b845ff7979ef0020776e92517a",
+          "oracleHash": "19b5af390eaad7695463d88a6bb70e85f01629b845ff7979ef0020776e92517a",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "883c25792a47be5f9dbf309c67e120f3f417ba7d2fc398adea3fdd702abccfff",
+          "oracleHash": "883c25792a47be5f9dbf309c67e120f3f417ba7d2fc398adea3fdd702abccfff",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 359,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 9,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 168161425,
+            "total": 199608241
+          },
+          "glError": 0
+        },
+        {
+          "operations": 359,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 7,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 170367263,
+            "total": 197824055
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 7,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 4510,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            315,
+            46897,
+            43092,
+            1065918
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            286,
+            46778,
+            43065,
+            1066818
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 410,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 10,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 108803391,
+            "total": 139251727
+          },
+          "glError": 0
+        },
+        {
+          "operations": 410,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 8,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 113047741,
+            "total": 140008049
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 8,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 4808,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            700,
+            35846,
+            31734,
+            1104637
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            669,
+            35783,
+            31707,
+            1105281
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 461,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 11,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 112785707,
+            "total": 137349175
+          },
+          "glError": 0
+        },
+        {
+          "operations": 461,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 9,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 101573440,
+            "total": 137883576
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 9,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 4633,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            303,
+            36285,
+            32066,
+            1104943
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            279,
+            36141,
+            32000,
+            1105586
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 512,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 12,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 108252076,
+            "total": 141876648
+          },
+          "glError": 0
+        },
+        {
+          "operations": 512,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 10,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 116122717,
+            "total": 142207145
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 10,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 5054,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            644,
+            27354,
+            24707,
+            1125792
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            609,
+            27269,
+            24594,
+            1126257
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 563,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 3,
+            "computations": 14,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 113074921,
+            "total": 138790713
+          },
+          "glError": 0
+        },
+        {
+          "operations": 563,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 11,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 107423880,
+            "total": 138698924
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 11,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 5027,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            297,
+            27097,
+            25141,
+            1125790
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            275,
+            27013,
+            25089,
+            1126259
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 614,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 3,
+            "computations": 15,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 112152213,
+            "total": 142286681
+          },
+          "glError": 0
+        },
+        {
+          "operations": 614,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 12,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 105340658,
+            "total": 140602510
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 12,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 8980,
+      "proofs": [
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "8d827f4b16bc5f279ed2dadfee40fcd42b70b8785bcafa0b4205695c88e7d50d",
+          "oracleHash": "8d827f4b16bc5f279ed2dadfee40fcd42b70b8785bcafa0b4205695c88e7d50d",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "2abf55223ba1edf925c3881184dbfd2d97ba417e8d0d9c61b99f42483781c804",
+          "oracleHash": "2abf55223ba1edf925c3881184dbfd2d97ba417e8d0d9c61b99f42483781c804",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 665,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 3,
+            "computations": 16,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 199260939,
+            "total": 249193783
+          },
+          "glError": 0
+        },
+        {
+          "operations": 665,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 13,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 194760572,
+            "total": 245391492
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 13,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 5124,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            296,
+            20373,
+            19716,
+            1137380
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            273,
+            20291,
+            19637,
+            1137680
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 716,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 3,
+            "computations": 17,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 118158190,
+            "total": 141833738
+          },
+          "glError": 0
+        },
+        {
+          "operations": 716,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 14,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 138668783,
+            "total": 163783763
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 14,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 4962,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            631,
+            17313,
+            17229,
+            1144308
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            594,
+            17237,
+            17165,
+            1144611
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 767,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 3,
+            "computations": 18,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 112157298,
+            "total": 139329526
+          },
+          "glError": 0
+        },
+        {
+          "operations": 767,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 15,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 106789061,
+            "total": 137990821
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 15,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 5321,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            287,
+            16530,
+            16554,
+            1144051
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            264,
+            16468,
+            16494,
+            1144302
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 818,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 3,
+            "computations": 19,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 107875409,
+            "total": 141723149
+          },
+          "glError": 0
+        },
+        {
+          "operations": 818,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 16,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 113543967,
+            "total": 142249371
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 16,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 4432,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            631,
+            14625,
+            14353,
+            1147723
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            591,
+            14596,
+            14305,
+            1147861
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 869,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 4,
+            "computations": 21,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 108802809,
+            "total": 137907497
+          },
+          "glError": 0
+        },
+        {
+          "operations": 869,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 17,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 107870788,
+            "total": 137762332
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 17,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 5752,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            286,
+            14259,
+            14516,
+            1147633
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            264,
+            14222,
+            14479,
+            1147757
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 920,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 4,
+            "computations": 22,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 108578987,
+            "total": 141610283
+          },
+          "glError": 0
+        },
+        {
+          "operations": 920,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 18,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 115698205,
+            "total": 143332737
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 18,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 10332,
+      "proofs": [
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "76b2ecb51225d50175ec1f4e6aeda6cb4d5cd2497252dd3209bd72bd93b1aa63",
+          "oracleHash": "76b2ecb51225d50175ec1f4e6aeda6cb4d5cd2497252dd3209bd72bd93b1aa63",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "0e37920de501feabee613bab0b9536dced5a28265d0cda4beb4232c76946a0df",
+          "oracleHash": "0e37920de501feabee613bab0b9536dced5a28265d0cda4beb4232c76946a0df",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 971,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 4,
+            "computations": 23,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 131841389,
+            "total": 182125497
+          },
+          "glError": 0
+        },
+        {
+          "operations": 971,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 19,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 146872229,
+            "total": 184683897
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 19,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 5780,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            286,
+            12528,
+            12638,
+            1149109
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            264,
+            12510,
+            12616,
+            1149205
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1022,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 4,
+            "computations": 24,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 106879742,
+            "total": 142433822
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1022,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 20,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 116999478,
+            "total": 141535938
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 20,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 5278,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            631,
+            12285,
+            11607,
+            1150212
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            591,
+            12267,
+            11615,
+            1150309
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1073,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 4,
+            "computations": 25,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 136630472,
+            "total": 162474988
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1073,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 21,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 101424046,
+            "total": 138100254
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 21,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 5403,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            286,
+            11857,
+            11561,
+            1150107
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            263,
+            11856,
+            11566,
+            1150199
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1124,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 4,
+            "computations": 26,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 110168725,
+            "total": 142619337
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1124,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 22,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 105929018,
+            "total": 141572914
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 22,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 5363,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            630,
+            11906,
+            10809,
+            1151032
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            591,
+            11894,
+            10812,
+            1151124
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1175,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 4,
+            "computations": 27,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 112158865,
+            "total": 138919205
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1175,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 23,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 106013800,
+            "total": 137873668
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 23,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 5451,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            284,
+            11548,
+            11596,
+            1151071
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            262,
+            11554,
+            11603,
+            1151156
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1226,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 4,
+            "computations": 28,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 116715987,
+            "total": 142655039
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1226,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 24,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 114160472,
+            "total": 140821692
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 24,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 12284,
+      "proofs": [
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "96e99828383216f9a7279a26edce519ba9da5ba7c5beb179a12eaf8179eef4c5",
+          "oracleHash": "96e99828383216f9a7279a26edce519ba9da5ba7c5beb179a12eaf8179eef4c5",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "02a24ae5def98b1904f3f955a1a123ce62afd3f384218e0f8d7f8c813c121a16",
+          "oracleHash": "02a24ae5def98b1904f3f955a1a123ce62afd3f384218e0f8d7f8c813c121a16",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1277,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 4,
+            "computations": 29,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 178225616,
+            "total": 222259520
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1277,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 25,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 148299104,
+            "total": 185535512
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 25,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 5429,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            280,
+            11293,
+            11182,
+            1151748
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            260,
+            11293,
+            11201,
+            1151830
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1328,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 4,
+            "computations": 30,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 106249540,
+            "total": 142431360
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1328,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 26,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 109264455,
+            "total": 141909195
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 26,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 5523,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            630,
+            11221,
+            10065,
+            1152138
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            591,
+            11222,
+            10084,
+            1152238
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1379,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 4,
+            "computations": 31,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 101452466,
+            "total": 137980454
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1379,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 27,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 103830261,
+            "total": 136907905
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 27,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 6062,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            280,
+            10890,
+            10310,
+            1152241
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            260,
+            10880,
+            10308,
+            1152321
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1430,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 4,
+            "computations": 32,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 107759596,
+            "total": 143813292
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1430,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 28,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 108006334,
+            "total": 142732910
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 28,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 6266,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            622,
+            11011,
+            9791,
+            1152587
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            583,
+            11017,
+            9819,
+            1152685
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1481,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 4,
+            "computations": 33,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 109317499,
+            "total": 138279719
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1481,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 29,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 132303017,
+            "total": 162159277
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 29,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 6980,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            280,
+            10724,
+            10294,
+            1152677
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            260,
+            10719,
+            10290,
+            1152755
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1532,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 4,
+            "computations": 34,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 145860209,
+            "total": 171954109
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1532,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 30,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 134441729,
+            "total": 163769929
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 30,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 14433,
+      "proofs": [
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "24dc53295b7e8d77ec5c1fc1cca855d4cd2c5649112517bcb3a775ad3d2062e4",
+          "oracleHash": "24dc53295b7e8d77ec5c1fc1cca855d4cd2c5649112517bcb3a775ad3d2062e4",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "layerId": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "f979075519c930fc3cc04d59ea349a66ffc3beccacf4d03b0270adb311c01b99",
+          "oracleHash": "f979075519c930fc3cc04d59ea349a66ffc3beccacf4d03b0270adb311c01b99",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1583,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 5,
+            "computations": 36,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 212299316,
+            "total": 269069360
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1583,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 31,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 189112791,
+            "total": 252220871
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 31,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 5937,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            280,
+            10661,
+            10147,
+            1153069
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            260,
+            10654,
+            10146,
+            1153142
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1634,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 5,
+            "computations": 37,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 116603125,
+            "total": 143739617
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1634,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 32,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 131531993,
+            "total": 164592793
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 32,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 6156,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            621,
+            10756,
+            9791,
+            1153300
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            582,
+            10770,
+            9791,
+            1153381
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1685,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 5,
+            "computations": 38,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 113544517,
+            "total": 138879285
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1685,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 33,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 111189953,
+            "total": 137537521
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 33,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 5791,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            280,
+            10554,
+            9949,
+            1153377
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            260,
+            10544,
+            9943,
+            1153446
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1736,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 6,
+            "computations": 40,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 108939222,
+            "total": 144967366
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1736,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 34,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 80771955,
+            "total": 120177815
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 34,
+      "layer": "qa-ten-2239f6fd-13ab-4098-85f3-c1d397cee44c",
+      "elapsedMs": 6184,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            621,
+            10402,
+            9181,
+            1153543
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            582,
+            10399,
+            9200,
+            1153622
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1787,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 6,
+            "computations": 41,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 111163960,
+            "total": 139615240
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1787,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 35,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 60,
+          "textureBytes": null,
+          "heap": {
+            "used": 134487048,
+            "total": 162436500
+          },
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "cycle": 35,
+      "layer": "qa-ten-alt-c4eabef0-ce31-47c9-a60f-ec491f5db28c",
+      "elapsedMs": 6247,
+      "proofs": [
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            280,
+            10448,
+            10043,
+            1153639
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        },
+        {
+          "scope": "Actual dry buffer aggregate, independent replay only every sixth cycle",
+          "sum": [
+            260,
+            10447,
+            10029,
+            1153703
+          ],
+          "bytes": 1048576,
+          "glError": 0
+        }
+      ],
+      "metrics": [
+        {
+          "operations": 1838,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 0,
+            "residentLayers": 0,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 6,
+            "computations": 42,
+            "pending": false,
+            "revisions": []
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 143514100,
+            "total": 166829944
+          },
+          "glError": 0
+        },
+        {
+          "operations": 1838,
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 36,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "peers": 0,
+          "previewStreams": 30,
+          "textureBytes": null,
+          "heap": {
+            "used": 135747528,
+            "total": 165192136
+          },
+          "glError": 0
+        }
+      ]
+    }
+  ]
+}
