@@ -1,4 +1,4 @@
-import { BufferResidency, beginResidencyDraw, endResidencyDraw, preserveResidencyBindings, preserveResidencyReadback, preserveResidencyUpload, releaseResidencyTexture } from './BufferResidency'
+import { BufferResidency, beginResidencyDraw, endResidencyDraw, preserveBufferAllocationBindings, preserveResidencyBindings, preserveResidencyReadback, preserveResidencyUpload, releaseResidencyTexture } from './BufferResidency'
 
 // Persistent WebGL framebuffer that accumulates graphite over strokes.
 // Blending: ONE, ONE_MINUS_SRC_ALPHA  →  result = src + dst*(1-src.a)
@@ -47,7 +47,7 @@ export class AccumulationBuffer {
       residency.register(this)
       this._residency = residency
       try {
-        const handles = preserveResidencyBindings(gl, () => {
+        const handles = preserveBufferAllocationBindings(gl, () => {
           const texture = this._makeTexture(filter)
           return { texture, fbo: this._makeFBO(texture) }
         })

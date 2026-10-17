@@ -1,3 +1,4 @@
+import {withBufferAllocationBindings} from '../../buffers/BufferResidency'
 import {CapturedReadScope} from './CapturedReadScope'
 import {emptyM70PostphaseRect} from './M70EmptyPostphase'
 import {committedReadRect} from './CommittedReadRect'
@@ -76,7 +77,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
  }
  function allocateMany(count:number,width:number,height:number):AccumulationBuffer[]{
   const allocated:AccumulationBuffer[]=[]
-  try{for(let i=0;i<count;i++)allocated.push(make(width,height,'nearest'));return allocated}
+  try{return withBufferAllocationBindings(gl,()=>{for(let i=0;i<count;i++)allocated.push(make(width,height,'nearest'));return allocated})}
   catch(error){for(const buffer of allocated)buffer.destroy();throw error}
  }
  function* rects(step=512):Generator<MaterialRect>{for(let y=0;y<size.height;y+=step)for(let x=0;x<size.width;x+=step)yield{x,y,width:Math.min(step,size.width-x),height:Math.min(step,size.height-y)}}

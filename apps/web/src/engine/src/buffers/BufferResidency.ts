@@ -56,6 +56,31 @@ export function preserveResidencyBindings<T>(gl:WebGLRenderingContext,run:()=>T)
   gl.bindTexture(gl.TEXTURE_2D,texture&&!releasedTextures.has(texture)?texture:null)
  }
 }
+/** Synchronous allocation-only scopes; no hooks survive their finally. */
+const allocationBindings = new WeakMap<WebGLRenderingContext, () => void>()
+export function withBufferAllocationBindings<T>(gl:WebGLRenderingContext,work:()=>T):T {
+ const fbo=gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer|null
+ const active=gl.getParameter(gl.ACTIVE_TEXTURE) as number
+ const texture=gl.getParameter(gl.TEXTURE_BINDING_2D) as WebGLTexture|null
+ const restore=()=>{
+  gl.bindFramebuffer(gl.FRAMEBUFFER,fbo)
+  gl.activeTexture(active)
+  gl.bindTexture(gl.TEXTURE_2D,texture&&!releasedTextures.has(texture)?texture:null)
+ }
+ const previous=allocationBindings.get(gl)
+ allocationBindings.set(gl,restore)
+ try{return work()}finally{
+  if(previous)allocationBindings.set(gl,previous);else allocationBindings.delete(gl)
+  restore()
+ }
+}
+/** Constructor allocation only. Restore even inside a batch: admission for the
+ * next buffer must not see the preceding allocation as a bound sampler. */
+export function preserveBufferAllocationBindings<T>(gl:WebGLRenderingContext,work:()=>T):T {
+ const restore=allocationBindings.get(gl)
+ if(!restore)return preserveResidencyBindings(gl,work)
+ try{return work()}finally{restore()}
+}
 /** Internal only: normalize exactly the pixel-store parameters this operation reads. */
 function preserveResidencyPixelStore<T>(gl:WebGLRenderingContext,keys:readonly number[],run:()=>T):T {
  const saved=keys.filter(key=>typeof key==='number').map(key=>[key,gl.getParameter(key)] as const)
