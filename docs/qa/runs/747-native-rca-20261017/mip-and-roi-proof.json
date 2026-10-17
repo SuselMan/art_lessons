@@ -1,0 +1,1595 @@
+{
+  "qualification": "No QA sampling or cache-size overrides. Standalone material AB passed all full stages. Room timings stop before readback; nested method times overlap. cf54 Room has accumulated prior QA history; ROI Room starts with no operations. ROI first gesture still exceeds10s and was stopped after actual physical capture, before Dry/replay oracle. Raw ROI/full render crop equivalence is NOT yet measured.",
+  "reports": [
+    {
+      "case": "mip-default",
+      "source": "cf54f4a7",
+      "size": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "referenceDestroyedBuffers": 10,
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0",
+          "referenceHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386",
+          "referenceHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6",
+          "referenceHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4",
+          "referenceHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9",
+          "referenceHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70",
+          "referenceHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3",
+          "referenceHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256",
+          "referenceHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "errors": [],
+      "lost": false
+    },
+    {
+      "case": "mip-1536",
+      "source": "cf54f4a7",
+      "size": 1536,
+      "domain": null,
+      "referenceDestroyedBuffers": 10,
+      "inputHashes": {
+        "p": "088d44b0a654b21c2fa37aa10bdaea9be502c587c117bb2a35aeda96bbf10c8a",
+        "c": "2c690c2d6e2cd5042c0c4d439e5bb1114b10518ff86616c261350de37b0f7d93",
+        "coverage": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214",
+        "water": "12d0114d4d8ff826948a2eb1dc51cabd4915faef81c36fe8727f9b6b0c7d373f"
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "296307e2da1afefbe809c3a59087eda0f733d255795253496afc7ca0a6f389b6",
+          "referenceHash": "296307e2da1afefbe809c3a59087eda0f733d255795253496afc7ca0a6f389b6"
+        },
+        "referenceC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "9d206eb828e46ec7051d0fe90ea0b2460c19f8bc776cbedb6de84cde1b288b4f",
+          "referenceHash": "9d206eb828e46ec7051d0fe90ea0b2460c19f8bc776cbedb6de84cde1b288b4f"
+        },
+        "solvedP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "ab8e1301df7600a8f6d10e957b1f0ea655d49792c0de84681d6fa9a5211d97ff",
+          "referenceHash": "ab8e1301df7600a8f6d10e957b1f0ea655d49792c0de84681d6fa9a5211d97ff"
+        },
+        "solvedC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "80fdd575e05594836e0a885f1994ef8653a79b6c492d6df0eaa466ea332e6d38",
+          "referenceHash": "80fdd575e05594836e0a885f1994ef8653a79b6c492d6df0eaa466ea332e6d38"
+        },
+        "solvedCoverage": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214",
+          "referenceHash": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214"
+        },
+        "coarse:gate": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "2901c5ec5e67b3be424208232336f4221d45fff4175838e9edad3bcdc313e1dc",
+          "referenceHash": "2901c5ec5e67b3be424208232336f4221d45fff4175838e9edad3bcdc313e1dc"
+        },
+        "coarse:beforeP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "b18f2920a908a6df8348d74484954c8d0941ddca609fada8db4fec377c98392e",
+          "referenceHash": "b18f2920a908a6df8348d74484954c8d0941ddca609fada8db4fec377c98392e"
+        },
+        "coarse:afterP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "0a40feee833ac9a6d826dcdddcf02c1fbc55ef582e0a363276d0e2ea325d95ef",
+          "referenceHash": "0a40feee833ac9a6d826dcdddcf02c1fbc55ef582e0a363276d0e2ea325d95ef"
+        },
+        "coarse:beforeC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "0ff3fa042a73952e65fbbdce971fc49da3ec3ad721fd4e5d2c6d1bc555f781d8",
+          "referenceHash": "0ff3fa042a73952e65fbbdce971fc49da3ec3ad721fd4e5d2c6d1bc555f781d8"
+        },
+        "coarse:afterC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "8d0913be99719af932068e1eb8a147a1ec2936ad8cdc367947763686ee30be8c",
+          "referenceHash": "8d0913be99719af932068e1eb8a147a1ec2936ad8cdc367947763686ee30be8c"
+        }
+      },
+      "diffs": {
+        "p": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "14f5827f625a88271185804b9644d9a0dad26d267299358bfdd8f78db54dabfb",
+          "referenceHash": "14f5827f625a88271185804b9644d9a0dad26d267299358bfdd8f78db54dabfb"
+        },
+        "c": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "27553090ee9d1d9474c26dacb3489ce87b1e4fb83a877bb15455635ac934cc75",
+          "referenceHash": "27553090ee9d1d9474c26dacb3489ce87b1e4fb83a877bb15455635ac934cc75"
+        },
+        "coverage": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "691cd783f8a78c7304d5206372c6555795adb68b754aeb83caf996e7ed267563",
+          "referenceHash": "691cd783f8a78c7304d5206372c6555795adb68b754aeb83caf996e7ed267563"
+        }
+      },
+      "errors": [],
+      "lost": false
+    },
+    {
+      "case": "roi-default",
+      "source": "397d03f5",
+      "size": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "referenceDestroyedBuffers": 10,
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0",
+          "referenceHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386",
+          "referenceHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6",
+          "referenceHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4",
+          "referenceHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9",
+          "referenceHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70",
+          "referenceHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3",
+          "referenceHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256",
+          "referenceHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "errors": [],
+      "lost": false
+    },
+    {
+      "case": "roi-1536",
+      "source": "397d03f5",
+      "size": 1536,
+      "domain": null,
+      "referenceDestroyedBuffers": 10,
+      "inputHashes": {
+        "p": "088d44b0a654b21c2fa37aa10bdaea9be502c587c117bb2a35aeda96bbf10c8a",
+        "c": "2c690c2d6e2cd5042c0c4d439e5bb1114b10518ff86616c261350de37b0f7d93",
+        "coverage": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214",
+        "water": "12d0114d4d8ff826948a2eb1dc51cabd4915faef81c36fe8727f9b6b0c7d373f"
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "296307e2da1afefbe809c3a59087eda0f733d255795253496afc7ca0a6f389b6",
+          "referenceHash": "296307e2da1afefbe809c3a59087eda0f733d255795253496afc7ca0a6f389b6"
+        },
+        "referenceC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "9d206eb828e46ec7051d0fe90ea0b2460c19f8bc776cbedb6de84cde1b288b4f",
+          "referenceHash": "9d206eb828e46ec7051d0fe90ea0b2460c19f8bc776cbedb6de84cde1b288b4f"
+        },
+        "solvedP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "ab8e1301df7600a8f6d10e957b1f0ea655d49792c0de84681d6fa9a5211d97ff",
+          "referenceHash": "ab8e1301df7600a8f6d10e957b1f0ea655d49792c0de84681d6fa9a5211d97ff"
+        },
+        "solvedC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "80fdd575e05594836e0a885f1994ef8653a79b6c492d6df0eaa466ea332e6d38",
+          "referenceHash": "80fdd575e05594836e0a885f1994ef8653a79b6c492d6df0eaa466ea332e6d38"
+        },
+        "solvedCoverage": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214",
+          "referenceHash": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214"
+        },
+        "coarse:gate": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "2901c5ec5e67b3be424208232336f4221d45fff4175838e9edad3bcdc313e1dc",
+          "referenceHash": "2901c5ec5e67b3be424208232336f4221d45fff4175838e9edad3bcdc313e1dc"
+        },
+        "coarse:beforeP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "b18f2920a908a6df8348d74484954c8d0941ddca609fada8db4fec377c98392e",
+          "referenceHash": "b18f2920a908a6df8348d74484954c8d0941ddca609fada8db4fec377c98392e"
+        },
+        "coarse:afterP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "0a40feee833ac9a6d826dcdddcf02c1fbc55ef582e0a363276d0e2ea325d95ef",
+          "referenceHash": "0a40feee833ac9a6d826dcdddcf02c1fbc55ef582e0a363276d0e2ea325d95ef"
+        },
+        "coarse:beforeC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "0ff3fa042a73952e65fbbdce971fc49da3ec3ad721fd4e5d2c6d1bc555f781d8",
+          "referenceHash": "0ff3fa042a73952e65fbbdce971fc49da3ec3ad721fd4e5d2c6d1bc555f781d8"
+        },
+        "coarse:afterC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "8d0913be99719af932068e1eb8a147a1ec2936ad8cdc367947763686ee30be8c",
+          "referenceHash": "8d0913be99719af932068e1eb8a147a1ec2936ad8cdc367947763686ee30be8c"
+        }
+      },
+      "diffs": {
+        "p": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "14f5827f625a88271185804b9644d9a0dad26d267299358bfdd8f78db54dabfb",
+          "referenceHash": "14f5827f625a88271185804b9644d9a0dad26d267299358bfdd8f78db54dabfb"
+        },
+        "c": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "27553090ee9d1d9474c26dacb3489ce87b1e4fb83a877bb15455635ac934cc75",
+          "referenceHash": "27553090ee9d1d9474c26dacb3489ce87b1e4fb83a877bb15455635ac934cc75"
+        },
+        "coverage": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "691cd783f8a78c7304d5206372c6555795adb68b754aeb83caf996e7ed267563",
+          "referenceHash": "691cd783f8a78c7304d5206372c6555795adb68b754aeb83caf996e7ed267563"
+        }
+      },
+      "errors": [],
+      "lost": false
+    },
+    {
+      "case": "a4l-mip120-profile",
+      "source": "cf54f4a7",
+      "geometry": {
+        "width": 1754,
+        "height": 1240
+      },
+      "inputLineage": {
+        "operations": [
+          {
+            "id": "9ece2462-3fd5-43fe-891e-27064ab1e72d",
+            "type": "layer_add",
+            "seq": 1,
+            "state": "done"
+          },
+          {
+            "id": "585aw4z7KF",
+            "type": "stroke",
+            "seq": 2,
+            "state": "done",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1"
+          },
+          {
+            "id": "392d5380-c99a-4143-b7bb-54bee9946ee0",
+            "type": "layer_add",
+            "seq": 3,
+            "state": "done"
+          },
+          {
+            "id": "zbOgI3irYW",
+            "type": "stroke",
+            "seq": 4,
+            "state": "done",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1"
+          },
+          {
+            "id": "89c8fcc1-8f06-440a-ac3d-84c7b0d5d188",
+            "type": "layer_add",
+            "seq": 5,
+            "state": "done"
+          },
+          {
+            "id": "sPyzPHSmEN",
+            "type": "stroke",
+            "seq": 6,
+            "state": "done",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1"
+          }
+        ],
+        "controller": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 3,
+          "residentLayers": 2,
+          "parkedLayers": 1,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 3,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": true,
+              "active": true
+            },
+            {
+              "epoch": 1,
+              "ready": true,
+              "active": true
+            }
+          ]
+        },
+        "layerCount": 5
+      },
+      "cases": [
+        {
+          "name": "room-native-ready",
+          "wallAt": 1792223727266
+        },
+        {
+          "name": "RAF-foreground-probe",
+          "wallAt": 1792223739566,
+          "times": [
+            434.6999999999971,
+            501.5,
+            434.6000000000058,
+            468.09999999999127,
+            451.3000000000029,
+            434.6999999999971,
+            451.3000000000029,
+            451.3999999999942,
+            468.1000000000058,
+            451.3000000000029,
+            434.59999999999127,
+            451.3000000000029,
+            451.40000000000873,
+            451.3999999999942,
+            451.3000000000029,
+            451.3999999999942,
+            451.3000000000029,
+            468.1000000000058,
+            468,
+            434.6999999999971
+          ],
+          "hidden": false,
+          "visibility": "visible"
+        },
+        {
+          "name": "operation-layer_add-idle",
+          "wallAt": 1792223743858,
+          "telemetry": {
+            "label": "layer_add",
+            "start": 112708.59999990463,
+            "lru": {},
+            "worst": [],
+            "raf": {
+              "count": 6,
+              "sumMs": 2925.5,
+              "maxMs": 551.7000000000116,
+              "histogram": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                6,
+                0
+              ],
+              "over50": 6,
+              "over100": 6
+            },
+            "visibility": [
+              {
+                "at": 112708.70000004768,
+                "hidden": false,
+                "state": "visible"
+              },
+              {
+                "at": 116082.20000004768,
+                "hidden": false,
+                "state": "visible"
+              }
+            ],
+            "end": 116082.20000004768,
+            "wallMs": 3373.600000143051
+          },
+          "nativeElapsedMs": 3845
+        },
+        {
+          "0": {
+            "controller": "PagedPuddleRoomController"
+          },
+          "1": {
+            "constructor": "AccumulationBuffer",
+            "dynamicImportSame": false
+          },
+          "name": "deep-telemetry-identity",
+          "wallAt": 1792223746285
+        },
+        {
+          "name": "trusted-pen-crosses-both1024-seams",
+          "wallAt": 1792223787771,
+          "telemetry": {
+            "label": "trusted-pen-crosses-both1024-seams",
+            "start": 123223.89999985695,
+            "lru": {},
+            "worst": [],
+            "raf": {
+              "count": 45,
+              "sumMs": 35823.600000000006,
+              "maxMs": 7572.700000000012,
+              "histogram": [
+                0,
+                10,
+                7,
+                2,
+                3,
+                8,
+                6,
+                9
+              ],
+              "over50": 26,
+              "over100": 23
+            },
+            "visibility": [
+              {
+                "at": 123224.09999990463,
+                "hidden": false,
+                "state": "visible"
+              },
+              {
+                "at": 159519.20000004768,
+                "hidden": false,
+                "state": "visible"
+              }
+            ],
+            "methods": {
+              "controller.present@DOWN": {
+                "count": 18,
+                "sumMs": 44.60000014305115,
+                "maxMs": 32.200000047683716
+              },
+              "gl.readPixels@DOWN": {
+                "count": 398,
+                "sumMs": 3421.600000143051,
+                "maxMs": 44.40000009536743,
+                "nominalBytes": 1557856256
+              },
+              "actualBuffer._residencyEvict@DOWN": {
+                "count": 378,
+                "sumMs": 4898.599999427795,
+                "maxMs": 83.20000004768372,
+                "nominalBytes": 1473970176
+              },
+              "actualCache.reserve@DOWN": {
+                "count": 396,
+                "sumMs": 5048.500001192093,
+                "maxMs": 83.20000004768372
+              },
+              "actualBuffer._residencyHydrate@DOWN": {
+                "count": 308,
+                "sumMs": 9123.799998521805,
+                "maxMs": 92.79999995231628,
+                "nominalBytes": 1258815488
+              },
+              "actualCache.touch@DOWN": {
+                "count": 987,
+                "sumMs": 13553.400000572205,
+                "maxMs": 146.10000014305115,
+                "nominalBytes": 4057202688
+              },
+              "controller.frame@DOWN": {
+                "count": 19,
+                "sumMs": 481.7999999523163,
+                "maxMs": 481.09999990463257
+              },
+              "actualBuffer.readPixels@DOWN": {
+                "count": 20,
+                "sumMs": 757.0000007152557,
+                "maxMs": 124.79999995231628,
+                "nominalBytes": 83886080
+              },
+              "controller.source@DOWN": {
+                "count": 1,
+                "sumMs": 812.6999998092651,
+                "maxMs": 812.6999998092651
+              },
+              "engine._ribbonDabsWork@DOWN": {
+                "count": 4,
+                "sumMs": 0,
+                "maxMs": 0
+              },
+              "controller.beforePaint@DOWN": {
+                "count": 4,
+                "sumMs": 0.09999990463256836,
+                "maxMs": 0.09999990463256836
+              },
+              "scratch.compositeScalars@DOWN": {
+                "count": 20,
+                "sumMs": 0,
+                "maxMs": 0
+              },
+              "actualCache.register@DOWN": {
+                "count": 88,
+                "sumMs": 634.2000002861023,
+                "maxMs": 83.29999995231628,
+                "nominalBytes": 319553536
+              },
+              "pool.acquire@DOWN": {
+                "count": 44,
+                "sumMs": 444.90000009536743,
+                "maxMs": 84.70000004768372
+              },
+              "host.makeBuffer@DOWN": {
+                "count": 44,
+                "sumMs": 363.699999332428,
+                "maxMs": 35.90000009536743
+              },
+              "controller.accept@DOWN": {
+                "count": 4,
+                "sumMs": 1540.900000333786,
+                "maxMs": 875.1000001430511
+              },
+              "engine._onStart@DOWN": {
+                "count": 1,
+                "sumMs": 944.1000001430511,
+                "maxMs": 944.1000001430511
+              },
+              "engine._onMove@DOWN": {
+                "count": 4,
+                "sumMs": 11069.099999904633,
+                "maxMs": 6214.199999809265
+              },
+              "engine._ribbonDabsWork@UP": {
+                "count": 1,
+                "sumMs": 0,
+                "maxMs": 0
+              },
+              "controller.beforePaint@UP": {
+                "count": 1,
+                "sumMs": 0,
+                "maxMs": 0
+              },
+              "scratch.compositeScalars@UP": {
+                "count": 22,
+                "sumMs": 0,
+                "maxMs": 0
+              },
+              "gl.readPixels@UP": {
+                "count": 710,
+                "sumMs": 7232.600001335144,
+                "maxMs": 334.40000009536743,
+                "nominalBytes": 2858805024
+              },
+              "actualBuffer._residencyEvict@UP": {
+                "count": 627,
+                "sumMs": 9314.799996614456,
+                "maxMs": 503,
+                "nominalBytes": 2592697344
+              },
+              "actualCache.reserve@UP": {
+                "count": 849,
+                "sumMs": 9553.499997377396,
+                "maxMs": 503
+              },
+              "actualBuffer._residencyHydrate@UP": {
+                "count": 595,
+                "sumMs": 7429.900003194809,
+                "maxMs": 197.70000004768372,
+                "nominalBytes": 2367278080
+              },
+              "actualCache.touch@UP": {
+                "count": 2792,
+                "sumMs": 14635.699999570847,
+                "maxMs": 218.20000004768372,
+                "nominalBytes": 8404537600
+              },
+              "controller.present@UP": {
+                "count": 87,
+                "sumMs": 468.30000019073486,
+                "maxMs": 188.5
+              },
+              "controller.accept@UP": {
+                "count": 2,
+                "sumMs": 1109.9000000953674,
+                "maxMs": 775.8000001907349
+              },
+              "controller.finish@UP": {
+                "count": 1,
+                "sumMs": 775.9000000953674,
+                "maxMs": 775.9000000953674
+              },
+              "engine._onEnd@UP": {
+                "count": 1,
+                "sumMs": 6371.599999904633,
+                "maxMs": 6371.599999904633
+              },
+              "controller.frame@UP": {
+                "count": 27,
+                "sumMs": 14277.199999809265,
+                "maxMs": 3223.399999856949
+              },
+              "solver.resetFromScratch@UP": {
+                "count": 1,
+                "sumMs": 0.09999990463256836,
+                "maxMs": 0.09999990463256836
+              },
+              "controller.start@UP": {
+                "count": 1,
+                "sumMs": 0.09999990463256836,
+                "maxMs": 0.09999990463256836
+              },
+              "actualBuffer.readPixels@UP": {
+                "count": 83,
+                "sumMs": 1550.7999997138977,
+                "maxMs": 116.20000004768372,
+                "nominalBytes": 266107680
+              },
+              "actualCache.register@UP": {
+                "count": 254,
+                "sumMs": 2397.1000003814697,
+                "maxMs": 503,
+                "nominalBytes": 735585280
+              },
+              "solver.step@UP": {
+                "count": 23,
+                "sumMs": 7567.700000524521,
+                "maxMs": 1548.1000001430511
+              },
+              "pool.acquire@UP": {
+                "count": 45,
+                "sumMs": 2176.800000190735,
+                "maxMs": 504.89999985694885
+              },
+              "scratch.captureFinishMetadata@UP": {
+                "count": 3,
+                "sumMs": 0.7000000476837158,
+                "maxMs": 0.5
+              },
+              "plan.prepare@UP": {
+                "count": 3,
+                "sumMs": 72.5,
+                "maxMs": 26.299999952316284
+              },
+              "solver.dry@UP": {
+                "count": 1,
+                "sumMs": 0,
+                "maxMs": 0
+              },
+              "controller.complete@UP": {
+                "count": 1,
+                "sumMs": 2339.2000000476837,
+                "maxMs": 2339.2000000476837
+              }
+            },
+            "phase": "UP",
+            "end": 159519.20000004768,
+            "wallMs": 36295.300000190735
+          },
+          "upToObservedIdleMs": 21983.099999904633
+        },
+        {
+          "name": "actual-physical-first-after-UP-cache120MiB",
+          "wallAt": 1792223788331,
+          "physical": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "hash": "1d9e6a36ba94b796561ac517aee5812e54e0663f1ad859c14a9bacdeebc5d162",
+              "alpha": 2033
+            },
+            {
+              "x": 1024,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "hash": "b307a8f5591c649f6f5425d6b3b71e459f084e2a48db52653fa59b2e458b99d7",
+              "alpha": 300
+            },
+            {
+              "x": 0,
+              "y": 1024,
+              "w": 1024,
+              "h": 1024,
+              "hash": "76a7bc6bad86575b2eb5360924c95a75886afaec86181889dc9d32793db2e8a1",
+              "alpha": 291
+            },
+            {
+              "x": 1024,
+              "y": 1024,
+              "w": 1024,
+              "h": 1024,
+              "hash": "04fcfe4b232ec0fa69b60214e540282a4c4524e7b6230defb7d99032a963439c",
+              "alpha": 1563
+            }
+          ],
+          "puddle": "PagedPuddleRoomController",
+          "state": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 4,
+            "residentLayers": 2,
+            "parkedLayers": 2,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 4,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "cache": {
+            "resident": 122093568,
+            "budget": 125829120
+          },
+          "gl": 0,
+          "lost": false
+        }
+      ],
+      "profileOnly": true,
+      "failure": null,
+      "errors": []
+    },
+    {
+      "case": "a4l-roi-clean",
+      "source": "397d03f5",
+      "geometry": {
+        "width": 1754,
+        "height": 1240
+      },
+      "inputLineage": {
+        "operations": [],
+        "controller": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 1,
+          "residentLayers": 1,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 0,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": false,
+              "active": false
+            }
+          ]
+        },
+        "layerCount": 2
+      },
+      "cases": [
+        {
+          "name": "room-native-ready",
+          "wallAt": 1792223961017
+        },
+        {
+          "name": "RAF-foreground-probe",
+          "wallAt": 1792223961648,
+          "times": [
+            16.799999999999272,
+            16.700000000000728,
+            16.700000000000728,
+            16.700000000000728,
+            16.700000000000728,
+            16.69999999999709,
+            16.80000000000291,
+            16.69999999999709,
+            16.700000000000728,
+            33.400000000001455,
+            16.700000000000728,
+            16.69999999999709,
+            16.80000000000291,
+            16.69999999999709,
+            16.700000000000728,
+            16.700000000000728,
+            16.700000000000728,
+            16.799999999999272,
+            16.700000000000728,
+            16.700000000000728
+          ],
+          "hidden": false,
+          "visibility": "visible"
+        },
+        {
+          "name": "operation-layer_add-idle",
+          "wallAt": 1792223962046,
+          "telemetry": {
+            "label": "layer_add",
+            "start": 31131.5,
+            "lru": {},
+            "worst": [],
+            "raf": {
+              "count": 16,
+              "sumMs": 301,
+              "maxMs": 33.5,
+              "histogram": [
+                0,
+                6,
+                8,
+                2,
+                0,
+                0,
+                0,
+                0
+              ],
+              "over50": 0,
+              "over100": 0
+            },
+            "visibility": [
+              {
+                "at": 31131.700000047684,
+                "hidden": false,
+                "state": "visible"
+              },
+              {
+                "at": 31434.599999904633,
+                "hidden": false,
+                "state": "visible"
+              }
+            ],
+            "end": 31434.599999904633,
+            "wallMs": 303.09999990463257
+          },
+          "nativeElapsedMs": 352.19999980926514
+        },
+        {
+          "0": {
+            "controller": "PagedPuddleRoomController"
+          },
+          "name": "deep-telemetry-identity",
+          "wallAt": 1792223962379
+        },
+        {
+          "name": "trusted-pen-crosses-both1024-seams",
+          "wallAt": 1792223981722,
+          "telemetry": {
+            "label": "trusted-pen-crosses-both1024-seams",
+            "start": 32228.099999904633,
+            "lru": {},
+            "worst": [],
+            "raf": {
+              "count": 55,
+              "sumMs": 18823.100000000002,
+              "maxMs": 4329.600000000002,
+              "histogram": [
+                0,
+                12,
+                24,
+                1,
+                1,
+                6,
+                8,
+                3
+              ],
+              "over50": 18,
+              "over100": 17
+            },
+            "visibility": [
+              {
+                "at": 32228.099999904633,
+                "hidden": false,
+                "state": "visible"
+              },
+              {
+                "at": 51070,
+                "hidden": false,
+                "state": "visible"
+              }
+            ],
+            "methods": {
+              "controller.source@DOWN": {
+                "count": 1,
+                "sumMs": 0.40000009536743164,
+                "maxMs": 0.40000009536743164
+              },
+              "engine._ribbonDabsWork@DOWN": {
+                "count": 4,
+                "sumMs": 0.5000002384185791,
+                "maxMs": 0.40000009536743164
+              },
+              "controller.beforePaint@DOWN": {
+                "count": 4,
+                "sumMs": 0.09999990463256836,
+                "maxMs": 0.09999990463256836
+              },
+              "scratch.compositeScalars@DOWN": {
+                "count": 20,
+                "sumMs": 0.20000004768371582,
+                "maxMs": 0.20000004768371582
+              },
+              "pool.acquire@DOWN": {
+                "count": 84,
+                "sumMs": 204.09999990463257,
+                "maxMs": 17.299999952316284
+              },
+              "actualCache.touch@DOWN": {
+                "count": 1045,
+                "sumMs": 7915.199997663498,
+                "maxMs": 304.10000014305115,
+                "nominalBytes": 3304325120
+              },
+              "actualCache.reserve@DOWN": {
+                "count": 354,
+                "sumMs": 2698.2000012397766,
+                "maxMs": 300.7999999523163
+              },
+              "actualCache.register@DOWN": {
+                "count": 103,
+                "sumMs": 177.70000100135803,
+                "maxMs": 19.40000009536743,
+                "nominalBytes": 202424320
+              },
+              "host.makeBuffer@DOWN": {
+                "count": 44,
+                "sumMs": 89.40000009536743,
+                "maxMs": 20.300000190734863
+              },
+              "controller.present@DOWN": {
+                "count": 8,
+                "sumMs": 4.5,
+                "maxMs": 1.5
+              },
+              "controller.accept@DOWN": {
+                "count": 4,
+                "sumMs": 316.30000019073486,
+                "maxMs": 178.70000004768372
+              },
+              "engine._onStart@DOWN": {
+                "count": 1,
+                "sumMs": 105.70000004768372,
+                "maxMs": 105.70000004768372
+              },
+              "engine._onMove@DOWN": {
+                "count": 4,
+                "sumMs": 7497.099999904633,
+                "maxMs": 3831.9000000953674
+              },
+              "gl.readPixels@DOWN": {
+                "count": 294,
+                "sumMs": 1478.9000000953674,
+                "maxMs": 30.799999952316284,
+                "nominalBytes": 971161600
+              },
+              "actualBuffer._residencyEvict@DOWN": {
+                "count": 294,
+                "sumMs": 2635.399999856949,
+                "maxMs": 300.59999990463257,
+                "nominalBytes": 971161600,
+                "roles": {
+                  "presentation.goal": 4,
+                  "solverOrOther": 34,
+                  "source.original": 8,
+                  "pooledFree": 20,
+                  "presentation.next": 5,
+                  "presentation.raw": 5,
+                  "source.solventLoad": 23,
+                  "source.solventBase": 22,
+                  "source.strokeSolvent": 22,
+                  "source.coverage": 21,
+                  "source.inkLoad": 22,
+                  "source.inkBase": 22,
+                  "source.strokeInk": 22,
+                  "source.inkColor": 20,
+                  "source.colorBase": 22,
+                  "source.strokeColor": 22
+                }
+              },
+              "actualBuffer._residencyHydrate@DOWN": {
+                "count": 251,
+                "sumMs": 5352.299999475479,
+                "maxMs": 64.39999985694885,
+                "nominalBytes": 889454592,
+                "roles": {
+                  "source.coverage": 21,
+                  "source.strokeSolvent": 20,
+                  "source.solventLoad": 20,
+                  "source.solventBase": 20,
+                  "source.strokeInk": 20,
+                  "source.strokeColor": 20,
+                  "source.inkLoad": 22,
+                  "source.inkBase": 20,
+                  "source.inkColor": 20,
+                  "source.colorBase": 20,
+                  "source.original": 8,
+                  "presentation.next": 5,
+                  "solverOrOther": 30,
+                  "presentation.raw": 5
+                }
+              },
+              "engine._ribbonDabsWork@UP": {
+                "count": 1,
+                "sumMs": 0.5999999046325684,
+                "maxMs": 0.5999999046325684
+              },
+              "controller.beforePaint@UP": {
+                "count": 1,
+                "sumMs": 0.09999990463256836,
+                "maxMs": 0.09999990463256836
+              },
+              "scratch.compositeScalars@UP": {
+                "count": 22,
+                "sumMs": 0.20000004768371582,
+                "maxMs": 0.10000014305114746
+              },
+              "actualCache.touch@UP": {
+                "count": 2414,
+                "sumMs": 4995.500000953674,
+                "maxMs": 137.09999990463257,
+                "nominalBytes": 5481976064
+              },
+              "gl.readPixels@UP": {
+                "count": 338,
+                "sumMs": 2673.7999975681305,
+                "maxMs": 195.5,
+                "nominalBytes": 1100162848
+              },
+              "actualBuffer._residencyEvict@UP": {
+                "count": 255,
+                "sumMs": 3176.4000012874603,
+                "maxMs": 470.2000000476837,
+                "nominalBytes": 834055168,
+                "roles": {
+                  "source.solventBase": 13,
+                  "source.strokeSolvent": 12,
+                  "source.inkBase": 12,
+                  "source.strokeInk": 12,
+                  "source.colorBase": 12,
+                  "source.strokeColor": 12,
+                  "source.solventLoad": 16,
+                  "source.original": 8,
+                  "pooledFree": 22,
+                  "solverOrOther": 70,
+                  "presentation.next": 8,
+                  "presentation.raw": 8,
+                  "source.inkLoad": 18,
+                  "source.inkColor": 16,
+                  "source.coverage": 16
+                }
+              },
+              "actualCache.reserve@UP": {
+                "count": 499,
+                "sumMs": 3251.7999999523163,
+                "maxMs": 470.2000000476837
+              },
+              "actualBuffer._residencyHydrate@UP": {
+                "count": 215,
+                "sumMs": 3302.100001335144,
+                "maxMs": 109.09999990463257,
+                "nominalBytes": 728894464,
+                "roles": {
+                  "source.strokeSolvent": 12,
+                  "source.solventLoad": 15,
+                  "source.solventBase": 12,
+                  "source.strokeInk": 12,
+                  "source.strokeColor": 12,
+                  "source.inkBase": 12,
+                  "source.colorBase": 12,
+                  "source.inkLoad": 16,
+                  "source.inkColor": 15,
+                  "source.coverage": 15,
+                  "source.original": 8,
+                  "presentation.next": 5,
+                  "solverOrOther": 61,
+                  "presentation.raw": 4,
+                  "presentation.goal": 4
+                }
+              },
+              "pool.acquire@UP": {
+                "count": 81,
+                "sumMs": 1590.1000003814697,
+                "maxMs": 471
+              },
+              "actualCache.register@UP": {
+                "count": 284,
+                "sumMs": 1599.9999995231628,
+                "maxMs": 470.2000000476837,
+                "nominalBytes": 739271680
+              },
+              "host.makeBuffer@UP": {
+                "count": 30,
+                "sumMs": 30.800000190734863,
+                "maxMs": 8.299999952316284
+              },
+              "controller.present@UP": {
+                "count": 43,
+                "sumMs": 38.700000286102295,
+                "maxMs": 8
+              },
+              "controller.accept@UP": {
+                "count": 2,
+                "sumMs": 170.79999995231628,
+                "maxMs": 157.29999995231628
+              },
+              "controller.finish@UP": {
+                "count": 1,
+                "sumMs": 13.700000047683716,
+                "maxMs": 13.700000047683716
+              },
+              "engine._onEnd@UP": {
+                "count": 1,
+                "sumMs": 4003.100000143051,
+                "maxMs": 4003.100000143051
+              },
+              "controller.frame@UP": {
+                "count": 33,
+                "sumMs": 5358.800000429153,
+                "maxMs": 950.8000001907349
+              },
+              "solver.resetFromScratch@UP": {
+                "count": 1,
+                "sumMs": 0.9000000953674316,
+                "maxMs": 0.9000000953674316
+              },
+              "controller.start@UP": {
+                "count": 1,
+                "sumMs": 1.0999999046325684,
+                "maxMs": 1.0999999046325684
+              },
+              "actualBuffer.readPixels@UP": {
+                "count": 83,
+                "sumMs": 874.9000008106232,
+                "maxMs": 172.5,
+                "nominalBytes": 266107680
+              },
+              "solver.step@UP": {
+                "count": 23,
+                "sumMs": 4584.299999713898,
+                "maxMs": 950.8000001907349
+              },
+              "scratch.captureFinishMetadata@UP": {
+                "count": 3,
+                "sumMs": 1.3000001907348633,
+                "maxMs": 1
+              },
+              "plan.prepare@UP": {
+                "count": 3,
+                "sumMs": 60.40000009536743,
+                "maxMs": 23.700000047683716
+              },
+              "solver.dry@UP": {
+                "count": 1,
+                "sumMs": 0.09999990463256836,
+                "maxMs": 0.09999990463256836
+              },
+              "controller.complete@UP": {
+                "count": 1,
+                "sumMs": 669.5999999046326,
+                "maxMs": 669.5999999046326
+              }
+            },
+            "phase": "UP",
+            "end": 51070,
+            "wallMs": 18841.900000095367
+          },
+          "upToObservedIdleMs": 10094.599999904633
+        },
+        {
+          "name": "actual-physical-first-after-UP-cache120MiB",
+          "wallAt": 1792223981830,
+          "physical": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "hash": "78ce4776f40af3f43592bf80c052f0da64cd1569da1ef6d592684087e1e60503",
+              "alpha": 2034
+            },
+            {
+              "x": 1024,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "hash": "27f1adf382289a073a41b7f9ee0251e3d45cd73e18c5cfc914a0208e498c6034",
+              "alpha": 300
+            },
+            {
+              "x": 0,
+              "y": 1024,
+              "w": 1024,
+              "h": 1024,
+              "hash": "881ff0e86c44feac294ece59423e7d6c60731018570ea32819a4effe4d1b8566",
+              "alpha": 291
+            },
+            {
+              "x": 1024,
+              "y": 1024,
+              "w": 1024,
+              "h": 1024,
+              "hash": "d2cb35f5cceea66f0de6de3fdf959fb00bbce55ded386f4133f450d8a168cd92",
+              "alpha": 1561
+            }
+          ],
+          "puddle": "PagedPuddleRoomController",
+          "state": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 1,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 2,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "regions": [
+            {
+              "region": {
+                "x": 832,
+                "y": 0,
+                "width": 192,
+                "height": 192
+              },
+              "tile": {
+                "x": 0,
+                "y": 0
+              },
+              "buffers": {
+                "raw": {
+                  "w": 192,
+                  "h": 192,
+                  "bytes": 147456
+                },
+                "next": {
+                  "w": 192,
+                  "h": 192,
+                  "bytes": 147456
+                },
+                "goal": {
+                  "w": 1024,
+                  "h": 1024,
+                  "bytes": 4194304
+                }
+              }
+            },
+            {
+              "region": {
+                "x": 0,
+                "y": 0,
+                "width": 192,
+                "height": 192
+              },
+              "tile": {
+                "x": 1024,
+                "y": 0
+              },
+              "buffers": {
+                "raw": {
+                  "w": 192,
+                  "h": 192,
+                  "bytes": 147456
+                },
+                "next": {
+                  "w": 192,
+                  "h": 192,
+                  "bytes": 147456
+                },
+                "goal": {
+                  "w": 1024,
+                  "h": 1024,
+                  "bytes": 4194304
+                }
+              }
+            },
+            {
+              "region": {
+                "x": 832,
+                "y": 832,
+                "width": 192,
+                "height": 192
+              },
+              "tile": {
+                "x": 0,
+                "y": 1024
+              },
+              "buffers": {
+                "raw": {
+                  "w": 192,
+                  "h": 192,
+                  "bytes": 147456
+                },
+                "next": {
+                  "w": 192,
+                  "h": 192,
+                  "bytes": 147456
+                },
+                "goal": {
+                  "w": 1024,
+                  "h": 1024,
+                  "bytes": 4194304
+                }
+              }
+            },
+            {
+              "region": {
+                "x": 0,
+                "y": 832,
+                "width": 192,
+                "height": 192
+              },
+              "tile": {
+                "x": 1024,
+                "y": 1024
+              },
+              "buffers": {
+                "raw": {
+                  "w": 192,
+                  "h": 192,
+                  "bytes": 147456
+                },
+                "next": {
+                  "w": 192,
+                  "h": 192,
+                  "bytes": 147456
+                },
+                "goal": {
+                  "w": 1024,
+                  "h": 1024,
+                  "bytes": 4194304
+                }
+              }
+            }
+          ],
+          "pool": {
+            "live": 83886080,
+            "free": 64552960
+          },
+          "cache": {
+            "resident": 121913344,
+            "budget": 125829120
+          },
+          "gl": 0,
+          "lost": false
+        }
+      ],
+      "profileOnly": false,
+      "failure": "Error: Compact gesture exceeded 10 seconds; stop for performance investigation\n    at /home/suselman/projects/pencil-agents/747-single-rect/docs/qa/harness/747/room-public-android.cjs:39:197",
+      "errors": []
+    }
+  ]
+}

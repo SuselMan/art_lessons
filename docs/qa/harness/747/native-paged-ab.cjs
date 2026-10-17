@@ -53,10 +53,10 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chr
    }finally{solver?.destroy();ownedContrast?.destroy();ownedBackground?.destroy();source.destroy();host.pool.release(key)}
   }
   try{
-   const reference=await solve(false),actual=await solve(true),diffs={};
+   const reference=await solve(false);let referenceDestroyedBuffers=0;e._settlePlan.destroyTextures();for(const field of e._fieldCache){for(const key of ['a','b','c','coverage','ca','cb','cc','mask','pressure','band']){const b=field[key],texture=b._texture;b.destroy();if(b._destroyed!==true||gl.isTexture(texture))throw Error('Reference texture not destroyed '+key);referenceDestroyedBuffers++}}e._fieldCache=[];if(referenceDestroyedBuffers!==10)throw Error('Expected exactly ten reference field buffers');const actual=await solve(true),diffs={};
    for(const name of ['p','c','coverage']){const a=actual.out[name],b=reference.out[name];let changed=0,max=0;const first=[];for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);if(d){changed++;if(first.length<8)first.push({x:Math.floor(i/4)%size,y:Math.floor(i/4/size),channel:i%4,a:a[i],b:b[i]})}max=Math.max(max,d)}diffs[name]={changed,max,first,actualHash:await hash(a),referenceHash:await hash(b)}}
    const stageDiffs={};for(const name of Object.keys(reference.stages)){const a=actual.stages[name],b=reference.stages[name];if(!a||a.length!==b.length)throw Error('Stage length mismatch '+name);let changed=0,max=0;for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);if(d)changed++;max=Math.max(max,d)}stageDiffs[name]={changed,max,actualHash:await hash(a),referenceHash:await hash(b)}}
-   return{qaScopes,stageDiffs,renderer,size,sourceLocation:location.origin,inputHashes,reference:{ms:reference.ms,steps:reference.steps,gl:reference.gl},actual:{ms:actual.ms,steps:actual.steps,gl:actual.gl},diffs,lost:gl.isContextLost(),sequential:true};
+   return{referenceDestroyedBuffers,qaScopes,stageDiffs,renderer,size,sourceLocation:location.origin,inputHashes,reference:{ms:reference.ms,steps:reference.steps,gl:reference.gl},actual:{ms:actual.ms,steps:actual.steps,gl:actual.gl},diffs,lost:gl.isContextLost(),sequential:true};
   }finally{e.destroy()}
  });
  const report={source:process.env.QA_SOURCE,...result,errors};fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
