@@ -1,5 +1,5 @@
 import {AccumulationBuffer} from '../../../../apps/web/src/engine/src/buffers/AccumulationBuffer'
-import type {createNativePuddleTarget} from '../mini-puddle/native-target-v69'
+import type {createNativePuddleTarget,NativePuddleTargetOptions} from '../mini-puddle/native-target-v70'
 import {createPuddlePresentation} from '../mini-puddle/presentation'
 import {morphProgress} from '../mini-puddle/morph-clock'
 import {createDiagnosticRegions} from './regions'
@@ -11,7 +11,8 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
  engine._ribbonPasses.diagnosticPigmentBlot=.45;engine._ribbonPainter.diagnosticBandBatch=true
  engine.diagnosticWatercolorLiftSteps=4;engine.diagnosticNativeFieldMinimum=1024
  const originalPrepare=owner.prepare
- const target=createTarget(engine,size,{prepare:function(...args:any[]){const old=owner.diagnosticSkipBrushContacts;owner.diagnosticSkipBrushContacts=true;try{return originalPrepare.apply(owner,args)}finally{owner.diagnosticSkipBrushContacts=old}} as any})
+ const targetOptions:NativePuddleTargetOptions={prepare:function(...args:any[]){const old=owner.diagnosticSkipBrushContacts;owner.diagnosticSkipBrushContacts=true;try{return originalPrepare.apply(owner,args)}finally{owner.diagnosticSkipBrushContacts=old}} as any}
+ const target=createTarget(engine,size,targetOptions)
  const regions=createDiagnosticRegions(engine,size)
  let presentation:ReturnType<typeof createPuddlePresentation>|null=null
  const rawNext=new AccumulationBuffer(gl,size,size)
@@ -105,6 +106,18 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
   dry(){if(live){if(!locate()||liveFinished)return;drying=true;goalAfter=0;lastAt=performance.now();request();return true}return this.toggleEffect()},
   diagnosticMorphAt(progress:number){if(!live||!goalReady||!presentation)throw Error('Need a ready live goal');presentation.tick(1,{dry:false,progress:Math.max(0,Math.min(1,progress))});engine._display();return undefined},
   diagnosticMaskReadback:()=>regions.readback(),
+  /** QA oracle: repeat from the unchanged raw wash, never animated pixels.
+   * Used outside timing intervals; leaves the existing presentation untouched. */
+  diagnosticRepeatGoal(finalOnly:boolean,maxOps=100000){
+   const f=locate();if(!f||down||calculating||goalPending||!goalReady)throw Error('Repeat requires a completed stationary goal')
+   const previous=targetOptions.finalOnly
+   try{
+    targetOptions.finalOnly=finalOnly;target.resetFromScratch(f.scratch,f.tile,epoch)
+    while(!target.state.done)target.step(Math.max(1,maxOps))
+    target.dry()
+    return this.diagnosticGoalReadback()
+   }finally{targetOptions.finalOnly=previous}
+  },
   diagnosticGoalReadback(){const b=target.buffers();return{p:b.p.readPixels(),c:b.c.readPixels(),coverage:b.coverage.readPixels()}},
   diagnosticRawReadback(){const f=locate();return f?{p:f.entry.inkLoad.readPixels(),c:f.entry.inkColor.readPixels(),coverage:f.entry.coverage.readPixels()}:null},
   destroy(){

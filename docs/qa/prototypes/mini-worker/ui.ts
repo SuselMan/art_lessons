@@ -17,8 +17,16 @@ function receive(row:any,ownGeneration:number){if(ownGeneration!==generation)ret
  else if(row.type==='processed'){processedEvents.push(row);if(processedEvents.length>256)processedEvents.shift();const lag=row.processedEpoch-row.inputEpoch;input.lastLagMs=lag;input.maxLagMs=Math.max(input.maxLagMs,lag);input.lastProcessed=row.sequence;processedStatus.textContent=`Обработан ${row.eventType}: ${lag.toFixed(1)} мс · максимум ${input.maxLagMs.toFixed(1)} мс`}
  else if(row.type==='goal'){lastResult={...row,receivedEpoch:epoch(),upToGoalMs:row.goalEpoch-row.gesture.captureUpEpoch,upToReceivedMs:epoch()-row.gesture.captureUpEpoch,dequeueLagMs:row.gesture.dequeuedUpEpoch-row.gesture.captureUpEpoch};results.push(lastResult);if(results.length>20)results.shift();if(row.gesture.id===gestureId)latency.textContent=`Цель (JS): ${lastResult.upToGoalMs.toFixed(0)} мс`;if(row.glError){failure='WebGL error '+row.glError;error.textContent=failure}}
  else if(row.type==='png'){if(pngURL)URL.revokeObjectURL(pngURL);pngURL=URL.createObjectURL(row.blob);const link=el<HTMLAnchorElement>('download');link.href=pngURL;link.style.display='inline';link.click()}
- el('diagnostics').textContent=JSON.stringify(snapshot(),null,2)
+ renderDiagnostics()
 }
+let diagnosticsAt=-Infinity
+const diagnostics=el('diagnostics'),diagnosticsPanel=diagnostics.closest('details')!
+function renderDiagnostics(force=false){
+ if(!diagnosticsPanel.open)return
+ const now=performance.now();if(!force&&now-diagnosticsAt<250)return
+ diagnosticsAt=now;diagnostics.textContent=JSON.stringify(snapshot(),null,2)
+}
+diagnosticsPanel.addEventListener('toggle',()=>renderDiagnostics(true))
 function send(message:any){if(worker)worker.postMessage(message);else runtime?.handle(message)}
 async function start(){const own=++generation;ready=false;pressed=null;failure='';error.textContent='';status.textContent='Загрузка бумаги и WebGL…';lastResult=null;lastState=null;latency.textContent='Цель (JS): —';bootstrap=null;results.length=0;clickHistory.length=0;acceptedEvents.length=0;processedEvents.length=0;gestureId=0;sequence=0;input={down:0,move:0,up:0,lastLagMs:0,maxLagMs:0,lastProcessed:0}
  if(worker){worker.postMessage({type:'destroy'});worker.terminate();worker=null}runtime?.destroy();runtime=null;sheet.replaceChildren();canvas=document.createElement('canvas');canvas.width=canvas.height=1024;canvas.id='paper';canvas.setAttribute('aria-label','Лист1024пикселя');sheet.append(canvas)
