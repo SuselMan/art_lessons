@@ -1,0 +1,879 @@
+{
+  "issue": 801,
+  "device": "Samsung SM-T970 / Adreno650 / Chrome155",
+  "bundleSHA": "2fed32ad961d8dd78db4f7f54a82663a016e2ec93b0f07e72b0abcd68be542af",
+  "bundleStable": true,
+  "htmlSHA": "59182da44dc35b4c61d6e60feb5cd78794d6cc3569f3c73b9a31eced3fe269d3",
+  "sourceScope": "Actual immutable deployed Mini5383 v70 morph/live, 1024. No app/source/model/settings-policy edits.",
+  "qualification": [
+    "No job.ops mutation/wrapping: arrays, entry identities, ordering, dynamic insertions and scheduling tags untouched. Actual job.prepare/finish observed before controller captured original prepare.",
+    "Existing RAF callbacks wrapped preserving receiver,args,return,error; actual target iteration deltas classify advancing callbacks. Existing read/draw calls counted without additional GL commands.",
+    "Host callback wall time includes driver waits. Gaps between advancing callbacks include other JS, frame scheduling, browser/compositor/GPU availability; exact attribution needs separate measurement. Not pure GPU timing.",
+    "FirstGoal timestamp is after the first callback exposing matching epoch goalReady&&!calculating&&!drawing&&target.done. UI and observer two-RAF confirmation are separate later boundaries.",
+    "Two single fresh instances; no speedup or calibrated GPU benchmark claim."
+  ],
+  "cases": [
+    {
+      "id": "matched800-wave320",
+      "input": {
+        "points": [
+          [
+            200,
+            700
+          ],
+          [
+            206.24,
+            720.1680959245041
+          ],
+          [
+            212.48,
+            736.9755618853648
+          ],
+          [
+            218.72,
+            747.5337584102913
+          ],
+          [
+            224.96,
+            749.8317373478377
+          ],
+          [
+            231.2,
+            743.018673559185
+          ],
+          [
+            237.44,
+            727.5233607804264
+          ],
+          [
+            243.68,
+            704.9939888166115
+          ],
+          [
+            249.92000000000002,
+            678.0666601816797
+          ],
+          [
+            256.15999999999997,
+            649.9951573342844
+          ],
+          [
+            262.4,
+            624.1939586009893
+          ],
+          [
+            268.64,
+            603.758684842369
+          ],
+          [
+            274.88,
+            591.0313287026353
+          ],
+          [
+            281.12,
+            587.2713287026353
+          ],
+          [
+            287.36,
+            592.478684842369
+          ],
+          [
+            293.6,
+            605.3939586009892
+          ],
+          [
+            299.84000000000003,
+            623.6751573342844
+          ],
+          [
+            306.08000000000004,
+            644.2266601816798
+          ],
+          [
+            312.32,
+            663.6339888166115
+          ],
+          [
+            318.56,
+            678.6433607804263
+          ],
+          [
+            324.8,
+            686.6186735591849
+          ],
+          [
+            331.03999999999996,
+            685.9117373478376
+          ],
+          [
+            337.28,
+            676.0937584102912
+          ],
+          [
+            343.52,
+            658.0155618853647
+          ],
+          [
+            349.76,
+            633.6880959245041
+          ],
+          [
+            356,
+            606
+          ],
+          [
+            362.24,
+            578.3119040754959
+          ],
+          [
+            368.48,
+            553.9844381146352
+          ],
+          [
+            374.72,
+            535.9062415897088
+          ],
+          [
+            380.96,
+            526.0882626521624
+          ],
+          [
+            387.2,
+            525.3813264408151
+          ],
+          [
+            393.44,
+            533.3566392195737
+          ],
+          [
+            399.68,
+            548.3660111833885
+          ],
+          [
+            405.92,
+            567.7733398183202
+          ],
+          [
+            412.16,
+            588.3248426657156
+          ],
+          [
+            418.4,
+            606.6060413990107
+          ],
+          [
+            424.64,
+            619.521315157631
+          ],
+          [
+            430.88,
+            624.7286712973647
+          ],
+          [
+            437.12,
+            620.9686712973647
+          ],
+          [
+            443.36,
+            608.241315157631
+          ],
+          [
+            449.6,
+            587.8060413990108
+          ],
+          [
+            455.84,
+            562.0048426657156
+          ],
+          [
+            462.08,
+            533.9333398183204
+          ],
+          [
+            468.32,
+            507.00601118338847
+          ],
+          [
+            474.56,
+            484.4766392195737
+          ],
+          [
+            480.8,
+            468.981326440815
+          ],
+          [
+            487.04,
+            462.1682626521623
+          ],
+          [
+            493.28,
+            464.46624158970866
+          ],
+          [
+            499.52,
+            475.02443811463525
+          ],
+          [
+            505.76,
+            491.8319040754958
+          ],
+          [
+            512,
+            511.99999999999994
+          ],
+          [
+            518.24,
+            532.1680959245041
+          ],
+          [
+            524.48,
+            548.9755618853648
+          ],
+          [
+            530.72,
+            559.5337584102913
+          ],
+          [
+            536.96,
+            561.8317373478376
+          ],
+          [
+            543.2,
+            555.018673559185
+          ],
+          [
+            549.44,
+            539.5233607804262
+          ],
+          [
+            555.68,
+            516.9939888166116
+          ],
+          [
+            561.92,
+            490.06666018168005
+          ],
+          [
+            568.16,
+            461.9951573342846
+          ],
+          [
+            574.4,
+            436.1939586009893
+          ],
+          [
+            580.64,
+            415.7586848423691
+          ],
+          [
+            586.88,
+            403.0313287026353
+          ],
+          [
+            593.12,
+            399.27132870263523
+          ],
+          [
+            599.36,
+            404.4786848423691
+          ],
+          [
+            605.6,
+            417.3939586009892
+          ],
+          [
+            611.84,
+            435.67515733428445
+          ],
+          [
+            618.08,
+            456.2266601816799
+          ],
+          [
+            624.32,
+            475.63398881661146
+          ],
+          [
+            630.56,
+            490.6433607804262
+          ],
+          [
+            636.8,
+            498.61867355918497
+          ],
+          [
+            643.04,
+            497.9117373478377
+          ],
+          [
+            649.28,
+            488.09375841029134
+          ],
+          [
+            655.52,
+            470.0155618853648
+          ],
+          [
+            661.76,
+            445.6880959245042
+          ],
+          [
+            668,
+            418.00000000000006
+          ],
+          [
+            674.24,
+            390.31190407549593
+          ],
+          [
+            680.48,
+            365.98443811463534
+          ],
+          [
+            686.72,
+            347.9062415897087
+          ],
+          [
+            692.96,
+            338.0882626521623
+          ],
+          [
+            699.2,
+            337.381326440815
+          ],
+          [
+            705.44,
+            345.3566392195737
+          ],
+          [
+            711.68,
+            360.3660111833884
+          ],
+          [
+            717.92,
+            379.77333981832
+          ],
+          [
+            724.16,
+            400.32484266571544
+          ],
+          [
+            730.4,
+            418.60604139901056
+          ],
+          [
+            736.64,
+            431.52131515763097
+          ],
+          [
+            742.88,
+            436.7286712973647
+          ],
+          [
+            749.12,
+            432.96867129736484
+          ],
+          [
+            755.36,
+            420.241315157631
+          ],
+          [
+            761.6,
+            399.8060413990108
+          ],
+          [
+            767.84,
+            374.0048426657157
+          ],
+          [
+            774.08,
+            345.9333398183201
+          ],
+          [
+            780.32,
+            319.0060111833885
+          ],
+          [
+            786.56,
+            296.4766392195738
+          ],
+          [
+            792.8,
+            280.9813264408151
+          ],
+          [
+            799.04,
+            274.16826265216235
+          ],
+          [
+            805.28,
+            276.4662415897087
+          ],
+          [
+            811.52,
+            287.024438114635
+          ],
+          [
+            817.76,
+            303.83190407549597
+          ],
+          [
+            824,
+            323.9999999999999
+          ]
+        ],
+        "size": 320,
+        "water": 0.95,
+        "pigment": 0.34,
+        "paint": "PB15",
+        "color": "#2688d3",
+        "force": 0.75
+      },
+      "inputSHA": "5bc1e1bed97bb9d620c4020191c56c2995493001ce99f7b208ec6869be6b0ca5",
+      "before": {
+        "version": "mini-M70-morph",
+        "canvas": [
+          1024,
+          1024
+        ],
+        "model": "front8-detail-flow-v4",
+        "asyncFinish": false,
+        "materialPresentation": false,
+        "joinedTouch": false,
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "settings": {
+          "paint": "PB15",
+          "size": "320",
+          "water": "95",
+          "pigment": "34",
+          "color": "#2688d3"
+        },
+        "visibility": "visible",
+        "hidden": false,
+        "gl": 0
+      },
+      "after": {
+        "state": {
+          "diagnostic": true,
+          "live": true,
+          "active": true,
+          "done": false,
+          "dry": false,
+          "progress": 0.10453795664694154,
+          "durationMs": 120000,
+          "cancellations": 0,
+          "liveInputs": 99,
+          "epoch": 1,
+          "drawing": false,
+          "showingEffect": false,
+          "effectRequested": false,
+          "calculating": false,
+          "goalReady": true,
+          "regions": {
+            "revision": 0,
+            "selected": 0,
+            "background": 0,
+            "resolution": 256,
+            "lastUpdateMs": 0
+          },
+          "target": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 5
+          }
+        },
+        "UI": {
+          "phase": "ready",
+          "message": "Цель готова за 757 мс.",
+          "pending": null,
+          "latest": {
+            "id": 1,
+            "epoch": 1,
+            "version": "mini-M70-morph",
+            "pointerUpAt": 14388.5,
+            "goalReadyAt": 15145.799999952316,
+            "latencyMs": 757.2999999523163,
+            "confirmationFrames": 2
+          },
+          "results": [
+            {
+              "id": 1,
+              "epoch": 1,
+              "version": "mini-M70-morph",
+              "pointerUpAt": 14388.5,
+              "goalReadyAt": 15145.799999952316,
+              "latencyMs": 757.2999999523163,
+              "confirmationFrames": 2
+            }
+          ],
+          "controller": {
+            "epoch": 1,
+            "drawing": false,
+            "goalReady": true,
+            "calculating": false,
+            "targetDone": true,
+            "animationProgress": 0.10453795664694154
+          },
+          "qualification": "trusted pointerup capture → controller goalReady + target.done, confirmed on two RAF; includes handler/browser wait, excludes waiting for animation.done; no GPU reads or forced finish"
+        },
+        "gl": 0,
+        "lost": false,
+        "asyncError": ""
+      },
+      "dispatchWallMs": 9991,
+      "pass": true,
+      "contextClosed": true,
+      "geometrySHA": "47ac955c1624fcb16f8daa08c61cff983ed6c7129d17a42b2d7b7ca7f7a13470",
+      "observedOps": {
+        "initial": 78,
+        "nativeAtFinish": 80,
+        "dynamicChildren": 2,
+        "finalTotal": 90,
+        "postNative": 10,
+        "advancingCallbacks": 23,
+        "iterationDeltas": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          2
+        ]
+      },
+      "timingsMs": {
+        "captureUPToFirstAdvancingCallback": 101.79999995231628,
+        "advancingCallbacksInclusiveWall": 143.10000038146973,
+        "betweenAdvancingCallbacks": 305.49999952316284,
+        "captureUPToFirstGoal": 550.3999998569489,
+        "goalToObserver2RAFConfirmation": 207.0,
+        "captureUPToObserverConfirmation": 757.3999998569489,
+        "captureUPToUIConfirmation": 757.2999999523163,
+        "prepareInclusive": 4.599999904632568,
+        "firstAdvancingCallbackInclusive": 78.79999995231628,
+        "lastAdvancingCallbackInclusive": 30.5,
+        "captureUPToNativeFinishEnd": 475.09999990463257,
+        "nativeFinishEndToFirstGoal": 75.29999995231628,
+        "onEndInclusive": 24.90000009536743,
+        "firstAdvancingCallbackToNativeFinishEnd": 373.2999999523163
+      },
+      "GLExistingCalls": {
+        "drawing:outside:drawArrays": {
+          "count": 1118,
+          "wallMs": 7.399999380111694,
+          "maxMs": 0.20000004768371582,
+          "logicalBytes": 0
+        },
+        "drawing:_display:drawArrays": {
+          "count": 582,
+          "wallMs": 5.69999885559082,
+          "maxMs": 0.20000004768371582,
+          "logicalBytes": 0
+        },
+        "postUP:_onEnd:drawArrays": {
+          "count": 55,
+          "wallMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836,
+          "logicalBytes": 0
+        },
+        "postUP:_display:drawArrays": {
+          "count": 12,
+          "wallMs": 0,
+          "maxMs": 0,
+          "logicalBytes": 0
+        },
+        "postUP:raf:drawArrays": {
+          "count": 232,
+          "wallMs": 1.6999998092651367,
+          "maxMs": 0.10000014305114746,
+          "logicalBytes": 0
+        },
+        "postUP:raf:readPixels": {
+          "count": 1,
+          "wallMs": 19.700000047683716,
+          "maxMs": 19.700000047683716,
+          "logicalBytes": 262144
+        },
+        "postUP:finish:drawArrays": {
+          "count": 1,
+          "wallMs": 0,
+          "maxMs": 0,
+          "logicalBytes": 0
+        }
+      }
+    },
+    {
+      "id": "short90-control",
+      "input": {
+        "points": [
+          [
+            400,
+            470
+          ],
+          [
+            430,
+            485
+          ],
+          [
+            460,
+            500
+          ],
+          [
+            490,
+            515
+          ],
+          [
+            520,
+            530
+          ]
+        ],
+        "size": 90,
+        "water": 0.95,
+        "pigment": 0.34,
+        "paint": "PB29",
+        "color": "#2a3b97",
+        "force": 0.75
+      },
+      "inputSHA": "6d7e520ed4589c5f17785ccd112674f5b86382080fa42cfaaf9d4233242b3518",
+      "before": {
+        "version": "mini-M70-morph",
+        "canvas": [
+          1024,
+          1024
+        ],
+        "model": "front8-detail-flow-v4",
+        "asyncFinish": false,
+        "materialPresentation": false,
+        "joinedTouch": false,
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "settings": {
+          "paint": "PB29",
+          "size": "90",
+          "water": "95",
+          "pigment": "34",
+          "color": "#2a3b97"
+        },
+        "visibility": "visible",
+        "hidden": false,
+        "gl": 0
+      },
+      "after": {
+        "state": {
+          "diagnostic": true,
+          "live": true,
+          "active": true,
+          "done": false,
+          "dry": false,
+          "progress": 0.10979053412817287,
+          "durationMs": 120000,
+          "cancellations": 0,
+          "liveInputs": 6,
+          "epoch": 1,
+          "drawing": false,
+          "showingEffect": false,
+          "effectRequested": false,
+          "calculating": false,
+          "goalReady": true,
+          "regions": {
+            "revision": 0,
+            "selected": 0,
+            "background": 0,
+            "resolution": 256,
+            "lastUpdateMs": 0
+          },
+          "target": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 5
+          }
+        },
+        "UI": {
+          "phase": "ready",
+          "message": "Цель готова за 677 мс.",
+          "pending": null,
+          "latest": {
+            "id": 1,
+            "epoch": 1,
+            "version": "mini-M70-morph",
+            "pointerUpAt": 4963.799999952316,
+            "goalReadyAt": 5640.600000143051,
+            "latencyMs": 676.8000001907349,
+            "confirmationFrames": 2
+          },
+          "results": [
+            {
+              "id": 1,
+              "epoch": 1,
+              "version": "mini-M70-morph",
+              "pointerUpAt": 4963.799999952316,
+              "goalReadyAt": 5640.600000143051,
+              "latencyMs": 676.8000001907349,
+              "confirmationFrames": 2
+            }
+          ],
+          "controller": {
+            "epoch": 1,
+            "drawing": false,
+            "goalReady": true,
+            "calculating": false,
+            "targetDone": true,
+            "animationProgress": 0.10979053412817287
+          },
+          "qualification": "trusted pointerup capture → controller goalReady + target.done, confirmed on two RAF; includes handler/browser wait, excludes waiting for animation.done; no GPU reads or forced finish"
+        },
+        "gl": 0,
+        "lost": false,
+        "asyncError": ""
+      },
+      "dispatchWallMs": 460,
+      "pass": true,
+      "contextClosed": true,
+      "geometrySHA": "8283370445917ce20601399197bc8f77a3d92bdc5b4d0af308870d32ba08faa9",
+      "observedOps": {
+        "initial": 78,
+        "nativeAtFinish": 80,
+        "dynamicChildren": 2,
+        "finalTotal": 90,
+        "postNative": 10,
+        "advancingCallbacks": 23,
+        "iterationDeltas": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          2
+        ]
+      },
+      "timingsMs": {
+        "captureUPToFirstAdvancingCallback": 91.20000004768372,
+        "advancingCallbacksInclusiveWall": 121.59999990463257,
+        "betweenAdvancingCallbacks": 289.80000019073486,
+        "captureUPToFirstGoal": 502.60000014305115,
+        "goalToObserver2RAFConfirmation": 174.59999990463257,
+        "captureUPToObserverConfirmation": 677.2000000476837,
+        "captureUPToUIConfirmation": 676.8000001907349,
+        "prepareInclusive": 5.199999809265137,
+        "firstAdvancingCallbackInclusive": 55.90000009536743,
+        "lastAdvancingCallbackInclusive": 10.5,
+        "captureUPToNativeFinishEnd": 447.60000014305115,
+        "nativeFinishEndToFirstGoal": 55.0,
+        "onEndInclusive": 28.40000009536743,
+        "firstAdvancingCallbackToNativeFinishEnd": 356.40000009536743
+      },
+      "GLExistingCalls": {
+        "drawing:outside:drawArrays": {
+          "count": 58,
+          "wallMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836,
+          "logicalBytes": 0
+        },
+        "drawing:_display:drawArrays": {
+          "count": 24,
+          "wallMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836,
+          "logicalBytes": 0
+        },
+        "postUP:_onEnd:drawArrays": {
+          "count": 55,
+          "wallMs": 0.10000014305114746,
+          "maxMs": 0.10000014305114746,
+          "logicalBytes": 0
+        },
+        "postUP:_display:drawArrays": {
+          "count": 12,
+          "wallMs": 0,
+          "maxMs": 0,
+          "logicalBytes": 0
+        },
+        "postUP:raf:drawArrays": {
+          "count": 232,
+          "wallMs": 3.0000007152557373,
+          "maxMs": 1.5,
+          "logicalBytes": 0
+        },
+        "postUP:raf:readPixels": {
+          "count": 1,
+          "wallMs": 13.599999904632568,
+          "maxMs": 13.599999904632568,
+          "logicalBytes": 262144
+        },
+        "postUP:finish:drawArrays": {
+          "count": 1,
+          "wallMs": 0,
+          "maxMs": 0,
+          "logicalBytes": 0
+        }
+      }
+    }
+  ],
+  "cleanup": {
+    "owner": "puddle_undo/#801",
+    "serial": "R52RB0JXVSY",
+    "forward": "19336 chrome_devtools_remote",
+    "reverse": "15483:5383",
+    "ownBootstrapURL": "http://127.0.0.1:15483/robots.txt?qa801-bootstrap=owned-20261017",
+    "expires": "2026-10-17T23:07:51+03:00",
+    "state": "cleaned",
+    "measuredContextsClosed": 2,
+    "ownBootstrapClosed": true,
+    "remainingOwnTargets": 0,
+    "mapsRemaining": [],
+    "userTabsUntouched": true
+  },
+  "matched800GeometryAndSettingsVerified": true,
+  "matched800InputSHA": "0779bf5c5a55f8c3adac1becb75a9f4c81fcdc8e17e8fb6f16480417ff7b363b"
+}
