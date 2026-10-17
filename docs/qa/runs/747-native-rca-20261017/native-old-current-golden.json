@@ -1,0 +1,453 @@
+{
+  "runtime": "df1b7fe9",
+  "harnessCommit": "1f09b07a",
+  "qualification": "Same Samsung Adreno650 sequential Native/Native sparse seeded fixture; old facade disables discrete-grid flags only; no Paged/cross-device/memory-performance claim. 1024 equality does not prove all historical inputs. 1536 material and compositor changed.",
+  "cases": {
+    "1024": {
+      "source": "df1b7fe9",
+      "transport": "raw Android CDP; exact shared browser function",
+      "images": {
+        "old": {
+          "file": "golden-1024-old.png",
+          "bytes": 94723,
+          "sha256": "8bc5bc32ea3b86814ac04a95a399dfae436492469f92424bb35c2c562abe3a6b"
+        },
+        "current": {
+          "file": "golden-1024-current.png",
+          "bytes": 94723,
+          "sha256": "8bc5bc32ea3b86814ac04a95a399dfae436492469f92424bb35c2c562abe3a6b"
+        }
+      },
+      "qualification": "Old legacy gated sampler path vs corrected runtime Native; both approvedM70 artistic parameters. No Paged solver in either arm.",
+      "policyProof": {
+        "field": 117,
+        "front": 45,
+        "diffuse": 26,
+        "errors": 0
+      },
+      "referenceDestroyedBuffers": 10,
+      "stageDiffs": {
+        "referenceP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "e44a660607ac032e97f930fd762eb44bf98f7294d552bae6a5fa580008cfabcb",
+          "referenceHash": "e44a660607ac032e97f930fd762eb44bf98f7294d552bae6a5fa580008cfabcb"
+        },
+        "referenceC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "f57d84c29fbab3146c380ad4c607eccfd29081f19ee5c11b5322be6d65d2c598",
+          "referenceHash": "f57d84c29fbab3146c380ad4c607eccfd29081f19ee5c11b5322be6d65d2c598"
+        },
+        "solvedP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "2373b823b0f5d44a8c344f318c70b9740bc1efa5db061cf5ed1c50e8d9462024",
+          "referenceHash": "2373b823b0f5d44a8c344f318c70b9740bc1efa5db061cf5ed1c50e8d9462024"
+        },
+        "solvedC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "f6b6d2c5d1afbda9c28416d2c0b02bec66e5f473a3ae0bc471f68457a7193afb",
+          "referenceHash": "f6b6d2c5d1afbda9c28416d2c0b02bec66e5f473a3ae0bc471f68457a7193afb"
+        },
+        "solvedCoverage": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "14c18d74fa89bac83258892294b44be972d0e339b94232174b4caed03c184bad",
+          "referenceHash": "14c18d74fa89bac83258892294b44be972d0e339b94232174b4caed03c184bad"
+        },
+        "coarse:gate": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "971846adb5b63f53214283e731aeec0572f10ba1eadbd3b74a8c8a97ea53f2ed",
+          "referenceHash": "971846adb5b63f53214283e731aeec0572f10ba1eadbd3b74a8c8a97ea53f2ed"
+        },
+        "coarse:beforeP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "ae5dd0997b043359ee61314f71ccfd638aa7289a4fabe70c9e0fe93573c62354",
+          "referenceHash": "ae5dd0997b043359ee61314f71ccfd638aa7289a4fabe70c9e0fe93573c62354"
+        },
+        "coarse:afterP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "a21288b18cda2bd3696bde03702a291c1904156585c2b8b76121b06d34c9a5d0",
+          "referenceHash": "a21288b18cda2bd3696bde03702a291c1904156585c2b8b76121b06d34c9a5d0"
+        },
+        "coarse:beforeC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "34b4bf0a40b09d1a664e6cfb060a73adad2a8ddf92cfa38c52f57053dad33faf",
+          "referenceHash": "34b4bf0a40b09d1a664e6cfb060a73adad2a8ddf92cfa38c52f57053dad33faf"
+        },
+        "coarse:afterC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "ea8dc74c249fac28f8735947e2a82b9f97bf986385c13e0f789ebf59ab9531c9",
+          "referenceHash": "ea8dc74c249fac28f8735947e2a82b9f97bf986385c13e0f789ebf59ab9531c9"
+        }
+      },
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "size": 1024,
+      "inputHashes": {
+        "p": "70d89e9b62e4c77022085953837f575c1d3632301a0e86b8cb3ae1b9ee8292e0",
+        "c": "fbd7ad8d06e983a5fb2e1aaa3462ff075deb6a87eca57678af88ea4e863a5cb7",
+        "coverage": "14c18d74fa89bac83258892294b44be972d0e339b94232174b4caed03c184bad",
+        "water": "8c4e41d759cf7334627653e795bd72627094f6406db35af1efd3070cfba5cc15"
+      },
+      "reference": {
+        "ms": 554.4000000953674,
+        "steps": 23,
+        "gl": 0
+      },
+      "actual": {
+        "ms": 380.59999990463257,
+        "steps": 23,
+        "gl": 0
+      },
+      "diffs": {
+        "p": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "ab87a5429e50b7475d5611f647303f92bc2017dd2d56e635b780c898e01763b7",
+          "referenceHash": "ab87a5429e50b7475d5611f647303f92bc2017dd2d56e635b780c898e01763b7"
+        },
+        "c": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "7cb0f13b79daee3b604b10dec12cb2b5dfebe8ca30026bb402287b29b11ea98a",
+          "referenceHash": "7cb0f13b79daee3b604b10dec12cb2b5dfebe8ca30026bb402287b29b11ea98a"
+        },
+        "coverage": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "7996d7ce04ac4189acc33b582d0b7b763a31ab11fa98f70febbf24256bac4393",
+          "referenceHash": "7996d7ce04ac4189acc33b582d0b7b763a31ab11fa98f70febbf24256bac4393"
+        },
+        "rgba": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "b7668b7419b86b0a6f17b403de6c402acd56f58331d1ee3b3b8225fc1bd8a30f",
+          "referenceHash": "b7668b7419b86b0a6f17b403de6c402acd56f58331d1ee3b3b8225fc1bd8a30f"
+        }
+      },
+      "lost": false,
+      "sequential": true,
+      "errors": []
+    },
+    "1536": {
+      "source": "df1b7fe9",
+      "transport": "raw Android CDP; exact shared browser function",
+      "images": {
+        "old": {
+          "file": "golden-1536-old.png",
+          "bytes": 184644,
+          "sha256": "729d4397afec4ca202fbbba899c9d7ab6e15ccf8a7b590bfb121038212459948"
+        },
+        "current": {
+          "file": "golden-1536-current.png",
+          "bytes": 184324,
+          "sha256": "7e24e011d10413b3f37e8b73bc9b8d495460fdd25e0bcf4226add3ae25af3e8f"
+        }
+      },
+      "qualification": "Old legacy gated sampler path vs corrected runtime Native; both approvedM70 artistic parameters. No Paged solver in either arm.",
+      "policyProof": {
+        "field": 117,
+        "front": 45,
+        "diffuse": 26,
+        "errors": 0
+      },
+      "referenceDestroyedBuffers": 10,
+      "stageDiffs": {
+        "referenceP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "296307e2da1afefbe809c3a59087eda0f733d255795253496afc7ca0a6f389b6",
+          "referenceHash": "296307e2da1afefbe809c3a59087eda0f733d255795253496afc7ca0a6f389b6"
+        },
+        "referenceC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "9d206eb828e46ec7051d0fe90ea0b2460c19f8bc776cbedb6de84cde1b288b4f",
+          "referenceHash": "9d206eb828e46ec7051d0fe90ea0b2460c19f8bc776cbedb6de84cde1b288b4f"
+        },
+        "solvedP": {
+          "changed": 1412,
+          "max": 41,
+          "actualHash": "ab8e1301df7600a8f6d10e957b1f0ea655d49792c0de84681d6fa9a5211d97ff",
+          "referenceHash": "573454b17dae6382c268f9033fbb6140d5a3fc4a26e1bf0221f19e6ff551e4ae"
+        },
+        "solvedC": {
+          "changed": 3375,
+          "max": 41,
+          "actualHash": "80fdd575e05594836e0a885f1994ef8653a79b6c492d6df0eaa466ea332e6d38",
+          "referenceHash": "9edd38656f30d8a7b6fbb44b4f07de624aba43da126b3ec261dd45ad7217b8e7"
+        },
+        "solvedCoverage": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214",
+          "referenceHash": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214"
+        },
+        "coarse:gate": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "2901c5ec5e67b3be424208232336f4221d45fff4175838e9edad3bcdc313e1dc",
+          "referenceHash": "2901c5ec5e67b3be424208232336f4221d45fff4175838e9edad3bcdc313e1dc"
+        },
+        "coarse:beforeP": {
+          "changed": 42,
+          "max": 2,
+          "actualHash": "b18f2920a908a6df8348d74484954c8d0941ddca609fada8db4fec377c98392e",
+          "referenceHash": "ef4fb6e0764668dbc1d060a4a44876afc6ef5a409d0c61bae690bd4b0a2fb225"
+        },
+        "coarse:afterP": {
+          "changed": 34,
+          "max": 2,
+          "actualHash": "0a40feee833ac9a6d826dcdddcf02c1fbc55ef582e0a363276d0e2ea325d95ef",
+          "referenceHash": "107dc6d6ddc4d80b687a553e7cd23271a2dab7d8c963026e2a114a0d011786e9"
+        },
+        "coarse:beforeC": {
+          "changed": 104,
+          "max": 6,
+          "actualHash": "0ff3fa042a73952e65fbbdce971fc49da3ec3ad721fd4e5d2c6d1bc555f781d8",
+          "referenceHash": "2a5366a055554430fc251b50d23cc8122452e4f6c71010dea17c6272ae4dddc6"
+        },
+        "coarse:afterC": {
+          "changed": 109,
+          "max": 2,
+          "actualHash": "8d0913be99719af932068e1eb8a147a1ec2936ad8cdc367947763686ee30be8c",
+          "referenceHash": "3338288e0cd26858e8458eb9dd5d7beb503f6001d8ee1f789bf3803b7c822934"
+        }
+      },
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "size": 1536,
+      "inputHashes": {
+        "p": "088d44b0a654b21c2fa37aa10bdaea9be502c587c117bb2a35aeda96bbf10c8a",
+        "c": "2c690c2d6e2cd5042c0c4d439e5bb1114b10518ff86616c261350de37b0f7d93",
+        "coverage": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214",
+        "water": "12d0114d4d8ff826948a2eb1dc51cabd4915faef81c36fe8727f9b6b0c7d373f"
+      },
+      "reference": {
+        "ms": 858.0999999046326,
+        "steps": 23,
+        "gl": 0
+      },
+      "actual": {
+        "ms": 731.2000000476837,
+        "steps": 23,
+        "gl": 0
+      },
+      "diffs": {
+        "p": {
+          "changed": 1176,
+          "max": 19,
+          "first": [
+            {
+              "x": 248,
+              "y": 450,
+              "channel": 2,
+              "a": 14,
+              "b": 13
+            },
+            {
+              "x": 248,
+              "y": 450,
+              "channel": 3,
+              "a": 14,
+              "b": 13
+            },
+            {
+              "x": 255,
+              "y": 450,
+              "channel": 2,
+              "a": 15,
+              "b": 14
+            },
+            {
+              "x": 255,
+              "y": 450,
+              "channel": 3,
+              "a": 15,
+              "b": 14
+            },
+            {
+              "x": 256,
+              "y": 450,
+              "channel": 2,
+              "a": 15,
+              "b": 14
+            },
+            {
+              "x": 256,
+              "y": 450,
+              "channel": 3,
+              "a": 15,
+              "b": 14
+            },
+            {
+              "x": 242,
+              "y": 451,
+              "channel": 2,
+              "a": 13,
+              "b": 12
+            },
+            {
+              "x": 242,
+              "y": 451,
+              "channel": 3,
+              "a": 13,
+              "b": 12
+            }
+          ],
+          "actualHash": "14f5827f625a88271185804b9644d9a0dad26d267299358bfdd8f78db54dabfb",
+          "referenceHash": "be34b004bc1fd908f8a41426dc3eb48816e091c6ac3ad9ea4c7805fce78cdb0b"
+        },
+        "c": {
+          "changed": 3476,
+          "max": 19,
+          "first": [
+            {
+              "x": 245,
+              "y": 448,
+              "channel": 1,
+              "a": 25,
+              "b": 24
+            },
+            {
+              "x": 247,
+              "y": 448,
+              "channel": 0,
+              "a": 37,
+              "b": 38
+            },
+            {
+              "x": 248,
+              "y": 448,
+              "channel": 1,
+              "a": 26,
+              "b": 25
+            },
+            {
+              "x": 252,
+              "y": 448,
+              "channel": 1,
+              "a": 28,
+              "b": 27
+            },
+            {
+              "x": 253,
+              "y": 448,
+              "channel": 0,
+              "a": 41,
+              "b": 40
+            },
+            {
+              "x": 253,
+              "y": 448,
+              "channel": 1,
+              "a": 29,
+              "b": 28
+            },
+            {
+              "x": 256,
+              "y": 448,
+              "channel": 1,
+              "a": 29,
+              "b": 28
+            },
+            {
+              "x": 257,
+              "y": 448,
+              "channel": 1,
+              "a": 27,
+              "b": 29
+            }
+          ],
+          "actualHash": "27553090ee9d1d9474c26dacb3489ce87b1e4fb83a877bb15455635ac934cc75",
+          "referenceHash": "2d4fc8468a2dc2c4cf89a9c9d8d4cb681b002e46d1c908bbccc8da82d35628c7"
+        },
+        "coverage": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "691cd783f8a78c7304d5206372c6555795adb68b754aeb83caf996e7ed267563",
+          "referenceHash": "691cd783f8a78c7304d5206372c6555795adb68b754aeb83caf996e7ed267563"
+        },
+        "rgba": {
+          "changed": 6628,
+          "max": 77,
+          "first": [
+            {
+              "x": 245,
+              "y": 448,
+              "channel": 1,
+              "a": 34,
+              "b": 38
+            },
+            {
+              "x": 247,
+              "y": 448,
+              "channel": 1,
+              "a": 37,
+              "b": 39
+            },
+            {
+              "x": 247,
+              "y": 448,
+              "channel": 2,
+              "a": 169,
+              "b": 171
+            },
+            {
+              "x": 247,
+              "y": 448,
+              "channel": 3,
+              "a": 177,
+              "b": 179
+            },
+            {
+              "x": 248,
+              "y": 448,
+              "channel": 1,
+              "a": 35,
+              "b": 39
+            },
+            {
+              "x": 252,
+              "y": 448,
+              "channel": 1,
+              "a": 31,
+              "b": 34
+            },
+            {
+              "x": 253,
+              "y": 448,
+              "channel": 1,
+              "a": 32,
+              "b": 33
+            },
+            {
+              "x": 253,
+              "y": 448,
+              "channel": 2,
+              "a": 178,
+              "b": 176
+            }
+          ],
+          "actualHash": "43bab8530b807bb0b3ab11281406e4672544ca9e1fb14e277475f5ed360a76b2",
+          "referenceHash": "fa0e07a48502e13253ea293796467e73f0fbf6c99540b108dba8ab269c3ad6fc"
+        }
+      },
+      "lost": false,
+      "sequential": true,
+      "errors": []
+    }
+  },
+  "inventoryQualification": "Not measured peak. Static known field allocation: ten field RGBA planes + Plan solvent = 99 MiB at1536; this omits other concurrently live planes. With at least one additional full-size working plane known lower bound is108 MiB, not99 MiB total. Source/native/presentation/coarse/pool planes are additional; no fits120 claim."
+}
