@@ -1,0 +1,30 @@
+{
+  "pass": true,
+  "source": {
+    "OperationLog.ts": "32bd9eeca5c92b0484e600fc3e87c720e814ebd34e399d34537a705c84e02db3",
+    "controlHistory.ts": "65bdf95a8c924e32b530efe25247e983d48f1cbccedcfd9cba0c051057deea91",
+    "watercolorUndo.ts": "f0a63c0658845d73058a9254c0c57bc51c873e7dff79994a67ce0357f6ef91b5"
+  },
+  "harnessSHA": "9fde64ef14e7d13acbc412510c20cbaa4ad0a16a783b69e0fcf95d5bc9779937",
+  "seedRange": [
+    1,
+    120
+  ],
+  "modes": [
+    "fullhistory",
+    "partiallegacyundone"
+  ],
+  "seeds": 240,
+  "localActions": 5760,
+  "checks": 7526,
+  "scope": "OperationLog state/effectivewater; no GPU/pixel claim; authoritative-only fresh journal oracle; partial legacy separately",
+  "candidateCommit": "816411892298a5526daa79c90d8c91efeef52d60",
+  "candidateWorktreeClean": true,
+  "beforeImportAfterRunFingerprintsEqual": true,
+  "excluded": [
+    "PencilEngine actual pixels",
+    "teacher revokes",
+    "transforms",
+    "genuinely missing older-page insertion"
+  ]
+}
