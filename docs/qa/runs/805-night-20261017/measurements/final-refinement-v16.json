@@ -1,0 +1,3057 @@
+{
+  "startedAt": "2026-10-17T21:25:09.872Z",
+  "qualification": "Isolated fixed-input 1024 algorithms in owned Samsung worker. Primary totalReadyMs includes upload/reduction and dependent result wait; not pure GPU time. Full-output readback/SHA and PNG outside timing. Fresh GL context per run, 3 repeat uploads on same candidate.",
+  "cases": [
+    {
+      "request": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0,
+          "fineSmooth": 2
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0,
+          "fineSmooth": 2
+        },
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 83.70000004768372,
+        "samples": [
+          {
+            "uploadJsMs": 65.79999995231628,
+            "submitJsMs": 1.6000001430511475,
+            "runToDependentMs": 43.90000009536743,
+            "totalReadyMs": 109.70000004768372
+          },
+          {
+            "uploadJsMs": 31.200000047683716,
+            "submitJsMs": 0.5999999046325684,
+            "runToDependentMs": 32.69999980926514,
+            "totalReadyMs": 63.89999985694885
+          },
+          {
+            "uploadJsMs": 27.399999856948853,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 34.700000047683716,
+            "totalReadyMs": 62.09999990463257
+          }
+        ],
+        "hashes": [
+          "1a057892c556206e67ef6a3638126523cb655a98e4fc82a5e2a0897bebe9cc39",
+          "1a057892c556206e67ef6a3638126523cb655a98e4fc82a5e2a0897bebe9cc39",
+          "1a057892c556206e67ef6a3638126523cb655a98e4fc82a5e2a0897bebe9cc39"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "conservative coarse-to-fine finite-volume exchange and adsorption",
+          "resolution": 1024,
+          "passes": 47,
+          "paperGain": 0,
+          "fineSmooth": 2,
+          "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5857094,
+          "massRatio": 0.999952709159109,
+          "lostPixels": 0,
+          "addedPixels": 11977,
+          "outsideWetPixels": 283,
+          "invalidPremul": 0,
+          "changedPixels": 71831
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 12.600000143051147,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 109.70000004768372,
+        "warmMedianMs": 62.99999988079071
+      },
+      "png": {
+        "file": "alternative-finite-volume-exchange-captured-native-waterstroke-1.png",
+        "bytes": 1051346,
+        "sha256": "23d65651162d3da8b75f580b54cd8437b97286182ca9ef09617dd30463a98f77"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.25,
+          "fineSmooth": 2
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.25,
+          "fineSmooth": 2
+        },
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 30.59999990463257,
+        "samples": [
+          {
+            "uploadJsMs": 39.200000047683716,
+            "submitJsMs": 0.5999999046325684,
+            "runToDependentMs": 37.700000047683716,
+            "totalReadyMs": 76.90000009536743
+          },
+          {
+            "uploadJsMs": 22.899999856948853,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 35.799999952316284,
+            "totalReadyMs": 58.69999980926514
+          },
+          {
+            "uploadJsMs": 32.799999952316284,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 38,
+            "totalReadyMs": 70.79999995231628
+          }
+        ],
+        "hashes": [
+          "2e1054e9e3641ef45a8983acd03416f3fb630be1ea767bab37ac4d75b9a99cb9",
+          "2e1054e9e3641ef45a8983acd03416f3fb630be1ea767bab37ac4d75b9a99cb9",
+          "2e1054e9e3641ef45a8983acd03416f3fb630be1ea767bab37ac4d75b9a99cb9"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "conservative coarse-to-fine finite-volume exchange and adsorption",
+          "resolution": 1024,
+          "passes": 47,
+          "paperGain": 0.25,
+          "fineSmooth": 2,
+          "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5857170,
+          "massRatio": 0.9999656842634691,
+          "lostPixels": 0,
+          "addedPixels": 11965,
+          "outsideWetPixels": 283,
+          "invalidPremul": 0,
+          "changedPixels": 71905
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 17,
+          "maxTimer": 11.5,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 76.90000009536743,
+        "warmMedianMs": 64.74999988079071
+      },
+      "png": {
+        "file": "alternative-finite-volume-exchange-captured-native-waterstroke-2.png",
+        "bytes": 1053453,
+        "sha256": "d65dae865b42607316e86d9a48876c14170ac7be5dd0942af871df45d46cef8a"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.5,
+          "fineSmooth": 1
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.5,
+          "fineSmooth": 1
+        },
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 76,
+        "samples": [
+          {
+            "uploadJsMs": 40.700000047683716,
+            "submitJsMs": 0.5999999046325684,
+            "runToDependentMs": 38,
+            "totalReadyMs": 78.70000004768372
+          },
+          {
+            "uploadJsMs": 34.5,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 46.80000019073486,
+            "totalReadyMs": 81.30000019073486
+          },
+          {
+            "uploadJsMs": 23.100000143051147,
+            "submitJsMs": 0.39999985694885254,
+            "runToDependentMs": 44.299999952316284,
+            "totalReadyMs": 67.40000009536743
+          }
+        ],
+        "hashes": [
+          "1f3a9ae308aa2ca4122f14ee2125b9e87ae04b117b484aa834e57b3fcb07fe4a",
+          "1f3a9ae308aa2ca4122f14ee2125b9e87ae04b117b484aa834e57b3fcb07fe4a",
+          "1f3a9ae308aa2ca4122f14ee2125b9e87ae04b117b484aa834e57b3fcb07fe4a"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "conservative coarse-to-fine finite-volume exchange and adsorption",
+          "resolution": 1024,
+          "passes": 46,
+          "paperGain": 0.5,
+          "fineSmooth": 1,
+          "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5857264,
+          "massRatio": 0.9999817324188617,
+          "lostPixels": 0,
+          "addedPixels": 11819,
+          "outsideWetPixels": 275,
+          "invalidPremul": 0,
+          "changedPixels": 71553
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 16.80000000000109,
+          "maxTimer": 13.299999952316284,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 78.70000004768372,
+        "warmMedianMs": 74.35000014305115
+      },
+      "png": {
+        "file": "alternative-finite-volume-exchange-captured-native-waterstroke-3.png",
+        "bytes": 1068829,
+        "sha256": "d5f8fc8e18b33d38634c99d6c5fecb2829a6c063b192ddb94e5ddec022f510c3"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "fine-detail",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0,
+          "fineSmooth": 2
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "fine-detail",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0,
+          "fineSmooth": 2
+        },
+        "fixtureSHA": {
+          "rgba": "c7c22a9bad4ee5ab7d026e1087824563a3642738a2ab908efff44121485ee089",
+          "water": "46a8eba6ca2b3c638d42901d288979e5c18ccffac764e570f84aceb5d5f13cac",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 116.79999995231628,
+        "samples": [
+          {
+            "uploadJsMs": 54.80000019073486,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 42.39999985694885,
+            "totalReadyMs": 97.20000004768372
+          },
+          {
+            "uploadJsMs": 114.5,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 50.200000047683716,
+            "totalReadyMs": 164.70000004768372
+          },
+          {
+            "uploadJsMs": 27.5,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 47.700000047683716,
+            "totalReadyMs": 75.20000004768372
+          }
+        ],
+        "hashes": [
+          "03cb9f4f02341fbaf832368c07bdd622b27cc66a3efbb1a0d0f79adb5fc80c2b",
+          "03cb9f4f02341fbaf832368c07bdd622b27cc66a3efbb1a0d0f79adb5fc80c2b",
+          "03cb9f4f02341fbaf832368c07bdd622b27cc66a3efbb1a0d0f79adb5fc80c2b"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "conservative coarse-to-fine finite-volume exchange and adsorption",
+          "resolution": 1024,
+          "passes": 47,
+          "paperGain": 0,
+          "fineSmooth": 2,
+          "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 2396914,
+          "outputMass": 2396314,
+          "massRatio": 0.9997496781277927,
+          "lostPixels": 0,
+          "addedPixels": 24465,
+          "outsideWetPixels": 262,
+          "invalidPremul": 0,
+          "changedPixels": 49703
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.80000000000109,
+          "maxTimer": 13.200000047683716,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 97.20000004768372,
+        "warmMedianMs": 119.95000004768372
+      },
+      "png": {
+        "file": "alternative-finite-volume-exchange-fine-detail-4.png",
+        "bytes": 731028,
+        "sha256": "0a30f0987e57632084cc0b581c3d44f54f175429f34bb7e3af7a61b8fd5fffc7"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "fine-detail",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.25,
+          "fineSmooth": 2
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "fine-detail",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.25,
+          "fineSmooth": 2
+        },
+        "fixtureSHA": {
+          "rgba": "c7c22a9bad4ee5ab7d026e1087824563a3642738a2ab908efff44121485ee089",
+          "water": "46a8eba6ca2b3c638d42901d288979e5c18ccffac764e570f84aceb5d5f13cac",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 108.80000019073486,
+        "samples": [
+          {
+            "uploadJsMs": 59.89999985694885,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 42.299999952316284,
+            "totalReadyMs": 102.19999980926514
+          },
+          {
+            "uploadJsMs": 112.70000004768372,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 51.799999952316284,
+            "totalReadyMs": 164.5
+          },
+          {
+            "uploadJsMs": 22.399999856948853,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 40.40000009536743,
+            "totalReadyMs": 62.799999952316284
+          }
+        ],
+        "hashes": [
+          "f89b2274ecc71f0eb0cbf669caa3d91e9d85bd6d3fe135affc80c365dd6277ad",
+          "f89b2274ecc71f0eb0cbf669caa3d91e9d85bd6d3fe135affc80c365dd6277ad",
+          "f89b2274ecc71f0eb0cbf669caa3d91e9d85bd6d3fe135affc80c365dd6277ad"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "conservative coarse-to-fine finite-volume exchange and adsorption",
+          "resolution": 1024,
+          "passes": 47,
+          "paperGain": 0.25,
+          "fineSmooth": 2,
+          "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 2396914,
+          "outputMass": 2395626,
+          "massRatio": 0.9994626423809949,
+          "lostPixels": 0,
+          "addedPixels": 24445,
+          "outsideWetPixels": 262,
+          "invalidPremul": 0,
+          "changedPixels": 49710
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.80000000000109,
+          "maxTimer": 18.799999952316284,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 102.19999980926514,
+        "warmMedianMs": 113.64999997615814
+      },
+      "png": {
+        "file": "alternative-finite-volume-exchange-fine-detail-5.png",
+        "bytes": 730972,
+        "sha256": "719a2bec5732c03b59deeee841228860269d8ea588a88495ac899ec3c285a674"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "fine-detail",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.5,
+          "fineSmooth": 1
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "fine-detail",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.5,
+          "fineSmooth": 1
+        },
+        "fixtureSHA": {
+          "rgba": "c7c22a9bad4ee5ab7d026e1087824563a3642738a2ab908efff44121485ee089",
+          "water": "46a8eba6ca2b3c638d42901d288979e5c18ccffac764e570f84aceb5d5f13cac",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 113.70000004768372,
+        "samples": [
+          {
+            "uploadJsMs": 42.700000047683716,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 40.39999985694885,
+            "totalReadyMs": 83.09999990463257
+          },
+          {
+            "uploadJsMs": 41.200000047683716,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 34.700000047683716,
+            "totalReadyMs": 75.90000009536743
+          },
+          {
+            "uploadJsMs": 31.40000009536743,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 42.09999990463257,
+            "totalReadyMs": 73.5
+          }
+        ],
+        "hashes": [
+          "6428e5f9627c2875bbbcb0d6505cd313a7777a4cd74ef37943d6689620db4eb7",
+          "6428e5f9627c2875bbbcb0d6505cd313a7777a4cd74ef37943d6689620db4eb7",
+          "6428e5f9627c2875bbbcb0d6505cd313a7777a4cd74ef37943d6689620db4eb7"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "conservative coarse-to-fine finite-volume exchange and adsorption",
+          "resolution": 1024,
+          "passes": 46,
+          "paperGain": 0.5,
+          "fineSmooth": 1,
+          "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 2396914,
+          "outputMass": 2395973,
+          "massRatio": 0.9996074118637548,
+          "lostPixels": 0,
+          "addedPixels": 24415,
+          "outsideWetPixels": 262,
+          "invalidPremul": 0,
+          "changedPixels": 49576
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.80000000000109,
+          "maxTimer": 12.200000047683716,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 83.09999990463257,
+        "warmMedianMs": 74.70000004768372
+      },
+      "png": {
+        "file": "alternative-finite-volume-exchange-fine-detail-6.png",
+        "bytes": 733960,
+        "sha256": "96eb7e486c60d37955fd1e5307b9519a4b7da3c352f2c1472d1839a377088ce3"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "blue-yellow",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0,
+          "fineSmooth": 2
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "blue-yellow",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0,
+          "fineSmooth": 2
+        },
+        "fixtureSHA": {
+          "rgba": "eb9f485446fbd66d3998d7c1345146118c3ff89e8ffc7acefcbd29ee8f9a2d10",
+          "water": "efe775e232be7cf2676fb67bf27d22684375ffa726a388a7e687fc3dbdb99830",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 104.09999990463257,
+        "samples": [
+          {
+            "uploadJsMs": 48.200000047683716,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 59.200000047683716,
+            "totalReadyMs": 107.40000009536743
+          },
+          {
+            "uploadJsMs": 27.90000009536743,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 52.39999985694885,
+            "totalReadyMs": 80.29999995231628
+          },
+          {
+            "uploadJsMs": 32.799999952316284,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 41.40000009536743,
+            "totalReadyMs": 74.20000004768372
+          }
+        ],
+        "hashes": [
+          "63217fadad86ad865c1b9bc3fd41d40955bb93ea80745d745860b14b27ae3829",
+          "63217fadad86ad865c1b9bc3fd41d40955bb93ea80745d745860b14b27ae3829",
+          "63217fadad86ad865c1b9bc3fd41d40955bb93ea80745d745860b14b27ae3829"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "conservative coarse-to-fine finite-volume exchange and adsorption",
+          "resolution": 1024,
+          "passes": 47,
+          "paperGain": 0,
+          "fineSmooth": 2,
+          "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 38335541,
+          "outputMass": 38366225,
+          "massRatio": 1.000800406077483,
+          "lostPixels": 0,
+          "addedPixels": 5,
+          "outsideWetPixels": 57,
+          "invalidPremul": 0,
+          "changedPixels": 302761
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.80000000000109,
+          "maxTimer": 12.899999856948853,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 107.40000009536743,
+        "warmMedianMs": 77.25
+      },
+      "png": {
+        "file": "alternative-finite-volume-exchange-blue-yellow-7.png",
+        "bytes": 991312,
+        "sha256": "4753cd9f7894cd7458234d7bcd2f7af37d128ae9d6e3f4cd26250e532ac83d90"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "blue-yellow",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.25,
+          "fineSmooth": 2
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "blue-yellow",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.25,
+          "fineSmooth": 2
+        },
+        "fixtureSHA": {
+          "rgba": "eb9f485446fbd66d3998d7c1345146118c3ff89e8ffc7acefcbd29ee8f9a2d10",
+          "water": "efe775e232be7cf2676fb67bf27d22684375ffa726a388a7e687fc3dbdb99830",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 105.29999995231628,
+        "samples": [
+          {
+            "uploadJsMs": 48.200000047683716,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 51.799999952316284,
+            "totalReadyMs": 100
+          },
+          {
+            "uploadJsMs": 28.299999952316284,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 47.59999990463257,
+            "totalReadyMs": 75.89999985694885
+          },
+          {
+            "uploadJsMs": 28.399999856948853,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 54.40000009536743,
+            "totalReadyMs": 82.79999995231628
+          }
+        ],
+        "hashes": [
+          "1a12782783e9135ac693a1a532bc856f5486052cf5ca633d614a9f34ff58dd49",
+          "1a12782783e9135ac693a1a532bc856f5486052cf5ca633d614a9f34ff58dd49",
+          "1a12782783e9135ac693a1a532bc856f5486052cf5ca633d614a9f34ff58dd49"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "conservative coarse-to-fine finite-volume exchange and adsorption",
+          "resolution": 1024,
+          "passes": 47,
+          "paperGain": 0.25,
+          "fineSmooth": 2,
+          "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 38335541,
+          "outputMass": 38367348,
+          "massRatio": 1.0008297000425792,
+          "lostPixels": 0,
+          "addedPixels": 5,
+          "outsideWetPixels": 57,
+          "invalidPremul": 0,
+          "changedPixels": 303098
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.80000000000291,
+          "maxTimer": 17.199999809265137,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 100,
+        "warmMedianMs": 79.34999990463257
+      },
+      "png": {
+        "file": "alternative-finite-volume-exchange-blue-yellow-8.png",
+        "bytes": 997921,
+        "sha256": "93fe2a0fa0c66b092c324acf81a08102acd4706e1fa92bc95230d10df4c22186"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "blue-yellow",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.5,
+          "fineSmooth": 1
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "blue-yellow",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.5,
+          "fineSmooth": 1
+        },
+        "fixtureSHA": {
+          "rgba": "eb9f485446fbd66d3998d7c1345146118c3ff89e8ffc7acefcbd29ee8f9a2d10",
+          "water": "efe775e232be7cf2676fb67bf27d22684375ffa726a388a7e687fc3dbdb99830",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 66.29999995231628,
+        "samples": [
+          {
+            "uploadJsMs": 40,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 54.5,
+            "totalReadyMs": 94.5
+          },
+          {
+            "uploadJsMs": 29.40000009536743,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 51.09999990463257,
+            "totalReadyMs": 80.5
+          },
+          {
+            "uploadJsMs": 34.5,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 50.30000019073486,
+            "totalReadyMs": 84.80000019073486
+          }
+        ],
+        "hashes": [
+          "1786b5b5bb953e07f6411bf11a6bcc2e1e26294bb00175bae843b9f71d2d915c",
+          "1786b5b5bb953e07f6411bf11a6bcc2e1e26294bb00175bae843b9f71d2d915c",
+          "1786b5b5bb953e07f6411bf11a6bcc2e1e26294bb00175bae843b9f71d2d915c"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "conservative coarse-to-fine finite-volume exchange and adsorption",
+          "resolution": 1024,
+          "passes": 46,
+          "paperGain": 0.5,
+          "fineSmooth": 1,
+          "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 38335541,
+          "outputMass": 38367972,
+          "massRatio": 1.0008459773660165,
+          "lostPixels": 0,
+          "addedPixels": 5,
+          "outsideWetPixels": 57,
+          "invalidPremul": 0,
+          "changedPixels": 307144
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 17.200000000000728,
+          "maxTimer": 12.099999904632568,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 94.5,
+        "warmMedianMs": 82.65000009536743
+      },
+      "png": {
+        "file": "alternative-finite-volume-exchange-blue-yellow-9.png",
+        "bytes": 1067563,
+        "sha256": "5b3dd9e4e8f5bdab691e885bbc62c887aafe94ae33e5dc33784229b0bf4dd8de"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "dry-stroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.25,
+          "fineSmooth": 2
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "dry-stroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.25,
+          "fineSmooth": 2
+        },
+        "fixtureSHA": {
+          "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+          "water": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 64.60000014305115,
+        "samples": [
+          {
+            "uploadJsMs": 51,
+            "submitJsMs": 0.39999985694885254,
+            "runToDependentMs": 51,
+            "totalReadyMs": 102
+          },
+          {
+            "uploadJsMs": 26.399999856948853,
+            "submitJsMs": 0.3000001907348633,
+            "runToDependentMs": 36.40000009536743,
+            "totalReadyMs": 62.799999952316284
+          },
+          {
+            "uploadJsMs": 34,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 45.09999990463257,
+            "totalReadyMs": 79.09999990463257
+          }
+        ],
+        "hashes": [
+          "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+          "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+          "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "conservative coarse-to-fine finite-volume exchange and adsorption",
+          "resolution": 1024,
+          "passes": 47,
+          "paperGain": 0.25,
+          "fineSmooth": 2,
+          "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 9367726,
+          "outputMass": 9367726,
+          "massRatio": 1,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 74366,
+          "invalidPremul": 0,
+          "changedPixels": 0
+        },
+        "orientation": "fixture-row-order",
+        "control": {
+          "exactIdentity": true
+        },
+        "ui": {
+          "maxRAF": 17,
+          "maxTimer": 12.099999904632568,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 102,
+        "warmMedianMs": 70.94999992847443
+      },
+      "png": {
+        "file": "alternative-finite-volume-exchange-dry-stroke-10.png",
+        "bytes": 763192,
+        "sha256": "b531e180f1d62e6f2192e982a31729c6d79963c47748529760322351b58ca183"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "dry-barrier",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.25,
+          "fineSmooth": 2
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "dry-barrier",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.25,
+          "fineSmooth": 2
+        },
+        "fixtureSHA": {
+          "rgba": "ea7b876a06ee6c1c5cca87da5fe899ee681fb656a980ad9eaeab78e32fe580ec",
+          "water": "f04b89aa71c005fc35f9128c3e2a961efc54396b9ed32cb5c5425b605d6009da",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 22.700000047683716,
+        "samples": [
+          {
+            "uploadJsMs": 38.09999990463257,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 35.299999952316284,
+            "totalReadyMs": 73.39999985694885
+          },
+          {
+            "uploadJsMs": 35,
+            "submitJsMs": 0.3000001907348633,
+            "runToDependentMs": 34,
+            "totalReadyMs": 69
+          },
+          {
+            "uploadJsMs": 28.59999990463257,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 36.10000014305115,
+            "totalReadyMs": 64.70000004768372
+          }
+        ],
+        "hashes": [
+          "409b706aafd8b2270086b9a13d5e3b1ba5cd17b7d75d9c0c1146c92d3c792ff0",
+          "409b706aafd8b2270086b9a13d5e3b1ba5cd17b7d75d9c0c1146c92d3c792ff0",
+          "409b706aafd8b2270086b9a13d5e3b1ba5cd17b7d75d9c0c1146c92d3c792ff0"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "conservative coarse-to-fine finite-volume exchange and adsorption",
+          "resolution": 1024,
+          "passes": 47,
+          "paperGain": 0.25,
+          "fineSmooth": 2,
+          "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 599742,
+          "outputMass": 599721,
+          "massRatio": 0.9999649849435257,
+          "lostPixels": 0,
+          "addedPixels": 5510,
+          "outsideWetPixels": 0,
+          "invalidPremul": 0,
+          "changedPixels": 10519
+        },
+        "orientation": "fixture-row-order",
+        "control": {
+          "inputRightAlpha": 0,
+          "outputRightAlpha": 0,
+          "noCrossing": true
+        },
+        "ui": {
+          "maxRAF": 17.099999999998545,
+          "maxTimer": 10.600000143051147,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 73.39999985694885,
+        "warmMedianMs": 66.85000002384186
+      },
+      "png": {
+        "file": "alternative-finite-volume-exchange-dry-barrier-11.png",
+        "bytes": 664383,
+        "sha256": "8d57b373d7bf16541f3c7ab893c6135833166ae4562f33deafed18d11414d0b3"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "isolated-pools",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.25,
+          "fineSmooth": 2
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "isolated-pools",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.25,
+          "fineSmooth": 2
+        },
+        "fixtureSHA": {
+          "rgba": "881c91b0bdaabe02f5a5e3a2d4d6710a2a7bdae94da8006880d9459411dc2792",
+          "water": "6ea2855a9526f2ee318a5b4649f201ef8b08a2c86ed9b51ff28ffd9668186292",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 115.29999995231628,
+        "samples": [
+          {
+            "uploadJsMs": 49.59999990463257,
+            "submitJsMs": 0.3000001907348633,
+            "runToDependentMs": 42.80000019073486,
+            "totalReadyMs": 92.40000009536743
+          },
+          {
+            "uploadJsMs": 26.5,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 36.700000047683716,
+            "totalReadyMs": 63.200000047683716
+          },
+          {
+            "uploadJsMs": 32.09999990463257,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 39,
+            "totalReadyMs": 71.09999990463257
+          }
+        ],
+        "hashes": [
+          "bdfdfd0d6d35cd80e5a9be6dd3513164462d5b8790794fa54ef66d788a76b31b",
+          "bdfdfd0d6d35cd80e5a9be6dd3513164462d5b8790794fa54ef66d788a76b31b",
+          "bdfdfd0d6d35cd80e5a9be6dd3513164462d5b8790794fa54ef66d788a76b31b"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "conservative coarse-to-fine finite-volume exchange and adsorption",
+          "resolution": 1024,
+          "passes": 47,
+          "paperGain": 0.25,
+          "fineSmooth": 2,
+          "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 1965711,
+          "outputMass": 1965126,
+          "massRatio": 0.9997023977583683,
+          "lostPixels": 0,
+          "addedPixels": 7357,
+          "outsideWetPixels": 0,
+          "invalidPremul": 0,
+          "changedPixels": 23702
+        },
+        "orientation": "fixture-row-order",
+        "control": {
+          "inputRightAlpha": 0,
+          "outputRightAlpha": 0,
+          "noCrossing": true
+        },
+        "ui": {
+          "maxRAF": 16.80000000000291,
+          "maxTimer": 12,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 92.40000009536743,
+        "warmMedianMs": 67.14999997615814
+      },
+      "png": {
+        "file": "alternative-finite-volume-exchange-isolated-pools-12.png",
+        "bytes": 676995,
+        "sha256": "800e6180640fa3db766eb63befc48ec750149b5238de5f65b29315a38b77a4f6"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "water-only",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.25,
+          "fineSmooth": 2
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-finite-volume-exchange",
+        "fixture": "water-only",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 6,
+          "mobile": 0.8,
+          "share": 0.75,
+          "adsorption": 0.08,
+          "coarse": 2,
+          "paperGain": 0.25,
+          "fineSmooth": 2
+        },
+        "fixtureSHA": {
+          "rgba": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "water": "d4ccabad2d7d244dccccd47af45b2405ae796fa736a8612e08f5da392c1662c2",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 112.5,
+        "samples": [
+          {
+            "uploadJsMs": 44.700000047683716,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 42.39999985694885,
+            "totalReadyMs": 87.09999990463257
+          },
+          {
+            "uploadJsMs": 27.5,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 38.200000047683716,
+            "totalReadyMs": 65.70000004768372
+          },
+          {
+            "uploadJsMs": 31,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 40,
+            "totalReadyMs": 71
+          }
+        ],
+        "hashes": [
+          "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "conservative coarse-to-fine finite-volume exchange and adsorption",
+          "resolution": 1024,
+          "passes": 47,
+          "paperGain": 0.25,
+          "fineSmooth": 2,
+          "conservation": "whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 0,
+          "outputMass": 0,
+          "massRatio": 1,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 0,
+          "invalidPremul": 0,
+          "changedPixels": 0
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.80000000000291,
+          "maxTimer": 11.700000047683716,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 87.09999990463257,
+        "warmMedianMs": 68.35000002384186
+      },
+      "png": {
+        "file": "alternative-finite-volume-exchange-water-only-13.png",
+        "bytes": 632770,
+        "sha256": "4c4b4e3330f10afd83ad489b82a59cfd6ea3b0387136c320123a6e6944d639e5"
+      },
+      "pass": true
+    }
+  ],
+  "sourceHashes": {
+    "entry.js": "b93001815ceb672fb51a8064baaa2adc7ee6efd2390de499fee8ccfd0d01fa9e",
+    "worker.js": "56744e245b85abeb00513b9c391eee10e8c03218d74d6699d825712008a3016b",
+    "chunk-XWCUE2HP.js": "ac3c112d9595b19ccfdf43179b3e7474bbba2e0c338c16b0b52452fcfde87fc7",
+    "captured-native.bin": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+    "index.html": "7f174c6068b1a87f196251529b71ac6c4844f011e315c79534a94c0af5b824e4"
+  },
+  "catalog": {
+    "requestId": 1,
+    "algorithms": [
+      {
+        "id": "input-reference",
+        "label": "Исходный след без растекания",
+        "configs": [
+          {}
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-finite-volume-exchange",
+        "label": "Conservative coarse-to-fine exchange with normalized paper deposition",
+        "configs": [
+          {
+            "steps": 4,
+            "mobile": 0.6,
+            "share": 0.65,
+            "adsorption": 0.1,
+            "coarse": 4
+          },
+          {
+            "steps": 6,
+            "mobile": 0.8,
+            "share": 0.75,
+            "adsorption": 0.08,
+            "coarse": 2
+          },
+          {
+            "steps": 6,
+            "mobile": 0.8,
+            "share": 0.75,
+            "adsorption": 0.08,
+            "coarse": 2,
+            "paperGain": 0,
+            "fineSmooth": 2
+          },
+          {
+            "steps": 6,
+            "mobile": 0.8,
+            "share": 0.75,
+            "adsorption": 0.08,
+            "coarse": 2,
+            "paperGain": 0.25,
+            "fineSmooth": 2
+          },
+          {
+            "steps": 6,
+            "mobile": 0.8,
+            "share": 0.75,
+            "adsorption": 0.08,
+            "coarse": 2,
+            "paperGain": 0.5,
+            "fineSmooth": 1
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-coarse-mobile-detail",
+        "label": "Barrier-safe coarse wash + raw detail + gentle correlated deposition",
+        "configs": [
+          {
+            "steps": 2,
+            "mobile": 0.2,
+            "share": 0.5,
+            "adsorption": 0.1,
+            "paperBias": 0.7,
+            "coarse": 1,
+            "paperScale": 4,
+            "micro": 0.1,
+            "relief": 2,
+            "detail": 0.7,
+            "mobility": 0.65
+          },
+          {
+            "steps": 2,
+            "mobile": 0.35,
+            "share": 0.6,
+            "adsorption": 0.1,
+            "paperBias": 0.8,
+            "coarse": 1,
+            "paperScale": 5,
+            "micro": 0.12,
+            "relief": 2.5,
+            "detail": 0.4,
+            "mobility": 1
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-stable-fluids",
+        "label": "Low-resolution advect/project/pigment (RGBA8)",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 4,
+            "projection": 4,
+            "force": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 4,
+            "projection": 4,
+            "force": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 8,
+            "projection": 6,
+            "force": 4
+          },
+          {
+            "resolution": 512,
+            "steps": 4,
+            "projection": 4,
+            "force": 4
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-lattice-diffusion",
+        "label": "Conservative donor lattice pigment diffusion",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 12,
+            "stride": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 12,
+            "stride": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 24,
+            "stride": 4
+          },
+          {
+            "resolution": 512,
+            "steps": 16,
+            "stride": 4
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-artistic-front",
+        "label": "Cheap dyadic artistic front + multiscale pigment",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 8,
+            "budget": 12,
+            "rim": 0.2
+          },
+          {
+            "resolution": 256,
+            "steps": 8,
+            "budget": 16,
+            "rim": 0.35
+          },
+          {
+            "resolution": 256,
+            "steps": 16,
+            "budget": 24,
+            "rim": 0.5
+          },
+          {
+            "resolution": 512,
+            "steps": 12,
+            "budget": 32,
+            "rim": 0.35
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "search-artistic-program",
+        "label": "Bounded24 ordered artistic programs (approximate search)",
+        "configs": [
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 1
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-wet-boundary-detail",
+        "label": "Donor wet-boundary rim + retained detail + real paper grain",
+        "configs": [
+          {
+            "resolution": 256,
+            "steps": 8,
+            "rim": 0.7,
+            "grain": 0.35,
+            "detail": 0.65,
+            "fullSteps": 2,
+            "share": 0.4
+          },
+          {
+            "resolution": 256,
+            "steps": 10,
+            "rim": 0.85,
+            "grain": 0.6,
+            "detail": 0.8,
+            "fullSteps": 3,
+            "share": 0.35
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-paper-deposition",
+        "label": "Paper-guided mobile pigment and gradual deposition (no pool-edge rim)",
+        "configs": [
+          {
+            "steps": 4,
+            "mobile": 0.4,
+            "share": 0.65,
+            "adsorption": 0.16,
+            "paperBias": 0.9,
+            "coarse": 4
+          },
+          {
+            "steps": 5,
+            "mobile": 0.8,
+            "share": 0.7,
+            "adsorption": 0.12,
+            "paperBias": 1,
+            "coarse": 6
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-porous-water-transport",
+        "label": "Evolving porous water + donor-cell pigment and adsorption",
+        "configs": [
+          {
+            "steps": 8,
+            "mobile": 0.6,
+            "adsorption": 0.1,
+            "coarse": 4,
+            "dt": 0.16,
+            "terrain": 0.18
+          },
+          {
+            "steps": 10,
+            "mobile": 0.8,
+            "adsorption": 0.07,
+            "coarse": 2,
+            "dt": 0.2,
+            "terrain": 0.25
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-correlated-paper-deposition",
+        "label": "Correlated paper affinity, micrograin and gradual pigment deposition",
+        "configs": [
+          {
+            "steps": 4,
+            "mobile": 0.6,
+            "share": 0.65,
+            "adsorption": 0.14,
+            "paperBias": 0.9,
+            "coarse": 4,
+            "paperScale": 3,
+            "micro": 0.12,
+            "relief": 2.5
+          },
+          {
+            "steps": 5,
+            "mobile": 0.75,
+            "share": 0.7,
+            "adsorption": 0.1,
+            "paperBias": 1,
+            "coarse": 6,
+            "paperScale": 5,
+            "micro": 0.15,
+            "relief": 3.5
+          },
+          {
+            "steps": 5,
+            "mobile": 0.8,
+            "share": 0.7,
+            "adsorption": 0.09,
+            "paperBias": 1,
+            "coarse": 8,
+            "paperScale": 8,
+            "micro": 0.1,
+            "relief": 4.5
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "gl-integer-diffusion-match",
+        "label": "GL1: matched local integer diffusion",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "wgsl-integer-diffusion-direct",
+        "label": "WebGPU: local integer diffusion",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-integer-diffusion-tiled4",
+        "label": "WebGPU: same local diffusion, four shared-memory steps",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-d2q9-bgk",
+        "label": "WebGPU: D2Q9 fluid with pigment/water tracers",
+        "configs": [
+          {
+            "grid": 256,
+            "steps": 48
+          },
+          {
+            "grid": 512,
+            "steps": 48
+          },
+          {
+            "grid": 256,
+            "steps": 16,
+            "diffusion": 0.015
+          },
+          {
+            "grid": 128,
+            "steps": 24,
+            "diffusion": 0.025
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-integer-diffusion-texture",
+        "label": "WebGPU: same local integer diffusion, R32Uint texture access",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "dot",
+        "label": "Точка",
+        "description": "Один широкий отпечаток синей кисти"
+      },
+      {
+        "id": "wave",
+        "label": "Широкая волна",
+        "description": "Кисть320 через значительную часть листа"
+      },
+      {
+        "id": "water-only",
+        "label": "Только вода",
+        "description": "Мокрая область без пигмента: краска не должна появляться"
+      },
+      {
+        "id": "water-stroke",
+        "label": "Мазок через лужу",
+        "description": "Узкая синяя линия пересекает широкую мокрую область"
+      },
+      {
+        "id": "two-colors",
+        "label": "Два цвета",
+        "description": "Пересечение синего и розового пигмента в общей мокрой области"
+      },
+      {
+        "id": "crosses",
+        "label": "Повторные пересечения",
+        "description": "Три перекрывающихся следа с разным количеством пигмента"
+      },
+      {
+        "id": "blue-yellow",
+        "label": "Синий и жёлтый",
+        "description": "Проверка смешения пигментов, а не только размытияRGB"
+      },
+      {
+        "id": "fine-detail",
+        "label": "Тонкий след",
+        "description": "Мелкие детали на мокрой и почти сухой бумаге"
+      },
+      {
+        "id": "border",
+        "label": "У края листа",
+        "description": "След касается границы расчётного поля"
+      },
+      {
+        "id": "wave-open",
+        "label": "Волна с открытыми изгибами",
+        "description": "Два крупных изгиба широкой кисти вместо многократного наложения"
+      },
+      {
+        "id": "dry-stroke",
+        "label": "Сухой контроль",
+        "description": "Тот же пигмент, что в мазке через лужу, но воды нет: перенос запрещён"
+      },
+      {
+        "id": "isolated-pools",
+        "label": "Две отдельные лужи",
+        "description": "Синий пигмент только в левой луже; правая отделена сухим промежутком"
+      },
+      {
+        "id": "variable-wash",
+        "label": "Неравномерная заливка",
+        "description": "Перекрывающиеся отпечатки с разным количеством краски на предварительно смоченной бумаге"
+      },
+      {
+        "id": "dry-barrier",
+        "label": "Тонкий сухой разделитель",
+        "description": "Две мокрые области разделены сухой полосой шириной один пиксель; пигмент только слева"
+      },
+      {
+        "id": "captured-native-waterstroke",
+        "label": "Настоящий мазок через воду Mini",
+        "description": "Преобразованный native optical input, реальная вода и бумага; не тождественный native composite"
+      }
+    ]
+  },
+  "sourceStable": true,
+  "pass": true,
+  "errors": [],
+  "intercepts": {
+    "index.html": 1,
+    "entry.js": 1,
+    "chunk-XWCUE2HP.js": 2,
+    "worker.js": 1,
+    "captured-native.bin": 1
+  },
+  "contextClosed": true,
+  "finishedAt": "2026-10-17T21:25:39.771Z"
+}
