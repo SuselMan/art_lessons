@@ -1,0 +1,1342 @@
+{
+  "source": "3d9be901",
+  "scope": "Owned latest profile layer, genuine engine.undo/redo semantic API and appendOperation scoped Dry; toolbar buttons not tested. Original17 two-stroke wet layer preserved.",
+  "warmCorrectness": "PASS UndoSeam / RedoSeam / Dry / UndoDry / RedoDry; natural goal or physical captured FIRST, complete API independent all7flags+factoryOFF replay, rawROI/full/outside exact",
+  "coldCorrectness": "PASS separate read-only cold followup after strict IDs/layers/job/UI readiness; original reload attempt stopped too early at engineUnlocked, no product loss demonstrated",
+  "performanceQualification": "No operation-latency claim for lifecycle; strict cold navigation-to-ready50.576s remains slow.",
+  "warmProofs": [
+    {
+      "name": "original-wet-before-controls",
+      "wallAt": 1792242598307,
+      "actualSource": "canonical-goal",
+      "actualCapturedBeforeOracle": true,
+      "oracleTightSupport32": false,
+      "oracleControllers": [
+        {
+          "nativeScopeFactoryOff": true,
+          "type": "PagedPuddleRoomController",
+          "tightFlagAtCreation": false,
+          "actualOptions": {
+            "diagnosticM70TightSupport32": false,
+            "diagnosticM70CapturedBacking": false,
+            "diagnosticM70PersistCapturedBacking": false,
+            "diagnosticM70CooperativeCapture": false,
+            "diagnosticM70StepBudgetMs": 0,
+            "diagnosticM70SkipEmptyPostphase": false,
+            "diagnosticM70SkipEmptyReference": false
+          },
+          "createdWhilePuddleNull": true
+        }
+      ],
+      "oracleNativePrepare": 29,
+      "liveControllerRestored": true,
+      "liveTightFlagRestored": true,
+      "oracleLog": "complete-api",
+      "oracleOperationCount": 7,
+      "liveLogUnchanged": true,
+      "page": {
+        "width": 3508,
+        "height": 2480
+      },
+      "physicalChanged": 0,
+      "max": 0,
+      "alpha": 6047,
+      "tiles": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 2028
+        },
+        {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 300
+        },
+        {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 291
+        },
+        {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1559
+        },
+        {
+          "x": 3072,
+          "y": 2048,
+          "w": 436,
+          "h": 432,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1869
+        }
+      ],
+      "actualHash": "bfa7395c1dea408a926a81fc1c9c43f5cc1a0e7d5d5183c8b214965712d6218a",
+      "oracleHash": "bfa7395c1dea408a926a81fc1c9c43f5cc1a0e7d5d5183c8b214965712d6218a",
+      "glError": 0
+    },
+    {
+      "name": "controls-UndoSeam",
+      "wallAt": 1792242602886,
+      "actualSource": "canonical-goal",
+      "actualCapturedBeforeOracle": true,
+      "oracleTightSupport32": false,
+      "oracleControllers": [
+        {
+          "nativeScopeFactoryOff": true,
+          "type": "PagedPuddleRoomController",
+          "tightFlagAtCreation": false,
+          "actualOptions": {
+            "diagnosticM70TightSupport32": false,
+            "diagnosticM70CapturedBacking": false,
+            "diagnosticM70PersistCapturedBacking": false,
+            "diagnosticM70CooperativeCapture": false,
+            "diagnosticM70StepBudgetMs": 0,
+            "diagnosticM70SkipEmptyPostphase": false,
+            "diagnosticM70SkipEmptyReference": false
+          },
+          "createdWhilePuddleNull": true
+        }
+      ],
+      "oracleNativePrepare": 4,
+      "liveControllerRestored": true,
+      "liveTightFlagRestored": true,
+      "oracleLog": "complete-api",
+      "oracleOperationCount": 7,
+      "liveLogUnchanged": true,
+      "page": {
+        "width": 3508,
+        "height": 2480
+      },
+      "physicalChanged": 0,
+      "max": 0,
+      "alpha": 1867,
+      "tiles": [
+        {
+          "x": 3072,
+          "y": 2048,
+          "w": 436,
+          "h": 432,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1867
+        }
+      ],
+      "actualHash": "1663326fee90b55afa49423089969a41c26b84a39e3a7d543c0231e546e084b5",
+      "oracleHash": "1663326fee90b55afa49423089969a41c26b84a39e3a7d543c0231e546e084b5",
+      "glError": 0
+    },
+    {
+      "name": "controls-RedoSeam",
+      "wallAt": 1792242631175,
+      "actualSource": "canonical-goal",
+      "actualCapturedBeforeOracle": true,
+      "oracleTightSupport32": false,
+      "oracleControllers": [
+        {
+          "nativeScopeFactoryOff": true,
+          "type": "PagedPuddleRoomController",
+          "tightFlagAtCreation": false,
+          "actualOptions": {
+            "diagnosticM70TightSupport32": false,
+            "diagnosticM70CapturedBacking": false,
+            "diagnosticM70PersistCapturedBacking": false,
+            "diagnosticM70CooperativeCapture": false,
+            "diagnosticM70StepBudgetMs": 0,
+            "diagnosticM70SkipEmptyPostphase": false,
+            "diagnosticM70SkipEmptyReference": false
+          },
+          "createdWhilePuddleNull": true
+        }
+      ],
+      "oracleNativePrepare": 29,
+      "liveControllerRestored": true,
+      "liveTightFlagRestored": true,
+      "oracleLog": "complete-api",
+      "oracleOperationCount": 8,
+      "liveLogUnchanged": true,
+      "page": {
+        "width": 3508,
+        "height": 2480
+      },
+      "physicalChanged": 0,
+      "max": 0,
+      "alpha": 6045,
+      "tiles": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 2028
+        },
+        {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 300
+        },
+        {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 291
+        },
+        {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1559
+        },
+        {
+          "x": 3072,
+          "y": 2048,
+          "w": 436,
+          "h": 432,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1867
+        }
+      ],
+      "actualHash": "3a916477dbdf1fe648d2badee9aa51d34cb65f20fcca00b3134a7cce4a453cb1",
+      "oracleHash": "3a916477dbdf1fe648d2badee9aa51d34cb65f20fcca00b3134a7cce4a453cb1",
+      "glError": 0
+    },
+    {
+      "name": "controls-Dry",
+      "wallAt": 1792242653799,
+      "actualSource": "physical",
+      "actualCapturedBeforeOracle": true,
+      "oracleTightSupport32": false,
+      "oracleControllers": [
+        {
+          "nativeScopeFactoryOff": true,
+          "type": "PagedPuddleRoomController",
+          "tightFlagAtCreation": false,
+          "actualOptions": {
+            "diagnosticM70TightSupport32": false,
+            "diagnosticM70CapturedBacking": false,
+            "diagnosticM70PersistCapturedBacking": false,
+            "diagnosticM70CooperativeCapture": false,
+            "diagnosticM70StepBudgetMs": 0,
+            "diagnosticM70SkipEmptyPostphase": false,
+            "diagnosticM70SkipEmptyReference": false
+          },
+          "createdWhilePuddleNull": true
+        }
+      ],
+      "oracleNativePrepare": 29,
+      "liveControllerRestored": true,
+      "liveTightFlagRestored": true,
+      "oracleLog": "complete-api",
+      "oracleOperationCount": 9,
+      "liveLogUnchanged": true,
+      "page": {
+        "width": 3508,
+        "height": 2480
+      },
+      "physicalChanged": 0,
+      "max": 0,
+      "alpha": 6045,
+      "tiles": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 2028
+        },
+        {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 300
+        },
+        {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 291
+        },
+        {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1559
+        },
+        {
+          "x": 3072,
+          "y": 2048,
+          "w": 436,
+          "h": 432,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1867
+        }
+      ],
+      "actualHash": "3a916477dbdf1fe648d2badee9aa51d34cb65f20fcca00b3134a7cce4a453cb1",
+      "oracleHash": "3a916477dbdf1fe648d2badee9aa51d34cb65f20fcca00b3134a7cce4a453cb1",
+      "glError": 0
+    },
+    {
+      "name": "original-wet-after-active-Dry",
+      "wallAt": 1792242674734,
+      "actualSource": "canonical-goal",
+      "actualCapturedBeforeOracle": true,
+      "oracleTightSupport32": false,
+      "oracleControllers": [
+        {
+          "nativeScopeFactoryOff": true,
+          "type": "PagedPuddleRoomController",
+          "tightFlagAtCreation": false,
+          "actualOptions": {
+            "diagnosticM70TightSupport32": false,
+            "diagnosticM70CapturedBacking": false,
+            "diagnosticM70PersistCapturedBacking": false,
+            "diagnosticM70CooperativeCapture": false,
+            "diagnosticM70StepBudgetMs": 0,
+            "diagnosticM70SkipEmptyPostphase": false,
+            "diagnosticM70SkipEmptyReference": false
+          },
+          "createdWhilePuddleNull": true
+        }
+      ],
+      "oracleNativePrepare": 29,
+      "liveControllerRestored": true,
+      "liveTightFlagRestored": true,
+      "oracleLog": "complete-api",
+      "oracleOperationCount": 9,
+      "liveLogUnchanged": true,
+      "page": {
+        "width": 3508,
+        "height": 2480
+      },
+      "physicalChanged": 0,
+      "max": 0,
+      "alpha": 6047,
+      "tiles": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 2028
+        },
+        {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 300
+        },
+        {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 291
+        },
+        {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1559
+        },
+        {
+          "x": 3072,
+          "y": 2048,
+          "w": 436,
+          "h": 432,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1869
+        }
+      ],
+      "actualHash": "bfa7395c1dea408a926a81fc1c9c43f5cc1a0e7d5d5183c8b214965712d6218a",
+      "oracleHash": "bfa7395c1dea408a926a81fc1c9c43f5cc1a0e7d5d5183c8b214965712d6218a",
+      "glError": 0
+    },
+    {
+      "name": "controls-UndoDry",
+      "wallAt": 1792242702843,
+      "actualSource": "canonical-goal",
+      "actualCapturedBeforeOracle": true,
+      "oracleTightSupport32": false,
+      "oracleControllers": [
+        {
+          "nativeScopeFactoryOff": true,
+          "type": "PagedPuddleRoomController",
+          "tightFlagAtCreation": false,
+          "actualOptions": {
+            "diagnosticM70TightSupport32": false,
+            "diagnosticM70CapturedBacking": false,
+            "diagnosticM70PersistCapturedBacking": false,
+            "diagnosticM70CooperativeCapture": false,
+            "diagnosticM70StepBudgetMs": 0,
+            "diagnosticM70SkipEmptyPostphase": false,
+            "diagnosticM70SkipEmptyReference": false
+          },
+          "createdWhilePuddleNull": true
+        }
+      ],
+      "oracleNativePrepare": 29,
+      "liveControllerRestored": true,
+      "liveTightFlagRestored": true,
+      "oracleLog": "complete-api",
+      "oracleOperationCount": 10,
+      "liveLogUnchanged": true,
+      "page": {
+        "width": 3508,
+        "height": 2480
+      },
+      "physicalChanged": 0,
+      "max": 0,
+      "alpha": 6045,
+      "tiles": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 2028
+        },
+        {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 300
+        },
+        {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 291
+        },
+        {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1559
+        },
+        {
+          "x": 3072,
+          "y": 2048,
+          "w": 436,
+          "h": 432,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1867
+        }
+      ],
+      "actualHash": "3a916477dbdf1fe648d2badee9aa51d34cb65f20fcca00b3134a7cce4a453cb1",
+      "oracleHash": "3a916477dbdf1fe648d2badee9aa51d34cb65f20fcca00b3134a7cce4a453cb1",
+      "glError": 0
+    },
+    {
+      "name": "controls-RedoDry",
+      "wallAt": 1792242727673,
+      "actualSource": "physical",
+      "actualCapturedBeforeOracle": true,
+      "oracleTightSupport32": false,
+      "oracleControllers": [
+        {
+          "nativeScopeFactoryOff": true,
+          "type": "PagedPuddleRoomController",
+          "tightFlagAtCreation": false,
+          "actualOptions": {
+            "diagnosticM70TightSupport32": false,
+            "diagnosticM70CapturedBacking": false,
+            "diagnosticM70PersistCapturedBacking": false,
+            "diagnosticM70CooperativeCapture": false,
+            "diagnosticM70StepBudgetMs": 0,
+            "diagnosticM70SkipEmptyPostphase": false,
+            "diagnosticM70SkipEmptyReference": false
+          },
+          "createdWhilePuddleNull": true
+        }
+      ],
+      "oracleNativePrepare": 29,
+      "liveControllerRestored": true,
+      "liveTightFlagRestored": true,
+      "oracleLog": "complete-api",
+      "oracleOperationCount": 11,
+      "liveLogUnchanged": true,
+      "page": {
+        "width": 3508,
+        "height": 2480
+      },
+      "physicalChanged": 0,
+      "max": 0,
+      "alpha": 6045,
+      "tiles": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 2028
+        },
+        {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 300
+        },
+        {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 291
+        },
+        {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1559
+        },
+        {
+          "x": 3072,
+          "y": 2048,
+          "w": 436,
+          "h": 432,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1867
+        }
+      ],
+      "actualHash": "3a916477dbdf1fe648d2badee9aa51d34cb65f20fcca00b3134a7cce4a453cb1",
+      "oracleHash": "3a916477dbdf1fe648d2badee9aa51d34cb65f20fcca00b3134a7cce4a453cb1",
+      "glError": 0
+    },
+    {
+      "name": "original-wet-after-controls",
+      "wallAt": 1792242748630,
+      "actualSource": "canonical-goal",
+      "actualCapturedBeforeOracle": true,
+      "oracleTightSupport32": false,
+      "oracleControllers": [
+        {
+          "nativeScopeFactoryOff": true,
+          "type": "PagedPuddleRoomController",
+          "tightFlagAtCreation": false,
+          "actualOptions": {
+            "diagnosticM70TightSupport32": false,
+            "diagnosticM70CapturedBacking": false,
+            "diagnosticM70PersistCapturedBacking": false,
+            "diagnosticM70CooperativeCapture": false,
+            "diagnosticM70StepBudgetMs": 0,
+            "diagnosticM70SkipEmptyPostphase": false,
+            "diagnosticM70SkipEmptyReference": false
+          },
+          "createdWhilePuddleNull": true
+        }
+      ],
+      "oracleNativePrepare": 29,
+      "liveControllerRestored": true,
+      "liveTightFlagRestored": true,
+      "oracleLog": "complete-api",
+      "oracleOperationCount": 11,
+      "liveLogUnchanged": true,
+      "page": {
+        "width": 3508,
+        "height": 2480
+      },
+      "physicalChanged": 0,
+      "max": 0,
+      "alpha": 6047,
+      "tiles": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 2028
+        },
+        {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 300
+        },
+        {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 291
+        },
+        {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1559
+        },
+        {
+          "x": 3072,
+          "y": 2048,
+          "w": 436,
+          "h": 432,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1869
+        }
+      ],
+      "actualHash": "bfa7395c1dea408a926a81fc1c9c43f5cc1a0e7d5d5183c8b214965712d6218a",
+      "oracleHash": "bfa7395c1dea408a926a81fc1c9c43f5cc1a0e7d5d5183c8b214965712d6218a",
+      "glError": 0
+    }
+  ],
+  "warmMetaCheckpoints": [
+    {
+      "name": "controls-redo-accepted",
+      "wallAt": 1792242609009,
+      "id": "GgBzAyA_Tt",
+      "targetOpId": "Xw6zbsmqEz"
+    },
+    {
+      "name": "controls-undo-accepted",
+      "wallAt": 1792242680818,
+      "id": "FsxSIsUrqu",
+      "targetOpId": "84cd6452-1da1-4232-9863-9e6e96d89602"
+    },
+    {
+      "name": "controls-redo-accepted",
+      "wallAt": 1792242706150,
+      "id": "6oSMbLsdUQ",
+      "targetOpId": "84cd6452-1da1-4232-9863-9e6e96d89602"
+    }
+  ],
+  "coldReadiness": [
+    {
+      "elapsedMs": 115,
+      "roomMatches": true,
+      "hostUserMatches": true,
+      "engineLocked": false,
+      "layerKeys": [
+        "layer-1",
+        "background",
+        "qa747-1792241258841",
+        "qa747-1792241497354"
+      ],
+      "missingLayers": [],
+      "missingAcceptedIds": [
+        "FsxSIsUrqu",
+        "6oSMbLsdUQ"
+      ],
+      "jobs": 2,
+      "opQueue": 0,
+      "unsettled": [],
+      "pending": false,
+      "canvasPointerEvents": "none",
+      "canvasParentPointerEvents": "auto"
+    },
+    {
+      "elapsedMs": 5885,
+      "roomMatches": true,
+      "hostUserMatches": true,
+      "engineLocked": false,
+      "layerKeys": [
+        "layer-1",
+        "background",
+        "qa747-1792241258841",
+        "qa747-1792241497354"
+      ],
+      "missingLayers": [],
+      "missingAcceptedIds": [
+        "FsxSIsUrqu",
+        "6oSMbLsdUQ"
+      ],
+      "jobs": 2,
+      "opQueue": 0,
+      "unsettled": [],
+      "pending": false,
+      "canvasPointerEvents": "none",
+      "canvasParentPointerEvents": "auto"
+    },
+    {
+      "elapsedMs": 12231,
+      "roomMatches": true,
+      "hostUserMatches": true,
+      "engineLocked": false,
+      "layerKeys": [
+        "layer-1",
+        "background",
+        "qa747-1792241258841",
+        "qa747-1792241497354"
+      ],
+      "missingLayers": [],
+      "missingAcceptedIds": [],
+      "jobs": 0,
+      "opQueue": 0,
+      "unsettled": [],
+      "pending": true,
+      "canvasPointerEvents": "auto",
+      "canvasParentPointerEvents": "auto"
+    },
+    {
+      "elapsedMs": 17304,
+      "roomMatches": true,
+      "hostUserMatches": true,
+      "engineLocked": false,
+      "layerKeys": [
+        "layer-1",
+        "background",
+        "qa747-1792241258841",
+        "qa747-1792241497354"
+      ],
+      "missingLayers": [],
+      "missingAcceptedIds": [],
+      "jobs": 0,
+      "opQueue": 0,
+      "unsettled": [],
+      "pending": false,
+      "canvasPointerEvents": "auto",
+      "canvasParentPointerEvents": "auto"
+    }
+  ],
+  "coldNavigationToReadyMs": 50576,
+  "coldProofs": [
+    {
+      "name": "readonly-cold-dry-physical-FIRST",
+      "wallAt": 1792243054945,
+      "actualSource": "physical",
+      "actualCapturedBeforeOracle": true,
+      "oracleTightSupport32": false,
+      "oracleControllers": [
+        {
+          "nativeScopeFactoryOff": true,
+          "type": "PagedPuddleRoomController",
+          "tightFlagAtCreation": false,
+          "actualOptions": {
+            "diagnosticM70TightSupport32": false,
+            "diagnosticM70CapturedBacking": false,
+            "diagnosticM70PersistCapturedBacking": false,
+            "diagnosticM70CooperativeCapture": false,
+            "diagnosticM70StepBudgetMs": 0,
+            "diagnosticM70SkipEmptyPostphase": false,
+            "diagnosticM70SkipEmptyReference": false
+          },
+          "createdWhilePuddleNull": true
+        }
+      ],
+      "oracleNativePrepare": 29,
+      "liveControllerRestored": true,
+      "liveTightFlagRestored": true,
+      "oracleLog": "complete-api",
+      "oracleOperationCount": 11,
+      "liveLogUnchanged": true,
+      "page": {
+        "width": 3508,
+        "height": 2480
+      },
+      "physicalChanged": 0,
+      "max": 0,
+      "alpha": 6045,
+      "tiles": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 2028
+        },
+        {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 300
+        },
+        {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 291
+        },
+        {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1559
+        },
+        {
+          "x": 3072,
+          "y": 2048,
+          "w": 436,
+          "h": 432,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1867
+        }
+      ],
+      "actualHash": "3a916477dbdf1fe648d2badee9aa51d34cb65f20fcca00b3134a7cce4a453cb1",
+      "oracleHash": "3a916477dbdf1fe648d2badee9aa51d34cb65f20fcca00b3134a7cce4a453cb1",
+      "glError": 0
+    },
+    {
+      "name": "readonly-cold-original-wet-goal-FIRST",
+      "wallAt": 1792243074693,
+      "actualSource": "canonical-goal",
+      "actualCapturedBeforeOracle": true,
+      "oracleTightSupport32": false,
+      "oracleControllers": [
+        {
+          "nativeScopeFactoryOff": true,
+          "type": "PagedPuddleRoomController",
+          "tightFlagAtCreation": false,
+          "actualOptions": {
+            "diagnosticM70TightSupport32": false,
+            "diagnosticM70CapturedBacking": false,
+            "diagnosticM70PersistCapturedBacking": false,
+            "diagnosticM70CooperativeCapture": false,
+            "diagnosticM70StepBudgetMs": 0,
+            "diagnosticM70SkipEmptyPostphase": false,
+            "diagnosticM70SkipEmptyReference": false
+          },
+          "createdWhilePuddleNull": true
+        }
+      ],
+      "oracleNativePrepare": 29,
+      "liveControllerRestored": true,
+      "liveTightFlagRestored": true,
+      "oracleLog": "complete-api",
+      "oracleOperationCount": 11,
+      "liveLogUnchanged": true,
+      "page": {
+        "width": 3508,
+        "height": 2480
+      },
+      "physicalChanged": 0,
+      "max": 0,
+      "alpha": 6047,
+      "tiles": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 2028
+        },
+        {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 300
+        },
+        {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 291
+        },
+        {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1559
+        },
+        {
+          "x": 3072,
+          "y": 2048,
+          "w": 436,
+          "h": 432,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1869
+        }
+      ],
+      "actualHash": "bfa7395c1dea408a926a81fc1c9c43f5cc1a0e7d5d5183c8b214965712d6218a",
+      "oracleHash": "bfa7395c1dea408a926a81fc1c9c43f5cc1a0e7d5d5183c8b214965712d6218a",
+      "glError": 0
+    }
+  ],
+  "coldRawROI": {
+    "name": "readonly-cold-original-raw-ROI",
+    "wallAt": 1792243075689,
+    "correctOrigin": false,
+    "originCorrections": 0,
+    "context": {
+      "layerGesture": "K0j0elGdtq",
+      "epoch": 2,
+      "context": {
+        "preset": {
+          "opacity": 0.99,
+          "hardness": 0.88,
+          "sizeMultiplier": 1
+        },
+        "fieldSeed": [
+          980.0000610351562,
+          980.0001831054688
+        ],
+        "bounds": {
+          "minX": 3401.5204181671143,
+          "minY": 2373.5209064483643,
+          "maxX": 3498.9504540197336,
+          "maxY": 2470.9509423009836
+        },
+        "opacity": 0.9900000095367432
+      },
+      "finishContext": {
+        "preset": {
+          "opacity": 0.99,
+          "hardness": 0.88,
+          "sizeMultiplier": 1
+        },
+        "fieldSeed": [
+          980.0000610351562,
+          980.0001831054688
+        ],
+        "bounds": {
+          "minX": 3401.5204181671143,
+          "minY": 2373.5209064483643,
+          "maxX": 3498.9504540197336,
+          "maxY": 2470.9509423009836
+        }
+      }
+    },
+    "tiles": [
+      {
+        "freshVsFull": 0,
+        "freshVsFullMax": 0,
+        "stale": 0,
+        "staleMax": 0,
+        "freshFirst": [],
+        "freshHash": "226774e4c39d5916c6af224a546600a548e2dcd9bc7d8d8d16d63e02184ff4e9",
+        "tile": {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024
+        },
+        "region": {
+          "x": 832,
+          "y": 0,
+          "width": 192,
+          "height": 192
+        },
+        "changedInside": 0,
+        "maxInside": 0,
+        "changedOutside": 0,
+        "maxOutside": 0,
+        "first": [],
+        "rawHash": "226774e4c39d5916c6af224a546600a548e2dcd9bc7d8d8d16d63e02184ff4e9",
+        "fullHash": "e0cc8be4650dcb409604dd27f1d9013de65030a18bc845943c82fb4dd215e71b",
+        "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      {
+        "freshVsFull": 0,
+        "freshVsFullMax": 0,
+        "stale": 0,
+        "staleMax": 0,
+        "freshFirst": [],
+        "freshHash": "582cc0c14d0c84ab5838406360603f2cb5bbb655cd20265c06ecd31cb7266d34",
+        "tile": {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024
+        },
+        "region": {
+          "x": 0,
+          "y": 0,
+          "width": 1024,
+          "height": 192
+        },
+        "changedInside": 0,
+        "maxInside": 0,
+        "changedOutside": 0,
+        "maxOutside": 0,
+        "first": [],
+        "rawHash": "582cc0c14d0c84ab5838406360603f2cb5bbb655cd20265c06ecd31cb7266d34",
+        "fullHash": "527f6120da526ecea446ecc0282e4919157d6fd170f79be9d45c1061aa8c3124",
+        "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      {
+        "freshVsFull": 0,
+        "freshVsFullMax": 0,
+        "stale": 0,
+        "staleMax": 0,
+        "freshFirst": [],
+        "freshHash": "a7409951c7116f269b4ca7aa5cd104b8db347084c528dfaece39d3d2e6210ae6",
+        "tile": {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024
+        },
+        "region": {
+          "x": 832,
+          "y": 0,
+          "width": 192,
+          "height": 1024
+        },
+        "changedInside": 0,
+        "maxInside": 0,
+        "changedOutside": 0,
+        "maxOutside": 0,
+        "first": [],
+        "rawHash": "a7409951c7116f269b4ca7aa5cd104b8db347084c528dfaece39d3d2e6210ae6",
+        "fullHash": "4f96ea0d3d5ff48f14880f376ba37b27007c85d8800996a6067d0a6f4b5fbd39",
+        "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      {
+        "freshVsFull": 0,
+        "freshVsFullMax": 0,
+        "stale": 0,
+        "staleMax": 0,
+        "freshFirst": [],
+        "freshHash": "14f5123458e4243efe6930445ec9cc778b44baf7cc32e2eefd2b16c6551ada7e",
+        "tile": {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024
+        },
+        "region": {
+          "x": 0,
+          "y": 0,
+          "width": 1024,
+          "height": 1024
+        },
+        "changedInside": 0,
+        "maxInside": 0,
+        "changedOutside": 0,
+        "maxOutside": 0,
+        "first": [],
+        "rawHash": "14f5123458e4243efe6930445ec9cc778b44baf7cc32e2eefd2b16c6551ada7e",
+        "fullHash": "14f5123458e4243efe6930445ec9cc778b44baf7cc32e2eefd2b16c6551ada7e",
+        "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      {
+        "freshVsFull": 0,
+        "freshVsFullMax": 0,
+        "stale": 0,
+        "staleMax": 0,
+        "freshFirst": [],
+        "freshHash": "c092fe0a4215a007dd85653784184f91bf62a14f704b57ee7580a4b55cb4a799",
+        "tile": {
+          "x": 3072,
+          "y": 2048,
+          "w": 1024,
+          "h": 1024
+        },
+        "region": {
+          "x": 0,
+          "y": 512,
+          "width": 512,
+          "height": 512
+        },
+        "changedInside": 0,
+        "maxInside": 0,
+        "changedOutside": 0,
+        "maxOutside": 0,
+        "first": [],
+        "rawHash": "c092fe0a4215a007dd85653784184f91bf62a14f704b57ee7580a4b55cb4a799",
+        "fullHash": "a5fdd1b14e02aa8500481ba0b8e143188f57233ff092a73b48b53c99a775a443",
+        "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      }
+    ],
+    "sourceMemory": {
+      "fields": {
+        "original": {
+          "count": 5,
+          "bytes": 20971520,
+          "dimensions": [
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            }
+          ]
+        },
+        "coverage": {
+          "count": 5,
+          "bytes": 20971520,
+          "dimensions": [
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            }
+          ]
+        },
+        "inkLoad": {
+          "count": 5,
+          "bytes": 20971520,
+          "dimensions": [
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            }
+          ]
+        },
+        "inkColor": {
+          "count": 5,
+          "bytes": 20971520,
+          "dimensions": [
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            }
+          ]
+        },
+        "solventLoad": {
+          "count": 5,
+          "bytes": 20971520,
+          "dimensions": [
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            }
+          ]
+        }
+      },
+      "uniqueBytes": 104857600,
+      "bufferCount": 25
+    },
+    "pool": {
+      "live": 104857600,
+      "free": 66125824
+    },
+    "cache": {
+      "resident": 122961920,
+      "budget": 125829120
+    },
+    "gl": 0,
+    "lost": false
+  },
+  "acceptedJournalCount": 11,
+  "acceptedJournalSHA": "20428790fb9953259ee26ea0856bc197bfb514a2bf93793a3aaaff7a51b3767d",
+  "qaCorrections": [
+    "Canonical goal capture overlays touched goals on all physical resident tiles; no sync solve",
+    "Cache input224budget applies only to active engine phase cache, other registered caches120",
+    "Undo/Redo return affected operation, accepted meta extracted as exactly one new log entry",
+    "Cold engineUnlocked is not full Room content readiness; wait all authoritative IDs/layers/jobs/UI"
+  ],
+  "cleanup": "All own CDP pages/contexts closed; fixture17 and other16 retained protected, no deletions."
+}

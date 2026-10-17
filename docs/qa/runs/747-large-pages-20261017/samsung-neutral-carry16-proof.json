@@ -1,0 +1,119 @@
+{
+  "source": "3d9be901",
+  "controls": "front highp+round / mode11 highp-only / mode6 highp+ROUND_RGBA+NEUTRAL_RIM_PATCH; canonical OFF; identical forced Contrast reference",
+  "samsungSHA": "a012d180d5892292a5882c8ff7225bd12d64adda1afe832c6686cb06a52acccb",
+  "intelSHA": "97c11a4d95e9a238a7c52f6e21b0184243613a84d8a39c410d1fdbbd9030fc0d",
+  "channels": [
+    {
+      "channel": "R",
+      "changed": 17,
+      "max": 1
+    },
+    {
+      "channel": "G",
+      "changed": 375,
+      "max": 1
+    },
+    {
+      "channel": "B",
+      "changed": 28,
+      "max": 1
+    },
+    {
+      "channel": "A",
+      "changed": 98,
+      "max": 1
+    }
+  ],
+  "capture": {
+    "name": "carry:mode16",
+    "width": 2048,
+    "height": 1536,
+    "bytes": 12582912,
+    "filter": "nearest",
+    "pointSampling": false,
+    "carry": {
+      "mode": 16,
+      "k": 0.5,
+      "dir": [
+        1,
+        1
+      ],
+      "band": [
+        0.945,
+        1
+      ],
+      "size": [
+        3,
+        100
+      ],
+      "tau": [
+        0.45,
+        0.7,
+        0
+      ],
+      "origin": [
+        1,
+        0.35
+      ],
+      "discreteGrid": true,
+      "pathPacked": false,
+      "additiveZeroFaces": false,
+      "roles": {
+        "out": "field.ca",
+        "a": "field.cc",
+        "b": "field.b",
+        "c": "field.c",
+        "d": "field.pressure"
+      },
+      "presentInputs": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ],
+      "beforeCallAt": 26912.700000047684,
+      "afterCallAt": 26936.5,
+      "timing": "after-original-fieldOp"
+    },
+    "sha256": "a012d180d5892292a5882c8ff7225bd12d64adda1afe832c6686cb06a52acccb"
+  },
+  "sameInputHashes": true,
+  "all10SameGPUZero": true,
+  "finalDiffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "496a90d8fa9a1e5cc3ac4197a6c509978d0a9b28575635247b242162a092987e",
+      "referenceHash": "496a90d8fa9a1e5cc3ac4197a6c509978d0a9b28575635247b242162a092987e"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "d9d64e016845eaa6b5266a390a090241fa878b504be81e83f735074144b99d92",
+      "referenceHash": "d9d64e016845eaa6b5266a390a090241fa878b504be81e83f735074144b99d92"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+    }
+  },
+  "gl": [
+    0,
+    0
+  ],
+  "errors": [],
+  "restoration": {
+    "ownershipExact": true,
+    "restored": true
+  },
+  "qualification": "QA-only selected first mode16 output boundary; neutral noise is artistic change, not product candidate; no full material parity claim."
+}
