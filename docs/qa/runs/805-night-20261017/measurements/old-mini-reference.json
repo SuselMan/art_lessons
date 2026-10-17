@@ -1,0 +1,215 @@
+{
+  "qualification": "Artistic reference from old hosted Mini worker, actual trusted pointer, accelerated public Dry. Not identical common-input baseline: nib/material/paper conversion differs. PNG current dried canvas, no screenshots.",
+  "pass": true,
+  "cases": [
+    {
+      "pattern": "dot",
+      "settings": {
+        "size": 320,
+        "water": 95,
+        "pigment": 34,
+        "paint": "PB15",
+        "color": "#2688d3"
+      },
+      "geometrySHA": "18eaddf9bc99ca4c353a3667f84d79904c29c4603e0cb1cfaa3a5523f6795aa2",
+      "sourceHashes": {
+        "entry.js": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "worker.js": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "chunk-OZHX7YP5.js": "09a26218c073b49a98b2970d0b6b88c5226491e642f174756ef717533181ab6b",
+        "chunk-T23Z3D2L.js": "b6f3951c78a0374fd9203866ca79420c4a450a93355aad0ebd90b0a305f9b2d5",
+        "chunk-3TO6NZCW.js": "d89294910481452b70b284c531be089af35026096947ef952c98c6a0f6b61749",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f"
+      },
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "goalJSTailMs": [
+        179.199951171875
+      ],
+      "png": {
+        "bytes": 1193545,
+        "sha256": "3e49b1ad55fa7e16b9feace7151e53815b17815539cdce6f3375e549f57c3908",
+        "file": "dot.png"
+      },
+      "contextClosed": true,
+      "errors": [],
+      "dryDone": true
+    },
+    {
+      "pattern": "wave",
+      "settings": {
+        "size": 320,
+        "water": 95,
+        "pigment": 34,
+        "paint": "PB15",
+        "color": "#2688d3"
+      },
+      "geometrySHA": "9f90b84c1d3664078d30aecf52bb37c153f5338c857934234cf7f8f9e61a0ef3",
+      "sourceHashes": {
+        "entry.js": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "worker.js": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "chunk-OZHX7YP5.js": "09a26218c073b49a98b2970d0b6b88c5226491e642f174756ef717533181ab6b",
+        "chunk-T23Z3D2L.js": "b6f3951c78a0374fd9203866ca79420c4a450a93355aad0ebd90b0a305f9b2d5",
+        "chunk-3TO6NZCW.js": "d89294910481452b70b284c531be089af35026096947ef952c98c6a0f6b61749",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f"
+      },
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "goalJSTailMs": [
+        231.60009765625
+      ],
+      "png": {
+        "bytes": 1605848,
+        "sha256": "0d513c2e01526ccf752086fa21edc833773bcf7cba8f67e5be476f5da4f7b71d",
+        "file": "wave.png"
+      },
+      "contextClosed": true,
+      "errors": [],
+      "dryDone": true
+    },
+    {
+      "pattern": "water-only",
+      "settings": {
+        "size": 320,
+        "water": 95,
+        "pigment": 0,
+        "paint": "PB15",
+        "color": "#2688d3"
+      },
+      "geometrySHA": "9f90b84c1d3664078d30aecf52bb37c153f5338c857934234cf7f8f9e61a0ef3",
+      "sourceHashes": {
+        "entry.js": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "worker.js": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "chunk-OZHX7YP5.js": "09a26218c073b49a98b2970d0b6b88c5226491e642f174756ef717533181ab6b",
+        "chunk-T23Z3D2L.js": "b6f3951c78a0374fd9203866ca79420c4a450a93355aad0ebd90b0a305f9b2d5",
+        "chunk-3TO6NZCW.js": "d89294910481452b70b284c531be089af35026096947ef952c98c6a0f6b61749",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f"
+      },
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "goalJSTailMs": [
+        239.39990234375
+      ],
+      "png": {
+        "bytes": 1110671,
+        "sha256": "c9a14b3e177b5e10e4c800c7e7d9e0cf505076aedbe3b6844284bdacf177a079",
+        "file": "water-only.png"
+      },
+      "contextClosed": true,
+      "errors": [],
+      "dryDone": true
+    },
+    {
+      "pattern": "two-colors",
+      "settings": {
+        "size": 320,
+        "water": 95,
+        "pigment": 34,
+        "paint": "PB15",
+        "color": "#2688d3"
+      },
+      "secondSettings": {
+        "paint": "PR122",
+        "color": "#ce267c"
+      },
+      "geometrySHA": "a37136d09c54c7c373d09b0e0d5209396ab5a281efbf9d71ac9163f017e56878",
+      "sourceHashes": {
+        "entry.js": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5",
+        "worker.js": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6",
+        "chunk-OZHX7YP5.js": "09a26218c073b49a98b2970d0b6b88c5226491e642f174756ef717533181ab6b",
+        "chunk-T23Z3D2L.js": "b6f3951c78a0374fd9203866ca79420c4a450a93355aad0ebd90b0a305f9b2d5",
+        "chunk-3TO6NZCW.js": "d89294910481452b70b284c531be089af35026096947ef952c98c6a0f6b61749",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f"
+      },
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "goalJSTailMs": [
+        220,
+        138
+      ],
+      "png": {
+        "bytes": 1803467,
+        "sha256": "2ea899a93505d9ebae559bf746f78da17d27ee328734aa0268528e68c478e6b2",
+        "file": "two-colors.png"
+      },
+      "contextClosed": true,
+      "errors": [],
+      "dryDone": true
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "startedAt": "2026-10-17T20:20:57.535Z",
+  "qualification": "Isolated fixed-input 1024 algorithms in owned Samsung worker. Primary totalReadyMs includes upload/reduction and dependent result wait; not pure GPU time. Full-output readback/SHA and PNG outside timing. Fresh GL context per run, 3 repeat uploads on same candidate.",
+  "cases": [],
+  "sourceHashes": {
+    "entry.js": "76f121aea5a9e39cf4d486a242ccb2dc764512203964e06789b4cee7c7ff48f9",
+    "worker.js": "c00849678cd9bd9a6c8cf9b5b43f9435a101ff6f8233f514a488661f4d4126a6",
+    "chunk-JKUV4YVA.js": "91ab43b3d7f04c72d74374e1672520c3a700b4123ea2eb86152ccab72bc3f195",
+    "index.html": "b1fc40fd8687b041398e938a404deaba48e196b48ec1fe654551de3841ac8a8d"
+  },
+  "pass": false,
+  "failure": "Error: TypeError: Cannot read properties of undefined (reading 'ready')\n    at <anonymous>:1:32\n    at Object.evaluate (/home/suselman/projects/pencil-agents/805-watercolor-search/docs/qa/harness/805-algorithm-search/owned-loader.cjs:8:1256)\n    at async /home/suselman/projects/pencil-agents/805-watercolor-search/docs/qa/harness/805-algorithm-search/run.cjs:4:244",
+  "errors": [],
+  "intercepts": {
+    "index.html": 1
+  },
+  "contextClosed": true,
+  "finishedAt": "2026-10-17T20:21:13.789Z"
+}

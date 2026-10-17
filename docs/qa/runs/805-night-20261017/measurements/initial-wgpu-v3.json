@@ -1,0 +1,378 @@
+{
+  "startedAt": "2026-10-17T20:25:29.685Z",
+  "qualification": "Isolated fixed-input 1024 algorithms in owned Samsung worker. Primary totalReadyMs includes upload/reduction and dependent result wait; not pure GPU time. Full-output readback/SHA and PNG outside timing. Fresh GL context per run, 3 repeat uploads on same candidate.",
+  "cases": [
+    {
+      "request": {
+        "algorithm": "wgsl-integer-diffusion-direct",
+        "fixture": "wave",
+        "config": {
+          "iterations": 32,
+          "rate": 24
+        },
+        "repeats": 1
+      },
+      "result": {
+        "algorithm": "wgsl-integer-diffusion-direct",
+        "fixture": "wave",
+        "config": {
+          "iterations": 32,
+          "rate": 24
+        },
+        "fixtureSHA": {
+          "rgba": "ceda081e3b75c2e0afd2d083c283192f013b06ecef13f244bd689152ec052ca7",
+          "water": "79c624d510c3f8e14330cada169b4e68b9a3caa4915327186f2f16b05abd2662",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgpu",
+        "hardware": {
+          "vendor": "qualcomm",
+          "architecture": "adreno-6xx",
+          "device": "",
+          "description": ""
+        },
+        "createMs": 79.09999990463257,
+        "samples": [
+          {
+            "uploadJsMs": 43.90000009536743,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 77,
+            "totalReadyMs": 120.90000009536743
+          }
+        ],
+        "hashes": [
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "algorithm": "integer-local-diffusion",
+          "variant": "direct",
+          "size": 1024,
+          "iterations": 32,
+          "rate": 24,
+          "stateBytes": 16777216,
+          "stagingBytes": 4194304,
+          "staticWater": true,
+          "seedUsed": false
+        },
+        "metrics": {
+          "inputMass": 35228063,
+          "outputMass": 35246017,
+          "massRatio": 1.0005096505022146,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 26,
+          "invalidPremul": 0,
+          "changedPixels": 17354
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000068,
+          "maxTimer": 11.299999952316284,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 120.90000009536743,
+        "warmMedianMs": 120.90000009536743
+      },
+      "png": {
+        "file": "wgsl-integer-diffusion-direct-wave-1.png",
+        "bytes": 1028324,
+        "sha256": "ed9ef9af0c7af89d81df7bef2f8420232abb3d5880654cf3485515e7f6444d2e"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-integer-diffusion-tiled4",
+        "fixture": "wave",
+        "config": {
+          "iterations": 32,
+          "rate": 24
+        },
+        "repeats": 1
+      },
+      "result": {
+        "algorithm": "wgsl-integer-diffusion-tiled4",
+        "fixture": "wave",
+        "config": {
+          "iterations": 32,
+          "rate": 24
+        },
+        "fixtureSHA": {
+          "rgba": "ceda081e3b75c2e0afd2d083c283192f013b06ecef13f244bd689152ec052ca7",
+          "water": "79c624d510c3f8e14330cada169b4e68b9a3caa4915327186f2f16b05abd2662",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgpu",
+        "hardware": {
+          "vendor": "qualcomm",
+          "architecture": "adreno-6xx",
+          "device": "",
+          "description": ""
+        },
+        "createMs": 52.799999952316284,
+        "samples": [
+          {
+            "uploadJsMs": 38.60000014305115,
+            "submitJsMs": 0.09999990463256836,
+            "runToDependentMs": 168.5,
+            "totalReadyMs": 207.10000014305115
+          }
+        ],
+        "hashes": [
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "algorithm": "integer-local-diffusion",
+          "variant": "shared16/core8/4steps",
+          "size": 1024,
+          "iterations": 32,
+          "rate": 24,
+          "stateBytes": 16777216,
+          "stagingBytes": 4194304,
+          "staticWater": true,
+          "seedUsed": false
+        },
+        "metrics": {
+          "inputMass": 35228063,
+          "outputMass": 35246017,
+          "massRatio": 1.0005096505022146,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 26,
+          "invalidPremul": 0,
+          "changedPixels": 17354
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 11.200000047683716,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 207.10000014305115,
+        "warmMedianMs": 207.10000014305115
+      },
+      "png": {
+        "file": "wgsl-integer-diffusion-tiled4-wave-2.png",
+        "bytes": 1028324,
+        "sha256": "ed9ef9af0c7af89d81df7bef2f8420232abb3d5880654cf3485515e7f6444d2e"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-d2q9-bgk",
+        "fixture": "wave",
+        "config": {
+          "grid": 256,
+          "steps": 48
+        },
+        "repeats": 1
+      },
+      "failure": "Error: Error: Error: 805-d2q9-pull-stream: 21:29 'from' is a reserved keyword\n    at O (https://tools.pecni.com/watercolor-worker-802/worker.js:1:903)\n    at async Object.de [as create] (https://tools.pecni.com/watercolor-worker-802/worker.js:94:1227)\n    at async Ke (https://tools.pecni.com/watercolor-worker-802/worker.js:99:23320)\n    at async self.onmessage (https://tools.pecni.com/watercolor-worker-802/worker.js:100:1000)\n    at O (https://tools.pecni.com/watercolor-worker-802/worker.js:1:903)\n    at async Object.de [as create] (https://tools.pecni.com/watercolor-worker-802/worker.js:94:1227)\n    at async Ke (https://tools.pecni.com/watercolor-worker-802/worker.js:99:23320)\n    at async self.onmessage (https://tools.pecni.com/watercolor-worker-802/worker.js:100:1000)\n    at E.onmessage (https://tools.pecni.com/watercolor-worker-802/entry.js:1:357)\n    at Object.evaluate (/home/suselman/projects/pencil-agents/805-watercolor-search/docs/qa/harness/805-algorithm-search/owned-loader.cjs:8:1256)\n    at async /home/suselman/projects/pencil-agents/805-watercolor-search/docs/qa/harness/805-algorithm-search/run.cjs:4:784",
+      "pass": false
+    }
+  ],
+  "sourceHashes": {
+    "entry.js": "76f121aea5a9e39cf4d486a242ccb2dc764512203964e06789b4cee7c7ff48f9",
+    "worker.js": "9d9f7fef5c7eaa1df76798ac71ab159f540f4fc2d8336b98c6e8fe14b6348ff3",
+    "chunk-JKUV4YVA.js": "91ab43b3d7f04c72d74374e1672520c3a700b4123ea2eb86152ccab72bc3f195",
+    "index.html": "4c12ecb9f5fc3cca90f15811ba23a5256ea7772eeeef978aade4feb8372b8fc9"
+  },
+  "catalog": {
+    "requestId": 1,
+    "algorithms": [
+      {
+        "id": "input-reference",
+        "label": "Исходный след без растекания",
+        "configs": [
+          {}
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-stable-fluids",
+        "label": "Low-resolution advect/project/pigment (RGBA8)",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 4,
+            "projection": 4,
+            "force": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 4,
+            "projection": 4,
+            "force": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 8,
+            "projection": 6,
+            "force": 4
+          },
+          {
+            "resolution": 512,
+            "steps": 4,
+            "projection": 4,
+            "force": 4
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-lattice-diffusion",
+        "label": "Conservative donor lattice pigment diffusion",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 12,
+            "stride": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 12,
+            "stride": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 24,
+            "stride": 4
+          },
+          {
+            "resolution": 512,
+            "steps": 16,
+            "stride": 4
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-artistic-front",
+        "label": "Cheap dyadic artistic front + multiscale pigment",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 8,
+            "budget": 12,
+            "rim": 0.2
+          },
+          {
+            "resolution": 256,
+            "steps": 8,
+            "budget": 16,
+            "rim": 0.35
+          },
+          {
+            "resolution": 256,
+            "steps": 16,
+            "budget": 24,
+            "rim": 0.5
+          },
+          {
+            "resolution": 512,
+            "steps": 12,
+            "budget": 32,
+            "rim": 0.35
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "gl-integer-diffusion-match",
+        "label": "GL1: matched local integer diffusion",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "wgsl-integer-diffusion-direct",
+        "label": "WebGPU: local integer diffusion",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-integer-diffusion-tiled4",
+        "label": "WebGPU: same local diffusion, four shared-memory steps",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-d2q9-bgk",
+        "label": "WebGPU: D2Q9 fluid with pigment/water tracers",
+        "configs": [
+          {
+            "grid": 256,
+            "steps": 48
+          },
+          {
+            "grid": 512,
+            "steps": 48
+          }
+        ],
+        "backend": "webgpu"
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "dot",
+        "label": "Точка",
+        "description": "Один широкий отпечаток синей кисти"
+      },
+      {
+        "id": "wave",
+        "label": "Широкая волна",
+        "description": "Кисть320 через значительную часть листа"
+      },
+      {
+        "id": "water-only",
+        "label": "Только вода",
+        "description": "Мокрая область без пигмента: краска не должна появляться"
+      },
+      {
+        "id": "water-stroke",
+        "label": "Мазок через лужу",
+        "description": "Узкая синяя линия пересекает широкую мокрую область"
+      },
+      {
+        "id": "two-colors",
+        "label": "Два цвета",
+        "description": "Пересечение синего и розового пигмента в общей мокрой области"
+      },
+      {
+        "id": "crosses",
+        "label": "Повторные пересечения",
+        "description": "Три перекрывающихся следа с разным количеством пигмента"
+      }
+    ]
+  },
+  "pass": false,
+  "failure": "Error: Error: Error: 805-d2q9-pull-stream: 21:29 'from' is a reserved keyword\n    at O (https://tools.pecni.com/watercolor-worker-802/worker.js:1:903)\n    at async Object.de [as create] (https://tools.pecni.com/watercolor-worker-802/worker.js:94:1227)\n    at async Ke (https://tools.pecni.com/watercolor-worker-802/worker.js:99:23320)\n    at async self.onmessage (https://tools.pecni.com/watercolor-worker-802/worker.js:100:1000)\n    at O (https://tools.pecni.com/watercolor-worker-802/worker.js:1:903)\n    at async Object.de [as create] (https://tools.pecni.com/watercolor-worker-802/worker.js:94:1227)\n    at async Ke (https://tools.pecni.com/watercolor-worker-802/worker.js:99:23320)\n    at async self.onmessage (https://tools.pecni.com/watercolor-worker-802/worker.js:100:1000)\n    at E.onmessage (https://tools.pecni.com/watercolor-worker-802/entry.js:1:357)\n    at Object.evaluate (/home/suselman/projects/pencil-agents/805-watercolor-search/docs/qa/harness/805-algorithm-search/owned-loader.cjs:8:1256)\n    at async /home/suselman/projects/pencil-agents/805-watercolor-search/docs/qa/harness/805-algorithm-search/run.cjs:4:784",
+  "errors": [],
+  "intercepts": {
+    "index.html": 1,
+    "entry.js": 1,
+    "chunk-JKUV4YVA.js": 2,
+    "worker.js": 1
+  },
+  "contextClosed": true,
+  "finishedAt": "2026-10-17T20:25:35.433Z"
+}

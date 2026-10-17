@@ -1,0 +1,626 @@
+{
+  "startedAt": "2026-10-17T20:24:57.482Z",
+  "qualification": "Isolated fixed-input 1024 algorithms in owned Samsung worker. Primary totalReadyMs includes upload/reduction and dependent result wait; not pure GPU time. Full-output readback/SHA and PNG outside timing. Fresh GL context per run, 3 repeat uploads on same candidate.",
+  "cases": [
+    {
+      "request": {
+        "algorithm": "input-reference",
+        "fixture": "wave",
+        "config": {},
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "input-reference",
+        "fixture": "wave",
+        "config": {},
+        "fixtureSHA": {
+          "rgba": "ceda081e3b75c2e0afd2d083c283192f013b06ecef13f244bd689152ec052ca7",
+          "water": "79c624d510c3f8e14330cada169b4e68b9a3caa4915327186f2f16b05abd2662",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 0.5,
+        "samples": [
+          {
+            "uploadJsMs": 3.1000001430511475,
+            "submitJsMs": 0,
+            "runToDependentMs": 12.099999904632568,
+            "totalReadyMs": 15.200000047683716
+          },
+          {
+            "uploadJsMs": 0.7999999523162842,
+            "submitJsMs": 0,
+            "runToDependentMs": 1.7999999523162842,
+            "totalReadyMs": 2.5999999046325684
+          },
+          {
+            "uploadJsMs": 0.9000000953674316,
+            "submitJsMs": 0,
+            "runToDependentMs": 2.0999999046325684,
+            "totalReadyMs": 3
+          }
+        ],
+        "hashes": [
+          "ceda081e3b75c2e0afd2d083c283192f013b06ecef13f244bd689152ec052ca7",
+          "ceda081e3b75c2e0afd2d083c283192f013b06ecef13f244bd689152ec052ca7",
+          "ceda081e3b75c2e0afd2d083c283192f013b06ecef13f244bd689152ec052ca7"
+        ],
+        "repeatExact": true,
+        "metadata": {},
+        "metrics": {
+          "inputMass": 35228063,
+          "outputMass": 35228063,
+          "massRatio": 1,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 26,
+          "invalidPremul": 0,
+          "changedPixels": 0
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000068,
+          "maxTimer": 12.400000095367432,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 15.200000047683716,
+        "warmMedianMs": 2.799999952316284
+      },
+      "png": {
+        "file": "input-reference-wave-1.png",
+        "bytes": 1027654,
+        "sha256": "57ba3e4732e77728613c57b28782d180583277abba034a554fad07c7a7b5b1b4"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-stable-fluids",
+        "fixture": "wave",
+        "config": {
+          "resolution": 256,
+          "steps": 4,
+          "projection": 4,
+          "force": 2
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-stable-fluids",
+        "fixture": "wave",
+        "config": {
+          "resolution": 256,
+          "steps": 4,
+          "projection": 4,
+          "force": 2
+        },
+        "fixtureSHA": {
+          "rgba": "ceda081e3b75c2e0afd2d083c283192f013b06ecef13f244bd689152ec052ca7",
+          "water": "79c624d510c3f8e14330cada169b4e68b9a3caa4915327186f2f16b05abd2662",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 157.60000014305115,
+        "samples": [
+          {
+            "uploadJsMs": 55,
+            "submitJsMs": 0.8999998569488525,
+            "runToDependentMs": 16.899999856948853,
+            "totalReadyMs": 71.89999985694885
+          },
+          {
+            "uploadJsMs": 26.90000009536743,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 15.399999856948853,
+            "totalReadyMs": 42.299999952316284
+          },
+          {
+            "uploadJsMs": 28.09999990463257,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 9.900000095367432,
+            "totalReadyMs": 38
+          }
+        ],
+        "hashes": [
+          "78a62c60174b982f3c845c49b423b31d95f35b0f15b05d0049f3dcd952b19fd8",
+          "78a62c60174b982f3c845c49b423b31d95f35b0f15b05d0049f3dcd952b19fd8",
+          "78a62c60174b982f3c845c49b423b31d95f35b0f15b05d0049f3dcd952b19fd8"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "StableFluids-style RGBA8 quantized Jacobi; not exact incompressibility",
+          "resolution": 256,
+          "passes": 39
+        },
+        "metrics": {
+          "inputMass": 35228063,
+          "outputMass": 35153366,
+          "massRatio": 0.9978796165999817,
+          "lostPixels": 0,
+          "addedPixels": 8184,
+          "outsideWetPixels": 8982,
+          "invalidPremul": 0,
+          "changedPixels": 337889
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 13.199999809265137,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 71.89999985694885,
+        "warmMedianMs": 40.14999997615814
+      },
+      "png": {
+        "file": "alternative-stable-fluids-wave-2.png",
+        "bytes": 881347,
+        "sha256": "4d92310370d71119a888fab7c68564c396a6c95b9df8cffa3381702aba9da1df"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-lattice-diffusion",
+        "fixture": "wave",
+        "config": {
+          "resolution": 256,
+          "steps": 12,
+          "stride": 2
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-lattice-diffusion",
+        "fixture": "wave",
+        "config": {
+          "resolution": 256,
+          "steps": 12,
+          "stride": 2
+        },
+        "fixtureSHA": {
+          "rgba": "ceda081e3b75c2e0afd2d083c283192f013b06ecef13f244bd689152ec052ca7",
+          "water": "79c624d510c3f8e14330cada169b4e68b9a3caa4915327186f2f16b05abd2662",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 55.40000009536743,
+        "samples": [
+          {
+            "uploadJsMs": 41.799999952316284,
+            "submitJsMs": 0.7000000476837158,
+            "runToDependentMs": 20.200000047683716,
+            "totalReadyMs": 62
+          },
+          {
+            "uploadJsMs": 26.90000009536743,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 6.799999952316284,
+            "totalReadyMs": 33.700000047683716
+          },
+          {
+            "uploadJsMs": 20.700000047683716,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 6.5,
+            "totalReadyMs": 27.200000047683716
+          }
+        ],
+        "hashes": [
+          "64ccd47193546474dba47300cf79f93530b795d97394467b320efc103661434e",
+          "64ccd47193546474dba47300cf79f93530b795d97394467b320efc103661434e",
+          "64ccd47193546474dba47300cf79f93530b795d97394467b320efc103661434e"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "symmetric D2Q9-stencil pigment diffusion, no LBM populations",
+          "resolution": 256,
+          "passes": 14,
+          "positivityBound": 0.75
+        },
+        "metrics": {
+          "inputMass": 35228063,
+          "outputMass": 35237212,
+          "massRatio": 1.0002597077222213,
+          "lostPixels": 0,
+          "addedPixels": 8669,
+          "outsideWetPixels": 9397,
+          "invalidPremul": 0,
+          "changedPixels": 360410
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 11.399999856948853,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 62,
+        "warmMedianMs": 30.450000047683716
+      },
+      "png": {
+        "file": "alternative-lattice-diffusion-wave-3.png",
+        "bytes": 851738,
+        "sha256": "7fd2e1cc701e007fbe0fab1f4f5cb7cbab060db2356f8bfe41cdcd6f7b6cec10"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-artistic-front",
+        "fixture": "wave",
+        "config": {
+          "resolution": 256,
+          "steps": 8,
+          "budget": 16,
+          "rim": 0.35
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-artistic-front",
+        "fixture": "wave",
+        "config": {
+          "resolution": 256,
+          "steps": 8,
+          "budget": 16,
+          "rim": 0.35
+        },
+        "fixtureSHA": {
+          "rgba": "ceda081e3b75c2e0afd2d083c283192f013b06ecef13f244bd689152ec052ca7",
+          "water": "79c624d510c3f8e14330cada169b4e68b9a3caa4915327186f2f16b05abd2662",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 124.09999990463257,
+        "samples": [
+          {
+            "uploadJsMs": 43,
+            "submitJsMs": 0.7999999523162842,
+            "runToDependentMs": 21.600000143051147,
+            "totalReadyMs": 64.60000014305115
+          },
+          {
+            "uploadJsMs": 27.5,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 19.200000047683716,
+            "totalReadyMs": 46.700000047683716
+          },
+          {
+            "uploadJsMs": 39,
+            "submitJsMs": 0.39999985694885254,
+            "runToDependentMs": 14.599999904632568,
+            "totalReadyMs": 53.59999990463257
+          }
+        ],
+        "hashes": [
+          "c23421042469000899680fe8a40df59ff86eb5c723ad30a0586995693bce1534",
+          "c23421042469000899680fe8a40df59ff86eb5c723ad30a0586995693bce1534",
+          "c23421042469000899680fe8a40df59ff86eb5c723ad30a0586995693bce1534"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "artistic dyadic costfront and pigment mixing, nonconservative rim",
+          "resolution": 256,
+          "passes": 17
+        },
+        "metrics": {
+          "inputMass": 35228063,
+          "outputMass": 35607015,
+          "massRatio": 1.0107571057767213,
+          "lostPixels": 0,
+          "addedPixels": 54754,
+          "outsideWetPixels": 55631,
+          "invalidPremul": 0,
+          "changedPixels": 413281
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 11.400000095367432,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 64.60000014305115,
+        "warmMedianMs": 50.14999997615814
+      },
+      "png": {
+        "file": "alternative-artistic-front-wave-4.png",
+        "bytes": 829198,
+        "sha256": "4cd60043c18df64005273db69204936a717b191180f7332fc177002300ca7338"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "gl-integer-diffusion-match",
+        "fixture": "wave",
+        "config": {
+          "iterations": 32,
+          "rate": 24
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "gl-integer-diffusion-match",
+        "fixture": "wave",
+        "config": {
+          "iterations": 32,
+          "rate": 24
+        },
+        "fixtureSHA": {
+          "rgba": "ceda081e3b75c2e0afd2d083c283192f013b06ecef13f244bd689152ec052ca7",
+          "water": "79c624d510c3f8e14330cada169b4e68b9a3caa4915327186f2f16b05abd2662",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 55.799999952316284,
+        "samples": [
+          {
+            "uploadJsMs": 38.700000047683716,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 69.79999995231628,
+            "totalReadyMs": 108.5
+          },
+          {
+            "uploadJsMs": 20.40000009536743,
+            "submitJsMs": 0.09999990463256836,
+            "runToDependentMs": 57.5,
+            "totalReadyMs": 77.90000009536743
+          },
+          {
+            "uploadJsMs": 21.09999990463257,
+            "submitJsMs": 0.09999990463256836,
+            "runToDependentMs": 59,
+            "totalReadyMs": 80.09999990463257
+          }
+        ],
+        "hashes": [
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe",
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe",
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "algorithm": "integer-local-diffusion",
+          "iterations": 32,
+          "rate": 24,
+          "format": "RGBA8",
+          "sampler": "NEAREST/highp",
+          "dither": false,
+          "integerEquivalent": true,
+          "seedUsed": false
+        },
+        "metrics": {
+          "inputMass": 35228063,
+          "outputMass": 35246017,
+          "massRatio": 1.0005096505022146,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 26,
+          "invalidPremul": 0,
+          "changedPixels": 17354
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 12.700000047683716,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 108.5,
+        "warmMedianMs": 79
+      },
+      "png": {
+        "file": "gl-integer-diffusion-match-wave-5.png",
+        "bytes": 1028324,
+        "sha256": "ed9ef9af0c7af89d81df7bef2f8420232abb3d5880654cf3485515e7f6444d2e"
+      },
+      "pass": true
+    }
+  ],
+  "sourceHashes": {
+    "entry.js": "76f121aea5a9e39cf4d486a242ccb2dc764512203964e06789b4cee7c7ff48f9",
+    "worker.js": "f3084ccef34c97fc59b29acc48c73b961b462d44f96d458ce89451e48feeb26f",
+    "chunk-JKUV4YVA.js": "91ab43b3d7f04c72d74374e1672520c3a700b4123ea2eb86152ccab72bc3f195",
+    "index.html": "4c12ecb9f5fc3cca90f15811ba23a5256ea7772eeeef978aade4feb8372b8fc9"
+  },
+  "catalog": {
+    "requestId": 1,
+    "algorithms": [
+      {
+        "id": "input-reference",
+        "label": "Исходный след без растекания",
+        "configs": [
+          {}
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-stable-fluids",
+        "label": "Low-resolution advect/project/pigment (RGBA8)",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 4,
+            "projection": 4,
+            "force": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 4,
+            "projection": 4,
+            "force": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 8,
+            "projection": 6,
+            "force": 4
+          },
+          {
+            "resolution": 512,
+            "steps": 4,
+            "projection": 4,
+            "force": 4
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-lattice-diffusion",
+        "label": "Conservative donor lattice pigment diffusion",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 12,
+            "stride": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 12,
+            "stride": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 24,
+            "stride": 4
+          },
+          {
+            "resolution": 512,
+            "steps": 16,
+            "stride": 4
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-artistic-front",
+        "label": "Cheap dyadic artistic front + multiscale pigment",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 8,
+            "budget": 12,
+            "rim": 0.2
+          },
+          {
+            "resolution": 256,
+            "steps": 8,
+            "budget": 16,
+            "rim": 0.35
+          },
+          {
+            "resolution": 256,
+            "steps": 16,
+            "budget": 24,
+            "rim": 0.5
+          },
+          {
+            "resolution": 512,
+            "steps": 12,
+            "budget": 32,
+            "rim": 0.35
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "gl-integer-diffusion-match",
+        "label": "GL1: matched local integer diffusion",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "wgsl-integer-diffusion-direct",
+        "label": "WebGPU: local integer diffusion",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-integer-diffusion-tiled4",
+        "label": "WebGPU: same local diffusion, four shared-memory steps",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-d2q9-bgk",
+        "label": "WebGPU: D2Q9 fluid with pigment/water tracers",
+        "configs": [
+          {
+            "grid": 256,
+            "steps": 48
+          },
+          {
+            "grid": 512,
+            "steps": 48
+          }
+        ],
+        "backend": "webgpu"
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "dot",
+        "label": "Точка",
+        "description": "Один широкий отпечаток синей кисти"
+      },
+      {
+        "id": "wave",
+        "label": "Широкая волна",
+        "description": "Кисть320 через значительную часть листа"
+      },
+      {
+        "id": "water-only",
+        "label": "Только вода",
+        "description": "Мокрая область без пигмента: краска не должна появляться"
+      },
+      {
+        "id": "water-stroke",
+        "label": "Мазок через лужу",
+        "description": "Узкая синяя линия пересекает широкую мокрую область"
+      },
+      {
+        "id": "two-colors",
+        "label": "Два цвета",
+        "description": "Пересечение синего и розового пигмента в общей мокрой области"
+      },
+      {
+        "id": "crosses",
+        "label": "Повторные пересечения",
+        "description": "Три перекрывающихся следа с разным количеством пигмента"
+      }
+    ]
+  },
+  "sourceStable": true,
+  "pass": true,
+  "errors": [],
+  "intercepts": {
+    "index.html": 1,
+    "entry.js": 1,
+    "chunk-JKUV4YVA.js": 2,
+    "worker.js": 1
+  },
+  "contextClosed": true,
+  "finishedAt": "2026-10-17T20:25:07.592Z"
+}
