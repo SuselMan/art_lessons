@@ -390,6 +390,13 @@ export class SnapshotIO {
       const before = previous.get(entry.op.id)
       return before && (before.state !== entry.state || before.goneReason !== entry.goneReason)
     }).map(entry => entry.op)
+    // Authoritative acceptance can change wet eligibility while a later
+    // control masks the target's final state. Repair its material as for ACK.
+    for(const op of pageOps)if(op.seq!==undefined && previous.get(op.id)?.goneReason==='reject'){
+      const targetId=op.type==='operation_undo' || op.type==='operation_redo' || op.type==='operation_revoke' ? op.targetOpId : op.id
+      const target=log.entries.find(entry=>entry.op.id===targetId)?.op
+      if(target && !changed.some(entry=>entry.id===target.id))changed.push(target)
+    }
     this._historicalEntryCount += ops.length
     // (#398) Nothing is painted here — but an undo/redo later rebuilds a
     // layer from exactly these operations, and that rebuild is synchronous.
@@ -435,6 +442,7 @@ export class SnapshotIO {
         // also have changed dependent water under that same apparent state.
         const uncertain=mutation.historical && this.ctx.log().entries.some(entry=>
           (entry.op.type==='operation_undo' || entry.op.type==='operation_redo' || entry.op.type==='operation_revoke')
+          && entry.goneReason!=='reject'
           && (entry.pending || entry.serverSeq===undefined || entry.serverSeq>snapshot.coveredSeq!))
         if(!uncertain)continue
       }
