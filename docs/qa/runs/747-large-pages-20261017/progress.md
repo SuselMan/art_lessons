@@ -191,3 +191,27 @@ Runtime dc49353d generic defaultundefined synchronousnativeScope; root37tests/4f
 #748 combined nativehighpsamplers+ROUND_R first18exactcrossGPU/CPU9fc03..., prefix17exact. Originalsamplers+ROUND_Rfixed2545of2594, residual49allnegative1; highponlyfixed1163/residual1431. BOTHGPUs DITHERonlynoeffect. FullcombinedfinalP/CstillcrossGPUdifferent,covexact. Intelcombinedoutward25/inward10 exacthistoricalownboundaries; Samsungmatched25/10underway.
 
 PerfieldscissorROIexternaldelta reviewed4CPUcases/160propertiesPASS: clipindividualexpandedrawrects beforetakingbbox, noadditionaldraw. ExistingA2geometryforecastseam0%/edge95.41%lessarea; notperformanceproof. Pending actualCPUprofiler afterGPUboundarypair, noGPUqueries/trace.
+
+### 14:56 — measured CPU bottlenecks and production data-transfer fixes
+
+Perfieldscissor37e actualSamsung oldfixture3wetlayers: seamUP8304ms,edge9979ms (edgeCPUprofilequalifiedoverhead), exactnaturalgoalvsfactoryOFF29prepares/rawallphysical0/GL0. Peredge area2.09% vsoldbbox45.53%, no desiredspeedwin. CPUedge4481samples/~10s: getParameter3139.8ms(readstate1984.5/scissor1140),readPixels1913.5,writeRect1325.2,GC288,idle407.5. Sampling nativecallwait attribution, NOT GPUexclusive timing; raw565899B removedaftercompactproof07cbf5a5.
+
+Root03c46d2a MaterialFieldPages exactnativeword uniformcompression/fill/read and fullpageoverwrite avoiding oldcopy: independentold/new3randomizedCPUtestsPASS; production24tests5filesPASS,webtsc/lint0. ActualIntel/Samsungprebandcases retainownhistoricfinalhashes exactly. Rootcd993f8e specialized residency state: copyonlybindings3queries vs7, readbackFBO+PACK2vs7, uploadbindings+UNPACK6vs7, genericconstructorunknownscope unchanged. Nestedhydrate/evict preserveownstate; deletedtextureguard/throws/pins tested. Root253tests21filesPASS/typecheck/lint0. Memoryenvelopeunchanged input224/solve120; solve224externaldiagnostic NOTexecuted. FreshblankownA2fixture13 performance/proof nowunderway, nooldwetlineage comparison.
+
+#748 combinedfront bandoutputdiff R398/max6,G7943/max230,B325/max36,A913/max1. Preband a===d pressure exactcrossGPU; prebandbcoverage ALREADYdiffR398/max2,B/A398/max6,G0. ThusbandshadercauseNOTproven. Lastoutward25 iscapturedBEFORE identityhomecopy; actualprebanda read establishedcopyexacthere. Remainingc mask isnextread; mode11coverageproducer vsitscopytobeisolated.
+
+### 15:11 — no-scope controlled qualification and constructor followup
+
+Freshownedfixture13 scopedstatefixcd993:4.884s/unprofiledseam5.560/profilededge, RAF334/351; exactgoal/raw/fullAPI29prepares3ops/GL0. EdgegetParameter1390ms mostlyQAscissor1076,genericconstructor241; read838/writeRect171. Freshfixture14 NOSCOPEa872(factoryundefinedbeforecontroller):5.321s/6.602s(profileedge),RAF318/334; exactallgoal/raw/API29prepares3ops/GL0. Query1250ms mostly genericconstructor1030,readbackPACK173; read1411/writeRect170/idle1467. These are differentsyntheticinputs/CPUprofiles, NOTstrictspeedAB; bothPERFFAIL. RawCPUdeletedaftercompactproof923bd4/06db.
+
+Roota872 yieldsbetween3requiredmaterialplanes (42tests4filesPASS/webtsc/lint0): deadlinecancheckbetweenreads; cancellationreleasesownersandnopartialgoal. Roote562 managedconstructor bindings-only3queriesinstead7, nulltexImageallocationdoesnotconsumeUNPACK; hostilepixelstore+zeroallocationnew9thstatetest,225tests19filesPASS/webtsc/lint0. Genericpreserverremainsavailableunchanged. Lastfulllatestattempta872PID175859 stoppedSIGTERMafterpausebecauseconstructorfollowupchangesSOURCE; NOcurrentfullPASSclaimed (lastfull4662683historical). Ownprocessledgerfinished−15/nochildresourcesintended; fullstablee562pendingrestartafterdeviceperf.
+
+QAtrackedscissor4b42 nowreads4stateparameters+1enabledoncepernative.run, tracks7settersONLYsynchronously, noqueriesperdraw orhooksacrossyield;7CPU+actualPlan199drawPASS. Appmath8kernelsunchanged. GPUgate/perfpending.
+
+#748 prebandc mask exactcrossGPU d098..., a/dpressureexact e3...; ONLYbcoveragealreadydiff R398/B398/A398, G0. Intelmode11OUTPUTbeforecopy hash==prebandb e0..., paramsk1/band.96/size.01; Samsungoutputnext. Specializedmode11QAprecisioncontrolpreparedbutNOTapplied/GPU.
+
+### 15:21 — latest clean A2 still fails performance; mode11 precision isolated
+
+App e562d496 + QA tracked scissor4b42aa79 CLEAN fixture15: seamUP4127ms unprofiled, edge4977ms CPUprofiled; DOWN56/56ms, MOVE52/7ms, UP100/23ms; outerstepmax293/264ms. Finalnaturalgoal vs independentfullAPI29Nativeprepares3ops allphysical/rawROI/full/outside0diff,GL0. 4/5scopes selected,0fallback,84/105runs=snapshots=detaches,exactrestore. No strictspeedABclaim acrossdifferentfixtures. Proofa9d4ade1. Memoryinput224/solve120 unchanged. Rootfullengine e562d496 one-worker run PID183840 started15:16:45, pending; appsourcefrozen.
+
+#748 QA mode11 highp sampler ONLY fixes Samsung coverage completely: bothGPU e0c3e4d6168fc34d3bca93490b026d9a16eeb111023b18053923ad37f2f8e2ad. Samsung selected5/other581,6samplers,all10stage/finalown0,GL0,programrestore/deleteexact. Proof13f0bf4e. Notappshaderfix; fullcrossGPUfinalNOTconfirmed. NextBANDboundaryunderway.
