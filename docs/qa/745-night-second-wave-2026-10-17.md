@@ -511,3 +511,134 @@ C07 пройден на реальных трёх авторах: DOWN на тр
 временного film не осталось; terminal Dry на обоих дала actual physical=own
 full replay, GL errors=0. Это не десять GPU-авторов и не pointer-тест десяти
 браузеров: настоящий физический ввод покрыт отдельными C07 и live-сценариями.
+
+
+## Срез 03:59 — повторы Undo без промежуточного readback
+
+Дополнительные counterbalanced OFF2→ON2→ON3→OFF3 на ec218f98, один
+original100 SPEC, QA_READ_DURING_UNDO=0. Все четыре финальных raster точно
+совпали с принудительно OFF oracle, затем флаг возвращён в finally.
+
+| Метрика | OFF, два прогона | ON, два прогона |
+|---|---|---|
+| Начало swap, мс |1304,3 / 1351,8|1284,0 / 1053,5|
+| Screenshot complete, мс |1765 / 2009|2005 / 1886|
+
+Медиана swap примерно на12% ниже при n=2, но разброс велик, а устойчивое
+**видимое пользователю ускорение не доказано**. Первые29% одной intrusive
+пары не репрезентативны. Default остаётся OFF; shader physics не менялась.
+Следующий шаг — профиль original100 по GPU-проходам вместо очередной
+оптимизации без доказанного bottleneck.
+
+Настоящий online hidden hotcase также прошёл: server-layer и два реальных
+автора, три стадии fixed-recorded материала точно OFF/ON (6raw/3solvergoal/
+targetgoal); native held-beforeUP виден. Случайные strokeIds nativeввода
+не выдаём за fixed-input art oracle.
+
+
+## Срез 04:02 — исправление #775
+
+Включён runtime93b550b2. Отклонённое действие отличается от принятого revoke,
+сохраняет ID, но не возвращает эффект при backfill и не уничтожает redo-ветку.
+Сохраняются только затронутые ID/state/reason для частичной legacy-истории,
+без bitmap или копии журнала. Поздний авторитетный ACK/page может доказать
+принятие; даже при неизменном final raw state пересчитывается водная
+зависимость. Rejected-control не вызывает вечный карантин уже покрытого CP.
+
+До интеграции199 целевых проверок и typecheck/lint PASS. Независимый
+метаморфный тест: immutable81641189, 240seed×24actions, 7526checkpoints PASS
+по states/effective water против fresh accepted-only oracle без использования
+rejectPending/confirm/absorbHistorical. SHA трёх runtime-файлов одинаков до
+и после; exploratory запуск по меняющемуся исходнику отдельно и не является
+финальным proof. Это OpLog/CPU proof, не claim pixels/revoke/transform fuzz.
+В интеграции106 тестов PASS, lintfix/map1107 PASS; отличия трёх OpLog-файлов
+от immutable-кандидата — только сохранённый комментарий. Полный engine и
+typecheck на интеграции выполняются отдельно, исходники заморожены.
+
+Сырой disposable первого fuzz удаляется отдельно; итоговые seed/hash/count
+сохранены компактно. Новых сервисов и публикаций коммитов нет.
+
+
+## Срез 04:06 — полная проверка интеграции
+
+Runtime93b550b2 с #775: **220 файлов, 2194 теста PASS**, 195,09 с.
+Полный npm run typecheck (server/web/shared/e2e/scripts) PASS. Запуски
+выполнены последовательно, maxWorkers=2, исходники всё время неизменны.
+Lintfix и map1107 PASS. Это новый полный успешный прогон интеграции,
+а не пересказ старых результатов до #775.
+
+Лимит 04:03: использовано42%, осталось58%, reset не применялся.
+Работа продолжается, это не заявление о завершении и не закрытие #748/#747/#753.
+
+
+## Срез 04:11 — принятый префикс и отказ хвоста
+
+C06 на93b550b2 прошёл5 этапов: первый800-dab chunk принят сервером,
+после freeze обычный UP создал настоящий local pending tail; сервер прислал
+cancelled=true и permanent reject. Локальная запись стала gone/reject,
+принятый prefix сохранён. После Dry все три actual raster совпали с OFF
+oracle. Новый stroke/Undo/Redo и cold rejoin не вернули отклонённый хвост.
+
+Два предыдущих запуска были ошибками harness: ожидание отсутствия вообще
+всех pending не учитывало terminal rejected tombstone; ручной append хвоста
+не завершал физический DOWN, из-за чего solver корректно ждал UP. Они не
+считаются runtime bug/deadlock. Итоговый gate использует обычный UP.
+
+Дополнительно CPU/MockGL: rejected middlechunk→continue→UP оставил принятые
+first+tail,10 material buffers/storageBounds точны accepted-history replay
+(9e837f0c,3PASS). Для marker/smudge snapshot.clear реально удалял FBO, а
+следующие flush/MOVE/UP не связывали удалённый FBO (82b102cf,2PASS).
+Это тесты без найденного нового дефекта, не native shader-сертификат.
+
+
+## Срез 04:24 — заполненная комната и восстановление очереди
+
+На Surface проверены четыре открытия одной комнаты с настоящими100 мазками:
+обычный fresh/reload UIready3609/3521ms, annotations fresh/reload3650/3597ms.
+Все четыре actual target точно совпали с OFF full-replay oracle на том же GPU.
+В annotations отдельно зафиксирована ранняя экспортированная картинка1024²
+до полной истории; UIready не выдаётся за время первого видимого изображения.
+
+GPU-профиль исходного100-stroke Undo на Intel использовал настоящий
+WebGL1 EXT_disjoint_timer_query:8192draws/6964queries,0unmeasured,
+0incomplete,disjoint=false. Сумма query elapsed849,718ms; instrumented
+UndoSwap2859ms и окно3492ms содержат накладные расходы профилировщика
+и не являются оценкой ускорения. Целевой bitmap точен OFF oracle.
+Предыдущий WebGL2-only probe не доказывал отсутствие timer extension на Intel.
+
+Готовы #776 (ответ старой очереди после смены доски) и #778 (утрата Dry
+и временных промежутков при восстановлении отклонённой акварели); ждут
+общего окна без GPU перед интеграцией. #778 исправляет одну recovery-пачку.
+Отдельно OPEN #777: после target_gone исходная durable запись уже удалена,
+а отложенная800ms recovery-пачка может исчезнуть при смене доски.
+Перенос разных пачек в разные новые слои также пока не сохраняет общую
+водную причинность; это не объявляется исправленным одной #778.
+
+Аппаратно дополнительно PASS: потеря/возврат GL с тремя логическими лужами
+и лимитом двух GPU-resident; дублирование/merge/clear припаркованного
+источника с Undo/Redo; responsive annotation/menu на824/390px.
+Последняя responsive проверка выполнена desktop Chrome с touch viewport,
+а не выдана за нативный Samsung performance-тест.
+
+Строгий меж-GPU детерминизм #748, большой домен #747, material clock #753
+и тяжёлый Undo #744 остаются открыты. Работа продолжается.
+
+
+## Срез 04:26 — новая Room-интеграция проверена
+
+Runtime0be6e667 (docs-onlyHEADbd90bb9a): #776 и #778 интегрированы.
+Полный Room:68файлов,669PASS и1expectedfail — явное воспроизведение
+открытой #777, не исправленный тест. Полный npm run typecheck PASS;
+lint:fix завершён без изменения runtime (с существующими warnings),
+map:check1111 PASS. Engine не менялся относительно последнего полного
+2194-test прогона, кроме ранее проверенного фильтра rejected cause.
+
+Оба diagnostic controls #748 (bg pixel UV и отдельный highp sampler)
+дают exact3повтора на каждом GPU, но AMD/Intel всё ещё расходятся.
+Шейдеры продукта не менялись, порог сравнения не ослаблялся.
+
+Приватные3 Surface filled100/profile fixtures удалены owner API200,
+контексты закрыты, auth убран; registered744-surface-profile-filled100
+удалён штатным qa-cleanup с сохранённой проверкой активных процессов
+и доступом к /proc через sudo. Владение registry восстановлено.
+Общие QA-туннели и три существующих сервиса оставлены для следующих тестов.
