@@ -306,3 +306,30 @@ it('finding: legacy v1 splits one physical gesture after a 120-second chunk gap'
     expect(scratch.destroy).toHaveBeenCalledTimes(1)
   } finally {controller.destroy();vi.unstubAllGlobals()}
 })
+
+it('recorded timestamp advances the next DOWN expiry without replay and old callbacks cannot retime replacement sources',()=>{
+ const {controller,target,profile}=wetController(1)
+ try{
+  const live=controller.source(target,'local',profile,100_000)
+  expect(live.recordTimestamp(110_000)).toBe(false)
+  const close=vi.spyOn(controller,'close')
+  controller.source(target,'next',profile,225_000)
+  expect(close).not.toHaveBeenCalled() // 115s since recorded UP, not 125s since DOWN
+  controller.forget(target)
+  const replacement=controller.source(target,'replacement',profile,500_000)
+  live.recordTimestamp(1)
+  close.mockClear()
+  controller.source(target,'next-replacement',profile,600_000)
+  expect(close).not.toHaveBeenCalled()
+  expect(replacement.scratch).not.toBe(live.scratch)
+ }finally{controller.destroy();vi.unstubAllGlobals()}
+})
+it('direct replay sources retain their timestamp unless the local recording hook is called',()=>{
+ const {controller,target,profile}=wetController(1)
+ try{
+  controller.source(target,'replay',profile,100_000)
+  const close=vi.spyOn(controller,'close')
+  controller.source(target,'next-replay',profile,220_000)
+  expect(close).toHaveBeenCalledExactlyOnceWith(target)
+ }finally{controller.destroy();vi.unstubAllGlobals()}
+})
