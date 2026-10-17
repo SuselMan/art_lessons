@@ -1,0 +1,24 @@
+{
+  "atUTC": "2026-10-17T04:26:09.894232+00:00",
+  "owner": "/root/qa_cases",
+  "fixtures": {
+    "explicitRegistered": 98,
+    "errors": 0,
+    "retained790": "ownerDELETE succeeded; child cascades; host-state files removed"
+  },
+  "vega": {
+    "pid": 566309,
+    "status": "exact command verified before SIGTERM; no matching processes after; exact profile removed",
+    "forwardPID": 4041446,
+    "forwardStatus": "SIGTERM; absent verified"
+  },
+  "surface": {
+    "status": "exact owned profile not in use; removed; user profile untouched"
+  },
+  "cache": {
+    "id": "728-online-adversarial-20261017",
+    "finish": "protected: active process",
+    "bypass": false
+  },
+  "remaining": "Protected disposable cache only. Root annotation fixture and shared QA5383/5384/backend4558 untouched; Samsung belongs to separate operator."
+}
