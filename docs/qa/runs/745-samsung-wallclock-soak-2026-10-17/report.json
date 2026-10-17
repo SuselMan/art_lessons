@@ -1,0 +1,304 @@
+{
+  "source": "43f87295",
+  "scope": "Real30minute wallclock; ten Socket.IO authors, three concurrent accepted8-dab strokes each10sec; one native Samsung observer. No ten-browser or latency benchmark claim.",
+  "cases": [
+    {
+      "allActualCapturedBeforeAnyOracle": true,
+      "allPhysicalCapturedFirst": true,
+      "canonicalReadAddedComputations": 0,
+      "rows": [
+        {
+          "id": "soak-L",
+          "actualHash": "b8a9f29615e90379943e2612070397e03fc55b1ef15b5c2628af223a362d9186",
+          "physicalHash": "879ce38d0f2cd441e2c42ee0d8ed131a5960d6b548249ae7565b5adc99efd8e4",
+          "oracleHash": "b8a9f29615e90379943e2612070397e03fc55b1ef15b5c2628af223a362d9186",
+          "changedChannels": 0,
+          "max": 0
+        }
+      ],
+      "quiet": {
+        "unsettled": [],
+        "jobs": 0,
+        "pending": [],
+        "queue": 0
+      },
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 2,
+        "residentLayers": 2,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 93,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 270,
+            "ready": true,
+            "active": true
+          },
+          {
+            "epoch": 1,
+            "ready": false,
+            "active": false
+          }
+        ]
+      },
+      "coverage": [],
+      "glError": 0,
+      "name": "before-midpoint-dry",
+      "inputSHA": "2870c980ff7ac2801f7a561e7cdd75c0d59331255ee2862aee95f9ff81c4e6cc",
+      "acceptedJournal": {
+        "count": 275,
+        "sha256File": "2870c980ff7ac2801f7a561e7cdd75c0d59331255ee2862aee95f9ff81c4e6cc",
+        "types": {
+          "layer_add": 1,
+          "stroke": 270,
+          "operation_undo": 2,
+          "operation_redo": 2
+        },
+        "strokeAuthors": 10,
+        "allStrokeM70": true,
+        "firstSeq": 1,
+        "lastSeq": 275,
+        "firstTimestamp": 1792213100344,
+        "lastTimestamp": 1792214005710,
+        "orderedIDsSHA256": "9f102017451675e6fb991dc898bae0d39538e7fb6f75531e573c8494316a8875"
+      },
+      "apiIdsProof": {
+        "count": 275,
+        "sha256": "9f102017451675e6fb991dc898bae0d39538e7fb6f75531e573c8494316a8875"
+      },
+      "localIdsProof": {
+        "count": 275,
+        "sha256": "9f102017451675e6fb991dc898bae0d39538e7fb6f75531e573c8494316a8875"
+      }
+    },
+    {
+      "allActualCapturedBeforeAnyOracle": true,
+      "allPhysicalCapturedFirst": true,
+      "canonicalReadAddedComputations": 0,
+      "rows": [
+        {
+          "id": "soak-L",
+          "actualHash": "ab3fd6ecca00df3863a4c6eba702811372965a32ad4f1f322ceae9c1e716c775",
+          "physicalHash": "d8faa65ba9d46279abab0664067e8c664bf8196990644303fa0f312d2dea458b",
+          "oracleHash": "ab3fd6ecca00df3863a4c6eba702811372965a32ad4f1f322ceae9c1e716c775",
+          "changedChannels": 0,
+          "max": 0
+        }
+      ],
+      "quiet": {
+        "unsettled": [],
+        "jobs": 0,
+        "pending": [],
+        "queue": 0
+      },
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 2,
+        "residentLayers": 2,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 184,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 270,
+            "ready": true,
+            "active": true
+          },
+          {
+            "epoch": 1,
+            "ready": false,
+            "active": false
+          }
+        ]
+      },
+      "coverage": [],
+      "glError": 0,
+      "name": "final30minute",
+      "inputSHA": "95495325d374f07700cce6607d177a04fbd3ba1d0ce453fda8caca4a91c17fe0",
+      "acceptedJournal": {
+        "count": 548,
+        "sha256File": "95495325d374f07700cce6607d177a04fbd3ba1d0ce453fda8caca4a91c17fe0",
+        "types": {
+          "layer_add": 1,
+          "stroke": 540,
+          "operation_undo": 3,
+          "operation_redo": 3,
+          "paper_dry": 1
+        },
+        "strokeAuthors": 10,
+        "allStrokeM70": true,
+        "firstSeq": 1,
+        "lastSeq": 548,
+        "firstTimestamp": 1792213100344,
+        "lastTimestamp": 1792214901559,
+        "orderedIDsSHA256": "2f718d6b499038a47e8bb1a9350a1e8a4dfa9227bdd3d8cc1e9574a073acea60"
+      },
+      "apiIdsProof": {
+        "count": 548,
+        "sha256": "2f718d6b499038a47e8bb1a9350a1e8a4dfa9227bdd3d8cc1e9574a073acea60"
+      },
+      "localIdsProof": {
+        "count": 548,
+        "sha256": "2f718d6b499038a47e8bb1a9350a1e8a4dfa9227bdd3d8cc1e9574a073acea60"
+      }
+    },
+    {
+      "allActualCapturedBeforeAnyOracle": true,
+      "allPhysicalCapturedFirst": true,
+      "canonicalReadAddedComputations": 0,
+      "rows": [
+        {
+          "id": "soak-L",
+          "actualHash": "ab3fd6ecca00df3863a4c6eba702811372965a32ad4f1f322ceae9c1e716c775",
+          "physicalHash": "a14f8576aae98027e33127825edb5e455241f49d69dd5c49fda76c7674a81c1a",
+          "oracleHash": "ab3fd6ecca00df3863a4c6eba702811372965a32ad4f1f322ceae9c1e716c775",
+          "changedChannels": 0,
+          "max": 0
+        }
+      ],
+      "quiet": {
+        "unsettled": [],
+        "jobs": 0,
+        "pending": [],
+        "queue": 0
+      },
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 1,
+        "residentLayers": 1,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 3,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 270,
+            "ready": true,
+            "active": true
+          }
+        ]
+      },
+      "coverage": [],
+      "glError": 0,
+      "name": "cold-rejoin",
+      "inputSHA": "95495325d374f07700cce6607d177a04fbd3ba1d0ce453fda8caca4a91c17fe0",
+      "acceptedJournal": {
+        "count": 548,
+        "sha256File": "95495325d374f07700cce6607d177a04fbd3ba1d0ce453fda8caca4a91c17fe0",
+        "types": {
+          "layer_add": 1,
+          "stroke": 540,
+          "operation_undo": 3,
+          "operation_redo": 3,
+          "paper_dry": 1
+        },
+        "strokeAuthors": 10,
+        "allStrokeM70": true,
+        "firstSeq": 1,
+        "lastSeq": 548,
+        "firstTimestamp": 1792213100344,
+        "lastTimestamp": 1792214901559,
+        "orderedIDsSHA256": "2f718d6b499038a47e8bb1a9350a1e8a4dfa9227bdd3d8cc1e9574a073acea60"
+      },
+      "apiIdsProof": {
+        "count": 548,
+        "sha256": "2f718d6b499038a47e8bb1a9350a1e8a4dfa9227bdd3d8cc1e9574a073acea60"
+      },
+      "localIdsProof": {
+        "count": 548,
+        "sha256": "2f718d6b499038a47e8bb1a9350a1e8a4dfa9227bdd3d8cc1e9574a073acea60"
+      }
+    }
+  ],
+  "errors": [],
+  "identity": {
+    "DPR": 2.125,
+    "budget": "314572800",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "cache": false,
+    "hidden": false
+  },
+  "backend": "ac892525",
+  "startedAt": "2026-10-17T04:58:31.557Z",
+  "checkpoints": [
+    {
+      "cycle": 30,
+      "kind": "ownUndoRedo",
+      "target": "fd4d6933-ed0b-4503-a77c-f7dbc0f12554",
+      "wallElapsedMs": 294598
+    },
+    {
+      "cycle": 90,
+      "kind": "ownUndoRedo",
+      "target": "7654970a-bf75-4088-ac16-3b355844e800",
+      "wallElapsedMs": 897940
+    },
+    {
+      "cycle": 90,
+      "kind": "recordedLayerDry",
+      "wallElapsedMs": 903680
+    },
+    {
+      "cycle": 150,
+      "kind": "ownUndoRedo",
+      "target": "70bdf17e-1dd6-4f71-98bc-b027f7b9e858",
+      "wallElapsedMs": 1496510
+    }
+  ],
+  "lastAccepted": 540,
+  "progress": {
+    "cycle": 180,
+    "strokes": 540,
+    "wallElapsedMs": 1790466,
+    "state": {
+      "visible": "visible",
+      "lost": false,
+      "gl": 0,
+      "errors": 0,
+      "log": 548
+    },
+    "at": "2026-10-17T05:28:22.023Z"
+  },
+  "wallElapsedMs": 1808497,
+  "pass": true,
+  "deleteStatus": 200,
+  "cleanup": {
+    "ownContextsClosed": true,
+    "socketsClosed": true,
+    "privateAuthRemoved": true
+  },
+  "qualification": {
+    "realWallclock": true,
+    "networkActors": 10,
+    "nativeObservers": 1,
+    "concurrentAuthorsPerCycle": 3,
+    "cycles": 180,
+    "intervalMs": 10000,
+    "dabsPerStroke": 8,
+    "midpointReplayIntervention": true,
+    "observerMaterialReplaced": false,
+    "physicalExactNotClaimed": true,
+    "syntheticStateErrorsIgnored": true,
+    "noLatencyBenchmark": true,
+    "longUninterruptedWetEpochNotClaimed": "One recorded Dry around15min splits wet history; observer remained active30min."
+  },
+  "harnessSHA256": "0c13a713457845a2edae90426702605a67e977478f3c6f1708c78ab568b57ab4"
+}
