@@ -1,5 +1,5 @@
 import type {AlgorithmInput,PigmentEncoding} from './protocol'
-export const fixtureIds=['dot','wave','water-only','water-stroke','two-colors','crosses','blue-yellow','fine-detail','border','wave-open'] as const
+export const fixtureIds=['dot','wave','water-only','water-stroke','two-colors','crosses','blue-yellow','fine-detail','border','wave-open','dry-stroke','isolated-pools','variable-wash'] as const
 export type FixtureId=typeof fixtureIds[number]
 export const fixtureInfo:Record<FixtureId,{label:string;description:string}>={
  dot:{label:'Точка',description:'Один широкий отпечаток синей кисти'},
@@ -12,6 +12,9 @@ export const fixtureInfo:Record<FixtureId,{label:string;description:string}>={
  'wave-open':{label:'Волна с открытыми изгибами',description:'Два крупных изгиба широкой кисти вместо многократного наложения'},
  border:{label:'У края листа',description:'След касается границы расчётного поля'},
  crosses:{label:'Повторные пересечения',description:'Три перекрывающихся следа с разным количеством пигмента'},
+ 'dry-stroke':{label:'Сухой контроль',description:'Тот же пигмент, что в мазке через лужу, но воды нет: перенос запрещён'},
+ 'isolated-pools':{label:'Две отдельные лужи',description:'Синий пигмент только в левой луже; правая отделена сухим промежутком'},
+ 'variable-wash':{label:'Неравномерная заливка',description:'Перекрывающиеся отпечатки с разным количеством краски на предварительно смоченной бумаге'},
 }
 function hash(x:number,y:number,seed:number){let h=Math.imul(x^seed,374761393)^Math.imul(y,668265263);h=Math.imul(h^(h>>>13),1274126177);return(h^(h>>>16))>>>0}
 export function paperBytes(size:number,seed=805){const out=new Uint8Array(size*size);for(let y=0;y<size;y++)for(let x=0;x<size;x++){
@@ -46,5 +49,12 @@ export function createFixture(id:FixtureId,size=1024,encoding:PigmentEncoding='p
  if(id==='fine-detail'){dot([[500,500]],230,blue,0,.95);dot(line(200,430,830,570),6,blue,.5,.05);dot(line(220,600,790,350),12,rose,.4,.05)}
  if(id==='wave-open')dot(Array.from({length:101},(_,i)=>{const t=i/100;return[180+664*t,512+240*Math.sin(4*Math.PI*t)]}),160,blue,.34,.95)
  if(id==='border')dot(line(5,80,980,18),80,blue,.4,.9)
+ if(id==='dry-stroke')dot(line(180,700,830,330),45,blue,.5,0)
+ if(id==='isolated-pools'){dot([[320,512],[704,512]],140,blue,0,.95);dot([[320,512]],70,blue,.5,.95)}
+ if(id==='variable-wash'){
+  const path=Array.from({length:25},(_,i)=>{const t=i/24;return[180+664*t,512+140*Math.sin(2*Math.PI*t)]})
+  dot(path,100,blue,0,.95)
+  for(let i=0;i<path.length;i++)dot([path[i]],42+12*Math.sin(i*.5),blue,.10+.08*(.5+.5*Math.cos(i*.7)),.65)
+ }
  return{size,rgba,water,paper,seed:805,encoding}
 }
