@@ -1,11 +1,11 @@
 import {inheritSettleOpTags} from '../../../../../apps/web/src/engine/src/watercolor/WatercolorSettleQueue'
-export interface FieldLease {release():void}
+export interface FieldLease {release():void;enter?():void;leave?():void}
 /** Whole-job lease, including suspended and reentrant operation continuations. */
 export function fieldJobScope(lease:FieldLease){
  let depth=0,retired=false,released=false
  function flush(){if(retired&&!depth&&!released){released=true;lease.release()}}
  const retire=()=>{retired=true;flush()}
- function run<T>(work:()=>T):T{if(retired)throw Error('Retired field job');depth++;try{return work()}finally{depth--;flush()}}
+ function run<T>(work:()=>T):T{if(retired)throw Error('Retired field job');lease.enter?.();depth++;try{return work()}finally{depth--;try{lease.leave?.()}finally{flush()}}}
  function wrapJob<T extends {ops:Array<()=>void>;finish():void;dispose():void}>(job:T):T{
   const wrappers=new WeakMap<()=>void,()=>void>()
   const ops=new Proxy(job.ops,{get(target,key,receiver){

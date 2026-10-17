@@ -37,7 +37,7 @@ Engine/index.ts and PagedPuddleRoomController are intentionally NOT changed by t
 
 ## Validation
 
-`node_modules/.bin/vitest run --config docs/qa/runs/747-large-pages-20261017/phase-candidate/vitest.config.mjs`:29CPU tests PASS. Tests cover disabled budget callbacks plus always-on common leases; ordering; deferred busy/pinned admission; readback failure after partial eviction; generation/context-loss/reentrancy; explicit family child/foreign rejection; dynamically inserted/tagged operations; reentrant cancellation and allocation/operation/finish failure; real prefix program preservation/reallocation; real Paged generator capture-once/one-defer-per-step/cancel-restart; actual Plan public wrapper/default object identity/null/build error.
+`node_modules/.bin/vitest run --config docs/qa/runs/747-large-pages-20261017/phase-candidate/vitest.config.mjs`:32CPU tests PASS. Tests cover disabled budget callbacks plus always-on common leases; ordering; deferred busy/pinned admission; readback failure after partial eviction; generation/context-loss/reentrancy; explicit family child/foreign rejection; dynamically inserted/tagged operations; reentrant cancellation and allocation/operation/finish failure; real prefix program preservation/reallocation; real Paged generator capture-once/one-defer-per-step/cancel-restart; actual Plan public wrapper/default object identity/null/build error.
 
 Strict tsc on the three standalone owner/job/residency primitives:PASS. Transpile syntax validation for every generated source:PASS. Virtual git index at7b91 applies patch with `git apply --cached --check`:PASS. Normal apply-check against current served worktree FAILS ONLY PagedPuddleTarget because root has uncommitted skip/zero work there; do not overwrite it. No PagedSource/support metadata dependency was added.
 
@@ -54,3 +54,7 @@ Core2 tests additionally cover public admission state, reentrant cancel/destroy 
 Function descriptors do NOT preserve scheduling: WatercolorSettleQueue stores contact/front classes in WeakSets and presentation tokens in a WeakMap keyed by function identity. Every lease wrapper now calls the real `inheritSettleOpTags(source,wrapped)`. Three real Queue tests compare baseline vs wrapper batch boundaries, event order and sync counts for contact/front/presentation; removing ONLY this call makes all three fail (`queue-tag-negative-proof.json`). The older own-string-property test alone was insufficient.
 
 Generation is checked after releaseTextures and context-restored budget callbacks, preventing reentrant context loss from being overwritten with idle state. Parameter-property syntax was removed and unused private helper retired for the project's erasableSyntaxOnly/noUnusedLocals settings.
+
+## Core4 execution admission
+
+FieldLease has optional enter/leave; fieldJobScope brackets prepare and every wrapped quantum with these calls. Common owner state.executing is a depth count distinct from suspended activeLeases. Reentrant legacy operation admission must queue BEFORE trying to drain its executing owner. Direct `_dryWashScratch` wrapper also needs enter/leave in finally. Context-loss generation invalidates stale leave callbacks. Even an early direct release cannot admit new foreign work or release textures until execution leaves. The new depth is ownership telemetry/admission, not a timing benchmark.
