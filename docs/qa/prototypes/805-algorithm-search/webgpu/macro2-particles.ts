@@ -43,8 +43,8 @@ fn add(i:u32,channel:u32,value:u32){atomicAdd(&accum[i*4u+channel],value);}
     if(wet(endpoint)){let height=f32((environment[index(endpoint)]>>8u)&255u)/255.0;let affinity=1.0/(1.0+p.paperGain*height);weight=affinity*(1.0+p.persistence*max(0.0,dot(previous,DIR[k])));}
     weights[k]=weight;total+=weight;
    }
-   if(total<=0.0){break;}state=hash(state+step+1u);let target=f32(state>>8u)*(1.0/16777216.0)*total;var cumulative=0.0;var chosen=7u;
-   for(var k=0u;k<8u;k++){cumulative+=weights[k];if(target<cumulative){chosen=k;break;}}
+   if(total<=0.0){break;}state=hash(state+step+1u);let drawThreshold=f32(state>>8u)*(1.0/16777216.0)*total;var cumulative=0.0;var chosen=7u;
+   for(var k=0u;k<8u;k++){cumulative+=weights[k];if(drawThreshold<cumulative){chosen=k;break;}}
    let next=pos+DIR[chosen]*f32(p.stepPixels);if(pathWet(pos,next)){pos=next;previous=DIR[chosen];}else{previous=vec2f(0);}
   }
   let base=vec2i(floor(pos));let t=fract(pos);let ids=array<vec2i,4>(base,base+vec2i(1,0),base+vec2i(0,1),base+vec2i(1,1));
