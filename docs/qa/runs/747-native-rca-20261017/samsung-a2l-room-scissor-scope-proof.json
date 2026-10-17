@@ -1,0 +1,4273 @@
+{
+  "source": "dc49353d",
+  "qualification": "ActualRoom scopedscissor conditionalQA. Correctness PASS, performance FAIL. New randomstroke IDs/newlayer with1priorwetlayer; not clean speed A/B. Counters below exclude5bootstrap scopes using actual4+5Nativeprepare counts. Inclusive wall timings overlap; gl.clear/getParameter and innerNative.reset/step were NOT separately instrumented.",
+  "QA-early-R32-flag": [
+    {
+      "name": "QA-early-R32-flag",
+      "wallAt": 1792237013725,
+      "records": [
+        {
+          "applied": true,
+          "options": {
+            "diagnosticM70TightSupport32": true,
+            "diagnosticM70SkipEmptyPostphase": true,
+            "diagnosticM70SkipEmptyReference": true,
+            "diagnosticM70CapturedBacking": true,
+            "diagnosticM70PersistCapturedBacking": true,
+            "diagnosticM70CooperativeCapture": true,
+            "diagnosticM70StepBudgetMs": 8
+          },
+          "large": 0,
+          "existing": false,
+          "phaseDefault": true,
+          "page": {
+            "w": 3508,
+            "h": 2480
+          }
+        }
+      ],
+      "flag": true,
+      "phaseDefault": true
+    }
+  ],
+  "QA-early-native-scope": [
+    {
+      "name": "QA-early-native-scope",
+      "wallAt": 1792237013769,
+      "early": {
+        "installed": true,
+        "controllerAbsent": true,
+        "largeCount": 0
+      },
+      "factoryIdentity": true
+    }
+  ],
+  "RAF-foreground-probe": [
+    {
+      "name": "RAF-foreground-probe",
+      "wallAt": 1792237014513,
+      "times": [
+        16.700000000004366,
+        16.69999999999709,
+        16.700000000004366,
+        16.69999999999709,
+        16.69999999999709,
+        16.80000000000291,
+        16.69999999999709,
+        16.700000000004366,
+        16.69999999999709,
+        16.700000000004366,
+        16.69999999999709,
+        16.69999999999709,
+        16.80000000000291,
+        16.69999999999709,
+        16.700000000004366,
+        16.69999999999709,
+        16.700000000004366,
+        16.69999999999709,
+        16.80000000000291,
+        16.69999999999709
+      ],
+      "hidden": false,
+      "visibility": "visible"
+    }
+  ],
+  "strict-ready-before-DOWN": [
+    {
+      "name": "strict-ready-before-DOWN",
+      "wallAt": 1792237015932,
+      "missing": [],
+      "pending": false,
+      "material": false,
+      "target": 2,
+      "layer": null,
+      "scratch": null,
+      "ready": true,
+      "heap": {
+        "usedJSHeapSize": 103000000,
+        "totalJSHeapSize": 116000000,
+        "qualification": "Chromium JS heap only; excludes GPU/driver/other processes"
+      },
+      "stableTwoRAF": true,
+      "journalIds": 4,
+      "qualification": "Blank no-material target allowed; existing material requires goalReady and !dirty; complete API IDs required"
+    },
+    {
+      "name": "strict-ready-before-DOWN",
+      "wallAt": 1792237026682,
+      "missing": [],
+      "pending": false,
+      "material": true,
+      "target": 2,
+      "layer": 10,
+      "scratch": 11,
+      "epoch": 1,
+      "dirty": false,
+      "goalReady": true,
+      "ready": true,
+      "heap": {
+        "usedJSHeapSize": 103000000,
+        "totalJSHeapSize": 116000000,
+        "qualification": "Chromium JS heap only; excludes GPU/driver/other processes"
+      },
+      "stableTwoRAF": true,
+      "journalIds": 5,
+      "qualification": "Blank no-material target allowed; existing material requires goalReady and !dirty; complete API IDs required"
+    }
+  ],
+  "trusted-pen-crosses-both1024-seams": {
+    "upToObservedIdleMs": 9010.899999856949,
+    "ops": [
+      {
+        "id": "Anad0nIIEY",
+        "seq": 5,
+        "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+        "pending": false
+      }
+    ],
+    "perGestureScopes": [
+      {
+        "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+        "padding": 64,
+        "support": {
+          "x": 968,
+          "y": 1409,
+          "width": 103,
+          "height": 103
+        },
+        "jobs": [
+          {
+            "rect": {
+              "x": 128,
+              "y": 816,
+              "width": 1536,
+              "height": 1536
+            },
+            "roi": [
+              776,
+              529,
+              231,
+              231
+            ],
+            "fieldArgs": [
+              1536,
+              1536,
+              1,
+              "tight",
+              1024
+            ]
+          }
+        ],
+        "stats": {
+          "draws": 200,
+          "clears": 200,
+          "prefixDraws": 16,
+          "roles": {
+            "0,0,0,0": 133,
+            "0,0,0,1": 23,
+            "1,0,0,1": 28,
+            "1,1,1,1": 16
+          },
+          "pixelArea": 10672200,
+          "fullArea": 471859200,
+          "runs": 21,
+          "hookedPrototypes": 1,
+          "restoreOwnershipExact": true,
+          "restoredPrototypes": 1,
+          "detaches": 21,
+          "disposed": true
+        }
+      },
+      {
+        "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+        "padding": 64,
+        "support": {
+          "x": 968,
+          "y": 1409,
+          "width": 103,
+          "height": 103
+        },
+        "jobs": [
+          {
+            "rect": {
+              "x": 384,
+              "y": 816,
+              "width": 1536,
+              "height": 1536
+            },
+            "roi": [
+              520,
+              529,
+              231,
+              231
+            ],
+            "fieldArgs": [
+              1536,
+              1536,
+              1,
+              "tight",
+              1024
+            ]
+          }
+        ],
+        "stats": {
+          "draws": 200,
+          "clears": 200,
+          "prefixDraws": 16,
+          "roles": {
+            "0,0,0,0": 133,
+            "0,0,0,1": 23,
+            "1,0,0,1": 28,
+            "1,1,1,1": 16
+          },
+          "pixelArea": 10672200,
+          "fullArea": 471859200,
+          "runs": 21,
+          "hookedPrototypes": 1,
+          "restoreOwnershipExact": true,
+          "restoredPrototypes": 1,
+          "detaches": 21,
+          "disposed": true
+        }
+      },
+      {
+        "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+        "padding": 64,
+        "support": {
+          "x": 968,
+          "y": 1409,
+          "width": 103,
+          "height": 103
+        },
+        "jobs": [
+          {
+            "rect": {
+              "x": 128,
+              "y": 560,
+              "width": 1536,
+              "height": 1536
+            },
+            "roi": [
+              776,
+              785,
+              231,
+              231
+            ],
+            "fieldArgs": [
+              1536,
+              1536,
+              1,
+              "tight",
+              1024
+            ]
+          }
+        ],
+        "stats": {
+          "draws": 200,
+          "clears": 200,
+          "prefixDraws": 16,
+          "roles": {
+            "0,0,0,0": 133,
+            "0,0,0,1": 23,
+            "1,0,0,1": 28,
+            "1,1,1,1": 16
+          },
+          "pixelArea": 10672200,
+          "fullArea": 471859200,
+          "runs": 21,
+          "hookedPrototypes": 1,
+          "restoreOwnershipExact": true,
+          "restoredPrototypes": 1,
+          "detaches": 21,
+          "disposed": true
+        }
+      },
+      {
+        "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+        "padding": 64,
+        "support": {
+          "x": 968,
+          "y": 1409,
+          "width": 103,
+          "height": 103
+        },
+        "jobs": [
+          {
+            "rect": {
+              "x": 384,
+              "y": 560,
+              "width": 1536,
+              "height": 1536
+            },
+            "roi": [
+              520,
+              785,
+              231,
+              231
+            ],
+            "fieldArgs": [
+              1536,
+              1536,
+              1,
+              "tight",
+              1024
+            ]
+          }
+        ],
+        "stats": {
+          "draws": 200,
+          "clears": 200,
+          "prefixDraws": 16,
+          "roles": {
+            "0,0,0,0": 133,
+            "0,0,0,1": 23,
+            "1,0,0,1": 28,
+            "1,1,1,1": 16
+          },
+          "pixelArea": 10672200,
+          "fullArea": 471859200,
+          "runs": 21,
+          "hookedPrototypes": 1,
+          "restoreOwnershipExact": true,
+          "restoredPrototypes": 1,
+          "detaches": 21,
+          "disposed": true
+        }
+      }
+    ],
+    "perGestureTotals": {
+      "draws": 800,
+      "clears": 800,
+      "runs": 84,
+      "detaches": 84,
+      "pixelArea": 42688800,
+      "fullArea": 1887436800
+    },
+    "nativeScopeProof": {
+      "early": {
+        "installed": true,
+        "controllerAbsent": true,
+        "largeCount": 0
+      },
+      "disposals": 9,
+      "rows": [
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 128,
+                "y": 816,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                776,
+                0,
+                760,
+                760
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 115520000,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 384,
+                "y": 816,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                520,
+                0,
+                1016,
+                760
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 154432000,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 128,
+                "y": 560,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                776,
+                0,
+                760,
+                1016
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 154432000,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 384,
+                "y": 560,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                520,
+                0,
+                1016,
+                1016
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 206451200,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 2048,
+                "y": -80,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                0,
+                49,
+                1491,
+                1487
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 443423400,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 1409,
+            "width": 103,
+            "height": 103
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 128,
+                "y": 816,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                776,
+                529,
+                231,
+                231
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 10672200,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 1409,
+            "width": 103,
+            "height": 103
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 384,
+                "y": 816,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                520,
+                529,
+                231,
+                231
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 10672200,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 1409,
+            "width": 103,
+            "height": 103
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 128,
+                "y": 560,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                776,
+                785,
+                231,
+                231
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 10672200,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 1409,
+            "width": 103,
+            "height": 103
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 384,
+                "y": 560,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                520,
+                785,
+                231,
+                231
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 10672200,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        }
+      ],
+      "admissions": {
+        "calls": 9,
+        "selected": 9,
+        "fallback": 0,
+        "rows": [
+          {
+            "rect": {
+              "x": 128,
+              "y": 816,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 384,
+              "y": 816,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 128,
+              "y": 560,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 384,
+              "y": 560,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 2048,
+              "y": -80,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 128,
+              "y": 816,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 1,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 384,
+              "y": 816,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 1,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 128,
+              "y": 560,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 1,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 384,
+              "y": 560,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 1,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          }
+        ]
+      },
+      "factoryIdentity": true
+    },
+    "telemetry": {
+      "methods": {
+        "controller.present@DOWN": {
+          "count": 23,
+          "sumMs": 19.00000023841858,
+          "maxMs": 4.300000190734863
+        },
+        "actualCache.touch@DOWN": {
+          "count": 1135,
+          "sumMs": 97.30000019073486,
+          "maxMs": 10.700000047683716,
+          "nominalBytes": 3409756160
+        },
+        "controller.frame@DOWN": {
+          "count": 22,
+          "sumMs": 13.90000033378601,
+          "maxMs": 4.8999998569488525
+        },
+        "actualPass.releaseFrontPathTextures@DOWN": {
+          "count": 6,
+          "sumMs": 0.10000014305114746,
+          "maxMs": 0.10000014305114746
+        },
+        "controller.source@DOWN": {
+          "count": 1,
+          "sumMs": 1,
+          "maxMs": 1
+        },
+        "engine._ribbonDabsWork@DOWN": {
+          "count": 4,
+          "sumMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836
+        },
+        "controller.beforePaint@DOWN": {
+          "count": 4,
+          "sumMs": 0.39999985694885254,
+          "maxMs": 0.10000014305114746
+        },
+        "gl.texImage2D@DOWN": {
+          "count": 132,
+          "sumMs": 1.0999996662139893,
+          "maxMs": 0.10000014305114746,
+          "uploadBytes": 756
+        },
+        "scratch.compositeScalars@DOWN": {
+          "count": 24,
+          "sumMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836
+        },
+        "pool.acquire@DOWN": {
+          "count": 84,
+          "sumMs": 304.4999990463257,
+          "maxMs": 19.59999990463257
+        },
+        "actualCache.reserve@DOWN": {
+          "count": 124,
+          "sumMs": 365.9999997615814,
+          "maxMs": 20.299999952316284
+        },
+        "actualBuffer._residencyHydrate@DOWN": {
+          "count": 34,
+          "sumMs": 29.90000081062317,
+          "maxMs": 1.7000000476837158,
+          "nominalBytes": 44761088,
+          "roles": {
+            "solverOrOther": 28,
+            "source.strokeInk": 1,
+            "source.inkBase": 1,
+            "source.strokeColor": 1,
+            "source.colorBase": 1,
+            "source.solventLoad": 1,
+            "source.strokeSolvent": 1
+          }
+        },
+        "actualBuffer._residencyEvict@DOWN": {
+          "count": 93,
+          "sumMs": 344.0000014305115,
+          "maxMs": 20,
+          "nominalBytes": 192266240,
+          "idleDiscardCalls": 31,
+          "roles": {
+            "pooledFree": 31,
+            "source.inkLoad": 5,
+            "source.inkColor": 5,
+            "source.coverage": 5,
+            "source.original": 5,
+            "solverOrOther": 29,
+            "presentation.goal": 5,
+            "presentation.next": 5,
+            "presentation.raw": 3
+          }
+        },
+        "gl.readPixels@DOWN": {
+          "count": 57,
+          "sumMs": 228.79999995231628,
+          "maxMs": 15.5,
+          "nominalBytes": 166100992
+        },
+        "actualCache.register@DOWN": {
+          "count": 90,
+          "sumMs": 307.900000333786,
+          "maxMs": 20.299999952316284,
+          "nominalBytes": 164085760
+        },
+        "actualPass.plainAdd@DOWN": {
+          "count": 84,
+          "sumMs": 3.6000003814697266,
+          "maxMs": 0.20000004768371582
+        },
+        "actualPass.fieldOpDraw@DOWN": {
+          "count": 112,
+          "sumMs": 7.200001001358032,
+          "maxMs": 0.20000004768371582
+        },
+        "actualPass.fieldOp@DOWN": {
+          "count": 112,
+          "sumMs": 8.900001525878906,
+          "maxMs": 0.7999999523162842
+        },
+        "host.makeBuffer@DOWN": {
+          "count": 44,
+          "sumMs": 91.80000042915344,
+          "maxMs": 22
+        },
+        "controller.accept@DOWN": {
+          "count": 4,
+          "sumMs": 283.2999999523163,
+          "maxMs": 187.30000019073486
+        },
+        "engine._onStart@DOWN": {
+          "count": 1,
+          "sumMs": 123.09999990463257,
+          "maxMs": 123.09999990463257
+        },
+        "engine._onMove@DOWN": {
+          "count": 4,
+          "sumMs": 342.599999666214,
+          "maxMs": 315.89999985694885
+        },
+        "engine._ribbonDabsWork@UP": {
+          "count": 1,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "actualPass.releaseFrontPathTextures@UP": {
+          "count": 2,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "controller.beforePaint@UP": {
+          "count": 1,
+          "sumMs": 0.10000014305114746,
+          "maxMs": 0.10000014305114746
+        },
+        "scratch.compositeScalars@UP": {
+          "count": 21,
+          "sumMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836
+        },
+        "actualCache.touch@UP": {
+          "count": 9213,
+          "sumMs": 1153.6999962329865,
+          "maxMs": 45.299999952316284,
+          "nominalBytes": 14195918976
+        },
+        "actualPass.plainAdd@UP": {
+          "count": 200,
+          "sumMs": 180.6000018119812,
+          "maxMs": 7.200000047683716
+        },
+        "actualPass.fieldOpDraw@UP": {
+          "count": 516,
+          "sumMs": 585.9999988079071,
+          "maxMs": 7.200000047683716
+        },
+        "actualPass.fieldOp@UP": {
+          "count": 516,
+          "sumMs": 595.3999984264374,
+          "maxMs": 7.200000047683716
+        },
+        "pool.acquire@UP": {
+          "count": 64,
+          "sumMs": 561.3000004291534,
+          "maxMs": 49.10000014305115
+        },
+        "actualBuffer._residencyEvict@UP": {
+          "count": 351,
+          "sumMs": 1294.6999979019165,
+          "maxMs": 42.5,
+          "nominalBytes": 641684480,
+          "idleDiscardCalls": 37,
+          "roles": {
+            "pooledFree": 37,
+            "solverOrOther": 282,
+            "presentation.goal": 4,
+            "presentation.next": 4,
+            "presentation.raw": 4,
+            "source.original": 4,
+            "source.coverage": 4,
+            "source.inkLoad": 4,
+            "source.inkColor": 4,
+            "source.solventLoad": 4
+          },
+          "capturedBackingReuseCalls": 28,
+          "capturedBackingReuseNominalBytes": 159383552
+        },
+        "actualCache.reserve@UP": {
+          "count": 450,
+          "sumMs": 1303.2999982833862,
+          "maxMs": 47.40000009536743
+        },
+        "gl.texImage2D@UP": {
+          "count": 492,
+          "sumMs": 81.2000002861023,
+          "maxMs": 8,
+          "uploadBytes": 188744580
+        },
+        "actualBuffer._residencyHydrate@UP": {
+          "count": 315,
+          "sumMs": 426.2999994754791,
+          "maxMs": 16,
+          "nominalBytes": 514995200,
+          "roles": {
+            "solverOrOther": 291,
+            "source.inkLoad": 4,
+            "source.inkColor": 4,
+            "source.coverage": 4,
+            "presentation.goal": 4,
+            "source.original": 4,
+            "presentation.next": 4
+          }
+        },
+        "actualCache.register@UP": {
+          "count": 135,
+          "sumMs": 626.1999995708466,
+          "maxMs": 47.40000009536743,
+          "nominalBytes": 550349056
+        },
+        "host.makeBuffer@UP": {
+          "count": 30,
+          "sumMs": 32.799999952316284,
+          "maxMs": 7.099999904632568
+        },
+        "gl.readPixels@UP": {
+          "count": 337,
+          "sumMs": 1662.400001525879,
+          "maxMs": 106.29999995231628,
+          "nominalBytes": 539159616
+        },
+        "controller.present@UP": {
+          "count": 784,
+          "sumMs": 1090.5999987125397,
+          "maxMs": 29.300000190734863
+        },
+        "controller.accept@UP": {
+          "count": 2,
+          "sumMs": 130.20000004768372,
+          "maxMs": 129.90000009536743
+        },
+        "controller.finish@UP": {
+          "count": 1,
+          "sumMs": 0.5,
+          "maxMs": 0.5
+        },
+        "engine._onEnd@UP": {
+          "count": 1,
+          "sumMs": 152,
+          "maxMs": 152
+        },
+        "gl.texSubImage2D@UP": {
+          "count": 353,
+          "sumMs": 64.89999866485596,
+          "maxMs": 3.799999952316284,
+          "uploadBytes": 510750996
+        },
+        "controller.frame@UP": {
+          "count": 258,
+          "sumMs": 7888.899999141693,
+          "maxMs": 435
+        },
+        "solver.resetFromScratch@UP": {
+          "count": 1,
+          "sumMs": 0.2999999523162842,
+          "maxMs": 0.2999999523162842
+        },
+        "controller.start@UP": {
+          "count": 1,
+          "sumMs": 0.2999999523162842,
+          "maxMs": 0.2999999523162842
+        },
+        "actualBuffer.readPixels@UP": {
+          "count": 40,
+          "sumMs": 826.6999990940094,
+          "maxMs": 106.39999985694885,
+          "nominalBytes": 141700160
+        },
+        "solver.step@UP": {
+          "count": 249,
+          "sumMs": 5950.300001859665,
+          "maxMs": 332.2999999523163
+        },
+        "scratch.captureFinishMetadata@UP": {
+          "count": 128,
+          "sumMs": 9.899999380111694,
+          "maxMs": 0.5999999046325684
+        },
+        "phase.beginSolveSnapshot@UP": {
+          "count": 1,
+          "sumMs": 59,
+          "maxMs": 59
+        },
+        "actualPass.invalidateFrontPaths@UP": {
+          "count": 4,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "plan.prepare@UP": {
+          "count": 4,
+          "sumMs": 84,
+          "maxMs": 23.700000047683716
+        },
+        "actualPass.waterFrontStepDraw@UP": {
+          "count": 180,
+          "sumMs": 419.3000020980835,
+          "maxMs": 55.200000047683716
+        },
+        "actualPass.waterFrontStep@UP": {
+          "count": 180,
+          "sumMs": 424.3000023365021,
+          "maxMs": 55.200000047683716
+        },
+        "actualPass.nativeWaterFrontStep@UP": {
+          "count": 112,
+          "sumMs": 168.0000011920929,
+          "maxMs": 8.099999904632568
+        },
+        "actualPass.m70Field@UP": {
+          "count": 8,
+          "sumMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836
+        },
+        "actualPass.diffuseStepDraw@UP": {
+          "count": 104,
+          "sumMs": 132.10000014305115,
+          "maxMs": 3
+        },
+        "actualPass.diffuseStep@UP": {
+          "count": 104,
+          "sumMs": 134.20000004768372,
+          "maxMs": 3
+        },
+        "actualPass.gradientField@UP": {
+          "count": 32,
+          "sumMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836
+        },
+        "actualBuffer.readPixelsRegion@UP": {
+          "count": 12,
+          "sumMs": 62,
+          "maxMs": 12.900000095367432,
+          "nominalBytes": 113246208
+        },
+        "solver.dry@UP": {
+          "count": 1,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "controller.complete@UP": {
+          "count": 1,
+          "sumMs": 60.60000014305115,
+          "maxMs": 60.60000014305115
+        }
+      },
+      "worst": [
+        {
+          "method": "solver.step",
+          "ms": 332.2999999523163,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 137,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 314.90000009536743,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 249,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 265.5,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 180,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 254.60000014305115,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 115,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 220.20000004768372,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 157,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 219.09999990463257,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 199,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 158.79999995231628,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 174,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 150.5,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 155,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 132.80000019073486,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 215,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 123.89999985694885,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 197,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "gl.readPixels",
+          "ms": 106.29999995231628,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 110,
+          "w": 320,
+          "h": 226,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 99.70000004768372,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 125,
+          "role": "solverOrOther"
+        }
+      ],
+      "raf": {
+        "count": 279,
+        "sumMs": 9896.400000000001,
+        "maxMs": 501.5,
+        "histogram": [
+          0,
+          93,
+          107,
+          47,
+          16,
+          9,
+          7,
+          0
+        ],
+        "over50": 32,
+        "over100": 16
+      },
+      "sourceSnapshots": [
+        {
+          "support": {
+            "width": 3508,
+            "height": 2480,
+            "rect": {
+              "x": 968,
+              "y": 1409,
+              "width": 103,
+              "height": 103
+            },
+            "rects": [
+              {
+                "x": 968,
+                "y": 1456,
+                "width": 56,
+                "height": 56
+              },
+              {
+                "x": 1024,
+                "y": 1456,
+                "width": 24,
+                "height": 24
+              },
+              {
+                "x": 1000,
+                "y": 1432,
+                "width": 24,
+                "height": 24
+              },
+              {
+                "x": 1024,
+                "y": 1409,
+                "width": 47,
+                "height": 47
+              }
+            ],
+            "noForeignStencil": true
+          },
+          "metadataForeignAbsent": true
+        }
+      ],
+      "fieldPhaseSamples": [
+        {
+          "at": 42711.89999985695,
+          "methodPhase": "DOWN",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 230703104,
+          "fieldResident": 0
+        },
+        {
+          "at": 43707.199999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 171802624,
+          "fieldResident": 0
+        },
+        {
+          "at": 43814.699999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 43851.199999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 43866.299999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 43909.799999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 43932.699999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 43965.699999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 44004.699999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 44021.199999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 44045.799999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 44061.299999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 44090.09999990463,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 44114.699999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 44130.59999990463,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 44152.199999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 44166.39999985695,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 44193.299999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 44213.799999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 44228.299999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 179060736,
+          "fieldResident": 0
+        },
+        {
+          "at": 46842,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 1,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "solve",
+            "enabled": true
+          },
+          "cacheBudget": 125829120,
+          "cacheResident": 120814592,
+          "fieldResident": 0
+        }
+      ]
+    }
+  },
+  "trusted-pen-far-right-bottom": {
+    "upToObservedIdleMs": 10243.300000190735,
+    "ops": [
+      {
+        "id": "METDLmqqHu",
+        "seq": 6,
+        "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+        "pending": false
+      }
+    ],
+    "perGestureScopes": [
+      {
+        "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+        "padding": 64,
+        "support": {
+          "x": 968,
+          "y": 33,
+          "width": 2507,
+          "height": 1479
+        },
+        "jobs": [
+          {
+            "rect": {
+              "x": 128,
+              "y": 816,
+              "width": 1536,
+              "height": 1536
+            },
+            "roi": [
+              776,
+              0,
+              760,
+              760
+            ],
+            "fieldArgs": [
+              1536,
+              1536,
+              1,
+              "tight",
+              1024
+            ]
+          }
+        ],
+        "stats": {
+          "draws": 200,
+          "clears": 200,
+          "prefixDraws": 16,
+          "roles": {
+            "0,0,0,0": 133,
+            "0,0,0,1": 23,
+            "1,0,0,1": 28,
+            "1,1,1,1": 16
+          },
+          "pixelArea": 115520000,
+          "fullArea": 471859200,
+          "runs": 21,
+          "hookedPrototypes": 1,
+          "restoreOwnershipExact": true,
+          "restoredPrototypes": 1,
+          "detaches": 21,
+          "disposed": true
+        }
+      },
+      {
+        "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+        "padding": 64,
+        "support": {
+          "x": 968,
+          "y": 33,
+          "width": 2507,
+          "height": 1479
+        },
+        "jobs": [
+          {
+            "rect": {
+              "x": 384,
+              "y": 816,
+              "width": 1536,
+              "height": 1536
+            },
+            "roi": [
+              520,
+              0,
+              1016,
+              760
+            ],
+            "fieldArgs": [
+              1536,
+              1536,
+              1,
+              "tight",
+              1024
+            ]
+          }
+        ],
+        "stats": {
+          "draws": 200,
+          "clears": 200,
+          "prefixDraws": 16,
+          "roles": {
+            "0,0,0,0": 133,
+            "0,0,0,1": 23,
+            "1,0,0,1": 28,
+            "1,1,1,1": 16
+          },
+          "pixelArea": 154432000,
+          "fullArea": 471859200,
+          "runs": 21,
+          "hookedPrototypes": 1,
+          "restoreOwnershipExact": true,
+          "restoredPrototypes": 1,
+          "detaches": 21,
+          "disposed": true
+        }
+      },
+      {
+        "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+        "padding": 64,
+        "support": {
+          "x": 968,
+          "y": 33,
+          "width": 2507,
+          "height": 1479
+        },
+        "jobs": [
+          {
+            "rect": {
+              "x": 128,
+              "y": 560,
+              "width": 1536,
+              "height": 1536
+            },
+            "roi": [
+              776,
+              0,
+              760,
+              1016
+            ],
+            "fieldArgs": [
+              1536,
+              1536,
+              1,
+              "tight",
+              1024
+            ]
+          }
+        ],
+        "stats": {
+          "draws": 200,
+          "clears": 200,
+          "prefixDraws": 16,
+          "roles": {
+            "0,0,0,0": 133,
+            "0,0,0,1": 23,
+            "1,0,0,1": 28,
+            "1,1,1,1": 16
+          },
+          "pixelArea": 154432000,
+          "fullArea": 471859200,
+          "runs": 21,
+          "hookedPrototypes": 1,
+          "restoreOwnershipExact": true,
+          "restoredPrototypes": 1,
+          "detaches": 21,
+          "disposed": true
+        }
+      },
+      {
+        "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+        "padding": 64,
+        "support": {
+          "x": 968,
+          "y": 33,
+          "width": 2507,
+          "height": 1479
+        },
+        "jobs": [
+          {
+            "rect": {
+              "x": 384,
+              "y": 560,
+              "width": 1536,
+              "height": 1536
+            },
+            "roi": [
+              520,
+              0,
+              1016,
+              1016
+            ],
+            "fieldArgs": [
+              1536,
+              1536,
+              1,
+              "tight",
+              1024
+            ]
+          }
+        ],
+        "stats": {
+          "draws": 200,
+          "clears": 200,
+          "prefixDraws": 16,
+          "roles": {
+            "0,0,0,0": 133,
+            "0,0,0,1": 23,
+            "1,0,0,1": 28,
+            "1,1,1,1": 16
+          },
+          "pixelArea": 206451200,
+          "fullArea": 471859200,
+          "runs": 21,
+          "hookedPrototypes": 1,
+          "restoreOwnershipExact": true,
+          "restoredPrototypes": 1,
+          "detaches": 21,
+          "disposed": true
+        }
+      },
+      {
+        "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+        "padding": 64,
+        "support": {
+          "x": 968,
+          "y": 33,
+          "width": 2507,
+          "height": 1479
+        },
+        "jobs": [
+          {
+            "rect": {
+              "x": 2048,
+              "y": -80,
+              "width": 1536,
+              "height": 1536
+            },
+            "roi": [
+              0,
+              49,
+              1491,
+              1487
+            ],
+            "fieldArgs": [
+              1536,
+              1536,
+              1,
+              "tight",
+              1024
+            ]
+          }
+        ],
+        "stats": {
+          "draws": 200,
+          "clears": 200,
+          "prefixDraws": 16,
+          "roles": {
+            "0,0,0,0": 133,
+            "0,0,0,1": 23,
+            "1,0,0,1": 28,
+            "1,1,1,1": 16
+          },
+          "pixelArea": 443423400,
+          "fullArea": 471859200,
+          "runs": 21,
+          "hookedPrototypes": 1,
+          "restoreOwnershipExact": true,
+          "restoredPrototypes": 1,
+          "detaches": 21,
+          "disposed": true
+        }
+      }
+    ],
+    "perGestureTotals": {
+      "draws": 1000,
+      "clears": 1000,
+      "runs": 105,
+      "detaches": 105,
+      "pixelArea": 1074258600,
+      "fullArea": 2359296000
+    },
+    "nativeScopeProof": {
+      "early": {
+        "installed": true,
+        "controllerAbsent": true,
+        "largeCount": 0
+      },
+      "disposals": 14,
+      "rows": [
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 128,
+                "y": 816,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                776,
+                0,
+                760,
+                760
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 115520000,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 384,
+                "y": 816,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                520,
+                0,
+                1016,
+                760
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 154432000,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 128,
+                "y": 560,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                776,
+                0,
+                760,
+                1016
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 154432000,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 384,
+                "y": 560,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                520,
+                0,
+                1016,
+                1016
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 206451200,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 2048,
+                "y": -80,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                0,
+                49,
+                1491,
+                1487
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 443423400,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 1409,
+            "width": 103,
+            "height": 103
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 128,
+                "y": 816,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                776,
+                529,
+                231,
+                231
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 10672200,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 1409,
+            "width": 103,
+            "height": 103
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 384,
+                "y": 816,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                520,
+                529,
+                231,
+                231
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 10672200,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 1409,
+            "width": 103,
+            "height": 103
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 128,
+                "y": 560,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                776,
+                785,
+                231,
+                231
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 10672200,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 1409,
+            "width": 103,
+            "height": 103
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 384,
+                "y": 560,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                520,
+                785,
+                231,
+                231
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 10672200,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 128,
+                "y": 816,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                776,
+                0,
+                760,
+                760
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 115520000,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 384,
+                "y": 816,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                520,
+                0,
+                1016,
+                760
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 154432000,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 128,
+                "y": 560,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                776,
+                0,
+                760,
+                1016
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 154432000,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 384,
+                "y": 560,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                520,
+                0,
+                1016,
+                1016
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 206451200,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        },
+        {
+          "qualification": "QA-only scoped scissor64; no hooks between synchronous native calls",
+          "padding": 64,
+          "support": {
+            "x": 968,
+            "y": 33,
+            "width": 2507,
+            "height": 1479
+          },
+          "jobs": [
+            {
+              "rect": {
+                "x": 2048,
+                "y": -80,
+                "width": 1536,
+                "height": 1536
+              },
+              "roi": [
+                0,
+                49,
+                1491,
+                1487
+              ],
+              "fieldArgs": [
+                1536,
+                1536,
+                1,
+                "tight",
+                1024
+              ]
+            }
+          ],
+          "stats": {
+            "draws": 200,
+            "clears": 200,
+            "prefixDraws": 16,
+            "roles": {
+              "0,0,0,0": 133,
+              "0,0,0,1": 23,
+              "1,0,0,1": 28,
+              "1,1,1,1": 16
+            },
+            "pixelArea": 443423400,
+            "fullArea": 471859200,
+            "runs": 21,
+            "hookedPrototypes": 1,
+            "restoreOwnershipExact": true,
+            "restoredPrototypes": 1,
+            "detaches": 21,
+            "disposed": true
+          }
+        }
+      ],
+      "admissions": {
+        "calls": 14,
+        "selected": 14,
+        "fallback": 0,
+        "rows": [
+          {
+            "rect": {
+              "x": 128,
+              "y": 816,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 384,
+              "y": 816,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 128,
+              "y": 560,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 384,
+              "y": 560,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 2048,
+              "y": -80,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 128,
+              "y": 816,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 1,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 384,
+              "y": 816,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 1,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 128,
+              "y": 560,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 1,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 384,
+              "y": 560,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 1,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 128,
+              "y": 816,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 384,
+              "y": 816,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 128,
+              "y": 560,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 384,
+              "y": 560,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          },
+          {
+            "rect": {
+              "x": 2048,
+              "y": -80,
+              "width": 1536,
+              "height": 1536
+            },
+            "epoch": 2,
+            "boundary": "zero",
+            "noForeignStencil": true,
+            "selected": true
+          }
+        ]
+      },
+      "factoryIdentity": true
+    },
+    "telemetry": {
+      "methods": {
+        "controller.present@DOWN": {
+          "count": 20,
+          "sumMs": 16.90000033378601,
+          "maxMs": 4.5
+        },
+        "actualCache.touch@DOWN": {
+          "count": 314,
+          "sumMs": 26.09999990463257,
+          "maxMs": 8.700000047683716,
+          "nominalBytes": 576634880
+        },
+        "controller.frame@DOWN": {
+          "count": 22,
+          "sumMs": 19.700000047683716,
+          "maxMs": 7.200000047683716
+        },
+        "gl.texSubImage2D@DOWN": {
+          "count": 1,
+          "sumMs": 0.10000014305114746,
+          "maxMs": 0.10000014305114746,
+          "uploadBytes": 900
+        },
+        "actualPass.releaseFrontPathTextures@DOWN": {
+          "count": 4,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "controller.source@DOWN": {
+          "count": 1,
+          "sumMs": 0.20000004768371582,
+          "maxMs": 0.20000004768371582
+        },
+        "engine._ribbonDabsWork@DOWN": {
+          "count": 2,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "controller.beforePaint@DOWN": {
+          "count": 2,
+          "sumMs": 0.10000014305114746,
+          "maxMs": 0.10000014305114746
+        },
+        "gl.texImage2D@DOWN": {
+          "count": 28,
+          "sumMs": 0.10000014305114746,
+          "maxMs": 0.10000014305114746,
+          "uploadBytes": 59408
+        },
+        "scratch.compositeScalars@DOWN": {
+          "count": 7,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "pool.acquire@DOWN": {
+          "count": 19,
+          "sumMs": 2.8999998569488525,
+          "maxMs": 1.6999998092651367
+        },
+        "actualCache.reserve@DOWN": {
+          "count": 26,
+          "sumMs": 7.300000190734863,
+          "maxMs": 7.200000047683716
+        },
+        "actualBuffer._residencyHydrate@DOWN": {
+          "count": 13,
+          "sumMs": 16.200000047683716,
+          "maxMs": 3.299999952316284,
+          "nominalBytes": 41943040,
+          "roles": {
+            "solverOrOther": 8,
+            "source.strokeInk": 1,
+            "source.inkBase": 1,
+            "source.strokeColor": 1,
+            "source.colorBase": 1,
+            "source.solventLoad": 1
+          }
+        },
+        "actualCache.register@DOWN": {
+          "count": 13,
+          "sumMs": 0.3000001907348633,
+          "maxMs": 0.10000014305114746,
+          "nominalBytes": 20119552
+        },
+        "actualPass.plainAdd@DOWN": {
+          "count": 9,
+          "sumMs": 0.7999997138977051,
+          "maxMs": 0.2999999523162842
+        },
+        "actualPass.fieldOpDraw@DOWN": {
+          "count": 12,
+          "sumMs": 1.1999995708465576,
+          "maxMs": 0.2999999523162842
+        },
+        "actualPass.fieldOp@DOWN": {
+          "count": 12,
+          "sumMs": 1.499999761581421,
+          "maxMs": 0.2999999523162842
+        },
+        "host.makeBuffer@DOWN": {
+          "count": 11,
+          "sumMs": 7.5,
+          "maxMs": 1.4000000953674316
+        },
+        "actualBuffer._residencyEvict@DOWN": {
+          "count": 2,
+          "sumMs": 7.200000047683716,
+          "maxMs": 7.099999904632568,
+          "nominalBytes": 4341760,
+          "idleDiscardCalls": 1,
+          "roles": {
+            "pooledFree": 1,
+            "source.inkLoad": 1
+          }
+        },
+        "gl.readPixels@DOWN": {
+          "count": 1,
+          "sumMs": 5.5,
+          "maxMs": 5.5,
+          "nominalBytes": 4194304
+        },
+        "controller.accept@DOWN": {
+          "count": 2,
+          "sumMs": 49.30000019073486,
+          "maxMs": 41.60000014305115
+        },
+        "engine._onStart@DOWN": {
+          "count": 1,
+          "sumMs": 66.90000009536743,
+          "maxMs": 66.90000009536743
+        },
+        "engine._onMove@DOWN": {
+          "count": 2,
+          "sumMs": 10.399999856948853,
+          "maxMs": 10.299999952316284
+        },
+        "engine._ribbonDabsWork@UP": {
+          "count": 1,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "actualPass.releaseFrontPathTextures@UP": {
+          "count": 2,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "controller.beforePaint@UP": {
+          "count": 1,
+          "sumMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836
+        },
+        "scratch.compositeScalars@UP": {
+          "count": 19,
+          "sumMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836
+        },
+        "actualCache.touch@UP": {
+          "count": 8828,
+          "sumMs": 1652.599999666214,
+          "maxMs": 71.80000019073486,
+          "nominalBytes": 14056027456
+        },
+        "actualPass.plainAdd@UP": {
+          "count": 208,
+          "sumMs": 236.99999952316284,
+          "maxMs": 5.099999904632568
+        },
+        "actualPass.fieldOpDraw@UP": {
+          "count": 589,
+          "sumMs": 848.9999995231628,
+          "maxMs": 26.700000047683716
+        },
+        "actualPass.fieldOp@UP": {
+          "count": 589,
+          "sumMs": 860.299998998642,
+          "maxMs": 26.700000047683716
+        },
+        "pool.acquire@UP": {
+          "count": 63,
+          "sumMs": 922.9000000953674,
+          "maxMs": 101.5
+        },
+        "controller.present@UP": {
+          "count": 753,
+          "sumMs": 1008.4999995231628,
+          "maxMs": 11.5
+        },
+        "controller.accept@UP": {
+          "count": 2,
+          "sumMs": 7.300000190734863,
+          "maxMs": 7.200000047683716
+        },
+        "controller.finish@UP": {
+          "count": 1,
+          "sumMs": 0.20000004768371582,
+          "maxMs": 0.20000004768371582
+        },
+        "engine._onEnd@UP": {
+          "count": 1,
+          "sumMs": 20.399999856948853,
+          "maxMs": 20.399999856948853
+        },
+        "controller.frame@UP": {
+          "count": 248,
+          "sumMs": 9136.500000715256,
+          "maxMs": 644.9000000953674
+        },
+        "gl.texImage2D@UP": {
+          "count": 572,
+          "sumMs": 113.3000009059906,
+          "maxMs": 14.099999904632568,
+          "uploadBytes": 235990020
+        },
+        "solver.resetFromScratch@UP": {
+          "count": 1,
+          "sumMs": 0.3000001907348633,
+          "maxMs": 0.3000001907348633
+        },
+        "controller.start@UP": {
+          "count": 1,
+          "sumMs": 0.3000001907348633,
+          "maxMs": 0.3000001907348633
+        },
+        "gl.readPixels@UP": {
+          "count": 430,
+          "sumMs": 2355.6999986171722,
+          "maxMs": 96.79999995231628,
+          "nominalBytes": 722438304
+        },
+        "actualBuffer.readPixels@UP": {
+          "count": 51,
+          "sumMs": 876.7999987602234,
+          "maxMs": 72.59999990463257,
+          "nominalBytes": 178266016
+        },
+        "solver.step@UP": {
+          "count": 239,
+          "sumMs": 6739.999999523163,
+          "maxMs": 374.7999999523163
+        },
+        "gl.texSubImage2D@UP": {
+          "count": 452,
+          "sumMs": 80.60000014305115,
+          "maxMs": 1.1000001430511475,
+          "uploadBytes": 696665544
+        },
+        "actualCache.reserve@UP": {
+          "count": 525,
+          "sumMs": 2035.1999983787537,
+          "maxMs": 100.09999990463257
+        },
+        "actualBuffer._residencyHydrate@UP": {
+          "count": 364,
+          "sumMs": 480.19999957084656,
+          "maxMs": 19.200000047683716,
+          "nominalBytes": 677108736,
+          "roles": {
+            "source.inkLoad": 6,
+            "source.solventLoad": 4,
+            "solverOrOther": 329,
+            "source.inkColor": 5,
+            "source.coverage": 5,
+            "presentation.goal": 5,
+            "source.original": 5,
+            "presentation.next": 2,
+            "presentation.raw": 3
+          }
+        },
+        "actualBuffer._residencyEvict@UP": {
+          "count": 420,
+          "sumMs": 2135.3000025749207,
+          "maxMs": 99.70000004768372,
+          "nominalBytes": 832732160,
+          "roles": {
+            "presentation.goal": 5,
+            "presentation.next": 5,
+            "solverOrOther": 359,
+            "pooledFree": 21,
+            "presentation.raw": 1,
+            "source.original": 5,
+            "source.coverage": 6,
+            "source.inkLoad": 7,
+            "source.inkColor": 6,
+            "source.solventLoad": 5
+          },
+          "idleDiscardCalls": 21,
+          "capturedBackingReuseCalls": 31,
+          "capturedBackingReuseNominalBytes": 182452224
+        },
+        "scratch.captureFinishMetadata@UP": {
+          "count": 129,
+          "sumMs": 10.300000190734863,
+          "maxMs": 0.2999999523162842
+        },
+        "phase.beginSolveSnapshot@UP": {
+          "count": 1,
+          "sumMs": 191.5,
+          "maxMs": 191.5
+        },
+        "actualCache.register@UP": {
+          "count": 161,
+          "sumMs": 919.4999976158142,
+          "maxMs": 100.09999990463257,
+          "nominalBytes": 690321024
+        },
+        "actualPass.invalidateFrontPaths@UP": {
+          "count": 5,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "plan.prepare@UP": {
+          "count": 5,
+          "sumMs": 109.70000004768372,
+          "maxMs": 29.799999952316284
+        },
+        "actualPass.waterFrontStepDraw@UP": {
+          "count": 225,
+          "sumMs": 619.1000003814697,
+          "maxMs": 74.70000004768372
+        },
+        "actualPass.waterFrontStep@UP": {
+          "count": 225,
+          "sumMs": 626.6999990940094,
+          "maxMs": 74.70000004768372
+        },
+        "actualPass.nativeWaterFrontStep@UP": {
+          "count": 140,
+          "sumMs": 336.00000166893005,
+          "maxMs": 24.600000143051147
+        },
+        "actualPass.m70Field@UP": {
+          "count": 10,
+          "sumMs": 0.10000014305114746,
+          "maxMs": 0.10000014305114746
+        },
+        "actualPass.diffuseStepDraw@UP": {
+          "count": 130,
+          "sumMs": 188.40000104904175,
+          "maxMs": 4.5
+        },
+        "actualPass.diffuseStep@UP": {
+          "count": 130,
+          "sumMs": 190.90000104904175,
+          "maxMs": 4.5
+        },
+        "actualPass.gradientField@UP": {
+          "count": 40,
+          "sumMs": 0.20000028610229492,
+          "maxMs": 0.10000014305114746
+        },
+        "actualBuffer.readPixelsRegion@UP": {
+          "count": 15,
+          "sumMs": 70.10000014305115,
+          "maxMs": 9.599999904632568,
+          "nominalBytes": 141557760
+        },
+        "solver.dry@UP": {
+          "count": 1,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "host.makeBuffer@UP": {
+          "count": 30,
+          "sumMs": 17.40000009536743,
+          "maxMs": 1.5
+        },
+        "controller.complete@UP": {
+          "count": 1,
+          "sumMs": 184.5,
+          "maxMs": 184.5
+        }
+      },
+      "worst": [
+        {
+          "method": "solver.step",
+          "ms": 374.7999999523163,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 239,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 332.90000009536743,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 109,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 332.7999999523163,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 151,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 310.5,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 86,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 200.59999990463257,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 226,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 196.10000014305115,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 128,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 196,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 209,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 191.29999995231628,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 169,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 170.5,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 186,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 166.59999990463257,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 167,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 160.40000009536743,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 144,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 153.29999995231628,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 126,
+          "role": "solverOrOther"
+        }
+      ],
+      "raf": {
+        "count": 269,
+        "sumMs": 10531.5,
+        "maxMs": 635.2999999999956,
+        "histogram": [
+          0,
+          67,
+          100,
+          69,
+          18,
+          8,
+          7,
+          0
+        ],
+        "over50": 33,
+        "over100": 15
+      },
+      "sourceSnapshots": [
+        {
+          "support": {
+            "width": 3508,
+            "height": 2480,
+            "rect": {
+              "x": 968,
+              "y": 33,
+              "width": 2507,
+              "height": 1479
+            },
+            "rects": [
+              {
+                "x": 968,
+                "y": 1456,
+                "width": 56,
+                "height": 56
+              },
+              {
+                "x": 1024,
+                "y": 1456,
+                "width": 24,
+                "height": 24
+              },
+              {
+                "x": 1000,
+                "y": 1432,
+                "width": 24,
+                "height": 24
+              },
+              {
+                "x": 1024,
+                "y": 1409,
+                "width": 47,
+                "height": 47
+              },
+              {
+                "x": 3421,
+                "y": 33,
+                "width": 54,
+                "height": 54
+              }
+            ],
+            "noForeignStencil": true
+          },
+          "metadataForeignAbsent": true
+        }
+      ],
+      "fieldPhaseSamples": [
+        {
+          "at": 53384,
+          "methodPhase": "DOWN",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 231555072,
+          "fieldResident": 0
+        },
+        {
+          "at": 53693.39999985695,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 231555072,
+          "fieldResident": 0
+        },
+        {
+          "at": 53784.299999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 181223424,
+          "fieldResident": 0
+        },
+        {
+          "at": 53799,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 181223424,
+          "fieldResident": 0
+        },
+        {
+          "at": 53822.5,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 181223424,
+          "fieldResident": 0
+        },
+        {
+          "at": 53866.09999990463,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 181223424,
+          "fieldResident": 0
+        },
+        {
+          "at": 53921.59999990463,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 181223424,
+          "fieldResident": 0
+        },
+        {
+          "at": 53955.09999990463,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 181223424,
+          "fieldResident": 0
+        },
+        {
+          "at": 53998.299999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 54029.199999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 54047.299999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 54077.89999985695,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 54108.199999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 54147,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 54163.699999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 54185.699999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 54201.89999985695,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 54234.199999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 189612032,
+          "fieldResident": 0
+        },
+        {
+          "at": 54265.5,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 189612032,
+          "fieldResident": 0
+        },
+        {
+          "at": 54281,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 189612032,
+          "fieldResident": 0
+        },
+        {
+          "at": 56442.199999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 1,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "solve",
+            "enabled": true
+          },
+          "cacheBudget": 125829120,
+          "cacheResident": 119585792,
+          "fieldResident": 0
+        }
+      ]
+    }
+  },
+  "raw-ROI-full-render-proof": [
+    {
+      "name": "raw-ROI-full-render-proof",
+      "wallAt": 1792237038871,
+      "correctOrigin": false,
+      "originCorrections": 0,
+      "context": {
+        "layerGesture": "bW5Jj3W04G",
+        "epoch": 2,
+        "context": {
+          "preset": {
+            "opacity": 0.99,
+            "hardness": 0.88,
+            "sizeMultiplier": 1
+          },
+          "fieldSeed": [
+            980.0000610351562,
+            980.0001831054688
+          ],
+          "bounds": {
+            "minX": 3401.5204181671143,
+            "minY": 2373.5209064483643,
+            "maxX": 3498.9504540197336,
+            "maxY": 2470.9509423009836
+          },
+          "opacity": 0.9900000095367432
+        },
+        "finishContext": {
+          "preset": {
+            "opacity": 0.99,
+            "hardness": 0.88,
+            "sizeMultiplier": 1
+          },
+          "fieldSeed": [
+            980.0000610351562,
+            980.0001831054688
+          ],
+          "bounds": {
+            "minX": 3401.5204181671143,
+            "minY": 2373.5209064483643,
+            "maxX": 3498.9504540197336,
+            "maxY": 2470.9509423009836
+          }
+        }
+      },
+      "tiles": [
+        {
+          "freshVsFull": 0,
+          "freshVsFullMax": 0,
+          "stale": 0,
+          "staleMax": 0,
+          "freshFirst": [],
+          "freshHash": "ff1e81f6d9f80803d555713a9e740247371d785e658aeac495a0f98bc6c6aed7",
+          "tile": {
+            "x": 0,
+            "y": 0,
+            "w": 1024,
+            "h": 1024
+          },
+          "region": {
+            "x": 832,
+            "y": 0,
+            "width": 192,
+            "height": 192
+          },
+          "changedInside": 0,
+          "maxInside": 0,
+          "changedOutside": 0,
+          "maxOutside": 0,
+          "first": [],
+          "rawHash": "ff1e81f6d9f80803d555713a9e740247371d785e658aeac495a0f98bc6c6aed7",
+          "fullHash": "85802e16d966be9cdb9f2de6df2aa0b11d910b6291a48a29545a79b25d873e9b",
+          "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "freshVsFull": 0,
+          "freshVsFullMax": 0,
+          "stale": 0,
+          "staleMax": 0,
+          "freshFirst": [],
+          "freshHash": "31bbc88dd2bbc5afb7ca4af0a47b00377d5f07b3f105c3301d192dc167e0ea9c",
+          "tile": {
+            "x": 1024,
+            "y": 0,
+            "w": 1024,
+            "h": 1024
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1024,
+            "height": 192
+          },
+          "changedInside": 0,
+          "maxInside": 0,
+          "changedOutside": 0,
+          "maxOutside": 0,
+          "first": [],
+          "rawHash": "31bbc88dd2bbc5afb7ca4af0a47b00377d5f07b3f105c3301d192dc167e0ea9c",
+          "fullHash": "bc65971f3ffcf6c96d75d88f0558f77ee0585531e332a11cf435e97b085eca7a",
+          "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "freshVsFull": 0,
+          "freshVsFullMax": 0,
+          "stale": 0,
+          "staleMax": 0,
+          "freshFirst": [],
+          "freshHash": "706cd31623f205f87e921a49060ed623d956cdabb6e28b3e727991ea5da00d1a",
+          "tile": {
+            "x": 0,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024
+          },
+          "region": {
+            "x": 832,
+            "y": 0,
+            "width": 192,
+            "height": 1024
+          },
+          "changedInside": 0,
+          "maxInside": 0,
+          "changedOutside": 0,
+          "maxOutside": 0,
+          "first": [],
+          "rawHash": "706cd31623f205f87e921a49060ed623d956cdabb6e28b3e727991ea5da00d1a",
+          "fullHash": "43a6b895fa0d51f090c588a06cac05b72e2a635c5a81d48166bded7c67fd73a9",
+          "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "freshVsFull": 0,
+          "freshVsFullMax": 0,
+          "stale": 0,
+          "staleMax": 0,
+          "freshFirst": [],
+          "freshHash": "ada73404092339241842f83b03176205d86e0f29b59d943f587ccd6d3d0dc1b6",
+          "tile": {
+            "x": 1024,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1024,
+            "height": 1024
+          },
+          "changedInside": 0,
+          "maxInside": 0,
+          "changedOutside": 0,
+          "maxOutside": 0,
+          "first": [],
+          "rawHash": "ada73404092339241842f83b03176205d86e0f29b59d943f587ccd6d3d0dc1b6",
+          "fullHash": "ada73404092339241842f83b03176205d86e0f29b59d943f587ccd6d3d0dc1b6",
+          "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "freshVsFull": 0,
+          "freshVsFullMax": 0,
+          "stale": 0,
+          "staleMax": 0,
+          "freshFirst": [],
+          "freshHash": "428070cfab20e51a0375610454be59085f631ddec450c56b5a9adf3840f34469",
+          "tile": {
+            "x": 3072,
+            "y": 2048,
+            "w": 1024,
+            "h": 1024
+          },
+          "region": {
+            "x": 0,
+            "y": 512,
+            "width": 512,
+            "height": 512
+          },
+          "changedInside": 0,
+          "maxInside": 0,
+          "changedOutside": 0,
+          "maxOutside": 0,
+          "first": [],
+          "rawHash": "428070cfab20e51a0375610454be59085f631ddec450c56b5a9adf3840f34469",
+          "fullHash": "8d04830991ff4eeaaa52cb6e2021cdec9ab8cad4d6f3d4449695c3f37dd26ec8",
+          "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        }
+      ],
+      "sourceMemory": {
+        "fields": {
+          "original": {
+            "count": 5,
+            "bytes": 20971520,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          },
+          "coverage": {
+            "count": 5,
+            "bytes": 20971520,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          },
+          "inkLoad": {
+            "count": 5,
+            "bytes": 20971520,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          },
+          "inkColor": {
+            "count": 5,
+            "bytes": 20971520,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          },
+          "solventLoad": {
+            "count": 5,
+            "bytes": 20971520,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          }
+        },
+        "uniqueBytes": 104857600,
+        "bufferCount": 25
+      },
+      "pool": {
+        "live": 209715200,
+        "free": 60882944
+      },
+      "cache": {
+        "resident": 234668032,
+        "budget": 234881024
+      },
+      "gl": 0,
+      "lost": false
+    }
+  ],
+  "canonical-goal-first-full-API-replay-proof": [
+    {
+      "name": "canonical-goal-first-full-API-replay-proof",
+      "wallAt": 1792237061068,
+      "actualSource": "canonical-goal",
+      "actualCapturedBeforeOracle": true,
+      "oracleTightSupport32": false,
+      "oracleControllers": [
+        {
+          "nativeScopeFactoryOff": true,
+          "type": "PagedPuddleRoomController",
+          "tightFlagAtCreation": false,
+          "actualOptions": {
+            "diagnosticM70TightSupport32": false,
+            "diagnosticM70CapturedBacking": false,
+            "diagnosticM70PersistCapturedBacking": false,
+            "diagnosticM70CooperativeCapture": false,
+            "diagnosticM70StepBudgetMs": 0,
+            "diagnosticM70SkipEmptyPostphase": false,
+            "diagnosticM70SkipEmptyReference": false
+          },
+          "createdWhilePuddleNull": true
+        }
+      ],
+      "oracleNativePrepare": 29,
+      "liveControllerRestored": true,
+      "liveTightFlagRestored": true,
+      "oracleLog": "complete-api",
+      "oracleOperationCount": 6,
+      "liveLogUnchanged": true,
+      "page": {
+        "width": 3508,
+        "height": 2480
+      },
+      "physicalChanged": 0,
+      "max": 0,
+      "alpha": 6045,
+      "tiles": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 2028
+        },
+        {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 300
+        },
+        {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 291
+        },
+        {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1559
+        },
+        {
+          "x": 3072,
+          "y": 2048,
+          "w": 436,
+          "h": 432,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1867
+        }
+      ],
+      "actualHash": "a1e877f5a8a1f68e0f623320c55b483cc6d467e91ff37bb0bada1952c9cfb921",
+      "oracleHash": "a1e877f5a8a1f68e0f623320c55b483cc6d467e91ff37bb0bada1952c9cfb921",
+      "glError": 0,
+      "nativeScopeFactoryRestored": true
+    }
+  ],
+  "acceptedJournalSHA256": "a8189050e6d891d3be6f421f7fe9222fefb6400bb11c2d70e336ac28d6e83437",
+  "acceptedCount": 6,
+  "errors": []
+}
