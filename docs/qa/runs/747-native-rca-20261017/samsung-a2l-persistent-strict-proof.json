@@ -1,0 +1,5396 @@
+{
+  "source": "509fb989",
+  "qualification": "Correctness PASS, responsiveness FAIL. Continuous same-context gestures, strict authoritative journal metadata readiness and stable target two RAF before each DOWN. New random operation IDs; not clean speed A/B. Captured peak sums all live leases including nonpersistent; not unique ArrayBuffer/process/GPU memory. Per-category peak timeline absent.",
+  "QA-early-R32-flag": [
+    {
+      "name": "QA-early-R32-flag",
+      "wallAt": 1792234191939,
+      "records": [
+        {
+          "applied": true,
+          "options": {
+            "diagnosticM70TightSupport32": true,
+            "diagnosticM70SkipEmptyPostphase": true,
+            "diagnosticM70SkipEmptyReference": true,
+            "diagnosticM70CapturedBacking": true,
+            "diagnosticM70PersistCapturedBacking": true,
+            "diagnosticM70CooperativeCapture": true,
+            "diagnosticM70StepBudgetMs": 8
+          },
+          "large": 0,
+          "existing": false,
+          "phaseDefault": true,
+          "page": {
+            "w": 3508,
+            "h": 2480
+          }
+        }
+      ],
+      "flag": true,
+      "phaseDefault": true
+    }
+  ],
+  "strict-ready-before-DOWN": [
+    {
+      "name": "strict-ready-before-DOWN",
+      "wallAt": 1792234212929,
+      "missing": [],
+      "pending": false,
+      "material": false,
+      "target": 2,
+      "layer": null,
+      "scratch": null,
+      "ready": true,
+      "heap": {
+        "usedJSHeapSize": 364000000,
+        "totalJSHeapSize": 364000000,
+        "qualification": "Chromium JS heap only; excludes GPU/driver/other processes"
+      },
+      "stableTwoRAF": true,
+      "journalIds": 14,
+      "qualification": "Blank no-material target allowed; existing material requires goalReady and !dirty; complete API IDs required"
+    },
+    {
+      "name": "strict-ready-before-DOWN",
+      "wallAt": 1792234223443,
+      "missing": [],
+      "pending": false,
+      "material": true,
+      "target": 2,
+      "layer": 11,
+      "scratch": 12,
+      "epoch": 1,
+      "dirty": false,
+      "goalReady": true,
+      "ready": true,
+      "heap": {
+        "usedJSHeapSize": 364000000,
+        "totalJSHeapSize": 364000000,
+        "qualification": "Chromium JS heap only; excludes GPU/driver/other processes"
+      },
+      "stableTwoRAF": true,
+      "journalIds": 15,
+      "qualification": "Blank no-material target allowed; existing material requires goalReady and !dirty; complete API IDs required"
+    }
+  ],
+  "trusted-pen-crosses-both1024-seams": {
+    "upToObservedIdleMs": 8529.600000143051,
+    "ops": [
+      {
+        "id": "ScbulH9iSi",
+        "seq": 15,
+        "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+        "pending": false
+      }
+    ],
+    "windowSchedule": {
+      "plannedPerSnapshot": 60,
+      "snapshots": [
+        {
+          "support": {
+            "width": 3508,
+            "height": 2480,
+            "rect": {
+              "x": 968,
+              "y": 1409,
+              "width": 103,
+              "height": 103
+            },
+            "rects": [
+              {
+                "x": 968,
+                "y": 1456,
+                "width": 56,
+                "height": 56
+              },
+              {
+                "x": 1024,
+                "y": 1456,
+                "width": 24,
+                "height": 24
+              },
+              {
+                "x": 1000,
+                "y": 1432,
+                "width": 24,
+                "height": 24
+              },
+              {
+                "x": 1024,
+                "y": 1409,
+                "width": 47,
+                "height": 47
+              }
+            ],
+            "noForeignStencil": true
+          },
+          "metadataForeignAbsent": true,
+          "radius": 32,
+          "planned": 60,
+          "expectedKept": 4,
+          "expectedSkipped": 56
+        }
+      ],
+      "actualNativePrepare": 4,
+      "qualification": "Actual Native prepare count; planned/skipped inferred from same pure fixed-window grouping/support functions and captured immutable source certificate. No inspection hook injected."
+    },
+    "persistentLeaseProof": {
+      "qualification": "Lease metadata only; no array copies/strong array references or extra GL reads; uncached admissions cannot prove residency savings",
+      "peakRetainedBytes": 122683392,
+      "retainedNow": 0,
+      "rows": [
+        {
+          "bufferId": 1,
+          "arrayId": 1,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 2,
+          "arrayId": 2,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 25,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 25,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 3,
+          "arrayId": 3,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 4,
+          "arrayId": 4,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 5,
+          "arrayId": 5,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 6,
+          "arrayId": 6,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 7,
+          "arrayId": 7,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 18,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 18,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 8,
+          "arrayId": 8,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 9,
+          "arrayId": 9,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 10,
+          "arrayId": 10,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 11,
+          "arrayId": 11,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 12,
+          "arrayId": 12,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 18,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 18,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 13,
+          "arrayId": 13,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 14,
+          "arrayId": 14,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 15,
+          "arrayId": 15,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 16,
+          "arrayId": 16,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 17,
+          "arrayId": 17,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 27,
+          "persistentRequested": false,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 27,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 18,
+          "arrayId": 18,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": false,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 19,
+          "arrayId": 19,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": false,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 20,
+          "arrayId": 20,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": false,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 21,
+          "arrayId": 21,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 22,
+          "arrayId": 22,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 23,
+          "arrayId": 23,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 4,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 24,
+          "arrayId": 24,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 25,
+          "arrayId": 25,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 26,
+          "arrayId": 26,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 27,
+          "arrayId": 27,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 28,
+          "arrayId": 28,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 4,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 29,
+          "arrayId": 29,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 30,
+          "arrayId": 30,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 31,
+          "arrayId": 31,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 32,
+          "arrayId": 32,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 33,
+          "arrayId": 33,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 4,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 34,
+          "arrayId": 34,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 35,
+          "arrayId": 35,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 36,
+          "arrayId": 36,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 37,
+          "arrayId": 37,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 38,
+          "arrayId": 38,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 4,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 39,
+          "arrayId": 39,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 40,
+          "arrayId": 40,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        }
+      ]
+    },
+    "managedIdentity": [
+      {
+        "at": 54184.39999985695,
+        "method": "start",
+        "when": "before",
+        "controller": 1,
+        "solving": null,
+        "source": 11,
+        "target": null,
+        "layers": [
+          {
+            "layerId": "qa747-1792233069322",
+            "target": 7,
+            "layer": 8,
+            "scratch": 9,
+            "context": 10,
+            "epoch": 2,
+            "dirty": false,
+            "goalReady": true
+          },
+          {
+            "layerId": "qa747-1792234194042",
+            "target": 2,
+            "layer": 11,
+            "scratch": 12,
+            "context": 13,
+            "epoch": 1,
+            "dirty": true,
+            "goalReady": false
+          }
+        ]
+      },
+      {
+        "at": 54184.5,
+        "method": "resetFromScratch",
+        "when": "before",
+        "controller": 1,
+        "solving": null,
+        "source": 12,
+        "target": 2,
+        "epoch": 1,
+        "layers": [
+          {
+            "layerId": "qa747-1792233069322",
+            "target": 7,
+            "layer": 8,
+            "scratch": 9,
+            "context": 10,
+            "epoch": 2,
+            "dirty": false,
+            "goalReady": true
+          },
+          {
+            "layerId": "qa747-1792234194042",
+            "target": 2,
+            "layer": 11,
+            "scratch": 12,
+            "context": 13,
+            "epoch": 1,
+            "dirty": true,
+            "goalReady": false
+          }
+        ]
+      },
+      {
+        "at": 56219,
+        "method": "beginSolveSnapshot",
+        "when": "before",
+        "controller": 1,
+        "solving": 11,
+        "source": 14,
+        "target": null,
+        "layers": [
+          {
+            "layerId": "qa747-1792233069322",
+            "target": 7,
+            "layer": 8,
+            "scratch": 9,
+            "context": 10,
+            "epoch": 2,
+            "dirty": false,
+            "goalReady": true
+          },
+          {
+            "layerId": "qa747-1792234194042",
+            "target": 2,
+            "layer": 11,
+            "scratch": 12,
+            "context": 13,
+            "epoch": 1,
+            "dirty": false,
+            "goalReady": false
+          }
+        ]
+      },
+      {
+        "at": 62155.89999985695,
+        "method": "complete",
+        "when": "before",
+        "controller": 1,
+        "solving": 11,
+        "source": 11,
+        "target": null,
+        "layers": [
+          {
+            "layerId": "qa747-1792233069322",
+            "target": 7,
+            "layer": 8,
+            "scratch": 9,
+            "context": 10,
+            "epoch": 2,
+            "dirty": false,
+            "goalReady": true
+          },
+          {
+            "layerId": "qa747-1792234194042",
+            "target": 2,
+            "layer": 11,
+            "scratch": 12,
+            "context": 13,
+            "epoch": 1,
+            "dirty": false,
+            "goalReady": false
+          }
+        ]
+      }
+    ],
+    "telemetry": {
+      "methods": {
+        "controller.present@DOWN": {
+          "count": 22,
+          "sumMs": 21.09999966621399,
+          "maxMs": 5.5
+        },
+        "actualCache.touch@DOWN": {
+          "count": 1195,
+          "sumMs": 340,
+          "maxMs": 40.700000047683716,
+          "nominalBytes": 3570728960
+        },
+        "controller.frame@DOWN": {
+          "count": 23,
+          "sumMs": 16.299999713897705,
+          "maxMs": 8.5
+        },
+        "actualPass.releaseFrontPathTextures@DOWN": {
+          "count": 6,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "gl.readPixels@DOWN": {
+          "count": 78,
+          "sumMs": 364.40000009536743,
+          "maxMs": 13.700000047683716,
+          "nominalBytes": 254181376
+        },
+        "actualBuffer._residencyEvict@DOWN": {
+          "count": 86,
+          "sumMs": 335.699999332428,
+          "maxMs": 38.5,
+          "nominalBytes": 173506560,
+          "roles": {
+            "source.inkColor": 4,
+            "source.coverage": 4,
+            "source.inkLoad": 3,
+            "source.original": 5,
+            "solverOrOther": 29,
+            "presentation.goal": 5,
+            "presentation.next": 5,
+            "presentation.raw": 3,
+            "pooledFree": 28
+          },
+          "idleDiscardCalls": 28
+        },
+        "actualCache.reserve@DOWN": {
+          "count": 154,
+          "sumMs": 355.1000008583069,
+          "maxMs": 38.700000047683716
+        },
+        "gl.texImage2D@DOWN": {
+          "count": 162,
+          "sumMs": 0.7999999523162842,
+          "maxMs": 0.10000014305114746,
+          "uploadBytes": 756
+        },
+        "actualBuffer._residencyHydrate@DOWN": {
+          "count": 50,
+          "sumMs": 60.49999928474426,
+          "maxMs": 3,
+          "nominalBytes": 128057344,
+          "roles": {
+            "source.original": 5,
+            "source.coverage": 5,
+            "source.inkLoad": 5,
+            "source.inkColor": 5,
+            "source.solventLoad": 5,
+            "presentation.goal": 5,
+            "solverOrOther": 20
+          }
+        },
+        "actualBuffer.readPixels@DOWN": {
+          "count": 25,
+          "sumMs": 378.2000005245209,
+          "maxMs": 26.5,
+          "nominalBytes": 104857600
+        },
+        "gl.texSubImage2D@DOWN": {
+          "count": 25,
+          "sumMs": 12.300000190734863,
+          "maxMs": 0.6000001430511475,
+          "uploadBytes": 104857600
+        },
+        "controller.source@DOWN": {
+          "count": 1,
+          "sumMs": 479.10000014305115,
+          "maxMs": 479.10000014305115
+        },
+        "engine._ribbonDabsWork@DOWN": {
+          "count": 4,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "controller.beforePaint@DOWN": {
+          "count": 4,
+          "sumMs": 0.5999996662139893,
+          "maxMs": 0.2999999523162842
+        },
+        "scratch.compositeScalars@DOWN": {
+          "count": 24,
+          "sumMs": 0.3000001907348633,
+          "maxMs": 0.10000014305114746
+        },
+        "actualCache.register@DOWN": {
+          "count": 104,
+          "sumMs": 84.6000006198883,
+          "maxMs": 12,
+          "nominalBytes": 206618624
+        },
+        "pool.acquire@DOWN": {
+          "count": 84,
+          "sumMs": 159.19999933242798,
+          "maxMs": 30.899999856948853
+        },
+        "actualPass.plainAdd@DOWN": {
+          "count": 84,
+          "sumMs": 3.3999991416931152,
+          "maxMs": 0.2999999523162842
+        },
+        "actualPass.fieldOpDraw@DOWN": {
+          "count": 112,
+          "sumMs": 5.999999523162842,
+          "maxMs": 0.2999999523162842
+        },
+        "actualPass.fieldOp@DOWN": {
+          "count": 112,
+          "sumMs": 6.399999141693115,
+          "maxMs": 0.2999999523162842
+        },
+        "host.makeBuffer@DOWN": {
+          "count": 44,
+          "sumMs": 65.49999976158142,
+          "maxMs": 12.799999952316284
+        },
+        "controller.accept@DOWN": {
+          "count": 4,
+          "sumMs": 275.2000000476837,
+          "maxMs": 164.10000014305115
+        },
+        "engine._onStart@DOWN": {
+          "count": 1,
+          "sumMs": 594.3999998569489,
+          "maxMs": 594.3999998569489
+        },
+        "engine._onMove@DOWN": {
+          "count": 4,
+          "sumMs": 157.5,
+          "maxMs": 133.80000019073486
+        },
+        "engine._ribbonDabsWork@UP": {
+          "count": 1,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "actualPass.releaseFrontPathTextures@UP": {
+          "count": 2,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "controller.beforePaint@UP": {
+          "count": 1,
+          "sumMs": 0.20000004768371582,
+          "maxMs": 0.20000004768371582
+        },
+        "scratch.compositeScalars@UP": {
+          "count": 21,
+          "sumMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836
+        },
+        "actualCache.touch@UP": {
+          "count": 6543,
+          "sumMs": 1594.199999332428,
+          "maxMs": 95.89999985694885,
+          "nominalBytes": 11068131456
+        },
+        "actualPass.plainAdd@UP": {
+          "count": 200,
+          "sumMs": 6,
+          "maxMs": 0.20000004768371582
+        },
+        "actualPass.fieldOpDraw@UP": {
+          "count": 516,
+          "sumMs": 21.000001192092896,
+          "maxMs": 1.0999999046325684
+        },
+        "actualPass.fieldOp@UP": {
+          "count": 516,
+          "sumMs": 36.80000162124634,
+          "maxMs": 7.200000047683716
+        },
+        "pool.acquire@UP": {
+          "count": 64,
+          "sumMs": 1535.599999666214,
+          "maxMs": 273.89999985694885
+        },
+        "actualBuffer._residencyEvict@UP": {
+          "count": 352,
+          "sumMs": 2685.2000017166138,
+          "maxMs": 272.5,
+          "nominalBytes": 619664384,
+          "idleDiscardCalls": 38,
+          "roles": {
+            "pooledFree": 38,
+            "solverOrOther": 282,
+            "presentation.goal": 4,
+            "presentation.next": 4,
+            "presentation.raw": 4,
+            "source.original": 4,
+            "source.coverage": 4,
+            "source.inkLoad": 4,
+            "source.inkColor": 4,
+            "source.solventLoad": 4
+          },
+          "capturedBackingReuseCalls": 28,
+          "capturedBackingReuseNominalBytes": 159383552
+        },
+        "actualCache.reserve@UP": {
+          "count": 457,
+          "sumMs": 2689.0000002384186,
+          "maxMs": 273
+        },
+        "gl.texImage2D@UP": {
+          "count": 499,
+          "sumMs": 90.29999947547913,
+          "maxMs": 9.599999904632568,
+          "uploadBytes": 188744580
+        },
+        "actualBuffer._residencyHydrate@UP": {
+          "count": 310,
+          "sumMs": 450.2999978065491,
+          "maxMs": 25.299999952316284,
+          "nominalBytes": 467809280,
+          "roles": {
+            "solverOrOther": 286,
+            "source.inkLoad": 4,
+            "source.inkColor": 4,
+            "source.coverage": 4,
+            "presentation.goal": 4,
+            "source.original": 4,
+            "presentation.next": 4
+          }
+        },
+        "actualCache.register@UP": {
+          "count": 147,
+          "sumMs": 1599.9999985694885,
+          "maxMs": 273.09999990463257,
+          "nominalBytes": 663595264
+        },
+        "host.makeBuffer@UP": {
+          "count": 30,
+          "sumMs": 38.299999713897705,
+          "maxMs": 9.700000047683716
+        },
+        "gl.readPixels@UP": {
+          "count": 337,
+          "sumMs": 2608.9000000953674,
+          "maxMs": 186.89999985694885,
+          "nominalBytes": 539159616
+        },
+        "controller.present@UP": {
+          "count": 517,
+          "sumMs": 1046.1999986171722,
+          "maxMs": 86.09999990463257
+        },
+        "controller.accept@UP": {
+          "count": 2,
+          "sumMs": 145,
+          "maxMs": 144.70000004768372
+        },
+        "controller.finish@UP": {
+          "count": 1,
+          "sumMs": 0.5,
+          "maxMs": 0.5
+        },
+        "engine._onEnd@UP": {
+          "count": 1,
+          "sumMs": 176.90000009536743,
+          "maxMs": 176.90000009536743
+        },
+        "gl.texSubImage2D@UP": {
+          "count": 344,
+          "sumMs": 58.6000018119812,
+          "maxMs": 1,
+          "uploadBytes": 510742896
+        },
+        "controller.frame@UP": {
+          "count": 169,
+          "sumMs": 7517.799999237061,
+          "maxMs": 463.89999985694885
+        },
+        "solver.resetFromScratch@UP": {
+          "count": 1,
+          "sumMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836
+        },
+        "controller.start@UP": {
+          "count": 1,
+          "sumMs": 0.20000004768371582,
+          "maxMs": 0.20000004768371582
+        },
+        "actualBuffer.readPixels@UP": {
+          "count": 40,
+          "sumMs": 727.6999990940094,
+          "maxMs": 82.59999990463257,
+          "nominalBytes": 141700160
+        },
+        "solver.step@UP": {
+          "count": 160,
+          "sumMs": 5201.999998807907,
+          "maxMs": 365.7000000476837
+        },
+        "scratch.captureFinishMetadata@UP": {
+          "count": 128,
+          "sumMs": 12.499998092651367,
+          "maxMs": 0.8999998569488525
+        },
+        "phase.beginSolveSnapshot@UP": {
+          "count": 1,
+          "sumMs": 73,
+          "maxMs": 73
+        },
+        "actualPass.invalidateFrontPaths@UP": {
+          "count": 4,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "plan.prepare@UP": {
+          "count": 4,
+          "sumMs": 84.00000023841858,
+          "maxMs": 27.90000009536743
+        },
+        "actualPass.waterFrontStepDraw@UP": {
+          "count": 180,
+          "sumMs": 10.600000858306885,
+          "maxMs": 0.8999998569488525
+        },
+        "actualPass.waterFrontStep@UP": {
+          "count": 180,
+          "sumMs": 13.000000238418579,
+          "maxMs": 0.8999998569488525
+        },
+        "actualPass.nativeWaterFrontStep@UP": {
+          "count": 112,
+          "sumMs": 4.100000619888306,
+          "maxMs": 0.20000004768371582
+        },
+        "actualPass.m70Field@UP": {
+          "count": 8,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "actualPass.diffuseStepDraw@UP": {
+          "count": 104,
+          "sumMs": 1.8999993801116943,
+          "maxMs": 0.10000014305114746
+        },
+        "actualPass.diffuseStep@UP": {
+          "count": 104,
+          "sumMs": 3.5999999046325684,
+          "maxMs": 0.20000004768371582
+        },
+        "actualPass.gradientField@UP": {
+          "count": 32,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "actualBuffer.readPixelsRegion@UP": {
+          "count": 12,
+          "sumMs": 50.700000047683716,
+          "maxMs": 10.899999856948853,
+          "nominalBytes": 113246208
+        },
+        "solver.dry@UP": {
+          "count": 1,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "controller.complete@UP": {
+          "count": 1,
+          "sumMs": 84.20000004768372,
+          "maxMs": 84.20000004768372
+        }
+      },
+      "worst": [
+        {
+          "method": "solver.step",
+          "ms": 365.7000000476837,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 101,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 365.2999999523163,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 119,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 353.60000014305115,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 108,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 348.7999999523163,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 126,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 315.60000014305115,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 160,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "actualBuffer._residencyEvict",
+          "ms": 272.5,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 119,
+          "w": 1536,
+          "h": 1536,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 265.7999999523163,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 96,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 263.10000014305115,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 74,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "actualBuffer._residencyEvict",
+          "ms": 254.59999990463257,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 126,
+          "w": 1536,
+          "h": 1536,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "actualBuffer._residencyEvict",
+          "ms": 247.59999990463257,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 101,
+          "w": 1536,
+          "h": 1536,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 246.70000004768372,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 114,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "actualBuffer._residencyEvict",
+          "ms": 236.5,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 108,
+          "w": 1536,
+          "h": 1536,
+          "role": "solverOrOther"
+        }
+      ],
+      "raf": {
+        "count": 191,
+        "sumMs": 9762.599999999999,
+        "maxMs": 618.5,
+        "histogram": [
+          0,
+          59,
+          64,
+          35,
+          15,
+          6,
+          12,
+          0
+        ],
+        "over50": 33,
+        "over100": 18
+      },
+      "captureHandles": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.original",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 1,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.coverage",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 25,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 25,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkLoad",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 14,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkColor",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 14,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.solventLoad",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 14,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.original",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 1,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.coverage",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 18,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 18,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkLoad",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 10,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkColor",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 10,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.solventLoad",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 10,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.original",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 1,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.coverage",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 18,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 18,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkLoad",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 10,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkColor",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 10,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.solventLoad",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 10,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.original",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 1,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.coverage",
+          "persistentRequested": false,
+          "actualPersistent": false,
+          "hasResidency": true,
+          "revisionAtCapture": 27,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 27,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkLoad",
+          "persistentRequested": false,
+          "actualPersistent": false,
+          "hasResidency": true,
+          "revisionAtCapture": 14,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkColor",
+          "persistentRequested": false,
+          "actualPersistent": false,
+          "hasResidency": true,
+          "revisionAtCapture": 14,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.solventLoad",
+          "persistentRequested": false,
+          "actualPersistent": false,
+          "hasResidency": true,
+          "revisionAtCapture": 14,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0
+        }
+      ],
+      "sourceSnapshots": [
+        {
+          "support": {
+            "width": 3508,
+            "height": 2480,
+            "rect": {
+              "x": 968,
+              "y": 1409,
+              "width": 103,
+              "height": 103
+            },
+            "rects": [
+              {
+                "x": 968,
+                "y": 1456,
+                "width": 56,
+                "height": 56
+              },
+              {
+                "x": 1024,
+                "y": 1456,
+                "width": 24,
+                "height": 24
+              },
+              {
+                "x": 1000,
+                "y": 1432,
+                "width": 24,
+                "height": 24
+              },
+              {
+                "x": 1024,
+                "y": 1409,
+                "width": 47,
+                "height": 47
+              }
+            ],
+            "noForeignStencil": true
+          },
+          "metadataForeignAbsent": true
+        }
+      ],
+      "fieldPhaseSamples": [
+        {
+          "at": 53257,
+          "methodPhase": "DOWN",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 122159104,
+          "fieldResident": 0
+        },
+        {
+          "at": 54124,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 196968448,
+          "fieldResident": 0
+        },
+        {
+          "at": 54210.5,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54224.39999985695,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54247.39999985695,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54296.39999985695,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54322.299999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54343.09999990463,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54372.59999990463,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54390.199999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54416.199999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54443.799999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54464.39999985695,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54486.299999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54518,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54537.799999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54567.89999985695,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54596.5,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54618.59999990463,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 54649.699999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 204226560,
+          "fieldResident": 0
+        },
+        {
+          "at": 56475.59999990463,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 1,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "solve",
+            "enabled": true
+          },
+          "cacheBudget": 125829120,
+          "cacheResident": 120814592,
+          "fieldResident": 0
+        }
+      ]
+    }
+  },
+  "trusted-pen-far-right-bottom": {
+    "upToObservedIdleMs": 9903.800000190735,
+    "ops": [
+      {
+        "id": "eU8tr8apUp",
+        "seq": 16,
+        "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+        "pending": false
+      }
+    ],
+    "windowSchedule": {
+      "plannedPerSnapshot": 60,
+      "snapshots": [
+        {
+          "support": {
+            "width": 3508,
+            "height": 2480,
+            "rect": {
+              "x": 968,
+              "y": 33,
+              "width": 2507,
+              "height": 1479
+            },
+            "rects": [
+              {
+                "x": 968,
+                "y": 1456,
+                "width": 56,
+                "height": 56
+              },
+              {
+                "x": 1024,
+                "y": 1456,
+                "width": 24,
+                "height": 24
+              },
+              {
+                "x": 1000,
+                "y": 1432,
+                "width": 24,
+                "height": 24
+              },
+              {
+                "x": 1024,
+                "y": 1409,
+                "width": 47,
+                "height": 47
+              },
+              {
+                "x": 3421,
+                "y": 33,
+                "width": 54,
+                "height": 54
+              }
+            ],
+            "noForeignStencil": true
+          },
+          "metadataForeignAbsent": true,
+          "radius": 32,
+          "planned": 60,
+          "expectedKept": 5,
+          "expectedSkipped": 55
+        }
+      ],
+      "actualNativePrepare": 5,
+      "qualification": "Actual Native prepare count; planned/skipped inferred from same pure fixed-window grouping/support functions and captured immutable source certificate. No inspection hook injected."
+    },
+    "persistentLeaseProof": {
+      "qualification": "Lease metadata only; no array copies/strong array references or extra GL reads; uncached admissions cannot prove residency savings",
+      "peakRetainedBytes": 135266304,
+      "retainedNow": 0,
+      "rows": [
+        {
+          "bufferId": 1,
+          "arrayId": 1,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 2,
+          "arrayId": 2,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 25,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 25,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 3,
+          "arrayId": 3,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 4,
+          "arrayId": 4,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 5,
+          "arrayId": 5,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 6,
+          "arrayId": 6,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 7,
+          "arrayId": 7,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 18,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 18,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 8,
+          "arrayId": 8,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 9,
+          "arrayId": 9,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 10,
+          "arrayId": 10,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 11,
+          "arrayId": 11,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 12,
+          "arrayId": 12,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 18,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 18,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 13,
+          "arrayId": 13,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 14,
+          "arrayId": 14,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 15,
+          "arrayId": 15,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 16,
+          "arrayId": 16,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 17,
+          "arrayId": 17,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 27,
+          "persistentRequested": false,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 27,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 18,
+          "arrayId": 18,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": false,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 19,
+          "arrayId": 19,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": false,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 20,
+          "arrayId": 20,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": false,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 21,
+          "arrayId": 21,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 22,
+          "arrayId": 22,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 23,
+          "arrayId": 23,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 4,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 24,
+          "arrayId": 24,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 25,
+          "arrayId": 25,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 26,
+          "arrayId": 26,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 27,
+          "arrayId": 27,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 28,
+          "arrayId": 28,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 4,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 29,
+          "arrayId": 29,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 30,
+          "arrayId": 30,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 31,
+          "arrayId": 31,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 32,
+          "arrayId": 32,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 33,
+          "arrayId": 33,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 4,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 34,
+          "arrayId": 34,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 35,
+          "arrayId": 35,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 36,
+          "arrayId": 36,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 37,
+          "arrayId": 37,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 38,
+          "arrayId": 38,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 4,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 39,
+          "arrayId": 39,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 40,
+          "arrayId": 40,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 1,
+          "arrayId": 41,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 0,
+          "releaseCalls": 1,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 2,
+          "arrayId": 42,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 25,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 25,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 3,
+          "arrayId": 43,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 4,
+          "arrayId": 44,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 5,
+          "arrayId": 45,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 6,
+          "arrayId": 46,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 0,
+          "releaseCalls": 1,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 7,
+          "arrayId": 47,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 18,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 18,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 8,
+          "arrayId": 48,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 9,
+          "arrayId": 49,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 10,
+          "arrayId": 50,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 11,
+          "arrayId": 51,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 0,
+          "releaseCalls": 1,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 12,
+          "arrayId": 52,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 18,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 18,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 13,
+          "arrayId": 53,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 14,
+          "arrayId": 54,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 15,
+          "arrayId": 55,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 10,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 16,
+          "arrayId": 56,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 0,
+          "releaseCalls": 1,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 17,
+          "arrayId": 57,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 27,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 27,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 18,
+          "arrayId": 58,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 19,
+          "arrayId": 59,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 20,
+          "arrayId": 60,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 14,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 41,
+          "arrayId": 61,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 20,
+          "persistentRequested": false,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 20,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 42,
+          "arrayId": 62,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 20,
+          "persistentRequested": false,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 20,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 43,
+          "arrayId": 63,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 29,
+          "persistentRequested": false,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 29,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 44,
+          "arrayId": 64,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 12,
+          "persistentRequested": false,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 12,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 45,
+          "arrayId": 65,
+          "bytes": 4194304,
+          "width": 1024,
+          "height": 1024,
+          "revisionAtAdmit": 29,
+          "persistentRequested": false,
+          "managed": true,
+          "retainedAtAdmit": 4194304,
+          "releaseCalls": 1,
+          "revisionAtRelease": 29,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 46,
+          "arrayId": 66,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 47,
+          "arrayId": 67,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 48,
+          "arrayId": 68,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 4,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 49,
+          "arrayId": 69,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 50,
+          "arrayId": 70,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 51,
+          "arrayId": 71,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 4,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 5,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 52,
+          "arrayId": 72,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 4,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 6,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 53,
+          "arrayId": 73,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 4,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 54,
+          "arrayId": 74,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 55,
+          "arrayId": 75,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 56,
+          "arrayId": 76,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 4,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 5,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 57,
+          "arrayId": 77,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 4,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 6,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 58,
+          "arrayId": 78,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 4,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 59,
+          "arrayId": 79,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 60,
+          "arrayId": 80,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 61,
+          "arrayId": 81,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 4,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 5,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 62,
+          "arrayId": 82,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 4,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 6,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 63,
+          "arrayId": 83,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 4,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 64,
+          "arrayId": 84,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 65,
+          "arrayId": 85,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 66,
+          "arrayId": 86,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 4,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 5,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 67,
+          "arrayId": 87,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 4,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 6,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 68,
+          "arrayId": 88,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 4,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 69,
+          "arrayId": 89,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 3,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        },
+        {
+          "bufferId": 70,
+          "arrayId": 90,
+          "bytes": 9437184,
+          "width": 1536,
+          "height": 1536,
+          "revisionAtAdmit": 1,
+          "persistentRequested": true,
+          "managed": true,
+          "retainedAtAdmit": 9437184,
+          "releaseCalls": 1,
+          "revisionAtRelease": 2,
+          "retainedAfterRelease": 0,
+          "retainedNow": 0
+        }
+      ]
+    },
+    "managedIdentity": [
+      {
+        "at": 54184.39999985695,
+        "method": "start",
+        "when": "before",
+        "controller": 1,
+        "solving": null,
+        "source": 11,
+        "target": null,
+        "layers": [
+          {
+            "layerId": "qa747-1792233069322",
+            "target": 7,
+            "layer": 8,
+            "scratch": 9,
+            "context": 10,
+            "epoch": 2,
+            "dirty": false,
+            "goalReady": true
+          },
+          {
+            "layerId": "qa747-1792234194042",
+            "target": 2,
+            "layer": 11,
+            "scratch": 12,
+            "context": 13,
+            "epoch": 1,
+            "dirty": true,
+            "goalReady": false
+          }
+        ]
+      },
+      {
+        "at": 54184.5,
+        "method": "resetFromScratch",
+        "when": "before",
+        "controller": 1,
+        "solving": null,
+        "source": 12,
+        "target": 2,
+        "epoch": 1,
+        "layers": [
+          {
+            "layerId": "qa747-1792233069322",
+            "target": 7,
+            "layer": 8,
+            "scratch": 9,
+            "context": 10,
+            "epoch": 2,
+            "dirty": false,
+            "goalReady": true
+          },
+          {
+            "layerId": "qa747-1792234194042",
+            "target": 2,
+            "layer": 11,
+            "scratch": 12,
+            "context": 13,
+            "epoch": 1,
+            "dirty": true,
+            "goalReady": false
+          }
+        ]
+      },
+      {
+        "at": 56219,
+        "method": "beginSolveSnapshot",
+        "when": "before",
+        "controller": 1,
+        "solving": 11,
+        "source": 14,
+        "target": null,
+        "layers": [
+          {
+            "layerId": "qa747-1792233069322",
+            "target": 7,
+            "layer": 8,
+            "scratch": 9,
+            "context": 10,
+            "epoch": 2,
+            "dirty": false,
+            "goalReady": true
+          },
+          {
+            "layerId": "qa747-1792234194042",
+            "target": 2,
+            "layer": 11,
+            "scratch": 12,
+            "context": 13,
+            "epoch": 1,
+            "dirty": false,
+            "goalReady": false
+          }
+        ]
+      },
+      {
+        "at": 62155.89999985695,
+        "method": "complete",
+        "when": "before",
+        "controller": 1,
+        "solving": 11,
+        "source": 11,
+        "target": null,
+        "layers": [
+          {
+            "layerId": "qa747-1792233069322",
+            "target": 7,
+            "layer": 8,
+            "scratch": 9,
+            "context": 10,
+            "epoch": 2,
+            "dirty": false,
+            "goalReady": true
+          },
+          {
+            "layerId": "qa747-1792234194042",
+            "target": 2,
+            "layer": 11,
+            "scratch": 12,
+            "context": 13,
+            "epoch": 1,
+            "dirty": false,
+            "goalReady": false
+          }
+        ]
+      },
+      {
+        "at": 63495.39999985695,
+        "method": "start",
+        "when": "before",
+        "controller": 1,
+        "solving": null,
+        "source": 11,
+        "target": null,
+        "layers": [
+          {
+            "layerId": "qa747-1792233069322",
+            "target": 7,
+            "layer": 8,
+            "scratch": 9,
+            "context": 10,
+            "epoch": 2,
+            "dirty": false,
+            "goalReady": true
+          },
+          {
+            "layerId": "qa747-1792234194042",
+            "target": 2,
+            "layer": 11,
+            "scratch": 12,
+            "context": 15,
+            "epoch": 2,
+            "dirty": true,
+            "goalReady": false
+          }
+        ]
+      },
+      {
+        "at": 63495.39999985695,
+        "method": "resetFromScratch",
+        "when": "before",
+        "controller": 1,
+        "solving": null,
+        "source": 12,
+        "target": 2,
+        "epoch": 2,
+        "layers": [
+          {
+            "layerId": "qa747-1792233069322",
+            "target": 7,
+            "layer": 8,
+            "scratch": 9,
+            "context": 10,
+            "epoch": 2,
+            "dirty": false,
+            "goalReady": true
+          },
+          {
+            "layerId": "qa747-1792234194042",
+            "target": 2,
+            "layer": 11,
+            "scratch": 12,
+            "context": 15,
+            "epoch": 2,
+            "dirty": true,
+            "goalReady": false
+          }
+        ]
+      },
+      {
+        "at": 65923,
+        "method": "beginSolveSnapshot",
+        "when": "before",
+        "controller": 1,
+        "solving": 11,
+        "source": 16,
+        "target": null,
+        "layers": [
+          {
+            "layerId": "qa747-1792233069322",
+            "target": 7,
+            "layer": 8,
+            "scratch": 9,
+            "context": 10,
+            "epoch": 2,
+            "dirty": false,
+            "goalReady": true
+          },
+          {
+            "layerId": "qa747-1792234194042",
+            "target": 2,
+            "layer": 11,
+            "scratch": 12,
+            "context": 15,
+            "epoch": 2,
+            "dirty": false,
+            "goalReady": false
+          }
+        ]
+      },
+      {
+        "at": 72892.69999980927,
+        "method": "complete",
+        "when": "before",
+        "controller": 1,
+        "solving": 11,
+        "source": 11,
+        "target": null,
+        "layers": [
+          {
+            "layerId": "qa747-1792233069322",
+            "target": 7,
+            "layer": 8,
+            "scratch": 9,
+            "context": 10,
+            "epoch": 2,
+            "dirty": false,
+            "goalReady": true
+          },
+          {
+            "layerId": "qa747-1792234194042",
+            "target": 2,
+            "layer": 11,
+            "scratch": 12,
+            "context": 15,
+            "epoch": 2,
+            "dirty": false,
+            "goalReady": false
+          }
+        ]
+      }
+    ],
+    "telemetry": {
+      "methods": {
+        "controller.present@DOWN": {
+          "count": 16,
+          "sumMs": 12.299999475479126,
+          "maxMs": 4.299999952316284
+        },
+        "actualCache.touch@DOWN": {
+          "count": 260,
+          "sumMs": 13.599998712539673,
+          "maxMs": 2.299999952316284,
+          "nominalBytes": 538279936
+        },
+        "controller.frame@DOWN": {
+          "count": 15,
+          "sumMs": 12.800000429153442,
+          "maxMs": 6.300000190734863
+        },
+        "gl.texSubImage2D@DOWN": {
+          "count": 1,
+          "sumMs": 0,
+          "maxMs": 0,
+          "uploadBytes": 900
+        },
+        "actualPass.releaseFrontPathTextures@DOWN": {
+          "count": 4,
+          "sumMs": 0.19999980926513672,
+          "maxMs": 0.09999990463256836
+        },
+        "controller.source@DOWN": {
+          "count": 1,
+          "sumMs": 0.3000001907348633,
+          "maxMs": 0.3000001907348633
+        },
+        "engine._ribbonDabsWork@DOWN": {
+          "count": 2,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "controller.beforePaint@DOWN": {
+          "count": 2,
+          "sumMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836
+        },
+        "gl.texImage2D@DOWN": {
+          "count": 28,
+          "sumMs": 0.7000002861022949,
+          "maxMs": 0.10000014305114746,
+          "uploadBytes": 59408
+        },
+        "scratch.compositeScalars@DOWN": {
+          "count": 7,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "pool.acquire@DOWN": {
+          "count": 19,
+          "sumMs": 16,
+          "maxMs": 11.200000047683716
+        },
+        "actualCache.reserve@DOWN": {
+          "count": 26,
+          "sumMs": 8.399999856948853,
+          "maxMs": 8.399999856948853
+        },
+        "actualBuffer._residencyHydrate@DOWN": {
+          "count": 11,
+          "sumMs": 11.699999809265137,
+          "maxMs": 2.200000047683716,
+          "nominalBytes": 46137344,
+          "roles": {
+            "solverOrOther": 4,
+            "source.strokeInk": 1,
+            "source.inkBase": 1,
+            "source.strokeColor": 1,
+            "source.colorBase": 1,
+            "source.solventLoad": 1,
+            "source.strokeSolvent": 1,
+            "source.solventBase": 1
+          }
+        },
+        "actualPass.plainAdd@DOWN": {
+          "count": 9,
+          "sumMs": 0.2999997138977051,
+          "maxMs": 0.09999990463256836
+        },
+        "actualPass.fieldOpDraw@DOWN": {
+          "count": 12,
+          "sumMs": 0.7999997138977051,
+          "maxMs": 0.20000004768371582
+        },
+        "actualPass.fieldOp@DOWN": {
+          "count": 12,
+          "sumMs": 0.7999997138977051,
+          "maxMs": 0.20000004768371582
+        },
+        "actualCache.register@DOWN": {
+          "count": 15,
+          "sumMs": 8.899999618530273,
+          "maxMs": 8.399999856948853,
+          "nominalBytes": 15925248
+        },
+        "host.makeBuffer@DOWN": {
+          "count": 11,
+          "sumMs": 5.3999998569488525,
+          "maxMs": 1.2999999523162842
+        },
+        "actualBuffer._residencyEvict@DOWN": {
+          "count": 2,
+          "sumMs": 8,
+          "maxMs": 8,
+          "nominalBytes": 4341760,
+          "idleDiscardCalls": 1,
+          "roles": {
+            "pooledFree": 1,
+            "source.inkLoad": 1
+          }
+        },
+        "gl.readPixels@DOWN": {
+          "count": 1,
+          "sumMs": 5.5,
+          "maxMs": 5.5,
+          "nominalBytes": 4194304
+        },
+        "controller.accept@DOWN": {
+          "count": 2,
+          "sumMs": 54.89999985694885,
+          "maxMs": 49.59999990463257
+        },
+        "engine._onStart@DOWN": {
+          "count": 1,
+          "sumMs": 76.20000004768372,
+          "maxMs": 76.20000004768372
+        },
+        "engine._onMove@DOWN": {
+          "count": 2,
+          "sumMs": 7.099999904632568,
+          "maxMs": 7.099999904632568
+        },
+        "engine._ribbonDabsWork@UP": {
+          "count": 1,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "actualPass.releaseFrontPathTextures@UP": {
+          "count": 2,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "controller.beforePaint@UP": {
+          "count": 1,
+          "sumMs": 0.09999990463256836,
+          "maxMs": 0.09999990463256836
+        },
+        "scratch.compositeScalars@UP": {
+          "count": 19,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "actualCache.touch@UP": {
+          "count": 7118,
+          "sumMs": 1939.100004196167,
+          "maxMs": 95.79999995231628,
+          "nominalBytes": 12052837696
+        },
+        "actualPass.plainAdd@UP": {
+          "count": 208,
+          "sumMs": 3.9000000953674316,
+          "maxMs": 0.6999998092651367
+        },
+        "actualPass.fieldOpDraw@UP": {
+          "count": 589,
+          "sumMs": 19.80000114440918,
+          "maxMs": 0.6999998092651367
+        },
+        "actualPass.fieldOp@UP": {
+          "count": 589,
+          "sumMs": 34.80000162124634,
+          "maxMs": 5.799999952316284
+        },
+        "pool.acquire@UP": {
+          "count": 63,
+          "sumMs": 1860.1000010967255,
+          "maxMs": 255
+        },
+        "controller.present@UP": {
+          "count": 582,
+          "sumMs": 1253.0000004768372,
+          "maxMs": 94.29999995231628
+        },
+        "controller.accept@UP": {
+          "count": 2,
+          "sumMs": 7.800000190734863,
+          "maxMs": 7.6000001430511475
+        },
+        "controller.finish@UP": {
+          "count": 1,
+          "sumMs": 0.2999999523162842,
+          "maxMs": 0.2999999523162842
+        },
+        "engine._onEnd@UP": {
+          "count": 1,
+          "sumMs": 16.40000009536743,
+          "maxMs": 16.40000009536743
+        },
+        "controller.frame@UP": {
+          "count": 191,
+          "sumMs": 8861.29999923706,
+          "maxMs": 608.6999998092651
+        },
+        "solver.resetFromScratch@UP": {
+          "count": 1,
+          "sumMs": 0.10000014305114746,
+          "maxMs": 0.10000014305114746
+        },
+        "controller.start@UP": {
+          "count": 1,
+          "sumMs": 0.20000004768371582,
+          "maxMs": 0.20000004768371582
+        },
+        "gl.readPixels@UP": {
+          "count": 430,
+          "sumMs": 3204.899998664856,
+          "maxMs": 177,
+          "nominalBytes": 722438304
+        },
+        "actualBuffer.readPixels@UP": {
+          "count": 51,
+          "sumMs": 888.8999998569489,
+          "maxMs": 76.5,
+          "nominalBytes": 178266016
+        },
+        "solver.step@UP": {
+          "count": 182,
+          "sumMs": 5980.000000238419,
+          "maxMs": 386.5
+        },
+        "gl.texImage2D@UP": {
+          "count": 576,
+          "sumMs": 100.70000123977661,
+          "maxMs": 7.599999904632568,
+          "uploadBytes": 235990020
+        },
+        "gl.texSubImage2D@UP": {
+          "count": 446,
+          "sumMs": 79.80000066757202,
+          "maxMs": 1.0999999046325684,
+          "uploadBytes": 696303024
+        },
+        "actualCache.reserve@UP": {
+          "count": 529,
+          "sumMs": 3211.6000006198883,
+          "maxMs": 254.10000014305115
+        },
+        "actualBuffer._residencyHydrate@UP": {
+          "count": 361,
+          "sumMs": 515.8000030517578,
+          "maxMs": 24.5,
+          "nominalBytes": 657447936,
+          "roles": {
+            "source.inkLoad": 6,
+            "source.solventLoad": 4,
+            "solverOrOther": 326,
+            "source.inkColor": 5,
+            "source.coverage": 5,
+            "presentation.goal": 5,
+            "source.original": 5,
+            "presentation.next": 2,
+            "presentation.raw": 3
+          }
+        },
+        "actualBuffer._residencyEvict@UP": {
+          "count": 417,
+          "sumMs": 3282.3000004291534,
+          "maxMs": 254.10000014305115,
+          "nominalBytes": 821722112,
+          "roles": {
+            "presentation.goal": 5,
+            "presentation.next": 5,
+            "solverOrOther": 359,
+            "pooledFree": 18,
+            "presentation.raw": 1,
+            "source.original": 5,
+            "source.coverage": 6,
+            "source.inkLoad": 7,
+            "source.inkColor": 6,
+            "source.solventLoad": 5
+          },
+          "idleDiscardCalls": 18,
+          "capturedBackingReuseCalls": 31,
+          "capturedBackingReuseNominalBytes": 182452224
+        },
+        "scratch.captureFinishMetadata@UP": {
+          "count": 129,
+          "sumMs": 12.399999380111694,
+          "maxMs": 2
+        },
+        "phase.beginSolveSnapshot@UP": {
+          "count": 1,
+          "sumMs": 150.89999985694885,
+          "maxMs": 150.89999985694885
+        },
+        "actualCache.register@UP": {
+          "count": 168,
+          "sumMs": 1840.7000002861023,
+          "maxMs": 254.10000014305115,
+          "nominalBytes": 747730560
+        },
+        "actualPass.invalidateFrontPaths@UP": {
+          "count": 5,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "plan.prepare@UP": {
+          "count": 5,
+          "sumMs": 115.5,
+          "maxMs": 25.40000009536743
+        },
+        "actualPass.waterFrontStepDraw@UP": {
+          "count": 225,
+          "sumMs": 17.100001096725464,
+          "maxMs": 6.700000047683716
+        },
+        "actualPass.waterFrontStep@UP": {
+          "count": 225,
+          "sumMs": 20.90000033378601,
+          "maxMs": 6.700000047683716
+        },
+        "actualPass.nativeWaterFrontStep@UP": {
+          "count": 140,
+          "sumMs": 3.200000524520874,
+          "maxMs": 0.10000014305114746
+        },
+        "actualPass.m70Field@UP": {
+          "count": 10,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "actualPass.diffuseStepDraw@UP": {
+          "count": 130,
+          "sumMs": 2.59999942779541,
+          "maxMs": 0.20000004768371582
+        },
+        "actualPass.diffuseStep@UP": {
+          "count": 130,
+          "sumMs": 4.09999942779541,
+          "maxMs": 0.2999999523162842
+        },
+        "actualPass.gradientField@UP": {
+          "count": 40,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "actualBuffer.readPixelsRegion@UP": {
+          "count": 15,
+          "sumMs": 63.30000042915344,
+          "maxMs": 10.700000047683716,
+          "nominalBytes": 141557760
+        },
+        "solver.dry@UP": {
+          "count": 1,
+          "sumMs": 0,
+          "maxMs": 0
+        },
+        "host.makeBuffer@UP": {
+          "count": 30,
+          "sumMs": 15.599999904632568,
+          "maxMs": 1.9000000953674316
+        },
+        "controller.complete@UP": {
+          "count": 1,
+          "sumMs": 139,
+          "maxMs": 139
+        }
+      },
+      "worst": [
+        {
+          "method": "solver.step",
+          "ms": 386.5,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 182,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 375.59999990463257,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 114,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 338.7999999523163,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 141,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 338.5,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 169,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 338.09999990463257,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 121,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 283,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 134,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 262.2999999523163,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 86,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "solver.step",
+          "ms": 261.7999999523163,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 109,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "actualBuffer._residencyEvict",
+          "ms": 254.10000014305115,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 114,
+          "w": 1536,
+          "h": 1536,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "actualBuffer._residencyEvict",
+          "ms": 248.59999990463257,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 141,
+          "w": 1536,
+          "h": 1536,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "actualBuffer._residencyEvict",
+          "ms": 248.39999985694885,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 169,
+          "w": 1536,
+          "h": 1536,
+          "role": "solverOrOther"
+        },
+        {
+          "method": "actualBuffer._residencyEvict",
+          "ms": 245.70000004768372,
+          "phase": "UP",
+          "pass": null,
+          "solverStepOrdinal": 121,
+          "w": 1536,
+          "h": 1536,
+          "role": "solverOrOther"
+        }
+      ],
+      "raf": {
+        "count": 205,
+        "sumMs": 10096.900000000001,
+        "maxMs": 601.8000000000029,
+        "histogram": [
+          0,
+          59,
+          71,
+          40,
+          15,
+          8,
+          12,
+          0
+        ],
+        "over50": 35,
+        "over100": 20
+      },
+      "captureHandles": [
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.original",
+          "persistentRequested": true,
+          "actualPersistent": false,
+          "hasResidency": true,
+          "revisionAtCapture": 1,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 0,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.coverage",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 25,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 25,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkLoad",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 14,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkColor",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 14,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.solventLoad",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 14,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.original",
+          "persistentRequested": true,
+          "actualPersistent": false,
+          "hasResidency": true,
+          "revisionAtCapture": 1,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 0,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.coverage",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 18,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 18,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkLoad",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 10,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkColor",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 10,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.solventLoad",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 10,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.original",
+          "persistentRequested": true,
+          "actualPersistent": false,
+          "hasResidency": true,
+          "revisionAtCapture": 1,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 0,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.coverage",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 18,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 18,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkLoad",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 10,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkColor",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 10,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.solventLoad",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 10,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 10,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.original",
+          "persistentRequested": true,
+          "actualPersistent": false,
+          "hasResidency": true,
+          "revisionAtCapture": 1,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 0,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 1,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.coverage",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 27,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 27,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkLoad",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 14,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkColor",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 14,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.solventLoad",
+          "persistentRequested": true,
+          "actualPersistent": true,
+          "hasResidency": true,
+          "revisionAtCapture": 14,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 4194304,
+          "revisionAtRelease": 14,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.original",
+          "persistentRequested": false,
+          "actualPersistent": false,
+          "hasResidency": true,
+          "revisionAtCapture": 20,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 20,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.coverage",
+          "persistentRequested": false,
+          "actualPersistent": false,
+          "hasResidency": true,
+          "revisionAtCapture": 20,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 20,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkLoad",
+          "persistentRequested": false,
+          "actualPersistent": false,
+          "hasResidency": true,
+          "revisionAtCapture": 29,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 29,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.inkColor",
+          "persistentRequested": false,
+          "actualPersistent": false,
+          "hasResidency": true,
+          "revisionAtCapture": 12,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 12,
+          "retainedAfterRelease": 0
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "role": "source.solventLoad",
+          "persistentRequested": false,
+          "actualPersistent": false,
+          "hasResidency": true,
+          "revisionAtCapture": 29,
+          "pixelBytes": 4194304,
+          "retainedAtCapture": 4194304,
+          "releaseCalls": 1,
+          "retainedBeforeRelease": 0,
+          "revisionAtRelease": 29,
+          "retainedAfterRelease": 0
+        }
+      ],
+      "sourceSnapshots": [
+        {
+          "support": {
+            "width": 3508,
+            "height": 2480,
+            "rect": {
+              "x": 968,
+              "y": 33,
+              "width": 2507,
+              "height": 1479
+            },
+            "rects": [
+              {
+                "x": 968,
+                "y": 1456,
+                "width": 56,
+                "height": 56
+              },
+              {
+                "x": 1024,
+                "y": 1456,
+                "width": 24,
+                "height": 24
+              },
+              {
+                "x": 1000,
+                "y": 1432,
+                "width": 24,
+                "height": 24
+              },
+              {
+                "x": 1024,
+                "y": 1409,
+                "width": 47,
+                "height": 47
+              },
+              {
+                "x": 3421,
+                "y": 33,
+                "width": 54,
+                "height": 54
+              }
+            ],
+            "noForeignStencil": true
+          },
+          "metadataForeignAbsent": true
+        }
+      ],
+      "fieldPhaseSamples": [
+        {
+          "at": 63223.799999952316,
+          "methodPhase": "DOWN",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 231555072,
+          "fieldResident": 0
+        },
+        {
+          "at": 63429.199999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 231555072,
+          "fieldResident": 0
+        },
+        {
+          "at": 63518.89999985695,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 181223424,
+          "fieldResident": 0
+        },
+        {
+          "at": 63541.299999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 181223424,
+          "fieldResident": 0
+        },
+        {
+          "at": 63585.699999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 181223424,
+          "fieldResident": 0
+        },
+        {
+          "at": 63622.39999985695,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 181223424,
+          "fieldResident": 0
+        },
+        {
+          "at": 63651.799999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 181223424,
+          "fieldResident": 0
+        },
+        {
+          "at": 63683.89999985695,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 181223424,
+          "fieldResident": 0
+        },
+        {
+          "at": 63719.59999990463,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 181223424,
+          "fieldResident": 0
+        },
+        {
+          "at": 63754,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 63784.09999990463,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 63803.199999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 63824.5,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 63860.5,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 63897.299999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 63915.799999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 63937.699999809265,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 185417728,
+          "fieldResident": 0
+        },
+        {
+          "at": 63969.299999952316,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 189612032,
+          "fieldResident": 0
+        },
+        {
+          "at": 64003.09999990463,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 189612032,
+          "fieldResident": 0
+        },
+        {
+          "at": 64018.89999985695,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 0,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "input",
+            "enabled": true
+          },
+          "cacheBudget": 234881024,
+          "cacheResident": 189612032,
+          "fieldResident": 0
+        },
+        {
+          "at": 66185.29999995232,
+          "methodPhase": "UP",
+          "owner": {
+            "generation": 0,
+            "activeLeases": 1,
+            "executing": 0,
+            "transitioning": false,
+            "phase": "solve",
+            "enabled": true
+          },
+          "cacheBudget": 125829120,
+          "cacheResident": 119585792,
+          "fieldResident": 0
+        }
+      ]
+    }
+  },
+  "raw-ROI-full-render-proof": [
+    {
+      "name": "raw-ROI-full-render-proof",
+      "wallAt": 1792234235131,
+      "correctOrigin": false,
+      "originCorrections": 0,
+      "context": {
+        "layerGesture": "e3uFdDOhkp",
+        "epoch": 2,
+        "context": {
+          "preset": {
+            "opacity": 0.99,
+            "hardness": 0.88,
+            "sizeMultiplier": 1
+          },
+          "fieldSeed": [
+            980.0000610351562,
+            980.0001831054688
+          ],
+          "bounds": {
+            "minX": 3401.5204181671143,
+            "minY": 2373.5209064483643,
+            "maxX": 3498.9504540197336,
+            "maxY": 2470.9509423009836
+          },
+          "opacity": 0.9900000095367432
+        },
+        "finishContext": {
+          "preset": {
+            "opacity": 0.99,
+            "hardness": 0.88,
+            "sizeMultiplier": 1
+          },
+          "fieldSeed": [
+            980.0000610351562,
+            980.0001831054688
+          ],
+          "bounds": {
+            "minX": 3401.5204181671143,
+            "minY": 2373.5209064483643,
+            "maxX": 3498.9504540197336,
+            "maxY": 2470.9509423009836
+          }
+        }
+      },
+      "tiles": [
+        {
+          "freshVsFull": 0,
+          "freshVsFullMax": 0,
+          "stale": 0,
+          "staleMax": 0,
+          "freshFirst": [],
+          "freshHash": "1f6f1ff1ac99bb72af64d3a78ff7ea96aeacba8991393cc8089725f02b937da3",
+          "tile": {
+            "x": 0,
+            "y": 0,
+            "w": 1024,
+            "h": 1024
+          },
+          "region": {
+            "x": 832,
+            "y": 0,
+            "width": 192,
+            "height": 192
+          },
+          "changedInside": 0,
+          "maxInside": 0,
+          "changedOutside": 0,
+          "maxOutside": 0,
+          "first": [],
+          "rawHash": "1f6f1ff1ac99bb72af64d3a78ff7ea96aeacba8991393cc8089725f02b937da3",
+          "fullHash": "b4bc6e6db4a3fad2bb1551040a7c4a4dd79434ed2380c120ca98b15a3f66f032",
+          "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "freshVsFull": 0,
+          "freshVsFullMax": 0,
+          "stale": 0,
+          "staleMax": 0,
+          "freshFirst": [],
+          "freshHash": "6bc87892a0f6ffdb9a36c7dce88d2c55a5790152930ff85f26aca0fa9b58fbeb",
+          "tile": {
+            "x": 1024,
+            "y": 0,
+            "w": 1024,
+            "h": 1024
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1024,
+            "height": 192
+          },
+          "changedInside": 0,
+          "maxInside": 0,
+          "changedOutside": 0,
+          "maxOutside": 0,
+          "first": [],
+          "rawHash": "6bc87892a0f6ffdb9a36c7dce88d2c55a5790152930ff85f26aca0fa9b58fbeb",
+          "fullHash": "f77264c7c32867b2d54836512cad1fd05692c4a5ed0fcf012eb3d0967f7057fb",
+          "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "freshVsFull": 0,
+          "freshVsFullMax": 0,
+          "stale": 0,
+          "staleMax": 0,
+          "freshFirst": [],
+          "freshHash": "523c6677e8306acb7a79a6f12ec2685ba7a4ec22a57b341e6872248b5783c813",
+          "tile": {
+            "x": 0,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024
+          },
+          "region": {
+            "x": 832,
+            "y": 0,
+            "width": 192,
+            "height": 1024
+          },
+          "changedInside": 0,
+          "maxInside": 0,
+          "changedOutside": 0,
+          "maxOutside": 0,
+          "first": [],
+          "rawHash": "523c6677e8306acb7a79a6f12ec2685ba7a4ec22a57b341e6872248b5783c813",
+          "fullHash": "ce12ec16be45ca19316d16d63521c508d029b5dd3f4287b39e81f1803337794c",
+          "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "freshVsFull": 0,
+          "freshVsFullMax": 0,
+          "stale": 0,
+          "staleMax": 0,
+          "freshFirst": [],
+          "freshHash": "fa6d6b54339df924264f67f819204fdb79c3b9d145e875bc04d0ca2d275d75f3",
+          "tile": {
+            "x": 1024,
+            "y": 1024,
+            "w": 1024,
+            "h": 1024
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1024,
+            "height": 1024
+          },
+          "changedInside": 0,
+          "maxInside": 0,
+          "changedOutside": 0,
+          "maxOutside": 0,
+          "first": [],
+          "rawHash": "fa6d6b54339df924264f67f819204fdb79c3b9d145e875bc04d0ca2d275d75f3",
+          "fullHash": "fa6d6b54339df924264f67f819204fdb79c3b9d145e875bc04d0ca2d275d75f3",
+          "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "freshVsFull": 0,
+          "freshVsFullMax": 0,
+          "stale": 0,
+          "staleMax": 0,
+          "freshFirst": [],
+          "freshHash": "824ef9abbc30aeaf5f20c6018271da3c7faad01f08a8c825ec3da29475cc3700",
+          "tile": {
+            "x": 3072,
+            "y": 2048,
+            "w": 1024,
+            "h": 1024
+          },
+          "region": {
+            "x": 0,
+            "y": 512,
+            "width": 512,
+            "height": 512
+          },
+          "changedInside": 0,
+          "maxInside": 0,
+          "changedOutside": 0,
+          "maxOutside": 0,
+          "first": [],
+          "rawHash": "824ef9abbc30aeaf5f20c6018271da3c7faad01f08a8c825ec3da29475cc3700",
+          "fullHash": "299db7673ca037ffd335695e7ad8b78ba76be4fd4ffc0a20f1cdff2ef1952131",
+          "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        }
+      ],
+      "sourceMemory": {
+        "fields": {
+          "original": {
+            "count": 5,
+            "bytes": 20971520,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          },
+          "coverage": {
+            "count": 5,
+            "bytes": 20971520,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          },
+          "inkLoad": {
+            "count": 5,
+            "bytes": 20971520,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          },
+          "inkColor": {
+            "count": 5,
+            "bytes": 20971520,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          },
+          "solventLoad": {
+            "count": 5,
+            "bytes": 20971520,
+            "dimensions": [
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              },
+              {
+                "w": 1024,
+                "h": 1024
+              }
+            ]
+          }
+        },
+        "uniqueBytes": 104857600,
+        "bufferCount": 25
+      },
+      "pool": {
+        "live": 209715200,
+        "free": 66650112
+      },
+      "cache": {
+        "resident": 234668032,
+        "budget": 234881024
+      },
+      "gl": 0,
+      "lost": false
+    }
+  ],
+  "canonical-goal-first-full-API-replay-proof": [
+    {
+      "name": "canonical-goal-first-full-API-replay-proof",
+      "wallAt": 1792234257587,
+      "actualSource": "canonical-goal",
+      "actualCapturedBeforeOracle": true,
+      "oracleTightSupport32": false,
+      "oracleControllers": [
+        {
+          "type": "PagedPuddleRoomController",
+          "tightFlagAtCreation": false,
+          "actualOptions": {
+            "diagnosticM70TightSupport32": false,
+            "diagnosticM70CapturedBacking": false,
+            "diagnosticM70PersistCapturedBacking": false,
+            "diagnosticM70CooperativeCapture": false,
+            "diagnosticM70StepBudgetMs": 0,
+            "diagnosticM70SkipEmptyPostphase": false,
+            "diagnosticM70SkipEmptyReference": false
+          },
+          "createdWhilePuddleNull": true
+        }
+      ],
+      "oracleNativePrepare": 29,
+      "liveControllerRestored": true,
+      "liveTightFlagRestored": true,
+      "oracleLog": "complete-api",
+      "oracleOperationCount": 16,
+      "liveLogUnchanged": true,
+      "page": {
+        "width": 3508,
+        "height": 2480
+      },
+      "physicalChanged": 0,
+      "max": 0,
+      "alpha": 6046,
+      "tiles": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 2028
+        },
+        {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 300
+        },
+        {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 291
+        },
+        {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1559
+        },
+        {
+          "x": 3072,
+          "y": 2048,
+          "w": 436,
+          "h": 432,
+          "storageW": 1024,
+          "storageH": 1024,
+          "changed": 0,
+          "alpha": 1868
+        }
+      ],
+      "actualHash": "aad9a62a362729b79ddd5ec7e4dbdd0bb4d7315e686cb75991ff61c7f59ddad5",
+      "oracleHash": "aad9a62a362729b79ddd5ec7e4dbdd0bb4d7315e686cb75991ff61c7f59ddad5",
+      "glError": 0
+    }
+  ],
+  "acceptedJournalSHA256": "464f05a9fde9c6b154f42fc01ae3574b9060320623a5f5b265137fbf0b397925",
+  "acceptedOperationCount": 16,
+  "allRetained129MiBReconciliation": {
+    "sourcePersistentAdmittedMiB": 64,
+    "sourceNonpersistentAdmittedMiB": 20,
+    "currentWindow5PlanesMiB": 45,
+    "qualification": "Metadata arithmetic accounts for all-retained129; active category maxima and ArrayBuffer uniqueness not sampled."
+  }
+}
