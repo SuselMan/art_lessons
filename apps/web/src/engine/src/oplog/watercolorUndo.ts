@@ -306,7 +306,10 @@ function clockOnlyStroke(op: StrokeOperation): StrokeOperation {
  * whole-water dependency, never grant eligibility to a new foreign gesture. */
 function enableHistoricalBoundarySources(boundary: Operation, entries: readonly WatercolorHistoryEntry[], eligibility: Eligibility, reactivators: Eligibility, enabled: Set<string>, options: WatercolorUndoOptions): void {
   const layers=closedWaterLayers(boundary)
-  if(layers?.length===0)return
+  if(layers?.length===0 || !eligibility.size)return
+  let dormant=false
+  for(const source of eligibility.keys())if(!enabled.has(source)){dormant=true;break}
+  if(!dormant)return
   const at=entries.findIndex(entry=>entry.op.id===boundary.id)
   const groups=new Map<string,{layer:string;first:number;last:number}>()
   const removed=new Set<string>()
