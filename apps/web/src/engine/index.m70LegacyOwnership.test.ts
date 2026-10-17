@@ -1,3 +1,4 @@
+import {PuddleRoomController} from './src/watercolor/puddle/PuddleRoomController'
 import {expect,it,vi} from 'vitest'
 import {createTestEngine,makeLayerAdd,makeStroke,dab,paperReady} from './testing/engineTestUtils'
 // Presentation only; the real NativePuddleTarget exclusive-owner assertion
@@ -12,6 +13,7 @@ it.each(['frame','canonical','close'] as const)('M70 %s preserves pending materi
   const dabs=Array.from({length:20},(_,i)=>dab(10+i*1.7,25,{size:8,opacity:1,t:i*10}))
   engine.appendOperation({...makeStroke('peer','M',dabs),id:'m70',tool:'watercolor',preset:'normal:95:34:PB29:round:wc@m70-r2-v1',strokeId:'m70',washId:'m70:M'},'remote')
   const controller=engine['_puddle']!
+  if(!(controller instanceof PuddleRoomController))throw Error('Small-page test requires monolithic controller')
   expect(controller.state.revisions.some(revision=>!revision.ready)).toBe(true)
   engine['_sliceLimits'].budgetMs=0;engine['_sliceLimits'].size=1
   engine.appendOperation({...makeStroke('peer','L',dabs),id:'legacy',tool:'watercolor',preset:'normal:95:34:PB29:round:wc@front8-detail-flow-v4',strokeId:'legacy',washId:'legacy'},'remote')

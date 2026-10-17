@@ -1,7 +1,10 @@
+import {PagedPuddleRoomController} from './src/watercolor/puddle/PagedPuddleRoomController'
+import {createPagedPuddleTarget} from './src/watercolor/puddle/PagedPuddleTarget'
+import {BufferResidency} from './src/buffers/BufferResidency'
 import { cancelRestoreGeneration } from '../lib/restoreGeneration'
 import {exactMaterialHistory} from './src/oplog/exactMaterialHistory'
 import {closedWatercolorCheckpoint} from './src/oplog/closedWatercolorCheckpoint'
-import {PuddleRoomController, MaterialSourceBusy, MaterialHistoryNotReady} from './src/watercolor/puddle/PuddleRoomController'
+import {PuddleRoomController, MaterialSourceBusy, MaterialHistoryNotReady, type PuddleRoomHost} from './src/watercolor/puddle/PuddleRoomController'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
 import { WatercolorPresentationRaster } from './src/watercolor/WatercolorPresentationRaster'
@@ -1665,26 +1668,28 @@ export class PencilEngine implements PencilEngineAPI {
   private readonly _hiddenM70Replay=new Map<ILayerBuffer,number>()
   /** QA prototype: capture cost on real devices must be measured before enabling. */
   diagnosticOpenWetUndoCache=false
-  private _puddle: PuddleRoomController | null = null
+  private _puddle: PuddleRoomController | PagedPuddleRoomController | null = null
   private _puddleStrokeRecorded: ((at: number) => boolean) | null = null
   private _puddleStrokeRelease: (() => void) | null = null
   private _m70GeometrySupported(): boolean {
-    const page=this._paper.pageSize(),tile=this._tileSize()
-    return !this._infinite && [page.w,page.h,tile.w,tile.h].every(Number.isFinite)
-      && [page.w,page.h,tile.w,tile.h].every(n=>Number.isSafeInteger(n) && n>0 && n<=1024)
-      && page.w===tile.w && page.h===tile.h
+    const page=this._paper.pageSize()
+    return !this._infinite && [page.w,page.h].every(n=>Number.isSafeInteger(n) && n>0)
   }
-  private _puddleFor(): PuddleRoomController {
-    if (!this._m70GeometrySupported()) throw new Error('M70 QA needs one bounded page tile up to 1024px per side')
+  private _puddleFor(): PuddleRoomController | PagedPuddleRoomController {
+    if (!this._m70GeometrySupported()) throw new Error('M70 requires a finite page with positive integer dimensions')
     if (this._puddle) return this._puddle
-    const {w,h}=this._tileSize()
+    const {w,h}=this._paper.pageSize()
+    const large=w>1024 || h>1024
+    const cache=large?new BufferResidency(this.gl,120*1024*1024):null
+    const make=(width:number,height:number,filter:'nearest'|'linear'='linear')=>new AccumulationBuffer(this.gl,width,height,filter,cache??undefined)
+    const pool=large?new RibbonScratchPool(this.gl,(width,height)=>make(width,height,'nearest')):this._ribbonScratchPool
     const bounds={minX:0,minY:0,maxX:w,maxY:h}
     this._ribbonPasses.diagnosticPigmentBlot=.45
     this._ribbonPainter.diagnosticBandBatch=true
     this.diagnosticWatercolorLiftSteps=4
     this.diagnosticNativeFieldMinimum=1024
-    return this._puddle=new PuddleRoomController({
-      gl:this.gl, size:{width:w,height:h}, settlePlan:this._settlePlan, pool:this._ribbonScratchPool, passes:this._watercolorPasses,
+    const host:PuddleRoomHost={
+      gl:this.gl, size:{width:w,height:h}, settlePlan:this._settlePlan, pool, passes:this._watercolorPasses,
       invalidateFrontPaths:()=>this._watercolorPasses.invalidateFrontPaths(),
       hasActiveSettle:()=>!!this._settle,
       finishLegacySettle:()=>this._completeSettle(),
@@ -1695,7 +1700,7 @@ export class PencilEngine implements PencilEngineAPI {
         if (!entry) return
         const sc=scratch.compositeScalars(()=>({spreadPx:0,inkSmoothPx:0,water:0,migratePx:0,fieldSeed:[0,0],bristleRadiusPx:0}))
         output.clear()
-        this._drawRibbonCompositeRect({...tile,buffer:output},bounds,ctx.preset,ctx.profile,entry.original,
+        this._drawRibbonCompositeRect({...tile,buffer:output},{minX:tile.originX,minY:tile.originY,maxX:tile.originX+tile.buffer.width,maxY:tile.originY+tile.buffer.height},ctx.preset,ctx.profile,entry.original,
           material.coverage,material.p,material.c,ctx.color,ctx.opacity,ctx.fieldSeed,0,sc.water,sc.migratePx,0,scratch.noteDirection(0,0),sc.bristleRadiusPx)
       },
       changed:target=>{target.resolveExistingForPaint(bounds);target.markContentPainted(bounds);this._paperPartialOK=false;this._paperCacheKey='';this._invalidateSplitCache()},
@@ -1713,7 +1718,13 @@ export class PencilEngine implements PencilEngineAPI {
           break
         }
       },
-    })
+    }
+    if(!large)return this._puddle=new PuddleRoomController(host)
+    const controller=new PagedPuddleRoomController({...host,makeBuffer:make,
+      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make)})
+    const destroy=controller.destroy.bind(controller)
+    controller.destroy=()=>{try{destroy()}finally{pool.destroy();cache!.dispose()}}
+    return this._puddle=controller
   }
   /** QA cache miss: reconstruct material without touching the operation stream.
    * Current effective projections are authoritative, even when controls arrived
@@ -1972,7 +1983,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private readonly _settlePlan = new WatercolorSettlePlan({
     gl: () => this.gl,
-    fieldFor: (w, h, scale, compact) => this._diffuseFieldFor(w, h, scale, compact),
+    fieldFor: (w, h, scale, compact, nativeMinimum) => this._diffuseFieldFor(w, h, scale, compact, nativeMinimum),
     paperWorldSize: () => this._paperWorldSize(),
     pool: () => this._ribbonScratchPool,
     minmaxExt: () => this._minmaxExt,
@@ -2580,10 +2591,10 @@ export class PencilEngine implements PencilEngineAPI {
         this._puddle = null
         try {
           this._replayInto(buf, id, ops, false)
-          const material = this._puddle as PuddleRoomController | null
+          const material = this._puddle as PuddleRoomController | PagedPuddleRoomController | null
           material?.close(buf)
         } finally {
-          (this._puddle as PuddleRoomController | null)?.destroy()
+          (this._puddle as PuddleRoomController | PagedPuddleRoomController | null)?.destroy()
           this._puddle = livePuddle
           this._log = liveLog
         }
@@ -6046,7 +6057,7 @@ export class PencilEngine implements PencilEngineAPI {
     const livePuddle=this._puddle
     this._puddle=null
     try { return this._snapshotIO.bakeByFullReplay(layerId) }
-    finally { (this._puddle as PuddleRoomController | null)?.destroy();this._puddle=livePuddle }
+    finally { (this._puddle as PuddleRoomController | PagedPuddleRoomController | null)?.destroy();this._puddle=livePuddle }
 
   }
 
@@ -6605,7 +6616,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     const m70Stroke=this._opts.tool==='watercolor' && this._watercolorModel==='m70-r2-v1'
     // Reject before allocating gesture state: subsequent MOVE/UP must be no-ops.
-    if(m70Stroke && !this._m70GeometrySupported())throw new Error('M70 QA needs one bounded page tile up to 1024px per side')
+    if(m70Stroke && !this._m70GeometrySupported())throw new Error('M70 requires a finite page with positive integer dimensions')
     const eraseIds=this._opts.tool==='eraser'
       ? [...new Set([layerId,...this._eraseThroughIds.filter(id=>this._layers.has(id))])] : []
     // Cross-layer erasing is atomic with respect to missing material history:
@@ -7825,7 +7836,7 @@ export class PencilEngine implements PencilEngineAPI {
     recordedOp?: StrokeOperation,
   ): ReadonlyMap<Dab, number> | undefined {
     if (!dabs.length) return undefined
-    if (!(target instanceof AccumulationBuffer) && tool==='eraser' && this._puddle?.eraseDryBase(target,base=>this._stamps.paint(base,dabs,tool,presetName,color),logicalAt,recordedOp?.id)) return undefined
+    if (!(target instanceof AccumulationBuffer) && tool==='eraser' && this._puddle?.eraseDryBase(target,(base,tile)=>this._stamps.paint(base,tile?dabs.map(d=>({...d,x:d.x-tile.originX,y:d.y-tile.originY})):dabs,tool,presetName,color),logicalAt,recordedOp?.id)) return undefined
     if (tool!=='watercolor' && !(target instanceof AccumulationBuffer)) this._closeM70PixelSource(target, recordedOp?.layerId ?? [...this._layers].find(([, buf])=>buf===target)?.[0])
     // Logical input remains immediate. Only isolated display copies may change
     // before the preceding canonical solver has landed.
@@ -8900,12 +8911,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  before; what changed is only that it now always has empty paper to its
    *  right and below, where it used to meet the texture's clamped edge
    *  whenever its span was a multiple of 256. */
-  private _diffuseFieldFor(w: number, h: number, scale = 1, compact: boolean | 'tight' = false): SettleField {
+  private _diffuseFieldFor(w: number, h: number, scale = 1, compact: boolean | 'tight' = false, materialMinimum?: number): SettleField {
     // A settle still spread over frames works in the field it was handed:
     // it lands first, before the field is cleared or replaced under it.
     if (this._settle) this._completeSettle()
     // v2 changes the recorded field extent, not the cell scale or old models.
-    const nativeMinimum = this._watercolorReview ? Math.max(256, Math.min(WC_FIELD_PX, Math.floor(this.diagnosticNativeFieldMinimum) || WC_FIELD_PX)) : WC_FIELD_PX
+    const nativeMinimum = materialMinimum ?? (this._watercolorReview ? Math.max(256, Math.min(WC_FIELD_PX, Math.floor(this.diagnosticNativeFieldMinimum) || WC_FIELD_PX)) : WC_FIELD_PX)
     const minimum = compact === 'tight' && scale === 2 ? WC_FIELD_PX / 3 : (compact || this._settlePlan.diagnosticCoarseTransport) && scale === 2 ? WC_FIELD_PX / 2 : nativeMinimum
     const need = (n: number): number => Math.max(minimum, Math.ceil(n / 256) * 256)
     const W = need(w), H = need(h)

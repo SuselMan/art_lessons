@@ -4,7 +4,6 @@ import { createTestEngine, makeLayerAdd, paperReady, readLayerPixels, simulateSt
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks() })
 
 for(const geometry of [
-  {pageWidth:1536,pageHeight:1536,infinite:false},
   {pageWidth:64,pageHeight:64,infinite:true},
 ])it(`rejects M70 DOWN atomically on ${JSON.stringify(geometry)}`, async()=>{
   const {engine}=createTestEngine({userId:'artist',watercolorModel:'m70-r2-v1',...geometry},{width:64,height:64})
@@ -16,7 +15,7 @@ for(const geometry of [
   const allocate=vi.spyOn(internal,'_puddleFor')
   const before=readLayerPixels(engine,'paint')
   const operations=engine.getOperations().map(op=>op.id)
-  expect(()=>simulateStrokeStart(engine,10,12)).toThrow('one bounded page tile up to 1024px per side')
+  expect(()=>simulateStrokeStart(engine,10,12)).toThrow('finite page with positive integer dimensions')
   expect(internal._strokeLayerId).toBeNull();expect(internal._strokeId).toBeNull()
   for(let i=0;i<20;i++)simulateStrokeMove(engine,10+i,12)
   simulateStrokeEnd(engine,35,12)
@@ -74,15 +73,19 @@ for(const[pageWidth,pageHeight]of [[512,768],[768,512]])it(`keeps rectangular Dr
  }finally{engine.destroy()}
 })
 
-it('requires exact single-tile page geometry and rejects invalid axes',async()=>{
+it('accepts arbitrary finite page geometry and rejects invalid axes',async()=>{
  const {engine}=createTestEngine({userId:'artist',watercolorModel:'m70-r2-v1',pageWidth:64,pageHeight:64},{width:64,height:64})
  await paperReady(engine);vi.useFakeTimers()
  try{
   const internal=engine as unknown as {_tileSize():{w:number;h:number}}
   const page=vi.spyOn(engine['_paper'],'pageSize'),tile=vi.spyOn(internal,'_tileSize')
-  for(const[w,h,tw,th]of [[512,768,512,512],[1024,1025,1024,1024],[0,512,0,512],[1.5,512,1.5,512],[NaN,512,64,512],[512,Infinity,512,64]]){
+  for(const[w,h,tw,th]of [[0,512,0,512],[1.5,512,1.5,512],[NaN,512,64,512],[512,Infinity,512,64]]){
    page.mockReturnValue({w,h});tile.mockReturnValue({w:tw,h:th})
    expect(engine['_m70GeometrySupported']()).toBe(false)
+  }
+  for(const[w,h]of [[1240,1754],[1754,1240],[1754,2480],[2480,1754],[2480,3508],[3508,2480],[4096,100],[100,4096]]){
+   page.mockReturnValue({w,h});tile.mockReturnValue({w:Math.min(1024,w),h:Math.min(1024,h)})
+   expect(engine['_m70GeometrySupported']()).toBe(true)
   }
  }finally{engine.destroy()}
 })

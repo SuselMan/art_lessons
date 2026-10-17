@@ -1,3 +1,4 @@
+import {PuddleRoomController} from './src/watercolor/puddle/PuddleRoomController'
 import {afterEach,expect,it,vi} from 'vitest'
 import type {Operation} from '@grafetto/shared'
 import {createTestEngine,dab,makeLayerAdd,makeStroke,paperReady,readLayerPixels} from './testing/engineTestUtils'
@@ -14,7 +15,9 @@ async function replay(ops:Operation[],hidden:boolean){
  engine.diagnosticM70HiddenReplay=hidden
  engine.appendOperation(makeLayerAdd('A','L'),'remote')
  for(const op of ops)engine['_log'].append(op)
- const target=engine['_layers'].get('L')!,puddle=engine['_puddleFor'](),host=puddle['host'],render=vi.spyOn(host,'render'),solver=puddle['solver'],reset=solver.resetFromScratch.bind(solver)
+ const target=engine['_layers'].get('L')!,puddle=engine['_puddleFor']()
+ if(!(puddle instanceof PuddleRoomController))throw Error('Small-page test requires monolithic controller')
+ const host=puddle['host'],render=vi.spyOn(host,'render'),solver=puddle['solver'],reset=solver.resetFromScratch.bind(solver)
  const material:Array<Record<string,Uint8Array|null>>=[]
  vi.spyOn(solver,'resetFromScratch').mockImplementation((scratch,tile,epoch)=>{
   const entry=scratch.peek(tile.buffer)!,snapshot:Record<string,Uint8Array|null>={}

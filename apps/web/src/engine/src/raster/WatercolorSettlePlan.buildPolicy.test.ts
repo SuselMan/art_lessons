@@ -7,6 +7,7 @@ function execute(dev:boolean,model:'m70-r2-v1'|'front8-detail-flow-v4',travel:bo
  vi.stubEnv('DEV',dev)
  const {engine}=createTestEngine({paper:'flat'},{width:1024,height:1024})
  const pool=engine['_ribbonScratchPool'],passes=engine['_watercolorPasses'],owner=engine['_settlePlan']
+ const fieldFor=vi.spyOn(engine as unknown as {_diffuseFieldFor(...args:unknown[]):unknown},'_diffuseFieldFor')
  const tile=pool.acquire(1024,1024),scratch=new RibbonStrokeScratch(pool,true,true)
  engine.initLayer('policy')
  scratch.filmBuffers(tile);scratch.paints.add('1,0,0');if(twoPaints)scratch.paints.add('0,0,1')
@@ -34,20 +35,20 @@ function execute(dev:boolean,model:'m70-r2-v1'|'front8-detail-flow-v4',travel:bo
   const count=job.ops.length
   for(let i=0;i<job.ops.length;i++)job.ops[i]()
   job.finish()
-  return {trace,count,paired:!trace.some(row=>(row as unknown[])[0]==='pigmentColor'),contacts:trace.some(row=>(row as unknown[])[0]==='brushPass'),preserve:detail.mock.calls.some(([request])=>request.preserveBrush)}
+  return {fieldMinimum:fieldFor.mock.calls[0]?.[4],trace,count,paired:!trace.some(row=>(row as unknown[])[0]==='pigmentColor'),contacts:trace.some(row=>(row as unknown[])[0]==='brushPass'),preserve:detail.mock.calls.some(([request])=>request.preserveBrush)}
  }finally{job?.dispose();detail.mockRestore();for(const spy of spies)spy.mockRestore();scratch.destroy();pool.release(tile);engine.destroy();vi.unstubAllEnvs()}
 }
 for(const travel of [false,true])for(const twoPaints of [false,true])it(`M70 actual prepare has identical approved build policy (travel=${travel},twoPaints=${twoPaints})`,()=>{
  const qa=execute(true,'m70-r2-v1',travel,twoPaints,true)
  expect(execute(false,'m70-r2-v1',travel,twoPaints,true)).toEqual(qa)
  expect(execute(false,'m70-r2-v1',travel,twoPaints,false)).toEqual(qa)
- expect(qa.paired).toBe(true);expect(qa.contacts).toBe(false);expect(qa.preserve).toBe(true)
+ expect(qa.fieldMinimum).toBe(1024);expect(qa.paired).toBe(true);expect(qa.contacts).toBe(false);expect(qa.preserve).toBe(true)
 })
 it('legacy single-point prepare retains its build-scoped diagnostic opt-ins',()=>{
  const qa=execute(true,'front8-detail-flow-v4',false,false,true)
  const production=execute(false,'front8-detail-flow-v4',false,false,true)
  expect(qa.paired).toBe(true);expect(qa.preserve).toBe(true)
- expect(production.paired).toBe(false);expect(production.preserve).toBe(false)
+ expect(production.fieldMinimum).toBeUndefined();expect(production.paired).toBe(false);expect(production.preserve).toBe(false)
 })
 it('legacy recorded brush contacts remain enabled in production',()=>{
  expect(execute(false,'front8-detail-flow-v4',true,true,true).contacts).toBe(true)

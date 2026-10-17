@@ -32,11 +32,11 @@ export function createPagedDraw(gl:WebGLRenderingContext,size:{width:number;heig
  return {
   draw(program:WebGLProgram,out:AccumulationBuffer,textures:Record<string,AccumulationBuffer>,rect:MaterialRect={x:0,y:0,...size},uniforms?:()=>void){
    if(Object.values(textures).some(b=>b.texture===out.texture))throw Error('Paged draw cannot sample its output texture')
-   out.beginReplaceDraw();gl.disable(gl.SCISSOR_TEST);gl.useProgram(program)
+   out.beginReplaceDraw();try{gl.disable(gl.SCISSOR_TEST);gl.useProgram(program)
    gl.bindBuffer(gl.ARRAY_BUFFER,quad);const a=gl.getAttribLocation(program,'pos');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0)
    Object.entries(textures).forEach(([name,b],i)=>{gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,b.texture);gl.uniform1i(gl.getUniformLocation(program,name),i)})
    gl.uniform2f(gl.getUniformLocation(program,'origin'),rect.x/size.width,rect.y/size.height);gl.uniform2f(gl.getUniformLocation(program,'extent'),rect.width/size.width,rect.height/size.height);gl.uniform2f(gl.getUniformLocation(program,'worldSize'),size.width,size.height);gl.uniform2f(gl.getUniformLocation(program,'windowOrigin'),rect.x,rect.y);gl.uniform2f(gl.getUniformLocation(program,'windowExtent'),rect.width,rect.height)
-   try {uniforms?.();gl.drawArrays(gl.TRIANGLES,0,6)}finally{out.endDraw();gl.activeTexture(gl.TEXTURE0)}
+   uniforms?.();gl.drawArrays(gl.TRIANGLES,0,6)}finally{try{out.endDraw()}finally{gl.activeTexture(gl.TEXTURE0)}}
   },destroy(){gl.deleteBuffer(quad)}
  }
 }

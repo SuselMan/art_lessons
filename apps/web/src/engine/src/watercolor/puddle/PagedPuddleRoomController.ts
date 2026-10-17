@@ -373,7 +373,7 @@ export class PagedPuddleRoomController {
   }
   /** Mutate only the dry substrate. Wet deposits remain the canonical source;
    * presentation pixels are never fed back into either material buffer. */
-  eraseDryBase(target: ILayerBuffer, paint: (base: AccumulationBuffer) => void, logicalAt?: number, beforeRecordedOpId?: string): boolean {
+  eraseDryBase(target: ILayerBuffer, paint: (base: AccumulationBuffer,tile?:PaintTarget) => void, logicalAt?: number, beforeRecordedOpId?: string): boolean {
     // Never use Date.now here: historical replay must retain water until the
     // next recorded action actually crosses the layer's expiry boundary.
     if (logicalAt !== undefined) this.closeIfDry(target, logicalAt)
@@ -384,7 +384,7 @@ export class PagedPuddleRoomController {
     for(const state of layer.tiles.values()) {
       const entry=layer.scratch.peek(state.tile.buffer)
       if(!entry?.inkLoad || !entry.inkColor)continue
-      paint(entry.original)
+      paint(entry.original,state.tile)
       if(this.host.deferPresentation?.(target))layer.deferredPresentation=true
       else {
         this.host.render(layer.scratch,state.tile,layer.context,state.raw,{p:entry.inkLoad,c:entry.inkColor,coverage:entry.coverage})

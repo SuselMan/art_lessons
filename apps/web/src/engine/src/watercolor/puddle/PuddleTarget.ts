@@ -51,18 +51,25 @@ export function createNativePuddleTarget(host: PuddleTargetHost, size: PuddleSiz
   const contrast=options.contrast ?? createContrastPhase(gl, readParameters, size)
   let initialWater:AccumulationBuffer|null=null,capturedWater:AccumulationBuffer|null=null
   const guardProgram=createProgram(gl,'attribute vec2 pos;varying vec2 uv;void main(){uv=pos*.5+.5;gl_Position=vec4(pos,0.,1.);}','precision highp float;varying vec2 uv;uniform sampler2D raw,result,water;void main(){float wet=smoothstep(0.,.03,texture2D(water,uv).a*4.);gl_FragColor=mix(texture2D(raw,uv),texture2D(result,uv),wet);}')
-  function guardDryPixels(dst:AccumulationBuffer,raw:AccumulationBuffer){if(!initialWater)throw Error('M55 requires raw fluid');const temp=pool.acquire(width,height);try{temp.beginReplaceDraw();gl.disable(gl.SCISSOR_TEST);gl.useProgram(guardProgram);gl.bindBuffer(gl.ARRAY_BUFFER,alignQuad);const pos=gl.getAttribLocation(guardProgram,'pos');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);for(const [unit,name,b]of [[0,'raw',raw],[1,'result',dst],[2,'water',initialWater]]as const){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,b.texture);gl.uniform1i(gl.getUniformLocation(guardProgram,name),unit)}gl.drawArrays(gl.TRIANGLES,0,6);temp.endDraw();gl.activeTexture(gl.TEXTURE0);temp.copyTo(dst)}finally{pool.release(temp)}}
+  function guardDryPixels(dst:AccumulationBuffer,raw:AccumulationBuffer){if(!initialWater)throw Error('M55 requires raw fluid');const temp=pool.acquire(width,height);try{temp.beginReplaceDraw();try{gl.disable(gl.SCISSOR_TEST);gl.useProgram(guardProgram);gl.bindBuffer(gl.ARRAY_BUFFER,alignQuad);const pos=gl.getAttribLocation(guardProgram,'pos');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);for(const [unit,name,b]of [[0,'raw',raw],[1,'result',dst],[2,'water',initialWater]]as const){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,b.texture);gl.uniform1i(gl.getUniformLocation(guardProgram,name),unit)}gl.drawArrays(gl.TRIANGLES,0,6)}finally{try{temp.endDraw()}finally{gl.activeTexture(gl.TEXTURE0)}}temp.copyTo(dst)}finally{pool.release(temp)}}
   const alignProgram=createProgram(gl,'attribute vec2 pos;varying vec2 uv;void main(){uv=pos*.5+.5;gl_Position=vec4(pos,0.,1.);}','precision highp float;varying vec2 uv;uniform sampler2D p,c;void main(){vec4 v=texture2D(p,uv);v.b=min(texture2D(c,uv).a,v.a);gl_FragColor=v;}')
   const alignQuad=gl.createBuffer()!;gl.bindBuffer(gl.ARRAY_BUFFER,alignQuad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)
   const background=options.background ?? createBackgroundMix(gl,size,readParameters,options.portableNoise??false)
   let post:Array<()=>void>=[],postAt=0
   let initialP:AccumulationBuffer|null=null,initialC:AccumulationBuffer|null=null
-  const out = {
-    p: make(width, height, 'nearest'),
-    c: make(width, height, 'nearest'),
-    coverage: make(width, height, 'nearest'),
+  const allocated:AccumulationBuffer[]=[]
+  const allocate=()=>{const buffer=make(width,height,'nearest');allocated.push(buffer);return buffer}
+  let out:{p:AccumulationBuffer;c:AccumulationBuffer;coverage:AccumulationBuffer},contour:AccumulationBuffer
+  try{
+    out={p:allocate(),c:allocate(),coverage:allocate()}
+    contour=allocate()
+  }catch(error){
+    for(const buffer of allocated)buffer.destroy()
+    gl.deleteProgram(alignProgram);gl.deleteProgram(guardProgram);gl.deleteBuffer(alignQuad)
+    if(!options.contrast)contrast.destroy()
+    if(!options.background)background.destroy()
+    throw error
   }
-  const contour=make(width,height,'nearest')
   const state = { epoch: 0, iterations: 0, done: true, total: 0, revision: 0 }
   let scratch: RibbonStrokeScratch | null = null
   let job: NativeJob | null = null
@@ -72,10 +79,12 @@ export function createNativePuddleTarget(host: PuddleTargetHost, size: PuddleSiz
   let dryCoverage: AccumulationBuffer | null = null
   const cancel = () => {
     post=[];postAt=0
-    if(capturedWater){pool.release(capturedWater);capturedWater=null}initialWater=null
-    job?.dispose(); job = null
-    scratch?.destroy(); scratch = null; key = null
-    state.done = true; completed = false
+    const water=capturedWater,activeJob=job,activeScratch=scratch
+    capturedWater=null;initialWater=null;job=null;scratch=null;key=null
+    state.done=true;completed=false
+    try{activeJob?.dispose()}finally{
+      try{activeScratch?.destroy()}finally{if(water)pool.release(water)}
+    }
   }
   const publish = (p: AccumulationBuffer, c: AccumulationBuffer | null, _coverage: AccumulationBuffer) => {
     p.copyTo(out.p)
@@ -111,7 +120,7 @@ export function createNativePuddleTarget(host: PuddleTargetHost, size: PuddleSiz
       }
       // Raw optical mass is authoritative; live P.b and C.a can differ after channel fitting.
       const aligned=pool.acquire(width,height)
-      try{aligned.beginReplaceDraw();gl.disable(gl.SCISSOR_TEST);gl.useProgram(alignProgram);gl.bindBuffer(gl.ARRAY_BUFFER,alignQuad);const pos=gl.getAttribLocation(alignProgram,'pos');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);for(const [unit,name,buffer]of [[0,'p',entry.inkLoad!],[1,'c',entry.inkColor!]]as const){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,buffer.texture);gl.uniform1i(gl.getUniformLocation(alignProgram,name),unit)}gl.drawArrays(gl.TRIANGLES,0,6);aligned.endDraw();gl.activeTexture(gl.TEXTURE0);aligned.copyTo(entry.inkLoad!)}finally{pool.release(aligned)}
+      try{aligned.beginReplaceDraw();try{gl.disable(gl.SCISSOR_TEST);gl.useProgram(alignProgram);gl.bindBuffer(gl.ARRAY_BUFFER,alignQuad);const pos=gl.getAttribLocation(alignProgram,'pos');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);for(const [unit,name,buffer]of [[0,'p',entry.inkLoad!],[1,'c',entry.inkColor!]]as const){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,buffer.texture);gl.uniform1i(gl.getUniformLocation(alignProgram,name),unit)}gl.drawArrays(gl.TRIANGLES,0,6)}finally{try{aligned.endDraw()}finally{gl.activeTexture(gl.TEXTURE0)}}aligned.copyTo(entry.inkLoad!)}finally{pool.release(aligned)}
       // Local background and positive concentration/composition excess,
       // extracted from the complete initial wash, never the previous goal.
       initialWater=sourceEntry.solventLoad??sourceEntry.foreignSolventLoad??null
@@ -199,13 +208,14 @@ export function createNativePuddleTarget(host: PuddleTargetHost, size: PuddleSiz
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]), gl.STATIC_DRAW)
         dryCoverage = make(width, height, 'nearest')
       }
-      dryCoverage!.beginReplaceDraw(); gl.disable(gl.SCISSOR_TEST); gl.useProgram(dryProgram)
+      dryCoverage!.beginReplaceDraw(); try {gl.disable(gl.SCISSOR_TEST); gl.useProgram(dryProgram)
       gl.bindBuffer(gl.ARRAY_BUFFER, dryQuad)
       const position = gl.getAttribLocation(dryProgram, 'a_position')
       gl.enableVertexAttribArray(position); gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, out.coverage.texture)
       gl.uniform1i(gl.getUniformLocation(dryProgram, 'u_source'), 0)
-      gl.drawArrays(gl.TRIANGLES, 0, 6); dryCoverage!.endDraw()
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+      } finally {try {dryCoverage!.endDraw()} finally {gl.activeTexture(gl.TEXTURE0)}}
       dryCoverage!.copyTo(out.coverage)
       state.revision++
       return true
