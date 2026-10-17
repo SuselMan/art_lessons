@@ -16,7 +16,7 @@ const zoomControls=new WeakMap(),zoomPrev=document.getElementById('zoom-prev'),z
 const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n};
 const finite=x=>typeof x==='number'&&Number.isFinite(x)&&x>0;
 const time=x=>finite(x)?new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(x)+' мс':'без замера';
-function result(v){if(v.comparable===true&&finite(v.timeMs)&&finite(v.baselineMs)){const ratio=v.baselineMs/v.timeMs;return time(v.timeMs)+' · '+(typeof v.gainText==='string'&&v.gainText.trim()?v.gainText:ratio>=1?'быстрее в '+ratio.toFixed(2).replace('.',',')+' раза':'медленнее в '+(1/ratio).toFixed(2).replace('.',',')+' раза')}return 'другая модель · '+time(v.timeMs)}
+function result(v){if(typeof v.resultText==='string')return (finite(v.timeMs)?time(v.timeMs)+' · ':'')+v.resultText;if(v.comparable===true&&finite(v.timeMs)&&finite(v.baselineMs)){const ratio=v.baselineMs/v.timeMs;return time(v.timeMs)+' · '+(typeof v.gainText==='string'&&v.gainText.trim()?v.gainText:ratio>=1?'быстрее в '+ratio.toFixed(2).replace('.',',')+' раза':'медленнее в '+(1/ratio).toFixed(2).replace('.',',')+' раза')}return 'другая модель · '+time(v.timeMs)}
 if(typeof DATA.title==='string')document.getElementById('title').textContent=DATA.title;
 if(typeof DATA.note==='string')document.getElementById('intro').textContent=DATA.note;
 const scenes=Array.isArray(DATA.scenes)?DATA.scenes:[];
