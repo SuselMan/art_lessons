@@ -1,0 +1,7 @@
+# Samsung A50/B50 prefix — SKIP, не PASS
+
+Runtimee8e1f005. Запрошен неизменённый prefixtracea3cf0155, SHA25660e9f1e545fd706422f127c8e07c7b0fd61be8da88085f14d2407ba8f9b64795: два browserauthorcontext на одном Samsung CDP19335, A50/B50 ручных callbacks,4moves, RAFкаждые3, cache/hiddenOFF. Это диагностический protocolinput, не trustedpen/native-layout замер.
+
+Playwright подключился к browserWebSocket, но не завершил connectOverCDPинициализацию за30s. Создание browsercontexts, GPUidentity, callbacks и rasteroracle не достигнуты. RawCDP на том же канале работал в предыдущемcausal20и ответилпослеSKIP. Поэтому результат — инфраструктурныйSKIP; он не подтверждает и не опровергает #752 и не означает M70ошибку/нехватку GPUпамяти. КонтрольA50/B0 не запускался, поскольку требует тот же недоступный этапинициализации. Rawадаптер не разрабатывался по решению руководителя: desktopRCA уже выделяет carrycheckpointпуть.
+
+Создана одна prefixfixture (B0fixture не создавалась), удалена exactownerAPI200, authудалён. Созданных собственных browsercontext нет; проверка списка targetsне нашла страниц собственных prefix/causalкомнат. Собственный локальный forward19335PID4046021остановлен после проверкиcmdline; общий удалённый ADBforward9235не менялся, пользовательский Chrome продолжает отвечать. Обе прежниеcausalfixtureтоже удалены, authфайлов0. Зарегистрированныйrawcacheожидаетguardedfinish; компактная диагностика сохранена.
