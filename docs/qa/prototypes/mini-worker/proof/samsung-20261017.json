@@ -1,0 +1,242 @@
+{
+  "issue": 802,
+  "device": "Samsung SM-T970 / Adreno650 / Chrome155",
+  "scope": "Single matched pointer/settings pair, worker then main, fresh own contexts; JS goal timing, no GPU fence or pixel oracle.",
+  "qualification": [
+    "Both modes use the same1024 runtime and no-pause local controller; hidden diagnostic DOM contour overlay omitted in both.",
+    "Per-generation heartbeat begins first DOWN and retains the first solve through the quick second stroke; values captured before screenshot/export work.",
+    "Worker counter click occurred during first solve; second DOWN arrived only3.8ms before first goal, so this is not a worst-case early queued-input measurement.",
+    "PNG bytes/signature validated after measurement; OS download destination not asserted. Known prototype Download filenames absent on device."
+  ],
+  "cases": [
+    {
+      "mode": "worker",
+      "inputSHA": "7924b50f7a8ae801833e0323a819662e848e9af9ca5e93309ea33c893d3c922d",
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "upToGoalJSms": 193.800048828125,
+          "upToMainReceivedMs": 203,
+          "upDequeueLagMs": 0.60009765625,
+          "solverStepMaxMs": 37,
+          "glError": 0
+        },
+        {
+          "id": 2,
+          "upToGoalJSms": 96.300048828125,
+          "upToMainReceivedMs": 110.099853515625,
+          "upDequeueLagMs": 0.60009765625,
+          "solverStepMaxMs": 13,
+          "glError": 0
+        }
+      ],
+      "wholeRunHeartbeat": {
+        "count": 358,
+        "maxGapMs": 133.59999999999945,
+        "over50": 2,
+        "last": 8256.8
+      },
+      "inputMaxProcessedLagMs": 48.500244140625,
+      "counterClickAfterFirstUPms": 145.60009765625,
+      "counterClickBeforeFirstGoal": true,
+      "secondDownAfterFirstUPms": 190.0,
+      "secondDownBeforeFirstGoalMs": 3.800048828125,
+      "secondDownQueueLagMs": 8.10009765625,
+      "secondDownHandlingMs": 2.800048828125,
+      "png": {
+        "bytes": 1601246,
+        "type": "image/png",
+        "signature": [
+          137,
+          80,
+          78,
+          71,
+          13,
+          10,
+          26,
+          10
+        ],
+        "qualification": "Encoded current visible canvas PNG; browser download/save destination not asserted"
+      },
+      "dryThenClearPassed": true,
+      "screenshot": {
+        "file": "worker-visible.png",
+        "sha256": "893a21a8ad38691fe5a0e453160a614cfe3dd16689c2971984e5290918660fa5"
+      },
+      "servedFiles": [
+        {
+          "file": "entry.js",
+          "bytes": 6370,
+          "sha256": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5"
+        },
+        {
+          "file": "worker.js",
+          "bytes": 541,
+          "sha256": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6"
+        },
+        {
+          "file": "chunk-OZHX7YP5.js",
+          "bytes": 32196,
+          "sha256": "09a26218c073b49a98b2970d0b6b88c5226491e642f174756ef717533181ab6b"
+        },
+        {
+          "file": "chunk-T23Z3D2L.js",
+          "bytes": 90,
+          "sha256": "b6f3951c78a0374fd9203866ca79420c4a450a93355aad0ebd90b0a305f9b2d5"
+        },
+        {
+          "file": "chunk-3TO6NZCW.js",
+          "bytes": 1119511,
+          "sha256": "d89294910481452b70b284c531be089af35026096947ef952c98c6a0f6b61749"
+        },
+        {
+          "file": "index.html",
+          "bytes": 4308,
+          "sha256": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f"
+        }
+      ],
+      "errors": 0,
+      "contextClosed": true
+    },
+    {
+      "mode": "main",
+      "inputSHA": "7924b50f7a8ae801833e0323a819662e848e9af9ca5e93309ea33c893d3c922d",
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "goals": [
+        {
+          "id": 1,
+          "upToGoalJSms": 217.199951171875,
+          "upToMainReceivedMs": 220.300048828125,
+          "upDequeueLagMs": 0.300048828125,
+          "solverStepMaxMs": 43.40000009536743,
+          "glError": 0
+        },
+        {
+          "id": 2,
+          "upToGoalJSms": 89.5,
+          "upToMainReceivedMs": 99,
+          "upDequeueLagMs": 0.10009765625,
+          "solverStepMaxMs": 14.099999904632568,
+          "glError": 0
+        }
+      ],
+      "wholeRunHeartbeat": {
+        "count": 401,
+        "maxGapMs": 183.89999999999964,
+        "over50": 3,
+        "last": 9214.3
+      },
+      "inputMaxProcessedLagMs": 55.5,
+      "counterClickAfterFirstUPms": 284.60009765625,
+      "counterClickBeforeFirstGoal": false,
+      "secondDownAfterFirstUPms": 330.400146484375,
+      "secondDownBeforeFirstGoalMs": -113.2001953125,
+      "secondDownQueueLagMs": 0.099853515625,
+      "secondDownHandlingMs": 7.400146484375,
+      "png": {
+        "bytes": 1602349,
+        "type": "image/png",
+        "signature": [
+          137,
+          80,
+          78,
+          71,
+          13,
+          10,
+          26,
+          10
+        ],
+        "qualification": "Encoded current visible canvas PNG; browser download/save destination not asserted"
+      },
+      "dryThenClearPassed": true,
+      "screenshot": {
+        "file": "main-visible.png",
+        "sha256": "4612fc3348f2ee990538f38cb98ce52993277a0347c443429cdc0f2453e051e4"
+      },
+      "servedFiles": [
+        {
+          "file": "entry.js",
+          "bytes": 6370,
+          "sha256": "5f2a445b88ac99d3533885cb1d4c8ba97889f3487943f0d610aa59a9b8ad0ea5"
+        },
+        {
+          "file": "worker.js",
+          "bytes": 541,
+          "sha256": "5f9d8637b6ff2ffaf92373e3166fd9897c15025b51e24ac48265cc752cf648a6"
+        },
+        {
+          "file": "chunk-OZHX7YP5.js",
+          "bytes": 32196,
+          "sha256": "09a26218c073b49a98b2970d0b6b88c5226491e642f174756ef717533181ab6b"
+        },
+        {
+          "file": "chunk-T23Z3D2L.js",
+          "bytes": 90,
+          "sha256": "b6f3951c78a0374fd9203866ca79420c4a450a93355aad0ebd90b0a305f9b2d5"
+        },
+        {
+          "file": "chunk-3TO6NZCW.js",
+          "bytes": 1119511,
+          "sha256": "d89294910481452b70b284c531be089af35026096947ef952c98c6a0f6b61749"
+        },
+        {
+          "file": "index.html",
+          "bytes": 4308,
+          "sha256": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f"
+        }
+      ],
+      "errors": 0,
+      "contextClosed": true
+    }
+  ],
+  "cleanup": {
+    "bootstrapClosed": 1,
+    "remainingMeasuredContexts": 0,
+    "remainingOwnBootstrap": 0,
+    "userTabsUntouched": true,
+    "forward19336Removed": true,
+    "reverseCreated": false,
+    "knownPrototypeDownloadsRemaining": 0
+  }
+}
