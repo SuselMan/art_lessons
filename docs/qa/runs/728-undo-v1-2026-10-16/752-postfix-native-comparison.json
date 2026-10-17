@@ -1,0 +1,814 @@
+{
+  "source": "6cd49722",
+  "gpu": "Native AMD Radeon Vega via owned CDP; 2 authors / fresh third context, same GPU",
+  "method": "Actual canonical target captured before forced-OFF independent full replay; full accepted API journal checked. Manual engine prefix callbacks; trusted CDP water followup. Real outbound A packets held after first10 until B seq11, no ACK or seq fabrication.",
+  "cases": {
+    "752-postfix-b1-gated3": {
+      "pass": true,
+      "prefixWireGate": {
+        "operations": 50,
+        "attempts": 50,
+        "retryAttempts": 0,
+        "owner": "341024a5-050b-451f-8082-9584754c3718",
+        "maxOwnAckSeq": 51,
+        "held": 2,
+        "released": 2,
+        "heldAt": 16892.29999998212,
+        "releasedAt": 17213,
+        "heldIds": [
+          "HpuIFQVw76",
+          "25kMsyJ7vf"
+        ],
+        "foreign": {
+          "id": "47mjqJlLh3",
+          "seq": 11
+        },
+        "done": true,
+        "heldMs": 320.7000000178814
+      },
+      "authoritativeJournal": {
+        "operations": 51,
+        "sha": "21ec40f6a8fe9714b4afa16fdeb3e5c41c3eafcf97e668fb0cba9b8c35afe43d",
+        "opContentsHash": "3eefe55a58716237c0e0940a5c353dda77f3fb9d981f0108986f78380e557c30",
+        "localPayloadsEqual": [
+          true,
+          true
+        ]
+      },
+      "prefixGoals": [
+        {
+          "readMs": 5.9000000059604645,
+          "bytes": 4194304,
+          "canonicalHash": "97e3d7ef41e439cfb04530a02fee65f2883549d16d24247420cdbd9f7b743154",
+          "oracleHash": "97e3d7ef41e439cfb04530a02fee65f2883549d16d24247420cdbd9f7b743154",
+          "changed": 0,
+          "max": 0,
+          "glError": 0
+        },
+        {
+          "readMs": 5.699999988079071,
+          "bytes": 4194304,
+          "canonicalHash": "97e3d7ef41e439cfb04530a02fee65f2883549d16d24247420cdbd9f7b743154",
+          "oracleHash": "97e3d7ef41e439cfb04530a02fee65f2883549d16d24247420cdbd9f7b743154",
+          "changed": 0,
+          "max": 0,
+          "glError": 0
+        }
+      ],
+      "errors": [],
+      "checkpointCounts": [
+        0,
+        0
+      ]
+    },
+    "752-postfix-b8-gated": {
+      "pass": true,
+      "prefixWireGate": {
+        "operations": 50,
+        "attempts": 50,
+        "retryAttempts": 0,
+        "owner": "42ec9895-23d4-4105-9e8d-f8c460d4302f",
+        "maxOwnAckSeq": 58,
+        "held": 2,
+        "released": 2,
+        "heldAt": 18972.899999976158,
+        "releasedAt": 19320.09999999404,
+        "heldIds": [
+          "q_4zqFpbRo",
+          "kavgfyUz2u"
+        ],
+        "foreign": {
+          "id": "Wx3wC1uHcO",
+          "seq": 11
+        },
+        "done": true,
+        "heldMs": 347.2000000178814
+      },
+      "authoritativeJournal": {
+        "operations": 58,
+        "sha": "71636268fe917f016ecb48cc7cdc338f3777cab08ca829eaf718631b6ff6d07d",
+        "opContentsHash": "a07ac6df0e99bcd9b340a7eb769a7bf5c8238e0d651ef0f733d65e63784a557e",
+        "localPayloadsEqual": [
+          true,
+          true
+        ]
+      },
+      "prefixGoals": [
+        {
+          "readMs": 5.9000000059604645,
+          "bytes": 4194304,
+          "canonicalHash": "d5769194e40e707074e1bf41979cf8ac7963214262a2c8cc39f049721ce7a73c",
+          "oracleHash": "d5769194e40e707074e1bf41979cf8ac7963214262a2c8cc39f049721ce7a73c",
+          "changed": 0,
+          "max": 0,
+          "glError": 0
+        },
+        {
+          "readMs": 5.5,
+          "bytes": 4194304,
+          "canonicalHash": "d5769194e40e707074e1bf41979cf8ac7963214262a2c8cc39f049721ce7a73c",
+          "oracleHash": "d5769194e40e707074e1bf41979cf8ac7963214262a2c8cc39f049721ce7a73c",
+          "changed": 0,
+          "max": 0,
+          "glError": 0
+        }
+      ],
+      "errors": [],
+      "checkpointCounts": [
+        0,
+        0
+      ]
+    },
+    "752-postfix-full100-followup": {
+      "pass": false,
+      "prefixWireGate": {
+        "operations": 50,
+        "attempts": 50,
+        "retryAttempts": 0,
+        "owner": "63961be0-5fab-4c1f-a130-553cc194ee0f",
+        "maxOwnAckSeq": 100,
+        "held": 2,
+        "released": 2,
+        "heldAt": 20996.30000001192,
+        "releasedAt": 22236.90000000596,
+        "heldIds": [
+          "dGxYkJuRlh",
+          "5gT5BCGhPL"
+        ],
+        "foreign": {
+          "id": "PT6VwAGiLe",
+          "seq": 11
+        },
+        "done": true,
+        "heldMs": 1240.5999999940395
+      },
+      "authoritativeJournal": {
+        "operations": 100,
+        "sha": "4ce1d6c58ca614dd218f0a7b7bd8d292436e2eb02f49029f2e31bda18c0de564",
+        "opContentsHash": "d097abfcb904dc2883bed625d90c69338b719fb2d949707a90c208809fafa83f",
+        "localPayloadsEqual": [
+          true,
+          true
+        ]
+      },
+      "prefixGoals": [
+        {
+          "readMs": 5.5999999940395355,
+          "bytes": 4194304,
+          "canonicalHash": "8fbd31946ef15c4f39ab780f06b3999b11c9a70e2afbfea2f0763c5bbb474f62",
+          "oracleHash": "8fbd31946ef15c4f39ab780f06b3999b11c9a70e2afbfea2f0763c5bbb474f62",
+          "changed": 0,
+          "max": 0,
+          "glError": 0
+        },
+        {
+          "readMs": 5.5999999940395355,
+          "bytes": 4194304,
+          "canonicalHash": "8fbd31946ef15c4f39ab780f06b3999b11c9a70e2afbfea2f0763c5bbb474f62",
+          "oracleHash": "8fbd31946ef15c4f39ab780f06b3999b11c9a70e2afbfea2f0763c5bbb474f62",
+          "changed": 0,
+          "max": 0,
+          "glError": 0
+        }
+      ],
+      "followup": {
+        "scope": "Next trusted water-only stroke; own Undo/Redo material invariants; wet cold C join and trusted next water before terminal layer Dry; cold actual compared against independently replayed complete API reference without history absorption or bitmap restoration",
+        "stages": [
+          {
+            "name": "next-native-water",
+            "actual": [
+              {
+                "hash": "f6c5a60e80aac470eaa8cae9ccef0cbe28098a19e7164ab295963bac755df720",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2213,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              },
+              {
+                "hash": "18cc405863a363b7f8221e74c823e031620723d06bd76249d7a9a606a06f8a2b",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2215,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              }
+            ],
+            "goals": [
+              {
+                "readMs": 6.200000017881393,
+                "bytes": 4194304,
+                "canonicalHash": "5fbe6b6f54af29d0090f989333d309986fb5e885649a3f893565a92d3292794c",
+                "oracleHash": "5fbe6b6f54af29d0090f989333d309986fb5e885649a3f893565a92d3292794c",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              },
+              {
+                "readMs": 6.300000011920929,
+                "bytes": 4194304,
+                "canonicalHash": "5fbe6b6f54af29d0090f989333d309986fb5e885649a3f893565a92d3292794c",
+                "oracleHash": "5fbe6b6f54af29d0090f989333d309986fb5e885649a3f893565a92d3292794c",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              }
+            ],
+            "operations": 101,
+            "acceptedContentHash": "c96d86091f2f893e5dd7ed1148ac9154650dc7c38b699b7166abaf62fb0300ef",
+            "localContentHashes": [
+              "c96d86091f2f893e5dd7ed1148ac9154650dc7c38b699b7166abaf62fb0300ef",
+              "c96d86091f2f893e5dd7ed1148ac9154650dc7c38b699b7166abaf62fb0300ef"
+            ]
+          },
+          {
+            "name": "undo-native-water",
+            "actual": [
+              {
+                "hash": "c130e5e8531257cefe4bbeb74216abcb934881a3df81e5f66861efe369ccda4b",
+                "bytes": 4194324,
+                "nonzeroAlpha": 1956,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              },
+              {
+                "hash": "cb62ad1102beedfeaa7874bb5edea17fac13b202a2dc37bc5f3339dd18838022",
+                "bytes": 4194324,
+                "nonzeroAlpha": 1956,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              }
+            ],
+            "goals": [
+              {
+                "readMs": 3.9000000059604645,
+                "bytes": 4194304,
+                "canonicalHash": "8fbd31946ef15c4f39ab780f06b3999b11c9a70e2afbfea2f0763c5bbb474f62",
+                "oracleHash": "8fbd31946ef15c4f39ab780f06b3999b11c9a70e2afbfea2f0763c5bbb474f62",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              },
+              {
+                "readMs": 7.5,
+                "bytes": 4194304,
+                "canonicalHash": "8fbd31946ef15c4f39ab780f06b3999b11c9a70e2afbfea2f0763c5bbb474f62",
+                "oracleHash": "8fbd31946ef15c4f39ab780f06b3999b11c9a70e2afbfea2f0763c5bbb474f62",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              }
+            ],
+            "operations": 102,
+            "acceptedContentHash": "d31757729d62db62edbca1bd3918ac6ecafca4f79d8f1f174adbb93caa6d5750",
+            "localContentHashes": [
+              "d31757729d62db62edbca1bd3918ac6ecafca4f79d8f1f174adbb93caa6d5750",
+              "d31757729d62db62edbca1bd3918ac6ecafca4f79d8f1f174adbb93caa6d5750"
+            ]
+          },
+          {
+            "name": "redo-native-water",
+            "actual": [
+              {
+                "hash": "fc505d888a6545a68f3fdfdec66682165936043df052381f940ed1c633ca0168",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2209,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              },
+              {
+                "hash": "cfce896f5daa409ae4067c8d8bd4c105ec73baffebb231c787ebfbbd11b8eeb4",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2214,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              }
+            ],
+            "goals": [
+              {
+                "readMs": 3.4000000059604645,
+                "bytes": 4194304,
+                "canonicalHash": "5fbe6b6f54af29d0090f989333d309986fb5e885649a3f893565a92d3292794c",
+                "oracleHash": "5fbe6b6f54af29d0090f989333d309986fb5e885649a3f893565a92d3292794c",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              },
+              {
+                "readMs": 4.699999988079071,
+                "bytes": 4194304,
+                "canonicalHash": "5fbe6b6f54af29d0090f989333d309986fb5e885649a3f893565a92d3292794c",
+                "oracleHash": "5fbe6b6f54af29d0090f989333d309986fb5e885649a3f893565a92d3292794c",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              }
+            ],
+            "operations": 103,
+            "acceptedContentHash": "713cbce884ada115ae3a3e78f087d70af56e73e815aa9075cde696950bb04b0a",
+            "localContentHashes": [
+              "713cbce884ada115ae3a3e78f087d70af56e73e815aa9075cde696950bb04b0a",
+              "713cbce884ada115ae3a3e78f087d70af56e73e815aa9075cde696950bb04b0a"
+            ]
+          }
+        ],
+        "waterStroke": "PNbF1Xp0wf",
+        "wetCold": {
+          "expectedOperations": 103,
+          "latestStrokeTimestamp": 1792206769050,
+          "actual": {
+            "hash": "d3f205eac253f8eaed9ffb0beef8cb48da1b22fe0afcc9aa1823481491c0f1bc",
+            "bytes": 4194324,
+            "nonzeroAlpha": 2204,
+            "actualPhysicalBeforeOracle": true,
+            "glError": 0
+          },
+          "material": {
+            "hasMaterial": true,
+            "cache": false,
+            "hidden": false,
+            "operations": 103,
+            "coverage": [],
+            "source": {
+              "epoch": 101,
+              "ready": true,
+              "active": true
+            },
+            "fields": {
+              "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+              "coverage": "284ea37b0f182407094b5223d5f211b85422034f06515e18cfb751614460c4a4",
+              "inkLoad": "ed208642c0476c3318de44330be3ef86b82df17188f69a5d4a9944f8beb311e4",
+              "inkColor": "b6dff20d3e636fc9404c90850ca7fce0a4f62da2b99c0dc3e37613435d0055b7",
+              "solventLoad": "d58cf6bc962cb6e394b3aa06aea1dca3fdce8a14fe17ace35268acdd24139946",
+              "foreignSolventLoad": null
+            },
+            "goalHash": "5fbe6b6f54af29d0090f989333d309986fb5e885649a3f893565a92d3292794c"
+          },
+          "ageMs": 21595,
+          "oracle": {
+            "readMs": 5.100000023841858,
+            "bytes": 4194304,
+            "canonicalHash": "5fbe6b6f54af29d0090f989333d309986fb5e885649a3f893565a92d3292794c",
+            "oracleHash": "5fbe6b6f54af29d0090f989333d309986fb5e885649a3f893565a92d3292794c",
+            "changed": 0,
+            "max": 0,
+            "glError": 0
+          }
+        },
+        "coldWaterStroke": "X7KMNTIs9c"
+      },
+      "failure": "AssertionError [ERR_ASSERTION]: Live journal differs from full accepted API payloads\n    at stage (/home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/wet-prefix-followup.cjs:7:1111)\n    at async Object.followWetPrefix (/home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/wet-prefix-followup.cjs:11:3177)\n    at async /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/open-wet-undo-cost.cjs:5:8420",
+      "errors": [],
+      "checkpointCounts": [
+        0,
+        0
+      ]
+    },
+    "752-payload-diagnostic": {
+      "pass": true,
+      "payloads": [
+        {
+          "apiCount": 104,
+          "localCount": 104,
+          "differences": [],
+          "orderExamples": []
+        },
+        {
+          "apiCount": 104,
+          "localCount": 104,
+          "differences": [],
+          "orderExamples": []
+        }
+      ],
+      "errors": []
+    },
+    "752-resumed-followup": {
+      "pass": false,
+      "prefixGoals": [
+        {
+          "readMs": 15.800000011920929,
+          "bytes": 4194304,
+          "canonicalHash": "df36d3e1864924dea6bd8d79b42ce454be4014f68f7b19326acbcf2931306fd1",
+          "oracleHash": "df36d3e1864924dea6bd8d79b42ce454be4014f68f7b19326acbcf2931306fd1",
+          "changed": 0,
+          "max": 0,
+          "glError": 0
+        },
+        {
+          "readMs": 6.5999999940395355,
+          "bytes": 4194304,
+          "canonicalHash": "9ae40e197f1862f09f4bf15991c906c5e1a7a4f6fc0c780a0e53c98e38eb942b",
+          "oracleHash": "df36d3e1864924dea6bd8d79b42ce454be4014f68f7b19326acbcf2931306fd1",
+          "changed": 6626,
+          "max": 241,
+          "glError": 0
+        }
+      ],
+      "followup": {
+        "scope": "Next trusted water-only stroke; own Undo/Redo material invariants; wet cold C join and trusted next water before terminal layer Dry; cold actual compared against independently replayed complete API reference without history absorption or bitmap restoration",
+        "stages": [],
+        "waterStroke": "fULbZal-OY",
+        "payloadDiagnostic": {
+          "name": "next-native-water",
+          "acceptedCount": 105,
+          "localCounts": [
+            105,
+            105
+          ],
+          "hashes": [
+            "5fa7daa4358e16750a0a545354a56128db7ae84ec1250452ff608e143f1a643c",
+            "5fa7daa4358e16750a0a545354a56128db7ae84ec1250452ff608e143f1a643c"
+          ],
+          "apiHash": "bb5ab12078fca4f21608349712eed63c2c0a67f3185dd8f503740d70332aa044",
+          "differences": [
+            [
+              {
+                "id": "h-z-OUMDvB",
+                "field": "color",
+                "local": [
+                  0.16470588235294117,
+                  0.23137254901960785,
+                  0.592156862745098
+                ],
+                "api": [
+                  0.1647058823529412,
+                  0.2313725490196079,
+                  0.592156862745098
+                ]
+              }
+            ],
+            [
+              {
+                "id": "h-z-OUMDvB",
+                "field": "color",
+                "local": [
+                  0.16470588235294117,
+                  0.23137254901960785,
+                  0.592156862745098
+                ],
+                "api": [
+                  0.1647058823529412,
+                  0.2313725490196079,
+                  0.592156862745098
+                ]
+              }
+            ]
+          ],
+          "serializationOnly": [
+            false,
+            false
+          ]
+        }
+      },
+      "failure": "Error: Live journal serialized payload hash differs; concrete field diagnostic retained\n    at stage (/home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/wet-prefix-followup.cjs:7:2265)\n    at async Object.followWetPrefix (/home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/wet-prefix-followup.cjs:10:63)\n    at async /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/prefix-resume-followup.cjs:5:93",
+      "errors": []
+    },
+    "752-resumed-followup-blue": {
+      "source": "6cd49722",
+      "pass": true,
+      "prefixGoals": [
+        {
+          "readMs": 15,
+          "bytes": 4194304,
+          "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+          "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+          "changed": 0,
+          "max": 0,
+          "glError": 0
+        },
+        {
+          "readMs": 8,
+          "bytes": 4194304,
+          "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+          "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+          "changed": 0,
+          "max": 0,
+          "glError": 0
+        }
+      ],
+      "followup": {
+        "scope": "Next trusted water-only stroke; own Undo/Redo material invariants; wet cold C join and trusted next water before terminal layer Dry; cold actual compared against independently replayed complete API reference without history absorption or bitmap restoration",
+        "stages": [
+          {
+            "name": "next-native-water",
+            "actual": [
+              {
+                "hash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2214,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              },
+              {
+                "hash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2214,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              }
+            ],
+            "goals": [
+              {
+                "readMs": 5.4000000059604645,
+                "bytes": 4194304,
+                "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              },
+              {
+                "readMs": 18.80000001192093,
+                "bytes": 4194304,
+                "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              }
+            ],
+            "operations": 106,
+            "acceptedContentHash": "af68b0fd9555bd16682d30c6567c3574fe71c0599728d536fc920b9b1503ad66",
+            "localContentHashes": [
+              "af68b0fd9555bd16682d30c6567c3574fe71c0599728d536fc920b9b1503ad66",
+              "af68b0fd9555bd16682d30c6567c3574fe71c0599728d536fc920b9b1503ad66"
+            ]
+          },
+          {
+            "name": "undo-native-water",
+            "actual": [
+              {
+                "hash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2214,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              },
+              {
+                "hash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2214,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              }
+            ],
+            "goals": [
+              {
+                "readMs": 6.199999988079071,
+                "bytes": 4194304,
+                "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              },
+              {
+                "readMs": 6,
+                "bytes": 4194304,
+                "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              }
+            ],
+            "operations": 107,
+            "acceptedContentHash": "7434b86097573da785465fc8f5929db1507e4e05f7985e012b201eb36b9e8bec",
+            "localContentHashes": [
+              "7434b86097573da785465fc8f5929db1507e4e05f7985e012b201eb36b9e8bec",
+              "7434b86097573da785465fc8f5929db1507e4e05f7985e012b201eb36b9e8bec"
+            ]
+          },
+          {
+            "name": "redo-native-water",
+            "actual": [
+              {
+                "hash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2214,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              },
+              {
+                "hash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2214,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              }
+            ],
+            "goals": [
+              {
+                "readMs": 5.399999976158142,
+                "bytes": 4194304,
+                "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              },
+              {
+                "readMs": 4.300000011920929,
+                "bytes": 4194304,
+                "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              }
+            ],
+            "operations": 108,
+            "acceptedContentHash": "32b9b11d46c6fda959ad704a1f44117610faa381d7cd286bfcd2e70466aa35e7",
+            "localContentHashes": [
+              "32b9b11d46c6fda959ad704a1f44117610faa381d7cd286bfcd2e70466aa35e7",
+              "32b9b11d46c6fda959ad704a1f44117610faa381d7cd286bfcd2e70466aa35e7"
+            ]
+          },
+          {
+            "name": "cold-C-next-native-water-all-three",
+            "actual": [
+              {
+                "hash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2214,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              },
+              {
+                "hash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2214,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              },
+              {
+                "hash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2214,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              }
+            ],
+            "goals": [
+              {
+                "readMs": 4.800000011920929,
+                "bytes": 4194304,
+                "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              },
+              {
+                "readMs": 6,
+                "bytes": 4194304,
+                "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              },
+              {
+                "readMs": 6.0999999940395355,
+                "bytes": 4194304,
+                "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              }
+            ],
+            "operations": 109,
+            "acceptedContentHash": "4077f022606fbe7ab35c9553bb9867e5e59ced3df3f8c16f3076807508367d7c",
+            "localContentHashes": [
+              "4077f022606fbe7ab35c9553bb9867e5e59ced3df3f8c16f3076807508367d7c",
+              "4077f022606fbe7ab35c9553bb9867e5e59ced3df3f8c16f3076807508367d7c",
+              "4077f022606fbe7ab35c9553bb9867e5e59ced3df3f8c16f3076807508367d7c"
+            ]
+          },
+          {
+            "name": "terminal-recorded-layer-dry",
+            "actual": [
+              {
+                "hash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2214,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              },
+              {
+                "hash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2214,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              },
+              {
+                "hash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "bytes": 4194324,
+                "nonzeroAlpha": 2214,
+                "actualPhysicalBeforeOracle": true,
+                "glError": 0
+              }
+            ],
+            "goals": [
+              {
+                "readMs": 5.100000023841858,
+                "bytes": 4194304,
+                "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              },
+              {
+                "readMs": 5.199999988079071,
+                "bytes": 4194304,
+                "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              },
+              {
+                "readMs": 5.300000011920929,
+                "bytes": 4194304,
+                "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+                "changed": 0,
+                "max": 0,
+                "glError": 0
+              }
+            ],
+            "operations": 110,
+            "acceptedContentHash": "619194e3d41443fc6b92cfa74dbed99cedb5a68bf000c3c55176624b0f8a78b4",
+            "localContentHashes": [
+              "619194e3d41443fc6b92cfa74dbed99cedb5a68bf000c3c55176624b0f8a78b4",
+              "619194e3d41443fc6b92cfa74dbed99cedb5a68bf000c3c55176624b0f8a78b4",
+              "619194e3d41443fc6b92cfa74dbed99cedb5a68bf000c3c55176624b0f8a78b4"
+            ]
+          }
+        ],
+        "waterStroke": "R_zGn5NOzt",
+        "wetCold": {
+          "expectedOperations": 108,
+          "latestStrokeTimestamp": 1792206998978,
+          "actual": {
+            "hash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+            "bytes": 4194324,
+            "nonzeroAlpha": 2214,
+            "actualPhysicalBeforeOracle": true,
+            "glError": 0
+          },
+          "material": {
+            "hasMaterial": true,
+            "cache": false,
+            "hidden": false,
+            "operations": 108,
+            "coverage": [],
+            "source": {
+              "epoch": 2,
+              "ready": true,
+              "active": true
+            },
+            "fields": {
+              "original": "52638c3cbc52e823d56d0a0804b97972eb4faca0f93a52330417cbf14018717c",
+              "coverage": "86e369814dd2a4ffb16ced73858f98be8226256727302d2a1b89e59eb2a42392",
+              "inkLoad": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+              "inkColor": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+              "solventLoad": "2623dce06266f5aec5cf673adb34eb00a80245ea3c448f5bf826a9111231f70c",
+              "foreignSolventLoad": null
+            },
+            "goalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3"
+          },
+          "ageMs": 22572,
+          "oracle": {
+            "readMs": 7.199999988079071,
+            "bytes": 4194304,
+            "canonicalHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+            "oracleHash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+            "changed": 0,
+            "max": 0,
+            "glError": 0
+          }
+        },
+        "coldWaterStroke": "2oQwOi1QoM",
+        "cold": {
+          "hash": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+          "bytes": 4194324,
+          "nonzeroAlpha": 2214,
+          "actualPhysicalBeforeOracle": true,
+          "glError": 0,
+          "expectedCompleteApiOracle": "0e16c0de23f7e19b2594757c99be8992f7fbf878c75872adb0a1b15dda0d37f3",
+          "actualCapturedBeforeAnyColdOracle": true
+        }
+      },
+      "errors": []
+    }
+  },
+  "qualifications": [
+    "Natural postfix B1 seq8 is not the historical CP8 race regression.",
+    "First gated attempt had faulty transport gate; second had wrong expected held count (outbox max2 in-flight); both harness-invalid, not product FAIL.",
+    "First full100 followup stopped after wet C next water due payload float precision discrepancy, not pixel failure. Initial key-order hypothesis withdrawn.",
+    "Two new pigment0 water color channels serialized with ~5e-17 differences in API. Do not claim all105 payload bytes equal."
+  ],
+  "conclusion": "Historical A50/B1 seq11 open-wash CP8 parity regression fixed on native AMD; B8/full100 exact. Wet cold material retained, next water, Undo/Redo, terminal Dry and physical cold persistence exact against complete accepted journal. No strict cross-GPU or ownership-exception causal claim."
+}
