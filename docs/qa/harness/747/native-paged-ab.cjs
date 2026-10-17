@@ -4,12 +4,13 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chr
  browser=await chromium.connectOverCDP(process.env.QA_CDP);const context=browser.contexts()[0];page=await context.newPage();
  const errors=[];page.on('pageerror',e=>errors.push({message:e.message,stack:e.stack}));
  await page.goto(process.env.QA_BASE_URL);await page.waitForLoadState('domcontentloaded');
+ await page.evaluate(off=>{globalThis.__qa747DisableDither=off},process.env.QA_DISABLE_DITHER==='1');
  if(process.env.QA_EXPORT_RGBA==='1')await page.evaluate(require('./rgba-export.cjs'));
  const result=await page.evaluate(async()=>{
   const [{PencilEngine},{AccumulationBuffer},{RibbonStrokeScratch},{ribbonProfileFor},{createNativePuddleTarget},{createPagedPuddleTarget},{createContrastPhase},{createBackgroundMix},{APPROVED_M70_PARAMETERS}]=await Promise.all([
    import('/src/engine/index.ts'),import('/src/engine/src/buffers/AccumulationBuffer.ts'),import('/src/engine/src/buffers/RibbonStrokeScratch.ts'),import('/src/engine/src/dabs/ribbonProfile.ts'),import('/src/engine/src/watercolor/puddle/PuddleTarget.ts'),import('/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts'),import('/src/engine/src/watercolor/puddle/ContrastPhase.ts'),import('/src/engine/src/watercolor/puddle/BackgroundMix.ts'),import('/src/engine/src/watercolor/puddle/PuddleParameters.ts')]);
   const canvas=document.createElement('canvas');canvas.width=64;canvas.height=64;document.body.append(canvas);
-  const e=new PencilEngine(canvas,{paper:'flat',pageWidth:1536,pageHeight:1536,watercolorModel:'m70-r2-v1',watercolorReview:true});await e.paperReady();
+  const e=new PencilEngine(canvas,{paper:'flat',pageWidth:1536,pageHeight:1536,watercolorModel:'m70-r2-v1',watercolorReview:true});await e.paperReady();const ditherInitial=e.gl.isEnabled(e.gl.DITHER);if(globalThis.__qa747DisableDither===true)e.gl.disable(e.gl.DITHER);
   const gl=e.gl,ext=gl.getExtension('WEBGL_debug_renderer_info'),renderer=ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):null;
   if(!renderer||/swiftshader|llvmpipe/i.test(renderer))throw Error('Native GPU required: '+renderer);
   const size=1536,bytes=size*size*4,planes={p:new Uint8Array(bytes),c:new Uint8Array(bytes),coverage:new Uint8Array(bytes),water:new Uint8Array(bytes)};
@@ -58,8 +59,8 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chr
    for(const name of ['p','c','coverage']){const a=actual.out[name],b=reference.out[name];let changed=0,max=0;const first=[];for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);if(d){changed++;if(first.length<8)first.push({x:Math.floor(i/4)%size,y:Math.floor(i/4/size),channel:i%4,a:a[i],b:b[i]})}max=Math.max(max,d)}diffs[name]={changed,max,first,actualHash:await hash(a),referenceHash:await hash(b)}}
    const stageDiffs={};for(const name of Object.keys(reference.stages)){const a=actual.stages[name],b=reference.stages[name];if(!a||a.length!==b.length)throw Error('Stage length mismatch '+name);let changed=0,max=0;for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);if(d)changed++;max=Math.max(max,d)}stageDiffs[name]={changed,max,actualHash:await hash(a),referenceHash:await hash(b)}}
    const rgbaExports=globalThis.__qa747ExportRGBA?await globalThis.__qa747ExportRGBA({referenceP:reference.out.p,referenceC:reference.out.c,actualP:actual.out.p,actualC:actual.out.c}):undefined;
-   return{rgbaExports,referenceDestroyedBuffers,qaScopes,stageDiffs,renderer,size,sourceLocation:location.origin,inputHashes,reference:{ms:reference.ms,steps:reference.steps,gl:reference.gl},actual:{ms:actual.ms,steps:actual.steps,gl:actual.gl},diffs,lost:gl.isContextLost(),sequential:true};
-  }finally{e.destroy()}
+   return{dither:{requestedOff:globalThis.__qa747DisableDither===true,initial:ditherInitial,atCapture:gl.isEnabled(gl.DITHER)},rgbaExports,referenceDestroyedBuffers,qaScopes,stageDiffs,renderer,size,sourceLocation:location.origin,inputHashes,reference:{ms:reference.ms,steps:reference.steps,gl:reference.gl},actual:{ms:actual.ms,steps:actual.steps,gl:actual.gl},diffs,lost:gl.isContextLost(),sequential:true};
+  }finally{if(ditherInitial)e.gl.enable(e.gl.DITHER);else e.gl.disable(e.gl.DITHER);e.destroy()}
  });
  const report={source:process.env.QA_SOURCE,...result,errors};fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
  assert.equal(errors.length,0);assert.equal(result.reference.gl,0);assert.equal(result.actual.gl,0);assert.equal(result.lost,false);
