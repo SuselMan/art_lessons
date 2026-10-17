@@ -1962,7 +1962,12 @@
       "lanpad": "No route to host",
       "samsung": "SM-T970 reachable"
     },
-    "nativeSurfaceChromePID14500": "unavailable: SSH unreachable, cannot prove process fate"
+    "nativeSurfaceChromePID14500": "unavailable: SSH unreachable, cannot prove process fate",
+    "singleWakeAttempt": {
+      "helperResult": "sent true: magic packet sent, wake must be verified separately",
+      "statusAfter15s": "SurfaceSSH timed out, LanpadNo route, Samsungreachable",
+      "outcome": "Access not restored; no additional wake, scan, router, PIN or network changes"
+    }
   },
   "limitations": [
     "Own-GPU independent replay exact at periodic deep checks, not strict AMD/Intel equality (#748 remains open).",
