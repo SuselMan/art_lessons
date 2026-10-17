@@ -1,0 +1,33 @@
+{
+  "base": "7b91e302",
+  "files": {
+    "apps/web/src/engine/src/watercolor/puddle/FieldJobLease.ts": {
+      "base": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "candidate": "622c4e58c15f64d50c447b0fdab9b19620a018d9bf0fba25da36de4e44119fff"
+    },
+    "apps/web/src/engine/src/watercolor/puddle/M70PhaseOwner.ts": {
+      "base": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "candidate": "918ee28fd4d3523d803f82048b4124f449b755a6c97db800536cd659160dbcff"
+    },
+    "apps/web/src/engine/src/buffers/BufferResidency.ts": {
+      "base": "ece2dcd248bbfad0cf2bf7fb8fd7450d0e9b1422015c6162550398780d5f9c17",
+      "candidate": "35a3d837f0ad42e8aa0becfcf51184b291629d2359bfc16a3ed2387b73fd7f3b"
+    },
+    "apps/web/src/engine/src/raster/WatercolorFrontPaths.ts": {
+      "base": "08a5a8bf7833eb3990b543b72b15dca2758ee278cc86d8eb6eb17998127ae85b",
+      "candidate": "5715f547d834465abc5153e6516b18f3c6cfeb98346adb5fe87ed9f9fa92cf22"
+    },
+    "apps/web/src/engine/src/raster/WatercolorPasses.ts": {
+      "base": "0ead96514b3ecd8adb2207364e340cbdbe1474c2a9c39f26a4c74ac83ea5dc69",
+      "candidate": "eb23f10e70ca8086e8f7da235a0abb90e3f3f06ab8397a47c745d377b94f4e10"
+    },
+    "apps/web/src/engine/src/raster/WatercolorSettlePlan.ts": {
+      "base": "3d9053f52fa79d592c9e90aad5df89c1d0a5b2addee1344fba354f1f6ad7e817",
+      "candidate": "67c5e48da59acca27fe078c27632105768a9191f380d1fb195c409eb1ab8c7da"
+    },
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": {
+      "base": "ea887cae84b4368acc3ff019a552c336900b01a2ad0daa0c378f37736fefb7ee",
+      "candidate": "0ea957870e28573aa70ad58b72e682b9ba6fc52be1c9cdf62c834ca90dc22fc3"
+    }
+  }
+}

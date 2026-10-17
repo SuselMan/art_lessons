@@ -1,0 +1,235 @@
+--- /dev/null
++++ b/apps/web/src/engine/src/watercolor/puddle/FieldJobLease.ts
+@@ -0,0 +1,20 @@
++export interface FieldLease {release():void}
++/** Whole-job lease, including suspended and reentrant operation continuations. */
++export function fieldJobScope(lease:FieldLease){
++ let depth=0,retired=false,released=false
++ function flush(){if(retired&&!depth&&!released){released=true;lease.release()}}
++ const retire=()=>{retired=true;flush()}
++ function run<T>(work:()=>T):T{if(retired)throw Error('Retired field job');depth++;try{return work()}finally{depth--;flush()}}
++ function wrapJob<T extends {ops:Array<()=>void>;finish():void;dispose():void}>(job:T):T{
++  const wrappers=new WeakMap<()=>void,()=>void>()
++  const ops=new Proxy(job.ops,{get(target,key,receiver){
++   const value=Reflect.get(target,key,receiver)
++   if(typeof key!=='string'||!/^\d+$/.test(key)||typeof value!=='function')return value
++   let wrapped=wrappers.get(value)
++   if(!wrapped){wrapped=()=>{try{return run(()=>value())}catch(error){try{job.dispose()}finally{retire()}throw error}};Object.defineProperties(wrapped,Object.getOwnPropertyDescriptors(value));wrappers.set(value,wrapped)}
++   return wrapped
++  }})
++  return {...job,ops,finish:()=>run(()=>{try{job.finish()}finally{try{job.dispose()}finally{retire()}}}),dispose:()=>{try{job.dispose()}finally{retire()}}}
++ }
++ return {run,retire,wrapJob,get activeDepth(){return depth}}
++}
+--- /dev/null
++++ b/apps/web/src/engine/src/watercolor/puddle/M70PhaseOwner.ts
+@@ -0,0 +1,51 @@
++import type {FieldLease} from './FieldJobLease'
++type BudgetResult={ok:true}|{ok:false;reason:string}
++type Hooks={cancelAll(lost:boolean):void;releaseTextures():void;setBudget(bytes:number):BudgetResult}
++const MiB=1024*1024
++/** Diagnostic primitive ONLY. All callers must install leases before enabling. */
++export class M70PhaseOwner {
++ private generation=0
++ private leases=new Set<symbol>()
++ private tokens=new WeakMap<FieldLease,{generation:number;token:symbol}>()
++ private transitioning=false
++ private phase:'idle'|'input'|'solve'|'lost'='idle'
++ constructor(private hooks:Hooks,private enabled=false){}
++ get state(){return {generation:this.generation,activeLeases:this.leases.size,transitioning:this.transitioning,phase:this.phase,enabled:this.enabled}}
++ private transition<T>(work:()=>T):T{if(this.transitioning||this.phase==='lost')throw Error('Phase unavailable');this.transitioning=true;try{return work()}finally{this.transitioning=false}}
++ private sameGeneration(g:number){if(g!==this.generation||this.phase==='lost')throw Error('Stale phase transition')}
++ private quiescent(){if(this.leases.size)throw Error('Shared fields leased')}
++ acquire(parent?:FieldLease):FieldLease{
++  if(this.transitioning||this.phase==='lost')throw Error('Field ownership unavailable')
++  return this.grant(parent)
++ }
++ private grant(parent?:FieldLease):FieldLease{
++  const family=parent&&this.tokens.get(parent)
++  if(parent&&(!family||family.generation!==this.generation||!this.leases.has(family.token)))throw Error('Invalid parent field lease')
++  if(!parent&&this.leases.size)throw Error('Foreign field owner active')
++  const token=Symbol(),generation=this.generation;this.leases.add(token);let released=false
++  const lease={release:()=>{if(released)return;released=true;if(generation===this.generation)this.leases.delete(token)}}
++  this.tokens.set(lease,{generation,token});return lease
++ }
++ beginInput():boolean{
++  if(!this.enabled||this.transitioning||this.phase==='lost')return false
++  return this.transition(()=>{const g=this.generation;this.hooks.cancelAll(false);this.sameGeneration(g);if(this.leases.size)return false;this.hooks.releaseTextures();this.sameGeneration(g);this.phase='idle';const result=this.hooks.setBudget(224*MiB);this.sameGeneration(g);if(!result.ok)throw Error(result.reason);this.phase='input';return true})
++ }
++ beginSolve<T>(capture:()=>T):{snapshot:T;lease:FieldLease}|null{
++  if(!this.enabled||this.transitioning||this.phase==='lost'||this.leases.size)return null
++  return this.transition(()=>{const g=this.generation;const snapshot=capture();this.sameGeneration(g);const result=this.hooks.setBudget(120*MiB);this.sameGeneration(g);if(!result.ok)return null;this.phase='solve';return {snapshot,lease:this.grant()}})
++ }
++ beginSolveSnapshot<T>(snapshot:T):{snapshot:T;lease:FieldLease}|null{return this.beginSolve(()=>snapshot)}
++ releaseIdleTextures():boolean{
++  if(this.transitioning||this.phase==='lost'||this.leases.size)return false
++  return this.transition(()=>{this.hooks.releaseTextures();this.phase='idle';return true})
++ }
++ contextLost():void{
++  this.generation++;this.leases.clear();this.phase='lost'
++  this.hooks.cancelAll(true)
++ }
++ contextRestored():void{
++  if(this.transitioning||this.phase!=='lost')throw Error('Invalid phase restore')
++  const result=this.hooks.setBudget(120*MiB);if(!result.ok)throw Error(result.reason)
++  this.phase='idle'
++ }
++}
+--- a/apps/web/src/engine/src/buffers/BufferResidency.ts
++++ b/apps/web/src/engine/src/buffers/BufferResidency.ts
+@@ -51,10 +51,11 @@
+   private allocatedBytes = new WeakMap<ResidentBuffer, number>()
+   private disposed = false
+   readonly gl: WebGLRenderingContext
+-  readonly budgetBytes: number
++  private _budgetBytes: number
++  get budgetBytes():number{return this._budgetBytes}
+   constructor(gl: WebGLRenderingContext, budgetBytes = 96 * 1024 * 1024) {
+     this.gl = gl
+-    this.budgetBytes = budgetBytes
++    this._budgetBytes = budgetBytes
+     if (!Number.isSafeInteger(budgetBytes) || budgetBytes <= 0) throw new Error('Invalid residency budget')
+     const caches = registries.get(gl) ?? new Set()
+     caches.add(this)
+@@ -105,6 +106,21 @@
+       this.entries.set(victim[0], false)
+       this.used -= this.bytes(victim[0])
+     }
++  }
++  /** Commit a lower cap only after lossless eviction; never evict pins/bound draws. */
++  trySetBudget(bytes:number):{ok:true}|{ok:false;reason:string}{
++    if(this.disposed||!Number.isSafeInteger(bytes)||bytes<=0)return {ok:false,reason:'invalid-budget'}
++    if(bytes>=this.used){this._budgetBytes=bytes;return {ok:true}}
++    const victims:ResidentBuffer[]=[];let remaining=this.used
++    try{
++      for(const [buffer,resident]of this.entries){
++        if(!resident||this.pins.has(buffer)||draws.get(this.gl)?.some(scope=>scope.has(buffer))||this.bound(buffer))continue
++        victims.push(buffer);remaining-=this.bytes(buffer);if(remaining<=bytes)break
++      }
++      if(remaining>bytes)return {ok:false,reason:'pinned-or-bound'}
++      for(const buffer of victims){buffer._residencyEvict();this.entries.set(buffer,false);this.used-=this.bytes(buffer)}
++    }catch{return {ok:false,reason:'eviction-failed'}}
++    this._budgetBytes=bytes;return {ok:true}
+   }
+   register(buffer: ResidentBuffer): void {
+     if (this.disposed || buffer.gl !== this.gl) throw new Error('Invalid residency cache/context')
+--- a/apps/web/src/engine/src/raster/WatercolorFrontPaths.ts
++++ b/apps/web/src/engine/src/raster/WatercolorFrontPaths.ts
+@@ -93,6 +93,12 @@
+     function ensure(field: WatercolorPassField) { if (buffers[0]?.width === field.w && buffers[0]?.height === field.h)
+         return; for (const b of buffers)
+         b.destroy(); scratch?.destroy(); buffers = Array.from({ length: 4 }, () => new AccumulationBuffer(gl, field.w, field.h, 'nearest')); scratch = new AccumulationBuffer(gl, field.w, field.h, 'nearest'); stats.extraBytes = field.w * field.h * 4 * 5; cached = null; }
++    function releaseTextures():number {
++        const bytes=stats.extraBytes;
++        for(const buffer of buffers)buffer.destroy();scratch?.destroy();
++        buffers=[];scratch=null;cached=null;stats.extraBytes=0;
++        return bytes;
++    }
+     const step = (...args: FrontArgs) => {
+         if (disposed)
+             throw new Error('Disposed fast-front');
+@@ -136,7 +142,7 @@
+         });
+         stats.jumpDraws++;
+     };
+-    return { step, stats, forget() { disposed = true; buffers = []; scratch = null; cached = null; }, invalidate() { cached = null; }, dispose() { if (disposed)
++    return { step, stats, releaseTextures, forget() { disposed = true; buffers = []; scratch = null; cached = null; }, invalidate() { cached = null; }, dispose() { if (disposed)
+             return; disposed = true; const current = gl.getParameter(gl.CURRENT_PROGRAM); if (current === build || current === jump)
+             gl.useProgram(null); for (const b of buffers)
+             b.destroy(); scratch?.destroy(); gl.deleteProgram(build); gl.deleteProgram(jump); stats.extraBytes = 0; } };
+--- a/apps/web/src/engine/src/raster/WatercolorPasses.ts
++++ b/apps/web/src/engine/src/raster/WatercolorPasses.ts
+@@ -13,6 +13,7 @@
+ /** Watercolor field GPU primitives. Scheduling and working textures stay with
+  * the engine. Separate init stages preserve the existing GL call order. */
+ export class WatercolorPasses {
++  releaseFrontPathTextures():number { return this._frontPaths?.releaseTextures()??0 }
+   invalidateFrontPaths(): void { this._frontPaths?.invalidate() }
+   private _frontPaths: ReturnType<typeof createWatercolorFrontPaths> | null = null
+   private readonly ctx: WatercolorPassesContext
+--- a/apps/web/src/engine/src/raster/WatercolorSettlePlan.ts
++++ b/apps/web/src/engine/src/raster/WatercolorSettlePlan.ts
+@@ -20,7 +20,10 @@
+ 
+ export type WatercolorSettlePreview = (tile: PaintTarget, pigment: AccumulationBuffer, color: AccumulationBuffer | null, coverage: AccumulationBuffer) => void
+ 
++import {fieldJobScope,type FieldLease} from '../watercolor/puddle/FieldJobLease'
++
+ export interface WatercolorSettlePlanContext {
++  acquireFieldLease?(plan:WatercolorSettlePlan):FieldLease
+   gl(): WebGLRenderingContext
+   fieldFor(w: number, h: number, scale?: number, compact?: boolean | 'tight', nativeMinimum?: number): SettleField
+   paperWorldSize(): { w: number; h: number }
+@@ -125,7 +128,16 @@
+    *  — a list so that the author's pen-up can spread it over frames under
+    *  the reveal (see _startSettle) while a replay runs it in one go. Null
+    *  when the wash holds no deposit here. */
+-  prepare(
++  prepare(...args:Parameters<WatercolorSettlePlan['_prepareFieldJob']>):ReturnType<WatercolorSettlePlan['_prepareFieldJob']>{
++    if(!this.ctx.acquireFieldLease)return this._prepareFieldJob(...args)
++    const scope=fieldJobScope(this.ctx.acquireFieldLease(this))
++    try{
++      const job=scope.run(()=>this._prepareFieldJob(...args))
++      if(!job){scope.retire();return null}
++      return scope.wrapJob(job)
++    }catch(error){scope.retire();throw error}
++  }
++  private _prepareFieldJob(
+     scratch: RibbonStrokeScratch, targets: PaintTarget[],
+     bounds: { minX: number; minY: number; maxX: number; maxY: number },
+     /** (#536, §17.23) How strongly this operation blooms the wash under it,
+--- a/apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts
++++ b/apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts
+@@ -3,7 +3,7 @@
+ import type {ILayerBuffer,PaintTarget} from '../../buffers/ILayerBuffer'
+ import {createProgram} from '../../raster/utils'
+ import {MaterialFieldPages,type MaterialRect,type MaterialFieldSnapshot} from './MaterialFieldPages'
+-import {capturePagedPuddleSource,restorePagedPuddleWindow} from './PagedPuddleSource'
++import {capturePagedPuddleSource,restorePagedPuddleWindow,type PagedPuddleSource} from './PagedPuddleSource'
+ import {extractMaterialTileRect,materialTileIntersection} from './MaterialTileCoordinates'
+ import {createNativePuddleTarget,type PuddleTargetHost} from './PuddleTarget'
+ import {createPagedContrastPhase,type PagedBufferFactory} from './PagedContrastPhase'
+@@ -15,6 +15,8 @@
+  * Windows share global phases and immutable input; only their interiors commit.
+  * The 640px halo is certified separately against the approved M70 pass graph. */
+ export interface PagedPuddleInspection {
++ /** Optional diagnostic barrier: capture complete, no contrast/field allocation yet. */
++ sourceCaptured?(raw:PagedPuddleSource):{release():void}|{defer:true}|void
+  reference?(rect:MaterialRect,p:AccumulationBuffer,c:AccumulationBuffer):void
+  windowReference?(rect:MaterialRect,p:AccumulationBuffer,c:AccumulationBuffer):void
+  solved?(p:MaterialFieldSnapshot,c:MaterialFieldSnapshot,coverage:MaterialFieldSnapshot):void
+@@ -28,7 +30,7 @@
+  const guard=createProgram(gl,vertex,'precision highp float;varying vec2 uv;uniform sampler2D raw,result,water;void main(){float wet=smoothstep(0.,.03,texture2D(water,uv).a*4.);gl_FragColor=mix(texture2D(raw,uv),texture2D(result,uv),wet);}')
+  const quad=gl.createBuffer()!;gl.bindBuffer(gl.ARRAY_BUFFER,quad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)
+  const state={done:true,epoch:0,iterations:0},outputs=new Map<AccumulationBuffer,{p:AccumulationBuffer;c:AccumulationBuffer;coverage:AccumulationBuffer}>()
+- let running:Generator<void>|null=null,destroyed=false
++ let running:Generator<void>|null=null,destroyed=false,captureBlocked=false
+  function draw(program:WebGLProgram,out:AccumulationBuffer,textures:Record<string,AccumulationBuffer>){
+   out.beginReplaceDraw()
+   try{
+@@ -47,6 +49,13 @@
+  function destroyOutputs(){for(const value of outputs.values())for(const b of Object.values(value))b.destroy();outputs.clear()}
+  function* solve(source:RibbonStrokeScratch,target:ILayerBuffer,epoch:number):Generator<void>{
+   const raw=capturePagedPuddleSource(source,target,size,host.pool,host.passes)
++  let capturedLease:{release():void}|void
++  while(true){
++   const admission=inspect.sourceCaptured?.(raw)
++   if(admission&&'defer' in admission){captureBlocked=true;try{yield}finally{captureBlocked=false}continue}
++   capturedLease=admission;break
++  }
++  try{
+   contrast.prepare({p:raw.inkLoad,c:raw.inkColor,water:raw.water},true);yield
+   const referenceP=new MaterialFieldPages(size)
+   // Eligibility is global too; build its reference from the same shared selector.
+@@ -129,9 +138,10 @@
+   }
+   destroyOutputs();for(const [key,value]of pending)outputs.set(key,value);pending.clear()
+   }finally{for(const value of pending.values())for(const b of Object.values(value))b.destroy()}
++ }finally{capturedLease?.release()}
+  }
+  return {state,resetFromScratch(source:RibbonStrokeScratch,target:ILayerBuffer,epoch:number){if(destroyed)throw Error('Paged target destroyed');running?.return(undefined);destroyOutputs();state.done=false;state.epoch=epoch;state.iterations=0;running=solve(source,target,epoch)},
+-  step(maxOps=1){try{for(let i=0;i<maxOps&&!state.done;i++){state.iterations++;if(running?.next().done){running=null;state.done=true}}return state}catch(error){running?.return(undefined);running=null;state.done=true;throw error}},
++  step(maxOps=1){try{for(let i=0;i<maxOps&&!state.done;i++){state.iterations++;if(running?.next().done){running=null;state.done=true}if(captureBlocked)break}return state}catch(error){running?.return(undefined);running=null;state.done=true;throw error}},
+   buffers(tile:PaintTarget){const result=outputs.get(tile.buffer);if(!result)throw Error('Paged target has no completed tile');return result},dry(){return state.done&&outputs.size>0},
+   cancel(){running?.return(undefined);running=null;state.done=true;destroyOutputs()},destroy(){if(destroyed)return;running?.return(undefined);running=null;destroyOutputs();contrast.destroy();background.destroy();gl.deleteProgram(align);gl.deleteProgram(guard);gl.deleteBuffer(quad);destroyed=true;state.done=true}}
+ }
