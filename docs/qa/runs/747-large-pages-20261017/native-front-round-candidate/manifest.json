@@ -1,0 +1,14 @@
+{
+  "base": "509fb989 + current QA native highp/DITHER controls; scissorOFF",
+  "old": {
+    "docs/qa/harness/747/nonzero-origin-ab.cjs": "3a7a64016d062431d87f6e9a5b0f758ac6d691b2125171126fb91879e5db86a9",
+    "docs/qa/harness/747/nonzero-origin-ab-android.cjs": "291298e11fe4e2773f1f38ac06c53bc0c1b6ddcef72c4c41f6e949d72af39d9e",
+    "docs/qa/harness/747/native-front-highp-installer.cjs": "1c9171a988686bb6e6480a021d6634e4d498a891a9435713ce64238ad154f67d"
+  },
+  "new": {
+    "docs/qa/harness/747/nonzero-origin-ab.cjs": "52b36f534b4e79c762abb0297d9868e2d0cf0a15af5863bc81af9a338720df1f",
+    "docs/qa/harness/747/nonzero-origin-ab-android.cjs": "b4e48dc91497b953b9c6309c225bb93b9e2c5d08348dab02b2856cfa21823fb7",
+    "docs/qa/harness/747/native-front-highp-installer.cjs": "db06834da8b5aa3987d54354ab4ee286771896e9996aefbfebdb85350fc98d3e"
+  },
+  "patchSHA": "71042efe7c6c3e44862d6526e74e722e14eacbd2b38281fb59f7aadb93679565"
+}
