@@ -19,6 +19,9 @@ import {APPROVED_M70_PARAMETERS} from './PuddleParameters'
  * Windows share global phases and immutable input; only their interiors commit.
  * The 640px halo is certified separately against the approved M70 pass graph. */
 export interface PagedPuddleInspection {
+ /** QA-only OFF: omit global reference rectangles certified raw-zero. */
+ skipEmptyReference?:boolean
+ referenceEmpty?(rect:MaterialRect):void
  /** QA-only default OFF: capture read ownership and reuse sole-water bytes. */
  capturedBacking?:boolean
  /** Separate scheduling experiment, default OFF. */
@@ -92,6 +95,11 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
   const referenceP=new MaterialFieldPages(size)
   // Eligibility is global too; build its reference from the same shared selector.
   for(const rect of rects()){
+   if(inspect.skipEmptyReference===true&&emptyM70PostphaseRect(size,rect,raw.materialSupport)){
+    inspect.referenceEmpty?.(rect)
+    if(pendingCancel)return
+    yield;continue
+   }
    const bufs=allocateMany(6,rect.width,rect.height)
    try{const [p,c,w,aligned,rp,rc]=bufs as [AccumulationBuffer,AccumulationBuffer,AccumulationBuffer,AccumulationBuffer,AccumulationBuffer,AccumulationBuffer]
     p.writePixels(raw.inkLoad.readRect(rect));c.writePixels(raw.inkColor.readRect(rect));w.writePixels(raw.water.readRect(rect));draw(align,aligned,{p,c})

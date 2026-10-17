@@ -1,4 +1,5 @@
 import {expect,it,vi} from 'vitest'
+import {M70PhaseOwner} from './M70PhaseOwner'
 import type {ILayerBuffer} from '../../buffers/ILayerBuffer'
 const memory=vi.hoisted(()=>({allocations:0,copies:0}))
 vi.mock('../../buffers/AccumulationBuffer',()=>({AccumulationBuffer:class{
@@ -197,5 +198,44 @@ it('returns every target tile, computes whole-layer solver once, and erases both
   expect(controller.restoreUndo(targets[0])).toBeNull()
   controller.forget(targets[0])
   expect(controller.owns(source.scratch)).toBe(false)
+ }finally{controller.destroy();pool.trimFree();expect(pool.bytes.live).toBe(0);vi.unstubAllGlobals()}
+})
+
+
+for(const path of ['frame','canonical','foreignBusy'] as const)it('returns idle field memory before completed goal rendering '+path,()=>{
+ const f=fixture(),{controller,pool,solver,draw,targets}=f
+ try{
+  draw(0)
+  const events:string[]=[],layer=controller['layers'].get(targets[0])!
+  const owner=new M70PhaseOwner({cancelAll:()=>events.push('cancelAll'),releaseTextures:()=>events.push('releaseTextures'),setBudget:bytes=>{events.push('budget'+bytes);return {ok:true}}},true)
+  const family=owner.beginSolveSnapshot(null)!.lease
+  events.length=0
+  controller['solving']=layer;layer.dirty=false;solver.state.done=false
+  solver.step.mockImplementation(()=>{events.push('step');family.enter?.();try{solver.state.done=true}finally{family.leave?.();family.release();events.push('unwind')}})
+  let foreign:ReturnType<typeof owner.acquire>|undefined
+  controller['host'].beginInput=()=>{
+   events.push('beginInput');expect(solver.state.done).toBe(true);expect(owner.state.executing).toBe(0)
+   if(path==='foreignBusy')foreign=owner.acquire()
+   expect(owner.beginInput()).toBe(path!=='foreignBusy')
+  }
+  controller['host'].render=()=>{events.push('render');expect(owner.state.phase).toBe(path==='foreignBusy'?'solve':'input');expect(controller['solving']).toBe(layer)}
+  if(path==='canonical')controller['finishField'](layer)
+  else controller['frame'](performance.now())
+  expect(events.indexOf('beginInput')).toBeGreaterThan(events.indexOf('unwind'))
+  expect(events.indexOf('render')).toBeGreaterThan(events.indexOf('beginInput'))
+  expect(events.filter(x=>x==='beginInput')).toHaveLength(1)
+  expect(events.includes('releaseTextures')).toBe(path!=='foreignBusy')
+  expect(layer.goalReady).toBe(true);expect(layer.dirty).toBe(false);expect(controller['solving']).toBe(null)
+  foreign?.release()
+ }finally{controller.destroy();pool.trimFree();expect(pool.bytes.live).toBe(0);vi.unstubAllGlobals()}
+})
+
+for(const outcome of ['pending','cancelled'] as const)it('does not enter presentation input phase before a valid completed solver '+outcome,()=>{
+ const {controller,pool,solver,draw,targets}=fixture()
+ try{
+  draw(0);const layer=controller['layers'].get(targets[0])!;controller['solving']=layer;layer.dirty=false;solver.state.done=false
+  const input=vi.fn();controller['host'].beginInput=input
+  solver.step.mockImplementation(()=>{if(outcome==='cancelled'){controller.cancelFieldWork();solver.state.done=true}})
+  controller['frame'](performance.now());expect(input).not.toHaveBeenCalled();expect(layer.goalReady).toBe(false)
  }finally{controller.destroy();pool.trimFree();expect(pool.bytes.live).toBe(0);vi.unstubAllGlobals()}
 })

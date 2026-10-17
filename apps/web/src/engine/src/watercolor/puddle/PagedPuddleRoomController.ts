@@ -373,6 +373,9 @@ export class PagedPuddleRoomController {
   private complete(layer: Layer): void {
     if (!layer.tiles.size || !layer.context) return
     this.solver.dry()
+    // The completed generator has unwound and released its field family.
+    // Busy foreign owners retain the solve budget; their textures stay protected.
+    this.host.beginInput?.()
     for(const previous of [...layer.tiles.values()]) {
       const state=this.ensureTile(layer,previous.tile,this.region(layer,previous.tile,layer.context))
       const material=this.solver.buffers(state.tile)
