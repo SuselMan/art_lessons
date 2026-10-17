@@ -382,13 +382,15 @@ export class PuddleRoomController {
     const layer=this.layers.get(target)
     if(!layer?.deferredPresentation || !layer.tile || !layer.context)return
     layer.deferredPresentation=false
+    // raw is the baseline for the next live acceptInput delta even when the
+    // visible correction can start directly from an already solved goal.
+    const entry=layer.scratch.peek(layer.tile.buffer)!
+    this.host.render(layer.scratch,layer.tile,layer.context,layer.raw,{p:entry.inkLoad!,c:entry.inkColor!,coverage:entry.coverage})
     if(layer.goalReady && !layer.dirty){
       // A completed canonical goal is already authoritative. Keep its water
       // source, while undo/load appears immediately at the corrected target.
       layer.presentation.reset(layer.goal,layer.epoch);layer.active=false
     }else{
-      const entry=layer.scratch.peek(layer.tile.buffer)!
-      this.host.render(layer.scratch,layer.tile,layer.context,layer.raw,{p:entry.inkLoad!,c:entry.inkColor!,coverage:entry.coverage})
       layer.presentation.reset(layer.raw,layer.epoch)
     }
     layer.presentationDirty=true;this.present(layer);this.request()

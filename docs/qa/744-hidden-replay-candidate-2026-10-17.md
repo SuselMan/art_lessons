@@ -69,3 +69,13 @@ Oracle fullReplay/export тоже использует _replayInto: эталон
 Проверки кандидата:46unit/5filesPASS (actualEngineA/B, controller/residency,
 historical copy и structuralOps), webTYPECHECKPASS, scopedlintfixPASS;
 indexlint только прежние no-this-alias/require-yield warnings, diffcheckPASS.
+
+После интеграционного hardwareокна readonly-аудит нашёл дефект solvedresume:
+reset(goal) оставлял raw незаполненным, а следующий liveaccept использует raw
+как beforeRGBA. Две новые regression до фикса упали: baseline raw0vs10;
+последующий controller.accept безfinish/UP показал29 вместо обычных20.
+Пиксели проверены в owned byte-image модели точного INPUT alpha-выражения
+при R=G=B=A, а не по mockcalled. Это не физический shader тест.
+Фикс всегда один раз обычным renderer заполняет raw из currentmaterial при
+resume; solvedgoal остаётся shownstart. После:33tests3filesPASS, обе regression
+прошли. GPU still required для actual beforeUPcoloredpixels OFF/ON.
