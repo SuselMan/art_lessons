@@ -1,0 +1,2142 @@
+{
+  "qualification": "Same Samsung real public Room, retained2-operation gesture history. QA-only gl.uniform2f paper-origin Y correction applies ONLY within fresh cropped render; production source unchanged. Fresh cropped inputs and full inputs share the same material. First uncorrected comparisons do not prove target drift: SHOWN decorative presentation differed from full goal, while explicit canonical goal and recorded Dry physical output were byteexact against independent replay. Source memory reported AFTER UP (stroke/base film released), not peak DOWN memory.",
+  "reports": [
+    {
+      "case": "a4l-raw-roi-proof",
+      "sourceLabel": "397d03f5",
+      "geometry": {
+        "width": 1754,
+        "height": 1240
+      },
+      "inputLineage": {
+        "operations": [
+          {
+            "id": "361f675b-462e-401e-b97d-b2d3d97c0b9d",
+            "type": "layer_add",
+            "seq": 1,
+            "state": "done"
+          },
+          {
+            "id": "zOcp2M2uOg",
+            "type": "stroke",
+            "seq": 2,
+            "state": "done",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1"
+          }
+        ],
+        "controller": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 2,
+          "residentLayers": 2,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 1,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": true,
+              "active": true
+            },
+            {
+              "epoch": 1,
+              "ready": false,
+              "active": false
+            }
+          ]
+        },
+        "layerCount": 3
+      },
+      "cases": [
+        {
+          "name": "raw-ROI-full-render-proof",
+          "wallAt": 1792224104793,
+          "tiles": [
+            {
+              "tile": {
+                "x": 0,
+                "y": 0,
+                "w": 1024,
+                "h": 1024
+              },
+              "region": {
+                "x": 832,
+                "y": 0,
+                "width": 192,
+                "height": 192
+              },
+              "changedInside": 5337,
+              "maxInside": 26,
+              "changedOutside": 0,
+              "maxOutside": 0,
+              "first": [
+                {
+                  "x": 999,
+                  "y": 0,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 3,
+                  "b": 4
+                },
+                {
+                  "x": 1000,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 8,
+                  "b": 9
+                },
+                {
+                  "x": 1000,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 13,
+                  "b": 14
+                },
+                {
+                  "x": 1001,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 11,
+                  "b": 12
+                },
+                {
+                  "x": 1001,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 29,
+                  "b": 32
+                },
+                {
+                  "x": 1001,
+                  "y": 0,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 49,
+                  "b": 54
+                },
+                {
+                  "x": 1002,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 18,
+                  "b": 20
+                },
+                {
+                  "x": 1002,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 46,
+                  "b": 49
+                }
+              ],
+              "rawHash": "013edbe2d2d08d7994d5246afcfc1920a0969d598627c69ca8e4ced4e5ce2718",
+              "fullHash": "b472c62561cfae4e63ac1a92dc4488a95efe2634280308554887d8d9f2a39065",
+              "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            },
+            {
+              "tile": {
+                "x": 1024,
+                "y": 0,
+                "w": 1024,
+                "h": 1024
+              },
+              "region": {
+                "x": 0,
+                "y": 0,
+                "width": 192,
+                "height": 192
+              },
+              "changedInside": 733,
+              "maxInside": 20,
+              "changedOutside": 0,
+              "maxOutside": 0,
+              "first": [
+                {
+                  "x": 0,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 28,
+                  "b": 24
+                },
+                {
+                  "x": 0,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 60,
+                  "b": 53
+                },
+                {
+                  "x": 0,
+                  "y": 0,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 98,
+                  "b": 86
+                },
+                {
+                  "x": 1,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 29,
+                  "b": 26
+                },
+                {
+                  "x": 1,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 62,
+                  "b": 56
+                },
+                {
+                  "x": 1,
+                  "y": 0,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 101,
+                  "b": 91
+                },
+                {
+                  "x": 2,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 23,
+                  "b": 21
+                },
+                {
+                  "x": 2,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 56,
+                  "b": 51
+                }
+              ],
+              "rawHash": "51d5ff6ec3498fade771c9b2eee91a61b6329d2c6ddd3d1411016f0ec7e0d081",
+              "fullHash": "b0b759466ff5462a9acd32962932b95b2f96097cbcffb4a234691b5aae549574",
+              "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            },
+            {
+              "tile": {
+                "x": 0,
+                "y": 1024,
+                "w": 1024,
+                "h": 1024
+              },
+              "region": {
+                "x": 832,
+                "y": 832,
+                "width": 192,
+                "height": 192
+              },
+              "changedInside": 703,
+              "maxInside": 20,
+              "changedOutside": 0,
+              "maxOutside": 0,
+              "first": [
+                {
+                  "x": 1023,
+                  "y": 1001,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 21,
+                  "b": 22
+                },
+                {
+                  "x": 1022,
+                  "y": 1002,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 4,
+                  "b": 5
+                },
+                {
+                  "x": 1022,
+                  "y": 1002,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 12,
+                  "b": 13
+                },
+                {
+                  "x": 1022,
+                  "y": 1002,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 17,
+                  "b": 18
+                },
+                {
+                  "x": 1023,
+                  "y": 1002,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 11,
+                  "b": 12
+                },
+                {
+                  "x": 1023,
+                  "y": 1002,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 28,
+                  "b": 32
+                },
+                {
+                  "x": 1023,
+                  "y": 1002,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 40,
+                  "b": 46
+                },
+                {
+                  "x": 1020,
+                  "y": 1003,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 0,
+                  "b": 1
+                }
+              ],
+              "rawHash": "5bfc0ab7a35f832928093c2ac5882355bb17c85c153dfa2f5cb4dd9ea0abf1b4",
+              "fullHash": "a7144eaa15d573be4c456af873cf4de424a1e4be3162d6779ed941fb2c192884",
+              "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            },
+            {
+              "tile": {
+                "x": 1024,
+                "y": 1024,
+                "w": 1024,
+                "h": 1024
+              },
+              "region": {
+                "x": 0,
+                "y": 832,
+                "width": 192,
+                "height": 192
+              },
+              "changedInside": 3967,
+              "maxInside": 19,
+              "changedOutside": 0,
+              "maxOutside": 0,
+              "first": [
+                {
+                  "x": 36,
+                  "y": 977,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 3,
+                  "b": 4
+                },
+                {
+                  "x": 36,
+                  "y": 977,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 6,
+                  "b": 7
+                },
+                {
+                  "x": 36,
+                  "y": 977,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 10,
+                  "b": 11
+                },
+                {
+                  "x": 37,
+                  "y": 977,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 1,
+                  "b": 2
+                },
+                {
+                  "x": 37,
+                  "y": 977,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 6,
+                  "b": 8
+                },
+                {
+                  "x": 37,
+                  "y": 977,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 10,
+                  "b": 12
+                },
+                {
+                  "x": 38,
+                  "y": 977,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 6,
+                  "b": 7
+                },
+                {
+                  "x": 39,
+                  "y": 977,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 1,
+                  "b": 2
+                }
+              ],
+              "rawHash": "3c07f4ed32d3a468095a2ab84f181130295917aa2c9dfa9b6825c2a96a4ef7ae",
+              "fullHash": "02f1a625db13fdd238393dafe79fd137822b0b1ccbe3e79f4c7e39230405de84",
+              "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            }
+          ],
+          "sourceMemory": {
+            "fields": {
+              "original": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              },
+              "coverage": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              },
+              "inkLoad": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              },
+              "inkColor": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              },
+              "solventLoad": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              }
+            },
+            "uniqueBytes": 83886080,
+            "bufferCount": 20
+          },
+          "pool": {
+            "live": 83886080,
+            "free": 63504384
+          },
+          "cache": {
+            "resident": 121913344,
+            "budget": 125829120
+          },
+          "gl": 0,
+          "lost": false
+        }
+      ],
+      "pass": false,
+      "errors": []
+    },
+    {
+      "case": "a4l-fresh-roi-proof-fixed",
+      "sourceLabel": "397d03f5",
+      "geometry": {
+        "width": 1754,
+        "height": 1240
+      },
+      "inputLineage": {
+        "operations": [
+          {
+            "id": "361f675b-462e-401e-b97d-b2d3d97c0b9d",
+            "type": "layer_add",
+            "seq": 1,
+            "state": "done"
+          },
+          {
+            "id": "zOcp2M2uOg",
+            "type": "stroke",
+            "seq": 2,
+            "state": "done",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1"
+          }
+        ],
+        "controller": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 2,
+          "residentLayers": 2,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 1,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": true,
+              "active": true
+            },
+            {
+              "epoch": 1,
+              "ready": false,
+              "active": false
+            }
+          ]
+        },
+        "layerCount": 3
+      },
+      "cases": [
+        {
+          "name": "raw-ROI-full-render-proof",
+          "wallAt": 1792224294882,
+          "context": {
+            "layerGesture": "i63qh9Ufua",
+            "epoch": 1,
+            "context": {
+              "preset": {
+                "opacity": 0.99,
+                "hardness": 0.88,
+                "sizeMultiplier": 1
+              },
+              "fieldSeed": [
+                980,
+                980.0001220703125
+              ],
+              "bounds": {
+                "minX": 948.5206623077393,
+                "minY": 948.5207843780518,
+                "maxX": 1095.7310936681952,
+                "maxY": 1095.7310936681952
+              },
+              "opacity": 0.9900000095367432
+            },
+            "finishContext": {
+              "preset": {
+                "opacity": 0.99,
+                "hardness": 0.88,
+                "sizeMultiplier": 1
+              },
+              "fieldSeed": [
+                980,
+                980.0001220703125
+              ],
+              "bounds": {
+                "minX": 948.5206623077393,
+                "minY": 948.5207843780518,
+                "maxX": 1095.7310936681952,
+                "maxY": 1095.7310936681952
+              }
+            }
+          },
+          "tiles": [
+            {
+              "freshVsFull": 5337,
+              "freshVsFullMax": 26,
+              "stale": 0,
+              "staleMax": 0,
+              "freshFirst": [
+                {
+                  "x": 999,
+                  "y": 0,
+                  "ch": 3,
+                  "fresh": 4,
+                  "full": 3
+                },
+                {
+                  "x": 1000,
+                  "y": 0,
+                  "ch": 1,
+                  "fresh": 9,
+                  "full": 8
+                },
+                {
+                  "x": 1000,
+                  "y": 0,
+                  "ch": 2,
+                  "fresh": 14,
+                  "full": 13
+                },
+                {
+                  "x": 1001,
+                  "y": 0,
+                  "ch": 1,
+                  "fresh": 12,
+                  "full": 11
+                },
+                {
+                  "x": 1001,
+                  "y": 0,
+                  "ch": 2,
+                  "fresh": 32,
+                  "full": 29
+                },
+                {
+                  "x": 1001,
+                  "y": 0,
+                  "ch": 3,
+                  "fresh": 54,
+                  "full": 49
+                },
+                {
+                  "x": 1002,
+                  "y": 0,
+                  "ch": 1,
+                  "fresh": 20,
+                  "full": 18
+                },
+                {
+                  "x": 1002,
+                  "y": 0,
+                  "ch": 2,
+                  "fresh": 49,
+                  "full": 46
+                }
+              ],
+              "freshHash": "013edbe2d2d08d7994d5246afcfc1920a0969d598627c69ca8e4ced4e5ce2718",
+              "tile": {
+                "x": 0,
+                "y": 0,
+                "w": 1024,
+                "h": 1024
+              },
+              "region": {
+                "x": 832,
+                "y": 0,
+                "width": 192,
+                "height": 192
+              },
+              "changedInside": 5337,
+              "maxInside": 26,
+              "changedOutside": 0,
+              "maxOutside": 0,
+              "first": [
+                {
+                  "x": 999,
+                  "y": 0,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 3,
+                  "b": 4
+                },
+                {
+                  "x": 1000,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 8,
+                  "b": 9
+                },
+                {
+                  "x": 1000,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 13,
+                  "b": 14
+                },
+                {
+                  "x": 1001,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 11,
+                  "b": 12
+                },
+                {
+                  "x": 1001,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 29,
+                  "b": 32
+                },
+                {
+                  "x": 1001,
+                  "y": 0,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 49,
+                  "b": 54
+                },
+                {
+                  "x": 1002,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 18,
+                  "b": 20
+                },
+                {
+                  "x": 1002,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 46,
+                  "b": 49
+                }
+              ],
+              "rawHash": "013edbe2d2d08d7994d5246afcfc1920a0969d598627c69ca8e4ced4e5ce2718",
+              "fullHash": "b472c62561cfae4e63ac1a92dc4488a95efe2634280308554887d8d9f2a39065",
+              "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            },
+            {
+              "freshVsFull": 733,
+              "freshVsFullMax": 20,
+              "stale": 0,
+              "staleMax": 0,
+              "freshFirst": [
+                {
+                  "x": 0,
+                  "y": 0,
+                  "ch": 1,
+                  "fresh": 24,
+                  "full": 28
+                },
+                {
+                  "x": 0,
+                  "y": 0,
+                  "ch": 2,
+                  "fresh": 53,
+                  "full": 60
+                },
+                {
+                  "x": 0,
+                  "y": 0,
+                  "ch": 3,
+                  "fresh": 86,
+                  "full": 98
+                },
+                {
+                  "x": 1,
+                  "y": 0,
+                  "ch": 1,
+                  "fresh": 26,
+                  "full": 29
+                },
+                {
+                  "x": 1,
+                  "y": 0,
+                  "ch": 2,
+                  "fresh": 56,
+                  "full": 62
+                },
+                {
+                  "x": 1,
+                  "y": 0,
+                  "ch": 3,
+                  "fresh": 91,
+                  "full": 101
+                },
+                {
+                  "x": 2,
+                  "y": 0,
+                  "ch": 1,
+                  "fresh": 21,
+                  "full": 23
+                },
+                {
+                  "x": 2,
+                  "y": 0,
+                  "ch": 2,
+                  "fresh": 51,
+                  "full": 56
+                }
+              ],
+              "freshHash": "51d5ff6ec3498fade771c9b2eee91a61b6329d2c6ddd3d1411016f0ec7e0d081",
+              "tile": {
+                "x": 1024,
+                "y": 0,
+                "w": 1024,
+                "h": 1024
+              },
+              "region": {
+                "x": 0,
+                "y": 0,
+                "width": 192,
+                "height": 192
+              },
+              "changedInside": 733,
+              "maxInside": 20,
+              "changedOutside": 0,
+              "maxOutside": 0,
+              "first": [
+                {
+                  "x": 0,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 28,
+                  "b": 24
+                },
+                {
+                  "x": 0,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 60,
+                  "b": 53
+                },
+                {
+                  "x": 0,
+                  "y": 0,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 98,
+                  "b": 86
+                },
+                {
+                  "x": 1,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 29,
+                  "b": 26
+                },
+                {
+                  "x": 1,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 62,
+                  "b": 56
+                },
+                {
+                  "x": 1,
+                  "y": 0,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 101,
+                  "b": 91
+                },
+                {
+                  "x": 2,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 23,
+                  "b": 21
+                },
+                {
+                  "x": 2,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 56,
+                  "b": 51
+                }
+              ],
+              "rawHash": "51d5ff6ec3498fade771c9b2eee91a61b6329d2c6ddd3d1411016f0ec7e0d081",
+              "fullHash": "b0b759466ff5462a9acd32962932b95b2f96097cbcffb4a234691b5aae549574",
+              "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            },
+            {
+              "freshVsFull": 703,
+              "freshVsFullMax": 20,
+              "stale": 0,
+              "staleMax": 0,
+              "freshFirst": [
+                {
+                  "x": 1023,
+                  "y": 1001,
+                  "ch": 3,
+                  "fresh": 22,
+                  "full": 21
+                },
+                {
+                  "x": 1022,
+                  "y": 1002,
+                  "ch": 1,
+                  "fresh": 5,
+                  "full": 4
+                },
+                {
+                  "x": 1022,
+                  "y": 1002,
+                  "ch": 2,
+                  "fresh": 13,
+                  "full": 12
+                },
+                {
+                  "x": 1022,
+                  "y": 1002,
+                  "ch": 3,
+                  "fresh": 18,
+                  "full": 17
+                },
+                {
+                  "x": 1023,
+                  "y": 1002,
+                  "ch": 1,
+                  "fresh": 12,
+                  "full": 11
+                },
+                {
+                  "x": 1023,
+                  "y": 1002,
+                  "ch": 2,
+                  "fresh": 32,
+                  "full": 28
+                },
+                {
+                  "x": 1023,
+                  "y": 1002,
+                  "ch": 3,
+                  "fresh": 46,
+                  "full": 40
+                },
+                {
+                  "x": 1020,
+                  "y": 1003,
+                  "ch": 1,
+                  "fresh": 1,
+                  "full": 0
+                }
+              ],
+              "freshHash": "5bfc0ab7a35f832928093c2ac5882355bb17c85c153dfa2f5cb4dd9ea0abf1b4",
+              "tile": {
+                "x": 0,
+                "y": 1024,
+                "w": 1024,
+                "h": 1024
+              },
+              "region": {
+                "x": 832,
+                "y": 832,
+                "width": 192,
+                "height": 192
+              },
+              "changedInside": 703,
+              "maxInside": 20,
+              "changedOutside": 0,
+              "maxOutside": 0,
+              "first": [
+                {
+                  "x": 1023,
+                  "y": 1001,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 21,
+                  "b": 22
+                },
+                {
+                  "x": 1022,
+                  "y": 1002,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 4,
+                  "b": 5
+                },
+                {
+                  "x": 1022,
+                  "y": 1002,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 12,
+                  "b": 13
+                },
+                {
+                  "x": 1022,
+                  "y": 1002,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 17,
+                  "b": 18
+                },
+                {
+                  "x": 1023,
+                  "y": 1002,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 11,
+                  "b": 12
+                },
+                {
+                  "x": 1023,
+                  "y": 1002,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 28,
+                  "b": 32
+                },
+                {
+                  "x": 1023,
+                  "y": 1002,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 40,
+                  "b": 46
+                },
+                {
+                  "x": 1020,
+                  "y": 1003,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 0,
+                  "b": 1
+                }
+              ],
+              "rawHash": "5bfc0ab7a35f832928093c2ac5882355bb17c85c153dfa2f5cb4dd9ea0abf1b4",
+              "fullHash": "a7144eaa15d573be4c456af873cf4de424a1e4be3162d6779ed941fb2c192884",
+              "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            },
+            {
+              "freshVsFull": 3967,
+              "freshVsFullMax": 19,
+              "stale": 0,
+              "staleMax": 0,
+              "freshFirst": [
+                {
+                  "x": 36,
+                  "y": 977,
+                  "ch": 1,
+                  "fresh": 4,
+                  "full": 3
+                },
+                {
+                  "x": 36,
+                  "y": 977,
+                  "ch": 2,
+                  "fresh": 7,
+                  "full": 6
+                },
+                {
+                  "x": 36,
+                  "y": 977,
+                  "ch": 3,
+                  "fresh": 11,
+                  "full": 10
+                },
+                {
+                  "x": 37,
+                  "y": 977,
+                  "ch": 1,
+                  "fresh": 2,
+                  "full": 1
+                },
+                {
+                  "x": 37,
+                  "y": 977,
+                  "ch": 2,
+                  "fresh": 8,
+                  "full": 6
+                },
+                {
+                  "x": 37,
+                  "y": 977,
+                  "ch": 3,
+                  "fresh": 12,
+                  "full": 10
+                },
+                {
+                  "x": 38,
+                  "y": 977,
+                  "ch": 2,
+                  "fresh": 7,
+                  "full": 6
+                },
+                {
+                  "x": 39,
+                  "y": 977,
+                  "ch": 3,
+                  "fresh": 2,
+                  "full": 1
+                }
+              ],
+              "freshHash": "3c07f4ed32d3a468095a2ab84f181130295917aa2c9dfa9b6825c2a96a4ef7ae",
+              "tile": {
+                "x": 1024,
+                "y": 1024,
+                "w": 1024,
+                "h": 1024
+              },
+              "region": {
+                "x": 0,
+                "y": 832,
+                "width": 192,
+                "height": 192
+              },
+              "changedInside": 3967,
+              "maxInside": 19,
+              "changedOutside": 0,
+              "maxOutside": 0,
+              "first": [
+                {
+                  "x": 36,
+                  "y": 977,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 3,
+                  "b": 4
+                },
+                {
+                  "x": 36,
+                  "y": 977,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 6,
+                  "b": 7
+                },
+                {
+                  "x": 36,
+                  "y": 977,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 10,
+                  "b": 11
+                },
+                {
+                  "x": 37,
+                  "y": 977,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 1,
+                  "b": 2
+                },
+                {
+                  "x": 37,
+                  "y": 977,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 6,
+                  "b": 8
+                },
+                {
+                  "x": 37,
+                  "y": 977,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 10,
+                  "b": 12
+                },
+                {
+                  "x": 38,
+                  "y": 977,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 6,
+                  "b": 7
+                },
+                {
+                  "x": 39,
+                  "y": 977,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 1,
+                  "b": 2
+                }
+              ],
+              "rawHash": "3c07f4ed32d3a468095a2ab84f181130295917aa2c9dfa9b6825c2a96a4ef7ae",
+              "fullHash": "02f1a625db13fdd238393dafe79fd137822b0b1ccbe3e79f4c7e39230405de84",
+              "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            }
+          ],
+          "sourceMemory": {
+            "fields": {
+              "original": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              },
+              "coverage": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              },
+              "inkLoad": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              },
+              "inkColor": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              },
+              "solventLoad": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              }
+            },
+            "uniqueBytes": 83886080,
+            "bufferCount": 20
+          },
+          "pool": {
+            "live": 83886080,
+            "free": 63504384
+          },
+          "cache": {
+            "resident": 121913344,
+            "budget": 125829120
+          },
+          "gl": 0,
+          "lost": false
+        },
+        {
+          "name": "actual-first-full-replay-proof",
+          "wallAt": 1792224313711,
+          "actualCapturedBeforeOracle": true,
+          "page": {
+            "width": 1754,
+            "height": 1240
+          },
+          "physicalChanged": 11651,
+          "max": 83,
+          "alpha": 4189,
+          "tiles": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "storageW": 1024,
+              "storageH": 1024,
+              "changed": 5648,
+              "alpha": 2037
+            },
+            {
+              "x": 1024,
+              "y": 0,
+              "w": 730,
+              "h": 1024,
+              "storageW": 1024,
+              "storageH": 1024,
+              "changed": 824,
+              "alpha": 300
+            },
+            {
+              "x": 0,
+              "y": 1024,
+              "w": 1024,
+              "h": 216,
+              "storageW": 1024,
+              "storageH": 1024,
+              "changed": 798,
+              "alpha": 291
+            },
+            {
+              "x": 1024,
+              "y": 1024,
+              "w": 730,
+              "h": 216,
+              "storageW": 1024,
+              "storageH": 1024,
+              "changed": 4381,
+              "alpha": 1561
+            }
+          ],
+          "actualHash": "91c0d92f34ec537930d2c58ff5a0af5542e26487078b10fca097ad888b53325a",
+          "oracleHash": "7c2cade41ba656a5aa0e4ec07059107c1f8b96fd5a35ca73b875432f9ca274ba",
+          "glError": 0
+        }
+      ],
+      "pass": false,
+      "errors": []
+    },
+    {
+      "case": "a4l-roi-origin-probe",
+      "sourceLabel": "397d03f5-QA-only-origin-uniform-correction",
+      "geometry": {
+        "width": 1754,
+        "height": 1240
+      },
+      "inputLineage": {
+        "operations": [
+          {
+            "id": "361f675b-462e-401e-b97d-b2d3d97c0b9d",
+            "type": "layer_add",
+            "seq": 1,
+            "state": "done"
+          },
+          {
+            "id": "zOcp2M2uOg",
+            "type": "stroke",
+            "seq": 2,
+            "state": "done",
+            "preset": "normal:95:34:PB29:round:wc@m70-r2-v1"
+          }
+        ],
+        "controller": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 2,
+          "residentLayers": 2,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 1,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": true,
+              "active": true
+            },
+            {
+              "epoch": 1,
+              "ready": false,
+              "active": false
+            }
+          ]
+        },
+        "layerCount": 3
+      },
+      "cases": [
+        {
+          "name": "raw-ROI-full-render-proof",
+          "wallAt": 1792224474191,
+          "correctOrigin": true,
+          "originCorrections": 4,
+          "context": {
+            "layerGesture": "i63qh9Ufua",
+            "epoch": 1,
+            "context": {
+              "preset": {
+                "opacity": 0.99,
+                "hardness": 0.88,
+                "sizeMultiplier": 1
+              },
+              "fieldSeed": [
+                980,
+                980.0001220703125
+              ],
+              "bounds": {
+                "minX": 948.5206623077393,
+                "minY": 948.5207843780518,
+                "maxX": 1095.7310936681952,
+                "maxY": 1095.7310936681952
+              },
+              "opacity": 0.9900000095367432
+            },
+            "finishContext": {
+              "preset": {
+                "opacity": 0.99,
+                "hardness": 0.88,
+                "sizeMultiplier": 1
+              },
+              "fieldSeed": [
+                980,
+                980.0001220703125
+              ],
+              "bounds": {
+                "minX": 948.5206623077393,
+                "minY": 948.5207843780518,
+                "maxX": 1095.7310936681952,
+                "maxY": 1095.7310936681952
+              }
+            }
+          },
+          "tiles": [
+            {
+              "freshVsFull": 0,
+              "freshVsFullMax": 0,
+              "stale": 5337,
+              "staleMax": 26,
+              "freshFirst": [],
+              "freshHash": "a10ac7d318e676dcfdc5a7c96a2344a30b2f2ad2afa24a102bc0c6e12c205147",
+              "tile": {
+                "x": 0,
+                "y": 0,
+                "w": 1024,
+                "h": 1024
+              },
+              "region": {
+                "x": 832,
+                "y": 0,
+                "width": 192,
+                "height": 192
+              },
+              "changedInside": 5337,
+              "maxInside": 26,
+              "changedOutside": 0,
+              "maxOutside": 0,
+              "first": [
+                {
+                  "x": 999,
+                  "y": 0,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 3,
+                  "b": 4
+                },
+                {
+                  "x": 1000,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 8,
+                  "b": 9
+                },
+                {
+                  "x": 1000,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 13,
+                  "b": 14
+                },
+                {
+                  "x": 1001,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 11,
+                  "b": 12
+                },
+                {
+                  "x": 1001,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 29,
+                  "b": 32
+                },
+                {
+                  "x": 1001,
+                  "y": 0,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 49,
+                  "b": 54
+                },
+                {
+                  "x": 1002,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 18,
+                  "b": 20
+                },
+                {
+                  "x": 1002,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 46,
+                  "b": 49
+                }
+              ],
+              "rawHash": "013edbe2d2d08d7994d5246afcfc1920a0969d598627c69ca8e4ced4e5ce2718",
+              "fullHash": "b472c62561cfae4e63ac1a92dc4488a95efe2634280308554887d8d9f2a39065",
+              "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            },
+            {
+              "freshVsFull": 0,
+              "freshVsFullMax": 0,
+              "stale": 733,
+              "staleMax": 20,
+              "freshFirst": [],
+              "freshHash": "8f56bc5f8d42e04795ee76305aca107d5b3bb2b376a483c37c40381c804bab05",
+              "tile": {
+                "x": 1024,
+                "y": 0,
+                "w": 1024,
+                "h": 1024
+              },
+              "region": {
+                "x": 0,
+                "y": 0,
+                "width": 192,
+                "height": 192
+              },
+              "changedInside": 733,
+              "maxInside": 20,
+              "changedOutside": 0,
+              "maxOutside": 0,
+              "first": [
+                {
+                  "x": 0,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 28,
+                  "b": 24
+                },
+                {
+                  "x": 0,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 60,
+                  "b": 53
+                },
+                {
+                  "x": 0,
+                  "y": 0,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 98,
+                  "b": 86
+                },
+                {
+                  "x": 1,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 29,
+                  "b": 26
+                },
+                {
+                  "x": 1,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 62,
+                  "b": 56
+                },
+                {
+                  "x": 1,
+                  "y": 0,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 101,
+                  "b": 91
+                },
+                {
+                  "x": 2,
+                  "y": 0,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 23,
+                  "b": 21
+                },
+                {
+                  "x": 2,
+                  "y": 0,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 56,
+                  "b": 51
+                }
+              ],
+              "rawHash": "51d5ff6ec3498fade771c9b2eee91a61b6329d2c6ddd3d1411016f0ec7e0d081",
+              "fullHash": "b0b759466ff5462a9acd32962932b95b2f96097cbcffb4a234691b5aae549574",
+              "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            },
+            {
+              "freshVsFull": 0,
+              "freshVsFullMax": 0,
+              "stale": 703,
+              "staleMax": 20,
+              "freshFirst": [],
+              "freshHash": "94fe4a4a1029a8098dd53cbec80ff686ea77e4f07a5b727e5aab12e417178ad0",
+              "tile": {
+                "x": 0,
+                "y": 1024,
+                "w": 1024,
+                "h": 1024
+              },
+              "region": {
+                "x": 832,
+                "y": 832,
+                "width": 192,
+                "height": 192
+              },
+              "changedInside": 703,
+              "maxInside": 20,
+              "changedOutside": 0,
+              "maxOutside": 0,
+              "first": [
+                {
+                  "x": 1023,
+                  "y": 1001,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 21,
+                  "b": 22
+                },
+                {
+                  "x": 1022,
+                  "y": 1002,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 4,
+                  "b": 5
+                },
+                {
+                  "x": 1022,
+                  "y": 1002,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 12,
+                  "b": 13
+                },
+                {
+                  "x": 1022,
+                  "y": 1002,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 17,
+                  "b": 18
+                },
+                {
+                  "x": 1023,
+                  "y": 1002,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 11,
+                  "b": 12
+                },
+                {
+                  "x": 1023,
+                  "y": 1002,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 28,
+                  "b": 32
+                },
+                {
+                  "x": 1023,
+                  "y": 1002,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 40,
+                  "b": 46
+                },
+                {
+                  "x": 1020,
+                  "y": 1003,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 0,
+                  "b": 1
+                }
+              ],
+              "rawHash": "5bfc0ab7a35f832928093c2ac5882355bb17c85c153dfa2f5cb4dd9ea0abf1b4",
+              "fullHash": "a7144eaa15d573be4c456af873cf4de424a1e4be3162d6779ed941fb2c192884",
+              "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            },
+            {
+              "freshVsFull": 0,
+              "freshVsFullMax": 0,
+              "stale": 3967,
+              "staleMax": 19,
+              "freshFirst": [],
+              "freshHash": "778e17daa8ff75156fddc15b54bb4f688aebb1a50f0b88469a642cab95fe6812",
+              "tile": {
+                "x": 1024,
+                "y": 1024,
+                "w": 1024,
+                "h": 1024
+              },
+              "region": {
+                "x": 0,
+                "y": 832,
+                "width": 192,
+                "height": 192
+              },
+              "changedInside": 3967,
+              "maxInside": 19,
+              "changedOutside": 0,
+              "maxOutside": 0,
+              "first": [
+                {
+                  "x": 36,
+                  "y": 977,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 3,
+                  "b": 4
+                },
+                {
+                  "x": 36,
+                  "y": 977,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 6,
+                  "b": 7
+                },
+                {
+                  "x": 36,
+                  "y": 977,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 10,
+                  "b": 11
+                },
+                {
+                  "x": 37,
+                  "y": 977,
+                  "ch": 1,
+                  "inside": true,
+                  "a": 1,
+                  "b": 2
+                },
+                {
+                  "x": 37,
+                  "y": 977,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 6,
+                  "b": 8
+                },
+                {
+                  "x": 37,
+                  "y": 977,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 10,
+                  "b": 12
+                },
+                {
+                  "x": 38,
+                  "y": 977,
+                  "ch": 2,
+                  "inside": true,
+                  "a": 6,
+                  "b": 7
+                },
+                {
+                  "x": 39,
+                  "y": 977,
+                  "ch": 3,
+                  "inside": true,
+                  "a": 1,
+                  "b": 2
+                }
+              ],
+              "rawHash": "3c07f4ed32d3a468095a2ab84f181130295917aa2c9dfa9b6825c2a96a4ef7ae",
+              "fullHash": "02f1a625db13fdd238393dafe79fd137822b0b1ccbe3e79f4c7e39230405de84",
+              "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            }
+          ],
+          "sourceMemory": {
+            "fields": {
+              "original": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              },
+              "coverage": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              },
+              "inkLoad": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              },
+              "inkColor": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              },
+              "solventLoad": {
+                "count": 4,
+                "bytes": 16777216,
+                "dimensions": [
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  },
+                  {
+                    "w": 1024,
+                    "h": 1024
+                  }
+                ]
+              }
+            },
+            "uniqueBytes": 83886080,
+            "bufferCount": 20
+          },
+          "pool": {
+            "live": 83886080,
+            "free": 63504384
+          },
+          "cache": {
+            "resident": 121913344,
+            "budget": 125829120
+          },
+          "gl": 0,
+          "lost": false
+        },
+        {
+          "name": "canonical-goal-first-full-replay-proof",
+          "wallAt": 1792224492444,
+          "actualSource": "canonical-goal",
+          "actualCapturedBeforeOracle": true,
+          "page": {
+            "width": 1754,
+            "height": 1240
+          },
+          "physicalChanged": 0,
+          "max": 0,
+          "alpha": 4178,
+          "tiles": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "storageW": 1024,
+              "storageH": 1024,
+              "changed": 0,
+              "alpha": 2028
+            },
+            {
+              "x": 1024,
+              "y": 0,
+              "w": 730,
+              "h": 1024,
+              "storageW": 1024,
+              "storageH": 1024,
+              "changed": 0,
+              "alpha": 300
+            },
+            {
+              "x": 0,
+              "y": 1024,
+              "w": 1024,
+              "h": 216,
+              "storageW": 1024,
+              "storageH": 1024,
+              "changed": 0,
+              "alpha": 291
+            },
+            {
+              "x": 1024,
+              "y": 1024,
+              "w": 730,
+              "h": 216,
+              "storageW": 1024,
+              "storageH": 1024,
+              "changed": 0,
+              "alpha": 1559
+            }
+          ],
+          "actualHash": "7c2cade41ba656a5aa0e4ec07059107c1f8b96fd5a35ca73b875432f9ca274ba",
+          "oracleHash": "7c2cade41ba656a5aa0e4ec07059107c1f8b96fd5a35ca73b875432f9ca274ba",
+          "glError": 0
+        },
+        {
+          "name": "Dry-actual-first-full-replay-proof",
+          "wallAt": 1792224511825,
+          "actualSource": "physical",
+          "actualCapturedBeforeOracle": true,
+          "page": {
+            "width": 1754,
+            "height": 1240
+          },
+          "physicalChanged": 0,
+          "max": 0,
+          "alpha": 4178,
+          "tiles": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "storageW": 1024,
+              "storageH": 1024,
+              "changed": 0,
+              "alpha": 2028
+            },
+            {
+              "x": 1024,
+              "y": 0,
+              "w": 730,
+              "h": 1024,
+              "storageW": 1024,
+              "storageH": 1024,
+              "changed": 0,
+              "alpha": 300
+            },
+            {
+              "x": 0,
+              "y": 1024,
+              "w": 1024,
+              "h": 216,
+              "storageW": 1024,
+              "storageH": 1024,
+              "changed": 0,
+              "alpha": 291
+            },
+            {
+              "x": 1024,
+              "y": 1024,
+              "w": 730,
+              "h": 216,
+              "storageW": 1024,
+              "storageH": 1024,
+              "changed": 0,
+              "alpha": 1559
+            }
+          ],
+          "actualHash": "7c2cade41ba656a5aa0e4ec07059107c1f8b96fd5a35ca73b875432f9ca274ba",
+          "oracleHash": "7c2cade41ba656a5aa0e4ec07059107c1f8b96fd5a35ca73b875432f9ca274ba",
+          "glError": 0
+        }
+      ],
+      "pass": true,
+      "errors": []
+    }
+  ]
+}

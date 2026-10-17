@@ -1,8 +1,8 @@
 // Full physical storage captured FIRST; crop only by independently known page
 // geometry. Codec clips right/bottom edge tiles; physical storage remains1024².
-async function actualPageRasterProof(page,layerId){return page.evaluate(async layerId=>{
+async function actualPageRasterProof(page,layerId,source="physical"){return page.evaluate(async({layerId,source})=>{
  const e=__engine,target=e._layers.get(layerId);if(!target)throw Error('Missing own layer');
- const {w:pageW,h:pageH}=e._paper.pageSize(),physical=target.allResident().map(t=>({x:t.originX,y:t.originY,w:t.buffer.width,h:t.buffer.height,bytes:t.buffer.readPixels()}));
+ const {w:pageW,h:pageH}=e._paper.pageSize(),physical=(source==='canonical-goal'?[...e._puddle.layers.get(target).tiles.values()].map(s=>({...s.tile,buffer:s.goal})):target.allResident()).map(t=>({x:t.originX,y:t.originY,w:t.buffer.width,h:t.buffer.height,bytes:t.buffer.readPixels()}));
  const old=e.diagnosticM70HiddenReplay;let oracle;try{e.diagnosticM70HiddenReplay=false;oracle=e.bakeLayerByFullReplay(layerId)}finally{e.diagnosticM70HiddenReplay=old}if(!oracle)throw Error('Missing full replay oracle');
  const view=new DataView(oracle.buffer,oracle.byteOffset,oracle.byteLength),actual=oracle.slice();let offset=4,changed=0,max=0,alpha=0;const tiles=[];
  if(view.getUint32(0,true)!==physical.length)throw Error('Tile count mismatch');
@@ -19,6 +19,6 @@ async function actualPageRasterProof(page,layerId){return page.evaluate(async la
   tiles.push({x,y,w,h,storageW:t.w,storageH:t.h,changed:tileChanged,alpha:tileAlpha});offset+=w*h*4;
  }
  if(offset!==oracle.length)throw Error('Oracle trailing bytes');const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),v=>v.toString(16).padStart(2,'0')).join('');
- return{actualCapturedBeforeOracle:true,page:{width:pageW,height:pageH},physicalChanged:changed,max,alpha,tiles,actualHash:await hash(actual),oracleHash:await hash(oracle),glError:e.gl.getError()};
-},layerId)}
+ return{actualSource:source,actualCapturedBeforeOracle:true,page:{width:pageW,height:pageH},physicalChanged:changed,max,alpha,tiles,actualHash:await hash(actual),oracleHash:await hash(oracle),glError:e.gl.getError()};
+},{layerId,source})}
 module.exports={actualPageRasterProof};
