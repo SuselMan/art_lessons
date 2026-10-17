@@ -50,7 +50,25 @@
       "result": "PASS",
       "files": 1121
     },
-    "lint": "PASS, existing warnings only"
+    "lint": "PASS, existing warnings only",
+    "engine6cdAfter752": {
+      "files": 231,
+      "passed": 2253,
+      "failed": 0,
+      "durationSeconds": 337.35,
+      "workers": 1
+    },
+    "room6cdAfter752": {
+      "files": 70,
+      "passed": 673,
+      "expectedFail": 4,
+      "expectedFailIssues": [
+        777,
+        778
+      ],
+      "durationSeconds": 47.37,
+      "workers": 1
+    }
   },
   "native85e": {
     "samsung781": 5,
@@ -61,5 +79,10 @@
     "touchSoak": "22/24 incomplete, Surface SSH/CDP lost; final oracle not run"
   },
   "changesSince85e": "server join generation, residency leases and UI stale ACK; engine runtime unchanged",
-  "resourceScope": "same 3 QA services; no new runtime/dependency copies; raw logs owned annotation cache until final cleanup"
+  "resourceScope": "same 3 QA services; no new runtime/dependency copies; raw logs owned annotation cache until final cleanup",
+  "runtimeAfter752": "6cd49722",
+  "fingerprintsAfter752": {
+    "apps/web/src/engine/index.ts": "b2e62ee30f069709d30eeefb01758134f8370ec514adf6098b76d4da62456d8a",
+    "apps/web/src/engine/src/oplog/checkpointStore.ts": "07069380ab4fa9f6e8d5da580288db8ebb9b635d0997f03dec362115a91a75b3"
+  }
 }

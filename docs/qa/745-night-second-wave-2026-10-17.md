@@ -33,61 +33,56 @@ CPU69targeted+10000graphprefixesPASS; аппаратный повтор Dry/clea
 Отдельный opt-in prototype прошёл restart/atomicity tests, но старые вкладки,
 crash window и cross-batch mapping пока исключают незаметное внедрение.
 
-## Текущая проверка: 05:43
+## Текущая проверка: 06:08
 
-**Приоритетное новое наблюдение, 05:51:** в обычном режиме (cache/hiddenOFF)
-после100совместныхмазков canonical автораA отличается от собственного replay:
-5199каналов/max27, затем5223/max29; авторB exact. Ни Undo, ни exception для
-этого не нужны. Минимизируем #752; связь с отдельной ошибкой ownership #785
-не доказана. До разрешения внутри-GPU расхождения кандидат нельзя считать
-проверенным по сходимости даже на одном устройстве.
+Работа продолжается. Лимит: **53% использовано, 47% осталось** (06:00),
+один reset не использован. Production и push не выполнялись.
 
-Samsung causal20 завершён **20/20**,84строгихсравнения+4freshrejoin PASS;
-полный168-op журнал отдельно проверен на оба порядка и фактические Undo/Redo.
+**QA runtime6cd49722:** все исправления780–784 плюс защита мокрой M70 от
+legacy carried checkpoint. Backend4558 PID4040793 остаётся на проверенном784;
+последняя правка только в клиенте.30целевыхтестов, fulltypecheck всехworkspace,
+lint/map1123 PASS. Полный engine с одним worker завершён: **231 файл,
+2253 теста PASS**,337,35с. Полный Room:70файлов,673PASS и4expectedFAIL
+по открытым777/778,47,37с. Аппаратные post-fix B1/B8/full100 выполняются;
+их результат не объявляем заранее.
 
-Причина исчезновения Surface уточнена системными событиями: Windows
-перезагружалась, TrustedInstaller инициировал запланированное обновление.
-Сейчас SSH доступен, но интерактивного входа нет (UserName=NULL), поэтому новый
-нативный Chrome корректно не запускаем. PIN/вход/обновления мы не меняли.
+**Подтверждённый #752 CP8:** A50/B0 точен, хотя ordinaryCP8 уже создан.
+Один чужой Bseq11 обгоняет40pendingA: авторA получает5390channels/max37diff,
+B exact. CP8 точно первые8serverops; его RGB превращает8мокрыхмазков в сухую
+подложку, новыйsource содержит43из51wetops. B8:5364/max35; full100:5233/max30.
+Coverage/jobs/queues/unsettled пусты, полные ID/effective/contenthash совпадаютAPI.
+Новый кандидат запрещает создание и повторное использование такого carriedCP;
+legacycarry, purepencil и provedclosedM70 сохранены. Старое редкое наблюдение
+5байтов послеclosedDry автоматически закрытым не считаем.
 
+**#785 — отдельное наблюдение ownership:** nativeprefix иногда бросает
+exclusive-settle error ещёДОcacheenable. Три последующих defaultprefixtrace
+дали расхождение безexception и без_startSettle. Поэтому cache и исключение
+не объявлены причиной всех drift. Неподдерживаемый M70legacycarry объясняет
+возможный путь конфликта, но nativecreatortrace не пойман. Послеfix наблюдаем.
 
-Ночной поиск продолжается. Последний лимит: **50% использовано, 50% осталось**
-(05:33), один reset не использован. Production и push не выполнялись.
+Samsung causal20 **20/20**,84строгихсравнения+4freshrejoin PASS;168-opinput
+проверен независимо: оба порядка, фактические Undo/Redo и4dry-eraserROI.
+Все собственные комнаты/auth/контексты/форварды этой серии убраны.
+Samsung exactprefix100 — отдельный **SKIP**: Playwrightinit не завершилсядо
+созданияконтекстов, хотяrawCDP доступен. Это не PASS и не renderFAIL.
 
-**QA runtime e8e1f005**, backend4558 PID4040793, healthdbup. Исправления
-#780 (несколько сокетов), #781 (100s задержка reconnect), #782 (Dry перед
-offline-мазком), #783 (устаревший join/create), #784 (residency ожидающего
-входа) интегрированы. Engine runtime после85e не менялся.
+Аппаратные #781/#782 **10/10PASS** наSamsung, #776IDBcompletion PASS наVega,
+#780sameidentity **3PASS наодномAMD**. #783nativeboardrace пока отложен ради
+исправления canonicaltarget. CPUserver+Room783:1382PASS+4expectedFAIL777/778;
+784target424PASS, candidatefullserver721PASS; всеtypecheckPASS.
 
-Аппаратные подтверждения: Samsung #781/#782 **10/10 PASS**, Vega #776
-(IDB callback после смены доски) PASS, #780 (две вкладки одного владельца и
-независимый наблюдатель) **3 PASS на одном AMD**. Это не проверка двух разных
-устройств в #780 и не закрытие меж-GPU детерминизма.
+Первый fullengine85e:2246PASS+1charcoal5stimeout; изолированный неизменённый
+charcoal27PASS. Новый fullengine после752 идёт, старый не переименован вPASS.
 
-Сейчас идёт Samsung causal20: пять чужих действий × два порядка ACK × два
-повтора; actual до oracle, следующая вода, Undo/Redo и периодический rejoin.
-Vega готовит быстрые переходы B→C→B в аннотациях и новый диагностический
-ON/OFF повтор кеша. Старые SSH-forward закрылись; восстанавливаем только свои
-туннели по кешированным endpoints, без изменения сети/сопряжения.
+Touchsoak **22/24 неполный**,1206ops/4deepbothGPUexact, finaloracleнет.
+WindowsSurface перезагрузилась из-за планового обновления TrustedInstaller;
+сейчас SSH доступен, но UserName=NULL, интерактивного входа нет. Chromeзапуск
+корректноSKIP, PIN/logon/updateполитики мы не меняли. iPad не проверен.
 
-Проверки интеграции: server+Room после783 **1382 PASS +4 expected FAIL**
-(известные777/778), после784 target424PASS+realNativeownership1PASS;
-fulltypecheck всехworkspace/e2e/scripts PASS, map1121PASS, lintPASS.
-Полный engine85e: **2246PASS +1 timeout** старого charcoal-теста (5s);
-изолированный повтор всех27charcoal тестов без изменения timeout — PASS.
-Не называем исходный полный прогон безусловно успешным.
-
-**Touch soak неполный, 22/24:** 1206операций, четыре глубокие сверки обоихGPU
-exact, доостановкиGL0; финальнойсверкинет. Surface потерял SSH/CDPдоступ,
-причина неизвестна. Одна штатная wake-попытка доступ не восстановила.
-Результаты других устройств Surface не заменяют.
-
-**#744 остаётся OPEN:** тяжёлый Undo и CPU hotspot длинной истории не ускорены.
-Пробный cacheON прогон дал pageerror ownership и5209channels/max28diff;
-связь ошибки именно с кешем пока НЕ доказана (в старом probe нет error timing
-и pre-cache pixel proof). Cache/hidden flags по умолчаниюOFF; повтор снимает
-синхронный stack и принудительноOFF oracle. Новый realNativeCPUcontrol PASS
-не подменяет аппаратный результат.
+**Открытые главные ограничения:** #748 strictcrossGPU, #747 многотайловый
+A4/infinite, #744 тяжёлыйUndo/CPUscaling, #777/778 durable/crossbatchrecovery,
+#753 lastactualmaterial/longhold семантика. Cache/hidden flags OFF.
 
 ## Метод
 
