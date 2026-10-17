@@ -1,0 +1,285 @@
+{
+  "source": "dfe+phaseDefaultTrue+integerBGhighp",
+  "transport": "raw Android CDP; exact shared browser function",
+  "qualification": "NativeSamsung synthetic128\u00b2 dry-zero fixed-point gate only; not a proof of all numerics/whole R32 optimization. Actual fieldOp10 seed, real unit/prefix waterFrontStep, actual fieldOp11 zero domain.",
+  "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+  "precision": {
+    "LOW_FLOAT": {
+      "precision": 10,
+      "rangeMin": 15,
+      "rangeMax": 15
+    },
+    "MEDIUM_FLOAT": {
+      "precision": 10,
+      "rangeMin": 15,
+      "rangeMax": 15
+    },
+    "HIGH_FLOAT": {
+      "precision": 23,
+      "rangeMin": 127,
+      "rangeMax": 127
+    }
+  },
+  "dither": true,
+  "parameters": {
+    "costMax": 100,
+    "budget": 96,
+    "effectiveDryCost": 48,
+    "constantDryCost": 24,
+    "dryShare": 0.5,
+    "climb": 30,
+    "floor": 0.85,
+    "scale": 1,
+    "standing": 1,
+    "noForeignTexture": true,
+    "rawCoverageZero": true
+  },
+  "cases": [
+    {
+      "mode": "unit",
+      "dryCost": 48,
+      "seeded": {
+        "changed": 0,
+        "min": 255,
+        "max": 255,
+        "gl": 0
+      },
+      "domainNonzero": 0,
+      "frontPathStatsBefore": null,
+      "frontPathStatsAfter": null,
+      "allStepsR255": true,
+      "stepsSummary": {
+        "count": 25,
+        "strides": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "allChangedZero": true,
+        "allMinMax255": true,
+        "allGLzero": true
+      }
+    },
+    {
+      "mode": "prefix8",
+      "dryCost": 48,
+      "seeded": {
+        "changed": 0,
+        "min": 255,
+        "max": 255,
+        "gl": 0
+      },
+      "domainNonzero": 0,
+      "frontPathStatsBefore": null,
+      "frontPathStatsAfter": {
+        "buildDraws": 16,
+        "jumpDraws": 17,
+        "nativeDraws": 0,
+        "cacheBuilds": 1,
+        "extraBytes": 327680
+      },
+      "allStepsR255": true,
+      "stepsSummary": {
+        "count": 25,
+        "strides": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "allChangedZero": true,
+        "allMinMax255": true,
+        "allGLzero": true
+      }
+    },
+    {
+      "mode": "unit",
+      "dryCost": 24,
+      "seeded": {
+        "changed": 0,
+        "min": 255,
+        "max": 255,
+        "gl": 0
+      },
+      "domainNonzero": 0,
+      "frontPathStatsBefore": {
+        "buildDraws": 16,
+        "jumpDraws": 17,
+        "nativeDraws": 0,
+        "cacheBuilds": 1,
+        "extraBytes": 327680
+      },
+      "frontPathStatsAfter": {
+        "buildDraws": 16,
+        "jumpDraws": 17,
+        "nativeDraws": 0,
+        "cacheBuilds": 1,
+        "extraBytes": 327680
+      },
+      "allStepsR255": true,
+      "stepsSummary": {
+        "count": 25,
+        "strides": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "allChangedZero": true,
+        "allMinMax255": true,
+        "allGLzero": true
+      }
+    },
+    {
+      "mode": "prefix8",
+      "dryCost": 24,
+      "seeded": {
+        "changed": 0,
+        "min": 255,
+        "max": 255,
+        "gl": 0
+      },
+      "domainNonzero": 0,
+      "frontPathStatsBefore": {
+        "buildDraws": 16,
+        "jumpDraws": 17,
+        "nativeDraws": 0,
+        "cacheBuilds": 1,
+        "extraBytes": 327680
+      },
+      "frontPathStatsAfter": {
+        "buildDraws": 32,
+        "jumpDraws": 34,
+        "nativeDraws": 0,
+        "cacheBuilds": 2,
+        "extraBytes": 327680
+      },
+      "allStepsR255": true,
+      "stepsSummary": {
+        "count": 25,
+        "strides": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "allChangedZero": true,
+        "allMinMax255": true,
+        "allGLzero": true
+      }
+    }
+  ],
+  "reference": {
+    "gl": 0
+  },
+  "actual": {
+    "gl": 0
+  },
+  "diffs": {
+    "sentinel": {
+      "changed": 0
+    }
+  },
+  "stageDiffs": {
+    "domain": {
+      "changed": 0
+    }
+  },
+  "lost": false,
+  "cleanup": {
+    "expectedOwnBuffers": 4,
+    "destroyed": 4
+  },
+  "errors": [],
+  "runtimeHashes": {
+    "apps/web/src/engine/src/raster/WatercolorPasses.ts": "eb23f10e70ca8086e8f7da235a0abb90e3f3f06ab8397a47c745d377b94f4e10",
+    "apps/web/src/engine/src/raster/WatercolorFrontPaths.ts": "5715f547d834465abc5153e6516b18f3c6cfeb98346adb5fe87ed9f9fa92cf22",
+    "apps/web/src/engine/src/raster/shaders.ts": "900ae36d8afd512d5a68a0035ec1c84b9915ef53191fbd5e19918f2bb544deb7",
+    "apps/web/src/engine/src/presets/watercolorPresets.ts": "4df2fc0600c2d2bd7e709b0e9f99d5c0499debf9096fd276b042d8e503082f7a"
+  }
+}
