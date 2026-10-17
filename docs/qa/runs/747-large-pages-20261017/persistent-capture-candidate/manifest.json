@@ -1,0 +1,17 @@
+{
+  "base": "466745f1",
+  "old": {
+    "apps/web/src/engine/src/buffers/AccumulationBuffer.ts": "954c40f4a7b0779c2edee4cdc592e3fc8c08c464f8dece71cd9a66548817a486",
+    "apps/web/src/engine/src/watercolor/puddle/CapturedReadScope.ts": "491424d1b0853479420e5e89caa1da20a832c6e031ac7a254ee3a3437c5f80d7",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleSource.ts": "3f666a232e9976c0d1fc60e272a71b667e891058baf61e63d94612854206b565",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "cc6ec113f5fca85c0fe4a3ade9def9c3b196cf9bc0f7d804ee093daef2068da4"
+  },
+  "new": {
+    "apps/web/src/engine/src/buffers/AccumulationBuffer.ts": "d3fad5177957dd84e81684f7a4902b0e5dc336f9f94f8c7e76422e7366168b7b",
+    "apps/web/src/engine/src/watercolor/puddle/CapturedReadScope.ts": "2c189eaf26dc6b0e3d4f7f405c9ded1d99a2fb9288b08ca471883af91e1f4dd4",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleSource.ts": "602f11af4c5f3de0d1004b7fddc142172858e08f9d776bcde2b4c6f2b72f7195",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "b29af6cafe8ad59ae66fa3ca581ed70cf9fdd586218464f94f8d107520b48db5",
+    "apps/web/src/engine/src/watercolor/puddle/CapturedReadPersistent.test.ts": "315fcc1cdadd986d933387bf5676c6a6c53b78114f74af35827d44da3e827ec5"
+  },
+  "patchSHA": "c0d562a861171d2d48d859262c87f8a40ef4532c203f94508f5dd3216002e305"
+}

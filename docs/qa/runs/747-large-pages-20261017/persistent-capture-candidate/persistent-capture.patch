@@ -1,0 +1,175 @@
+--- a/apps/web/src/engine/src/buffers/AccumulationBuffer.ts
++++ b/apps/web/src/engine/src/buffers/AccumulationBuffer.ts
+@@ -64,7 +64,7 @@
+     this._mipCapable = isPowerOfTwo(width) && isPowerOfTwo(height)
+   }
+ 
+-  private _capturedRead?:{token:symbol;revision:number;pixels:Uint8Array}
++  private _capturedRead?:{token:symbol;revision:number;pixels:Uint8Array;persist:boolean;backing?:Uint8Array|readonly[number,number,number,number]}
+   private _contentRevision=0
+   get contentRevision():number{return this._contentRevision}
+   private _noteContentWrite():void{this._capturedRead=undefined;this._contentRevision=Number.isSafeInteger(this._contentRevision)&&this._contentRevision<Number.MAX_SAFE_INTEGER?this._contentRevision+1:NaN}
+@@ -112,8 +112,8 @@
+     } else if(this._capturedRead&&this._capturedRead.revision===this._contentRevision){
+       // Consume proof once. The buffer now owns the same bytes as its ordinary
+       // nonresident backing; the capture scope must not keep their array alive.
+-      this._backing=uniformReadback(this._capturedRead.pixels)
+-      this._capturedRead=undefined
++      this._backing=this._capturedRead.backing??=uniformReadback(this._capturedRead.pixels)
++      if(!this._capturedRead.persist||!(this._backing instanceof Uint8Array))this._capturedRead=undefined
+     } else if (!this._backing || this._backing instanceof Uint8Array) preserveResidencyState(gl, () => {
+       const pixels = new Uint8Array(width * height * 4)
+       gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+@@ -478,12 +478,19 @@
+   /** QA candidate only: caller may read but must not mutate pixels while this
+    * capture is owned. No copy, upload or additional GL read occurs here.
+    * The returned lease functions retain only this buffer and an identity token. */
+-  captureReadPixels():{pixels:Uint8Array;release():void;retainedBytes():number} {
+-    const pixels=this.readPixels(),token=Symbol(),revision=this._contentRevision
+-    if(this._residency&&!this._destroyed&&this._resident&&Number.isSafeInteger(revision)
+-      &&(!this._backing||this._backing instanceof Uint8Array))this._capturedRead={token,revision,pixels}
+-    return {pixels,
+-      release:()=>{if(this._capturedRead?.token===token)this._capturedRead=undefined},
++  captureReadPixels(options:{persistUntilRelease?:boolean}={}):{pixels:Uint8Array;release():void;retainedBytes():number} {
++    const revision=this._contentRevision,pixels=this.readPixels()
++    return {pixels,...this.retainCapturedPixels(pixels,{...options,expectedRevision:revision})}
++  }
++
++  /** Ownership contract: immutable exact full-size CPU upload/readback only.
++   * No copy/upload/read; caller releases before mutating/reusing its array. */
++  retainCapturedPixels(pixels:Uint8Array,options:{persistUntilRelease?:boolean;expectedRevision:number}):{release():void;retainedBytes():number} {
++    if(!(pixels instanceof Uint8Array)||!(pixels.buffer instanceof ArrayBuffer)||pixels.byteOffset!==0||pixels.buffer.byteLength!==pixels.byteLength||pixels.byteLength!==this.width*this.height*4)throw new RangeError('Captured pixels dimensions differ')
++    const token=Symbol(),revision=this._contentRevision
++    if(options.expectedRevision===revision&&this._residency&&!this._destroyed&&this._resident&&Number.isSafeInteger(revision)
++      &&(!this._backing||this._backing instanceof Uint8Array))this._capturedRead={token,revision,pixels,persist:options.persistUntilRelease===true}
++    return {release:()=>{if(this._capturedRead?.token===token)this._capturedRead=undefined},
+       retainedBytes:()=>this._capturedRead?.token===token?this.width*this.height*4:0}
+   }
+ 
+--- a/apps/web/src/engine/src/watercolor/puddle/CapturedReadScope.ts
++++ b/apps/web/src/engine/src/watercolor/puddle/CapturedReadScope.ts
+@@ -2,14 +2,29 @@
+ /** QA candidate: a capture owns release functions, never a second array list.
+  * Eviction transfers its proven bytes to the buffer's existing CPU backing. */
+ export class CapturedReadScope {
+- private leases:Array<{release():void;retainedBytes():number}>=[]
++ private leases:Array<{release():void;retainedBytes():number;persistent?:boolean}>=[]
++ private reservedBytes=0
+  private closed=false
++ constructor(privateOptions:{persistUntilRelease?:boolean;maxRetainedBytes?:number}={}){this.options=privateOptions;if(privateOptions.maxRetainedBytes!==undefined&&(!Number.isSafeInteger(privateOptions.maxRetainedBytes)||privateOptions.maxRetainedBytes<0))throw new RangeError('Invalid captured CPU byte limit')}
++ private readonly options:{persistUntilRelease?:boolean;maxRetainedBytes?:number}
+  read(buffer:AccumulationBuffer):Uint8Array {
+   if(this.closed)throw new Error('Captured read scope is closed')
+-  const snapshot=buffer.captureReadPixels()
+-  this.leases.push({release:snapshot.release,retainedBytes:snapshot.retainedBytes})
++  const bytes=buffer.width*buffer.height*4,persistent=this.canRetain(bytes);if(persistent)this.reservedBytes+=bytes;let snapshot;try{snapshot=buffer.captureReadPixels({persistUntilRelease:persistent})}finally{if(persistent)this.reservedBytes-=bytes}
++  if(this.closed){snapshot.release();throw new Error('Captured read scope closed during read')}this.leases.push({release:snapshot.release,retainedBytes:snapshot.retainedBytes,persistent})
+   return snapshot.pixels
+  }
++ private canRetain(bytes:number):boolean{return this.options.persistUntilRelease===true&&bytes<=((this.options.maxRetainedBytes??64*1024*1024)-this.persistentRetainedBytes-this.reservedBytes)}
++ upload(buffer:AccumulationBuffer,pixels:Uint8Array):void {
++  if(this.closed)throw new Error('Captured read scope is closed')
++  if(!(pixels instanceof Uint8Array)||!(pixels.buffer instanceof ArrayBuffer)||pixels.byteOffset!==0||pixels.buffer.byteLength!==pixels.byteLength||pixels.byteLength!==buffer.width*buffer.height*4)throw new RangeError('Upload requires exact owned RGBA8 array')
++  const revision=buffer.contentRevision
++  buffer.restorePixels(pixels)
++  if(this.closed)throw new Error('Captured read scope closed during upload')
++  if(buffer.contentRevision!==revision+1||!this.canRetain(pixels.byteLength))return
++  const lease=buffer.retainCapturedPixels(pixels,{persistUntilRelease:true,expectedRevision:revision+1})
++  this.leases.push({...lease,persistent:true})
++ }
++ get persistentRetainedBytes():number{return this.leases.reduce((total,lease)=>total+(lease.persistent?lease.retainedBytes():0),0)}
+  get retainedBytes():number{return this.leases.reduce((total,lease)=>total+lease.retainedBytes(),0)}
+  dispose():void{if(this.closed)return;this.closed=true;for(const lease of this.leases)lease.release();this.leases=[]}
+ }
+--- a/apps/web/src/engine/src/watercolor/puddle/PagedPuddleSource.ts
++++ b/apps/web/src/engine/src/watercolor/puddle/PagedPuddleSource.ts
+@@ -105,6 +105,7 @@
+ }
+ 
+ export interface PagedWindowRestoreOptions {
++  captureReads?:CapturedReadScope
+   /** QA-only opt-in: omit an exactly zero foreign plane on a fresh scratch entry. */
+   omitZeroForeignSolventLoad?:boolean
+ }
+@@ -139,6 +140,7 @@
+     }
+     let buffer=entry[name]
+     if(!buffer){buffer=acquireOwned();entry[name]=buffer}
+-    buffer.restorePixels(pixels)
++    if(options.captureReads)options.captureReads.upload(buffer,pixels)
++    else buffer.restorePixels(pixels)
+   }
+ }
+--- a/apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts
++++ b/apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts
+@@ -23,6 +23,7 @@
+  skipEmptyReference?:boolean
+  referenceEmpty?(rect:MaterialRect):void
+  /** QA-only default OFF: capture read ownership and reuse sole-water bytes. */
++ persistCapturedBacking?:boolean
+  capturedBacking?:boolean
+  /** Separate scheduling experiment, default OFF. */
+  cooperativeCapture?:boolean
+@@ -50,6 +51,7 @@
+  coarse?(value:ReturnType<ReturnType<typeof createPagedBackgroundMix>['readback']>):void
+ }
+ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number;height:number},make:PagedBufferFactory,inspect:PagedPuddleInspection={}){
++ if(inspect.persistCapturedBacking===true&&inspect.capturedBacking!==true)throw new Error('Persistent capture requires captured backing')
+  const gl=host.gl,read=()=>APPROVED_M70_PARAMETERS
+  const contrast=createPagedContrastPhase(gl,read,size,make),background=createPagedBackgroundMix(gl,size,read,true,make)
+  const vertex='attribute vec2 pos;varying vec2 uv;void main(){uv=pos*.5+.5;gl_Position=vec4(pos,0.,1.);}'
+@@ -75,7 +77,7 @@
+  function* rects(step=512):Generator<MaterialRect>{for(let y=0;y<size.height;y+=step)for(let x=0;x<size.width;x+=step)yield{x,y,width:Math.min(step,size.width-x),height:Math.min(step,size.height-y)}}
+  function destroyOutputs(){for(const value of outputs.values())for(const b of Object.values(value))b.destroy();outputs.clear()}
+  function* solve(source:RibbonStrokeScratch,target:ILayerBuffer,epoch:number):Generator<void>{
+-  const captureReads=inspect.capturedBacking===true?new CapturedReadScope():undefined
++  const captureReads=inspect.capturedBacking===true?new CapturedReadScope({persistUntilRelease:inspect.persistCapturedBacking===true,maxRetainedBytes:64*1024*1024}):undefined
+   try{
+   let raw:ReturnType<typeof capturePagedPuddleSource>
+   if(inspect.cooperativeCapture===true){
+@@ -134,9 +136,10 @@
+    const windowSource=new RibbonStrokeScratch(host.pool,true,true)
+    let key:AccumulationBuffer|undefined
+    const detachedWindowSource=inspect.detachedWindowSource===true
++   const windowReads=inspect.persistCapturedBacking===true?new CapturedReadScope({persistUntilRelease:true,maxRetainedBytes:6*1536*1536*4}):undefined
+    let native:ReturnType<typeof createNativePuddleTarget>|undefined
+    try{
+-    const restoreOptions={omitZeroForeignSolventLoad:inspect.omitZeroForeignSolventLoad}
++    const restoreOptions={captureReads:windowReads,omitZeroForeignSolventLoad:inspect.omitZeroForeignSolventLoad}
+     if(detachedWindowSource)key=createDetachedPagedPuddleWindow(raw,rect,windowSource,restoreOptions)
+     else{key=host.pool.acquire(1536,1536);restorePagedPuddleWindow(raw,rect,windowSource,key,host.pool,restoreOptions)}
+     const context=source.finishContext;if(!context)throw Error('Missing paged finish context')
+@@ -161,7 +164,7 @@
+       out.writeRect(interior,extractMaterialTileRect(pixels,readRect.width,readRect.height,{...local,x:local.x-readRect.x,y:local.y-readRect.y}))
+      }
+     }
+-   }finally{try{native?.destroy()}finally{try{windowSource.destroy()}finally{if(key&&!detachedWindowSource)host.pool.release(key)}}}
++   }finally{try{native?.destroy()}finally{try{windowReads?.dispose()}finally{try{windowSource.destroy()}finally{if(key&&!detachedWindowSource)host.pool.release(key)}}}}
+    yield
+   }
+   if(radius===32&&!metadataKnown())throw Error('M70 support metadata changed after window solve')
+--- /dev/null
++++ b/apps/web/src/engine/src/watercolor/puddle/CapturedReadPersistent.test.ts
+@@ -0,0 +1,22 @@
++import {it,expect,vi} from 'vitest'
++import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
++import {BufferResidency} from '../../buffers/BufferResidency'
++import {MockGL} from '../../../testing/mockGL'
++import {CapturedReadScope} from './CapturedReadScope'
++function fixture(limit=64){const gl=new MockGL() as unknown as WebGLRenderingContext,cache=new BufferResidency(gl,16),all:AccumulationBuffer[]=[];const make=()=>{const b=new AccumulationBuffer(gl,2,2,'nearest',cache);all.push(b);return b};const a=make(),pixels=Uint8Array.from({length:16},(_,i)=>i+1);a.writePixels(pixels);const read=vi.spyOn(gl,'readPixels'),scope=new CapturedReadScope({persistUntilRelease:true,maxRetainedBytes:limit});return{gl,cache,a,pixels,read,scope,make,finish(){scope.dispose();for(const b of all)b.destroy();cache.dispose()}}}
++it('retains same nonuniform array over repeated eviction/hydration, no duplicate read or array',()=>{const f=fixture(),pixels=f.scope.read(f.a);for(let n=0;n<4;n++){f.read.mockClear();const p=f.make();expect(f.read).not.toHaveBeenCalled();expect(Reflect.get(f.a,'_backing')).toBe(pixels);expect(f.scope.persistentRetainedBytes).toBe(16);p.destroy();void f.a.texture;expect(Reflect.get(f.a,'_backing')).toBeUndefined();expect(Reflect.get(f.a,'_capturedRead').pixels).toBe(pixels)}f.scope.dispose();expect(f.scope.retainedBytes).toBe(0);f.read.mockClear();f.make();expect(f.read).toHaveBeenCalledOnce();f.finish()})
++it.each(['write','restore','clear','fbo','partial','copy','region','draw'] as const)('persistent proof invalidates on %s',kind=>{const f=fixture();f.scope.read(f.a);const p=f.make();p.destroy();expect(Reflect.get(f.a,'_resident')).toBe(false);const src=new AccumulationBuffer(f.gl,2,2);src.writePixels(new Uint8Array(16).fill(22));if(kind==='write')f.a.writePixels(f.pixels);if(kind==='restore')f.a.restorePixels(f.pixels);if(kind==='clear')f.a.clear();if(kind==='fbo')void f.a.fbo;if(kind==='partial')f.a.restorePixelsRect(0,0,new Uint8Array(4));if(kind==='copy')src.copyTo(f.a);if(kind==='region')src.copyRegionInto(f.a,0,0,0,0,1,1);if(kind==='draw'){f.a.beginReplaceDraw();f.a.endDraw()}expect(f.scope.persistentRetainedBytes).toBe(0);src.destroy();f.finish()})
++it('uniform adopts tuple once, clears large proof and still skips later reads',()=>{const f=fixture();f.a.clear();f.scope.read(f.a);f.read.mockClear();let p=f.make();expect(f.read).not.toHaveBeenCalled();expect(f.scope.persistentRetainedBytes).toBe(0);expect(Reflect.get(f.a,'_backing')).toEqual([0,0,0,0]);p.destroy();void f.a.texture;f.read.mockClear();p=f.make();expect(f.read).not.toHaveBeenCalled();p.destroy();f.finish()})
++it('immutable upload registers exact original array without extra read/copy; release nonresident preserves backing',()=>{const f=fixture();f.pixels.set(Uint8Array.from({length:16},(_,i)=>Math.floor(i/4)+1));f.read.mockClear();f.scope.upload(f.a,f.pixels);expect(f.read).not.toHaveBeenCalled();expect(Reflect.get(f.a,'_capturedRead').pixels).toBe(f.pixels);const p=f.make();expect(f.read).not.toHaveBeenCalled();expect(Reflect.get(f.a,'_backing')).toBe(f.pixels);f.scope.dispose();p.destroy();expect(f.a.readPixels()).toEqual(f.pixels);f.finish()})
++it('persistent cap counts nonresident proofs; overflow read uses existing one-shot fallback',()=>{const f=fixture(16),a=f.scope.read(f.a),b=f.make();b.writePixels(f.pixels);const bs=f.scope.read(b);expect(f.scope.persistentRetainedBytes).toBe(16);expect(f.scope.retainedBytes).toBe(32);expect(Reflect.get(f.a,'_capturedRead').pixels).toBe(a);expect(Reflect.get(b,'_capturedRead').pixels).toBe(bs);expect(Reflect.get(b,'_capturedRead').persist).toBe(false);f.finish()})
++it('cap overflow upload does not register proof, retains exact upload',()=>{const f=fixture(0);f.pixels.set(Uint8Array.from({length:16},(_,i)=>Math.floor(i/4)+1));f.scope.upload(f.a,f.pixels);expect(f.scope.retainedBytes).toBe(0);expect(f.a.readPixels()).toEqual(f.pixels);f.finish()})
++it.each(['destroy','forget','discard'] as const)('invalidates %s and releases idempotently',kind=>{const f=fixture();f.scope.read(f.a);if(kind==='destroy')f.a.destroy();if(kind==='forget')f.cache.forgetContext();if(kind==='discard')f.a.setIdlePoolDiscardable(true);expect(f.scope.persistentRetainedBytes).toBe(0);f.scope.dispose();f.scope.dispose();f.finish()})
++it('new mixed scope token survives old release',()=>{const f=fixture();f.scope.read(f.a);const other=new CapturedReadScope({persistUntilRelease:true});other.upload(f.a,f.pixels);f.scope.dispose();expect(other.persistentRetainedBytes).toBe(16);other.dispose();f.finish()})
++it('reentrant read mutation cannot certify stale bytes',()=>{const f=fixture();const orig=f.gl.readPixels.bind(f.gl);f.read.mockImplementationOnce((...args)=>{orig(...args);f.a.clear()});f.scope.read(f.a);expect(f.scope.retainedBytes).toBe(0);f.finish()})
++it('rejects malformed ownership dimensions/cap and closed uploads',()=>{const f=fixture();expect(()=>f.a.retainCapturedPixels(new Uint8Array(3),{expectedRevision:f.a.contentRevision})).toThrow();expect(()=>new CapturedReadScope({maxRetainedBytes:NaN})).toThrow();f.scope.dispose();expect(()=>f.scope.upload(f.a,f.pixels)).toThrow('closed');f.finish()})
++
++it('rejects subarray proof ownership without retaining oversized CPU memory',()=>{const f=fixture();const pixels=new Uint8Array(20).subarray(1,17);expect(()=>f.scope.upload(f.a,pixels)).toThrow('owned');expect(()=>f.a.retainCapturedPixels(pixels,{expectedRevision:f.a.contentRevision})).toThrow();expect(f.scope.retainedBytes).toBe(0);f.finish()})
++it('reentrant same-scope read cannot exceed persistent cap',()=>{const f=fixture(16),other=new AccumulationBuffer(f.gl,2,2);other.enableResidency(f.cache);other.writePixels(f.pixels);const original=MockGL.prototype.readPixels.bind(f.gl) as WebGLRenderingContext['readPixels'];let nested=false;f.read.mockImplementation((...args)=>{original(...args);if(!nested){nested=true;f.scope.read(other)}});f.scope.read(f.a);expect(f.scope.persistentRetainedBytes).toBeLessThanOrEqual(16);other.destroy();f.finish()})
++it('scope cancelled reentrantly during read retires just-created proof',()=>{const f=fixture(),original=MockGL.prototype.readPixels.bind(f.gl) as WebGLRenderingContext['readPixels'];f.read.mockImplementationOnce((...args)=>{original(...args);f.scope.dispose()});expect(()=>f.scope.read(f.a)).toThrow('closed during read');expect(Reflect.get(f.a,'_capturedRead')).toBeUndefined();f.finish()})
++it('reentrant mutation during upload prevents stale adoption',()=>{const f=fixture(),original=f.gl.texImage2D.bind(f.gl);vi.spyOn(f.gl,'texImage2D').mockImplementationOnce((...args)=>{original(...args);f.a.clear()});f.scope.upload(f.a,f.pixels);expect(f.scope.retainedBytes).toBe(0);f.finish()})
++it('failed upload and failed read publish no lease',()=>{const f=fixture();vi.spyOn(f.gl,'texImage2D').mockImplementationOnce(()=>{throw Error('uploadfailed')});expect(()=>f.scope.upload(f.a,f.pixels)).toThrow('uploadfailed');expect(f.scope.retainedBytes).toBe(0);f.read.mockImplementationOnce(()=>{throw Error('readfailed')});expect(()=>f.scope.read(f.a)).toThrow('readfailed');expect(f.scope.persistentRetainedBytes).toBe(0);f.finish()})
