@@ -1,3 +1,5 @@
+import {transportMetrics} from './transport-metrics'
+import {definitions as macro2GL} from './alternatives/macro2-index'
 import {definitions as macroGL} from './alternatives/macro-index'
 import {flowIds,createFlowFixture} from './flow-fixtures'
 import {flowMetrics} from './flow-metrics'
@@ -7,7 +9,7 @@ import {createFixture,fixtureInfo,fixtureIds,type FixtureId} from './fixtures'
 import {definitions as alternatives} from './alternatives'
 import {reference} from './reference'
 import type {AlgorithmConfig,AlgorithmInput,GLResult} from './protocol'
-const definitions=[reference,...alternatives,...macroGL,...backendGL]
+const definitions=[reference,...alternatives,...macroGL,...macro2GL,...backendGL]
 let busy=false
 const send=(r:unknown)=>self.postMessage(r)
 const digest=async(bytes:Uint8Array)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes as Uint8Array<ArrayBuffer>)),b=>b.toString(16).padStart(2,'0')).join('')
@@ -75,5 +77,5 @@ self.onmessage=async({data})=>{if(busy){send({requestId:data.requestId,error:'Al
   control={inputRightAlpha:inputRight,outputRightAlpha:outputRight,noCrossing:inputRight===0&&outputRight===0}
  }
  const paper=isCapturedFixture(data.fixture)?input.paper.slice():undefined
- ;(self as any).postMessage({requestId:data.requestId,result:{algorithm:data.algorithm,fixture:data.fixture,encoding,config:data.config??{},fixtureSHA,...report,flowMetrics:flowMetrics(data.fixture,input,output),...(control?{control}:{}),...(paper?{captureManifest:capturedRecord(data.fixture)}:{})},output,paper},[output.buffer,...(paper?[paper.buffer]:[])])
+ ;(self as any).postMessage({requestId:data.requestId,result:{algorithm:data.algorithm,fixture:data.fixture,encoding,config:data.config??{},fixtureSHA,...report,flowMetrics:flowMetrics(data.fixture,input,output),...(data.measureTransport?{transportMetrics:transportMetrics(input.rgba,output,input.size,input.water)}:{}),...(control?{control}:{}),...(paper?{captureManifest:capturedRecord(data.fixture)}:{})},output,paper},[output.buffer,...(paper?[paper.buffer]:[])])
  }catch(e){send({requestId:data.requestId,error:String((e as Error).stack??e)})}finally{busy=false}}
