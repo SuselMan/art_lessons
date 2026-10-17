@@ -56,10 +56,11 @@ export async function createMiniRuntime(source:HTMLCanvasElement|OffscreenCanvas
   }else if(message.type==='qa-run-scene-goal'){
    void(async()=>{if(!replayedScene||!sceneRawSHA)throw Error('Replay scene first')
     const repeats=Math.max(1,Math.min(5,message.repeats??3)),samples=[],hashes:Record<string,string>[]=[]
-    for(let i=0;i<repeats;i++){samples.push(puddle.diagnosticRunGoal());hashes.push(await goalHashes(puddle.diagnosticGoalReadback()))}
+    let endpoint:Uint8Array|undefined
+    for(let i=0;i<repeats;i++){samples.push(puddle.diagnosticRunGoal());const readback=puddle.diagnosticGoalReadback();hashes.push(await goalHashes(readback));if(message.endpoint&&i===repeats-1)endpoint=readback.c}
     const rawSHAAfter=await rawSceneHashes();if(JSON.stringify(rawSHAAfter)!==JSON.stringify(sceneRawSHA))throw Error('Native run changed raw source')
     const blob=await new Promise<Blob>((resolve,reject)=>{if('convertToBlob'in source)source.convertToBlob({type:'image/png'}).then(resolve,reject);else source.toBlob(value=>value?resolve(value):reject(Error('PNG missing')),'image/png')})
-    emit({type:'qa-scene-goal',requestId:message.requestId,samples,hashes,repeatExact:hashes.every(value=>JSON.stringify(value)===JSON.stringify(hashes[0])),rawSHAAfter,blob})
+    emit({type:'qa-scene-goal',requestId:message.requestId,samples,hashes,repeatExact:hashes.every(value=>JSON.stringify(value)===JSON.stringify(hashes[0])),rawSHAAfter,blob,...(endpoint?{endpointBlob:new Blob([endpoint.buffer as ArrayBuffer],{type:'application/octet-stream'}),endpointMetadata:{size,rows:'gl-bottom-up',channels:'native inkColor optical-depth RGB and pigment-mass A',sha256:hashes.at(-1)!.c,qualification:'Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale.'}}:{})})
    })().catch(error=>emit({type:'qa-scene-error',requestId:message.requestId,message:String((error as Error).stack??error)}))
   }else if(message.type==='pointer'){if(message.event.type==='pointerdown')stepMax=0;if(message.event.type==='pointerup')activeGesture={id:message.gestureId,captureUpEpoch:message.captureUpEpoch,dequeuedUpEpoch:performance.timeOrigin+performance.now()};const dequeuedEpoch=performance.timeOrigin+performance.now();host.pointer(message.event);emit({type:'processed',eventType:message.event.type,sequence:message.sequence,inputEpoch:message.sentEpoch,dequeuedEpoch,processedEpoch:performance.timeOrigin+performance.now(),gestureId:message.gestureId})}else if(message.type==='qa-native-capture'){
    void readNativeCapture().then(record=>emit({type:'qa-native-capture',requestId:message.requestId,...record})).catch(error=>emit({type:'error',message:String(error)}))

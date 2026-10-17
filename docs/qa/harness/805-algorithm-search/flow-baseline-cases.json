@@ -1,0 +1,126 @@
+[
+  {
+    "algorithm": "input-reference",
+    "fixture": "flow-pool-drop",
+    "encoding": "optical-density",
+    "config": {},
+    "repeats": 3
+  },
+  {
+    "algorithm": "alternative-finite-volume-exchange",
+    "fixture": "flow-pool-drop",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 6,
+      "mobile": 0.8,
+      "share": 0.75,
+      "adsorption": 0.08,
+      "coarse": 2,
+      "paperGain": 0.25,
+      "fineSmooth": 2
+    },
+    "repeats": 3
+  },
+  {
+    "algorithm": "alternative-correlated-paper-deposition",
+    "fixture": "flow-pool-drop",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 5,
+      "mobile": 0.8,
+      "share": 0.7,
+      "adsorption": 0.09,
+      "paperBias": 1,
+      "coarse": 8,
+      "paperScale": 8,
+      "micro": 0.1,
+      "relief": 4.5
+    },
+    "repeats": 3
+  },
+  {
+    "algorithm": "alternative-stable-fluids",
+    "fixture": "flow-pool-drop",
+    "encoding": "optical-density",
+    "config": {
+      "resolution": 256,
+      "steps": 4,
+      "projection": 4,
+      "force": 2
+    },
+    "repeats": 3
+  },
+  {
+    "algorithm": "wgsl-d2q9-bgk",
+    "fixture": "flow-pool-drop",
+    "encoding": "optical-density",
+    "config": {
+      "grid": 256,
+      "steps": 16,
+      "diffusion": 0.015
+    },
+    "repeats": 3
+  },
+  {
+    "algorithm": "input-reference",
+    "fixture": "flow-separated-colors",
+    "encoding": "optical-density",
+    "config": {},
+    "repeats": 3
+  },
+  {
+    "algorithm": "alternative-finite-volume-exchange",
+    "fixture": "flow-separated-colors",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 6,
+      "mobile": 0.8,
+      "share": 0.75,
+      "adsorption": 0.08,
+      "coarse": 2,
+      "paperGain": 0.25,
+      "fineSmooth": 2
+    },
+    "repeats": 3
+  },
+  {
+    "algorithm": "alternative-correlated-paper-deposition",
+    "fixture": "flow-separated-colors",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 5,
+      "mobile": 0.8,
+      "share": 0.7,
+      "adsorption": 0.09,
+      "paperBias": 1,
+      "coarse": 8,
+      "paperScale": 8,
+      "micro": 0.1,
+      "relief": 4.5
+    },
+    "repeats": 3
+  },
+  {
+    "algorithm": "alternative-stable-fluids",
+    "fixture": "flow-separated-colors",
+    "encoding": "optical-density",
+    "config": {
+      "resolution": 256,
+      "steps": 4,
+      "projection": 4,
+      "force": 2
+    },
+    "repeats": 3
+  },
+  {
+    "algorithm": "wgsl-d2q9-bgk",
+    "fixture": "flow-separated-colors",
+    "encoding": "optical-density",
+    "config": {
+      "grid": 256,
+      "steps": 16,
+      "diffusion": 0.015
+    },
+    "repeats": 3
+  }
+]

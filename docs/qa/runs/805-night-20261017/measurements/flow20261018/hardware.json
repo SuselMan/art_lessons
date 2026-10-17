@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-10-17T23:00:50.682Z",
+  "model": "SM-T970",
+  "serial": "R52RB0JXVSY",
+  "androidRelease": "13",
+  "access": "cached endpoint verified by ro.serialno; no scan/pairing",
+  "awake": true,
+  "thermalStatus": 0,
+  "apCelsius": 33.9,
+  "batteryCelsius": 29.2,
+  "batteryLevel": 100,
+  "powerStatus": 5,
+  "forwardMappingsBefore": [],
+  "gpuQueries": "WebGL1 EXT_disjoint_timer_query previously unavailable; WebGPU timestamp-query previously supported, not re-queried yet",
+  "ownership": "Sole Samsung operator puddle_undo; no contexts/services/maps started for this batch yet",
+  "resource": {
+    "cache": "flow-805-night-20261018",
+    "owner": "parent registered",
+    "ttlHours": 12,
+    "diskAvailableGiB": 8.8,
+    "ramAvailableGiB": 5.2
+  },
+  "limitations": "Capability history is not a new hardware measurement; current GPU/device metadata will be recorded from actual frozen builds."
+}
