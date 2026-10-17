@@ -1,0 +1,37 @@
+[
+  {
+    "id": "1cda7bec-0095-4640-860d-485a3f7ca463",
+    "seq": 10,
+    "name": "Late B retained blob witness",
+    "type": "layer_add",
+    "userId": "6eb154e6-f85d-487d-ba93-110a8013b10c",
+    "layerId": "qa-late-B-313d226e-bffc-43dd-9e15-0ffd98cfe63f",
+    "timestamp": 1792209643829
+  },
+  {
+    "id": "eHfcnmUUaq",
+    "seq": 11,
+    "tool": "watercolor",
+    "type": "stroke",
+    "color": [
+      0.1,
+      0.25,
+      0.8
+    ],
+    "preset": "normal:95:34:PB29:round:wc@front8-detail-flow-v4",
+    "userId": "6eb154e6-f85d-487d-ba93-110a8013b10c",
+    "washId": "znqdlZanoZ",
+    "layerId": "qa-late-B-313d226e-bffc-43dd-9e15-0ffd98cfe63f",
+    "strokeId": "xAWY8hGsgL",
+    "timestamp": 1792209645575,
+    "dabsPacked": "1://9bQwAAXEMAAEA/AAAAAAAAAABMvJ9BAACAPwAAAACkcH0/AAAAADwKY0MAAFxDAABAPwAAAAAAAAAA29rdQQAAgD8AAAAApHB9P2amzEN6FGpDAABcQwAAQD8AAAAAAAAAANva3UEAAIA/AAAAAKRwfT/NbBlE0aNrQwAAXEO4HkU9AAAAAAAAAAA1ms5BAACAPwAAAACkcH0/zQxMRCczbUMAAFxDw/UoPQAAAAAAAAAAkFm/QQAAgD8AAAAApHB9P80MTER+wm5DAABcQ83MDD0AAAAAAAAAAOoYsEEAAIA/AAAAAKRwfT/NDExE1VFwQwAAXEOuR+E8AAAAAAAAAABF2KBBAACAPwAAAACkcH0/zQxMRCvhcUMAAFxDw/WoPAAAAAAAAAAAoJeRQQAAgD8AAAAApHB9P80MTESCcHNDAABcQ65HYTwAAAAAAAAAAPpWgkEAAIA/AAAAAKRwfT/NDExE2f90QwAAXEOuR+E7AAAAAAAAAACpLGZBAACAPwAAAACkcH0/zQxMRDCPdkMAAFxDAAAAAAAAAAAAAAAAXqtHQQAAgD8AAAAApHB9P80MTEQ="
+  },
+  {
+    "id": "10a643d2-15f4-4cdf-a385-e948b9aa37c3",
+    "seq": 12,
+    "type": "paper_dry",
+    "userId": "6eb154e6-f85d-487d-ba93-110a8013b10c",
+    "layerId": "qa-late-B-313d226e-bffc-43dd-9e15-0ffd98cfe63f",
+    "timestamp": 1792209646492
+  }
+]

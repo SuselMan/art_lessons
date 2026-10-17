@@ -1,0 +1,254 @@
+{
+  "source": "e5d08c616195e0816fd034e8f4d87da281789dcc",
+  "result": "Native late-B destroyed-engine lifecycle2PASS; M70 cold parity INVALID because accepted new C stroke is tagged front8; separate same-tag cold hash/global-QA-options parity finding remains OPEN",
+  "main": {
+    "source": "e5d08c61",
+    "scope": "Real owner UI B loading→C, late actual B snapshot HTTP body after C trusted WC+Dry; scoped fetch deliberately ignores abort only for retained B blob; no synthetic bytes/ACK/callback verdict",
+    "cases": [
+      "real-UI-C-ready-with-old-B-HTTP-body-still-held",
+      "late-real-B-gzip-body-cannot-revert-C-pixels-history-readiness"
+    ],
+    "errors": [],
+    "identity": {
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "cache": false,
+      "hidden": false
+    },
+    "actualBIndex": {
+      "seq": 3,
+      "layerState": {
+        "items": {
+          "layer-1": {
+            "id": "layer-1",
+            "kind": "layer",
+            "name": "Layer 1",
+            "opacity": 1,
+            "visible": true
+          },
+          "background": {
+            "id": "background",
+            "kind": "layer",
+            "name": "Background",
+            "opacity": 1,
+            "visible": true
+          },
+          "qa-annotation-3081a289-8409-4860-b1d3-bcbca32968f4": {
+            "id": "qa-annotation-3081a289-8409-4860-b1d3-bcbca32968f4",
+            "kind": "layer",
+            "name": "Review watercolor",
+            "locked": false,
+            "opacity": 1,
+            "visible": true
+          }
+        },
+        "activeId": "layer-1",
+        "rootOrder": [
+          "qa-annotation-3081a289-8409-4860-b1d3-bcbca32968f4",
+          "layer-1",
+          "background"
+        ],
+        "selectedIds": []
+      },
+      "layers": [
+        {
+          "layerId": "qa-annotation-3081a289-8409-4860-b1d3-bcbca32968f4",
+          "seq": 3,
+          "hash": "9899db04c2e94c9d7bf2855ded6a261af97f5fe5a400f76266b787bb709b5673"
+        }
+      ]
+    },
+    "whileBHeld": {
+      "board": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+      "ready": false,
+      "held": 1,
+      "oldEngineDestroyed": false
+    },
+    "afterTurn": {
+      "board": "efe76c8a-1436-443d-a29f-5d8fd86310a8",
+      "ready": true,
+      "oldEngineDestroyed": true,
+      "held": 1,
+      "delivered": 0
+    },
+    "beforeRelease": {
+      "layerId": "qa-late-B-313d226e-bffc-43dd-9e15-0ffd98cfe63f",
+      "sourceHiddenReplay": false,
+      "oracleHiddenReplay": false,
+      "actualCapturedBeforeOracle": true,
+      "targetHash": "954144364ae61e1d3540afb5f28e5e9c6f5cc7c05062256b98b997a0e0dac72b",
+      "oracleHash": "954144364ae61e1d3540afb5f28e5e9c6f5cc7c05062256b98b997a0e0dac72b",
+      "targetChanged": 0,
+      "physicalChanged": 0,
+      "max": 0,
+      "nonzeroAlpha": 966,
+      "tiles": 1,
+      "bytes": 1048596,
+      "glError": 0
+    },
+    "afterRelease": {
+      "layerId": "qa-late-B-313d226e-bffc-43dd-9e15-0ffd98cfe63f",
+      "sourceHiddenReplay": false,
+      "oracleHiddenReplay": false,
+      "actualCapturedBeforeOracle": true,
+      "targetHash": "954144364ae61e1d3540afb5f28e5e9c6f5cc7c05062256b98b997a0e0dac72b",
+      "oracleHash": "954144364ae61e1d3540afb5f28e5e9c6f5cc7c05062256b98b997a0e0dac72b",
+      "targetChanged": 0,
+      "physicalChanged": 0,
+      "max": 0,
+      "nonzeroAlpha": 966,
+      "tiles": 1,
+      "bytes": 1048596,
+      "glError": 0
+    },
+    "lateDelivery": {
+      "board": "efe76c8a-1436-443d-a29f-5d8fd86310a8",
+      "ready": true,
+      "records": [
+        {
+          "path": "/api/rooms/b56367ba-ea9e-4e87-98e1-d9c326e1940d/snapshots/qa-annotation-3081a289-8409-4860-b1d3-bcbca32968f4/3",
+          "status": 200,
+          "bytes": 10784,
+          "sha": "6b03207f3898f356254044b043c217d6e47d2afe31fb73517668ef11f211ff4d",
+          "heldAt": 14746.699999988079,
+          "oldSignalProvided": true,
+          "deliveredAt": 21400.09999999404,
+          "originalSignalAborted": true
+        }
+      ],
+      "oldEngineDestroyed": true,
+      "ids": [
+        "67a6e735-8054-4bf0-8029-6b2895299525",
+        "ENlIz4oAId",
+        "80381727-caca-4d81-aafc-929d7c004780",
+        "crxCRBv4o0",
+        "f1AOS0b6D2",
+        "JqvI4oebSu",
+        "_oUhMy3aQ7",
+        "6MRAxEFaEO",
+        "NrQO-Te09P",
+        "1cda7bec-0095-4640-860d-485a3f7ca463",
+        "eHfcnmUUaq",
+        "10a643d2-15f4-4cdf-a385-e948b9aa37c3"
+      ]
+    },
+    "pass": false,
+    "failure": "page.waitForFunction: Timeout 45000ms exceeded.\n    at ready (/home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/788-board-late-blob.cjs:3:1726)\n    at async /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/788-board-late-blob.cjs:7:1184",
+    "diagnostic": {
+      "ready": null,
+      "held": 0,
+      "delivered": 0,
+      "records": []
+    }
+  },
+  "cold": {
+    "source": "e5d08c61",
+    "scope": "Passive fresh C actual pixels before oracle; name form handled; no new operations/absorb/repair",
+    "errors": [],
+    "nameFormHandled": true,
+    "state": {
+      "board": "efe76c8a-1436-443d-a29f-5d8fd86310a8",
+      "locked": false,
+      "coverage": [
+        [
+          "qa-annotation-208c31bc-8b3e-4176-a196-9db92133591f",
+          3
+        ]
+      ],
+      "entries": [
+        {
+          "id": "67a6e735-8054-4bf0-8029-6b2895299525",
+          "seq": 1
+        },
+        {
+          "id": "ENlIz4oAId",
+          "seq": 2
+        },
+        {
+          "id": "80381727-caca-4d81-aafc-929d7c004780",
+          "seq": 3
+        },
+        {
+          "id": "crxCRBv4o0",
+          "seq": 4
+        },
+        {
+          "id": "f1AOS0b6D2",
+          "seq": 5
+        },
+        {
+          "id": "JqvI4oebSu",
+          "seq": 6
+        },
+        {
+          "id": "_oUhMy3aQ7",
+          "seq": 7
+        },
+        {
+          "id": "6MRAxEFaEO",
+          "seq": 8
+        },
+        {
+          "id": "NrQO-Te09P",
+          "seq": 9
+        },
+        {
+          "id": "1cda7bec-0095-4640-860d-485a3f7ca463",
+          "seq": 10
+        },
+        {
+          "id": "eHfcnmUUaq",
+          "seq": 11
+        },
+        {
+          "id": "10a643d2-15f4-4cdf-a385-e948b9aa37c3",
+          "seq": 12
+        }
+      ]
+    },
+    "apiCount": 12,
+    "proof": {
+      "layerId": "qa-late-B-313d226e-bffc-43dd-9e15-0ffd98cfe63f",
+      "sourceHiddenReplay": false,
+      "oracleHiddenReplay": false,
+      "actualCapturedBeforeOracle": true,
+      "targetHash": "c1854a0c03161a902fafae726c9ca780d60b1115418aa0005efa00eb77f92706",
+      "oracleHash": "c1854a0c03161a902fafae726c9ca780d60b1115418aa0005efa00eb77f92706",
+      "targetChanged": 0,
+      "physicalChanged": 0,
+      "max": 0,
+      "nonzeroAlpha": 967,
+      "tiles": 1,
+      "bytes": 1048596,
+      "glError": 0
+    },
+    "expectedBeforeLateBReference": "954144364ae61e1d3540afb5f28e5e9c6f5cc7c05062256b98b997a0e0dac72b",
+    "pass": false,
+    "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n+ actual - expected\n\n+ 'c1854a0c03161a902fafae726c9ca780d60b1115418aa0005efa00eb77f92706'\n- '954144364ae61e1d3540afb5f28e5e9c6f5cc7c05062256b98b997a0e0dac72b'\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/788-board-cold.cjs:3:1769"
+  },
+  "isolatedAcceptedCInput": {
+    "operations": 3,
+    "sha": "cd28ab25e2f7ca3a99ed128786413e9312c29a0ad483b09437beafbe8a3854d6",
+    "presets": [
+      "normal:95:34:PB29:round:wc@front8-detail-flow-v4"
+    ]
+  },
+  "readonlySourceFindings": [
+    "roomStateHandler.ts99 canonicalizes entered board URL to lesson path without search; index.tsx1343 replaceUrl delegates to navigate(path,{replace:true}). qaModel is lost.",
+    "index.tsx970 engine construction reads location.search; authoring index.ts6874 tags with _watercolorModel. Accepted C stroke explicitly carries front8-detail-flow-v4.",
+    "ribbonProfile.ts885 materialModel derives from recorded preset. index.ts7954-55 dispatches M70 only when recorded profile says m70; intentional unconditional global retag/override is not present.",
+    "Global constructor QA options also affect legacy execution batching/async/presentation. Actual cold model/options were not captured, so cause of same-tag cold hash difference remains unproven."
+  ],
+  "qualifications": [
+    "HTTP blob body/status/headers are real server data, retained and delivered after original AbortSignal aborted. This models late unabortable completion, not native Fetch abort delivery.",
+    "Visible readiness is engine-unlocked plus absence of actual RoomLoadingOverlay CSS class; private React roomContentReady is not exposed by roomStore.",
+    "Initial setup requiring private roomContentReady in store was invalid; next setup had an optional-controller null predicate error. Neither is a product failure.",
+    "First cold tail stopped at the actual name form; passive fresh cold handled form, then showed hash mismatch while each local oracle agreed.",
+    "No M70 data-loss claim from this mixed/unobserved-QA-options cold comparison. No runtime source edits made by QA operator."
+  ],
+  "resources": {
+    "ownContextsClosed": true,
+    "newRoomsCreated": 0,
+    "rootAnnotationFixture": "Retained with one added C layer/stroke/Dry, owner cleanup remains root responsibility",
+    "VegaOwnedChromeAndForward": "Retained for root-coordinated further QA"
+  }
+}
