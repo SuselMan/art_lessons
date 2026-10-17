@@ -1,0 +1,865 @@
+{
+  "source": "717506a8e7b0d730079973e229f12aea837d9cd5",
+  "scope": "Wet-only eraser vs layer Dry undo/redo/rejoin; hidden-layer foreign input and other-layer wet protection",
+  "cases": [
+    {
+      "name": "eraser-on-fresh-wet-only-material-does-not-remove-pigment",
+      "ageMs": 1862,
+      "wet": [
+        {
+          "hash": "c2b002b7bcfc6deae82c5d3d64587a98cdb6c1d098468f1c74a73699369e9d1a",
+          "bytes": 1048576,
+          "material": true
+        },
+        {
+          "hash": "f4cd3e5cede5da21db446b94ba96f6fc7d18960068a284f8a79249ca2d3642c6",
+          "bytes": 1048576,
+          "material": true
+        },
+        {
+          "hash": "c2b002b7bcfc6deae82c5d3d64587a98cdb6c1d098468f1c74a73699369e9d1a",
+          "bytes": 1048576,
+          "material": true
+        }
+      ],
+      "wetAfter": [
+        {
+          "hash": "c2b002b7bcfc6deae82c5d3d64587a98cdb6c1d098468f1c74a73699369e9d1a",
+          "bytes": 1048576,
+          "material": true
+        },
+        {
+          "hash": "f4cd3e5cede5da21db446b94ba96f6fc7d18960068a284f8a79249ca2d3642c6",
+          "bytes": 1048576,
+          "material": true
+        },
+        {
+          "hash": "c2b002b7bcfc6deae82c5d3d64587a98cdb6c1d098468f1c74a73699369e9d1a",
+          "bytes": 1048576,
+          "material": true
+        }
+      ]
+    },
+    {
+      "name": "wet-eraser-then-layer-dry-actual-equals-replay",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "oracleHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "0ce22a6e33c86508d428d55193f4174958081cb4efa3ac059e5e10252df17dac",
+          "oracleHash": "0ce22a6e33c86508d428d55193f4174958081cb4efa3ac059e5e10252df17dac",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "oracleHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "redo-layer-dry-after-wet-eraser-exact",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "oracleHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "0ce22a6e33c86508d428d55193f4174958081cb4efa3ac059e5e10252df17dac",
+          "oracleHash": "0ce22a6e33c86508d428d55193f4174958081cb4efa3ac059e5e10252df17dac",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "oracleHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "undo-redo-layer-dry-preserves-wet-eraser-target",
+      "dry": "6c86d399-4e9c-4063-9338-70ebc9abc0c0",
+      "undoDry": "6c86d399-4e9c-4063-9338-70ebc9abc0c0",
+      "redoDry": "6c86d399-4e9c-4063-9338-70ebc9abc0c0"
+    },
+    {
+      "name": "hide-show-rejects-hidden-input-dries-only-target-foreign-eraser-and-other-wet",
+      "hide": "458fdc9d-ce74-4193-b849-75d4c0e923fd",
+      "hiddenStart": {
+        "locked": true,
+        "stroke": null
+      },
+      "undoErase": "1JAYA5piB9"
+    },
+    {
+      "name": "final-all-layer-raster-qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "oracleHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "0ce22a6e33c86508d428d55193f4174958081cb4efa3ac059e5e10252df17dac",
+          "oracleHash": "0ce22a6e33c86508d428d55193f4174958081cb4efa3ac059e5e10252df17dac",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "oracleHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "final-all-layer-raster-qa-wet-erase-92451aaa-0fba-4a39-ad8e-07812c8c337b",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-92451aaa-0fba-4a39-ad8e-07812c8c337b",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "6026f54423e72221184d8d6a5351cedcdf46ba09990a841981078b6f69dd702f",
+          "oracleHash": "6026f54423e72221184d8d6a5351cedcdf46ba09990a841981078b6f69dd702f",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-92451aaa-0fba-4a39-ad8e-07812c8c337b",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "ff74ded9c6fd884a522acf34efc0c99d5e017170387807e3300fa15d3c14b2b7",
+          "oracleHash": "ff74ded9c6fd884a522acf34efc0c99d5e017170387807e3300fa15d3c14b2b7",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-92451aaa-0fba-4a39-ad8e-07812c8c337b",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "6026f54423e72221184d8d6a5351cedcdf46ba09990a841981078b6f69dd702f",
+          "oracleHash": "6026f54423e72221184d8d6a5351cedcdf46ba09990a841981078b6f69dd702f",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "final-all-layer-raster-qa-wet-erase-68c1d2aa-3ee0-40a8-b726-3dc8d1e6aee8",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-68c1d2aa-3ee0-40a8-b726-3dc8d1e6aee8",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "000ef816310f72378fbe05745830ef231efb1f728045673467c924f4c9859638",
+          "oracleHash": "000ef816310f72378fbe05745830ef231efb1f728045673467c924f4c9859638",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-68c1d2aa-3ee0-40a8-b726-3dc8d1e6aee8",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "96f6975a16929118ee3f6b6f94e8daab2596c108a407be26e244cb75259c2ba3",
+          "oracleHash": "96f6975a16929118ee3f6b6f94e8daab2596c108a407be26e244cb75259c2ba3",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-68c1d2aa-3ee0-40a8-b726-3dc8d1e6aee8",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "000ef816310f72378fbe05745830ef231efb1f728045673467c924f4c9859638",
+          "oracleHash": "000ef816310f72378fbe05745830ef231efb1f728045673467c924f4c9859638",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "cold-rejoin-raster-qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "oracleHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "0ce22a6e33c86508d428d55193f4174958081cb4efa3ac059e5e10252df17dac",
+          "oracleHash": "0ce22a6e33c86508d428d55193f4174958081cb4efa3ac059e5e10252df17dac",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "oracleHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "cold-rejoin-raster-qa-wet-erase-92451aaa-0fba-4a39-ad8e-07812c8c337b",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-92451aaa-0fba-4a39-ad8e-07812c8c337b",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "6026f54423e72221184d8d6a5351cedcdf46ba09990a841981078b6f69dd702f",
+          "oracleHash": "6026f54423e72221184d8d6a5351cedcdf46ba09990a841981078b6f69dd702f",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-92451aaa-0fba-4a39-ad8e-07812c8c337b",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "ff74ded9c6fd884a522acf34efc0c99d5e017170387807e3300fa15d3c14b2b7",
+          "oracleHash": "ff74ded9c6fd884a522acf34efc0c99d5e017170387807e3300fa15d3c14b2b7",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-92451aaa-0fba-4a39-ad8e-07812c8c337b",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "6026f54423e72221184d8d6a5351cedcdf46ba09990a841981078b6f69dd702f",
+          "oracleHash": "6026f54423e72221184d8d6a5351cedcdf46ba09990a841981078b6f69dd702f",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "18099ea5-f20d-4bd5-a476-254c2e4d167f",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "9335813c-3469-42a5-a9ee-6d0daf745f0b",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "a4f3ce7b-f01c-4f82-b95f-21d0be1452bb",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "pass": false,
+  "failure": "AssertionError [ERR_ASSERTION]: cold-rejoin-raster-qa-wet-erase-68c1d2aa-3ee0-40a8-b726-3dc8d1e6aee8 actual/replay mismatch actor2\n\n4324 !== 0\n\n    at exactDry (/home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/wet-erase-layers.cjs:12:146)\n    at async /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/wet-erase-layers.cjs:17:807",
+  "diag0": {
+    "locked": false,
+    "stroke": null,
+    "queue": 0,
+    "pending": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 3,
+      "computations": 10,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "peerLive": 0,
+    "journal": [
+      {
+        "id": "911dd972-1834-4ae1-ba49-4bc91af11fc4",
+        "type": "layer_add",
+        "state": "done",
+        "pending": false,
+        "seq": 0
+      },
+      {
+        "id": "0KLXzSXMaZ",
+        "type": "stroke",
+        "strokeId": "RvVZUziF2s",
+        "state": "done",
+        "pending": false,
+        "seq": 1
+      },
+      {
+        "id": "Moo4mFamgu",
+        "type": "stroke",
+        "strokeId": "HjjBQceGDM",
+        "state": "done",
+        "seq": 2
+      },
+      {
+        "id": "6c86d399-4e9c-4063-9338-70ebc9abc0c0",
+        "type": "paper_dry",
+        "state": "done",
+        "seq": 3
+      },
+      {
+        "id": "yU7B4-823Z",
+        "type": "operation_undo",
+        "targetOpId": "6c86d399-4e9c-4063-9338-70ebc9abc0c0",
+        "state": "done",
+        "seq": 4
+      },
+      {
+        "id": "CNn9coBxtq",
+        "type": "operation_redo",
+        "targetOpId": "6c86d399-4e9c-4063-9338-70ebc9abc0c0",
+        "state": "done",
+        "seq": 5
+      },
+      {
+        "id": "8479a20d-ffb6-42ee-99b0-7b4eba62a12a",
+        "type": "layer_add",
+        "state": "done",
+        "pending": false,
+        "seq": 6
+      },
+      {
+        "id": "wVGSNCqhGA",
+        "type": "stroke",
+        "strokeId": "96BSNgSNyc",
+        "state": "done",
+        "seq": 7
+      },
+      {
+        "id": "458fdc9d-ce74-4193-b849-75d4c0e923fd",
+        "type": "layer_visibility",
+        "state": "done",
+        "pending": false,
+        "seq": 8
+      },
+      {
+        "id": "6fe02d5b-8b98-4f14-94f0-b7eed58251a1",
+        "type": "layer_add",
+        "state": "done",
+        "pending": false,
+        "seq": 9
+      },
+      {
+        "id": "MBjB_x9obh",
+        "type": "stroke",
+        "strokeId": "ZiPVbjXSzU",
+        "state": "done",
+        "seq": 10
+      },
+      {
+        "id": "1e9829ae-bd71-4a08-966d-4c04a6acde59",
+        "type": "layer_visibility",
+        "state": "done",
+        "pending": false,
+        "seq": 11
+      },
+      {
+        "id": "1JAYA5piB9",
+        "type": "stroke",
+        "strokeId": "1AcPPr842m",
+        "state": "undone",
+        "seq": 12
+      },
+      {
+        "id": "u3dhc3pfKn",
+        "type": "operation_undo",
+        "targetOpId": "1JAYA5piB9",
+        "state": "done",
+        "seq": 13
+      },
+      {
+        "id": "JgsyFiIrmh",
+        "type": "stroke",
+        "strokeId": "dAtU7MD9DN",
+        "state": "done",
+        "seq": 14
+      },
+      {
+        "id": "18843ab7-7f20-49cd-8c40-e5a58fcd749d",
+        "type": "paper_dry",
+        "state": "done",
+        "pending": false,
+        "seq": 15
+      },
+      {
+        "id": "d2032454-ea01-4e29-939b-4507a7f7d355",
+        "type": "paper_dry",
+        "state": "done",
+        "pending": false,
+        "seq": 16
+      }
+    ]
+  },
+  "diag1": {
+    "locked": false,
+    "stroke": null,
+    "queue": 0,
+    "pending": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 4,
+      "computations": 11,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "peerLive": 0,
+    "journal": [
+      {
+        "id": "911dd972-1834-4ae1-ba49-4bc91af11fc4",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 0
+      },
+      {
+        "id": "0KLXzSXMaZ",
+        "type": "stroke",
+        "strokeId": "RvVZUziF2s",
+        "state": "done",
+        "seq": 1
+      },
+      {
+        "id": "Moo4mFamgu",
+        "type": "stroke",
+        "strokeId": "HjjBQceGDM",
+        "state": "done",
+        "seq": 2
+      },
+      {
+        "id": "6c86d399-4e9c-4063-9338-70ebc9abc0c0",
+        "type": "paper_dry",
+        "state": "done",
+        "pending": false,
+        "seq": 3
+      },
+      {
+        "id": "yU7B4-823Z",
+        "type": "operation_undo",
+        "targetOpId": "6c86d399-4e9c-4063-9338-70ebc9abc0c0",
+        "state": "done",
+        "pending": false,
+        "seq": 4
+      },
+      {
+        "id": "CNn9coBxtq",
+        "type": "operation_redo",
+        "targetOpId": "6c86d399-4e9c-4063-9338-70ebc9abc0c0",
+        "state": "done",
+        "pending": false,
+        "seq": 5
+      },
+      {
+        "id": "8479a20d-ffb6-42ee-99b0-7b4eba62a12a",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 6
+      },
+      {
+        "id": "wVGSNCqhGA",
+        "type": "stroke",
+        "strokeId": "96BSNgSNyc",
+        "state": "done",
+        "pending": false,
+        "seq": 7
+      },
+      {
+        "id": "458fdc9d-ce74-4193-b849-75d4c0e923fd",
+        "type": "layer_visibility",
+        "state": "done",
+        "seq": 8
+      },
+      {
+        "id": "6fe02d5b-8b98-4f14-94f0-b7eed58251a1",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 9
+      },
+      {
+        "id": "MBjB_x9obh",
+        "type": "stroke",
+        "strokeId": "ZiPVbjXSzU",
+        "state": "done",
+        "seq": 10
+      },
+      {
+        "id": "1e9829ae-bd71-4a08-966d-4c04a6acde59",
+        "type": "layer_visibility",
+        "state": "done",
+        "seq": 11
+      },
+      {
+        "id": "1JAYA5piB9",
+        "type": "stroke",
+        "strokeId": "1AcPPr842m",
+        "state": "undone",
+        "pending": false,
+        "seq": 12
+      },
+      {
+        "id": "u3dhc3pfKn",
+        "type": "operation_undo",
+        "targetOpId": "1JAYA5piB9",
+        "state": "done",
+        "pending": false,
+        "seq": 13
+      },
+      {
+        "id": "JgsyFiIrmh",
+        "type": "stroke",
+        "strokeId": "dAtU7MD9DN",
+        "state": "done",
+        "seq": 14
+      },
+      {
+        "id": "18843ab7-7f20-49cd-8c40-e5a58fcd749d",
+        "type": "paper_dry",
+        "state": "done",
+        "seq": 15
+      },
+      {
+        "id": "d2032454-ea01-4e29-939b-4507a7f7d355",
+        "type": "paper_dry",
+        "state": "done",
+        "seq": 16
+      }
+    ]
+  },
+  "diag2": {
+    "locked": false,
+    "stroke": null,
+    "queue": 0,
+    "pending": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 3,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "peerLive": 0,
+    "journal": [
+      {
+        "id": "911dd972-1834-4ae1-ba49-4bc91af11fc4",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 0
+      },
+      {
+        "id": "0KLXzSXMaZ",
+        "type": "stroke",
+        "strokeId": "RvVZUziF2s",
+        "state": "done",
+        "seq": 1
+      },
+      {
+        "id": "Moo4mFamgu",
+        "type": "stroke",
+        "strokeId": "HjjBQceGDM",
+        "state": "done",
+        "seq": 2
+      },
+      {
+        "id": "6c86d399-4e9c-4063-9338-70ebc9abc0c0",
+        "type": "paper_dry",
+        "state": "done",
+        "seq": 3
+      },
+      {
+        "id": "yU7B4-823Z",
+        "type": "operation_undo",
+        "targetOpId": "6c86d399-4e9c-4063-9338-70ebc9abc0c0",
+        "state": "done",
+        "seq": 4
+      },
+      {
+        "id": "CNn9coBxtq",
+        "type": "operation_redo",
+        "targetOpId": "6c86d399-4e9c-4063-9338-70ebc9abc0c0",
+        "state": "done",
+        "seq": 5
+      },
+      {
+        "id": "8479a20d-ffb6-42ee-99b0-7b4eba62a12a",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 6
+      },
+      {
+        "id": "wVGSNCqhGA",
+        "type": "stroke",
+        "strokeId": "96BSNgSNyc",
+        "state": "done",
+        "seq": 7
+      },
+      {
+        "id": "458fdc9d-ce74-4193-b849-75d4c0e923fd",
+        "type": "layer_visibility",
+        "state": "done",
+        "seq": 8
+      },
+      {
+        "id": "6fe02d5b-8b98-4f14-94f0-b7eed58251a1",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 9
+      },
+      {
+        "id": "MBjB_x9obh",
+        "type": "stroke",
+        "strokeId": "ZiPVbjXSzU",
+        "state": "done",
+        "seq": 10
+      },
+      {
+        "id": "1e9829ae-bd71-4a08-966d-4c04a6acde59",
+        "type": "layer_visibility",
+        "state": "done",
+        "seq": 11
+      },
+      {
+        "id": "1JAYA5piB9",
+        "type": "stroke",
+        "strokeId": "1AcPPr842m",
+        "state": "undone",
+        "seq": 12
+      },
+      {
+        "id": "u3dhc3pfKn",
+        "type": "operation_undo",
+        "targetOpId": "1JAYA5piB9",
+        "state": "done",
+        "seq": 13
+      },
+      {
+        "id": "JgsyFiIrmh",
+        "type": "stroke",
+        "strokeId": "dAtU7MD9DN",
+        "state": "done",
+        "seq": 14
+      },
+      {
+        "id": "18843ab7-7f20-49cd-8c40-e5a58fcd749d",
+        "type": "paper_dry",
+        "state": "done",
+        "seq": 15
+      },
+      {
+        "id": "d2032454-ea01-4e29-939b-4507a7f7d355",
+        "type": "paper_dry",
+        "state": "done",
+        "seq": 16
+      }
+    ]
+  },
+  "classification": "Functional wet erase, Dry Undo/Redo, hide/show, foreign input and all9 per-device final rasters passed; strict cold equality remains FAIL #748: third-layer server snapshot is exactly Intel final target and fresh AMD copies it exactly.",
+  "functionalCaseCount": 10
+}
