@@ -43,7 +43,7 @@ failure и handoff abort с сохранением payload. Существующ
 остаются прежними; три `it.fails` продолжают документировать дефект legacy path.
 
 `runs/777-idb-atomic-proof-20261017.json` — реальный Chromium 151 IndexedDB,
-7 проверок, включая настоящий DataCloneError в середине транзакции и page restart.
+8 проверок, включая настоящий DataCloneError в середине транзакции и page restart.
 Хеш исходного storage-модуля сохранён в proof. Запуск только IDB с --disable-gpu,
 ноль WebGL-контекстов: это не доказательство рендеринга на Surface/Samsung/AMD.
 Собственный browser/profile закрыт и удалён штатной уборкой; компактный proof
@@ -73,3 +73,20 @@ failure и handoff abort с сохранением payload. Существующ
    replacements восстановятся при возврате; нельзя направлять их в новые refs.
 7. Допущение all-new readers относится к opt-in writers. Существующий default-OFF
    runtime не становится решением multi-tab terminal isolation автоматически.
+
+## Дополнительное review: три воспроизведённых corner
+
+На исходном 8dda044d отдельный `outbox.prototypeCorners.test.ts` дал 3 FAIL:
+
+- другой writer retired исходник при 12-й неудачной отправке: pending=0,
+  stalled=1, onStalled вызван по уже удалённому ID;
+- enqueue/единственный scheduled flush второго пакета во время gated transaction
+  возвращал promise первого пакета; второй intent оставался terminal навсегда;
+- same ID/new room получал terminal entry чужой комнаты вместо отказа collision.
+
+Узкие правки только прототипа: после guarded retry-persist повторно проверяется
+held entry; повторный flush цепляет новый drain после текущей транзакции;
+guarded storage отвергает cross-board collision до чтения terminal/retired.
+Targeted run 5 files / 56 tests PASS; полный web TypeScript check и scoped lint PASS. Реальная IndexedDB повторена,
+теперь 8 проверок, включая cross-board collision, proof содержит новый source SHA.
+Профиль review также закрыт и удалён штатным guarded cleanup; новых сервисов нет.

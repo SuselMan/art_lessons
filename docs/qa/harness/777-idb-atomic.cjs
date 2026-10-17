@@ -20,6 +20,8 @@ async function main(){
    await storage.put(entry('a',true));await storage.put(entry('b',true));await storage.put(entry('a'))
    assert((await storage.getAll('old')).find(row=>row.op.id==='a').terminal,'stale writer overwrote terminal');results.push('sticky terminal put')
    await storage.delete('a');assert((await storage.getAll('old')).some(row=>row.op.id==='a'),'late ACK deleted terminal');results.push('sticky terminal delete')
+   let collision=false;try{await storage.putGuarded({...entry('a'),roomId:'new'})}catch{collision=true}
+   assert(collision&&(await storage.getAll('new')).length===0,'cross-board collision adopted old room');results.push('cross-board ID collision rejected')
    const invalid=entry('invalid');invalid.op.uncloneable=()=>{}
    let aborted=false
    try{await storage.replaceTerminal('old',['a','b'],[entry('good'),invalid])}catch{aborted=true}

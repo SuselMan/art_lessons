@@ -431,6 +431,16 @@ export class Outbox {
         entry.attempts += 1
         await this.persist(entry)
         if (this.disposed || this.canSend && !this.canSend()) return
+        if(this.durableTerminal){
+          const held=this.pending.get(opId)
+          // Another new writer may have completed the handoff while this
+          // request timed out. Do not manufacture stalled/retry debt for it.
+          if(!held || held.terminal){
+            if(held?.terminal)this.beginTerminal(held,held.terminal.result)
+            else{this.onPendingChange?.(this.pending.size,this.stalled.size);this.settleIdleWaiters()}
+            return
+          }
+        }
         if (entry.attempts >= MAX_ATTEMPTS) {
           // Stop retrying on our own — but keep it queued and persisted, so
           // the next reconnect/join gets to try again rather than the work

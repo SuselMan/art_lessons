@@ -1,5 +1,5 @@
 {
-  "sourceSha": "3f4fb0a0f7d0b12674ffffee54ee1e829a0b0d6b494257a1356cecdb0bd616c7",
+  "sourceSha": "7cad84be52a234cf16f675a440b0898b38b456f676ffaf0972ad740cc49a275c",
   "browser": "151.0.7922.34",
   "gpuDisabled": true,
   "webglContextsCreated": 0,
@@ -7,6 +7,7 @@
   "cases": [
     "sticky terminal put",
     "sticky terminal delete",
+    "cross-board ID collision rejected",
     "real DataCloneError rollback all originals / zero replacements",
     "atomic handoff / compact tombstone / filtered reads",
     "two new writer transactions",

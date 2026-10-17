@@ -30,6 +30,7 @@ export type GuardedOutboxWrite = {kind:'entry';entry:OutboxEntry} | {kind:'retir
 const isRetired=(entry:StoredOutboxRecord):entry is RetiredOutboxRecord=>'retired' in entry
 const clone=<T>(value:T):T=>structuredClone(value)
 function guardedResult(existing:StoredOutboxRecord|undefined,incoming:OutboxEntry):GuardedOutboxWrite {
+  if(existing && existing.roomId!==incoming.roomId)throw new Error('outbox ID collision across boards')
   if(existing && isRetired(existing))return {kind:'retired'}
   return {kind:'entry',entry:existing?.terminal ? existing : incoming}
 }

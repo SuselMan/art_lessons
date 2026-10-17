@@ -26,7 +26,7 @@ export function createDurableRecoveryPrototype(input:{
     /** Completion means storage commit, never replacement ACK. Caller owns
      * debounce scheduling; a board switch must retain or flush this planner. */
     flush():Promise<void>{
-      if(flushing)return flushing
+      if(flushing)return flushing.then(()=>this.flush())
       const batch=[...waiting.values()]
       if(!batch.length)return Promise.resolve()
       for(const item of batch)waiting.delete(item.entry.op.id)
