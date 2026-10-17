@@ -1,0 +1,19 @@
+{
+  "kind": "CPU MockGL counts; not GPU timing",
+  "results": [
+    {
+      "asyncFinish": false,
+      "immediate": 58,
+      "advances": 0,
+      "sourceFences": 0,
+      "bands": 28
+    },
+    {
+      "asyncFinish": true,
+      "immediate": 0,
+      "advances": 68,
+      "sourceFences": 68,
+      "bands": 28
+    }
+  ]
+}
