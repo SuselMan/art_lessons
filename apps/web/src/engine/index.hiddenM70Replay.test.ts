@@ -38,6 +38,8 @@ for(const[name,ops]of [
  const old=await replay(ops,false),next=await replay(ops,true)
  // MockGL is not a watercolor raster oracle. These compare actual source
  // uploads/copy geometry and the same native call path, never artistic pixels.
+ expect(old.material.length).toBeGreaterThan(0)
+ expect(old.material.some(snapshot=>Object.values(snapshot).some(bytes=>bytes?.some(value=>value!==0)))).toBe(true)
  expect(next.material.length).toBe(old.material.length)
  for(let i=0;i<old.material.length;i++)for(const key of Object.keys(old.material[i]))expect(next.material[i][key]).toEqual(old.material[i][key])
  expect(next.pixels).toEqual(old.pixels);expect(next.deferralCleared).toBe(true)
