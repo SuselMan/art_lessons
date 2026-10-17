@@ -1,3 +1,4 @@
+import {emptyM70PostphaseRect} from './M70EmptyPostphase'
 import {committedReadRect} from './CommittedReadRect'
 import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
 import {RibbonStrokeScratch} from '../../buffers/RibbonStrokeScratch'
@@ -17,6 +18,9 @@ import {APPROVED_M70_PARAMETERS} from './PuddleParameters'
  * Windows share global phases and immutable input; only their interiors commit.
  * The 640px halo is certified separately against the approved M70 pass graph. */
 export interface PagedPuddleInspection {
+ /** QA-only OFF: zero raw allocated-halo postphase rectangles need no GPU work. */
+ skipEmptyPostphase?:boolean
+ postphaseRect?(interior:MaterialRect,allocated:MaterialRect,decision:{skipped:boolean}):void
  /** QA certificate experiment only, default OFF. Fixed field geometry unchanged. */
  tightMaterialSupport32?:boolean
  windowSupport?(field:MaterialRect,cores:readonly MaterialRect[],decision:{radius:32|612;noForeignStencil:boolean;kept:boolean}):void
@@ -143,6 +147,10 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
   const finalP=new MaterialFieldPages(size),finalC=new MaterialFieldPages(size),coverage=solvedCoverage.snapshot()
   for(const interior of rects()){
    const halo=background.reconstructionHalo,rect={x:interior.x-halo,y:interior.y-halo,width:interior.width+2*halo,height:interior.height+2*halo}
+   const skipped=inspect.skipEmptyPostphase===true&&emptyM70PostphaseRect(size,rect,raw.materialSupport)
+   inspect.postphaseRect?.(interior,rect,{skipped})
+   if(pendingCancel)return
+   if(skipped){yield;continue}
    const bufs=allocateMany(8,rect.width,rect.height)
    try{const [p,c,cov,rp,rc,rawBuffer,w,out]=bufs as [AccumulationBuffer,AccumulationBuffer,AccumulationBuffer,AccumulationBuffer,AccumulationBuffer,AccumulationBuffer,AccumulationBuffer,AccumulationBuffer]
     p.writePixels(solvedP.snapshot().readRect(rect));c.writePixels(solvedC.snapshot().readRect(rect));cov.writePixels(coverage.readRect(rect));w.writePixels(raw.water.readRect(rect))

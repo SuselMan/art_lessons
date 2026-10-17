@@ -1676,6 +1676,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _diagnosticM70PhaseBudget=true
   /** QA-only: certified support skip; enable before creating a large-room controller. */
   diagnosticM70TightSupport32=false
+  diagnosticM70SkipEmptyPostphase=false
   get diagnosticM70PhaseBudget():boolean{return this._diagnosticM70PhaseBudget}
   set diagnosticM70PhaseBudget(enabled:boolean){
     enabled=!!enabled
@@ -1799,7 +1800,7 @@ export class PencilEngine implements PencilEngineAPI {
       // RAW reachBounds includes brush/composite reads. Foreign-water donors
       // can extend beyond it; retain whole tiles until their bounds are proven.
       presentationBounds:(scratch,context)=>scratch.foreignSources?.length || scratch.foreignImportedGestures.size ? null : context.bounds,
-      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make,{tightMaterialSupport32:this.diagnosticM70TightSupport32,skipEmptyFixedWindows:true,omitZeroForeignSolventLoad:true,detachedWindowSource:true,sourceCaptured:raw=>{
+      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make,{skipEmptyPostphase:this.diagnosticM70SkipEmptyPostphase,tightMaterialSupport32:this.diagnosticM70TightSupport32,skipEmptyFixedWindows:true,omitZeroForeignSolventLoad:true,detachedWindowSource:true,sourceCaptured:raw=>{
         const owner=this._getFieldPhaseOwner()
         const admission=owner.state.enabled?owner.beginSolveSnapshot(raw):{snapshot:raw,lease:owner.acquire()}
         if(!admission)return {defer:true}
