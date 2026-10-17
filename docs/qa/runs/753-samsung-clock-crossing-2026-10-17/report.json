@@ -1,0 +1,80 @@
+{
+  "source": "0be6e667",
+  "scope": "Samsung trusted pen, actual compositorROI; isolatedcontext syntheticowner, defaultprofile untouched",
+  "cases": [],
+  "errors": [],
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "gpuBudget": "314572800",
+    "scratchHolding": false,
+    "touch": 5,
+    "deviceMemory": 4,
+    "DPR": 2.125,
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "flags": {
+      "hidden": false
+    }
+  },
+  "timeline": {
+    "oldId": "16c2ac0c-ac1c-4562-ac5c-ad65d909f9c1",
+    "oldAt": 1792201337948,
+    "boundary": 1792201457948,
+    "layer": "layer-1",
+    "downAt": 1792201457398,
+    "strokeId": "JkCUp720An",
+    "upAt": 1792201460140,
+    "downBeforeExpiry": true,
+    "upAfterExpiry": true,
+    "heldMs": 2742,
+    "recorded": [
+      {
+        "id": "16c2ac0c-ac1c-4562-ac5c-ad65d909f9c1",
+        "type": "stroke",
+        "timestamp": 1792201337948,
+        "strokeId": "16c2ac0c-ac1c-4562-ac5c-ad65d909f9c1",
+        "seq": 0,
+        "serverSeq": 1,
+        "pending": false
+      },
+      {
+        "id": "-4Scx4gqbr",
+        "type": "stroke",
+        "timestamp": 1792201460154,
+        "strokeId": "JkCUp720An",
+        "seq": 1,
+        "serverSeq": 2,
+        "pending": false
+      }
+    ],
+    "jobs": 0,
+    "unsettled": false,
+    "pending": false
+  },
+  "proof": {
+    "actualPhysicalCapturedBeforeCanonicalRead": true,
+    "actualCanonicalCapturedBeforeOracle": true,
+    "actualHash": "690d807b93d8756719815ee0af7e32519d1bae7d4a6ea765613cda3e0ce6f4e9",
+    "oracleHash": "cfa6df8fd77072ec6db2c050c6b794f678ee87968f0810c2bd460709b765fc92",
+    "physicalHash": "ac61dc3820ca215bd8712af014c3fb13ac04cce3dbd30178946512f238105cff",
+    "changedChannels": 19505,
+    "max": 106,
+    "physicalVsCanonicalChanged": 17003,
+    "glError": 0,
+    "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+  },
+  "pass": false,
+  "cleanup": {
+    "ownerRoomDeleted": true,
+    "ownContextsClosed": true,
+    "originalTabRestored": true,
+    "sharedForwardRetained": true,
+    "rawCache": "registered; standard qa-cleanup finish pending"
+  },
+  "harnessSha256": "80bfeb28956f29c7ba36b401506c6356e0c5710927727796fdb9e6cc2c17f4a2"
+}
