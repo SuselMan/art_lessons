@@ -208,5 +208,24 @@
     "ownFixtureOwnerDelete": 200,
     "sharedTunnelRetainedBy": "qa_cases"
   },
-  "pass": true
+  "pass": true,
+  "loadTimingBoundary": {
+    "start": "VPS Date.now immediately before CDP Page.navigate",
+    "end": "VPS Date.now after engine unlocked, paperReady, ACK/rebuild/puddle idle, final canvas readPixels/nonzero/GL evaluation returned over CDP",
+    "includes": [
+      "navigation/module/network loading",
+      "automatic repeat nameform handling and2RAF wait",
+      "CDP polling intervals/roundtrips",
+      "roomjoin/paper/snapshot/replay when present",
+      "all pending solver and ACK idle",
+      "final readPixels/nonzero count and returnByValue transport"
+    ],
+    "notCaptured": [
+      "individual network/join/paper/snapshot/replay timings",
+      "actual first visible canvas/frame timestamp",
+      "annotation/reviewimage firstinteractive timestamp",
+      "shadercompile duration"
+    ],
+    "interpretation": "Composite harness completion time only. 8948/8823ms do not prove user waited9seconds or replay took9seconds; latency attribution unresolved. Functional load passes, normal loading performance is not established."
+  }
 }
