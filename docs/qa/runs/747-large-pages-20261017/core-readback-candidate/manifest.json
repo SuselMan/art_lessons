@@ -1,0 +1,12 @@
+{
+  "base": "6a1e029d",
+  "old": {
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "12ffdc93f84b98841e9d51e64f9a5668695000acb164cc2fa39e7cb90ce3eb5f"
+  },
+  "new": {
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "82f956a2c36f6b04bef626dffc79d07a8f4a7727c198255b14bbd358e264d8ee",
+    "apps/web/src/engine/src/watercolor/puddle/CommittedReadRect.ts": "686460ce2ead146f77d3bdfd1ba69b770b4a142d2d7e47f3c9712e010155d507",
+    "apps/web/src/engine/src/watercolor/puddle/CommittedReadRect.test.ts": "4e245c8b844ebcf91a7f7d0190fc196065aa40b65fd5ba99caa52bfe3442d7a9"
+  },
+  "patchSHA256": "72b528fa8171b92aa30e287f4c6131e3aaf03e6c86db690982e618882498daa0"
+}

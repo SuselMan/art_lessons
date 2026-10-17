@@ -1,0 +1,71 @@
+--- a/apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts
++++ b/apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts
+@@ -1,3 +1,4 @@
++import {committedReadRect} from './CommittedReadRect'
+ import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
+ import {RibbonStrokeScratch} from '../../buffers/RibbonStrokeScratch'
+ import type {ILayerBuffer,PaintTarget} from '../../buffers/ILayerBuffer'
+@@ -110,13 +111,13 @@
+      background:{capture(){},ops:()=>[],readback:()=>background.readback(),destroy(){}}})
+     native.resetFromScratch(windowSource,{buffer:key,originX:ox,originY:oy,contentRect:null},epoch)
+     while(!native.state.done){native.step(4);yield}
+-    const material=native.buffers()
++    const material=native.buffers(),readRect=committedReadRect(window.field,window.cores)
+     for(const [out,input]of [[solvedP,material.p],[solvedC,material.c],[solvedCoverage,material.coverage]] as const){
+-     const pixels=input.readPixels()
++     const pixels=input.readPixelsRegion(readRect.x,readRect.y,readRect.width,readRect.height)
+      for(const core of window.cores){
+       const interior={...core,y:size.height-core.y-core.height}
+       const local={x:interior.x-rect.x,y:interior.y-rect.y,width:interior.width,height:interior.height}
+-      out.writeRect(interior,extractMaterialTileRect(pixels,1536,1536,local))
++      out.writeRect(interior,extractMaterialTileRect(pixels,readRect.width,readRect.height,{...local,x:local.x-readRect.x,y:local.y-readRect.y}))
+      }
+     }
+    }finally{try{native?.destroy()}finally{try{windowSource.destroy()}finally{if(key&&!detachedWindowSource)host.pool.release(key)}}}
+--- /dev/null
++++ b/apps/web/src/engine/src/watercolor/puddle/CommittedReadRect.ts
+@@ -0,0 +1,13 @@
++type Rect={x:number;y:number;width:number;height:number}
++/** Read-only crop, in window-local GL coordinates. Solver geometry is unchanged. */
++export function committedReadRect(field:Rect,cores:readonly Rect[]):Rect {
++ const full={x:0,y:0,width:field.width,height:field.height}
++ if(!cores.length)return full
++ let x0=field.width,y0=field.height,x1=0,y1=0
++ for(const core of cores){
++  const x=core.x-field.x,y=field.height-(core.y-field.y)-core.height
++  if(![x,y,core.width,core.height].every(Number.isSafeInteger)||core.width<=0||core.height<=0||x<0||y<0||x+core.width>field.width||y+core.height>field.height)return full
++  x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x+core.width);y1=Math.max(y1,y+core.height)
++ }
++ return {x:x0,y:y0,width:x1-x0,height:y1-y0}
++}
+--- /dev/null
++++ b/apps/web/src/engine/src/watercolor/puddle/CommittedReadRect.test.ts
+@@ -0,0 +1,28 @@
++import {it,expect} from 'vitest'
++import {committedReadRect} from './CommittedReadRect'
++import {m70WindowGroups} from './M70WindowGroups'
++import {extractMaterialTileRect} from './MaterialTileCoordinates'
++
++const side=1536,full=new Uint8Array(side*side*4)
++for(let y=0;y<side;y++)for(let x=0;x<side;x++){const k=(y*side+x)*4;full[k]=x&255;full[k+1]=x>>>8;full[k+2]=y&255;full[k+3]=y>>>8}
++for(const [width,height]of [[1240,1754],[1754,1240],[1754,2480],[2480,1754],[2480,3508],[3508,2480],[1537,1553],[2177,901]])it(`preserves every owned core on ${width}x${height}`,()=>{
++ let croppedBytes=0,baselineBytes=0,coreCount=0
++ for(const {field,cores}of m70WindowGroups({width,height},{width:Math.max(side,Math.ceil(width/256)*256),height:Math.max(side,Math.ceil(height/256)*256)},612)){
++  const read=committedReadRect(field,cores),cropped=extractMaterialTileRect(full,side,side,read)
++  baselineBytes+=full.length;croppedBytes+=cropped.length
++  for(const core of cores){
++   const local={x:core.x-field.x,y:side-(core.y-field.y)-core.height,width:core.width,height:core.height}
++   const expected=extractMaterialTileRect(full,side,side,local)
++   const actual=extractMaterialTileRect(cropped,read.width,read.height,{...local,x:local.x-read.x,y:local.y-read.y})
++   expect(actual.length).toBe(expected.length);expect(actual.every((v,i)=>v===expected[i])).toBe(true);coreCount++
++  }
++ }
++ expect(coreCount).toBeGreaterThan(0);expect(croppedBytes).toBeLessThan(baselineBytes)
++})
++it('converts top-down negative window origins to GL rows and includes disjoint owned cores',()=>{
++ expect(committedReadRect({x:-512,y:-256,width:1536,height:1536},[{x:0,y:0,width:256,height:256},{x:512,y:768,width:100,height:128}])).toEqual({x:512,y:384,width:612,height:896})
++})
++it('falls back conservatively for unknown, fractional or out-of-window ownership',()=>{
++ const field={x:0,y:0,width:1536,height:1536},full={x:0,y:0,width:1536,height:1536}
++ for(const cores of [[],[{x:0.5,y:0,width:256,height:256}],[{x:-1,y:0,width:256,height:256}],[{x:0,y:0,width:0,height:256}],[{x:0,y:1500,width:256,height:256}]])expect(committedReadRect(field,cores)).toEqual(full)
++})
