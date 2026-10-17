@@ -1,0 +1,99 @@
+{
+  "source": "81eb5d04",
+  "scope": "Cold snapshot-covered metadata: actual physical capture before explicit OFF independent replay; no requirement that covered old ops remain materialized in log",
+  "errors": [],
+  "history": {
+    "entries": [
+      {
+        "id": "8b44dfaf-84dd-4a74-90b7-813b2346de92",
+        "type": "layer_add",
+        "state": "done",
+        "serverSeq": 1
+      },
+      {
+        "id": "J8KXzy9ysb",
+        "type": "stroke",
+        "state": "done",
+        "serverSeq": 3
+      },
+      {
+        "id": "e8a5a23f-3a04-4dd8-8e07-5a257ee18af7",
+        "type": "paper_dry",
+        "state": "done",
+        "serverSeq": 4
+      },
+      {
+        "id": "68F50fqeAC",
+        "type": "stroke",
+        "state": "done",
+        "serverSeq": 5
+      },
+      {
+        "id": "ve9LsAM1Eh",
+        "type": "operation_undo",
+        "state": "done",
+        "serverSeq": 6
+      },
+      {
+        "id": "77vav0kprZ",
+        "type": "operation_redo",
+        "state": "done",
+        "serverSeq": 7
+      }
+    ],
+    "snapshotAudit": []
+  },
+  "actual": {
+    "layers": [
+      {
+        "layerId": "qa-held-snapshot-ecb5f526-d2b3-4cbd-808d-bbb61846640d",
+        "hash": "22914e143093a2228e0a564cda8a3bc978463637d778fb7be1dd3105c5b473e8",
+        "bytes": 1048596
+      }
+    ],
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 2,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "restoreAudit": [],
+    "glError": 0
+  },
+  "proofs": [
+    {
+      "layer": "qa-held-snapshot-ecb5f526-d2b3-4cbd-808d-bbb61846640d",
+      "layerId": "qa-held-snapshot-ecb5f526-d2b3-4cbd-808d-bbb61846640d",
+      "sourceHiddenReplay": false,
+      "oracleHiddenReplay": false,
+      "actualCapturedBeforeOracle": true,
+      "targetHash": "22914e143093a2228e0a564cda8a3bc978463637d778fb7be1dd3105c5b473e8",
+      "oracleHash": "bc656057d3db5bd33a41d16f74897648918a90de4039fb97d8fbf57acab20e9c",
+      "targetChanged": 6788,
+      "physicalChanged": 6788,
+      "max": 160,
+      "nonzeroAlpha": 4569,
+      "tiles": 1,
+      "bytes": 1048596,
+      "glError": 0
+    }
+  ],
+  "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n6788 !== 0\n\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/cold-covered-snapshot.cjs:3:2181",
+  "actualPreservedFromPreColdRedo": true,
+  "interpretation": "Cold physical raster exactly equals both pre-cold Redo actors. Independent replay differs because oldest snapshot-covered pencil seq2 is absent from cold local journal. No physical data-loss claim; strict independent replay not passed. Snapshot was injected using public API, not actual app network delivery."
+}

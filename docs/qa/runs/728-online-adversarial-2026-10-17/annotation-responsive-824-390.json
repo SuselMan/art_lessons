@@ -1,0 +1,38 @@
+{
+  "source": "81eb5d04",
+  "scope": "Desktop GPU Chrome with touch-enabled 824/390 viewport: actual Menu annotation toggle and board navigation, not native mobile timing",
+  "cases": [
+    {
+      "width": 824,
+      "routes": [
+        {
+          "control": "Annotations",
+          "route": "menu-checkbox"
+        },
+        {
+          "control": "Annotations",
+          "route": "menu-checkbox"
+        },
+        {
+          "control": "Boards",
+          "route": "menu-checkbox"
+        }
+      ],
+      "returnedBoard": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+      "annotation": true
+    },
+    {
+      "width": 390,
+      "routes": [
+        {
+          "control": "Boards",
+          "route": "menu-checkbox"
+        }
+      ],
+      "returnedBoard": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+      "annotation": true
+    }
+  ],
+  "errors": [],
+  "pass": true
+}
