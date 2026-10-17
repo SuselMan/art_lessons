@@ -9,7 +9,13 @@ module.exports=()=>{globalThis.__qa747CreateScopedScissor64=(gl,plan,passes,prot
  const hookPrototype=proto=>{if(begins.has(proto))return;const descriptor=Object.getOwnPropertyDescriptor(proto,'beginReplaceDraw'),original=proto.beginReplaceDraw;if(typeof original!=='function')throw Error('Scissor64 buffer prototype lacks beginReplaceDraw');const wrapped=function(...args){const result=original.apply(this,args);if(this.gl===gl){const fbo=gl.getParameter(gl.FRAMEBUFFER_BINDING);if(fbo)fbos.set(fbo,this)}return result};Object.defineProperty(proto,'beginReplaceDraw',descriptor?{...descriptor,value:wrapped}:{value:wrapped,configurable:true,writable:true});begins.set(proto,{descriptor,wrapped,original});stats.hookedPrototypes=begins.size};
  const owned=buffer=>!!current&&current.buffers.has(buffer);
  const intersect=(a,b)=>{const x=Math.max(a[0],b[0]),y=Math.max(a[1],b[1]);return[x,y,Math.max(0,Math.min(a[0]+a[2],b[0]+b[2])-x),Math.max(0,Math.min(a[1]+a[3],b[1]+b[3])-y)]};
- const fieldFor=function(...args){const field=old.fieldFor.apply(this,args),rect=getRect();if(!rect||args[2]!==1||rect.width!==field.w||rect.height!==field.h)throw Error('Scissor64 field/grid geometry mismatch');const full=[0,0,field.w,field.h];let roi=[0,0,0,0];if(box){const local=[box.x-rect.x-64,box.y-rect.y-64,box.width+128,box.height+128];roi=intersect(full,local)}current={field,buffers:new Set(['a','b','c','ca','cb','cc','pressure','mask','band','coverage'].map(k=>field[k])),roi,rect:{...rect}};for(const buffer of current.buffers){hookPrototype(Object.getPrototypeOf(buffer));roles.set(buffer,ZERO)}stage='outward';jobs.push({rect:{...rect},roi:[...roi],fieldArgs:[...args]});return field};
+ const fieldFor=function(...args){const field=old.fieldFor.apply(this,args),rect=getRect();if(!rect||args[2]!==1||rect.width!==field.w||rect.height!==field.h)throw Error('Scissor64 field/grid geometry mismatch');const full=[0,0,field.w,field.h];let roi=[0,0,0,0];if(box){
+ // One original draw: bound the union AFTER each expanded captured rectangle is clipped.
+ // Room factory validates rects and its exact compatibility union; absent list keeps old bbox.
+ const regions=support.rects===undefined?[box]:support.rects;let union=null;
+ for(const r of regions){const clipped=intersect(full,[r.x-rect.x-64,r.y-rect.y-64,r.width+128,r.height+128]);if(clipped[2]===0||clipped[3]===0)continue;if(!union)union=clipped;else{const x=Math.min(union[0],clipped[0]),y=Math.min(union[1],clipped[1]);union=[x,y,Math.max(union[0]+union[2],clipped[0]+clipped[2])-x,Math.max(union[1]+union[3],clipped[1]+clipped[3])-y]}}
+ roi=union||[0,0,0,0]
+ }current={field,buffers:new Set(['a','b','c','ca','cb','cc','pressure','mask','band','coverage'].map(k=>field[k])),roi,rect:{...rect}};for(const buffer of current.buffers){hookPrototype(Object.getPrototypeOf(buffer));roles.set(buffer,ZERO)}stage='outward';jobs.push({rect:{...rect},roi:[...roi],fieldArgs:[...args]});return field};
  const scoped=(next,run)=>{const previous=context;context=next;try{return run()}finally{context=previous}};
  const fieldOp=function(...args){const[out,a,b,mode,k,opts={}]=args;if(!owned(out))return old.fieldOp.apply(this,args);if(opts.path)throw Error('Scissor64 does not admit alternate path mode');let role=ZERO;
   if(mode===10){stage='outward';role=OUT}else if(mode===12){stage='inward';role=IN}else if(mode===19){stage='inward';role=opts.dir?.[0]>0?IN:OUT}else if(mode===4)role=IN;else if(mode===1&&k===0&&a===b)role=roles.get(a)||ZERO;
@@ -35,7 +41,7 @@ module.exports=()=>{globalThis.__qa747CreateScopedScissor64=(gl,plan,passes,prot
   const owner=engine._fieldPhaseOwner,families=engine._pagedFieldFamilies,plan=host.settlePlan,parent=families?.get(plan),generation=owner?.state.generation;
   const canRun=()=>{const state=owner?.state;return !!state&&!!parent&&engine._fieldPhaseOwner===owner&&engine._pagedFieldFamilies===families&&families.size===1&&families.get(plan)===parent&&state.generation===generation&&!state.transitioning&&state.phase!=='lost'&&state.activeLeases>0&&state.executing===0&&!engine._settle&&host.gl===engine.gl&&host.passes===engine._watercolorPasses};
   if(!plan?.ctx||!canRun())return undefined;
-  const scope=globalThis.__qa747CreateScopedScissor64(host.gl,plan,host.passes,prototype,()=>rect,{boundary:'zero',noForeignStencil:true,rect:box?{...box}:null},canRun);
+  const scope=globalThis.__qa747CreateScopedScissor64(host.gl,plan,host.passes,prototype,()=>rect,{boundary:'zero',noForeignStencil:true,rect:box?{...box}:null,rects:support.rects?.map(r=>({...r}))},canRun);
   let disposed=false;return{run:work=>scope.run(work),dispose(){if(disposed)return;disposed=true;try{scope.dispose()}finally{onDispose?.(scope.summary())}}}
  }
 }
