@@ -1,0 +1,499 @@
+{
+  "source": "dfe322c3+R32-5ec5-rootguards+index-optin-false",
+  "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x000046D1) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "transpose": true,
+  "fixtureMode": "compact-single-pool",
+  "size": {
+    "width": 512,
+    "height": 2048
+  },
+  "domain": {
+    "width": 1536,
+    "height": 2048
+  },
+  "origins": [
+    0,
+    128,
+    384,
+    512
+  ],
+  "windowGeometry": [
+    {
+      "field": {
+        "x": 0,
+        "y": 0,
+        "width": 1536,
+        "height": 1536
+      },
+      "cores": [
+        {
+          "x": 0,
+          "y": 0,
+          "width": 256,
+          "height": 256
+        },
+        {
+          "x": 256,
+          "y": 0,
+          "width": 256,
+          "height": 256
+        },
+        {
+          "x": 0,
+          "y": 256,
+          "width": 256,
+          "height": 256
+        },
+        {
+          "x": 256,
+          "y": 256,
+          "width": 256,
+          "height": 256
+        },
+        {
+          "x": 0,
+          "y": 512,
+          "width": 256,
+          "height": 256
+        },
+        {
+          "x": 256,
+          "y": 512,
+          "width": 256,
+          "height": 256
+        }
+      ]
+    },
+    {
+      "field": {
+        "x": 0,
+        "y": 128,
+        "width": 1536,
+        "height": 1536
+      },
+      "cores": [
+        {
+          "x": 0,
+          "y": 768,
+          "width": 256,
+          "height": 256
+        },
+        {
+          "x": 256,
+          "y": 768,
+          "width": 256,
+          "height": 256
+        }
+      ]
+    },
+    {
+      "field": {
+        "x": 0,
+        "y": 384,
+        "width": 1536,
+        "height": 1536
+      },
+      "cores": [
+        {
+          "x": 0,
+          "y": 1024,
+          "width": 256,
+          "height": 256
+        },
+        {
+          "x": 256,
+          "y": 1024,
+          "width": 256,
+          "height": 256
+        }
+      ]
+    },
+    {
+      "field": {
+        "x": 0,
+        "y": 512,
+        "width": 1536,
+        "height": 1536
+      },
+      "cores": [
+        {
+          "x": 0,
+          "y": 1280,
+          "width": 256,
+          "height": 256
+        },
+        {
+          "x": 256,
+          "y": 1280,
+          "width": 256,
+          "height": 256
+        },
+        {
+          "x": 0,
+          "y": 1536,
+          "width": 256,
+          "height": 256
+        },
+        {
+          "x": 256,
+          "y": 1536,
+          "width": 256,
+          "height": 256
+        },
+        {
+          "x": 0,
+          "y": 1792,
+          "width": 256,
+          "height": 256
+        },
+        {
+          "x": 256,
+          "y": 1792,
+          "width": 256,
+          "height": 256
+        }
+      ]
+    }
+  ],
+  "windowSchedule": {
+    "requestedTight32": true,
+    "requestedSkip": false,
+    "allGroups": 4,
+    "kept": 2,
+    "skipped": 2,
+    "decisions": [
+      {
+        "field": {
+          "x": 0,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 0,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 0,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 0,
+            "y": 512,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 512,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 32,
+          "noForeignStencil": true,
+          "kept": false
+        }
+      },
+      {
+        "field": {
+          "x": 0,
+          "y": 128,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 0,
+            "y": 768,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 768,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 32,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      },
+      {
+        "field": {
+          "x": 0,
+          "y": 384,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 0,
+            "y": 1024,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 1024,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 32,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      },
+      {
+        "field": {
+          "x": 0,
+          "y": 512,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 0,
+            "y": 1280,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 1280,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 0,
+            "y": 1536,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 1536,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 0,
+            "y": 1792,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 1792,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 32,
+          "noForeignStencil": true,
+          "kept": false
+        }
+      }
+    ],
+    "sourceSupport": {
+      "width": 512,
+      "height": 2048,
+      "rect": {
+        "x": 197,
+        "y": 941,
+        "width": 119,
+        "height": 119
+      },
+      "rects": [
+        {
+          "x": 197,
+          "y": 941,
+          "width": 119,
+          "height": 119
+        }
+      ],
+      "noForeignStencil": true
+    }
+  },
+  "inputHashes": {
+    "p": "1f002e56adecb3f4a20aaf5c73ba683e7b1c79ec8707439ee79403650aa272be",
+    "c": "9126a70448d3f3bffa5552085899195179acaf282e6c9c0df50caf8a18e57b5b",
+    "coverage": "61d419d44bd36ab984886e0f7396b84825dea921ed4cc1f0721f4b10edd948fb",
+    "water": "0a00333bad4ed6036e4c2587ea3d25e4f0998b023d773ca2f05779649246b8f7"
+  },
+  "finalInputHashes": {
+    "p": "1f002e56adecb3f4a20aaf5c73ba683e7b1c79ec8707439ee79403650aa272be",
+    "c": "9126a70448d3f3bffa5552085899195179acaf282e6c9c0df50caf8a18e57b5b",
+    "coverage": "61d419d44bd36ab984886e0f7396b84825dea921ed4cc1f0721f4b10edd948fb",
+    "water": "0a00333bad4ed6036e4c2587ea3d25e4f0998b023d773ca2f05779649246b8f7"
+  },
+  "highFloat": {
+    "precision": 23,
+    "rangeMin": 127,
+    "rangeMax": 127
+  },
+  "dither": {
+    "requestedOff": false,
+    "initial": true,
+    "atCapture": true
+  },
+  "stageDiffs": {
+    "referenceP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "da710080fc1f27c90eab488d363180f5c4abfd5c5b21c26d0b7048593e7a56d7",
+      "referenceHash": "da710080fc1f27c90eab488d363180f5c4abfd5c5b21c26d0b7048593e7a56d7"
+    },
+    "referenceC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "21a9e00fc225317c9583d4c4b7142cf7159af098351445529297ecc3b5351a7c",
+      "referenceHash": "21a9e00fc225317c9583d4c4b7142cf7159af098351445529297ecc3b5351a7c"
+    },
+    "solvedP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "aeb96cfe5a234439eaddcdbc4d7229de7b18ec7b59af36ea794d4d1005743b80",
+      "referenceHash": "aeb96cfe5a234439eaddcdbc4d7229de7b18ec7b59af36ea794d4d1005743b80"
+    },
+    "solvedC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "60c8f5903631a8e78399fd08d965102009a82e3088ea5b7be9a767bfe4c52941",
+      "referenceHash": "60c8f5903631a8e78399fd08d965102009a82e3088ea5b7be9a767bfe4c52941"
+    },
+    "solvedCoverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "61d419d44bd36ab984886e0f7396b84825dea921ed4cc1f0721f4b10edd948fb",
+      "referenceHash": "61d419d44bd36ab984886e0f7396b84825dea921ed4cc1f0721f4b10edd948fb"
+    },
+    "coarse:gate": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "ca199bfcf225f2648e2dd04487fe4498e5e653ada12e9d2016b7da9843c6f97d",
+      "referenceHash": "ca199bfcf225f2648e2dd04487fe4498e5e653ada12e9d2016b7da9843c6f97d"
+    },
+    "coarse:beforeP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "b042d28bcd65d1cd7deced68a40e7c18fef1e6736a8255f1974f21cfd005458b",
+      "referenceHash": "b042d28bcd65d1cd7deced68a40e7c18fef1e6736a8255f1974f21cfd005458b"
+    },
+    "coarse:afterP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "b042d28bcd65d1cd7deced68a40e7c18fef1e6736a8255f1974f21cfd005458b",
+      "referenceHash": "b042d28bcd65d1cd7deced68a40e7c18fef1e6736a8255f1974f21cfd005458b"
+    },
+    "coarse:beforeC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "6a9a905c13ac07bf9f501e0edc1c88c0040523475a47c939b3d2b26d16b0e095",
+      "referenceHash": "6a9a905c13ac07bf9f501e0edc1c88c0040523475a47c939b3d2b26d16b0e095"
+    },
+    "coarse:afterC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "6a9a905c13ac07bf9f501e0edc1c88c0040523475a47c939b3d2b26d16b0e095",
+      "referenceHash": "6a9a905c13ac07bf9f501e0edc1c88c0040523475a47c939b3d2b26d16b0e095"
+    }
+  },
+  "diffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "096fb0e1eb49414f1ffa4875aaae54c6a4ef141f92e383324b0af5b6eccb551c",
+      "referenceHash": "096fb0e1eb49414f1ffa4875aaae54c6a4ef141f92e383324b0af5b6eccb551c"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "324405fdf769c815e94a7264b448df1ef0c0516b80c046520631c6e1d9e6e35f",
+      "referenceHash": "324405fdf769c815e94a7264b448df1ef0c0516b80c046520631c6e1d9e6e35f"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "aea7ed26e9fc2a4b5b19832ef403151aab77b626da866f3b3b4bba01a1d4decf",
+      "referenceHash": "aea7ed26e9fc2a4b5b19832ef403151aab77b626da866f3b3b4bba01a1d4decf"
+    }
+  },
+  "reference": {
+    "ms": 3571.300000190735,
+    "steps": 27,
+    "gl": 0
+  },
+  "actual": {
+    "ms": 6140.199999809265,
+    "steps": 14,
+    "gl": 0
+  },
+  "errors": [],
+  "lost": false,
+  "referenceDestroyedBuffers": 10,
+  "patch": {
+    "module": "https://tools.pecni.com/src/engine/src/raster/WatercolorSettlePlan.ts",
+    "originalHash": "bf1842929f2b10c440e0d6e98a66ad36fba06c0d523b5c826f4bc87fad44a68e",
+    "patchedHash": "5c68cb8895f330a1251000eafa5cbbd825365f1f69ddb2627f2665f91bbf040e",
+    "replacement": "unique const CAP = 1536 * S \u2192 const CAP = 4096 * S",
+    "productionChanged": false
+  },
+  "runtimeSourceSHA256": {
+    "apps/web/src/engine/index.ts": "6200a4e7e5be8dcda20f76bf386a546b76b70cb9c0efe46f02fa0de9fc21f50e",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "b05e6ff9e496a73ac9d0822424d5bbed21b70820b8055595ce6e0449e19287db",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleSource.ts": "98d56eaa05eb62a9273279b16e9903d22a261aa830c3a2f977a5bba01a44b748",
+    "apps/web/src/engine/src/watercolor/puddle/M70FixedWindowSkip.ts": "d5e6c047daebe7c2e4784ab5d9c5fc709a5ecf44eecbb5a6c459379ed96b3b3c"
+  },
+  "qualification": "Real Intel own interactive Chrome (hidden), synchronous numeric proof; sourceR32files unchanged, index only added OFF diagnostic wiring. No Room/latency or crossGPU determinism claim. Test page closed by harness finally; owned Chrome/profile/tunnel retained per existing KEEP."
+}
