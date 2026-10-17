@@ -1,5 +1,5 @@
 import {expect,it,vi} from 'vitest'
-import {createTestEngine,makeLayerAdd,makeStroke,dab,paperReady} from './testing/engineTestUtils'
+import {createTestEngine,makeLayerAdd,makeStroke,dab,paperReady,simulateStrokeStart,simulateStrokeMove,simulateStrokeEnd} from './testing/engineTestUtils'
 import type {Operation} from '@grafetto/shared'
 import type {OperationLog} from './src/oplog/OperationLog'
 import type {PuddleRoomController} from './src/watercolor/puddle/PuddleRoomController'
@@ -44,5 +44,35 @@ for(const acceptance of ['ack','page'] as const)it(`late authoritative ${accepta
   expect(actual.every((v,i)=>v===expected[i])).toBe(true)
   const bounds=(engine:ReturnType<typeof createTestEngine>['engine'])=>{const s=state(engine);return s._puddle.capture(s._layers.get('L')!)!.storageBounds}
   expect(bounds(engine)).toEqual(bounds(reference))
+ }finally{engine.destroy();reference.destroy()}
+})
+
+it('rejecting a middle held chunk preserves its accepted sibling and continued tail exactly after UP',async()=>{
+ const engine=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32},{width:32,height:32}).engine
+ const reference=createTestEngine({userId:'observer',watercolorModel:'m70-r2-v1',pageWidth:32,pageHeight:32},{width:32,height:32}).engine
+ await paperReady(engine);await paperReady(reference)
+ try{
+  engine.appendOperation({...makeLayerAdd('B','L'),seq:1},'remote')
+  engine.setActiveLayer('L');engine.setTool('watercolor');engine.setPencil('normal:80:60:PB29:round');engine.setSize(4)
+  const flush=()=>{(engine as unknown as {_flushStrokeChunk():void})._flushStrokeChunk()}
+  simulateStrokeStart(engine,4,4);simulateStrokeMove(engine,8,4);flush()
+  const first=engine.getOperations().find(op=>op.type==='stroke')!
+  engine.confirmOperation(first.id,2)
+  simulateStrokeMove(engine,28,28);flush()
+  const middle=engine.getOperations().filter(op=>op.type==='stroke').at(-1)!
+  expect(middle.id).not.toBe(first.id)
+  expect(engine.discardOperation(middle.id)).toBe(true)
+  expect(state(engine)._rebuildJobs.size).toBe(0)
+  simulateStrokeMove(engine,8,24);simulateStrokeEnd(engine,5,24);drain(engine)
+  const tail=engine.getOperations().filter(op=>op.type==='stroke').at(-1)!
+  expect(tail.id).not.toBe(first.id)
+  expect(tail.id).not.toBe(middle.id)
+  engine.confirmOperation(tail.id,3);drain(engine)
+  expect(state(engine)._log.entries.find(e=>e.op.id===middle.id)?.goneReason).toBe('reject')
+  expect(state(engine)._log.doneOperations().filter(op=>op.type==='stroke').map(op=>op.id)).toEqual([first.id,tail.id])
+  for(const [index,op]of engine.getOperations().entries()){reference.appendOperation({...op,seq:index+1},'remote');drain(reference)}
+  expect(water(engine)).toEqual(water(reference))
+  const a=state(engine),b=state(reference)
+  expect(a._puddle.capture(a._layers.get('L')!)!.storageBounds).toEqual(b._puddle.capture(b._layers.get('L')!)!.storageBounds)
  }finally{engine.destroy();reference.destroy()}
 })
