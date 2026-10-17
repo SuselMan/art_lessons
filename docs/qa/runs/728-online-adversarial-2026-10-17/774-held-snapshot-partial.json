@@ -1,0 +1,377 @@
+{
+  "source": "93b550b2",
+  "scope": "SameGPU genuine journal snapshot restored through public engine API during trusted held pencil; actual before/after, UP repair, UndoRedo and fresh-document rejoin. This injects snapshot arrival, not app network delivery.",
+  "cases": [
+    {
+      "name": "real-journal-snapshot-arrives-during-trusted-held-pencil",
+      "providerProof": {
+        "layerId": "qa-held-snapshot-ecb5f526-d2b3-4cbd-808d-bbb61846640d",
+        "sourceHiddenReplay": false,
+        "oracleHiddenReplay": false,
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "8905eeeec8e93c8e76ca4e1ccb7d86e4af0de61829cc0eef4c394303b483869d",
+        "oracleHash": "8905eeeec8e93c8e76ca4e1ccb7d86e4af0de61829cc0eef4c394303b483869d",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 3686,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      },
+      "snapshot": {
+        "seq": 4,
+        "bytes": 1048596
+      },
+      "held": {
+        "stroke": "h6nISndizV",
+        "unrecorded": true,
+        "asyncFinish": false
+      },
+      "visible": {
+        "changed": 300,
+        "max": 116
+      },
+      "physicalHeld": {
+        "rect": {
+          "x": 330,
+          "y": 340,
+          "w": 70,
+          "h": 50
+        },
+        "physicalHash": "2f75f2509cc71512f4efcaebe796429146b34918549daacfa384cff50e8c6622",
+        "nonzeroAlpha": 883,
+        "redBounds": {
+          "x0": 341,
+          "y0": 350,
+          "x1": 378,
+          "y1": 368
+        },
+        "actualCapturedBeforeOracle": true,
+        "glError": 0
+      },
+      "restored": {
+        "stroke": "h6nISndizV",
+        "unrecorded": true,
+        "unsettled": true,
+        "queue": 0
+      },
+      "afterSnapshotDelta": {
+        "changed": 300,
+        "max": 116
+      },
+      "scope": "Transient disappearance beforeUP remains an open presentation limitation; this gate asserts durable UP recovery."
+    },
+    {
+      "name": "held-up-repairs-authoritative-snapshot-and-keeps-real-tail",
+      "op": "68F50fqeAC",
+      "tail": {
+        "rect": {
+          "x": 330,
+          "y": 340,
+          "w": 70,
+          "h": 50
+        },
+        "physicalHash": "2f75f2509cc71512f4efcaebe796429146b34918549daacfa384cff50e8c6622",
+        "nonzeroAlpha": 883,
+        "redBounds": {
+          "x0": 341,
+          "y0": 350,
+          "x1": 378,
+          "y1": 368
+        },
+        "actualCapturedBeforeOracle": true,
+        "glError": 0,
+        "oracleHash": "2f75f2509cc71512f4efcaebe796429146b34918549daacfa384cff50e8c6622",
+        "changed": 0,
+        "max": 0
+      },
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-held-snapshot-ecb5f526-d2b3-4cbd-808d-bbb61846640d",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "22914e143093a2228e0a564cda8a3bc978463637d778fb7be1dd3105c5b473e8",
+          "oracleHash": "22914e143093a2228e0a564cda8a3bc978463637d778fb7be1dd3105c5b473e8",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4569,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-held-snapshot-ecb5f526-d2b3-4cbd-808d-bbb61846640d",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "22914e143093a2228e0a564cda8a3bc978463637d778fb7be1dd3105c5b473e8",
+          "oracleHash": "22914e143093a2228e0a564cda8a3bc978463637d778fb7be1dd3105c5b473e8",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4569,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "undo-after-late-snapshot-0",
+      "meta": "68F50fqeAC",
+      "proof": {
+        "layerId": "qa-held-snapshot-ecb5f526-d2b3-4cbd-808d-bbb61846640d",
+        "sourceHiddenReplay": false,
+        "oracleHiddenReplay": false,
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "8905eeeec8e93c8e76ca4e1ccb7d86e4af0de61829cc0eef4c394303b483869d",
+        "oracleHash": "8905eeeec8e93c8e76ca4e1ccb7d86e4af0de61829cc0eef4c394303b483869d",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 3686,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    },
+    {
+      "name": "undo-after-late-snapshot-1",
+      "meta": "68F50fqeAC",
+      "proof": {
+        "layerId": "qa-held-snapshot-ecb5f526-d2b3-4cbd-808d-bbb61846640d",
+        "sourceHiddenReplay": false,
+        "oracleHiddenReplay": false,
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "8905eeeec8e93c8e76ca4e1ccb7d86e4af0de61829cc0eef4c394303b483869d",
+        "oracleHash": "8905eeeec8e93c8e76ca4e1ccb7d86e4af0de61829cc0eef4c394303b483869d",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 3686,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    },
+    {
+      "name": "redo-after-late-snapshot-0",
+      "meta": "68F50fqeAC",
+      "proof": {
+        "layerId": "qa-held-snapshot-ecb5f526-d2b3-4cbd-808d-bbb61846640d",
+        "sourceHiddenReplay": false,
+        "oracleHiddenReplay": false,
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "22914e143093a2228e0a564cda8a3bc978463637d778fb7be1dd3105c5b473e8",
+        "oracleHash": "22914e143093a2228e0a564cda8a3bc978463637d778fb7be1dd3105c5b473e8",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 4569,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    },
+    {
+      "name": "redo-after-late-snapshot-1",
+      "meta": "68F50fqeAC",
+      "proof": {
+        "layerId": "qa-held-snapshot-ecb5f526-d2b3-4cbd-808d-bbb61846640d",
+        "sourceHiddenReplay": false,
+        "oracleHiddenReplay": false,
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "22914e143093a2228e0a564cda8a3bc978463637d778fb7be1dd3105c5b473e8",
+        "oracleHash": "22914e143093a2228e0a564cda8a3bc978463637d778fb7be1dd3105c5b473e8",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 4569,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "75700afb-d60c-44a9-8d91-5e199ff2cbef",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "ab532563-a139-4a6c-a065-1136ac9e1c05",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "pass": false,
+  "failure": "page.waitForFunction: Timeout 60000ms exceeded.\n    at historyReady (/home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-undo-v1/history-ready.cjs:7:13)\n    at async /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/late-held-snapshot.cjs:11:2466",
+  "diag0": {
+    "locked": false,
+    "stroke": null,
+    "queue": 0,
+    "pending": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 2,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "peerLive": 0,
+    "journal": [
+      {
+        "id": "8b44dfaf-84dd-4a74-90b7-813b2346de92",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 0
+      },
+      {
+        "id": "J8KXzy9ysb",
+        "type": "stroke",
+        "strokeId": "4mBfbzt7Ra",
+        "state": "done",
+        "seq": 1
+      },
+      {
+        "id": "e8a5a23f-3a04-4dd8-8e07-5a257ee18af7",
+        "type": "paper_dry",
+        "state": "done",
+        "seq": 2
+      },
+      {
+        "id": "68F50fqeAC",
+        "type": "stroke",
+        "strokeId": "h6nISndizV",
+        "state": "done",
+        "seq": 3
+      },
+      {
+        "id": "ve9LsAM1Eh",
+        "type": "operation_undo",
+        "targetOpId": "68F50fqeAC",
+        "state": "done",
+        "seq": 4
+      },
+      {
+        "id": "77vav0kprZ",
+        "type": "operation_redo",
+        "targetOpId": "68F50fqeAC",
+        "state": "done",
+        "seq": 5
+      }
+    ]
+  },
+  "diag1": {
+    "locked": false,
+    "stroke": null,
+    "queue": 0,
+    "pending": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 1,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "peerLive": 0,
+    "journal": [
+      {
+        "id": "8b44dfaf-84dd-4a74-90b7-813b2346de92",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 0
+      },
+      {
+        "id": "1UU1nhkUEu",
+        "type": "stroke",
+        "strokeId": "5x0kHOkxU-",
+        "state": "done",
+        "seq": 1
+      },
+      {
+        "id": "J8KXzy9ysb",
+        "type": "stroke",
+        "strokeId": "4mBfbzt7Ra",
+        "state": "done",
+        "pending": false,
+        "seq": 2
+      },
+      {
+        "id": "e8a5a23f-3a04-4dd8-8e07-5a257ee18af7",
+        "type": "paper_dry",
+        "state": "done",
+        "seq": 3
+      },
+      {
+        "id": "68F50fqeAC",
+        "type": "stroke",
+        "strokeId": "h6nISndizV",
+        "state": "done",
+        "seq": 4
+      },
+      {
+        "id": "ve9LsAM1Eh",
+        "type": "operation_undo",
+        "targetOpId": "68F50fqeAC",
+        "state": "done",
+        "seq": 5
+      },
+      {
+        "id": "77vav0kprZ",
+        "type": "operation_redo",
+        "targetOpId": "68F50fqeAC",
+        "state": "done",
+        "seq": 6
+      }
+    ]
+  },
+  "interpretation": "Six pre-cold functional checks passed. Final cold history-presence gate timed out: oldest snapshot-covered pencil absent in A log, no queue/jobs/pending/errors. No cold PASS claimed; public API injection, not network delivery."
+}
