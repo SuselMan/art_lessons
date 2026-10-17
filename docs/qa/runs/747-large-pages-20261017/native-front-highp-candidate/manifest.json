@@ -1,0 +1,13 @@
+{
+  "base": "509fb989; current reviewed QA harness with root scissor preparation",
+  "old": {
+    "docs/qa/harness/747/nonzero-origin-ab.cjs": "56f0244d10b07eb0852b0d9b1fb297949902489e49618d51c05ef97b11c88d1a",
+    "docs/qa/harness/747/nonzero-origin-ab-android.cjs": "37065136a638bd12a83e54682674cc60074bab566d7839457d42f077701a53a8"
+  },
+  "new": {
+    "docs/qa/harness/747/nonzero-origin-ab.cjs": "243b56d56ff564353ea90d2f66c0a7cdc9e4f76e1a97a56f068de35c3a42d5a9",
+    "docs/qa/harness/747/nonzero-origin-ab-android.cjs": "e74f8a6739fcc18c63758ea5740bc56ed0d46728a1b3b4d0f0def5d19c7b99cc",
+    "docs/qa/harness/747/native-front-highp-installer.cjs": "1c9171a988686bb6e6480a021d6634e4d498a891a9435713ce64238ad154f67d"
+  },
+  "patchSHA": "4e1e83e704941016fdaf3ba6c15b23ea57d6806e9a1690137eb130b1060d9c8f"
+}
