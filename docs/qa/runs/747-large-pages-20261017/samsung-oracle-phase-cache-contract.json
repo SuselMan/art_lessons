@@ -1,0 +1,304 @@
+{
+  "source": "3d9be901",
+  "qualification": "Read-only exact6acceptedoperations; no new input/control ops. A temporary replay controller selects its own active input cache, then destroys it; live registered cache remains120MiB while global owner phase remains input. Budget224 applies only to active cache, per index contract. QA capture assertion corrected, no application bug claim.",
+  "snapshots": [
+    {
+      "name": "readonly-phase-before-original-oracle",
+      "wallAt": 1792242263538,
+      "ownerId": 1,
+      "ownerState": {
+        "generation": 0,
+        "activeLeases": 0,
+        "executing": 0,
+        "transitioning": false,
+        "phase": "input",
+        "enabled": true
+      },
+      "activeCacheId": 2,
+      "liveControllerId": 3,
+      "caches": [
+        {
+          "id": 2,
+          "active": true,
+          "budget": 234881024,
+          "resident": 173834240
+        }
+      ],
+      "controllers": [
+        {
+          "id": 3,
+          "planId": 4,
+          "layers": [
+            {
+              "targetId": 5,
+              "goalReady": true,
+              "dirty": false,
+              "epoch": 2,
+              "goals": [
+                {
+                  "cacheId": 2,
+                  "equalsActive": true,
+                  "budget": 234881024,
+                  "resident": 173834240
+                },
+                {
+                  "cacheId": 2,
+                  "equalsActive": true,
+                  "budget": 234881024,
+                  "resident": 173834240
+                },
+                {
+                  "cacheId": 2,
+                  "equalsActive": true,
+                  "budget": 234881024,
+                  "resident": 173834240
+                },
+                {
+                  "cacheId": 2,
+                  "equalsActive": true,
+                  "budget": 234881024,
+                  "resident": 173834240
+                },
+                {
+                  "cacheId": 2,
+                  "equalsActive": true,
+                  "budget": 234881024,
+                  "resident": 173834240
+                }
+              ]
+            },
+            {
+              "targetId": 6,
+              "goalReady": true,
+              "dirty": false,
+              "epoch": 1,
+              "goals": [
+                {
+                  "cacheId": 2,
+                  "equalsActive": true,
+                  "budget": 234881024,
+                  "resident": 173834240
+                },
+                {
+                  "cacheId": 2,
+                  "equalsActive": true,
+                  "budget": 234881024,
+                  "resident": 173834240
+                },
+                {
+                  "cacheId": 2,
+                  "equalsActive": true,
+                  "budget": 234881024,
+                  "resident": 173834240
+                },
+                {
+                  "cacheId": 2,
+                  "equalsActive": true,
+                  "budget": 234881024,
+                  "resident": 173834240
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "families": []
+    },
+    {
+      "name": "readonly-phase-after-original-oracle",
+      "wallAt": 1792242284782,
+      "ownerId": 1,
+      "ownerState": {
+        "generation": 0,
+        "activeLeases": 0,
+        "executing": 0,
+        "transitioning": false,
+        "phase": "input",
+        "enabled": true
+      },
+      "activeCacheId": null,
+      "liveControllerId": 3,
+      "caches": [
+        {
+          "id": 2,
+          "active": false,
+          "budget": 125829120,
+          "resident": 124338176
+        }
+      ],
+      "controllers": [
+        {
+          "id": 3,
+          "planId": 4,
+          "layers": [
+            {
+              "targetId": 5,
+              "goalReady": true,
+              "dirty": false,
+              "epoch": 2,
+              "goals": [
+                {
+                  "cacheId": 2,
+                  "equalsActive": false,
+                  "budget": 125829120,
+                  "resident": 124338176
+                },
+                {
+                  "cacheId": 2,
+                  "equalsActive": false,
+                  "budget": 125829120,
+                  "resident": 124338176
+                },
+                {
+                  "cacheId": 2,
+                  "equalsActive": false,
+                  "budget": 125829120,
+                  "resident": 124338176
+                },
+                {
+                  "cacheId": 2,
+                  "equalsActive": false,
+                  "budget": 125829120,
+                  "resident": 124338176
+                },
+                {
+                  "cacheId": 2,
+                  "equalsActive": false,
+                  "budget": 125829120,
+                  "resident": 124338176
+                }
+              ]
+            },
+            {
+              "targetId": 6,
+              "goalReady": true,
+              "dirty": false,
+              "epoch": 1,
+              "goals": [
+                {
+                  "cacheId": 2,
+                  "equalsActive": false,
+                  "budget": 125829120,
+                  "resident": 124338176
+                },
+                {
+                  "cacheId": 2,
+                  "equalsActive": false,
+                  "budget": 125829120,
+                  "resident": 124338176
+                },
+                {
+                  "cacheId": 2,
+                  "equalsActive": false,
+                  "budget": 125829120,
+                  "resident": 124338176
+                },
+                {
+                  "cacheId": 2,
+                  "equalsActive": false,
+                  "budget": 125829120,
+                  "resident": 124338176
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "families": []
+    }
+  ],
+  "oracle": {
+    "name": "original-wet-before-controls",
+    "wallAt": 1792242284697,
+    "actualSource": "canonical-goal",
+    "actualCapturedBeforeOracle": true,
+    "oracleTightSupport32": false,
+    "oracleControllers": [
+      {
+        "nativeScopeFactoryOff": true,
+        "type": "PagedPuddleRoomController",
+        "tightFlagAtCreation": false,
+        "actualOptions": {
+          "diagnosticM70TightSupport32": false,
+          "diagnosticM70CapturedBacking": false,
+          "diagnosticM70PersistCapturedBacking": false,
+          "diagnosticM70CooperativeCapture": false,
+          "diagnosticM70StepBudgetMs": 0,
+          "diagnosticM70SkipEmptyPostphase": false,
+          "diagnosticM70SkipEmptyReference": false
+        },
+        "createdWhilePuddleNull": true
+      }
+    ],
+    "oracleNativePrepare": 29,
+    "liveControllerRestored": true,
+    "liveTightFlagRestored": true,
+    "oracleLog": "complete-api",
+    "oracleOperationCount": 6,
+    "liveLogUnchanged": true,
+    "page": {
+      "width": 3508,
+      "height": 2480
+    },
+    "physicalChanged": 0,
+    "max": 0,
+    "alpha": 6047,
+    "tiles": [
+      {
+        "x": 0,
+        "y": 0,
+        "w": 1024,
+        "h": 1024,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 2028
+      },
+      {
+        "x": 1024,
+        "y": 0,
+        "w": 1024,
+        "h": 1024,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 300
+      },
+      {
+        "x": 0,
+        "y": 1024,
+        "w": 1024,
+        "h": 1024,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 291
+      },
+      {
+        "x": 1024,
+        "y": 1024,
+        "w": 1024,
+        "h": 1024,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 1559
+      },
+      {
+        "x": 3072,
+        "y": 2048,
+        "w": 436,
+        "h": 432,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 1869
+      }
+    ],
+    "actualHash": "bfa7395c1dea408a926a81fc1c9c43f5cc1a0e7d5d5183c8b214965712d6218a",
+    "oracleHash": "bfa7395c1dea408a926a81fc1c9c43f5cc1a0e7d5d5183c8b214965712d6218a",
+    "glError": 0
+  },
+  "errors": [],
+  "cleanup": "Own CDP context closed finally, fixtures protected."
+}
