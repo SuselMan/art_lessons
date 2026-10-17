@@ -1,0 +1,114 @@
+{
+  "source": "3d9be901",
+  "controls": "front highp+round / mode11 highp-only / mode6 highp+ROUND_RGBA+CANONICAL_LATTICE; neutral OFF; forced identical Contrast reference",
+  "samsungSHA": "3debe503266590b3e252046fc013241ff863b0ad71696a35e3d8b351026f0f6f",
+  "intelSHA": "d43da0c8f666752fc15862c01e76e1f6776d616f626cba29363c16bf8c2e6add",
+  "sameInputHashes": true,
+  "channels": [
+    {
+      "channel": "R",
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "channel": "G",
+      "changed": 2,
+      "max": 1
+    },
+    {
+      "channel": "B",
+      "changed": 1,
+      "max": 1
+    },
+    {
+      "channel": "A",
+      "changed": 0,
+      "max": 0
+    }
+  ],
+  "mode6Highp": {
+    "requested": true,
+    "canonicalLattice": true,
+    "hashAnchorCount": 1,
+    "noiseUnit": 7,
+    "noiseBindings": 10,
+    "noiseRestores": 10,
+    "explicitRoundRGBA": true,
+    "neutralRimPatch": false,
+    "outputAnchorCount": 1,
+    "rimAnchorCount": 1,
+    "samplerCount": 6,
+    "originalSHA": "b53ec815e0e503925fa25ec9ac2f7105d6d79dd102a36dfa9f68953ae68c2461",
+    "patchedSHA": "ca470038d94d9c638563e8f12d935fa69176ccaaa5a01b82af2c9b15784dd1e5",
+    "selectedCalls": 10,
+    "otherCalls": 574,
+    "initializedBaseline": true,
+    "restoration": {
+      "wrapperExact": true,
+      "cacheExact": true,
+      "cacheDescriptorRestored": true,
+      "deletedOwnedProgram": true
+    },
+    "uniformKeys": [
+      "u_a",
+      "u_b",
+      "u_c",
+      "u_k",
+      "u_mode",
+      "u_tau",
+      "u_dir",
+      "u_d",
+      "u_origin",
+      "u_size",
+      "u_band",
+      "u_world",
+      "u_mode6Resolution",
+      "u_mode6DirPx",
+      "u_mode6DiscreteGrid",
+      "u_qaRimLattice"
+    ],
+    "noiseFilters": [
+      9728,
+      9728,
+      33071,
+      33071
+    ]
+  },
+  "all10SameGPUZero": true,
+  "finalDiffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "3dfcde25ead8cebb6892ed7cf745914bed899c082945f1d1afb7d387c012de26",
+      "referenceHash": "3dfcde25ead8cebb6892ed7cf745914bed899c082945f1d1afb7d387c012de26"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "b1b75d92fcec7ca6c2c93a02699e4259ef455a73a49c984015a15a5acd5e613e",
+      "referenceHash": "b1b75d92fcec7ca6c2c93a02699e4259ef455a73a49c984015a15a5acd5e613e"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+    }
+  },
+  "gl": [
+    0,
+    0
+  ],
+  "errors": [],
+  "restoration": {
+    "ownershipExact": true,
+    "restored": true
+  },
+  "qualification": "Temporary QA canonical-noise experiment changes artistic output; not old-model preservation/product change. This selected boundary does not prove complete downstream parity."
+}

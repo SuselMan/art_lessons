@@ -1,0 +1,378 @@
+{
+  "qualification": "Uncached numerical factory; no latency or managed-memory claim. Precision/forced references OFF.",
+  "cases": [
+    {
+      "case": "allocation-defaultX",
+      "source": "3d9be901",
+      "sameInputAsBaseline": true,
+      "sameFinalAsBaseline": true,
+      "baseline": "rawcoverage-defaultX",
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0",
+          "referenceHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386",
+          "referenceHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6",
+          "referenceHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4",
+          "referenceHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9",
+          "referenceHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70",
+          "referenceHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70"
+        }
+      },
+      "finalDiffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3",
+          "referenceHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256",
+          "referenceHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "scissor": null,
+      "gl": [
+        0,
+        0
+      ],
+      "errors": []
+    },
+    {
+      "case": "allocation-compact7-outside",
+      "source": "3d9be901",
+      "sameInputAsBaseline": true,
+      "sameFinalAsBaseline": true,
+      "baseline": "rawcoverage-compact7",
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "394c5c9aee9515d38026f35912f0ba480ec2feec78ea4e435b8a783b481c2600",
+          "referenceHash": "394c5c9aee9515d38026f35912f0ba480ec2feec78ea4e435b8a783b481c2600"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "76f0cc9e98358e53468d3d612580887a6825f9b64a60e0464f83fd74e1cf6fcb",
+          "referenceHash": "76f0cc9e98358e53468d3d612580887a6825f9b64a60e0464f83fd74e1cf6fcb"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "4475ff19b01b21eda16e977ce18bcb040e6355e954cbf0f054efc7d6a77e3367",
+          "referenceHash": "4475ff19b01b21eda16e977ce18bcb040e6355e954cbf0f054efc7d6a77e3367"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "c95e80591debfede0ac0d5db0ee4ef7dd5d42d644793088135f62e0e75ec11de",
+          "referenceHash": "c95e80591debfede0ac0d5db0ee4ef7dd5d42d644793088135f62e0e75ec11de"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2",
+          "referenceHash": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "09abac1571922c71fd517bdb1d092ad904e09042d746a3089d88ee6c20268915",
+          "referenceHash": "09abac1571922c71fd517bdb1d092ad904e09042d746a3089d88ee6c20268915"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "38140f9609cedd0c7fb00abd2a5e5dc6ee8aa54fa8ee46fc78a300803e379dba",
+          "referenceHash": "38140f9609cedd0c7fb00abd2a5e5dc6ee8aa54fa8ee46fc78a300803e379dba"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "38140f9609cedd0c7fb00abd2a5e5dc6ee8aa54fa8ee46fc78a300803e379dba",
+          "referenceHash": "38140f9609cedd0c7fb00abd2a5e5dc6ee8aa54fa8ee46fc78a300803e379dba"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "f8b438eb524dd4653a3971044c0695aa35b3b77322376df3f1765481af59f9ae",
+          "referenceHash": "f8b438eb524dd4653a3971044c0695aa35b3b77322376df3f1765481af59f9ae"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "f8b438eb524dd4653a3971044c0695aa35b3b77322376df3f1765481af59f9ae",
+          "referenceHash": "f8b438eb524dd4653a3971044c0695aa35b3b77322376df3f1765481af59f9ae"
+        }
+      },
+      "finalDiffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1e28f458c691fcaeb9e392ce812f6ed0a651572753b05bb25ce23c4bc6245868",
+          "referenceHash": "1e28f458c691fcaeb9e392ce812f6ed0a651572753b05bb25ce23c4bc6245868"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "453cea54249b9ceb7caaacccd6bc36acbd37828dd8528d04fa0f64557f3fb956",
+          "referenceHash": "453cea54249b9ceb7caaacccd6bc36acbd37828dd8528d04fa0f64557f3fb956"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "b166be41b9904ad4cb36540f94e82a76c61e8e4078dea9e45db46830fa156954",
+          "referenceHash": "b166be41b9904ad4cb36540f94e82a76c61e8e4078dea9e45db46830fa156954"
+        }
+      },
+      "scissor": {
+        "cacheOutsideSentinels": true,
+        "rows": [
+          {
+            "qualification": "QA-only scoped scissor64; tracked GL state per run; no hooks between synchronous native calls",
+            "padding": 64,
+            "cacheOutsideSentinels": true,
+            "support": {
+              "x": 941,
+              "y": 197,
+              "width": 119,
+              "height": 119
+            },
+            "jobs": [
+              {
+                "rect": {
+                  "x": 128,
+                  "y": -1024,
+                  "width": 1536,
+                  "height": 1536
+                },
+                "roi": [
+                  749,
+                  1157,
+                  247,
+                  247
+                ],
+                "fieldArgs": [
+                  1536,
+                  1536,
+                  1,
+                  "tight",
+                  1024
+                ]
+              }
+            ],
+            "stats": {
+              "draws": 200,
+              "clears": 32,
+              "prefixDraws": 16,
+              "roles": {
+                "0,0,0,0": 133,
+                "0,0,0,1": 23,
+                "1,0,0,1": 28,
+                "1,1,1,1": 16
+              },
+              "pixelArea": 12201800,
+              "fullArea": 471859200,
+              "stateSnapshots": 21,
+              "runs": 21,
+              "outsideInvalidations": 58,
+              "hookedPrototypes": 1,
+              "restoreOwnershipExact": true,
+              "restoredPrototypes": 1,
+              "detaches": 21,
+              "clearArea": 75497472,
+              "skippedClears": 168,
+              "disposed": true
+            }
+          },
+          {
+            "qualification": "QA-only scoped scissor64; tracked GL state per run; no hooks between synchronous native calls",
+            "padding": 64,
+            "cacheOutsideSentinels": true,
+            "support": {
+              "x": 941,
+              "y": 197,
+              "width": 119,
+              "height": 119
+            },
+            "jobs": [
+              {
+                "rect": {
+                  "x": 384,
+                  "y": -1024,
+                  "width": 1536,
+                  "height": 1536
+                },
+                "roi": [
+                  493,
+                  1157,
+                  247,
+                  247
+                ],
+                "fieldArgs": [
+                  1536,
+                  1536,
+                  1,
+                  "tight",
+                  1024
+                ]
+              }
+            ],
+            "stats": {
+              "draws": 200,
+              "clears": 27,
+              "prefixDraws": 16,
+              "roles": {
+                "0,0,0,0": 133,
+                "0,0,0,1": 23,
+                "1,0,0,1": 28,
+                "1,1,1,1": 16
+              },
+              "pixelArea": 12201800,
+              "fullArea": 471859200,
+              "stateSnapshots": 21,
+              "runs": 21,
+              "outsideInvalidations": 53,
+              "hookedPrototypes": 1,
+              "restoreOwnershipExact": true,
+              "restoredPrototypes": 1,
+              "detaches": 21,
+              "clearArea": 63700992,
+              "skippedClears": 173,
+              "disposed": true
+            }
+          }
+        ],
+        "stats": {
+          "restored": true,
+          "restoreOwnershipExact": true,
+          "draws": 400,
+          "clears": 59,
+          "skippedClears": 341,
+          "clearArea": 139198464,
+          "pixelArea": 24403600,
+          "fullArea": 943718400,
+          "runs": 42,
+          "stateSnapshots": 42,
+          "detaches": 42
+        }
+      },
+      "gl": [
+        0,
+        0
+      ],
+      "errors": []
+    }
+  ]
+}
