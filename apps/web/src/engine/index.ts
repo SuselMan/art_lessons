@@ -4488,7 +4488,8 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._contextLost || this.gl.isContextLost()) return
     if(this.diagnosticOpenWetUndoCache && !historicalCause && !this._strokeLayerId && !this._displaySuspendDepth
       && cause?.type==='operation_undo' && cause.userId===this._userId && isM70WatercolorStroke(op)
-      && !this._rebuildJobs.has(op.layerId) && !this.isSnapshotHistoryRepairPending(op.layerId)){
+      && !this._rebuildJobs.has(op.layerId) && !this._pendingRebuilds.has(op.layerId)
+      && !this._unsettledLayers.has(op.layerId) && !this.isSnapshotHistoryRepairPending(op.layerId)){
       // A journal-exact prefix does not include a peer's uncommitted eraser
       // material. Preserve that physical tail until its operation arrives;
       // ordinary replay now would erase it just as a cached restore would.
@@ -6514,7 +6515,9 @@ export class PencilEngine implements PencilEngineAPI {
         this._puddle.assertSourceAvailable(target)
       }
     }
-    if(m70Stroke && this.diagnosticOpenWetUndoCache)this._puddle?.captureUndo(this._layers.get(layerId)!,
+    // A journal-exact prefix does not certify physical material awaiting replay.
+    if(m70Stroke && this.diagnosticOpenWetUndoCache && !this._unsettledLayers.has(layerId)
+      && !this._pendingRebuilds.has(layerId) && !this._rebuildJobs.has(layerId))this._puddle?.captureUndo(this._layers.get(layerId)!,
       exactMaterialHistory(this._log.watercolorEffectiveOperations(),()=>this._log.watercolorEffectiveOperations()),()=>this._paperWet.captureLayer(layerId))
     // (#536, §17.52) Any tool: a settle spread over frames (a peer's
     // operation, or this author's own last wash) lands before this stroke
