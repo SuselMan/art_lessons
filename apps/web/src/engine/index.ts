@@ -6082,6 +6082,7 @@ export class PencilEngine implements PencilEngineAPI {
     const state=byId.get(op.id)
     for(let i=entries.length-1;i>=0;i--){
       const entry=entries[i],change=entry.op
+      if(entry.goneReason==='reject')continue
       if(change.type!=='operation_undo' && change.type!=='operation_redo' && change.type!=='operation_revoke')continue
       const target=byId.get(change.targetOpId)?.op
       if(!target || (op.seq??0)>=(change.seq??0)

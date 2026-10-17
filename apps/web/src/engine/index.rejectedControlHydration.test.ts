@@ -104,3 +104,19 @@ it('a rejected pending control cannot quarantine an already baked historical con
   expect(readTilePixels(engine,'L',0,0,16,16)).toEqual(restored)
  }finally{engine.destroy()}
 })
+it('snapshot restore attributes an undone stroke to its accepted baked Undo rather than a later rejected duplicate',()=>{
+ const {engine}=createTestEngine({userId:'A',pageWidth:16,pageHeight:16},{width:16,height:16})
+ engine.setBaseLayers(['L'])
+ const original=makeStroke('A','L',[dab(5,5,{size:5,opacity:1})],{id:'cause-original',seq:3})
+ try{
+  engine.absorbHistoricalOperations([original])
+  const rejected={id:'cause-rejected-undo',type:'operation_undo' as const,userId:'A',targetOpId:original.id,timestamp:6}
+  engine.appendOperation(rejected);engine.discardOperation(rejected.id)
+  const pixels=new Uint8Array(16*16*4);pixels[3]=255
+  engine.restoreLayerFromSnapshot('L',[{originX:0,originY:0,width:16,height:16,pixels}],5)
+  engine.absorbHistoricalOperations([original]) // Repeated authoritative page proves snapshot coverage.
+  engine.absorbHistoricalOperations([{id:'cause-baked-undo',type:'operation_undo',userId:'A',targetOpId:original.id,seq:4,timestamp:4}])
+  expect(engine.pendingSnapshotHistoryRepairs()).toEqual([])
+  expect(engine['_checkpoints'].hasSnapshotFor('L')).toBe(true)
+ }finally{engine.destroy()}
+})
