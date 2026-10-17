@@ -1,0 +1,636 @@
+import { BufferResidency, beginResidencyDraw, endResidencyDraw, preserveResidencyState, releaseResidencyTexture } from '../../../../../apps/web/src/engine/src/buffers/BufferResidency'
+
+// Persistent WebGL framebuffer that accumulates graphite over strokes.
+// Blending: ONE, ONE_MINUS_SRC_ALPHA  →  result = src + dst*(1-src.a)
+
+function isPowerOfTwo(n: number): boolean {
+  return n > 0 && (n & (n - 1)) === 0
+}
+
+/** Contexts whose RGBA8 framebuffer completeness has been checked once. */
+const checkedContexts = new WeakSet<WebGLRenderingContext>()
+
+export class AccumulationBuffer {
+  readonly gl: WebGLRenderingContext
+  readonly width: number
+  readonly height: number
+  // Prefixed _ but not private — internal methods use _fbo directly; public getter `fbo` is used externally.
+  _texture: WebGLTexture
+  _fbo: WebGLFramebuffer
+
+  // Smudge's scratch "picked up patch" buffers requested 'nearest' until #416
+  // (they are LINEAR since — see SmudgePainter's scratchPool; the ribbon's
+  // scratch still asks for it). The original reasoning: the patch is later sampled at a
+  // dab-quad's fragment positions, which don't generally land on exact
+  // texel centers, so LINEAR would blend between texels there — the same
+  // cross-GPU bilinear-filtering precision risk flagged in .claude/rules.md
+  // (paper grain's own hard-won lesson). NEAREST's texel selection is a
+  // simple floor/round, not a weighted blend, so it stays deterministic
+  // across vendors. Every other caller keeps the original LINEAR default —
+  // real paint/composite/display content benefits from the smoothing and
+  // was never part of that determinism class (see DAB_FRAG's own paper-catch
+  // comment for what *is*).
+  constructor(gl: WebGLRenderingContext, width: number, height: number, filter: 'linear' | 'nearest' = 'linear', residency?: BufferResidency) {
+    this.gl = gl
+    this.width = width
+    this.height = height
+    this._baseFilter = filter
+    if (residency) {
+      // Admission precedes allocation: the dedicated factory never oversubscribes.
+      residency.register(this)
+      this._residency = residency
+      try {
+        const handles = preserveResidencyState(gl, () => {
+          const texture = this._makeTexture(filter)
+          return { texture, fbo: this._makeFBO(texture) }
+        })
+        this._texture = handles.texture
+        this._fbo = handles.fbo
+      } catch (error) { residency.remove(this); throw error }
+    } else {
+      this._texture = this._makeTexture(filter)
+      this._fbo = this._makeFBO(this._texture)
+    }
+    // Computed here rather than as a field initializer: those run before the
+    // constructor body assigns width/height, so an initializer would have
+    // silently read undefined and disabled mipmaps everywhere.
+    this._mipCapable = isPowerOfTwo(width) && isPowerOfTwo(height)
+  }
+
+  private _contentRevision=0
+  get contentRevision():number{return this._contentRevision}
+  private _noteContentWrite():void{this._contentRevision=Number.isSafeInteger(this._contentRevision)&&this._contentRevision<Number.MAX_SAFE_INTEGER?this._contentRevision+1:NaN}
+
+  private _residency?: BufferResidency
+  private _resident = true
+  private _destroyed = false
+  private _backing?: Uint8Array | readonly [number, number, number, number]
+  private _idlePoolBuffer = false
+  get idlePoolBuffer(): boolean { return this._idlePoolBuffer }
+  private _idlePoolDiscardable = false
+  private _discardedPoolContents = false
+
+  /** Exclusive idle pool ownership only. Reacquire disables future discards
+   * without hydrating. Mip-bearing buffers retain the lossless path. */
+  setIdlePoolDiscardable(on: boolean): void {
+    this._idlePoolBuffer = on
+    this._idlePoolDiscardable = on && !this._mipsAllocated
+    if (this._idlePoolDiscardable && !this._resident && !this._destroyed) {
+      this._noteContentWrite()
+      this._backing = undefined
+      this._discardedPoolContents = true
+    }
+  }
+
+
+  enableResidency(cache: BufferResidency): this {
+    if (this._destroyed || (this._residency && this._residency !== cache)) throw new Error('Invalid residency attachment')
+    cache.register(this)
+    this._residency = cache
+    return this
+  }
+
+  private _ensureResident(): void {
+    if (this._residency) this._residency.touch(this)
+  }
+
+  _residencyEvict(): void {
+    const { gl, width, height } = this
+    if (this._idlePoolDiscardable) {
+      this._noteContentWrite()
+      this._backing = undefined
+      this._discardedPoolContents = true
+    } else if (!this._backing || this._backing instanceof Uint8Array) preserveResidencyState(gl, () => {
+      const pixels = new Uint8Array(width * height * 4)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+      // readPixels owns an aligned RGBA8 allocation. Word equality compares
+      // all four channels exactly, independently of host byte order.
+      const words = new Uint32Array(pixels.buffer, pixels.byteOffset, pixels.byteLength / 4)
+      const first = words[0]
+      let uniform = true
+      for (let i = 1; i < words.length; i++) {
+        if (words[i] !== first) { uniform = false; break }
+      }
+      this._backing = uniform ? [pixels[0], pixels[1], pixels[2], pixels[3]] : pixels
+    })
+    releaseResidencyTexture(this._texture)
+    gl.deleteTexture(this._texture)
+    gl.deleteFramebuffer(this._fbo)
+    this._resident = false
+  }
+
+  _residencyHydrate(): void {
+    if ((!this._backing && !this._discardedPoolContents) || this._destroyed) throw new Error('Residency pixels unavailable after context loss')
+    const { gl, width, height } = this
+    preserveResidencyState(gl, () => {
+      this._texture = this._makeTexture(this._baseFilter)
+      this._fbo = this._makeFBO(this._texture)
+      if (!this._discardedPoolContents) {
+        const backing = this._backing!
+        const zeroUniform = !(backing instanceof Uint8Array) && backing.every(value => value === 0)
+        if (!zeroUniform) {
+          const pixels = backing instanceof Uint8Array ? backing : new Uint8Array(width * height * 4)
+          if (!(backing instanceof Uint8Array)) {
+            for (let i = 0; i < pixels.length; i += 4) pixels.set(backing, i)
+          }
+          gl.bindTexture(gl.TEXTURE_2D, this._texture)
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+        } // New WebGL texture storage is security-initialised to zero.
+        if (this._mipsValid) gl.generateMipmap(gl.TEXTURE_2D)
+      }
+      const base = this._baseFilter === 'nearest' ? gl.NEAREST : gl.LINEAR
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, this._pointSampling ? gl.NEAREST : base)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
+        this._pointSampling ? gl.NEAREST : this._mipSampling ? gl.LINEAR_MIPMAP_LINEAR : base)
+    })
+    // Retain only verified uniform tuples, never full CPU image arrays.
+    if (this._discardedPoolContents || this._backing instanceof Uint8Array) this._backing = undefined
+    this._discardedPoolContents = false
+    this._resident = true
+  }
+
+  _residencyForget(): void {
+    this._noteContentWrite()
+    this._backing = undefined
+    this._resident = false
+    this._destroyed = true
+  }
+
+  private _beginResidencyDraw(): void {
+    beginResidencyDraw(this.gl, this)
+    try { this._ensureResident() } catch (error) { endResidencyDraw(this.gl); throw error }
+  }
+
+  private _makeTexture(filter: 'linear' | 'nearest'): WebGLTexture {
+    const { gl, width, height } = this
+    const glFilter = filter === 'nearest' ? gl.NEAREST : gl.LINEAR
+    const tex = gl.createTexture()!
+    gl.bindTexture(gl.TEXTURE_2D, tex)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, glFilter)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, glFilter)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    return tex
+  }
+
+  private _makeFBO(texture: WebGLTexture): WebGLFramebuffer {
+    const { gl } = this
+    const fbo = gl.createFramebuffer()!
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
+    // (#536, ADR 011 §17.49) Once per context, not per buffer: the status
+    // query is a pipeline sync - the CPU waits for every draw queued so far -
+    // and the watercolour now makes buffers mid-stroke (the settle field is
+    // sized to each settle), where a sync per texture was a dropped frame.
+    // The attachment is always this same RGBA/UNSIGNED_BYTE texture, which
+    // WebGL1 guarantees renderable; the first check still catches a context
+    // that breaks the promise.
+    if (!checkedContexts.has(gl)) {
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
+        throw new Error('Framebuffer incomplete')
+      checkedContexts.add(gl)
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    return fbo
+  }
+
+  get texture(): WebGLTexture { this._ensureResident(); return this._texture }
+  get fbo(): WebGLFramebuffer { this._ensureResident(); this._backing = undefined; this._noteContentWrite(); return this._fbo }
+
+  /** (#365) Whether a mip chain can legally exist for this buffer at all.
+   *  WebGL1 only allows mipmaps on power-of-two textures, and a texture whose
+   *  min filter asks for mip levels that aren't there is *incomplete* — it
+   *  samples as opaque black, the same failure mode #363's use-after-free
+   *  produced. So this is checked once, up front, and every mip path below
+   *  is a no-op without it rather than something that can half-apply.
+   *
+   *  True for an infinite room's tiles (a square TILE_SIZE = 1024) and false
+   *  for a bounded room's (its own canvas size, e.g. A4's 1240x1754) and for
+   *  every viewport-sized scratch/assembly buffer. That split is exactly the
+   *  one that matters: minification without mip levels is what makes an
+   *  infinite room's low zoom crawl and sparkle, while a bounded room is
+   *  scaled down by the browser's own compositor (its canvas element carries
+   *  a CSS transform) and never samples its buffers minified at all. */
+  private readonly _mipCapable: boolean
+
+  // Whether the mip chain currently matches level 0. Starts false: nothing
+  // has generated it yet, and the constructor leaves the plain LINEAR min
+  // filter in place, so the texture is complete from the moment it exists.
+  private _mipsValid = false
+  private _mipsAllocated = false
+  get mipmapsAllocated(): boolean { return this._mipsAllocated }
+  // Whether the min filter is currently asking for mip levels. Tracked so
+  // setMipSampling can skip redundant GL state changes on the per-draw path.
+  private _mipSampling = false
+
+  /** Call before *any* write to level 0. Drops back to the plain LINEAR min
+   *  filter rather than merely noting staleness: leaving a mip filter in
+   *  place over a stale chain would keep sampling pixels that are no longer
+   *  there, and at the zooms this exists for that reads as content lagging a
+   *  frame behind the stroke drawing it. Two texParameteri calls per write
+   *  batch is nothing next to the draws around them. */
+  private _invalidateMips(): void {
+    this._noteContentWrite()
+    // Invalidate the uniform proof after hydration, before every level-zero write.
+    this._backing = undefined
+    if (!this._mipCapable || !this._mipsValid) return
+    const { gl } = this
+    this._mipsValid = false
+    // Drops back to plain LINEAR rather than merely noting staleness: a
+    // filter left pointing at a chain that no longer matches level 0 keeps
+    // sampling pixels that are not there any more, which at the zooms this
+    // exists for reads as content lagging a frame behind the stroke drawing
+    // it.
+    if (!this._mipSampling) return
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    this._mipSampling = false
+  }
+
+  /** (#365) Brings the mip chain in sync with level 0 if it is not already,
+   *  and reports whether a chain now exists. Does *not* change how the
+   *  texture is sampled — see setMipSampling for that.
+   *
+   *  The two are separate because the chain is needed by more than one caller
+   *  at more than one moment: the composite wants it when it is shrinking
+   *  tiles, and the coarse-level fold (#365's draw-call half) wants it on
+   *  every write regardless of zoom, since shrinking 1024 texels into 128
+   *  unfiltered would build the coarse level out of exactly the aliasing it
+   *  exists to remove. If generating also switched the filter, that fold
+   *  would leave every tile sampling trilinearly at 1:1 — where the result is
+   *  meant to be a plain, untouched texel copy.
+   *
+   *  Idempotent and cheap when nothing has been written since the last call,
+   *  which is the common case: a still camera re-composites the same tiles
+   *  every frame. */
+  ensureMipmaps(): boolean {
+    this._ensureResident()
+    if (!this._mipCapable) return false
+    if (this._mipsValid) return true
+    this._residency?.requireMipmaps(this)
+    const { gl } = this
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.generateMipmap(gl.TEXTURE_2D)
+    this._mipsAllocated = true
+    this._mipsValid = true
+    return true
+  }
+
+  /** The filter this buffer was created with — what setPointSampling restores
+   *  to, so a smudge scratch (created 'nearest') does not silently come back
+   *  as LINEAR. */
+  private readonly _baseFilter: 'linear' | 'nearest'
+  private _pointSampling = false
+  get pointSampling(): boolean { return this._pointSampling }
+
+  /** (#507) Forces exact-texel sampling for the next draw, and back again.
+   *
+   *  The transform blits sample with their own hand-written bilinear filter
+   *  (see TILE_BILINEAR in shaders.ts — a tiled layer cannot use the
+   *  hardware's, because at a tile edge half the kernel lives in a texture
+   *  this pass does not have). They fetch at exact texel centres, so the
+   *  sampler must not add a second, different interpolation on top: NEAREST
+   *  makes each fetch a plain floor, which is also the only thing that
+   *  reliably keeps a mip filter left behind by setMipSampling out of a pass
+   *  that would otherwise read blurred coarse levels.
+   *
+   *  Scoped to one draw — every caller turns it off immediately afterwards,
+   *  which is what makes restoring from _baseFilter/_mipSampling correct
+   *  rather than a guess about who else touched the texture in between. */
+  setPointSampling(on: boolean): void {
+    this._ensureResident()
+    if (on === this._pointSampling) return
+    const { gl } = this
+    const base = this._baseFilter === 'nearest' ? gl.NEAREST : gl.LINEAR
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, on ? gl.NEAREST : base)
+    gl.texParameteri(
+      gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
+      on ? gl.NEAREST : (this._mipSampling ? gl.LINEAR_MIPMAP_LINEAR : base),
+    )
+    this._pointSampling = on
+  }
+
+  /** (#365) Chooses trilinear or plain LINEAR minification for the next draw
+   *  that samples this buffer. Turning it on without a valid chain is refused
+   *  rather than obeyed: a texture whose filter asks for levels it lacks is
+   *  incomplete and samples as opaque black. Callers that want mip sampling
+   *  must therefore go through ensureMipmaps() first and respect its answer.
+   *
+   *  Set per draw rather than once, because the same tile is sampled by
+   *  passes that want different answers — the coarse fold always minifies,
+   *  the on-screen composite only sometimes. */
+  setMipSampling(on: boolean): void {
+    this._ensureResident()
+    if (!this._mipCapable) return
+    const wanted = on && this._mipsValid
+    if (wanted === this._mipSampling) return
+    const { gl } = this
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, wanted ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR)
+    this._mipSampling = wanted
+  }
+
+  beginDraw(): void {
+    this._beginResidencyDraw()
+    this._invalidateMips()
+    const { gl, width, height } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    gl.viewport(0, 0, width, height)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+  }
+
+  beginErase(): void {
+    this._beginResidencyDraw()
+    this._invalidateMips()
+    const { gl, width, height } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    gl.viewport(0, 0, width, height)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA)
+  }
+
+  /** (#446) `result = dst * src.a` — the mirror of beginErase: what the
+   *  incoming alpha covers survives, everything else is cleared. Used with a
+   *  selection mask to cut a copied region out of a flattened patch, so a
+   *  lasso'd shape pastes as that shape and not as its bounding rectangle.
+   *
+   *  Multiplying a premultiplied buffer by a scalar is exactly right for
+   *  premultiplied colour — rgb and a scale together — so nothing on this path
+   *  ever has to un-premultiply and re-premultiply around the mask. */
+  beginKeepDraw(): void {
+    this._beginResidencyDraw()
+    this._invalidateMips()
+    const { gl, width, height } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    gl.viewport(0, 0, width, height)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ZERO, gl.SRC_ALPHA)
+  }
+
+  /** Marker's own inkLoad accumulation (ADR 004 "Ревизия v1.5"): a pure sum,
+   *  `result = src + dst`, no alpha-weighted saturation at all — unlike
+   *  beginDraw()'s (ONE, ONE_MINUS_SRC_ALPHA) "over" (which is exactly what
+   *  `coverage` still wants, for a fast-saturating silhouette), inkLoad is
+   *  meant to keep growing across repeated overlapping dabs within one
+   *  stroke with no ceiling at the accumulation stage — the only saturation
+   *  happens later, once, in DAB_FRAG's composite branch
+   *  (`1 - exp(-inkLoad * rate)`), not here. */
+  beginAdditiveDraw(): void {
+    this._beginResidencyDraw()
+    this._invalidateMips()
+    const { gl, width, height } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    gl.viewport(0, 0, width, height)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ONE, gl.ONE)
+  }
+
+  /** Marker's own composite pass (#330): a straight overwrite, `result = src`,
+   *  no blending with what's already in the target at all.
+   *
+   *  Every other writer here is an *increment* — one dab's own deposit,
+   *  meaningless without whatever is already underneath it, so it has to blend.
+   *  Marker's composite (DAB_FRAG's u_inkMode>1.5 branch) is the one exception:
+   *  it is a complete recomputation of the final pixel from this stroke's
+   *  frozen `original` plus its accumulated `coverage`/`inkLoad` (see
+   *  RibbonStrokeScratch), so the value it produces is already the answer, not
+   *  a contribution toward one.
+   *
+   *  Running that through beginDraw()'s "over" instead compounded alpha once
+   *  per dab (`A = a + A*(1-a)`): a pixel inside N dab footprints went through
+   *  N compositions, its neighbour through N-1, leaving a hard alpha step along
+   *  every dab's own rim — measured up to 53/255, repeating at the dab-spacing
+   *  interval, which is what made a wide stroke visibly break into separate
+   *  stamped shapes (rectangular ones on the 5:1 chisel nib). #266 fixed the
+   *  same compounding on the *colour* side; this is its alpha-side twin.
+   *
+   *  Safe to overwrite rather than blend because `coverage`/`inkLoad` only ever
+   *  change where a dab actually landed, and the composite draw uses that same
+   *  dab quad — so a pixel is recomputed exactly when its own inputs change,
+   *  and is left alone (still holding its last correct value) when they don't.
+   *  Accepted consequence: within a marker stroke's own footprint, anything a
+   *  *peer* painted into the same tile mid-stroke is overwritten rather than
+   *  preserved — same class of accepted v1 gap as RibbonStrokeScratch's own
+   *  mid-stroke tile-eviction note. */
+  beginReplaceDraw(): void {
+    this._beginResidencyDraw()
+    this._invalidateMips()
+    const { gl, width, height } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    gl.viewport(0, 0, width, height)
+    gl.disable(gl.BLEND)
+  }
+
+  /** (#536, s17.28) Blend by MAX (EXT_blend_minmax): what lands on a texel is
+   *  the largest of the writes, not their sum. The watercolor deposit is a
+   *  FILM the brush leaves, and a film is as thick as the brush made it, not
+   *  as thick as the number of stamps that happened to overlap there. */
+  beginMaxDraw(ext: { MAX_EXT: number }): void {
+    this._beginResidencyDraw()
+    this._invalidateMips()
+    const { gl, width, height } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    gl.viewport(0, 0, width, height)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ONE, gl.ONE)
+    gl.blendEquation(ext.MAX_EXT)
+  }
+
+  endDraw(): void {
+    endResidencyDraw(this.gl)
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null)
+    this.gl.disable(this.gl.BLEND)
+    this.gl.blendEquation(this.gl.FUNC_ADD)
+  }
+
+  clear(): void {
+    this._ensureResident()
+    this._invalidateMips()
+    const { gl } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    gl.clearColor(0, 0, 0, 0)
+    gl.clear(gl.COLOR_BUFFER_BIT)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
+  /** (#536, §17.68) `into`, when big enough, is filled instead of a new array. */
+  readPixels(into?: Uint8Array): Uint8Array {
+    this._ensureResident()
+    const { gl, width, height } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    const n = width * height * 4
+    const pixels = into && into.byteLength >= n ? into.subarray(0, n) : new Uint8Array(n)
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    return pixels
+  }
+
+  /** Owned tight bottom-up readback for a snapshot's page-clipped edge tile. */
+  readPixelsRegion(x: number, y: number, width: number, height: number): Uint8Array {
+    this._ensureResident()
+    const pixels = new Uint8Array(width * height * 4)
+    if (!width || !height) return pixels
+    const { gl } = this
+    const pack = (gl.getParameter(gl.PACK_ALIGNMENT) as number | null) ?? 4
+    if (pack !== 4) gl.pixelStorei(gl.PACK_ALIGNMENT, 4)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    try {
+      gl.readPixels(x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    } finally {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      if (pack !== 4) gl.pixelStorei(gl.PACK_ALIGNMENT, pack)
+    }
+    return pixels
+  }
+
+  restorePixels(pixels: Uint8Array): void {
+    this._ensureResident()
+    this._invalidateMips()
+    const { gl, width, height } = this
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+  }
+
+  /** (#536, ADR 011 §17.68) The whole texture overwritten in place with
+   *  `pixels` - same content as restorePixels, but no new storage: a wash
+   *  brought back from main memory uploads dozens of these at once, and on
+   *  the iPad reallocating each one next to the storage still being freed was
+   *  the spike the tab did not survive. */
+  writePixels(pixels: Uint8Array): void {
+    this._ensureResident()
+    this._invalidateMips()
+    const { gl, width, height } = this
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+  }
+
+  /** (#425) Restores a payload that covers only the world-top-left `w`x`h` of
+   *  this buffer, leaving the rest transparent.
+   *
+   *  Exists because a bounded room's tile grid overhangs the sheet: a
+   *  1754x2480 canvas on 1024-pixel tiles has a right-hand column running to
+   *  2048 and a bottom row running to 3072. Those pixels cannot be displayed
+   *  by anything — the sheet ends — but they were baked, gzipped, stored,
+   *  shipped and inflated by every client on every first join. Measured on
+   *  room U68gWoq-: 6.70 MB on the wire, 4.81 MB with the overhang dropped.
+   *
+   *  A full-size payload takes the plain path above: an old snapshot stored
+   *  before this existed is exactly the case where `w`/`h` equal the buffer's
+   *  own size, so nothing needs to know which era it came from.
+   *
+   *  The reallocation is not incidental. `texSubImage2D` alone would leave
+   *  whatever the texture held outside the sub-rect, and this is a *restore* —
+   *  it has to mean the same thing the whole-texture path means, which is
+   *  "this buffer now holds exactly this and nothing else". `texImage2D` with
+   *  null data is specified to zero-fill, so the overhang lands transparent
+   *  rather than merely unspecified.
+   *
+   *  (#500) The y offset is `height - h`, not 0, and that is the whole
+   *  correctness of this method. What gets clipped away is the part of the
+   *  tile *below* the sheet, so the rows that survive are the tile's world-top
+   *  ones — which, this array being GL bottom-up, are its *last* rows, and so
+   *  belong at the top of the texture. Uploading them at y 0 puts them under
+   *  the paper instead: on a 2480x3508 page the bottom tile row's 436 surviving
+   *  rows landed at world y 3660..4095, where nothing renders them and the next
+   *  bake — clipping to the sheet again, over rows now empty — wrote the loss
+   *  back to the server. Columns need no such care; see clipTileToPage, which
+   *  keeps the first `keepW` of them in both conventions. */
+  restorePixelsRect(w: number, h: number, pixels: Uint8Array): void {
+    this._ensureResident()
+    const { gl, width, height } = this
+    if (w === width && h === height) { this.restorePixels(pixels); return }
+    this._invalidateMips()
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+    if (w > 0 && h > 0) {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, height - h, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    }
+  }
+
+  copyTo(dest: AccumulationBuffer): void {
+    if (this._residency || dest._residency) {
+      this._copyResident(dest, () => this._copyTo(dest)); return
+    }
+    this._copyTo(dest)
+  }
+
+  private _copyTo(dest: AccumulationBuffer): void {
+    dest._invalidateMips() // copyTexImage2D redefines dest's level 0
+    const { gl } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    gl.bindTexture(gl.TEXTURE_2D, dest._texture)
+    gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, this.width, this.height, 0)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
+  /** Like copyTo, but from an arbitrary sub-rect of this buffer into an
+   *  arbitrary sub-rect of `dest` — smudge's own "pick up whatever's
+   *  currently under/behind the dab" step (engine/index.ts's
+   *  SmudgePainter.gatherPatch), copied into an independent scratch texture so it
+   *  can be sampled while this buffer's own tile keeps being the render
+   *  target (WebGL1 forbids reading and writing the same texture in one
+   *  draw call — same reasoning AreaOps.bakeLayerTransform's scratch-then-copyTo
+   *  two-phase commit exists for).
+   *
+   *  Both `srcGl*` and `destGl*` are bottom-up (native GL framebuffer
+   *  convention, like copyTexSubImage2D's own x/y) — the caller flips from
+   *  this engine's usual top-down app-space convention, same as every other
+   *  app-space/GL-space boundary in this codebase (DAB_VERT, pickColor).
+   *
+   *  (#514) Was `copyRegionTo`, which wrote the whole of `dest` through
+   *  `copyTexImage2D` and so could only ever be fed one rect from one
+   *  source. A smudge patch straddling a tile seam is several rects from
+   *  several tiles assembled into one buffer, which needs the *sub*-image
+   *  form: `copyTexSubImage2D` leaves everything outside the destination
+   *  rect untouched (so successive calls accumulate) and, unlike
+   *  copyTexImage2D, does not redefine `dest`'s storage — meaning `dest`
+   *  keeps the size its `width`/`height` fields claim, and a caller must
+   *  size its own request to match rather than relying on a silent resize.
+   *  Anything outside every rect the caller copies keeps whatever `dest`
+   *  held before, so a pooled buffer wants clearing first. */
+  copyRegionInto(
+    dest: AccumulationBuffer,
+    srcGlX: number, srcGlY: number, destGlX: number, destGlY: number, w: number, h: number,
+  ): void {
+    if (w <= 0 || h <= 0) return
+    if (this._residency || dest._residency) {
+      this._copyResident(dest, () => this._copyRegionInto(dest, srcGlX, srcGlY, destGlX, destGlY, w, h)); return
+    }
+    this._copyRegionInto(dest, srcGlX, srcGlY, destGlX, destGlY, w, h)
+  }
+
+  private _copyRegionInto(dest: AccumulationBuffer, srcGlX: number, srcGlY: number, destGlX: number, destGlY: number, w: number, h: number): void {
+    dest._invalidateMips() // copyTexSubImage2D writes dest's level 0
+    const { gl } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    gl.bindTexture(gl.TEXTURE_2D, dest._texture)
+    gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, destGlX, destGlY, srcGlX, srcGlY, w, h)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
+  private _copyResident(dest: AccumulationBuffer, run: () => void): void {
+    if (dest.gl !== this.gl) throw new Error('Cannot copy across GL contexts')
+    const caches = [...new Set([this._residency, dest._residency].filter((cache): cache is BufferResidency => !!cache))]
+    const pinned = (index: number): void => {
+      if (index < caches.length) { caches[index].runPinned([this, dest], () => pinned(index + 1)); return }
+      preserveResidencyState(this.gl, () => { this._ensureResident(); dest._ensureResident(); run() })
+    }
+    pinned(0)
+  }
+
+  destroy(): void {
+    if (this._destroyed) return
+    this._noteContentWrite()
+    this._residency?.remove(this)
+    if (this._resident) {
+      this.gl.deleteTexture(this._texture)
+      this.gl.deleteFramebuffer(this._fbo)
+    }
+    this._backing = undefined
+    this._destroyed = true
+  }
+}

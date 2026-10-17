@@ -1,0 +1,7 @@
+{
+  "mutation": "disable content revision updates",
+  "test": "manual second write without any Painter marker is detected",
+  "exitCode": 1,
+  "expectedFailure": true,
+  "output": "\n RUN  v4.1.9 /home/suselman/projects/pencil-agents/747-single-rect\n\n ❯ docs/qa/runs/747-large-pages-20261017/dirty-input-candidate/dirty.external.test.ts (24 tests | 1 failed | 23 skipped) 32ms\n   × manual second write without any Painter marker is detected 25ms\n\n Test Files  1 failed (1)\n      Tests  1 failed | 23 skipped (24)\n   Start at  11:43:34\n   Duration  992ms (transform 581ms, setup 0ms, import 716ms, tests 32ms, environment 0ms)\n\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  docs/qa/runs/747-large-pages-20261017/dirty-input-candidate/dirty.external.test.ts > manual second write without any Painter marker is detected\nAssertionError: expected \"vi.fn()\" to be called 1 times, but got 0 times\n ❯ docs/qa/runs/747-large-pages-20261017/dirty-input-candidate/dirty.external.test.ts:10:225\n\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n"
+}
