@@ -1,0 +1,115 @@
+--- /dev/null
++++ b/apps/web/src/engine/src/watercolor/puddle/M70FixedWindowSkip.ts
+@@ -0,0 +1,31 @@
++import type {MaterialRect} from './MaterialFieldPages'
++/** Capture-only proof, GL bottom-up coordinates; absent metadata fails closed. */
++export interface M70CapturedSupport {width:number;height:number;rect:MaterialRect|null}
++type Group={field:MaterialRect;cores:readonly MaterialRect[]}
++const positive=(n:number)=>Number.isSafeInteger(n)&&n>0
++const valid=(r:MaterialRect,w:number,h:number)=>!!r&&typeof r==='object'&&[r.x,r.y,r.width,r.height,r.x+r.width,r.y+r.height].every(Number.isSafeInteger)&&r.x>=0&&r.y>=0&&r.width>0&&r.height>0&&r.x+r.width<=w&&r.y+r.height<=h
++/** Geometry is NEVER changed. Keep every unknown/invalid case. */
++export function keepM70FixedGroup(page:{width:number;height:number},group:Group,support:M70CapturedSupport|undefined):boolean {
++ if(!positive(page.width)||!positive(page.height)||!support||support.width!==page.width||support.height!==page.height)return true
++ if(!group.cores.length||!group.cores.every(r=>valid(r,page.width,page.height)))return true
++ if(support.rect===null)return false
++ const r=support.rect;if(!valid(r,page.width,page.height))return true
++ // Integer world top-down: support is captured in GL bottom-up coordinates.
++ const left=r.x-612,right=r.x+r.width+612,top=page.height-r.y-r.height-612,bottom=page.height-r.y+612
++ if(![left,right,top,bottom].every(Number.isSafeInteger))return true
++ return group.cores.some(c=>c.x<right&&c.x+c.width>left&&c.y<bottom&&c.y+c.height>top)
++}
++/** Scan bytes already read for source capture; original presentation RGB excluded. */
++export function unionM70Support(current:MaterialRect|null,rect:MaterialRect,pixels:Uint8Array):MaterialRect|null {
++ if(![rect.x,rect.y,rect.width,rect.height].every(Number.isSafeInteger)||rect.width<0||rect.height<0||pixels.length!==rect.width*rect.height*4)throw new RangeError('Invalid captured material support')
++ let left=rect.width,right=0,bottom=rect.height,top=0
++ for(let y=0;y<rect.height;y++)for(let x=0;x<rect.width;x++){
++  const at=(y*rect.width+x)*4
++  if(pixels[at]||pixels[at+1]||pixels[at+2]||pixels[at+3]){left=Math.min(left,x);right=Math.max(right,x+1);bottom=Math.min(bottom,y);top=Math.max(top,y+1)}
++ }
++ if(right<=left)return current
++ const found={x:rect.x+left,y:rect.y+bottom,width:right-left,height:top-bottom}
++ if(!current)return found
++ const x=Math.min(current.x,found.x),y=Math.min(current.y,found.y)
++ return{x,y,width:Math.max(current.x+current.width,found.x+found.width)-x,height:Math.max(current.y+current.height,found.y+found.height)-y}
++}
+--- a/apps/web/src/engine/src/watercolor/puddle/PagedPuddleSource.ts
++++ b/apps/web/src/engine/src/watercolor/puddle/PagedPuddleSource.ts
+@@ -1,3 +1,4 @@
++import {unionM70Support,type M70CapturedSupport} from './M70FixedWindowSkip'
+ import {MaterialFieldPages,type MaterialFieldSnapshot,type MaterialRect} from './MaterialFieldPages'
+ import {extractMaterialTileRect,materialTileIntersection} from './MaterialTileCoordinates'
+ import type {RibbonStrokeScratch} from '../../buffers/RibbonStrokeScratch'
+@@ -7,7 +8,7 @@
+ 
+ export const PAGED_RAW_PLANES=['original','coverage','inkLoad','inkColor','solventLoad','foreignSolventLoad'] as const
+ export type PagedRawPlane=typeof PAGED_RAW_PLANES[number]
+-export type PagedPuddleSource=Record<PagedRawPlane|'water',MaterialFieldSnapshot>
++export type PagedPuddleSource=Record<PagedRawPlane|'water',MaterialFieldSnapshot> & {materialSupport?:M70CapturedSupport}
+ 
+ /** Freeze one accepted material revision before solving any window. Physical
+  * tiles outside the finite sheet are deliberately excluded from this domain;
+@@ -15,13 +16,17 @@
+ export function capturePagedPuddleSource(source:RibbonStrokeScratch,target:ILayerBuffer,
+   size:{width:number;height:number},pool:RibbonScratchPool,passes:WatercolorPasses):PagedPuddleSource {
+   const fields=Object.fromEntries([...PAGED_RAW_PLANES,'water'].map(name=>[name,new MaterialFieldPages(size)])) as Record<PagedRawPlane|'water',MaterialFieldPages>
++  let support:MaterialRect|null=null
+   for(const tile of target.allResident()){
+     const entry=source.peek(tile.buffer)
+     if(!entry?.inkLoad||!entry.inkColor)continue
+     const clip=materialTileIntersection(size,{...tile,width:tile.buffer.width,height:tile.buffer.height})
+     if(!clip)continue
+-    const write=(name:PagedRawPlane|'water',pixels:Uint8Array)=>fields[name].writeRect(clip.field,
+-      extractMaterialTileRect(pixels,tile.buffer.width,tile.buffer.height,clip.texture))
++    const write=(name:PagedRawPlane|'water',pixels:Uint8Array)=>{
++      const bytes=extractMaterialTileRect(pixels,tile.buffer.width,tile.buffer.height,clip.texture)
++      fields[name].writeRect(clip.field,bytes)
++      if(name!=='original')support=unionM70Support(support,clip.field,bytes)
++    }
+     for(const name of PAGED_RAW_PLANES){const buffer=entry[name];if(buffer)write(name,buffer.readPixels())}
+     if(entry.solventLoad&&entry.foreignSolventLoad){
+       const combined=pool.acquire(tile.buffer.width,tile.buffer.height)
+@@ -29,7 +34,9 @@
+       finally{pool.release(combined)}
+     }else{const water=entry.solventLoad??entry.foreignSolventLoad;if(water)write('water',water.readPixels())}
+   }
+-  return Object.fromEntries(Object.entries(fields).map(([name,field])=>[name,field.snapshot()])) as PagedPuddleSource
++  const result=Object.fromEntries(Object.entries(fields).map(([name,field])=>[name,field.snapshot()])) as PagedPuddleSource
++  result.materialSupport={width:size.width,height:size.height,rect:support}
++  return result
+ }
+ 
+ /** Upload a window into an already-owned scratch entry. No material is derived
+--- a/apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts
++++ b/apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts
+@@ -8,6 +8,7 @@
+ import {createNativePuddleTarget,type PuddleTargetHost} from './PuddleTarget'
+ import {createPagedContrastPhase,type PagedBufferFactory} from './PagedContrastPhase'
+ import {createPagedBackgroundMix} from './PagedBackgroundMix'
++import {keepM70FixedGroup} from './M70FixedWindowSkip'
+ import {m70WindowGroups} from './M70WindowGroups'
+ import {APPROVED_M70_PARAMETERS} from './PuddleParameters'
+ 
+@@ -15,6 +16,9 @@
+  * Windows share global phases and immutable input; only their interiors commit.
+  * The 640px halo is certified separately against the approved M70 pass graph. */
+ export interface PagedPuddleInspection {
++ /** QA candidate only, default OFF: preserve all existing field/core geometry. */
++ skipEmptyFixedWindows?:boolean
++ windowSkipped?(field:MaterialRect,cores:readonly MaterialRect[]):void
+  reference?(rect:MaterialRect,p:AccumulationBuffer,c:AccumulationBuffer):void
+  windowReference?(rect:MaterialRect,p:AccumulationBuffer,c:AccumulationBuffer):void
+  solved?(p:MaterialFieldSnapshot,c:MaterialFieldSnapshot,coverage:MaterialFieldSnapshot):void
+@@ -62,6 +66,13 @@
+   const solvedP=new MaterialFieldPages(size),solvedC=new MaterialFieldPages(size),solvedCoverage=new MaterialFieldPages(size)
+   const domain={width:Math.max(1536,Math.ceil(size.width/256)*256),height:Math.max(1536,Math.ceil(size.height/256)*256)}
+   for(const window of m70WindowGroups(size,domain,612)){
++   if(inspect.skipEmptyFixedWindows===true&&!keepM70FixedGroup(size,window,raw.materialSupport)){
++    // Native output coverage is the captured contour, not the front's temporary coverage.
++    // Keep P/C pages zero; preserve exact raw coverage for every skipped core.
++    for(const core of window.cores){const interior={...core,y:size.height-core.y-core.height};solvedCoverage.writeRect(interior,raw.coverage.readRect(interior))}
++    inspect.windowSkipped?.(window.field,window.cores)
++    yield;continue
++   }
+    // Certified geometry is world top-down; material snapshots are bottom-up.
+    const {x:ox,y:oy}=window.field
+    const rect={x:ox,y:size.height-oy-1536,width:1536,height:1536}

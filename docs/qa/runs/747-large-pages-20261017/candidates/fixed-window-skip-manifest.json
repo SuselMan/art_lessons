@@ -1,0 +1,14 @@
+{
+  "apps/web/src/engine/src/watercolor/puddle/M70FixedWindowSkip.ts": {
+    "baseSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "candidateSHA256": "809d5766bb95a2b616dc6cf82ea23597480a52f637dc013b4b36ab386e314b5c"
+  },
+  "apps/web/src/engine/src/watercolor/puddle/PagedPuddleSource.ts": {
+    "baseSHA256": "e009a08e5ea4bd2cdcc097d2693e01364c341987f8cd80115f70707d806771e7",
+    "candidateSHA256": "d169b5cc6e30849de64ae21c389a8f978b70df65a9c219cbc7cff3d9aca79f65"
+  },
+  "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": {
+    "baseSHA256": "ea887cae84b4368acc3ff019a552c336900b01a2ad0daa0c378f37736fefb7ee",
+    "candidateSHA256": "61f6324d1f267d9309125b4e68ccdc5a49b18533592ccf538f1d7c0a7b836182"
+  }
+}
