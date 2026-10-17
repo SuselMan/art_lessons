@@ -147,3 +147,21 @@ Runtime466745f1 adds default-OFF empty reference skip plus completed-goal input-
 Full engine runtime466745f1:275files/2683tests PASS244.28s, process exited0/ledgerclosed. A2 managedseam UP9784ms, DOWN142/MOVEmax313.9/UPcallback146.7, RAFmax501.6/18frames>100ms, solver6031/max397.5ms, 20managed capturedhandles80MiB releasedexact. Completion71.5ms/input224 aftercomplete. Edge resume UP18329.8ms withTWO material admissions/10Nativeprepares, cannot attribute two solves to same target/epoch because oldtelemetry lackedidentity. Do NOT compare18.3 to previoussingle5window9.3 as algorithmAB. Naturalgoalfirst vs independentfullAPIall6OFFbaseline61229prepares: five-tiles exact0,GL0,history unchanged. Actual performance remainsFAIL.
 
 CORRECTION to13:31 standalone timing:320.8ms Native.step included per-pass QA trace GPUreadbacks. With QA_TIMING_NO_PASS_READS1, pagedNative.step max5.1ms; GPUwait moves to required solved readPixelsRegion up to1413.8ms. These are observer-qualified timings, not standalone clean kernel/UI performance. RealRoom telemetry adds noGLread and still records long frames. Intel elapsedquery supported64bits/timestamp0, Samsung EXT_disjoint_timer_query absent. Query-only fix would not cover Samsung.
+
+### 13:49 — bounded persistent ownership runtime509fb989
+
+Root applied reviewed candidate30e55cc5 plus engine default-OFF persistCapturedBacking flag. CPU104/8files +buffers167/16files PASS; actualwebtsc0/scopedlint0. Intel and Samsung compact combo all10stage+final exact vsNative and ownoldcompact; actual source/window upload retain leases releasedexact1, but factoryunmanaged means0retainedbytes and no large-memory benefit claim. Separate actual2×2managed GPU probes:3repeat evict/hydrate cycles samearray/noextraGLreads; writer invalidation causes1normalread; uploadsamearray/cap/release0. Persistent logical cap source64MiB +currentwindow54MiB, excludes rawsnapshots/oneshot/backings/otherheap. Strictcontinuous A2 ownlayer seam+edge performance/replay with7earlyflags underway.
+
+#748: chosenforced-reference firstsplit9planes plus firstoutwardseed exactcrossGPU; nextoutward1underinvestigation. No shader/math changes.
+
+### 14:05 — actual clean and multiwet A2 remain PERF FAIL
+
+Runtime509fb989 continuous multiwet A2:8.53/9.90s, IDs prove same target/scratch epochs1→2, exactlyone admissioneach; RAF618/602ms. Separate CLEANnewA2 fixture12, old11untouched:7.207/7.619s, RAF301/401ms, inputDOWN72/83ms, seamMOVEmax96.6/UP155.1ms, edgeMOVEmax6/UP25.2ms. Both naturalgoalFIRST fullAPIall7OFFbaseline61229prepares exact0/GL0/historyunchanged. CleanhistoryonlyLayerAdd+2strokes. Persistent logicalpeak105/109MiB, source≤64/window45, oneshot16/20MiB, uniqueleasedbacking121/129MiB; notprocessRAM/GPUheap. Actualreuse recorded, but performance stillFAIL.
+
+#748 chosenforcedreference outward1 and13 exactcrossGPU; outward25 has18355costRdifferences/max8, GBAexact0. Localizing laststride8 boundary17 next. Firstsplit9planes/seed exact. PapernearestcontrolpreparedbutNOTexecuted becausefirstGexact doesnotprovepaperrootcause. Scissor64 onlyexternalQAprototype pending, basedseparateconditionalauxiliarybound plus roleclears; actualwindowrestorationZERO, notdefaultCLAMP.
+
+### 14:15 — first cross-GPU divergence isolated; scissor QA guard failure
+
+#748 forced-identical-reference seed/outward1/13/17 exact crossGPU; outward17 laststride8 hash427a8d811c15ec60c3e6d17f1c49e0e5c417089368567a8664b0250b38201b76. Firstnative stride1 outward18:2594Rchannels/max1,GBA0; all10stage NativePaged gates on eachGPU0/GL0/restored. Nativefront-only highp sampler QA control prepared, no appshaderchange. Fixturepaper flat2x2constant, so filteredpaperheight speculation is NOT established cause.
+
+Scissor64 firstSamsung run stopped by failclosed ownership guard before numerical result: scoped draw lacks owned destination. Imported QA AccumulationBuffer prototype may differ from actual engine field constructor; actualprototype hooks being corrected. No numerical/performance PASS claimed. Fullfield/viewport/kernel unchanged; hypothetical optimization not enabled in app.
