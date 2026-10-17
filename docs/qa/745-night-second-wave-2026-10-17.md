@@ -16,12 +16,22 @@ precision не обеспечили общей сходимости; допус�
 Обычный многочастный A4 1240×1754 и бесконечный холст ещё не поддержаны текущим
 M70. Исправление количества мокрых слоёв само по себе это ограничение не снимает.
 
-**#744 — медленный Undo** остаётся приоритетом: повтор исходного сценария на
-текущем кандидате снова подтвердил около 1,9 с до замены слоя. Оптимизации
-проверяются отдельно по точности и времени завершения. **#753 — время материала**
-тоже открыт: DOWN и записанный UP/chunk используют разные временные границы,
-что меняет выбор мокрой эпохи около 120 с и при длительном удержании кисти.
-Старые журналы пока не переинтерпретируются новым контрактом.
+**#744 — тяжёлый Undo** остаётся открытым: исходный100-stroke сценарий на
+Surface занимает порядка1,3–2с. Надёжного ускорения видимого результата пока
+не доказали, оба экспериментальных cache/hidden флага остаютсяOFF.
+
+**#753 — граница времени материала:** конкретное расхождение автора и replay
+при DOWN до120s, UP после120s исправлено в текущем кандидате. Native Samsung:
+19505 отличающихся каналов до исправления →0 после; ещё новыймазок/Undo/Redo/
+свежийперезаход — все5gatesPASS. Это согласование с прежними timestamp журнала,
+не новыйclockformat. Семантика истинного lastactualmaterial/длительногоhold
+остаётся OPEN; старые записи не переинтерпретируются.
+
+**#779 — защищённая вода после UndoBoundary:** исправление интегрировано,
+CPU69targeted+10000graphprefixesPASS; аппаратный повтор Dry/clear и новыхbridge также PASS10.
+**#777 — надёжность recovery очереди:** остаётся OPEN в текущей сборке.
+Отдельный opt-in prototype прошёл restart/atomicity tests, но старые вкладки,
+crash window и cross-batch mapping пока исключают незаметное внедрение.
 
 ## Метод
 
@@ -739,3 +749,68 @@ GPUcachefeasibility499db96b/67f44ae3: прежний GPU snapshot хранит8�
 M70требует10+flags; destructive spill нельзя подменить captureнаDOWN.
 Потребуются явное владение/dispose и GPUbudgetadmission (~44MiB для1024²),
 а не помещение GLресурсов вCPU-only residency. Такой контракт не реализован.
+
+
+## Срез 05:02 — интеграция и аппаратный clock post-fix
+
+GLOBAL oldGPU END позволил включить #779(5c58ec9b/f3aa03f7),
+#744 optionalcacheguard(e6b83210) и #753 legacyclock reconciliation(2b5e62ca).
+Runtimefreeze82313a4c (поздние commits толькоdocs/harness).33новыхцелевых
+теста/4файла PASS, lintfixPASS/no appsourcechanges,map1118PASS.
+Полный engine на этой неизменной сборке выполняется отдельно.
+
+Samsung7535/5PASS: DOWN643ms доexpiry, UP2248ms послеexpiry, held2891ms.
+Actualcanonical сохранён доoracle и совпал побитово (baseline19505/max106).
+НемедленныйновыйnativeWC/Undo/Redo также exact, hash вернулся; свежий
+isolatedcontext нашёл всеacceptedIDs итотже target. GL0. FlagsOFF/OFF,
+300MiBbudgetне менялся. Proof0039f5b3→2d8bbb90. Ownedroom DELETE200,
+auth/contextsубраны, originaltabrestored, rawcache753-samsung-clock-postfix
+удалён guarded privilegedfinish; общийSamsungforward оставленQA.
+
+Старый endurance0be6 остановлен на36/60 для проверки новыхисправлений:
+1838acceptedops(1080strokes/720UndoRedo/36Dry/2layers),errors0/GL0.
+Deepcycles0/6/12/18/24/30 дали12exactownGPUcomparisons. Финальные31–35
+имеютaggregate/history/GLchecks, НЕ дополнительныйfinalpixeloracle.
+Wall1830,68s, active214,645s включаетoracle/API/readbacks;35полныхidle×45s
+заданыконфигом, точныйidleотдельнонеизмерен. Остатоквремени включает
+startup/teardown/IO/частичныйidle. Viewport1100×850/DPR1/desktopprofile,
+не native-touchmemorybenchmark. Новый24-cycleвариант готовит touch/DPR1.5,
+отдельныйновыйROIкаждыйцикл, eraserdryиобязательныйfinaldeepbeforeclose.
+
+#775×#779 immutable240seed×24actions/7526checkpoints плюс4deterministic
+rejectedcontrols/Dry/hide×authorA/C — PASS. Этоaccepted-onlyreferencefold,
+не независимый GPUphysicsoracle. Новые Room prototype файлы не импортировались.
+
+#777 prototype8dda044d+6a5ee586 ОСТАЛСЯ ВНЕИНТЕГРАЦИИ:56CPUchecks и
+настоящаяIndexedDB8/8PASS; atomicreplace, stickyterminal/retiredfences,
+release networklease before storagehandoff. Rootreviewвыявил иисправленытри
+дополнительныхгонки: retiredretry/stalled, второйflushво времяпервого,
+sameID/differentroomcollision. Нет UIwiring/promotion/oldreadercompatibility
+илиGCtombstonepromise; ограниченияописаны в изолированном прототипе.
+
+Последний quotaсрез04:50:47%used/53%remaining,1resetнеиспользован.
+
+
+## Срез 05:06 — все проверки интеграции и #779 hardware PASS
+
+Runtime82313a4c, appsource неизменны: полный engine226files/2236testsPASS
+за191,70s, полный Room70files/669PASS+4expectedFAIL(явныеOPEN777/778),
+28,37s. Fullnpmtypecheck(server/web/shared/e2e/scripts)PASS. Запуски
+последовательные, maxWorkers2, lintfixPASS/sourceнеизменны,map1118PASS.
+Метаморфный775×779 прогон повторён именно на integration:240seed×24actions,
+7526checkpointsPASS/sourcefingerprintsдо-послеequal, compactsummaryотдельно
+runs/775-779-integration-2026-10-17. Никакихфальшивых670allPASSвRoom.
+
+#779 hardwarePASS10 наAMD/Intel/AMD3actors: Dry иlayer_clearкаждый
+по2Redo→UndoциклапослеустановленнойзащитыA-water. Pre-cyclegoal Ивсе
+capturedrawbuffers/scalars сохраненыДОoracle, post-cycleточноравныpre.
+Отдельноcanonical==OFFfullreplay, не самоподтверждениеоднимresolver.
+Негативoriginalbridgegone→newreplacement не вернулAwater; raw/goalостались
+pre-exact. Четырефинальныхlayer×3actorsphysicalOFFproofs0diff/GL0.
+Сценарийидётчерезrecordedops+настоящийserver, неtrustedpeninputclaim.
+
+Новыйtouchsentinel24cycleSTART:SurfaceDPR1.5/hasTouchtrue/finitebudget
+явноassert, новыйROIвкаждомцикле, recordedDry/eraserUndoRedo, отдельные
+timerswork/verification/idle иfinaldeepобоихслоёв×обоихGPUbeforecontextclose.
+Currentrunнепрерываетсяновымисходником. Lastquota05:05:47%used/53%left,
+1resetuntouched. Работа продолжается, итогдо10:00/бюджетаещёневыпущен.
