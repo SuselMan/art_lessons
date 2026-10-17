@@ -165,6 +165,22 @@
     "mapFinal785": {
       "result": "PASS",
       "files": 1133
+    },
+    "samsungWallclockSoak": {
+      "seconds": 1808.497,
+      "socketAuthors": 10,
+      "nativeObservers": 1,
+      "concurrentAuthorsPerCycle": 3,
+      "strokes": 540,
+      "acceptedOperations": 548,
+      "gates": 3,
+      "changedChannels": 0,
+      "canonicalReadAddedComputations": 0,
+      "runtimeErrors": [],
+      "glErrors": 0,
+      "wetEpochs": 2,
+      "midpointOracleIntervention": true,
+      "physicalExactClaim": false
     }
   },
   "native85e": {
@@ -214,5 +230,20 @@
     "pid": 4111624,
     "health": "ok/db up",
     "qaOnly": true
+  },
+  "finalFingerprints": {
+    "apps/web/src/engine/index.ts": "415680c6bf3291b7c0e196b9ff971e1b8117984b7f271497c68bc4dc95d3a775",
+    "apps/web/src/engine/src/watercolor/puddle/PuddleRoomController.ts": "73e6781d1124e668434828029e8fa60fe912ec10b2df7ae8609c0da84aa9193f",
+    "apps/web/src/engine/src/oplog/watercolorUndo.ts": "8a9f5ce4196ac02fec221be81c88fc705d7450d02d5df3f84bed9e6de80ceaa4",
+    "apps/server/src/rooms/socketHandlers.ts": "be71e0180ad8c75d33cef938835cdfd5b68af85a1aa36f2be2207d36e59aa912",
+    "apps/server/src/rooms/liveStrokeOwnership.ts": "0173cab2457695954d41581635f53afc8b1fea6bd8f06d1d214296f5955a0d59"
+  },
+  "finalQuota": {
+    "usedPercent": 61,
+    "remainingPercent": 39,
+    "availableResets": 1,
+    "resetUsed": false,
+    "nightCeiling": 62,
+    "reserveForFinalizationPercentagePoints": 1
   }
 }

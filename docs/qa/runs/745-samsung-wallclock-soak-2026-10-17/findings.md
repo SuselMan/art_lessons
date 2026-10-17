@@ -9,3 +9,5 @@ Source43f87295, backendac892525. Native Adreno650, DPR2.125,300MiB, оба diagn
 Midpoint контрольный GPU replay — явное вмешательство, поэтому это не полностью непрерывный GPU workload без проверки. Oracle использовал временный log/отдельный replaytarget; исходный observer log восстановлен, его материал не заменялся. Это correctness soak, не isolated latency benchmark. #785mixednative не добавлялся, остаётся CPU-only.
 
 Cleanup: owner room DELETE200;10Socket.io авторов/ownbrowsercontext закрыты, originaltab восстановлен; private state auth удалён. Свой local19335 SSH forward остановлен; QAremote9235/userChrome не тронуты. Raw exactID745-samsung-wallclock-soak-20261017 передан для guarded finish.
+
+Полный принятый вход сохранён отдельно как `accepted-input.json.gz` (548 операций, gzip без auth). Он позволяет восстановить точные strokeId/timestamp для повторения; остальные расходные массивы удалены.
