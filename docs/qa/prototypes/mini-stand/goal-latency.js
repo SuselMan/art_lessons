@@ -8,8 +8,8 @@
   var style=document.createElement('style');style.textContent='#miniGoalLatency{flex:none;grid-column:1/-1;min-height:48px;padding:8px 14px;background:#222630;border-top:1px solid #596174;color:#f4f5f8;display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;font:13px/1.35 system-ui,sans-serif}#miniGoalLatency strong{font-weight:600}#miniGoalLatency span{font-size:11px;color:#c4c9d4}@media(orientation:landscape){body:has(#miniGoalLatency){grid-template-rows:minmax(0,1fr) auto}body:has(#miniGoalLatency)>#controlsPanel,body:has(#miniGoalLatency)>main{height:100%!important;min-height:0}}';
   document.head.append(style);document.body.append(bar);
   function show(next,label){phase=next;message=label;text.textContent=label;bar.dataset.phase=next;}
-  function stateOf(controller){try{return controller&&controller.state}catch(_error){return null}}
-  function tuningKey(){try{return JSON.stringify(window.__miniTuning||null)}catch(_error){return 'unavailable'}}
+  function stateOf(controller){try{return controller&&controller.state}catch{return null}}
+  function tuningKey(){try{return JSON.stringify(window.__miniTuning||null)}catch{return 'unavailable'}}
   function invalidate(reason){pending=null;down=null;show('cancelled',reason);}
   function canvasEvent(event){return event.target===document.getElementById('paper')}
   function onDown(event){if(!event.isTrusted||!canvasEvent(event))return;var cancelled=!!pending;pending=null;var controller=window.__miniPuddle,state=stateOf(controller);down={pointerId:event.pointerId,controller:controller,epoch:state&&state.epoch};show('drawing',(cancelled?'Предыдущий замер отменён. ':'')+'Рисование… замер начнётся при отрыве пера.');}
