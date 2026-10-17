@@ -1,7 +1,7 @@
 {
   "issue": 801,
   "device": "Samsung SM-T970 / Adreno650 / Chrome155",
-  "scope": "801 diagnostic causal control: owned response ONLY changes default60ms debounce to0 and step4 to100000; baseline original bytes. Both have ONE diagnostic GPU finish at first existing draw after goalReady, before that draw. Live files/assets unchanged; ops/math/order unchanged but time-dependent preview copies may differ. Host and fenced completion times separately. Single fresh context per arm.",
+  "scope": "801 diagnostic causal control: owned response ONLY changes default60ms debounce to0 and step4 to100000; baseline original bytes. Both have ONE diagnostic gl.finish call (Flush only in this Chrome) at first existing draw after goalReady, before that draw. Live files/assets unchanged; ops/math/order unchanged but time-dependent preview copies may differ. Host JS/UI and flush-marker timestamps; GPU completion is NOT established. Single fresh context per arm.",
   "miniBundleSHA": "2fed32ad961d8dd78db4f7f54a82663a016e2ec93b0f07e72b0abcd68be542af",
   "bundleStable": true,
   "htmlSHA": "59182da44dc35b4c61d6e60feb5cd78794d6cc3569f3c73b9a31eced3fe269d3",
@@ -10,7 +10,7 @@
   "qualification": [
     "Only owned CDP response changes: exact step4→100000 and default launch debounce60→0. Original live assets on server unchanged.",
     "Both arms add exactly ONE diagnostic gl.finish immediately before first existing draw after native goalReady/target.done; source confirms this precedes initial morph drawing.",
-    "Explicit fence completion is elapsed wall until previously submitted goal GPU work completes; it is NOT pure GPU execution duration. Earlier existing readPixels/driver calls can already wait for GPU.",
+    "CORRECTION: gl.finish is Flush at the actual Chromium revision. This marker does not establish completion of submitted GPU work. GPUComplete interpretation is withdrawn.",
     "Native job.ops array/functions/tags/order remain untouched. All90 observed operations execute in both arms; time-dependent preview insertion could differ in general.",
     "Single fresh authoring per arm with same pointer command settings/spec; raw source hashes differ, so final pixel equivalence is NOT established. No artificial seed forcing/retry.",
     "One178ms callback blocks main thread; <200ms response target is NOT passed. No production implementation or runtime setting changed.",
@@ -595,7 +595,7 @@
       "timingsMs": {
         "upToFirstAdvancingCallback": 104.29999995231628,
         "upToGoalJSBeforeDiagnosticFence": 553.2999999523163,
-        "upToGoalGPUComplete": 553.5,
+        "upToGoalAfterGlFinishCall_NOT_GPU_COMPLETION": 553.5,
         "diagnosticFenceWall": 0.20000004768371582,
         "upToGoalAtCallbackEnd": 554.6000001430511,
         "upToObserver2RAFConfirmation": 759,
@@ -1216,7 +1216,7 @@
       "timingsMs": {
         "upToFirstAdvancingCallback": 37.40000009536743,
         "upToGoalJSBeforeDiagnosticFence": 215.0,
-        "upToGoalGPUComplete": 215.0,
+        "upToGoalAfterGlFinishCall_NOT_GPU_COMPLETION": 215.0,
         "diagnosticFenceWall": 0,
         "upToGoalAtCallbackEnd": 215.59999990463257,
         "upToObserver2RAFConfirmation": 224.70000004768372,
@@ -1296,5 +1296,10 @@
     "p": false,
     "c": false,
     "coverage": false
+  },
+  "correction20261017": {
+    "gpuCompletionProven": false,
+    "reason": "Exact Samsung Chrome revision 3ff7ac5a9224be9156d7f8703a06e22890aafd34 WebGLRenderingContextBase::finish calls ContextGL()->Flush(), not Finish(). gl.finish timestamps are only host-side flush-marker times. The previously reported GPUComplete 215ms is withdrawn; JS/UI observations remain measurements.",
+    "source": "https://chromium.googlesource.com/chromium/src/+/3ff7ac5a9224be9156d7f8703a06e22890aafd34/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc"
   }
 }

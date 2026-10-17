@@ -212,7 +212,11 @@
         }
       }
     ],
-    "qualification": "Times are CPU host wall and frame availability, not GPU elapsed. Nested durations must not be added. RAF gap uses actual callback starts; worker has multiple RAF consumers."
+    "qualification": "Times are CPU host wall and frame availability, not GPU elapsed. Nested durations must not be added. RAF gap uses actual callback starts; worker has multiple RAF consumers.",
+    "glFinishCorrection": {
+      "gpuCompletionProven": false,
+      "reason": "Actual Chrome3ff7ac5a WebGLRenderingContextBase::finish calls Flush. The goal-barriers arm is not GPU completion evidence; prior GPU-queue exclusion is withdrawn."
+    }
   },
   {
     "arm": "without-diagnostic-json",
@@ -427,7 +431,11 @@
         }
       }
     ],
-    "qualification": "Times are CPU host wall and frame availability, not GPU elapsed. Nested durations must not be added. RAF gap uses actual callback starts; worker has multiple RAF consumers."
+    "qualification": "Times are CPU host wall and frame availability, not GPU elapsed. Nested durations must not be added. RAF gap uses actual callback starts; worker has multiple RAF consumers.",
+    "glFinishCorrection": {
+      "gpuCompletionProven": false,
+      "reason": "Actual Chrome3ff7ac5a WebGLRenderingContextBase::finish calls Flush. The goal-barriers arm is not GPU completion evidence; prior GPU-queue exclusion is withdrawn."
+    }
   },
   {
     "arm": "display-only-off",
@@ -649,7 +657,11 @@
         }
       }
     ],
-    "qualification": "Times are CPU host wall and frame availability, not GPU elapsed. Nested durations must not be added. RAF gap uses actual callback starts; worker has multiple RAF consumers."
+    "qualification": "Times are CPU host wall and frame availability, not GPU elapsed. Nested durations must not be added. RAF gap uses actual callback starts; worker has multiple RAF consumers.",
+    "glFinishCorrection": {
+      "gpuCompletionProven": false,
+      "reason": "Actual Chrome3ff7ac5a WebGLRenderingContextBase::finish calls Flush. The goal-barriers arm is not GPU completion evidence; prior GPU-queue exclusion is withdrawn."
+    }
   },
   {
     "arm": "morph-tick-and-display-off",
@@ -871,7 +883,11 @@
         }
       }
     ],
-    "qualification": "Times are CPU host wall and frame availability, not GPU elapsed. Nested durations must not be added. RAF gap uses actual callback starts; worker has multiple RAF consumers."
+    "qualification": "Times are CPU host wall and frame availability, not GPU elapsed. Nested durations must not be added. RAF gap uses actual callback starts; worker has multiple RAF consumers.",
+    "glFinishCorrection": {
+      "gpuCompletionProven": false,
+      "reason": "Actual Chrome3ff7ac5a WebGLRenderingContextBase::finish calls Flush. The goal-barriers arm is not GPU completion evidence; prior GPU-queue exclusion is withdrawn."
+    }
   },
   {
     "arm": "three-goal-barriers",
@@ -1169,6 +1185,10 @@
         }
       }
     ],
-    "qualification": "Times are CPU host wall and frame availability, not GPU elapsed. Nested durations must not be added. RAF gap uses actual callback starts; worker has multiple RAF consumers."
+    "qualification": "Times are CPU host wall and frame availability, not GPU elapsed. Nested durations must not be added. RAF gap uses actual callback starts; worker has multiple RAF consumers.",
+    "glFinishCorrection": {
+      "gpuCompletionProven": false,
+      "reason": "Actual Chrome3ff7ac5a WebGLRenderingContextBase::finish calls Flush. The goal-barriers arm is not GPU completion evidence; prior GPU-queue exclusion is withdrawn."
+    }
   }
 ]
