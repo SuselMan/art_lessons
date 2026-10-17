@@ -139,11 +139,9 @@ export function createNativePuddleTarget(host: PuddleTargetHost, size: PuddleSiz
       publish(entry.inkLoad!, entry.inkColor, entry.coverage)
       const bloom = 0
       // The controller's old jump experiment must not silently select a new kernel.
-      const jump = owner.diagnosticMultilevelContact, fine = owner.diagnosticFullResolution, paired = owner.diagnosticAlwaysPairedColour, preserveField = owner.diagnosticPreserveBrushField, split = owner.splitQuanta
+      const jump = owner.diagnosticMultilevelContact, fine = owner.diagnosticFullResolution, split = owner.splitQuanta
       owner.diagnosticFullResolution = options.fullResolution ?? false
       owner.diagnosticMultilevelContact = 0
-      owner.diagnosticAlwaysPairedColour = true
-      owner.diagnosticPreserveBrushField = true
       owner.splitQuanta = true
       try {
         job = prepare.call(owner, clone, [tile], bounds, bloom, radius, 1, 0, standing, 1, 0,
@@ -151,7 +149,7 @@ export function createNativePuddleTarget(host: PuddleTargetHost, size: PuddleSiz
         state.total = job?.ops.length ?? 0
         if (!job) { state.done = true; clone.destroy(); scratch = null; key = null }
       } catch (error) { cancel(); throw error }
-      finally { owner.diagnosticMultilevelContact = jump; owner.diagnosticFullResolution = fine; owner.diagnosticAlwaysPairedColour = paired; owner.diagnosticPreserveBrushField = preserveField; owner.splitQuanta = split }
+      finally { owner.diagnosticMultilevelContact = jump; owner.diagnosticFullResolution = fine; owner.splitQuanta = split }
     },
     step(maxOps = 1) {
       if(destroyed||state.done)return state
