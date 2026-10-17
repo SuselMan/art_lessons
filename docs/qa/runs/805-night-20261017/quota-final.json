@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-17T21:30:09.968Z",
+  "initialEpochUsedStart": 13,
+  "initialEpochUsedLastObserved": 16,
+  "reservedPreviousEpochPercentagePoints": 4,
+  "newEpochUsedPercent": 5,
+  "conservativeAccountedPercentagePoints": 9,
+  "authorizedPercentagePoints": 20,
+  "newEpochResetsAt": 1792874437,
+  "resetCreditsAvailable": 0,
+  "qualification": "Счётчик сменил эпоху во время задачи. Причина неизвестна; сброс нами не запрашивался. Старый расход учтён с резервом, новый бюджет не присвоен."
+}
