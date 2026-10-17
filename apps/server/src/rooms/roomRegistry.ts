@@ -197,6 +197,43 @@ export interface RoomRecord {
 
 export const rooms = new Map<string, RoomRecord>()
 
+// Request residency is separate from human presence/isIdle (#784).
+const residencyPins = new Map<string, number>()
+export interface RoomResidencyLease {
+  retain(roomId: string): void
+  release(): string[]
+}
+
+export function isRoomPinned(roomId: string): boolean {
+  return residencyPins.has(roomId)
+}
+
+export function acquireRoomResidency(roomId: string): RoomResidencyLease {
+  const retained = new Set<string>()
+  let released = false
+  const retain = (id: string): void => {
+    if (released || retained.has(id)) return
+    retained.add(id)
+    residencyPins.set(id, (residencyPins.get(id) ?? 0) + 1)
+    const lessonId = rooms.get(id)?.lessonId
+    if (lessonId) retain(lessonId)
+  }
+  retain(roomId)
+  return {
+    retain,
+    release: () => {
+      if (released) return []
+      released = true
+      for (const id of retained) {
+        const remaining = (residencyPins.get(id) ?? 1) - 1
+        if (remaining) residencyPins.set(id, remaining)
+        else residencyPins.delete(id)
+      }
+      return [...retained]
+    },
+  }
+}
+
 /** (#176) The record that holds `record`'s social state: itself for a lesson,
  *  its lesson for a board. Every participant/freeze/palette/password/closed
  *  read or write in the room store goes through here, which is what makes "social

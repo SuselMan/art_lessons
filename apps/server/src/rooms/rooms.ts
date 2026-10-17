@@ -9,7 +9,7 @@ import { isCoveredBySnapshot } from './snapshotCoverage.js'
 import { lessonStateFor } from './classroom.js'
 import { persistPalette, persistParticipant, persistRoomCreate } from './roomPersistence.js'
 import {
-  isIdle, lessonRecordOf, pendingWriteOf, rooms, socialRecord, type RoomRecord,
+  acquireRoomResidency, isIdle, isRoomPinned, lessonRecordOf, pendingWriteOf, rooms, socialRecord, type RoomRecord,
 } from './roomRegistry.js'
 
 // The write queue lives with the Map it serves; these are part of this
@@ -402,6 +402,8 @@ export function leaveRoom(roomId: string, userId: string, socketId: string): boo
  *  repopulates the Map, and that room must not then be deleted out from
  *  under it. */
 function evictWhenIdle(roomId: string): void {
+  const record = rooms.get(roomId)
+  if (!record || !isIdle(record) || isRoomPinned(roomId)) return
   const pending = pendingWriteOf(roomId)
   if (!pending) {
     evictNow(roomId)
@@ -409,7 +411,7 @@ function evictWhenIdle(roomId: string): void {
   }
   pending.finally(() => {
     const record = rooms.get(roomId)
-    if (record && isIdle(record)) evictNow(roomId)
+    if (record && isIdle(record) && !isRoomPinned(roomId)) evictNow(roomId)
   })
 }
 
@@ -420,11 +422,24 @@ function evictWhenIdle(roomId: string): void {
  *  the meantime. */
 function evictNow(roomId: string): void {
   const record = rooms.get(roomId)
+  if (!record || !isIdle(record) || isRoomPinned(roomId)) return
   pruneOperationsBeforeSnapshot(roomId)
   rooms.delete(roomId)
   if (record?.lessonId !== null) return
   for (const [id, other] of rooms) {
     if (other.lessonId === roomId) evictWhenIdle(id)
+  }
+}
+
+/** A join retains its board and lesson until its async preparation settles.
+ *  Releasing after seating is harmless; failed requests release idle records. */
+export function retainRoomForJoin(roomId: string) {
+  const lease = acquireRoomResidency(roomId)
+  return {
+    retain: lease.retain,
+    release: () => {
+      for (const id of lease.release()) releaseRoomIfUnused(id)
+    },
   }
 }
 

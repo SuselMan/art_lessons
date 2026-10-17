@@ -3,7 +3,7 @@ import { DEFAULT_PALETTE_COLORS } from '@grafetto/shared'
 
 import { prisma } from '../db/prisma.js'
 import { toWireRoom } from './roomMapper.js'
-import { rooms } from './roomRegistry.js'
+import { rooms, type RoomResidencyLease } from './roomRegistry.js'
 import { persistPalette } from './roomPersistence.js'
 import { layerStateIdsOf, residentOperationWhere } from './snapshotCoverage.js'
 import { loadCoveredSeqByLayer } from './snapshotStore.js'
@@ -47,15 +47,18 @@ async function loadResidentOperations(
  *  true) if the room is already live in memory. Reconstructed `participants`
  *  always starts empty: presence is inherently live-only, nobody is
  *  "currently connected" to a room that just got cold-loaded. */
-export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
+export async function ensureRoomLoaded(
+  roomId: string, residency?: Pick<RoomResidencyLease, 'retain'>,
+): Promise<boolean> {
   const resident = rooms.get(roomId)
   if (resident) {
+    if (resident.lessonId) residency?.retain(resident.lessonId)
     // (#176) A board's residency is only worth anything with its lesson
     // beside it — see RoomRecord.lessonId. The lesson can go first (its own
     // eviction is deferred behind its own writes, the board's behind the
     // board's), so "the board is here" has to also mean "so is the lesson"
     // before anything synchronous is allowed to ask a social question of it.
-    if (resident.lessonId !== null && !rooms.has(resident.lessonId)) return ensureRoomLoaded(resident.lessonId)
+    if (resident.lessonId !== null && !rooms.has(resident.lessonId)) return ensureRoomLoaded(resident.lessonId, residency)
     return true
   }
 
@@ -77,7 +80,11 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   // without it is a board nobody can be admitted to. A lesson that has gone
   // from Postgres takes its boards with it (the FK cascades), so `false` here
   // is the same "not found" the board itself would have been.
-  if (dbRoom.lessonId !== null && !(await ensureRoomLoaded(dbRoom.lessonId))) return false
+  if (dbRoom.lessonId !== null) {
+    // Retain the dependency before yielding to load it or the board's content.
+    residency?.retain(dbRoom.lessonId)
+    if (!(await ensureRoomLoaded(dbRoom.lessonId, residency))) return false
+  }
 
   const [storedLayerState, coveredSeqByLayer] = await Promise.all([
     prisma.roomLayerState.findUnique({ where: { roomId }, select: { seq: true, state: true } }),
