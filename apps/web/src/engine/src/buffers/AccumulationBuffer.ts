@@ -1,3 +1,5 @@
+import { BufferResidency, beginResidencyDraw, endResidencyDraw, preserveResidencyState, releaseResidencyTexture } from './BufferResidency'
+
 // Persistent WebGL framebuffer that accumulates graphite over strokes.
 // Blending: ONE, ONE_MINUS_SRC_ALPHA  →  result = src + dst*(1-src.a)
 
@@ -28,17 +30,96 @@ export class AccumulationBuffer {
   // real paint/composite/display content benefits from the smoothing and
   // was never part of that determinism class (see DAB_FRAG's own paper-catch
   // comment for what *is*).
-  constructor(gl: WebGLRenderingContext, width: number, height: number, filter: 'linear' | 'nearest' = 'linear') {
+  constructor(gl: WebGLRenderingContext, width: number, height: number, filter: 'linear' | 'nearest' = 'linear', residency?: BufferResidency) {
     this.gl = gl
     this.width = width
     this.height = height
     this._baseFilter = filter
-    this._texture = this._makeTexture(filter)
-    this._fbo     = this._makeFBO(this._texture)
+    if (residency) {
+      // Admission precedes allocation: the dedicated factory never oversubscribes.
+      residency.register(this)
+      this._residency = residency
+      try {
+        const handles = preserveResidencyState(gl, () => {
+          const texture = this._makeTexture(filter)
+          return { texture, fbo: this._makeFBO(texture) }
+        })
+        this._texture = handles.texture
+        this._fbo = handles.fbo
+      } catch (error) { residency.remove(this); throw error }
+    } else {
+      this._texture = this._makeTexture(filter)
+      this._fbo = this._makeFBO(this._texture)
+    }
     // Computed here rather than as a field initializer: those run before the
     // constructor body assigns width/height, so an initializer would have
     // silently read undefined and disabled mipmaps everywhere.
     this._mipCapable = isPowerOfTwo(width) && isPowerOfTwo(height)
+  }
+
+  private _residency?: BufferResidency
+  private _resident = true
+  private _destroyed = false
+  private _backing?: Uint8Array | readonly [number, number, number, number]
+
+  enableResidency(cache: BufferResidency): this {
+    if (this._destroyed || (this._residency && this._residency !== cache)) throw new Error('Invalid residency attachment')
+    cache.register(this)
+    this._residency = cache
+    return this
+  }
+
+  private _ensureResident(): void {
+    if (this._residency) this._residency.touch(this)
+  }
+
+  _residencyEvict(): void {
+    const { gl, width, height } = this
+    preserveResidencyState(gl, () => {
+      const pixels = new Uint8Array(width * height * 4)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+      const uniform = pixels.every((value, i) => value === pixels[i % 4])
+      this._backing = uniform ? [pixels[0], pixels[1], pixels[2], pixels[3]] : pixels
+    })
+    releaseResidencyTexture(this._texture)
+    gl.deleteTexture(this._texture)
+    gl.deleteFramebuffer(this._fbo)
+    this._resident = false
+  }
+
+  _residencyHydrate(): void {
+    if (!this._backing || this._destroyed) throw new Error('Residency pixels unavailable after context loss')
+    const { gl, width, height } = this
+    preserveResidencyState(gl, () => {
+      this._texture = this._makeTexture(this._baseFilter)
+      this._fbo = this._makeFBO(this._texture)
+      const backing = this._backing!
+      const pixels = backing instanceof Uint8Array ? backing : new Uint8Array(width * height * 4)
+      if (!(backing instanceof Uint8Array)) {
+        for (let i = 0; i < pixels.length; i += 4) pixels.set(backing, i)
+      }
+      gl.bindTexture(gl.TEXTURE_2D, this._texture)
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+      if (this._mipsValid) gl.generateMipmap(gl.TEXTURE_2D)
+      const base = this._baseFilter === 'nearest' ? gl.NEAREST : gl.LINEAR
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, this._pointSampling ? gl.NEAREST : base)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
+        this._pointSampling ? gl.NEAREST : this._mipSampling ? gl.LINEAR_MIPMAP_LINEAR : base)
+    })
+    this._backing = undefined
+    this._resident = true
+  }
+
+  _residencyForget(): void {
+    this._backing = undefined
+    this._resident = false
+    this._destroyed = true
+  }
+
+  private _beginResidencyDraw(): void {
+    beginResidencyDraw(this.gl, this)
+    try { this._ensureResident() } catch (error) { endResidencyDraw(this.gl); throw error }
   }
 
   private _makeTexture(filter: 'linear' | 'nearest'): WebGLTexture {
@@ -75,8 +156,8 @@ export class AccumulationBuffer {
     return fbo
   }
 
-  get texture(): WebGLTexture { return this._texture }
-  get fbo(): WebGLFramebuffer { return this._fbo }
+  get texture(): WebGLTexture { this._ensureResident(); return this._texture }
+  get fbo(): WebGLFramebuffer { this._ensureResident(); return this._fbo }
 
   /** (#365) Whether a mip chain can legally exist for this buffer at all.
    *  WebGL1 only allows mipmaps on power-of-two textures, and a texture whose
@@ -140,6 +221,7 @@ export class AccumulationBuffer {
    *  which is the common case: a still camera re-composites the same tiles
    *  every frame. */
   ensureMipmaps(): boolean {
+    this._ensureResident()
     if (!this._mipCapable) return false
     if (this._mipsValid) return true
     const { gl } = this
@@ -170,6 +252,7 @@ export class AccumulationBuffer {
    *  which is what makes restoring from _baseFilter/_mipSampling correct
    *  rather than a guess about who else touched the texture in between. */
   setPointSampling(on: boolean): void {
+    this._ensureResident()
     if (on === this._pointSampling) return
     const { gl } = this
     const base = this._baseFilter === 'nearest' ? gl.NEAREST : gl.LINEAR
@@ -192,6 +275,7 @@ export class AccumulationBuffer {
    *  passes that want different answers — the coarse fold always minifies,
    *  the on-screen composite only sometimes. */
   setMipSampling(on: boolean): void {
+    this._ensureResident()
     if (!this._mipCapable) return
     const wanted = on && this._mipsValid
     if (wanted === this._mipSampling) return
@@ -202,6 +286,7 @@ export class AccumulationBuffer {
   }
 
   beginDraw(): void {
+    this._beginResidencyDraw()
     this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -211,6 +296,7 @@ export class AccumulationBuffer {
   }
 
   beginErase(): void {
+    this._beginResidencyDraw()
     this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -228,6 +314,7 @@ export class AccumulationBuffer {
    *  premultiplied colour — rgb and a scale together — so nothing on this path
    *  ever has to un-premultiply and re-premultiply around the mask. */
   beginKeepDraw(): void {
+    this._beginResidencyDraw()
     this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -245,6 +332,7 @@ export class AccumulationBuffer {
    *  happens later, once, in DAB_FRAG's composite branch
    *  (`1 - exp(-inkLoad * rate)`), not here. */
   beginAdditiveDraw(): void {
+    this._beginResidencyDraw()
     this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -281,6 +369,7 @@ export class AccumulationBuffer {
    *  preserved — same class of accepted v1 gap as RibbonStrokeScratch's own
    *  mid-stroke tile-eviction note. */
   beginReplaceDraw(): void {
+    this._beginResidencyDraw()
     this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -293,6 +382,7 @@ export class AccumulationBuffer {
    *  FILM the brush leaves, and a film is as thick as the brush made it, not
    *  as thick as the number of stamps that happened to overlap there. */
   beginMaxDraw(ext: { MAX_EXT: number }): void {
+    this._beginResidencyDraw()
     this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -303,12 +393,14 @@ export class AccumulationBuffer {
   }
 
   endDraw(): void {
+    endResidencyDraw(this.gl)
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null)
     this.gl.disable(this.gl.BLEND)
     this.gl.blendEquation(this.gl.FUNC_ADD)
   }
 
   clear(): void {
+    this._ensureResident()
     this._invalidateMips()
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -319,6 +411,7 @@ export class AccumulationBuffer {
 
   /** (#536, §17.68) `into`, when big enough, is filled instead of a new array. */
   readPixels(into?: Uint8Array): Uint8Array {
+    this._ensureResident()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
     const n = width * height * 4
@@ -330,6 +423,7 @@ export class AccumulationBuffer {
 
   /** Owned tight bottom-up readback for a snapshot's page-clipped edge tile. */
   readPixelsRegion(x: number, y: number, width: number, height: number): Uint8Array {
+    this._ensureResident()
     const pixels = new Uint8Array(width * height * 4)
     if (!width || !height) return pixels
     const { gl } = this
@@ -346,6 +440,7 @@ export class AccumulationBuffer {
   }
 
   restorePixels(pixels: Uint8Array): void {
+    this._ensureResident()
     this._invalidateMips()
     const { gl, width, height } = this
     gl.bindTexture(gl.TEXTURE_2D, this._texture)
@@ -358,6 +453,7 @@ export class AccumulationBuffer {
    *  the iPad reallocating each one next to the storage still being freed was
    *  the spike the tab did not survive. */
   writePixels(pixels: Uint8Array): void {
+    this._ensureResident()
     this._invalidateMips()
     const { gl, width, height } = this
     gl.bindTexture(gl.TEXTURE_2D, this._texture)
@@ -396,6 +492,7 @@ export class AccumulationBuffer {
    *  back to the server. Columns need no such care; see clipTileToPage, which
    *  keeps the first `keepW` of them in both conventions. */
   restorePixelsRect(w: number, h: number, pixels: Uint8Array): void {
+    this._ensureResident()
     const { gl, width, height } = this
     if (w === width && h === height) { this.restorePixels(pixels); return }
     this._invalidateMips()
@@ -407,6 +504,13 @@ export class AccumulationBuffer {
   }
 
   copyTo(dest: AccumulationBuffer): void {
+    if (this._residency || dest._residency) {
+      this._copyResident(dest, () => this._copyTo(dest)); return
+    }
+    this._copyTo(dest)
+  }
+
+  private _copyTo(dest: AccumulationBuffer): void {
     dest._invalidateMips() // copyTexImage2D redefines dest's level 0
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -445,6 +549,13 @@ export class AccumulationBuffer {
     srcGlX: number, srcGlY: number, destGlX: number, destGlY: number, w: number, h: number,
   ): void {
     if (w <= 0 || h <= 0) return
+    if (this._residency || dest._residency) {
+      this._copyResident(dest, () => this._copyRegionInto(dest, srcGlX, srcGlY, destGlX, destGlY, w, h)); return
+    }
+    this._copyRegionInto(dest, srcGlX, srcGlY, destGlX, destGlY, w, h)
+  }
+
+  private _copyRegionInto(dest: AccumulationBuffer, srcGlX: number, srcGlY: number, destGlX: number, destGlY: number, w: number, h: number): void {
     dest._invalidateMips() // copyTexSubImage2D writes dest's level 0
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -453,8 +564,24 @@ export class AccumulationBuffer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
+  private _copyResident(dest: AccumulationBuffer, run: () => void): void {
+    if (dest.gl !== this.gl) throw new Error('Cannot copy across GL contexts')
+    const caches = [...new Set([this._residency, dest._residency].filter((cache): cache is BufferResidency => !!cache))]
+    const pinned = (index: number): void => {
+      if (index < caches.length) { caches[index].runPinned([this, dest], () => pinned(index + 1)); return }
+      preserveResidencyState(this.gl, () => { this._ensureResident(); dest._ensureResident(); run() })
+    }
+    pinned(0)
+  }
+
   destroy(): void {
-    this.gl.deleteTexture(this._texture)
-    this.gl.deleteFramebuffer(this._fbo)
+    if (this._destroyed) return
+    this._residency?.remove(this)
+    if (this._resident) {
+      this.gl.deleteTexture(this._texture)
+      this.gl.deleteFramebuffer(this._fbo)
+    }
+    this._backing = undefined
+    this._destroyed = true
   }
 }
