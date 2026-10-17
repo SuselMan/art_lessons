@@ -1,0 +1,663 @@
+{
+  "date": "2026-10-17",
+  "device": "Samsung SM-T970 Adreno650",
+  "sourceHashes": {
+    "apps/web/src/engine/index.ts": "53984a3dfb5759ca6d47645e0bda26894cf82b0c598535a29fe0ae0c73c55789",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "c3421bee929598cdde7cc7fadc9445f28f0aa2a9400df9e26dbaf319e36bfdc2",
+    "apps/web/src/engine/src/watercolor/puddle/M70IndependentTilesQA.ts": "3b2db730f822598b79aff608683ef77aff0388b90f7d3608b7ae5bd5bccd2980",
+    "apps/web/qa-independent-tiles.ts": "a3f01355d1ae7d69e8052c5784606d333ffa6970407a27715cbd632c769a6e24"
+  },
+  "sourceLabel": "ec22-app-unchanged-3a27-page",
+  "mode": "independent nohalo A2landscape3508x2480 all7diagnosticflagsOFF",
+  "input": {
+    "worldPoints": [
+      [
+        300,
+        2100
+      ],
+      [
+        329,
+        2137.218682902702
+      ],
+      [
+        358,
+        2166.6820658893034
+      ],
+      [
+        387,
+        2181.724057869903
+      ],
+      [
+        416,
+        2177.7040092642405
+      ],
+      [
+        445,
+        2152.658477444273
+      ],
+      [
+        474,
+        2107.5769864163685
+      ],
+      [
+        503,
+        2046.2630511152572
+      ],
+      [
+        532,
+        1974.7999850346457
+      ],
+      [
+        561,
+        1900.696516925272
+      ],
+      [
+        590,
+        1831.8322121561291
+      ],
+      [
+        619,
+        1775.3508111746978
+      ],
+      [
+        648,
+        1736.6569123906968
+      ],
+      [
+        677,
+        1718.6569123906968
+      ],
+      [
+        706,
+        1721.3508111746978
+      ],
+      [
+        735,
+        1741.8322121561291
+      ],
+      [
+        764,
+        1774.696516925272
+      ],
+      [
+        793,
+        1812.7999850346457
+      ],
+      [
+        822,
+        1848.2630511152572
+      ],
+      [
+        851,
+        1873.5769864163683
+      ],
+      [
+        880,
+        1882.658477444273
+      ],
+      [
+        909,
+        1871.7040092642408
+      ],
+      [
+        938,
+        1839.724057869903
+      ],
+      [
+        967,
+        1788.6820658893032
+      ],
+      [
+        996,
+        1723.2186829027016
+      ],
+      [
+        1025,
+        1650
+      ],
+      [
+        1054,
+        1576.7813170972984
+      ],
+      [
+        1083,
+        1511.3179341106966
+      ],
+      [
+        1112,
+        1460.275942130097
+      ],
+      [
+        1141,
+        1428.2959907357592
+      ],
+      [
+        1170,
+        1417.341522555727
+      ],
+      [
+        1199,
+        1426.4230135836315
+      ],
+      [
+        1228,
+        1451.7369488847428
+      ],
+      [
+        1257,
+        1487.2000149653545
+      ],
+      [
+        1286,
+        1525.303483074728
+      ],
+      [
+        1315,
+        1558.1677878438709
+      ],
+      [
+        1344,
+        1578.6491888253022
+      ],
+      [
+        1373,
+        1581.3430876093032
+      ],
+      [
+        1402,
+        1563.3430876093032
+      ],
+      [
+        1431,
+        1524.6491888253022
+      ],
+      [
+        1460,
+        1468.167787843871
+      ],
+      [
+        1489,
+        1399.3034830747283
+      ],
+      [
+        1518,
+        1325.2000149653545
+      ],
+      [
+        1547,
+        1253.7369488847428
+      ],
+      [
+        1576,
+        1192.423013583632
+      ],
+      [
+        1605,
+        1147.341522555727
+      ],
+      [
+        1634,
+        1122.2959907357592
+      ],
+      [
+        1663,
+        1118.275942130097
+      ],
+      [
+        1692,
+        1133.3179341106968
+      ],
+      [
+        1721,
+        1162.781317097298
+      ],
+      [
+        1750,
+        1200
+      ],
+      [
+        1779,
+        1237.2186829027019
+      ],
+      [
+        1808,
+        1266.6820658893032
+      ],
+      [
+        1837,
+        1281.724057869903
+      ],
+      [
+        1866,
+        1277.7040092642408
+      ],
+      [
+        1895.0000000000002,
+        1252.658477444273
+      ],
+      [
+        1924.0000000000002,
+        1207.5769864163683
+      ],
+      [
+        1952.9999999999998,
+        1146.2630511152574
+      ],
+      [
+        1981.9999999999998,
+        1074.7999850346462
+      ],
+      [
+        2011,
+        1000.6965169252721
+      ],
+      [
+        2040,
+        931.8322121561291
+      ],
+      [
+        2069,
+        875.350811174698
+      ],
+      [
+        2098,
+        836.6569123906968
+      ],
+      [
+        2127,
+        818.6569123906967
+      ],
+      [
+        2156,
+        821.3508111746978
+      ],
+      [
+        2185,
+        841.8322121561289
+      ],
+      [
+        2214,
+        874.6965169252718
+      ],
+      [
+        2243,
+        912.7999850346459
+      ],
+      [
+        2272,
+        948.2630511152572
+      ],
+      [
+        2301,
+        973.5769864163682
+      ],
+      [
+        2330,
+        982.658477444273
+      ],
+      [
+        2359,
+        971.7040092642408
+      ],
+      [
+        2388,
+        939.724057869903
+      ],
+      [
+        2417,
+        888.6820658893033
+      ],
+      [
+        2446,
+        823.2186829027021
+      ],
+      [
+        2475,
+        750.0000000000001
+      ],
+      [
+        2504,
+        676.7813170972983
+      ],
+      [
+        2533,
+        611.3179341106969
+      ],
+      [
+        2562,
+        560.2759421300971
+      ],
+      [
+        2591,
+        528.2959907357592
+      ],
+      [
+        2620,
+        517.3415225557269
+      ],
+      [
+        2649,
+        526.4230135836317
+      ],
+      [
+        2678,
+        551.7369488847424
+      ],
+      [
+        2707,
+        587.2000149653537
+      ],
+      [
+        2736,
+        625.3034830747279
+      ],
+      [
+        2765,
+        658.1677878438704
+      ],
+      [
+        2794,
+        678.6491888253023
+      ],
+      [
+        2823,
+        681.3430876093032
+      ],
+      [
+        2852,
+        663.3430876093034
+      ],
+      [
+        2881,
+        624.6491888253022
+      ],
+      [
+        2910,
+        568.1677878438711
+      ],
+      [
+        2939,
+        499.3034830747287
+      ],
+      [
+        2968,
+        425.2000149653541
+      ],
+      [
+        2997,
+        353.7369488847428
+      ],
+      [
+        3026,
+        292.42301358363187
+      ],
+      [
+        3055,
+        247.34152255572718
+      ],
+      [
+        3084,
+        222.29599073575926
+      ],
+      [
+        3113,
+        218.27594213009692
+      ],
+      [
+        3142,
+        233.31793411069623
+      ],
+      [
+        3171,
+        262.7813170972984
+      ],
+      [
+        3200,
+        299.9999999999998
+      ]
+    ],
+    "settings": {
+      "mode": "independent",
+      "format": "a2l",
+      "size": "320",
+      "water": "95",
+      "pigment": "34",
+      "color": "#2688d3"
+    },
+    "pointerType": "pen",
+    "force": 0.75
+  },
+  "inputSpecSHA": "886ed6205b9a9327672445ae67b2562d55fab47b138f44afc62af64f287415d2",
+  "firstWave": [
+    {
+      "artifact": "a2-independent-wave-first",
+      "acceptedGestureSummaries": [
+        {
+          "gesture": 1,
+          "dispatchMs": 11565,
+          "firstActualGoal2RAFMs": 7045.900000095367,
+          "firstMaterialGoal2RAFMs": null,
+          "pageCaptureUPClockMs": 7045.300000190735,
+          "pageBubbleUPClockMs": 6998.400000095367,
+          "planSerial": 1,
+          "epoch": 2,
+          "keptWindows": 4,
+          "plannedWindows": 6,
+          "nativeActiveHostMs": 2406.300000667572,
+          "nativeElapsedHostMs": 2884.2000000476837,
+          "chunks": 2,
+          "reads": {
+            "count": 587,
+            "sumMs": 5921.6999979019165,
+            "maxMs": 152.70000004768372,
+            "bytes": 1842936992
+          },
+          "RAF": {
+            "count": 268,
+            "maxMs": 1220.4000000000015,
+            "over50": 101,
+            "over100": 48
+          },
+          "GL": 0,
+          "wcAsyncError": null
+        }
+      ],
+      "qualification": "Goal timestamps only; NOT full PASS because initialobservers omitted _wcAsyncError and later matched retries prove async source failure. IgnoredDOWN repeats discarded.",
+      "runFailure": ""
+    },
+    {
+      "artifact": "a2-independent-wave-accumulated",
+      "acceptedGestureSummaries": [
+        {
+          "gesture": 1,
+          "dispatchMs": 11754,
+          "firstActualGoal2RAFMs": 7312.599999904633,
+          "firstMaterialGoal2RAFMs": 7312.599999904633,
+          "pageCaptureUPClockMs": 7311.899999856949,
+          "pageBubbleUPClockMs": 7248.5,
+          "planSerial": 1,
+          "epoch": 2,
+          "keptWindows": 4,
+          "plannedWindows": 6,
+          "nativeActiveHostMs": 2420.300000667572,
+          "nativeElapsedHostMs": 2936.7000000476837,
+          "chunks": 2,
+          "reads": {
+            "count": 570,
+            "sumMs": 6088.999999523163,
+            "maxMs": 154.09999990463257,
+            "bytes": 1823980704
+          },
+          "RAF": {
+            "count": 276,
+            "maxMs": 1237.0999999999985,
+            "over50": 95,
+            "over100": 54
+          },
+          "GL": 0,
+          "wcAsyncError": null
+        }
+      ],
+      "qualification": "Goal timestamps only; NOT full PASS because initialobservers omitted _wcAsyncError and later matched retries prove async source failure. IgnoredDOWN repeats discarded.",
+      "runFailure": "Error: Own QA runner aborted"
+    },
+    {
+      "artifact": "a2-independent-wave-current-camera",
+      "acceptedGestureSummaries": [
+        {
+          "gesture": 1,
+          "dispatchMs": 11730,
+          "firstActualGoal2RAFMs": 6093.899999856949,
+          "firstMaterialGoal2RAFMs": 6093.899999856949,
+          "pageCaptureUPClockMs": 6093.299999952316,
+          "pageBubbleUPClockMs": 6041.299999952316,
+          "planSerial": 1,
+          "epoch": 2,
+          "keptWindows": 4,
+          "plannedWindows": 6,
+          "nativeActiveHostMs": 1980.4000005722046,
+          "nativeElapsedHostMs": 2521.9000000953674,
+          "chunks": 2,
+          "reads": {
+            "count": 587,
+            "sumMs": 5521.199996232986,
+            "maxMs": 148.59999990463257,
+            "bytes": 1865809056
+          },
+          "RAF": {
+            "count": 273,
+            "maxMs": 1069.7999999999993,
+            "over50": 103,
+            "over100": 59
+          },
+          "GL": 0,
+          "wcAsyncError": "Error: Buffer residency unavailable"
+        }
+      ],
+      "qualification": "Goal timestamps only; NOT full PASS because initialobservers omitted _wcAsyncError and later matched retries prove async source failure. IgnoredDOWN repeats discarded.",
+      "runFailure": "AssertionError [ERR_ASSERTION]: Engine must actually accept DOWN"
+    },
+    {
+      "artifact": "a2-independent-wave-error-stack-visible",
+      "acceptedGestureSummaries": [
+        {
+          "gesture": 1,
+          "dispatchMs": 10499,
+          "firstActualGoal2RAFMs": 8795.5,
+          "firstMaterialGoal2RAFMs": null,
+          "pageCaptureUPClockMs": 8794.299999952316,
+          "pageBubbleUPClockMs": 8758.799999952316,
+          "planSerial": 1,
+          "epoch": 2,
+          "keptWindows": 6,
+          "plannedWindows": 6,
+          "nativeActiveHostMs": 2724.0000002384186,
+          "nativeElapsedHostMs": 3699.5999999046326,
+          "chunks": 2,
+          "reads": {
+            "count": 607,
+            "sumMs": 5092.499997615814,
+            "maxMs": 175.5,
+            "bytes": 1869855392
+          },
+          "RAF": {
+            "count": 357,
+            "maxMs": 1237,
+            "over50": 98,
+            "over100": 53
+          },
+          "GL": 0,
+          "wcAsyncError": "Error: Buffer residency unavailable"
+        }
+      ],
+      "qualification": "Goal timestamps only; NOT full PASS because initialobservers omitted _wcAsyncError and later matched retries prove async source failure. IgnoredDOWN repeats discarded.",
+      "runFailure": ""
+    }
+  ],
+  "finding": {
+    "status": "FAILED: async source error latched while first wavy gesture still held; next real engine DOWN refused",
+    "error": {
+      "at": 21279.900000095367,
+      "lastInput": {
+        "type": "pointermove",
+        "at": 21234.900000095367,
+        "pointerId": 2,
+        "trusted": true,
+        "pointerType": "pen",
+        "moveCount": 65
+      },
+      "error": "Error: Buffer residency unavailable",
+      "throwStack": "Error: Buffer residency unavailable\n    at BufferResidency.touch (/src/engine/src/buffers/BufferResidency.ts?t=1792240863000:240:40)\n    at AccumulationBuffer._ensureResident (/src/engine/src/buffers/AccumulationBuffer.ts?t=1792240863020:109:40)\n    at AccumulationBuffer._beginResidencyDraw (/src/engine/src/buffers/AccumulationBuffer.ts?t=1792240863020:170:9)\n    at AccumulationBuffer.beginMaxDraw (/src/engine/src/buffers/AccumulationBuffer.ts?t=1792240863020:437:8)\n    at RibbonPasses.drawRibbonBands (/src/engine/src/raster/RibbonPasses.ts?t=1792240863020:167:32)\n    at PencilEngine._drawRibbonBands (/src/engine/index.ts?t=1792251767128:9153:22)\n    at Object.drawRibbonBands (/src/engine/index.ts?t=1792251767128:1240:171)\n    at sourceBands (/src/engine/src/dabs/RibbonStrokePainter.ts?t=1792240863020:394:13)\n    at RibbonStrokePainter.<anonymous> (/src/engine/src/dabs/RibbonStrokePainter.ts?t=1792240863020:1048:8)\n    at Generator.next (<anonymous>)",
+      "assignmentStack": "Error: QA observer assignment\n    at PencilEngine.set [as _wcAsyncError] (<anonymous>:1:830)\n    at Object.failed (/src/engine/index.ts?t=1792251767128:1183:23)\n    at WatercolorCanonicalFIFO.advance (/src/engine/src/watercolor/WatercolorCanonicalFIFO.ts:58:14)\n    at run (/src/engine/src/watercolor/WatercolorCanonicalFIFO.ts:34:9)\n    at /src/engine/src/watercolor/WatercolorWorkScheduler.ts:37:5",
+      "phase": {
+        "generation": 0,
+        "activeLeases": 0,
+        "executing": 0,
+        "transitioning": false,
+        "phase": "input",
+        "enabled": true
+      },
+      "caches": [
+        {
+          "active": true,
+          "budgetBytes": 234881024,
+          "residentBytes": 128712704,
+          "bufferCount": 182,
+          "pinnedBuffers": 0,
+          "pinCount": 0
+        }
+      ],
+      "queue": 0,
+      "rebuild": 0,
+      "unsettled": 0,
+      "canonicalPending": false,
+      "settle": false,
+      "stroke": true,
+      "strokeChunks": 1,
+      "latest": null,
+      "layers": [
+        {
+          "epoch": 2,
+          "goalReady": false,
+          "dirty": true,
+          "tiles": 7
+        }
+      ],
+      "errorBeforeCaptureUPMs": 4562.700000047684,
+      "assignmentAfterLastMOVEms": 45.0
+    },
+    "secondDOWNGuard": {
+      "gesture": 2,
+      "beforeInput": {
+        "chunks": 2,
+        "latestSerial": 1,
+        "epochs": [
+          2
+        ],
+        "locked": false,
+        "paper": true,
+        "wcAsyncError": "Error: Buffer residency unavailable",
+        "activeLayer": "qa-local",
+        "pointerActive": false,
+        "stroke": false,
+        "tool": "watercolor"
+      },
+      "downAccepted": {
+        "stroke": false,
+        "epochs": [
+          2
+        ],
+        "locked": false,
+        "wcAsyncError": "Error: Buffer residency unavailable",
+        "pointerActive": true
+      }
+    },
+    "GLQualification": "GL0 and goalReady do NOT certify successful material completion when _wcAsyncError latched.",
+    "notProven": "User169313ms not reproduced. ExistingUSER CustomTab readonlyevaluation timedout5s, never activated/navigated/closed. No causal169s attribution.",
+    "errorMeaning": "BufferResidency.touch throws when buffer absent from entries Map; not evidence of budget exhaustion.",
+    "observer": "Temporary _wcAsyncError descriptor preservesstoredvalue, capturesactualError.stack plusassignmentstack; originaldescriptor restored beforeenginecleanup; observererrors0.",
+    "phase": "Error assigned asynchronously via WatercolorCanonicalFIFO whilepointerheld; lastMOVE65 45ms earlier, not claimed synchronouspointerhandlerthrow."
+  },
+  "cleanup": "Own measured/failedcontexts andnoGLbootstrap tabsclosed; own15484targets0, forward19336/reverse15484removed. USERCustomTab untouched. Existingservices/protected17fixtures retained. CacheTTL21:07.",
+  "result": "FAIL / blocker before accumulation10waves; no optimization applied"
+}
