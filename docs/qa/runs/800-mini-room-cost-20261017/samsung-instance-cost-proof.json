@@ -1,0 +1,2028 @@
+{
+  "issue": 800,
+  "device": "Samsung SM-T970 / Adreno650 / Chrome155",
+  "runtimeSource": "53ba23ee-runtime52d99001",
+  "runtimeHashes": {
+    "apps/web/src/engine/index.ts": "63857f5546b3371906039e41b2a28b7c2396cc604da7f842323d1eb48bc16152",
+    "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "a165e80276011246de4736ef97b8dba870b6ce3a7416aeae8820cf1b3f6c5a90",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "bfefef037bbe8d57ff0758451e65bd66dcb5c87ab71106e07077b8db0e1a39a8",
+    "apps/web/src/engine/src/watercolor/puddle/PuddleRoomController.ts": "340d882409817089cbf69ad516469b7cc17aae2c6b174b0cb7b3840d13522565",
+    "apps/web/src/engine/src/watercolor/WatercolorCanonicalFIFO.ts": "8a87af4e201588e7a4a1a48cb1a5db3095feda16b0bc977e0191f760173f219f"
+  },
+  "sourceStable": true,
+  "miniBundleSHA": "2fed32ad961d8dd78db4f7f54a82663a016e2ec93b0f07e72b0abcd68be542af",
+  "miniHTMLSHA": "59182da44dc35b4c61d6e60feb5cd78794d6cc3569f3c73b9a31eced3fe269d3",
+  "miniBundleStable": true,
+  "qualification": [
+    "Real Samsung trusted pen; fresh owned engine per case. Single observations, no randomized order/repeats; timings include instrumentation overhead.",
+    "Mini is actual deployed v70 morph front8-detail-flow-v4 controller. Other cases are isolated actual M70 engine instances, NOT Room UI/network/socket flow.",
+    "A2 uses independent1536 non-overlap diagnostic geometry on both flags configurations; not an approved equivalent material renderer.",
+    "Flags true/false control asyncFinish,materialPresentation,joinedTouch together at construction. False matches actual Room M70 options. No live instance flag mutations.",
+    "Pointer geometry/settings command hashes match within1024/local and fullA2 pairs; generated journals/raw material are NOT asserted byte-identical.",
+    "Inclusive timing scopes overlap and must not be summed. readPixels logicalBytes is cumulative transfer volume, not RAM/VRAM peak.",
+    "Observer adds no GL reads/draws/fences/queries; first10 existing read call stacks captured. No forced finish/Dry/oracle.",
+    "First engine1024true attempt rejected for React bootstrap error; valid rerun intercepted only own Document to minimal HTML, no React. Actual Mini first arm was valid and retained."
+  ],
+  "cases": [
+    {
+      "id": "mini1024",
+      "size": [
+        1024,
+        1024
+      ],
+      "constructorFlags": "actualMini",
+      "inputSHA": "0779bf5c5a55f8c3adac1becb75a9f4c81fcdc8e17e8fb6f16480417ff7b363b",
+      "dispatchWallMs": 5775,
+      "pass": true,
+      "contextClosed": true,
+      "before": {
+        "flags": {
+          "asyncFinish": false,
+          "materialPresentation": false,
+          "joinedTouch": false,
+          "model": "front8-detail-flow-v4",
+          "bandBatch": true,
+          "blot": 0.45,
+          "lift": 4,
+          "minimum": 1024,
+          "continuationFence": false,
+          "dryFenceBatch": 8
+        },
+        "canvas": [
+          1024,
+          1024
+        ],
+        "visibility": "visible",
+        "hidden": false,
+        "error": "",
+        "gl": 0,
+        "miniVersion": "mini-M70-morph",
+        "opts": {
+          "deskColor": [
+            0.086,
+            0.086,
+            0.102
+          ],
+          "pencilType": "normal:95:34:PB15:round",
+          "size": 320,
+          "paperScale": 1,
+          "graphiteColor": [
+            0.14901960784313725,
+            0.5333333333333333,
+            0.8274509803921568
+          ],
+          "tool": "watercolor",
+          "opacity": 1
+        },
+        "preset": "normal:95:34:PB15:round",
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "UISettings": {
+          "paint": "PB15",
+          "size": "320",
+          "water": "95",
+          "pigment": "34",
+          "color": "#2688d3"
+        }
+      },
+      "after": {
+        "gl": 0,
+        "lost": false,
+        "flags": {
+          "asyncFinish": false,
+          "materialPresentation": false,
+          "joinedTouch": false,
+          "model": "front8-detail-flow-v4",
+          "bandBatch": true,
+          "blot": 0.45,
+          "lift": 4,
+          "minimum": 1024,
+          "continuationFence": false,
+          "dryFenceBatch": 8
+        },
+        "chunks": 1,
+        "UI": {
+          "phase": "ready",
+          "message": "Цель готова за 790 мс.",
+          "pending": null,
+          "latest": {
+            "id": 1,
+            "epoch": 1,
+            "version": "mini-M70-morph",
+            "pointerUpAt": 10466.599999904633,
+            "goalReadyAt": 11256.099999904633,
+            "latencyMs": 789.5,
+            "confirmationFrames": 2
+          },
+          "results": [
+            {
+              "id": 1,
+              "epoch": 1,
+              "version": "mini-M70-morph",
+              "pointerUpAt": 10466.599999904633,
+              "goalReadyAt": 11256.099999904633,
+              "latencyMs": 789.5,
+              "confirmationFrames": 2
+            }
+          ],
+          "controller": {
+            "epoch": 1,
+            "drawing": false,
+            "goalReady": true,
+            "calculating": false,
+            "targetDone": true,
+            "animationProgress": 0.09917376272630862
+          },
+          "qualification": "trusted pointerup capture → controller goalReady + target.done, confirmed on two RAF; includes handler/browser wait, excludes waiting for animation.done; no GPU reads or forced finish"
+        }
+      },
+      "drawingMs": 5693.799999952316,
+      "upToReadyMs": 789.2000000476837,
+      "downToReadyMs": 6483.0,
+      "stats": {
+        "drawing:_onStart": {
+          "count": 1,
+          "sumMs": 40.69999980926514,
+          "maxMs": 40.69999980926514,
+          "byParent": {
+            "outside": 1
+          }
+        },
+        "drawing:_paintRibbonDabs": {
+          "count": 98,
+          "sumMs": 278.69999837875366,
+          "maxMs": 30.199999809265137,
+          "byParent": {
+            "_onStart": 1,
+            "_onMove": 97
+          }
+        },
+        "drawing:drawArrays": {
+          "count": 1706,
+          "sumMs": 0,
+          "maxMs": 0,
+          "byParent": {
+            "_paintRibbonDabs": 1118,
+            "_onStart": 6,
+            "outside": 582
+          }
+        },
+        "drawing:_onMove": {
+          "count": 100,
+          "sumMs": 457.39999985694885,
+          "maxMs": 21.199999809265137,
+          "byParent": {
+            "outside": 100
+          }
+        },
+        "postUP:_onEnd": {
+          "count": 1,
+          "sumMs": 33.200000047683716,
+          "maxMs": 33.200000047683716,
+          "byParent": {
+            "outside": 1
+          }
+        },
+        "postUP:_paintRibbonDabs": {
+          "count": 1,
+          "sumMs": 17.5,
+          "maxMs": 17.5,
+          "byParent": {
+            "_onEnd": 1
+          }
+        },
+        "postUP:drawArrays": {
+          "count": 300,
+          "sumMs": 0,
+          "maxMs": 0,
+          "byParent": {
+            "_paintRibbonDabs": 50,
+            "_onEnd": 11,
+            "outside": 239
+          }
+        },
+        "postUP:readPixels": {
+          "count": 1,
+          "sumMs": 38.59999990463257,
+          "maxMs": 38.59999990463257,
+          "byParent": {
+            "outside": 1
+          },
+          "logicalBytes": 262144
+        }
+      },
+      "RAF": {
+        "count": 368,
+        "maxMs": 183.89999999999964,
+        "over50": 2
+      },
+      "events": [
+        {
+          "type": "pointerdown",
+          "at": 4773.299999952316,
+          "trusted": true,
+          "pointerType": "pen"
+        },
+        {
+          "type": "pointerup",
+          "at": 10467.099999904633,
+          "trusted": true,
+          "pointerType": "pen"
+        }
+      ],
+      "finalState": {
+        "ready": true,
+        "error": "",
+        "fifo": 0,
+        "owners": 0,
+        "stroke": false,
+        "epochs": [],
+        "mini": {
+          "epoch": 1,
+          "goalReady": true,
+          "calculating": false,
+          "drawing": false,
+          "targetDone": true
+        }
+      },
+      "firstExistingReadCallChains": [
+        {
+          "phase": "postUP",
+          "parent": "outside",
+          "width": 256,
+          "height": 256,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "T.readPixels",
+            "Object.prepare",
+            "Object.resetFromScratch",
+            "se"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "engine1024-true",
+      "size": [
+        1024,
+        1024
+      ],
+      "constructorFlags": true,
+      "inputSHA": "0779bf5c5a55f8c3adac1becb75a9f4c81fcdc8e17e8fb6f16480417ff7b363b",
+      "dispatchWallMs": 5872,
+      "pass": true,
+      "contextClosed": true,
+      "before": {
+        "flags": {
+          "asyncFinish": true,
+          "materialPresentation": true,
+          "joinedTouch": true,
+          "model": "m70-r2-v1",
+          "bandBatch": true,
+          "blot": 0.45,
+          "lift": 4,
+          "minimum": 1024,
+          "continuationFence": false,
+          "dryFenceBatch": 0
+        },
+        "canvas": [
+          1694,
+          2362
+        ],
+        "visibility": "visible",
+        "hidden": false,
+        "error": "",
+        "gl": 0,
+        "opts": {
+          "deskColor": [
+            0.086,
+            0.086,
+            0.102
+          ],
+          "pencilType": "normal:95:34:PB15:round",
+          "size": 320,
+          "paperScale": 1,
+          "graphiteColor": [
+            0.14901960784313725,
+            0.5333333333333333,
+            0.8274509803921568
+          ],
+          "tool": "watercolor",
+          "opacity": 1
+        },
+        "preset": "normal:95:34:PB15:round",
+        "UISettings": null
+      },
+      "after": {
+        "gl": 0,
+        "lost": false,
+        "flags": {
+          "asyncFinish": true,
+          "materialPresentation": true,
+          "joinedTouch": true,
+          "model": "m70-r2-v1",
+          "bandBatch": true,
+          "blot": 0.45,
+          "lift": 4,
+          "minimum": 1024,
+          "continuationFence": false,
+          "dryFenceBatch": 0
+        },
+        "chunks": 1
+      },
+      "drawingMs": 5775.700000047684,
+      "upToReadyMs": 667,
+      "downToReadyMs": 6442.700000047684,
+      "stats": {
+        "drawing:_onStart": {
+          "count": 1,
+          "sumMs": 59.60000014305115,
+          "maxMs": 59.60000014305115,
+          "byParent": {
+            "outside": 1
+          }
+        },
+        "drawing:_paintRibbonDabs": {
+          "count": 97,
+          "sumMs": 437.69999980926514,
+          "maxMs": 40.10000014305115,
+          "byParent": {
+            "_onStart": 1,
+            "_onMove": 96
+          }
+        },
+        "drawing:_showMaterialPresentation": {
+          "count": 112,
+          "sumMs": 320.2000002861023,
+          "maxMs": 29,
+          "byParent": {
+            "_paintRibbonDabs": 112
+          }
+        },
+        "drawing:drawArrays": {
+          "count": 3315,
+          "sumMs": 0,
+          "maxMs": 0,
+          "byParent": {
+            "_showMaterialPresentation": 1230,
+            "_onStart": 3,
+            "outside": 964,
+            "_advanceAsyncCanonical": 1118
+          }
+        },
+        "drawing:_advanceAsyncCanonical": {
+          "count": 112,
+          "sumMs": 207.19999980926514,
+          "maxMs": 3.799999952316284,
+          "byParent": {
+            "outside": 112
+          }
+        },
+        "drawing:_syncContinuationGpu": {
+          "count": 782,
+          "sumMs": 66.79999947547913,
+          "maxMs": 0.8000001907348633,
+          "byParent": {
+            "_advanceAsyncCanonical": 782
+          }
+        },
+        "drawing:finish": {
+          "count": 782,
+          "sumMs": 60.29999923706055,
+          "maxMs": 0.8000001907348633,
+          "byParent": {
+            "_syncContinuationGpu": 782
+          }
+        },
+        "drawing:_onMove": {
+          "count": 100,
+          "sumMs": 578.0000014305115,
+          "maxMs": 17.700000047683716,
+          "byParent": {
+            "outside": 100
+          }
+        },
+        "postUP:_onEnd": {
+          "count": 1,
+          "sumMs": 46.700000047683716,
+          "maxMs": 46.700000047683716,
+          "byParent": {
+            "outside": 1
+          }
+        },
+        "postUP:_paintRibbonDabs": {
+          "count": 1,
+          "sumMs": 31,
+          "maxMs": 31,
+          "byParent": {
+            "_onEnd": 1
+          }
+        },
+        "postUP:_showMaterialPresentation": {
+          "count": 5,
+          "sumMs": 24.90000009536743,
+          "maxMs": 5.8999998569488525,
+          "byParent": {
+            "_paintRibbonDabs": 5
+          }
+        },
+        "postUP:drawArrays": {
+          "count": 451,
+          "sumMs": 0,
+          "maxMs": 0,
+          "byParent": {
+            "_showMaterialPresentation": 55,
+            "_onEnd": 3,
+            "outside": 341,
+            "_advanceAsyncCanonical": 52
+          }
+        },
+        "postUP:_advanceAsyncCanonical": {
+          "count": 6,
+          "sumMs": 7.6000001430511475,
+          "maxMs": 1.7000000476837158,
+          "byParent": {
+            "outside": 6
+          }
+        },
+        "postUP:_syncContinuationGpu": {
+          "count": 36,
+          "sumMs": 2.1000001430511475,
+          "maxMs": 0.7999999523162842,
+          "byParent": {
+            "_advanceAsyncCanonical": 36
+          }
+        },
+        "postUP:finish": {
+          "count": 36,
+          "sumMs": 1.9000000953674316,
+          "maxMs": 0.7999999523162842,
+          "byParent": {
+            "_syncContinuationGpu": 36
+          }
+        },
+        "postUP:readPixels": {
+          "count": 1,
+          "sumMs": 24.600000143051147,
+          "maxMs": 24.600000143051147,
+          "byParent": {
+            "outside": 1
+          },
+          "logicalBytes": 262144
+        }
+      },
+      "RAF": {
+        "count": 375,
+        "maxMs": 83.60000000000218,
+        "over50": 2
+      },
+      "events": [
+        {
+          "type": "pointerdown",
+          "at": 14078.599999904633,
+          "trusted": true,
+          "pointerType": "pen"
+        },
+        {
+          "type": "pointerup",
+          "at": 19854.299999952316,
+          "trusted": true,
+          "pointerType": "pen"
+        }
+      ],
+      "finalState": {
+        "ready": true,
+        "error": "",
+        "fifo": 0,
+        "owners": 0,
+        "stroke": false,
+        "epochs": [
+          {
+            "epoch": 2,
+            "goalReady": true,
+            "dirty": false
+          }
+        ],
+        "mini": null
+      },
+      "firstExistingReadCallChains": [
+        {
+          "phase": "postUP",
+          "parent": "outside",
+          "width": 256,
+          "height": 256,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "AccumulationBuffer.readPixels",
+            "Object.prepare",
+            "Object.resetFromScratch",
+            "PuddleRoomController.start",
+            "frame"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "engine1024-false",
+      "size": [
+        1024,
+        1024
+      ],
+      "constructorFlags": false,
+      "inputSHA": "0779bf5c5a55f8c3adac1becb75a9f4c81fcdc8e17e8fb6f16480417ff7b363b",
+      "dispatchWallMs": 5730,
+      "pass": true,
+      "contextClosed": true,
+      "before": {
+        "flags": {
+          "asyncFinish": false,
+          "materialPresentation": false,
+          "joinedTouch": false,
+          "model": "m70-r2-v1",
+          "bandBatch": true,
+          "blot": 0.45,
+          "lift": 4,
+          "minimum": 1024,
+          "continuationFence": false,
+          "dryFenceBatch": 0
+        },
+        "canvas": [
+          1694,
+          2362
+        ],
+        "visibility": "visible",
+        "hidden": false,
+        "error": "",
+        "gl": 0,
+        "opts": {
+          "deskColor": [
+            0.086,
+            0.086,
+            0.102
+          ],
+          "pencilType": "normal:95:34:PB15:round",
+          "size": 320,
+          "paperScale": 1,
+          "graphiteColor": [
+            0.14901960784313725,
+            0.5333333333333333,
+            0.8274509803921568
+          ],
+          "tool": "watercolor",
+          "opacity": 1
+        },
+        "preset": "normal:95:34:PB15:round",
+        "UISettings": null
+      },
+      "after": {
+        "gl": 0,
+        "lost": false,
+        "flags": {
+          "asyncFinish": false,
+          "materialPresentation": false,
+          "joinedTouch": false,
+          "model": "m70-r2-v1",
+          "bandBatch": true,
+          "blot": 0.45,
+          "lift": 4,
+          "minimum": 1024,
+          "continuationFence": false,
+          "dryFenceBatch": 0
+        },
+        "chunks": 1
+      },
+      "drawingMs": 5661.399999856949,
+      "upToReadyMs": 589,
+      "downToReadyMs": 6250.399999856949,
+      "stats": {
+        "drawing:_onStart": {
+          "count": 1,
+          "sumMs": 34.299999952316284,
+          "maxMs": 34.299999952316284,
+          "byParent": {
+            "outside": 1
+          }
+        },
+        "drawing:_paintRibbonDabs": {
+          "count": 97,
+          "sumMs": 297.69999861717224,
+          "maxMs": 24.59999990463257,
+          "byParent": {
+            "_onStart": 1,
+            "_onMove": 96
+          }
+        },
+        "drawing:drawArrays": {
+          "count": 1701,
+          "sumMs": 0,
+          "maxMs": 0,
+          "byParent": {
+            "_paintRibbonDabs": 1118,
+            "_onStart": 7,
+            "outside": 576
+          }
+        },
+        "drawing:_onMove": {
+          "count": 100,
+          "sumMs": 482.5000014305115,
+          "maxMs": 27.800000190734863,
+          "byParent": {
+            "outside": 100
+          }
+        },
+        "postUP:_onEnd": {
+          "count": 1,
+          "sumMs": 18,
+          "maxMs": 18,
+          "byParent": {
+            "outside": 1
+          }
+        },
+        "postUP:_paintRibbonDabs": {
+          "count": 1,
+          "sumMs": 7.8999998569488525,
+          "maxMs": 7.8999998569488525,
+          "byParent": {
+            "_onEnd": 1
+          }
+        },
+        "postUP:drawArrays": {
+          "count": 375,
+          "sumMs": 0,
+          "maxMs": 0,
+          "byParent": {
+            "_paintRibbonDabs": 50,
+            "_onEnd": 8,
+            "outside": 317
+          }
+        },
+        "postUP:readPixels": {
+          "count": 1,
+          "sumMs": 14.599999904632568,
+          "maxMs": 14.599999904632568,
+          "byParent": {
+            "outside": 1
+          },
+          "logicalBytes": 262144
+        }
+      },
+      "RAF": {
+        "count": 367,
+        "maxMs": 66.90000000000146,
+        "over50": 1
+      },
+      "events": [
+        {
+          "type": "pointerdown",
+          "at": 13152,
+          "trusted": true,
+          "pointerType": "pen"
+        },
+        {
+          "type": "pointerup",
+          "at": 18813.39999985695,
+          "trusted": true,
+          "pointerType": "pen"
+        }
+      ],
+      "finalState": {
+        "ready": true,
+        "error": "",
+        "fifo": 0,
+        "owners": 0,
+        "stroke": false,
+        "epochs": [
+          {
+            "epoch": 2,
+            "goalReady": true,
+            "dirty": false
+          }
+        ],
+        "mini": null
+      },
+      "firstExistingReadCallChains": [
+        {
+          "phase": "postUP",
+          "parent": "outside",
+          "width": 256,
+          "height": 256,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "AccumulationBuffer.readPixels",
+            "Object.prepare",
+            "Object.resetFromScratch",
+            "PuddleRoomController.start",
+            "frame"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "engineA2-true",
+      "size": [
+        3508,
+        2480
+      ],
+      "constructorFlags": true,
+      "inputSHA": "616f039f52c93d85a318913683cfc70f86419daf7b36c6656649dbd35902ceb0",
+      "dispatchWallMs": 13776,
+      "pass": true,
+      "contextClosed": true,
+      "before": {
+        "flags": {
+          "asyncFinish": true,
+          "materialPresentation": true,
+          "joinedTouch": true,
+          "model": "m70-r2-v1",
+          "bandBatch": true,
+          "blot": 0.45,
+          "lift": 4,
+          "minimum": 1024,
+          "continuationFence": false,
+          "dryFenceBatch": 0
+        },
+        "canvas": [
+          1694,
+          2362
+        ],
+        "visibility": "visible",
+        "hidden": false,
+        "error": "",
+        "gl": 0,
+        "opts": {
+          "deskColor": [
+            0.086,
+            0.086,
+            0.102
+          ],
+          "pencilType": "normal:95:34:PB15:round",
+          "size": 320,
+          "paperScale": 1,
+          "graphiteColor": [
+            0.14901960784313725,
+            0.5333333333333333,
+            0.8274509803921568
+          ],
+          "tool": "watercolor",
+          "opacity": 1
+        },
+        "preset": "normal:95:34:PB15:round",
+        "UISettings": null
+      },
+      "after": {
+        "gl": 0,
+        "lost": false,
+        "flags": {
+          "asyncFinish": true,
+          "materialPresentation": true,
+          "joinedTouch": true,
+          "model": "m70-r2-v1",
+          "bandBatch": true,
+          "blot": 0.45,
+          "lift": 4,
+          "minimum": 1024,
+          "continuationFence": false,
+          "dryFenceBatch": 0
+        },
+        "chunks": 2
+      },
+      "drawingMs": 13689.5,
+      "upToReadyMs": 17907.89999985695,
+      "downToReadyMs": 31597.39999985695,
+      "stats": {
+        "drawing:_onStart": {
+          "count": 1,
+          "sumMs": 56.299999952316284,
+          "maxMs": 56.299999952316284,
+          "byParent": {
+            "outside": 1
+          }
+        },
+        "drawing:_paintRibbonDabs": {
+          "count": 100,
+          "sumMs": 836.799998998642,
+          "maxMs": 32.299999952316284,
+          "byParent": {
+            "_onStart": 1,
+            "_onMove": 99
+          }
+        },
+        "drawing:_showMaterialPresentation": {
+          "count": 263,
+          "sumMs": 529.9999990463257,
+          "maxMs": 25.600000143051147,
+          "byParent": {
+            "_paintRibbonDabs": 263
+          }
+        },
+        "drawing:drawArrays": {
+          "count": 7403,
+          "sumMs": 0,
+          "maxMs": 0,
+          "byParent": {
+            "_showMaterialPresentation": 2891,
+            "_onStart": 3,
+            "outside": 1687,
+            "_advanceAsyncCanonical": 2822
+          }
+        },
+        "drawing:_advanceAsyncCanonical": {
+          "count": 207,
+          "sumMs": 2875.200001478195,
+          "maxMs": 132.29999995231628,
+          "byParent": {
+            "outside": 207
+          }
+        },
+        "drawing:_syncContinuationGpu": {
+          "count": 1846,
+          "sumMs": 109.30000042915344,
+          "maxMs": 8.5,
+          "byParent": {
+            "_advanceAsyncCanonical": 1846
+          }
+        },
+        "drawing:finish": {
+          "count": 1846,
+          "sumMs": 95.90000343322754,
+          "maxMs": 8.299999952316284,
+          "byParent": {
+            "_syncContinuationGpu": 1846
+          }
+        },
+        "drawing:_onMove": {
+          "count": 100,
+          "sumMs": 925.9999995231628,
+          "maxMs": 26,
+          "byParent": {
+            "outside": 100
+          }
+        },
+        "drawing:readPixels": {
+          "count": 350,
+          "sumMs": 4061.900002479553,
+          "maxMs": 68.79999995231628,
+          "byParent": {
+            "outside": 229,
+            "_advanceAsyncCanonical": 121
+          },
+          "logicalBytes": 1093353472
+        },
+        "postUP:_onEnd": {
+          "count": 1,
+          "sumMs": 38.200000047683716,
+          "maxMs": 38.200000047683716,
+          "byParent": {
+            "outside": 1
+          }
+        },
+        "postUP:_paintRibbonDabs": {
+          "count": 1,
+          "sumMs": 19.200000047683716,
+          "maxMs": 19.200000047683716,
+          "byParent": {
+            "_onEnd": 1
+          }
+        },
+        "postUP:_showMaterialPresentation": {
+          "count": 6,
+          "sumMs": 13.999999523162842,
+          "maxMs": 3.299999952316284,
+          "byParent": {
+            "_paintRibbonDabs": 6
+          }
+        },
+        "postUP:drawArrays": {
+          "count": 5205,
+          "sumMs": 0,
+          "maxMs": 0,
+          "byParent": {
+            "_showMaterialPresentation": 66,
+            "_onEnd": 8,
+            "outside": 3184,
+            "_advanceAsyncCanonical": 1947
+          }
+        },
+        "postUP:_advanceAsyncCanonical": {
+          "count": 228,
+          "sumMs": 5196.5,
+          "maxMs": 168.90000009536743,
+          "byParent": {
+            "outside": 228
+          }
+        },
+        "postUP:_syncContinuationGpu": {
+          "count": 1274,
+          "sumMs": 98.29999685287476,
+          "maxMs": 0.7000000476837158,
+          "byParent": {
+            "_advanceAsyncCanonical": 1274
+          }
+        },
+        "postUP:finish": {
+          "count": 1274,
+          "sumMs": 83.79999804496765,
+          "maxMs": 0.7000000476837158,
+          "byParent": {
+            "_syncContinuationGpu": 1274
+          }
+        },
+        "postUP:readPixels": {
+          "count": 600,
+          "sumMs": 7201.999997615814,
+          "maxMs": 183.69999980926514,
+          "byParent": {
+            "_advanceAsyncCanonical": 236,
+            "outside": 364
+          },
+          "logicalBytes": 2126494368
+        }
+      },
+      "RAF": {
+        "count": 501,
+        "maxMs": 1270.5999999999985,
+        "over50": 180
+      },
+      "events": [
+        {
+          "type": "pointerdown",
+          "at": 13240.900000095367,
+          "trusted": true,
+          "pointerType": "pen"
+        },
+        {
+          "type": "pointerup",
+          "at": 26930.400000095367,
+          "trusted": true,
+          "pointerType": "pen"
+        }
+      ],
+      "finalState": {
+        "ready": true,
+        "error": "",
+        "fifo": 0,
+        "owners": 0,
+        "stroke": false,
+        "epochs": [
+          {
+            "epoch": 2,
+            "goalReady": true,
+            "dirty": false
+          }
+        ],
+        "mini": null
+      },
+      "firstExistingReadCallChains": [
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 1024,
+          "height": 1024,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "Object.make [as makeBuffer]",
+            "PagedPuddleRoomController.makeBuffer"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 1024,
+          "height": 1024,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 960,
+          "height": 384,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 960,
+          "height": 384,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 960,
+          "height": 384,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 128,
+          "height": 128,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 128,
+          "height": 128,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 128,
+          "height": 128,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 960,
+          "height": 640,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 960,
+          "height": 640,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "Object.make [as makeBuffer]",
+            "PagedPuddleRoomController.makeBuffer"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "engineA2-false",
+      "size": [
+        3508,
+        2480
+      ],
+      "constructorFlags": false,
+      "inputSHA": "616f039f52c93d85a318913683cfc70f86419daf7b36c6656649dbd35902ceb0",
+      "dispatchWallMs": 11184,
+      "pass": true,
+      "contextClosed": true,
+      "before": {
+        "flags": {
+          "asyncFinish": false,
+          "materialPresentation": false,
+          "joinedTouch": false,
+          "model": "m70-r2-v1",
+          "bandBatch": true,
+          "blot": 0.45,
+          "lift": 4,
+          "minimum": 1024,
+          "continuationFence": false,
+          "dryFenceBatch": 0
+        },
+        "canvas": [
+          1694,
+          2362
+        ],
+        "visibility": "visible",
+        "hidden": false,
+        "error": "",
+        "gl": 0,
+        "opts": {
+          "deskColor": [
+            0.086,
+            0.086,
+            0.102
+          ],
+          "pencilType": "normal:95:34:PB15:round",
+          "size": 320,
+          "paperScale": 1,
+          "graphiteColor": [
+            0.14901960784313725,
+            0.5333333333333333,
+            0.8274509803921568
+          ],
+          "tool": "watercolor",
+          "opacity": 1
+        },
+        "preset": "normal:95:34:PB15:round",
+        "UISettings": null
+      },
+      "after": {
+        "gl": 0,
+        "lost": false,
+        "flags": {
+          "asyncFinish": false,
+          "materialPresentation": false,
+          "joinedTouch": false,
+          "model": "m70-r2-v1",
+          "bandBatch": true,
+          "blot": 0.45,
+          "lift": 4,
+          "minimum": 1024,
+          "continuationFence": false,
+          "dryFenceBatch": 0
+        },
+        "chunks": 2
+      },
+      "drawingMs": 11098.399999856949,
+      "upToReadyMs": 8632.5,
+      "downToReadyMs": 19730.89999985695,
+      "stats": {
+        "drawing:_onStart": {
+          "count": 1,
+          "sumMs": 92.10000014305115,
+          "maxMs": 92.10000014305115,
+          "byParent": {
+            "outside": 1
+          }
+        },
+        "drawing:_paintRibbonDabs": {
+          "count": 100,
+          "sumMs": 1484.800000667572,
+          "maxMs": 288.80000019073486,
+          "byParent": {
+            "_onStart": 1,
+            "_onMove": 99
+          }
+        },
+        "drawing:drawArrays": {
+          "count": 6383,
+          "sumMs": 0,
+          "maxMs": 0,
+          "byParent": {
+            "_paintRibbonDabs": 4682,
+            "_onStart": 14,
+            "outside": 1675,
+            "_onMove": 12
+          }
+        },
+        "drawing:_onMove": {
+          "count": 100,
+          "sumMs": 1765.300000667572,
+          "maxMs": 289.5,
+          "byParent": {
+            "outside": 100
+          }
+        },
+        "drawing:readPixels": {
+          "count": 232,
+          "sumMs": 2775.599999666214,
+          "maxMs": 76.59999990463257,
+          "byParent": {
+            "outside": 172,
+            "_paintRibbonDabs": 58,
+            "_onMove": 2
+          },
+          "logicalBytes": 646578176
+        },
+        "postUP:_onEnd": {
+          "count": 1,
+          "sumMs": 36,
+          "maxMs": 36,
+          "byParent": {
+            "outside": 1
+          }
+        },
+        "postUP:_paintRibbonDabs": {
+          "count": 1,
+          "sumMs": 17.700000047683716,
+          "maxMs": 17.700000047683716,
+          "byParent": {
+            "_onEnd": 1
+          }
+        },
+        "postUP:drawArrays": {
+          "count": 1955,
+          "sumMs": 0,
+          "maxMs": 0,
+          "byParent": {
+            "_paintRibbonDabs": 87,
+            "_onEnd": 19,
+            "outside": 1849
+          }
+        },
+        "postUP:readPixels": {
+          "count": 328,
+          "sumMs": 3398.399999141693,
+          "maxMs": 169.09999990463257,
+          "byParent": {
+            "outside": 328
+          },
+          "logicalBytes": 973257376
+        }
+      },
+      "RAF": {
+        "count": 302,
+        "maxMs": 1270.5999999999985,
+        "over50": 87
+      },
+      "events": [
+        {
+          "type": "pointerdown",
+          "at": 14049.299999952316,
+          "trusted": true,
+          "pointerType": "pen"
+        },
+        {
+          "type": "pointerup",
+          "at": 25147.699999809265,
+          "trusted": true,
+          "pointerType": "pen"
+        }
+      ],
+      "finalState": {
+        "ready": true,
+        "error": "",
+        "fifo": 0,
+        "owners": 0,
+        "stroke": false,
+        "epochs": [
+          {
+            "epoch": 2,
+            "goalReady": true,
+            "dirty": false
+          }
+        ],
+        "mini": null
+      },
+      "firstExistingReadCallChains": [
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 1024,
+          "height": 1024,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 1024,
+          "height": 1024,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 960,
+          "height": 384,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 960,
+          "height": 384,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 960,
+          "height": 384,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 128,
+          "height": 128,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 128,
+          "height": 128,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 128,
+          "height": 128,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 960,
+          "height": 640,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "make",
+            "RibbonScratchPool.discardIdleContents [as bufferFactory]"
+          ]
+        },
+        {
+          "phase": "drawing",
+          "parent": "outside",
+          "width": 960,
+          "height": 640,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "http://127.0.0.1:15485/src/engine/src/buffers/AccumulationBuffer.ts:125:7",
+            "preserveResidencyPixelStore",
+            "preserveResidencyReadback",
+            "AccumulationBuffer._residencyEvict",
+            "BufferResidency.reserve",
+            "BufferResidency.register",
+            "new AccumulationBuffer",
+            "Object.make [as makeBuffer]",
+            "PagedPuddleRoomController.makeBuffer"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "engineA2-local-true",
+      "size": [
+        3508,
+        2480
+      ],
+      "constructorFlags": true,
+      "inputSHA": "0779bf5c5a55f8c3adac1becb75a9f4c81fcdc8e17e8fb6f16480417ff7b363b",
+      "dispatchWallMs": 6163,
+      "pass": true,
+      "contextClosed": true,
+      "before": {
+        "flags": {
+          "asyncFinish": true,
+          "materialPresentation": true,
+          "joinedTouch": true,
+          "model": "m70-r2-v1",
+          "bandBatch": true,
+          "blot": 0.45,
+          "lift": 4,
+          "minimum": 1024,
+          "continuationFence": false,
+          "dryFenceBatch": 0
+        },
+        "canvas": [
+          1694,
+          2362
+        ],
+        "visibility": "visible",
+        "hidden": false,
+        "error": "",
+        "gl": 0,
+        "opts": {
+          "deskColor": [
+            0.086,
+            0.086,
+            0.102
+          ],
+          "pencilType": "normal:95:34:PB15:round",
+          "size": 320,
+          "paperScale": 1,
+          "graphiteColor": [
+            0.14901960784313725,
+            0.5333333333333333,
+            0.8274509803921568
+          ],
+          "tool": "watercolor",
+          "opacity": 1
+        },
+        "preset": "normal:95:34:PB15:round",
+        "UISettings": null
+      },
+      "after": {
+        "gl": 0,
+        "lost": false,
+        "flags": {
+          "asyncFinish": true,
+          "materialPresentation": true,
+          "joinedTouch": true,
+          "model": "m70-r2-v1",
+          "bandBatch": true,
+          "blot": 0.45,
+          "lift": 4,
+          "minimum": 1024,
+          "continuationFence": false,
+          "dryFenceBatch": 0
+        },
+        "chunks": 1
+      },
+      "drawingMs": 6068.599999904633,
+      "upToReadyMs": 4100.299999952316,
+      "downToReadyMs": 10168.899999856949,
+      "stats": {
+        "drawing:_onStart": {
+          "count": 1,
+          "sumMs": 54.299999952316284,
+          "maxMs": 54.299999952316284,
+          "byParent": {
+            "outside": 1
+          }
+        },
+        "drawing:_paintRibbonDabs": {
+          "count": 97,
+          "sumMs": 422.3000020980835,
+          "maxMs": 34.200000047683716,
+          "byParent": {
+            "_onStart": 1,
+            "_onMove": 96
+          }
+        },
+        "drawing:_showMaterialPresentation": {
+          "count": 112,
+          "sumMs": 301.8999984264374,
+          "maxMs": 25.800000190734863,
+          "byParent": {
+            "_paintRibbonDabs": 112
+          }
+        },
+        "drawing:drawArrays": {
+          "count": 3332,
+          "sumMs": 0,
+          "maxMs": 0,
+          "byParent": {
+            "_showMaterialPresentation": 1230,
+            "_onStart": 3,
+            "outside": 981,
+            "_advanceAsyncCanonical": 1118
+          }
+        },
+        "drawing:_advanceAsyncCanonical": {
+          "count": 112,
+          "sumMs": 231.59999895095825,
+          "maxMs": 6.5,
+          "byParent": {
+            "outside": 112
+          }
+        },
+        "drawing:_syncContinuationGpu": {
+          "count": 782,
+          "sumMs": 84.00000143051147,
+          "maxMs": 2.4000000953674316,
+          "byParent": {
+            "_advanceAsyncCanonical": 782
+          }
+        },
+        "drawing:finish": {
+          "count": 782,
+          "sumMs": 74.00000023841858,
+          "maxMs": 2.3000001907348633,
+          "byParent": {
+            "_syncContinuationGpu": 782
+          }
+        },
+        "drawing:_onMove": {
+          "count": 100,
+          "sumMs": 552.9000010490417,
+          "maxMs": 35,
+          "byParent": {
+            "outside": 100
+          }
+        },
+        "postUP:_onEnd": {
+          "count": 1,
+          "sumMs": 39.700000047683716,
+          "maxMs": 39.700000047683716,
+          "byParent": {
+            "outside": 1
+          }
+        },
+        "postUP:_paintRibbonDabs": {
+          "count": 1,
+          "sumMs": 24.90000009536743,
+          "maxMs": 24.90000009536743,
+          "byParent": {
+            "_onEnd": 1
+          }
+        },
+        "postUP:_showMaterialPresentation": {
+          "count": 5,
+          "sumMs": 19.200000047683716,
+          "maxMs": 4.900000095367432,
+          "byParent": {
+            "_paintRibbonDabs": 5
+          }
+        },
+        "postUP:drawArrays": {
+          "count": 916,
+          "sumMs": 0,
+          "maxMs": 0,
+          "byParent": {
+            "_showMaterialPresentation": 55,
+            "_onEnd": 3,
+            "outside": 808,
+            "_advanceAsyncCanonical": 50
+          }
+        },
+        "postUP:_advanceAsyncCanonical": {
+          "count": 6,
+          "sumMs": 7.100000381469727,
+          "maxMs": 1.7000000476837158,
+          "byParent": {
+            "outside": 6
+          }
+        },
+        "postUP:_syncContinuationGpu": {
+          "count": 36,
+          "sumMs": 1.500000238418579,
+          "maxMs": 0.20000004768371582,
+          "byParent": {
+            "_advanceAsyncCanonical": 36
+          }
+        },
+        "postUP:finish": {
+          "count": 36,
+          "sumMs": 1.200000286102295,
+          "maxMs": 0.20000004768371582,
+          "byParent": {
+            "_syncContinuationGpu": 36
+          }
+        },
+        "postUP:readPixels": {
+          "count": 139,
+          "sumMs": 1623.6000008583069,
+          "maxMs": 134.80000019073486,
+          "byParent": {
+            "outside": 139
+          },
+          "logicalBytes": 266268832
+        }
+      },
+      "RAF": {
+        "count": 397,
+        "maxMs": 418,
+        "over50": 25
+      },
+      "events": [
+        {
+          "type": "pointerdown",
+          "at": 14052.700000047684,
+          "trusted": true,
+          "pointerType": "pen"
+        },
+        {
+          "type": "pointerup",
+          "at": 20121.299999952316,
+          "trusted": true,
+          "pointerType": "pen"
+        }
+      ],
+      "finalState": {
+        "ready": true,
+        "error": "",
+        "fifo": 0,
+        "owners": 0,
+        "stroke": false,
+        "epochs": [
+          {
+            "epoch": 2,
+            "goalReady": true,
+            "dirty": false
+          }
+        ],
+        "mini": null
+      },
+      "firstExistingReadCallChains": [
+        {
+          "phase": "postUP",
+          "parent": "outside",
+          "width": 1024,
+          "height": 1024,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "AccumulationBuffer.readPixels",
+            "capturePagedPuddleSourceSteps",
+            "capturePagedPuddleSourceSteps.next (<anonymous>)",
+            "capturePagedPuddleSource",
+            "solve",
+            "solve.next (<anonymous>)",
+            "Object.step",
+            "frame"
+          ]
+        },
+        {
+          "phase": "postUP",
+          "parent": "outside",
+          "width": 1024,
+          "height": 1024,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "AccumulationBuffer.readPixels",
+            "capturePagedPuddleSourceSteps",
+            "capturePagedPuddleSourceSteps.next (<anonymous>)",
+            "capturePagedPuddleSource",
+            "solve",
+            "solve.next (<anonymous>)",
+            "Object.step",
+            "frame"
+          ]
+        },
+        {
+          "phase": "postUP",
+          "parent": "outside",
+          "width": 1024,
+          "height": 1024,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "AccumulationBuffer.readPixels",
+            "capturePagedPuddleSourceSteps",
+            "capturePagedPuddleSourceSteps.next (<anonymous>)",
+            "capturePagedPuddleSource",
+            "solve",
+            "solve.next (<anonymous>)",
+            "Object.step",
+            "frame"
+          ]
+        },
+        {
+          "phase": "postUP",
+          "parent": "outside",
+          "width": 1024,
+          "height": 1024,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "AccumulationBuffer.readPixels",
+            "capturePagedPuddleSourceSteps",
+            "capturePagedPuddleSourceSteps.next (<anonymous>)",
+            "capturePagedPuddleSource",
+            "solve",
+            "solve.next (<anonymous>)",
+            "Object.step",
+            "frame"
+          ]
+        },
+        {
+          "phase": "postUP",
+          "parent": "outside",
+          "width": 1024,
+          "height": 1024,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "AccumulationBuffer.readPixels",
+            "capturePagedPuddleSourceSteps",
+            "capturePagedPuddleSourceSteps.next (<anonymous>)",
+            "capturePagedPuddleSource",
+            "solve",
+            "solve.next (<anonymous>)",
+            "Object.step",
+            "frame"
+          ]
+        },
+        {
+          "phase": "postUP",
+          "parent": "outside",
+          "width": 1024,
+          "height": 1024,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "AccumulationBuffer.readPixels",
+            "capturePagedPuddleSourceSteps",
+            "capturePagedPuddleSourceSteps.next (<anonymous>)",
+            "capturePagedPuddleSource",
+            "solve",
+            "solve.next (<anonymous>)",
+            "Object.step",
+            "frame"
+          ]
+        },
+        {
+          "phase": "postUP",
+          "parent": "outside",
+          "width": 256,
+          "height": 181,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "AccumulationBuffer.readPixels",
+            "Object.prepare",
+            "solve",
+            "solve.next (<anonymous>)",
+            "Object.step",
+            "frame"
+          ]
+        },
+        {
+          "phase": "postUP",
+          "parent": "outside",
+          "width": 512,
+          "height": 512,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "AccumulationBuffer.readPixels",
+            "solve",
+            "solve.next (<anonymous>)",
+            "Object.step",
+            "frame"
+          ]
+        },
+        {
+          "phase": "postUP",
+          "parent": "outside",
+          "width": 512,
+          "height": 512,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "AccumulationBuffer.readPixels",
+            "solve",
+            "solve.next (<anonymous>)",
+            "Object.step",
+            "frame"
+          ]
+        },
+        {
+          "phase": "postUP",
+          "parent": "outside",
+          "width": 512,
+          "height": 512,
+          "format": 6408,
+          "type": 5121,
+          "functions": [
+            "object.<computed> [as readPixels] (<anonymous>:17:116)",
+            "AccumulationBuffer.readPixels",
+            "solve",
+            "solve.next (<anonymous>)",
+            "Object.step",
+            "frame"
+          ]
+        }
+      ]
+    }
+  ],
+  "cleanup": {
+    "owner": "puddle_undo/#800",
+    "serial": "R52RB0JXVSY",
+    "forward": "19336 chrome_devtools_remote",
+    "reverse": [
+      "15483:5383",
+      "15485:5385"
+    ],
+    "ownBootstrapURLPrefix": "http://127.0.0.1:15485/robots.txt?qa800-bootstrap=owned-20261017",
+    "expires": "2026-10-17T23:07:51+03:00",
+    "state": "cleaned",
+    "ownMeasuredContextsClosed": 6,
+    "ownBootstrapClosed": true,
+    "remainingOwnTargets": 0,
+    "mapsRemaining": [],
+    "userTargetsUntouched": true
+  }
+}
