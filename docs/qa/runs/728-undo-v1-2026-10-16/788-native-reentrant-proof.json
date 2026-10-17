@@ -1,0 +1,508 @@
+{
+  "source": "8ccf41fc",
+  "result": "Native generation controls and subsequent input PASS; cold physical persistence PASS; cold inclusive-history/Undo boundary remains a separate OPEN candidate",
+  "scope": "Accepted pencil prefix10/20 native raster; public restoreRoomState+restoreLatestSnapshot overlap with exact gzip HTTP response fixtures; old response delayed after new generation; no forged socket ACK",
+  "identity": {
+    "paper": {
+      "w": 512,
+      "h": 512
+    },
+    "cache": false,
+    "hidden": false,
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)"
+  },
+  "prefix": {
+    "old": "2680c507494e23c6f651ed91e699567d21350648f23fe39bac8f37283e22c3d0",
+    "new": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2",
+    "operations": [
+      {
+        "id": "7pXbvc39IH",
+        "serverSeq": 1,
+        "pending": false
+      },
+      {
+        "id": "Zy1ngxCSm6",
+        "serverSeq": 2,
+        "pending": false
+      },
+      {
+        "id": "pwO0OkgRtU",
+        "serverSeq": 3,
+        "pending": false
+      },
+      {
+        "id": "_Qm5gUk1QX",
+        "serverSeq": 4,
+        "pending": false
+      },
+      {
+        "id": "oSjIKy9DmP",
+        "serverSeq": 5,
+        "pending": false
+      },
+      {
+        "id": "MdTEq6WExZ",
+        "serverSeq": 6,
+        "pending": false
+      },
+      {
+        "id": "iuE-jVBE-I",
+        "serverSeq": 7,
+        "pending": false
+      },
+      {
+        "id": "HITWztuAX_",
+        "serverSeq": 8,
+        "pending": false
+      },
+      {
+        "id": "yFf93yO8JC",
+        "serverSeq": 9,
+        "pending": false
+      },
+      {
+        "id": "reU0FXe1vJ",
+        "serverSeq": 10,
+        "pending": false
+      },
+      {
+        "id": "tint1Btski",
+        "serverSeq": 11,
+        "pending": false
+      },
+      {
+        "id": "gH_UmOoxu3",
+        "serverSeq": 12,
+        "pending": false
+      },
+      {
+        "id": "CIFIlbt6MK",
+        "serverSeq": 13,
+        "pending": false
+      },
+      {
+        "id": "W7bwHWwRlN",
+        "serverSeq": 14,
+        "pending": false
+      },
+      {
+        "id": "4mWRAc2Dh7",
+        "serverSeq": 15,
+        "pending": false
+      },
+      {
+        "id": "s3g4O3AYSB",
+        "serverSeq": 16,
+        "pending": false
+      },
+      {
+        "id": "r9JaIH4C-a",
+        "serverSeq": 17,
+        "pending": false
+      },
+      {
+        "id": "wXqpn-Su1w",
+        "serverSeq": 18,
+        "pending": false
+      },
+      {
+        "id": "ujzyFrMMQi",
+        "serverSeq": 19,
+        "pending": false
+      },
+      {
+        "id": "BIdudkgeQR",
+        "serverSeq": 20,
+        "pending": false
+      }
+    ]
+  },
+  "generations": [
+    {
+      "honorsAbort": true,
+      "duringNew": {
+        "oldDone": true,
+        "newDone": false,
+        "gateHolds": true,
+        "readiness": [],
+        "signals": [
+          {
+            "provided": true,
+            "aborted": false
+          },
+          {
+            "provided": true,
+            "aborted": false
+          }
+        ]
+      },
+      "afterNewActual": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2",
+      "afterOldActual": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2",
+      "restore": {
+        "installs": [
+          {
+            "seq": 20,
+            "at": 13223.5
+          }
+        ],
+        "signals": [
+          {
+            "provided": true,
+            "aborted": false
+          },
+          {
+            "provided": true,
+            "aborted": false
+          }
+        ],
+        "readiness": [
+          {
+            "ready": true,
+            "at": 13223.90000000596
+          }
+        ],
+        "gateEvents": [
+          {
+            "name": "begin",
+            "at": 12696.200000017881
+          },
+          {
+            "name": "end",
+            "at": 12908.300000011921
+          },
+          {
+            "name": "begin",
+            "at": 12908.600000023842
+          },
+          {
+            "name": "end",
+            "at": 13223.5
+          }
+        ],
+        "oldDone": true,
+        "newDone": true,
+        "watermark": 20
+      }
+    },
+    {
+      "honorsAbort": false,
+      "duringNew": {
+        "oldDone": true,
+        "newDone": false,
+        "gateHolds": true,
+        "readiness": [],
+        "signals": [
+          {
+            "provided": true,
+            "aborted": false
+          },
+          {
+            "provided": true,
+            "aborted": false
+          }
+        ]
+      },
+      "afterNewActual": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2",
+      "afterOldActual": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2",
+      "restore": {
+        "installs": [
+          {
+            "seq": 20,
+            "at": 14977.40000000596
+          }
+        ],
+        "signals": [
+          {
+            "provided": true,
+            "aborted": false
+          },
+          {
+            "provided": true,
+            "aborted": false
+          }
+        ],
+        "readiness": [
+          {
+            "ready": true,
+            "at": 14977.800000011921
+          }
+        ],
+        "gateEvents": [
+          {
+            "name": "begin",
+            "at": 13829.300000011921
+          },
+          {
+            "name": "end",
+            "at": 14235.800000011921
+          },
+          {
+            "name": "begin",
+            "at": 14236.200000017881
+          },
+          {
+            "name": "end",
+            "at": 14977.5
+          }
+        ],
+        "oldDone": true,
+        "newDone": true,
+        "watermark": 20
+      }
+    }
+  ],
+  "passedCases": [
+    "abort-aware-new20-retained",
+    "unabortable-late-callback-new20-retained",
+    "trusted-pencil-watercolor-dry-undo-redo-exact"
+  ],
+  "afterInput": {
+    "layerId": "layer-1",
+    "sourceHiddenReplay": false,
+    "oracleHiddenReplay": false,
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "6e275cab5f04e641fafe98aae833203d5b35a3394cc6708472f5ecb883bc3fd1",
+    "oracleHash": "6e275cab5f04e641fafe98aae833203d5b35a3394cc6708472f5ecb883bc3fd1",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 4357,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "afterUndoRedo": {
+    "layerId": "layer-1",
+    "sourceHiddenReplay": false,
+    "oracleHiddenReplay": false,
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "6e275cab5f04e641fafe98aae833203d5b35a3394cc6708472f5ecb883bc3fd1",
+    "oracleHash": "6e275cab5f04e641fafe98aae833203d5b35a3394cc6708472f5ecb883bc3fd1",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 4357,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "acceptedFinalOperations": 25,
+  "cold": {
+    "source": "8ccf41fc",
+    "scope": "Cold snapshot-covered metadata: actual physical capture before explicit OFF independent replay; no requirement that covered old ops remain materialized in log",
+    "errors": [],
+    "history": {
+      "entries": [
+        {
+          "id": "7pXbvc39IH",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 1
+        },
+        {
+          "id": "Zy1ngxCSm6",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 2
+        },
+        {
+          "id": "pwO0OkgRtU",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 3
+        },
+        {
+          "id": "_Qm5gUk1QX",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 4
+        },
+        {
+          "id": "oSjIKy9DmP",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 5
+        },
+        {
+          "id": "MdTEq6WExZ",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 6
+        },
+        {
+          "id": "iuE-jVBE-I",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 7
+        },
+        {
+          "id": "HITWztuAX_",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 8
+        },
+        {
+          "id": "yFf93yO8JC",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 9
+        },
+        {
+          "id": "reU0FXe1vJ",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 10
+        },
+        {
+          "id": "tint1Btski",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 11
+        },
+        {
+          "id": "gH_UmOoxu3",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 12
+        },
+        {
+          "id": "CIFIlbt6MK",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 13
+        },
+        {
+          "id": "W7bwHWwRlN",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 14
+        },
+        {
+          "id": "4mWRAc2Dh7",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 15
+        },
+        {
+          "id": "s3g4O3AYSB",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 16
+        },
+        {
+          "id": "r9JaIH4C-a",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 17
+        },
+        {
+          "id": "wXqpn-Su1w",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 18
+        },
+        {
+          "id": "ujzyFrMMQi",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 19
+        },
+        {
+          "id": "RwvnlQs3cz",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 21
+        },
+        {
+          "id": "x_-xGzoH6P",
+          "type": "stroke",
+          "state": "done",
+          "serverSeq": 22
+        },
+        {
+          "id": "33938629-0185-4349-9aad-8aeb06af75f5",
+          "type": "paper_dry",
+          "state": "done",
+          "serverSeq": 23
+        },
+        {
+          "id": "bRmgUaaiD6",
+          "type": "operation_undo",
+          "state": "done",
+          "serverSeq": 24
+        },
+        {
+          "id": "meNxz79es9",
+          "type": "operation_redo",
+          "state": "done",
+          "serverSeq": 25
+        }
+      ],
+      "snapshotAudit": []
+    },
+    "actual": {
+      "layers": [
+        {
+          "layerId": "layer-1",
+          "hash": "6e275cab5f04e641fafe98aae833203d5b35a3394cc6708472f5ecb883bc3fd1",
+          "bytes": 1048596
+        },
+        {
+          "layerId": "background",
+          "hash": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+          "bytes": 4
+        }
+      ],
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 1,
+        "residentLayers": 1,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 2,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": false,
+            "active": false
+          }
+        ]
+      },
+      "restoreAudit": [],
+      "glError": 0
+    },
+    "expectedPreCloseApiOracle": "6e275cab5f04e641fafe98aae833203d5b35a3394cc6708472f5ecb883bc3fd1",
+    "coverage": [
+      [
+        "layer-1",
+        20
+      ]
+    ],
+    "oracleScope": "No cold local replay with potentially incomplete covered metadata; physical before any oracle compared against saved pre-close complete API reference",
+    "pass": true
+  },
+  "limitations": [
+    "HTTP response fixtures use actual native raster bytes from real accepted journal prefixes10/20 and real gzip/decode; not real socket reconnect delivery stress.",
+    "Second control deliberately ignores AbortSignal in delayed HTTP callback; tests late completion rejection, not actual DecompressionStream interleaving.",
+    "First attempt expected unabortable raw HTTP callback to keep restore caller pending; awaitRestore correctly cancels caller. That failed assertion was harness-invalid.",
+    "Original cold gate requiring all25 IDs timed out45s. Passive cold physical captured before any oracle equals saved pre-close complete API reference.",
+    "Missing exactly coveredseq20 is NOT declared harmless: readonly backfill starts cursor20 and server beforeSeq is strict lt20. Same-author Undo coverage is untested and a separate candidate."
+  ],
+  "cleanup": {
+    "deletedNewFixtures": 2,
+    "alreadyDeletedOldFixtures": 92,
+    "errors": [],
+    "rootAnnotationUntouched": true
+  },
+  "remainingResources": [
+    "Owned Vega Chrome566309/profile/19333 forward retained for root-coordinated774",
+    "Registered62MiB diagnostic cache with744/748/752/788 accepted journals retained",
+    "No own browser contexts; all94 own fixtures owner-deleted and auth removed"
+  ]
+}
