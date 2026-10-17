@@ -5976,6 +5976,9 @@ export class PencilEngine implements PencilEngineAPI {
 
   restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
     this._snapshotIO.restore(layerId, tiles, coveredSeq)
+    // A held ordinary gesture is ahead of the journal. The handover replaced
+    // its early pixels; repair from its durable operation once it arrives.
+    if(this._hasUnrecordedInk(layerId))this._unsettledLayers.add(layerId)
   }
 
   takeSnapshotRestoreAudit(): SnapshotRestoreAudit[] {
