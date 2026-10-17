@@ -17,8 +17,15 @@ export interface MaterialFieldSnapshot {
 }
 class ImmutableMaterialFieldSnapshot implements MaterialFieldSnapshot {
   readonly #pages: ReadonlyMap<number, Page>;
-  constructor(readonly width: number, readonly height: number, readonly pageSize: number,
-    readonly revision: number, pages: ReadonlyMap<number, Page>) { this.#pages = new Map(pages); }
+  readonly width: number;
+  readonly height: number;
+  readonly pageSize: number;
+  readonly revision: number;
+  constructor(width: number, height: number, pageSize: number,
+    revision: number, pages: ReadonlyMap<number, Page>) {
+    this.width = width; this.height = height; this.pageSize = pageSize;
+    this.revision = revision; this.#pages = new Map(pages);
+  }
   /** Always returns owned storage, including for an exact page read. */
   readRect(rect: MaterialRect, boundary: MaterialBoundary = 'clamp'): Uint8Array {
     rectCheck(rect);
@@ -73,8 +80,14 @@ export interface MaterialFieldWrite {
 }
 class OwnedMaterialFieldWrite implements MaterialFieldWrite {
   #closed = false;
-  constructor(private readonly field: MaterialFieldPages, private readonly expected: number,
-    private pages: Map<number, Page>, private readonly publish: (pages: Map<number, Page>, expected: number) => number) {}
+  private readonly field: MaterialFieldPages;
+  private readonly expected: number;
+  private pages: Map<number, Page>;
+  private readonly publish: (pages: Map<number, Page>, expected: number) => number;
+  constructor(field: MaterialFieldPages, expected: number,
+    pages: Map<number, Page>, publish: (pages: Map<number, Page>, expected: number) => number) {
+    this.field = field; this.expected = expected; this.pages = pages; this.publish = publish;
+  }
   writeRect(rect: MaterialRect, data: Uint8Array): void {
     if (this.#closed) throw new Error('Material write is closed');
     rectCheck(rect);
