@@ -2,7 +2,8 @@
 // Select exactly ONE plane: seed, outward ordinal1..N, inward ordinal1..N, band.
 module.exports=()=>{globalThis.__qa748FrontBoundaryProbe=(plan,passes,getRect,options={})=>{
  const kind=options.kind||'outward',ordinal=options.ordinal??1,maxBytes=options.maxBytes??16*1024*1024;
- if(!['seed','outward','inward','band','preband'].includes(kind)||!Number.isSafeInteger(ordinal)||ordinal<1||!Number.isSafeInteger(maxBytes)||maxBytes<4)throw Error('Invalid front boundary selection');
+ if(!['seed','outward','inward','band','preband','coverage'].includes(kind)||!Number.isSafeInteger(ordinal)||ordinal<1||!Number.isSafeInteger(maxBytes)||maxBytes<4)throw Error('Invalid front boundary selection');
+ if(kind==='coverage'&&maxBytes>16*1024*1024)throw Error('Invalid coverage CPU cap');
  const operand=options.operand??'a';if(kind==='preband'&&(maxBytes>16*1024*1024||!['a','b','c','d'].includes(operand)))throw Error('Invalid preband operand');
  const original={fieldFor:plan.ctx.fieldFor,fieldOp:passes.fieldOp,front:passes.waterFrontStep},events=[],restoration={};let current,selected,phase,group=0,outward=0,inward=0,plane,capture,restored=false,peakRetainedBytes=0;
  const read=(name,buffer)=>{if(plane)throw Error('Duplicate selected front capture');const bytes=buffer.width*buffer.height*4;if(bytes>maxBytes)throw Error('Selected front plane exceeds explicit CPU cap');const pixels=buffer.readPixels();if(!(pixels instanceof Uint8Array)||pixels.byteLength!==bytes)throw Error('Invalid selected front plane');plane=pixels;peakRetainedBytes=bytes;capture={name,width:buffer.width,height:buffer.height,bytes,filter:buffer._baseFilter,pointSampling:buffer._pointSampling}};
@@ -12,6 +13,7 @@ module.exports=()=>{globalThis.__qa748FrontBoundaryProbe=(plan,passes,getRect,op
   if(!selected&&f&&mode===10&&out===f.pressure){selected=current;phase='outward';group=1;events.push({method:'fieldOp',mode,k,role:'seed'})}
   if(kind==='preband'&&selected===current&&f&&group===1&&phase==='inward'&&mode===6&&out===f.band){const inputs={a,b,c:args[5]?.c,d:args[5]?.d},buffer=inputs[operand];if(!buffer||typeof buffer.readPixels!=='function'||!Number.isSafeInteger(buffer.width)||buffer.width<=0||!Number.isSafeInteger(buffer.height)||buffer.height<=0||!Number.isSafeInteger(buffer.width*buffer.height*4))throw Error('Invalid preband input buffer');read('preband:'+operand,buffer);capture.inputs={operand,aEqualsD:a===inputs.d,aIsPressure:a===f.pressure,bIsCoverage:b===f.coverage,cIsMask:inputs.c===f.mask,dIsPressure:inputs.d===f.pressure,timing:'before-original-fieldOp'};}
   const result=original.fieldOp.apply(this,args);
+  if(kind==='coverage'&&!plane&&selected===current&&f&&group===1&&phase==='inward'&&mode===11&&a===f.coverage&&b===f.coverage&&args[5]?.d===f.pressure){if(!out||typeof out.readPixels!=='function'||!Number.isSafeInteger(out.width)||out.width<=0||!Number.isSafeInteger(out.height)||out.height<=0||!Number.isSafeInteger(out.width*out.height*4))throw Error('Invalid coverage output buffer');read('coverage:mode11',out);capture.mode11={mode,k,band:args[5].band?.slice(),size:args[5].size?.slice(),aIsCoverage:true,bIsCoverage:true,dIsPressure:true,outIsCoverage:out===f.coverage,timing:'after-original-before-home-copy'};}
   if(selected===current&&f){
    if(mode===10&&out===f.pressure){if(events.length>1||phase!=='outward')group++;if(group===1&&kind==='seed')read('seed',out)}
    if(group===1&&mode===12&&out===f.mask){phase='inward';events.push({method:'fieldOp',mode,k,role:'inward-seed'})}
