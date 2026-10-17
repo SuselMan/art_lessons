@@ -1,0 +1,54 @@
+{
+  "stage": "wet",
+  "identity": {
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "model": "m70-r2-v1",
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "DPR": 2.125,
+    "touch": 5,
+    "budget": "314572800",
+    "cache": false,
+    "hidden": false,
+    "dither": true
+  },
+  "computationsBefore": 1,
+  "computationsBeforeOracle": 1,
+  "physicalHash": "289327bcba52462e961884fb655da9f2b85ce3dbfcd1aea5fdeca19b949a2e2f",
+  "canonicalHash": "732cbcb330a8b651d5ad30d0ff53606f976c4674f00b0ed8c4220612695761c6",
+  "bytes": 1048576,
+  "material": {
+    "epoch": 4,
+    "ready": true,
+    "active": true,
+    "fields": {
+      "original": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+      "inkLoad": "91a915a49999c638e711b6d9d2e5d8bad72a9922fbad2e94930a47187d8838c2",
+      "inkColor": "643017ffd8043b2c8a5a4fcbb5305d18f82fa542860f7c36f121b1743efa49b4",
+      "coverage": "7b47a0f82504b54134ae3fa6bf4cb5725f02054b64e8b589bfd1c95dfc822ecb",
+      "solventLoad": "6125110e8c4fd5603b4131dea3904914c9946719f425de669e693e5e7ab8b38d",
+      "foreignSolventLoad": null
+    }
+  },
+  "actualCapturedBeforeOracle": true,
+  "oracleHash": "732cbcb330a8b651d5ad30d0ff53606f976c4674f00b0ed8c4220612695761c6",
+  "oracleChangedChannels": 0,
+  "oracleMax": 0,
+  "apiOperations": 4,
+  "apiIds": [
+    "e51bc0eb-c661-4047-9f39-fb1f89eb9265",
+    "433bd51f-a01a-49e4-a4f1-529f3c6df617",
+    "1c62d822-f873-46fd-957c-5f3f73af9030",
+    "7418ae96-bba8-4370-ba7b-be7e66f001f4"
+  ],
+  "apiContentSHA": "53d18778196173fc22c299228894f56cbd5a71bad1ddccecf28c2493ea7c1332",
+  "localContentSHA": "53d18778196173fc22c299228894f56cbd5a71bad1ddccecf28c2493ea7c1332",
+  "latestStrokeAgeMs": 68006,
+  "coverage": [],
+  "sourcePreservedAfterOracle": true,
+  "glError": 0,
+  "repeatSameOwnedContext": true,
+  "captureHelperSHA": "e5ed7e816635958d10d56d6193b46ae58d3b7857ab5a0b26eb889aed3c82a05d"
+}

@@ -1,0 +1,189 @@
+{
+  "source": "e5d08c61",
+  "canvas": {
+    "width": 512,
+    "height": 512
+  },
+  "errors": [],
+  "snapshotPostsAborted": 1,
+  "limitMs": 45000,
+  "captureHelperSHA": "4596cc5eba22c313fe5ccee42368645c73e2f2923372405ca4e8d0287dd12eaa",
+  "wetInputSHA": "b003f5fae3ca5912c1624af0803b6f1a685f50abd7fec304f6d4b5abfae58933",
+  "wetInputIds": [
+    {
+      "id": "e51bc0eb-c661-4047-9f39-fb1f89eb9265",
+      "seq": 1,
+      "sha": "8719911e2bb97c26bbdf4217ee8f88ebb1b7d8e8cdf76f0a2dd69c639125bff1"
+    },
+    {
+      "id": "433bd51f-a01a-49e4-a4f1-529f3c6df617",
+      "seq": 2,
+      "sha": "5325311adeacb27b24be383b18304e45eefd9d83c3d1ca38c8c6e9a2a6495261"
+    },
+    {
+      "id": "1c62d822-f873-46fd-957c-5f3f73af9030",
+      "seq": 3,
+      "sha": "863ac683926836108e71b2d10a65f52d744e86abb97b2f66231ac47cc0b875e3"
+    },
+    {
+      "id": "7418ae96-bba8-4370-ba7b-be7e66f001f4",
+      "seq": 4,
+      "sha": "aed22f5c4f91a7cef24e10a1e45613a0cb9c14439edfaf76693b6a647b8b0ad6"
+    }
+  ],
+  "scope": "Shared API input AMD/Adreno actual canonical wet + physical dry, no local strokes, sameGPU oracle first, crossGPU compared by coordinator",
+  "identity": {
+    "version": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+    "coverage": false,
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "DPR": 2.125,
+    "touch": 5,
+    "gpuBudget": "314572800",
+    "flags": {
+      "cache": false,
+      "hidden": false
+    }
+  },
+  "wet": {
+    "stage": "wet",
+    "identity": {
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "DPR": 2.125,
+      "touch": 5,
+      "budget": "314572800",
+      "cache": false,
+      "hidden": false,
+      "dither": true
+    },
+    "physicalHash": "d173bd192b9576416a4b1054fcb8479973ae51f30420137cb6bc02c824554b71",
+    "canonicalHash": "732cbcb330a8b651d5ad30d0ff53606f976c4674f00b0ed8c4220612695761c6",
+    "bytes": 1048576,
+    "material": {
+      "epoch": 4,
+      "ready": true,
+      "active": true,
+      "fields": {
+        "original": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "inkLoad": "91a915a49999c638e711b6d9d2e5d8bad72a9922fbad2e94930a47187d8838c2",
+        "inkColor": "643017ffd8043b2c8a5a4fcbb5305d18f82fa542860f7c36f121b1743efa49b4",
+        "coverage": "7b47a0f82504b54134ae3fa6bf4cb5725f02054b64e8b589bfd1c95dfc822ecb",
+        "solventLoad": "6125110e8c4fd5603b4131dea3904914c9946719f425de669e693e5e7ab8b38d",
+        "foreignSolventLoad": null
+      }
+    },
+    "actualCapturedBeforeOracle": true,
+    "oracleHash": "732cbcb330a8b651d5ad30d0ff53606f976c4674f00b0ed8c4220612695761c6",
+    "oracleChangedChannels": 0,
+    "oracleMax": 0,
+    "apiOperations": 4,
+    "apiIds": [
+      "e51bc0eb-c661-4047-9f39-fb1f89eb9265",
+      "433bd51f-a01a-49e4-a4f1-529f3c6df617",
+      "1c62d822-f873-46fd-957c-5f3f73af9030",
+      "7418ae96-bba8-4370-ba7b-be7e66f001f4"
+    ],
+    "apiContentSHA": "53d18778196173fc22c299228894f56cbd5a71bad1ddccecf28c2493ea7c1332",
+    "localContentSHA": "53d18778196173fc22c299228894f56cbd5a71bad1ddccecf28c2493ea7c1332",
+    "latestStrokeAgeMs": 14593,
+    "coverage": [],
+    "sourcePreservedAfterOracle": true,
+    "glError": 0,
+    "localOrderMatchesAPI": true,
+    "computationsBeforeCapture": 1
+  },
+  "dryInputSHA": "859c30e66cdf5b0f1458b86172a10828136159b661abc08ff51de7cfea945c04",
+  "dryInputIds": [
+    {
+      "id": "e51bc0eb-c661-4047-9f39-fb1f89eb9265",
+      "seq": 1,
+      "sha": "8719911e2bb97c26bbdf4217ee8f88ebb1b7d8e8cdf76f0a2dd69c639125bff1"
+    },
+    {
+      "id": "433bd51f-a01a-49e4-a4f1-529f3c6df617",
+      "seq": 2,
+      "sha": "5325311adeacb27b24be383b18304e45eefd9d83c3d1ca38c8c6e9a2a6495261"
+    },
+    {
+      "id": "1c62d822-f873-46fd-957c-5f3f73af9030",
+      "seq": 3,
+      "sha": "863ac683926836108e71b2d10a65f52d744e86abb97b2f66231ac47cc0b875e3"
+    },
+    {
+      "id": "7418ae96-bba8-4370-ba7b-be7e66f001f4",
+      "seq": 4,
+      "sha": "aed22f5c4f91a7cef24e10a1e45613a0cb9c14439edfaf76693b6a647b8b0ad6"
+    },
+    {
+      "id": "85930dfb-68ce-4aed-9c06-60ee7116c85e",
+      "seq": 5,
+      "sha": "c7a57d7147ba776ea93161a4d74248bca3a51998ebaa6837878c719988a81881"
+    }
+  ],
+  "dry": {
+    "stage": "dry",
+    "identity": {
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "DPR": 2.125,
+      "touch": 5,
+      "budget": "314572800",
+      "cache": false,
+      "hidden": false,
+      "dither": true
+    },
+    "physicalHash": "732cbcb330a8b651d5ad30d0ff53606f976c4674f00b0ed8c4220612695761c6",
+    "canonicalHash": "732cbcb330a8b651d5ad30d0ff53606f976c4674f00b0ed8c4220612695761c6",
+    "bytes": 1048576,
+    "material": null,
+    "actualCapturedBeforeOracle": true,
+    "oracleHash": "732cbcb330a8b651d5ad30d0ff53606f976c4674f00b0ed8c4220612695761c6",
+    "oracleChangedChannels": 0,
+    "oracleMax": 0,
+    "apiOperations": 5,
+    "apiIds": [
+      "e51bc0eb-c661-4047-9f39-fb1f89eb9265",
+      "433bd51f-a01a-49e4-a4f1-529f3c6df617",
+      "1c62d822-f873-46fd-957c-5f3f73af9030",
+      "7418ae96-bba8-4370-ba7b-be7e66f001f4",
+      "85930dfb-68ce-4aed-9c06-60ee7116c85e"
+    ],
+    "apiContentSHA": "2270b41109a6872ab47b79180a06530fd3da66d341ac1b5f742b60ff6cbc5fac",
+    "localContentSHA": "2270b41109a6872ab47b79180a06530fd3da66d341ac1b5f742b60ff6cbc5fac",
+    "latestStrokeAgeMs": 93464,
+    "coverage": [],
+    "sourcePreservedAfterOracle": false,
+    "glError": 0,
+    "localOrderMatchesAPI": true,
+    "computationsBeforeCapture": 1
+  },
+  "pass": true,
+  "cleanup": {
+    "ownContextClosed": true,
+    "originalTabRestored": true,
+    "sharedFixtureAndAuthOwnedBy": "qa_cases",
+    "ownLocalForwardClosed": true,
+    "remote9235Untouched": true
+  },
+  "battery": {
+    "before": {
+      "percent": 100,
+      "AC": true,
+      "celsius": 37.4
+    },
+    "after": {
+      "percent": 100,
+      "AC": true,
+      "celsius": 37.5
+    }
+  },
+  "harnessSHA256": "50c23b491ac49abae85ecac9d7f4f03fb17d93a3d757ac6d81b6d38acfb7918e"
+}
