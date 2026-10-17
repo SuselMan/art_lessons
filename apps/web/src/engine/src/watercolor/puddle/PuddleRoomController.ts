@@ -87,12 +87,7 @@ export class PuddleRoomController {
     this.host=host
     this.dimensions=puddleDimensions(host.size)
     this.residency=new MaterialResidency(2, host.cpuByteBudget)
-    const plan=host.settlePlan,prepare=plan.prepare
-    this.solver = createNativePuddleTarget(host, host.size, {portableNoise:true,prepare:(...args)=>{
-      const old=plan.diagnosticSkipBrushContacts
-      plan.diagnosticSkipBrushContacts=true
-      try{return prepare.apply(plan,args)}finally{plan.diagnosticSkipBrushContacts=old}
-    }})
+    this.solver = createNativePuddleTarget(host, host.size, {portableNoise:true})
   }
   get state() {
     return {undoCaptureLastMs:this.undoCaptureLastMs,undoRestoreLastMs:this.undoRestoreLastMs,undoCaptures:this.undoCaptures,undoHits:this.undoHits,layers: this.layers.size + this.parked.size, residentLayers:this.layers.size, parkedLayers:this.parked.size, cpuBytes:this.residency.bytes, drying:this.closing.size > 0, cancellations:this.cancellations, computations:this.computations, pending: this.closing.size > 0 || !!this.solving || [...this.layers.values()].some(l => l.dirty),
