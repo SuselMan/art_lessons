@@ -2,8 +2,8 @@
 
 Native вход source `f6a27f987c1ea63ce3924b4d541b5a32e0f391b7`.
 Релевантные engine/painter/codec/controller файлы readonly integration HEAD на
-момент проверки не отличаются от этого source. Ничего runtime не менялось;
-новые GPU/CPU тесты, процессы, сервисы и dependency links не запускались.
+момент проверки не отличаются от этого source. Ничего runtime не менялось. Первоначальный readonly разбор дополнен ниже
+одним bounded CPU pointer-input экспериментом; новых GPU/сервисов не было.
 
 Исходный native результат другого агента: B single trusted watercolor+Dry exact
 ownOFF fullAPI, затем board turn вA с таким же принятым M70preset —956different
@@ -31,19 +31,38 @@ Live _strokeId=puddleGesture, и этот же strokeId записывается
 Controller epoch относится к invalidation/presentation, не кshader seed.
 РазницаDate.now наDOWN иrecordedUP не достигает120s, предыдущегоstrokeнет.
 
-## Конкретный открытый axis
+## Проверка гипотезы F64/F32: опровергнута для фактического материала
 
-Live `_paintStrokeDabs` рисует и сохраняет rawJSF64 dabs. ТолькоUP/chunk вызывает
-packDabs, который setFloat32 округляет все10полей. Replay декодируетF32.
-В dabCodec это прямо описано как precisionloss. ПредварительногоMath.fround в
-живомпути нет. M70 рассчитываетtravel/trail/dose/scalars наCPU доGL, поэтому
-равенствооднихGPUuniformF32 не доказывает равенствоCPUветвей/результатов.
-Наэтомвходеdistances7.04/3.1198 далекоотtravelquantum≥1.5: пропускцелогоdab из-за
-пограничногосравнения пока неподтверждён. Но dab.t влияет наtrail/dwell/brake,
-после чегоtinyразница может пересечь packedrounding и усилитьсяsolver.
+Первый readonly разбор ошибочно остановился на rawF64 recordingbuffer в
+`_paintStrokeDabs`, не проследив следующую ветку. Это исправлено исполнением
+реального pointer пути и чтением существующего кода.
 
-Необходимое следующее доказательство: raw_strokeDabs/uniforms ДОUP сравнить с
-accepted decoded dabs и сырымиP/C/water/canonicalfields live/replay. Nativeоператор
-получилэтотaxis; новыхзапусковэтотагентнеинициировал. Ни froundfix, ни общийguard
-без такого baseline не внедрены. Не объединяем автоматически этотfinding с
-ранее редкими5byteclosedDry mismatch илиownership #785.
+В `_paintDabs` (index.ts7854–7870) уже есть `dabs.map(codecDab)` и такой же
+codecDab дляprevDab ДО `_paintRibbonDabs`/CPU material geometry. Helper
+`src/dabs/codecDab.ts` делаетMath.fround всех10полей codec. Это старое исправление
+`b8d75596` (#680), а не новый кандидат. `_strokeDabs` вправе хранить F64; материал
+получает F32. Сам факт37различийraw-vs-packed наnative не доказывает drift.
+
+Новый положительный CPUтест регистрирует реальные DOM pointer listeners нового
+PencilEngine и вводитpointerdown/move/up черезPointerInput→DabSystem. Он не
+авторитготовыеdabs/packedops. Захватываются фактические leaf-inputs
+RibbonStrokePainter.paint, drawRibbonNibPass geometry и конечные CPUscalars;
+независимый engine проигрывает сохранённые операции через appendOperation.
+
+Две fixtures: короткийштрих среальнымUPtaper и длинныйжест с автоматическим
+800dabchunk (несколькосохранённыхops). Recordingbuffer содержит nonF32поля,
+но фактически переданные materialinputs точно равны strokeDabs записанныхops.
+Новые runtimeправки/format/общийfroundfix не нужны. Nativeповтор другого агента
+021d9245 с37rawокруглениями накаждомboard дал0pixel difference; исходный956не
+воспроизвёлся и остаётся не объяснённым этим axis.
+
+CPUэксперимент используетMockGL и подменяет ТОЛЬКО presentation shaders;
+material deposition, controller/source, реальные pointer normalization и replay
+остаются действительными. Он не доказывает native solver RGBA parity.
+Не объединяем автоматически этотfinding с ранее редкими5byteclosedDry mismatch
+илиownership #785. Новых GPU/сервисов этот агент не запускал.
+
+Итог исполнения: 2целевыхтестаPASS; actualmaterial arrays, renderer dab arrays и
+выбранные CPUscalars author/replay exact. WebTypeScript/scopedlint PASS. Runtime
+не менялся. Послеэксперимента selecteddependencylinks и generatedshared удалены;
+собственных процессов/browser/GPU/сервисов не осталось, source/history сохранены.
