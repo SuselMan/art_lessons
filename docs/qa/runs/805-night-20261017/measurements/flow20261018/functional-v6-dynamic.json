@@ -1,0 +1,1069 @@
+{
+  "qualification": "Fixed1024 flow experiment on physical Samsung. TotalReady includes upload/reduction plus dependent result readiness, not pureGPUtime. Flow metrics/fullRGBA/PNG computed aftertiming. Technical repeat/premul checks do not imply50–200px material transport or artistic acceptance.",
+  "startedAt": "2026-10-17T23:30:53.508Z",
+  "finishedAt": "2026-10-17T23:31:08.587Z",
+  "sourceHashes": {
+    "entry.js": "e71ee9d4b13f3fdaa6c92cdfc70c6d70925d4b931897d90ae3c5d6c3a5e59fa2",
+    "worker.js": "1c9e6a20d993a0ef8db0e897a0f24c52cdb19e00f9c14212d00677fc7c301421",
+    "chunk-7H4SXYYS.js": "54ce095678a5bf06c8ffe4279aac5117682782a24dabc600ae6eff022a499fdd",
+    "fixtures/native-flow-pool-drop.bin": "3c20c7068cd00c803b1a913343cb2024f93bc5b23667c74a3c73055cf7ccc538",
+    "fixtures/native-flow-separated-colors.bin": "3471744208958a1c64c1e42d53be00c988d5eea11ae46f1d977c89cf3ef24e85",
+    "fixtures/mini-wave.bin": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+    "fixtures/gallery-sheet-7-slot-1.bin": "60d1685ff317b9c4638ccdee4fd0cbf0eafaac4ae90b6b39a38ae7e259c3395f",
+    "fixtures/gallery-sheet-3-slot-1.bin": "566b5bff0205a1220745f8177cd37da5d2e97319e11b90814a5f2cb1ec08b03d",
+    "index.html": "7f174c6068b1a87f196251529b71ac6c4844f011e315c79534a94c0af5b824e4"
+  },
+  "checks": {
+    "pass": true,
+    "partial": false,
+    "sourceStable": true,
+    "contextClosed": true,
+    "errors": []
+  },
+  "cases": [
+    {
+      "request": {
+        "algorithm": "wgsl-macro-dynamic-wetness",
+        "fixture": "dynamic-wet-on-dry",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3,
+        "measureTransport": true
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "001-wgsl-macro-dynamic-wetness-dynamic-wet-on-dry.png",
+        "bytes": 696733,
+        "sha256": "5ca1694b4f691a3b170d61f99bd6c16cc0fc29b391fdcc8eca98b3610360eea8"
+      },
+      "fixtureSHA": {
+        "rgba": "ec6db3877c804041eb3816c7b755dcb43998a27cb7756f86e5236419afd5bbde",
+        "water": "375576e52608242cb4c83272cbd547f6a0c6eadde815963ff5114037b77ff36f",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 97.5,
+      "samples": [
+        {
+          "uploadJsMs": 99.29999995231628,
+          "submitJsMs": 0.7000000476837158,
+          "runToDependentMs": 43.80000019073486,
+          "totalReadyMs": 143.10000014305115,
+          "fullReadbackJsMs": 26.59999990463257,
+          "totalToFullReadbackMs": 169.70000004768372
+        },
+        {
+          "uploadJsMs": 100.59999990463257,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 38.299999952316284,
+          "totalReadyMs": 138.89999985694885,
+          "fullReadbackJsMs": 14.400000095367432,
+          "totalToFullReadbackMs": 153.29999995231628
+        },
+        {
+          "uploadJsMs": 92.09999990463257,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 42.60000014305115,
+          "totalReadyMs": 134.70000004768372,
+          "fullReadbackJsMs": 14.099999904632568,
+          "totalToFullReadbackMs": 148.79999995231628
+        }
+      ],
+      "hashes": [
+        "97f4f67cdfea96b67ab0c8070bfa5e8adc72507f31fbaf6714b54058a8fae587",
+        "97f4f67cdfea96b67ab0c8070bfa5e8adc72507f31fbaf6714b54058a8fae587",
+        "97f4f67cdfea96b67ab0c8070bfa5e8adc72507f31fbaf6714b54058a8fae587"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "dynamic-Darcy-wetting-and-absorption",
+        "wetDomain": "dynamic",
+        "grid": 128,
+        "steps": 96,
+        "flow": 0.18,
+        "mixing": 0.12,
+        "suction": 0.15,
+        "absorption": 0.025,
+        "capacity": 0.35,
+        "staining": 0.7,
+        "wetThreshold": 0.0001,
+        "finePaperGain": 0.5,
+        "dispatches": 289,
+        "initialWaterSum": 10843.058823528092,
+        "initialPigmentAlphaCodes": 2029860,
+        "initialDryFixedAlphaCodes": 0,
+        "finalState": {
+          "surfaceSum": 4474.663298458443,
+          "absorbedSum": 6368.400948786875,
+          "totalWaterSum": 10843.064247245318,
+          "mobileAlphaCodes": 1146996.9221121045,
+          "adsorbedAlphaCodes": 882864.095117753,
+          "initialDryFixedAlphaCodes": 0,
+          "expandedSurfaceCells": 1470,
+          "expandedTotalWetCells": 1512,
+          "minWater": 0,
+          "minPigment": 0,
+          "prePackOverflowFinePixels": 0,
+          "prePackNegativeFinePixels": 0,
+          "prePackGuardPassed": true
+        },
+        "waterUnits": "sum of normalized water per fine pixel, surface+absorbed; no evaporation",
+        "staticWallMap": false,
+        "readbackState": "coarseW/S/M/D and explicit pre-pack overflow/negative counters copy/map only inside readback after timing",
+        "limitations": "Initial dry water is NOT a solid wall. Phenomenological Darcy+absorption, not full MoXi. Coarse fronts and finalRGBA8 clipping/rounding require checks; S absorbed water is stationary.",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 2029860,
+        "outputMass": 2025664,
+        "massRatio": 0.9979328623648922,
+        "lostPixels": 0,
+        "addedPixels": 52147,
+        "outsideWetPixels": 60671,
+        "invalidPremul": 0,
+        "changedPixels": 76032
+      },
+      "transportMetrics": {
+        "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+        "supportPixels": 11277,
+        "inputAlpha": 2029860,
+        "outputAlpha": 2025664,
+        "alphaRatio": 0.9979328623648922,
+        "channelRatios": [
+          0.9982166257771472,
+          0.996135694087277,
+          null
+        ],
+        "rmsDistanceFromSupport": 21.838534297929055,
+        "beyond": [
+          {
+            "distance": 10,
+            "pixels": 48227,
+            "alpha": 666593,
+            "fraction": 0.3290738246816846
+          },
+          {
+            "distance": 25,
+            "pixels": 40983,
+            "alpha": 416716,
+            "fraction": 0.20571822375280402
+          },
+          {
+            "distance": 50,
+            "pixels": 25683,
+            "alpha": 125756,
+            "fraction": 0.06208137183659284
+          },
+          {
+            "distance": 100,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          }
+        ],
+        "changedDryPixels": 60671
+      },
+      "ui": {
+        "maxRAF": 16.800000000000182,
+        "maxTimer": 13.200000047683716,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 136.79999995231628,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-dynamic-wetness",
+        "fixture": "dynamic-water-drop",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3,
+        "measureTransport": true
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "002-wgsl-macro-dynamic-wetness-dynamic-water-drop.png",
+        "bytes": 745498,
+        "sha256": "3a5b2772e3520020d8d86eaf5110b703555d034f291b3bfb97bba2d84fa95bb0"
+      },
+      "fixtureSHA": {
+        "rgba": "ba6d68fd2a109a4c5964a3f0d0d38fe198fad4d560580b81027b8071b6fdfb56",
+        "water": "de9b1116b43d74c1e401e900f5ab6a059aea63da693b150373e88a540637fe38",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 35.700000047683716,
+      "samples": [
+        {
+          "uploadJsMs": 96.89999985694885,
+          "submitJsMs": 0.2999999523162842,
+          "runToDependentMs": 37.10000014305115,
+          "totalReadyMs": 134,
+          "fullReadbackJsMs": 18.699999809265137,
+          "totalToFullReadbackMs": 152.69999980926514
+        },
+        {
+          "uploadJsMs": 81.10000014305115,
+          "submitJsMs": 0.19999980926513672,
+          "runToDependentMs": 50.59999990463257,
+          "totalReadyMs": 131.70000004768372,
+          "fullReadbackJsMs": 13.299999952316284,
+          "totalToFullReadbackMs": 145
+        },
+        {
+          "uploadJsMs": 74,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 40.200000047683716,
+          "totalReadyMs": 114.20000004768372,
+          "fullReadbackJsMs": 14.699999809265137,
+          "totalToFullReadbackMs": 128.89999985694885
+        }
+      ],
+      "hashes": [
+        "88b3ddf37c03d1fa0c105a2d81be15d9d1c825bd7e8649845cc355eca95f1fad",
+        "88b3ddf37c03d1fa0c105a2d81be15d9d1c825bd7e8649845cc355eca95f1fad",
+        "88b3ddf37c03d1fa0c105a2d81be15d9d1c825bd7e8649845cc355eca95f1fad"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "dynamic-Darcy-wetting-and-absorption",
+        "wetDomain": "dynamic",
+        "grid": 128,
+        "steps": 96,
+        "flow": 0.18,
+        "mixing": 0.12,
+        "suction": 0.15,
+        "absorption": 0.025,
+        "capacity": 0.35,
+        "staining": 0.7,
+        "wetThreshold": 0.0001,
+        "finePaperGain": 0.5,
+        "dispatches": 289,
+        "initialWaterSum": 11626.31372550749,
+        "initialPigmentAlphaCodes": 12718980,
+        "initialDryFixedAlphaCodes": 0,
+        "finalState": {
+          "surfaceSum": 1543.469229472219,
+          "absorbedSum": 10082.83918930187,
+          "totalWaterSum": 11626.30841877409,
+          "mobileAlphaCodes": 2601639.6595592564,
+          "adsorbedAlphaCodes": 10117347.012286348,
+          "initialDryFixedAlphaCodes": 0,
+          "expandedSurfaceCells": 1994,
+          "expandedTotalWetCells": 2058,
+          "minWater": 0,
+          "minPigment": 0,
+          "prePackOverflowFinePixels": 0,
+          "prePackNegativeFinePixels": 0,
+          "prePackGuardPassed": true
+        },
+        "waterUnits": "sum of normalized water per fine pixel, surface+absorbed; no evaporation",
+        "staticWallMap": false,
+        "readbackState": "coarseW/S/M/D and explicit pre-pack overflow/negative counters copy/map only inside readback after timing",
+        "limitations": "Initial dry water is NOT a solid wall. Phenomenological Darcy+absorption, not full MoXi. Coarse fronts and finalRGBA8 clipping/rounding require checks; S absorbed water is stationary.",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 12718980,
+        "outputMass": 12717248,
+        "massRatio": 0.9998638255583387,
+        "lostPixels": 0,
+        "addedPixels": 100731,
+        "outsideWetPixels": 122107,
+        "invalidPremul": 0,
+        "changedPixels": 192064
+      },
+      "transportMetrics": {
+        "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+        "supportPixels": 70661,
+        "inputAlpha": 12718980,
+        "outputAlpha": 12717248,
+        "alphaRatio": 0.9998638255583387,
+        "channelRatios": [
+          0.9998127125553182,
+          0.9992851628039355,
+          null
+        ],
+        "rmsDistanceFromSupport": 13.67633831601062,
+        "beyond": [
+          {
+            "distance": 10,
+            "pixels": 91339,
+            "alpha": 1946106,
+            "fraction": 0.15302886284831435
+          },
+          {
+            "distance": 25,
+            "pixels": 75623,
+            "alpha": 1069242,
+            "fraction": 0.08407809614155515
+          },
+          {
+            "distance": 50,
+            "pixels": 46115,
+            "alpha": 272089,
+            "fraction": 0.021395273568621136
+          },
+          {
+            "distance": 100,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          }
+        ],
+        "changedDryPixels": 122107
+      },
+      "ui": {
+        "maxRAF": 16.800000000000182,
+        "maxTimer": 10.900000095367432,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 122.95000004768372,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-dynamic-wetness",
+        "fixture": "flow-pool-drop",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3,
+        "measureTransport": true
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "003-wgsl-macro-dynamic-wetness-flow-pool-drop.png",
+        "bytes": 672514,
+        "sha256": "63d8046ff19361b557e917d3f785efc35c1cb386de2d7d6e3e8f57ff8bb6f658"
+      },
+      "fixtureSHA": {
+        "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
+        "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 41.200000047683716,
+      "samples": [
+        {
+          "uploadJsMs": 124.29999995231628,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 61.299999952316284,
+          "totalReadyMs": 185.59999990463257,
+          "fullReadbackJsMs": 16.799999952316284,
+          "totalToFullReadbackMs": 202.39999985694885
+        },
+        {
+          "uploadJsMs": 72.79999995231628,
+          "submitJsMs": 0.3000001907348633,
+          "runToDependentMs": 51.200000047683716,
+          "totalReadyMs": 124,
+          "fullReadbackJsMs": 15.200000047683716,
+          "totalToFullReadbackMs": 139.20000004768372
+        },
+        {
+          "uploadJsMs": 93.69999980926514,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 53.80000019073486,
+          "totalReadyMs": 147.5,
+          "fullReadbackJsMs": 14.399999856948853,
+          "totalToFullReadbackMs": 161.89999985694885
+        }
+      ],
+      "hashes": [
+        "02e11d4c8b55bd3d9827f26c1aa7667544c7605b907c0425eee05f96d41ecfa5",
+        "02e11d4c8b55bd3d9827f26c1aa7667544c7605b907c0425eee05f96d41ecfa5",
+        "02e11d4c8b55bd3d9827f26c1aa7667544c7605b907c0425eee05f96d41ecfa5"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "dynamic-Darcy-wetting-and-absorption",
+        "wetDomain": "dynamic",
+        "grid": 128,
+        "steps": 96,
+        "flow": 0.18,
+        "mixing": 0.12,
+        "suction": 0.15,
+        "absorption": 0.025,
+        "capacity": 0.35,
+        "staining": 0.7,
+        "wetThreshold": 0.0001,
+        "finePaperGain": 0.5,
+        "dispatches": 289,
+        "initialWaterSum": 227043.52941288173,
+        "initialPigmentAlphaCodes": 379620,
+        "initialDryFixedAlphaCodes": 0,
+        "finalState": {
+          "surfaceSum": 141738.15737554943,
+          "absorbedSum": 85305.43529253572,
+          "totalWaterSum": 227043.59266808516,
+          "mobileAlphaCodes": 290762.0063757274,
+          "adsorbedAlphaCodes": 88858.14572727012,
+          "initialDryFixedAlphaCodes": 0,
+          "expandedSurfaceCells": 4444,
+          "expandedTotalWetCells": 4514,
+          "minWater": 0,
+          "minPigment": 0,
+          "prePackOverflowFinePixels": 0,
+          "prePackNegativeFinePixels": 0,
+          "prePackGuardPassed": true
+        },
+        "waterUnits": "sum of normalized water per fine pixel, surface+absorbed; no evaporation",
+        "staticWallMap": false,
+        "readbackState": "coarseW/S/M/D and explicit pre-pack overflow/negative counters copy/map only inside readback after timing",
+        "limitations": "Initial dry water is NOT a solid wall. Phenomenological Darcy+absorption, not full MoXi. Coarse fronts and finalRGBA8 clipping/rounding require checks; S absorbed water is stationary.",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 379620,
+        "outputMass": 375936,
+        "massRatio": 0.9902955587166113,
+        "lostPixels": 0,
+        "addedPixels": 28099,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 41344
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 375936,
+        "massBeyond25px": 0.34375798008171604,
+        "massBeyond50px": 0.12410889087504257,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0.5015098200693768,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0.9909521710075727,
+        "blueMassRatio": 0,
+        "changedDryPixels": 0
+      },
+      "transportMetrics": {
+        "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+        "supportPixels": 2109,
+        "inputAlpha": 379620,
+        "outputAlpha": 375936,
+        "alphaRatio": 0.9902955587166113,
+        "channelRatios": [
+          0.9909521710075727,
+          0.9801801801801802,
+          null
+        ],
+        "rmsDistanceFromSupport": 26.740755727849074,
+        "beyond": [
+          {
+            "distance": 10,
+            "pixels": 26251,
+            "alpha": 191869,
+            "fraction": 0.5103767662580865
+          },
+          {
+            "distance": 25,
+            "pixels": 22199,
+            "alpha": 120027,
+            "fraction": 0.31927508937691523
+          },
+          {
+            "distance": 50,
+            "pixels": 12259,
+            "alpha": 36353,
+            "fraction": 0.09669997020769493
+          },
+          {
+            "distance": 100,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          }
+        ],
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.800000000000182,
+        "maxTimer": 11.200000047683716,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 135.75,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-dynamic-wetness",
+        "fixture": "flow-near-colors",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3,
+        "measureTransport": true
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "004-wgsl-macro-dynamic-wetness-flow-near-colors.png",
+        "bytes": 680672,
+        "sha256": "208d6885d4f9d21d901ce562dc25d11adf87376d571e283c8532e4775ee2c8bb"
+      },
+      "fixtureSHA": {
+        "rgba": "d6bfc7d034cba96be9ccad1eb9e1ae0939ad343ce13b67d98082549f92a7eca1",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 42.19999980926514,
+      "samples": [
+        {
+          "uploadJsMs": 93.80000019073486,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 49.39999985694885,
+          "totalReadyMs": 143.20000004768372,
+          "fullReadbackJsMs": 16.200000047683716,
+          "totalToFullReadbackMs": 159.40000009536743
+        },
+        {
+          "uploadJsMs": 69.39999985694885,
+          "submitJsMs": 0.2999999523162842,
+          "runToDependentMs": 46.5,
+          "totalReadyMs": 115.89999985694885,
+          "fullReadbackJsMs": 16.600000143051147,
+          "totalToFullReadbackMs": 132.5
+        },
+        {
+          "uploadJsMs": 73.10000014305115,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 45.09999990463257,
+          "totalReadyMs": 118.20000004768372,
+          "fullReadbackJsMs": 16.100000143051147,
+          "totalToFullReadbackMs": 134.30000019073486
+        }
+      ],
+      "hashes": [
+        "037d8a64ef24ab9e1c818c86371a13ead1c7634d07e64c2b4ca749f5121f8bc0",
+        "037d8a64ef24ab9e1c818c86371a13ead1c7634d07e64c2b4ca749f5121f8bc0",
+        "037d8a64ef24ab9e1c818c86371a13ead1c7634d07e64c2b4ca749f5121f8bc0"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "dynamic-Darcy-wetting-and-absorption",
+        "wetDomain": "dynamic",
+        "grid": 128,
+        "steps": 96,
+        "flow": 0.18,
+        "mixing": 0.12,
+        "suction": 0.15,
+        "absorption": 0.025,
+        "capacity": 0.35,
+        "staining": 0.7,
+        "wetThreshold": 0.0001,
+        "finePaperGain": 0.5,
+        "dispatches": 289,
+        "initialWaterSum": 183653.64705930915,
+        "initialPigmentAlphaCodes": 759240,
+        "initialDryFixedAlphaCodes": 0,
+        "finalState": {
+          "surfaceSum": 111872.04619347956,
+          "absorbedSum": 71781.67726943592,
+          "totalWaterSum": 183653.72346291548,
+          "mobileAlphaCodes": 581523.7992654413,
+          "adsorbedAlphaCodes": 177716.3059515553,
+          "initialDryFixedAlphaCodes": 0,
+          "expandedSurfaceCells": 4520,
+          "expandedTotalWetCells": 4544,
+          "minWater": 0,
+          "minPigment": 0,
+          "prePackOverflowFinePixels": 0,
+          "prePackNegativeFinePixels": 0,
+          "prePackGuardPassed": true
+        },
+        "waterUnits": "sum of normalized water per fine pixel, surface+absorbed; no evaporation",
+        "staticWallMap": false,
+        "readbackState": "coarseW/S/M/D and explicit pre-pack overflow/negative counters copy/map only inside readback after timing",
+        "limitations": "Initial dry water is NOT a solid wall. Phenomenological Darcy+absorption, not full MoXi. Coarse fronts and finalRGBA8 clipping/rounding require checks; S absorbed water is stationary.",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 755968,
+        "massRatio": 0.9956904272693746,
+        "lostPixels": 0,
+        "addedPixels": 42822,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 60928
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 755968,
+        "massBeyond25px": 0.2772313113782594,
+        "massBeyond50px": 0.09210045927869963,
+        "massBeyond100px": 0.00000396842194378598,
+        "blueCrossFraction": 0.12404648415728749,
+        "yellowCrossFraction": 0.11978737740510594,
+        "mixedCarrierFraction": 0.2205862372067358,
+        "redMassRatio": 0.9909521710075727,
+        "blueMassRatio": 0.9909521710075727,
+        "changedDryPixels": 0
+      },
+      "transportMetrics": {
+        "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+        "supportPixels": 4218,
+        "inputAlpha": 759240,
+        "outputAlpha": 755968,
+        "alphaRatio": 0.9956904272693746,
+        "channelRatios": [
+          0.9909521710075727,
+          0.9815807710544553,
+          0.9909521710075727
+        ],
+        "rmsDistanceFromSupport": 24.4589148448351,
+        "beyond": [
+          {
+            "distance": 10,
+            "pixels": 39126,
+            "alpha": 359394,
+            "fraction": 0.47540901202167285
+          },
+          {
+            "distance": 25,
+            "pixels": 31899,
+            "alpha": 199259,
+            "fraction": 0.2635812626989502
+          },
+          {
+            "distance": 50,
+            "pixels": 17591,
+            "alpha": 56972,
+            "fraction": 0.07536297832712496
+          },
+          {
+            "distance": 100,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          }
+        ],
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 17,
+        "maxTimer": 11,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 117.04999995231628,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-dynamic-wetness",
+        "fixture": "flow-water-only",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3,
+        "measureTransport": true
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "005-wgsl-macro-dynamic-wetness-flow-water-only.png",
+        "bytes": 632770,
+        "sha256": "4c4b4e3330f10afd83ad489b82a59cfd6ea3b0387136c320123a6e6944d639e5"
+      },
+      "fixtureSHA": {
+        "rgba": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 44.40000009536743,
+      "samples": [
+        {
+          "uploadJsMs": 87.29999995231628,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 54.90000009536743,
+          "totalReadyMs": 142.20000004768372,
+          "fullReadbackJsMs": 16.700000047683716,
+          "totalToFullReadbackMs": 158.90000009536743
+        },
+        {
+          "uploadJsMs": 82.20000004768372,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 46.299999952316284,
+          "totalReadyMs": 128.5,
+          "fullReadbackJsMs": 15.099999904632568,
+          "totalToFullReadbackMs": 143.59999990463257
+        },
+        {
+          "uploadJsMs": 81.10000014305115,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 43.299999952316284,
+          "totalReadyMs": 124.40000009536743,
+          "fullReadbackJsMs": 14,
+          "totalToFullReadbackMs": 138.5
+        }
+      ],
+      "hashes": [
+        "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "dynamic-Darcy-wetting-and-absorption",
+        "wetDomain": "dynamic",
+        "grid": 128,
+        "steps": 96,
+        "flow": 0.18,
+        "mixing": 0.12,
+        "suction": 0.15,
+        "absorption": 0.025,
+        "capacity": 0.35,
+        "staining": 0.7,
+        "wetThreshold": 0.0001,
+        "finePaperGain": 0.5,
+        "dispatches": 289,
+        "initialWaterSum": 183653.64705930915,
+        "initialPigmentAlphaCodes": 0,
+        "initialDryFixedAlphaCodes": 0,
+        "finalState": {
+          "surfaceSum": 111872.04619347956,
+          "absorbedSum": 71781.67726943592,
+          "totalWaterSum": 183653.72346291548,
+          "mobileAlphaCodes": 0,
+          "adsorbedAlphaCodes": 0,
+          "initialDryFixedAlphaCodes": 0,
+          "expandedSurfaceCells": 4520,
+          "expandedTotalWetCells": 4544,
+          "minWater": 0,
+          "minPigment": 0,
+          "prePackOverflowFinePixels": 0,
+          "prePackNegativeFinePixels": 0,
+          "prePackGuardPassed": true
+        },
+        "waterUnits": "sum of normalized water per fine pixel, surface+absorbed; no evaporation",
+        "staticWallMap": false,
+        "readbackState": "coarseW/S/M/D and explicit pre-pack overflow/negative counters copy/map only inside readback after timing",
+        "limitations": "Initial dry water is NOT a solid wall. Phenomenological Darcy+absorption, not full MoXi. Coarse fronts and finalRGBA8 clipping/rounding require checks; S absorbed water is stationary.",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 0,
+        "outputMass": 0,
+        "massRatio": 1,
+        "lostPixels": 0,
+        "addedPixels": 0,
+        "outsideWetPixels": 0,
+        "invalidPremul": 0,
+        "changedPixels": 0
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 0,
+        "massBeyond25px": 0,
+        "massBeyond50px": 0,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 0,
+        "blueMassRatio": 0,
+        "changedDryPixels": 0
+      },
+      "transportMetrics": {
+        "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+        "supportPixels": 0,
+        "inputAlpha": 0,
+        "outputAlpha": 0,
+        "alphaRatio": null,
+        "channelRatios": [
+          null,
+          null,
+          null
+        ],
+        "rmsDistanceFromSupport": 0,
+        "beyond": [
+          {
+            "distance": 10,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          },
+          {
+            "distance": 25,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          },
+          {
+            "distance": 50,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          },
+          {
+            "distance": 100,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          }
+        ],
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 18,
+        "maxTimer": 13,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 126.45000004768372,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-dynamic-wetness",
+        "fixture": "flow-dry-pigment",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3,
+        "measureTransport": true
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "png": {
+        "file": "006-wgsl-macro-dynamic-wetness-flow-dry-pigment.png",
+        "bytes": 643367,
+        "sha256": "841f18470e95e9cc31e1c8d7c692f483c872a0b9614c88ee496623c1b68eb38d"
+      },
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 61.200000047683716,
+      "samples": [
+        {
+          "uploadJsMs": 74.79999995231628,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 48.5,
+          "totalReadyMs": 123.29999995231628,
+          "fullReadbackJsMs": 17,
+          "totalToFullReadbackMs": 140.29999995231628
+        },
+        {
+          "uploadJsMs": 63.799999952316284,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 36.5,
+          "totalReadyMs": 100.29999995231628,
+          "fullReadbackJsMs": 16.100000143051147,
+          "totalToFullReadbackMs": 116.40000009536743
+        },
+        {
+          "uploadJsMs": 62.59999990463257,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 43.09999990463257,
+          "totalReadyMs": 105.69999980926514,
+          "fullReadbackJsMs": 23.40000009536743,
+          "totalToFullReadbackMs": 129.09999990463257
+        }
+      ],
+      "hashes": [
+        "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "dynamic-Darcy-wetting-and-absorption",
+        "wetDomain": "dynamic",
+        "grid": 128,
+        "steps": 96,
+        "flow": 0.18,
+        "mixing": 0.12,
+        "suction": 0.15,
+        "absorption": 0.025,
+        "capacity": 0.35,
+        "staining": 0.7,
+        "wetThreshold": 0.0001,
+        "finePaperGain": 0.5,
+        "dispatches": 289,
+        "initialWaterSum": 0,
+        "initialPigmentAlphaCodes": 759240,
+        "initialDryFixedAlphaCodes": 759240,
+        "finalState": {
+          "surfaceSum": 0,
+          "absorbedSum": 0,
+          "totalWaterSum": 0,
+          "mobileAlphaCodes": 0,
+          "adsorbedAlphaCodes": 0,
+          "initialDryFixedAlphaCodes": 759240,
+          "expandedSurfaceCells": 0,
+          "expandedTotalWetCells": 0,
+          "minWater": 0,
+          "minPigment": 0,
+          "prePackOverflowFinePixels": 0,
+          "prePackNegativeFinePixels": 0,
+          "prePackGuardPassed": true
+        },
+        "waterUnits": "sum of normalized water per fine pixel, surface+absorbed; no evaporation",
+        "staticWallMap": false,
+        "readbackState": "coarseW/S/M/D and explicit pre-pack overflow/negative counters copy/map only inside readback after timing",
+        "limitations": "Initial dry water is NOT a solid wall. Phenomenological Darcy+absorption, not full MoXi. Coarse fronts and finalRGBA8 clipping/rounding require checks; S absorbed water is stationary.",
+        "seedUsed": false,
+        "featuresRequired": []
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 759240,
+        "outputMass": 759240,
+        "massRatio": 1,
+        "lostPixels": 0,
+        "addedPixels": 0,
+        "outsideWetPixels": 4218,
+        "invalidPremul": 0,
+        "changedPixels": 0
+      },
+      "flowMetrics": {
+        "schemaVersion": 2,
+        "scope": "Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass",
+        "initialMixedPixels": 0,
+        "alphaCarrier": 759240,
+        "massBeyond25px": 0,
+        "massBeyond50px": 0,
+        "massBeyond100px": 0,
+        "blueCrossFraction": 0,
+        "yellowCrossFraction": 0,
+        "mixedCarrierFraction": 0,
+        "redMassRatio": 1,
+        "blueMassRatio": 1,
+        "changedDryPixels": 0
+      },
+      "transportMetrics": {
+        "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+        "supportPixels": 4218,
+        "inputAlpha": 759240,
+        "outputAlpha": 759240,
+        "alphaRatio": 1,
+        "channelRatios": [
+          1,
+          1,
+          1
+        ],
+        "rmsDistanceFromSupport": 0,
+        "beyond": [
+          {
+            "distance": 10,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          },
+          {
+            "distance": 25,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          },
+          {
+            "distance": 50,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          },
+          {
+            "distance": 100,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          }
+        ],
+        "changedDryPixels": 0
+      },
+      "ui": {
+        "maxRAF": 16.80000000000109,
+        "maxTimer": 15.799999952316284,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 102.99999988079071,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    }
+  ]
+}
