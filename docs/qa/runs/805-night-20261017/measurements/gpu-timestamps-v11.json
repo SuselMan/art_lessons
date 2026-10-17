@@ -1,0 +1,792 @@
+{
+  "startedAt": "2026-10-17T20:54:52.667Z",
+  "qualification": "Isolated fixed-input 1024 algorithms in owned Samsung worker. Primary totalReadyMs includes upload/reduction and dependent result wait; not pure GPU time. Full-output readback/SHA and PNG outside timing. Fresh GL context per run, 3 repeat uploads on same candidate.",
+  "cases": [
+    {
+      "request": {
+        "algorithm": "wgsl-integer-diffusion-direct",
+        "fixture": "wave",
+        "encoding": "premultiplied-rgb",
+        "config": {
+          "iterations": 32,
+          "rate": 24
+        },
+        "repeats": 5,
+        "profileGPU": true
+      },
+      "result": {
+        "algorithm": "wgsl-integer-diffusion-direct",
+        "fixture": "wave",
+        "encoding": "premultiplied-rgb",
+        "config": {
+          "iterations": 32,
+          "rate": 24
+        },
+        "fixtureSHA": {
+          "rgba": "ceda081e3b75c2e0afd2d083c283192f013b06ecef13f244bd689152ec052ca7",
+          "water": "79c624d510c3f8e14330cada169b4e68b9a3caa4915327186f2f16b05abd2662",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgpu",
+        "profileGPU": true,
+        "hardware": {
+          "vendor": "qualcomm",
+          "architecture": "adreno-6xx",
+          "device": "",
+          "description": ""
+        },
+        "createMs": 43.700000047683716,
+        "samples": [
+          {
+            "uploadJsMs": 60.299999952316284,
+            "submitJsMs": 1.7000000476837158,
+            "runToDependentMs": 92.20000004768372,
+            "totalReadyMs": 152.5,
+            "gpuPassMs": 64.815104
+          },
+          {
+            "uploadJsMs": 32.60000014305115,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 74.79999995231628,
+            "totalReadyMs": 107.40000009536743,
+            "gpuPassMs": 71.303168
+          },
+          {
+            "uploadJsMs": 32.799999952316284,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 66.29999995231628,
+            "totalReadyMs": 99.09999990463257,
+            "gpuPassMs": 62.521344
+          },
+          {
+            "uploadJsMs": 31.299999952316284,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 71,
+            "totalReadyMs": 102.29999995231628,
+            "gpuPassMs": 66.84672
+          },
+          {
+            "uploadJsMs": 35.90000009536743,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 64.29999995231628,
+            "totalReadyMs": 100.20000004768372,
+            "gpuPassMs": 61.079552
+          }
+        ],
+        "hashes": [
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe",
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe",
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe",
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe",
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "algorithm": "integer-local-diffusion",
+          "variant": "direct",
+          "size": 1024,
+          "iterations": 32,
+          "rate": 24,
+          "stateBytes": 16777216,
+          "stagingBytes": 4194304,
+          "staticWater": true,
+          "seedUsed": false
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 35228063,
+          "outputMass": 35246017,
+          "massRatio": 1.0005096505022146,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 26,
+          "invalidPremul": 0,
+          "changedPixels": 17354
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 16.40000009536743,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 152.5,
+        "warmMedianMs": 101.25
+      },
+      "png": {
+        "file": "wgsl-integer-diffusion-direct-wave-1.png",
+        "bytes": 1028324,
+        "sha256": "ed9ef9af0c7af89d81df7bef2f8420232abb3d5880654cf3485515e7f6444d2e"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-integer-diffusion-texture",
+        "fixture": "wave",
+        "encoding": "premultiplied-rgb",
+        "config": {
+          "iterations": 32,
+          "rate": 24
+        },
+        "repeats": 5,
+        "profileGPU": true
+      },
+      "result": {
+        "algorithm": "wgsl-integer-diffusion-texture",
+        "fixture": "wave",
+        "encoding": "premultiplied-rgb",
+        "config": {
+          "iterations": 32,
+          "rate": 24
+        },
+        "fixtureSHA": {
+          "rgba": "ceda081e3b75c2e0afd2d083c283192f013b06ecef13f244bd689152ec052ca7",
+          "water": "79c624d510c3f8e14330cada169b4e68b9a3caa4915327186f2f16b05abd2662",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgpu",
+        "profileGPU": true,
+        "hardware": {
+          "vendor": "qualcomm",
+          "architecture": "adreno-6xx",
+          "device": "",
+          "description": ""
+        },
+        "createMs": 40.200000047683716,
+        "samples": [
+          {
+            "uploadJsMs": 32.799999952316284,
+            "submitJsMs": 1.2000000476837158,
+            "runToDependentMs": 97.39999985694885,
+            "totalReadyMs": 130.19999980926514,
+            "gpuPassMs": 82.444288
+          },
+          {
+            "uploadJsMs": 48.59999990463257,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 34.299999952316284,
+            "totalReadyMs": 82.89999985694885,
+            "gpuPassMs": 29.032448
+          },
+          {
+            "uploadJsMs": 34.5,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 32.5,
+            "totalReadyMs": 67,
+            "gpuPassMs": 29.032448
+          },
+          {
+            "uploadJsMs": 25.799999952316284,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 32.799999952316284,
+            "totalReadyMs": 58.59999990463257,
+            "gpuPassMs": 29.16352
+          },
+          {
+            "uploadJsMs": 29.799999952316284,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 31.90000009536743,
+            "totalReadyMs": 61.700000047683716,
+            "gpuPassMs": 28.966912
+          }
+        ],
+        "hashes": [
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe",
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe",
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe",
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe",
+          "33a2a818b9e689f222e93cd2130f20f60b72bbea8324c387bc37e346a9e906fe"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "algorithm": "integer-local-diffusion",
+          "variant": "R32Uint sampled+storage textures; water/paper stayu32buffers",
+          "size": 1024,
+          "iterations": 32,
+          "rate": 24,
+          "stateTextureBytes": 8388608,
+          "staticBufferBytes": 8388624,
+          "stagingBytes": 4194304,
+          "workgroup": "16x16",
+          "copyAfterTiming": true,
+          "seedUsed": false,
+          "featuresRequired": []
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 35228063,
+          "outputMass": 35246017,
+          "massRatio": 1.0005096505022146,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 26,
+          "invalidPremul": 0,
+          "changedPixels": 17354
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 21.59999990463257,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 130.19999980926514,
+        "warmMedianMs": 64.35000002384186
+      },
+      "png": {
+        "file": "wgsl-integer-diffusion-texture-wave-2.png",
+        "bytes": 1028324,
+        "sha256": "ed9ef9af0c7af89d81df7bef2f8420232abb3d5880654cf3485515e7f6444d2e"
+      },
+      "pass": true
+    }
+  ],
+  "sourceHashes": {
+    "entry.js": "0d25822f2f8f427495cd21faf7123288a92e9a4b15c1952647141e4305a93504",
+    "worker.js": "259b431f0063616bd1997957f7adf92bc778373e507dbc146c53a1887b001e2e",
+    "chunk-OXBRW55U.js": "1323ea1a0ae62bd9000f47e65a830339ad2f3736d4f8f79843d3605dc60c0a53",
+    "index.html": "7f174c6068b1a87f196251529b71ac6c4844f011e315c79534a94c0af5b824e4"
+  },
+  "catalog": {
+    "requestId": 1,
+    "algorithms": [
+      {
+        "id": "input-reference",
+        "label": "Исходный след без растекания",
+        "configs": [
+          {}
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-stable-fluids",
+        "label": "Low-resolution advect/project/pigment (RGBA8)",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 4,
+            "projection": 4,
+            "force": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 4,
+            "projection": 4,
+            "force": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 8,
+            "projection": 6,
+            "force": 4
+          },
+          {
+            "resolution": 512,
+            "steps": 4,
+            "projection": 4,
+            "force": 4
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-lattice-diffusion",
+        "label": "Conservative donor lattice pigment diffusion",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 12,
+            "stride": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 12,
+            "stride": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 24,
+            "stride": 4
+          },
+          {
+            "resolution": 512,
+            "steps": 16,
+            "stride": 4
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-artistic-front",
+        "label": "Cheap dyadic artistic front + multiscale pigment",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 8,
+            "budget": 12,
+            "rim": 0.2
+          },
+          {
+            "resolution": 256,
+            "steps": 8,
+            "budget": 16,
+            "rim": 0.35
+          },
+          {
+            "resolution": 256,
+            "steps": 16,
+            "budget": 24,
+            "rim": 0.5
+          },
+          {
+            "resolution": 512,
+            "steps": 12,
+            "budget": 32,
+            "rim": 0.35
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "search-artistic-program",
+        "label": "Bounded24 ordered artistic programs (approximate search)",
+        "configs": [
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 1
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-wet-boundary-detail",
+        "label": "Donor wet-boundary rim + retained detail + real paper grain",
+        "configs": [
+          {
+            "resolution": 256,
+            "steps": 8,
+            "rim": 0.7,
+            "grain": 0.35,
+            "detail": 0.65,
+            "fullSteps": 2,
+            "share": 0.4
+          },
+          {
+            "resolution": 256,
+            "steps": 10,
+            "rim": 0.85,
+            "grain": 0.6,
+            "detail": 0.8,
+            "fullSteps": 3,
+            "share": 0.35
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-paper-deposition",
+        "label": "Paper-guided mobile pigment and gradual deposition (no pool-edge rim)",
+        "configs": [
+          {
+            "steps": 4,
+            "mobile": 0.4,
+            "share": 0.65,
+            "adsorption": 0.16,
+            "paperBias": 0.9,
+            "coarse": 4
+          },
+          {
+            "steps": 5,
+            "mobile": 0.8,
+            "share": 0.7,
+            "adsorption": 0.12,
+            "paperBias": 1,
+            "coarse": 6
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-porous-water-transport",
+        "label": "Evolving porous water + donor-cell pigment and adsorption",
+        "configs": [
+          {
+            "steps": 8,
+            "mobile": 0.6,
+            "adsorption": 0.1,
+            "coarse": 4,
+            "dt": 0.16,
+            "terrain": 0.18
+          },
+          {
+            "steps": 10,
+            "mobile": 0.8,
+            "adsorption": 0.07,
+            "coarse": 2,
+            "dt": 0.2,
+            "terrain": 0.25
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-correlated-paper-deposition",
+        "label": "Correlated paper affinity, micrograin and gradual pigment deposition",
+        "configs": [
+          {
+            "steps": 4,
+            "mobile": 0.6,
+            "share": 0.65,
+            "adsorption": 0.14,
+            "paperBias": 0.9,
+            "coarse": 4,
+            "paperScale": 3,
+            "micro": 0.12,
+            "relief": 2.5
+          },
+          {
+            "steps": 5,
+            "mobile": 0.75,
+            "share": 0.7,
+            "adsorption": 0.1,
+            "paperBias": 1,
+            "coarse": 6,
+            "paperScale": 5,
+            "micro": 0.15,
+            "relief": 3.5
+          },
+          {
+            "steps": 5,
+            "mobile": 0.8,
+            "share": 0.7,
+            "adsorption": 0.09,
+            "paperBias": 1,
+            "coarse": 8,
+            "paperScale": 8,
+            "micro": 0.1,
+            "relief": 4.5
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "gl-integer-diffusion-match",
+        "label": "GL1: matched local integer diffusion",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "wgsl-integer-diffusion-direct",
+        "label": "WebGPU: local integer diffusion",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-integer-diffusion-tiled4",
+        "label": "WebGPU: same local diffusion, four shared-memory steps",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-d2q9-bgk",
+        "label": "WebGPU: D2Q9 fluid with pigment/water tracers",
+        "configs": [
+          {
+            "grid": 256,
+            "steps": 48
+          },
+          {
+            "grid": 512,
+            "steps": 48
+          },
+          {
+            "grid": 256,
+            "steps": 16,
+            "diffusion": 0.015
+          },
+          {
+            "grid": 128,
+            "steps": 24,
+            "diffusion": 0.025
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-integer-diffusion-texture",
+        "label": "WebGPU: same local integer diffusion, R32Uint texture access",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "dot",
+        "label": "Точка",
+        "description": "Один широкий отпечаток синей кисти"
+      },
+      {
+        "id": "wave",
+        "label": "Широкая волна",
+        "description": "Кисть320 через значительную часть листа"
+      },
+      {
+        "id": "water-only",
+        "label": "Только вода",
+        "description": "Мокрая область без пигмента: краска не должна появляться"
+      },
+      {
+        "id": "water-stroke",
+        "label": "Мазок через лужу",
+        "description": "Узкая синяя линия пересекает широкую мокрую область"
+      },
+      {
+        "id": "two-colors",
+        "label": "Два цвета",
+        "description": "Пересечение синего и розового пигмента в общей мокрой области"
+      },
+      {
+        "id": "crosses",
+        "label": "Повторные пересечения",
+        "description": "Три перекрывающихся следа с разным количеством пигмента"
+      },
+      {
+        "id": "blue-yellow",
+        "label": "Синий и жёлтый",
+        "description": "Проверка смешения пигментов, а не только размытияRGB"
+      },
+      {
+        "id": "fine-detail",
+        "label": "Тонкий след",
+        "description": "Мелкие детали на мокрой и почти сухой бумаге"
+      },
+      {
+        "id": "border",
+        "label": "У края листа",
+        "description": "След касается границы расчётного поля"
+      },
+      {
+        "id": "wave-open",
+        "label": "Волна с открытыми изгибами",
+        "description": "Два крупных изгиба широкой кисти вместо многократного наложения"
+      },
+      {
+        "id": "dry-stroke",
+        "label": "Сухой контроль",
+        "description": "Тот же пигмент, что в мазке через лужу, но воды нет: перенос запрещён"
+      },
+      {
+        "id": "isolated-pools",
+        "label": "Две отдельные лужи",
+        "description": "Синий пигмент только в левой луже; правая отделена сухим промежутком"
+      },
+      {
+        "id": "variable-wash",
+        "label": "Неравномерная заливка",
+        "description": "Перекрывающиеся отпечатки с разным количеством краски на предварительно смоченной бумаге"
+      },
+      {
+        "id": "dry-barrier",
+        "label": "Тонкий сухой разделитель",
+        "description": "Две мокрые области разделены сухой полосой шириной один пиксель; пигмент только слева"
+      }
+    ]
+  },
+  "sourceStable": true,
+  "pass": true,
+  "errors": [],
+  "intercepts": {
+    "index.html": 1,
+    "entry.js": 1,
+    "chunk-OXBRW55U.js": 2,
+    "worker.js": 1
+  },
+  "contextClosed": true,
+  "finishedAt": "2026-10-17T20:54:59.252Z",
+  "matchesUnprofiledRGBA": true
+}

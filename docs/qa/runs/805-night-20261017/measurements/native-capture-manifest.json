@@ -1,0 +1,62 @@
+{
+  "type": "qa-native-capture",
+  "requestId": "oracle805-1",
+  "manifest": {
+    "version": 1,
+    "conversion": "native-optical-depth-linear",
+    "rawRows": "gl-bottom-up",
+    "inputRows": "top-left",
+    "pigmentScale": 0.5875576036866359,
+    "nativeMassPerAlpha": 2,
+    "nativeDepthPerRGB": 8,
+    "nativeWaterPerByteFraction": 4,
+    "saturatedWaterPixels": 0,
+    "depthWithoutMassPixels": 0,
+    "tileOrigin": [
+      0,
+      0
+    ],
+    "paperWorldSize": [
+      1024,
+      1024
+    ],
+    "paperScale": 1,
+    "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+    "rawSHA": {
+      "inkColor": "0d88bdc0c627678062caa5c31a4e1bec7d65bc99ea0912c0cee31711b6b7e09b",
+      "solvent": "4368ba824158e4eb46b1512bbcbff8f739fa61797c3b2702c8bbf96b88540ff2",
+      "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+    },
+    "commonSHA": {
+      "rgba": "6bc194c61b8cb5a841635e3c4376a25f8e0ed4dd0475281a744a97a085d61956",
+      "water": "ba716f0bb5e1cfe429eb4b7accbae74198180ad2abc265c01752c1c6c8db1b13",
+      "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    "carrierViolations": 0,
+    "validForBoundedCarrier": true,
+    "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+  },
+  "size": 1024,
+  "encoding": "optical-density",
+  "seed": 805,
+  "binaryBytes": 6291456,
+  "binarySHA256": "e187e1bca5c3faf7c42a59dca1dbefd1d8b9801a7cb74e1884e96216f0c57183",
+  "settings": {
+    "size": 320,
+    "water": 95,
+    "pigment": 34,
+    "paint": "PB15",
+    "color": "#2688d3",
+    "force": 0.75
+  },
+  "geometrySHA": "9f90b84c1d3664078d30aecf52bb37c153f5338c857934234cf7f8f9e61a0ef3",
+  "sourceHashes": {
+    "entry.js": "3e4ef16c41714131c4a2294a859e5317a1ae490542392f3eef5c29a06667ecf6",
+    "worker.js": "82176c878e4108ba6365291daccec456cab40acef8c49c1c1d3e31ef75f459b1",
+    "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+    "chunk-5D5AX6KJ.js": "09f58d81754fa23122eeeb86812684c75221811bb4c5e65e8e0cf6a06a68a4aa",
+    "chunk-XRALAYZS.js": "fb0eed30a12d97af7e794986e8d39ae8a7617845ff0508127f419a407cf20e3e",
+    "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+    "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f"
+  }
+}

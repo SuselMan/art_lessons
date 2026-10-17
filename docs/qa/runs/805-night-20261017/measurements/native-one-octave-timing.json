@@ -1,0 +1,99 @@
+{
+  "qualification": "Approximate material variant. Own fresh authored strokes, same geometry/settings, clocks/seeds may differ. Diagnostic single dependent output read per goal, not pure GPU.",
+  "arms": [
+    {
+      "name": "native-one-octave-timing",
+      "sourceHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "a21efe08976d101ce95053648ba47aa5b158b32c5493867994e4589eadbea8c8",
+        "entry.js": "174e93ed45ed2616b710596f3e7f68b8e60237dcb509d2cbd10aa995cccf9d0e",
+        "worker.js": "ab4af662a79027bf5fc3b75ba6e3a090684ecf82a9039bbbe2b847c7f65d015e",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-3A7MLVYF.js": "3d801d226ca061118da884e03d4c1338b4a917babcee97eb9b5d84052ab09680",
+        "chunk-2VPDYFM7.js": "0e1a42a121d6cfd70e87a02d4fb92d4018593052a1caa8c65cf23e97d73cb587",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331"
+      },
+      "sourceStable": true,
+      "contextClosed": true,
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "pass": true,
+      "mainRAF": 99.60009765625,
+      "samples": [
+        {
+          "id": 1,
+          "dependentMs": 315.2998046875,
+          "jsMs": 208.89990234375,
+          "probeMs": 102.199951171875,
+          "status": 36053,
+          "error": 0,
+          "bindingRestored": true
+        },
+        {
+          "id": 2,
+          "dependentMs": 275.5,
+          "jsMs": 136.800048828125,
+          "probeMs": 121.699951171875,
+          "status": 36053,
+          "error": 0,
+          "bindingRestored": true
+        },
+        {
+          "id": 3,
+          "dependentMs": 371.60009765625,
+          "jsMs": 153.89990234375,
+          "probeMs": 198.7001953125,
+          "status": 36053,
+          "error": 0,
+          "bindingRestored": true
+        }
+      ]
+    },
+    {
+      "name": "native-one-octave-control",
+      "sourceHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "5c4365d68faaac2ef450fc86cdc920ba62cfd54aa4fdfa21f4f8b23b8725768b",
+        "entry.js": "38a565fcd99eaf25d2ad3b4ca8cfbe477573d571d71fd96f47672c22f04401f4",
+        "worker.js": "685c76be452b72ea8f96df454884187f653a64a8b3b009aa9c5e7f143912545d",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-BF6767AQ.js": "d79c2345c2145836ecdcf45a3482f2cd61809308f597695a493486ed6693a2f6",
+        "chunk-KSHPHUSB.js": "52f9c6ad6e6b61ba63cbff019ee1f53c7dfb5f54e6fa6d19735934c475aa6ba9",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331"
+      },
+      "sourceStable": true,
+      "contextClosed": true,
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "pass": true,
+      "mainRAF": 176.10009765625,
+      "samples": [
+        {
+          "id": 1,
+          "dependentMs": 377.900146484375,
+          "jsMs": 260.900146484375,
+          "probeMs": 111.900146484375,
+          "status": 36053,
+          "error": 0,
+          "bindingRestored": true
+        },
+        {
+          "id": 2,
+          "dependentMs": 347.199951171875,
+          "jsMs": 137.89990234375,
+          "probeMs": 201.60009765625,
+          "status": 36053,
+          "error": 0,
+          "bindingRestored": true
+        },
+        {
+          "id": 3,
+          "dependentMs": 373.599853515625,
+          "jsMs": 156.199951171875,
+          "probeMs": 206.2998046875,
+          "status": 36053,
+          "error": 0,
+          "bindingRestored": true
+        }
+      ]
+    }
+  ]
+}

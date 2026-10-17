@@ -1,0 +1,148 @@
+{
+  "qualification": "Native Mini correctness only; each shape owns a fresh engine. Repeat same target/raw/epoch. Full P/C/coverage readback SHA outside any performance measurement. Requested oracle sequence recorded per case; no equality to a different material version asserted. No hosted changes.",
+  "cases": [
+    {
+      "shape": "wave",
+      "sourceHashes": {
+        "entry.js": "174e93ed45ed2616b710596f3e7f68b8e60237dcb509d2cbd10aa995cccf9d0e",
+        "worker.js": "ab4af662a79027bf5fc3b75ba6e3a090684ecf82a9039bbbe2b847c7f65d015e",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-3A7MLVYF.js": "3d801d226ca061118da884e03d4c1338b4a917babcee97eb9b5d84052ab09680",
+        "chunk-2VPDYFM7.js": "0e1a42a121d6cfd70e87a02d4fb92d4018593052a1caa8c65cf23e97d73cb587",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f"
+      },
+      "settings": {
+        "size": 320,
+        "water": 95,
+        "pigment": 34,
+        "paint": "PB15",
+        "color": "#2688d3",
+        "force": 0.75
+      },
+      "geometrySHA": "9f90b84c1d3664078d30aecf52bb37c153f5338c857934234cf7f8f9e61a0ef3",
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "oracles": [
+        {
+          "request": {
+            "type": "qa-goal-hashes",
+            "label": "natural"
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-1",
+            "hashes": {
+              "p": "0048e8439207967e73ed3f10340f16a9923b25b74bc4ef06597508f9cd0fa25c",
+              "c": "91628a502889c2099391f7d751cd0debec4f42e745629a9cf0f2019d5b8fb760",
+              "coverage": "3a0a6eef478ebdc25f12a16257da43911261b2679bcbb979be630c6a23cc58fa"
+            },
+            "frontJumpStats": null
+          }
+        },
+        {
+          "request": {
+            "type": "qa-repeat-goal",
+            "label": "normal-repeat",
+            "finalOnly": false,
+            "maxOps": 100000
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-2",
+            "hashes": {
+              "p": "0048e8439207967e73ed3f10340f16a9923b25b74bc4ef06597508f9cd0fa25c",
+              "c": "91628a502889c2099391f7d751cd0debec4f42e745629a9cf0f2019d5b8fb760",
+              "coverage": "3a0a6eef478ebdc25f12a16257da43911261b2679bcbb979be630c6a23cc58fa"
+            },
+            "frontJumpStats": null
+          }
+        },
+        {
+          "request": {
+            "type": "qa-repeat-goal",
+            "label": "normal-repeat-again",
+            "finalOnly": false,
+            "maxOps": 100000
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-3",
+            "hashes": {
+              "p": "0048e8439207967e73ed3f10340f16a9923b25b74bc4ef06597508f9cd0fa25c",
+              "c": "91628a502889c2099391f7d751cd0debec4f42e745629a9cf0f2019d5b8fb760",
+              "coverage": "3a0a6eef478ebdc25f12a16257da43911261b2679bcbb979be630c6a23cc58fa"
+            },
+            "frontJumpStats": null
+          }
+        }
+      ],
+      "final": {
+        "settings": {
+          "size": 320,
+          "water": 95,
+          "pigment": 34,
+          "paint": "PB15",
+          "color": "#2688d3"
+        },
+        "error": "",
+        "state": {
+          "type": "state",
+          "state": {
+            "diagnostic": true,
+            "live": true,
+            "active": true,
+            "done": false,
+            "dry": false,
+            "progress": 0.21985839009580135,
+            "durationMs": 120000,
+            "cancellations": 0,
+            "liveInputs": 99,
+            "epoch": 1,
+            "drawing": false,
+            "showingEffect": false,
+            "effectRequested": false,
+            "calculating": false,
+            "goalReady": true,
+            "regions": {
+              "visible": false,
+              "hostOverlayOmitted": true
+            },
+            "target": {
+              "epoch": 1,
+              "iterations": 91,
+              "done": true,
+              "total": 91,
+              "revision": 15
+            }
+          },
+          "asyncError": "",
+          "stepMax": 97.79999995231628
+        }
+      },
+      "pass": true,
+      "errors": [],
+      "contextClosed": true
+    }
+  ],
+  "pass": true
+}

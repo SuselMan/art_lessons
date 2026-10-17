@@ -1,0 +1,6182 @@
+{
+  "startedAt": "2026-10-17T21:11:49.940Z",
+  "qualification": "Isolated fixed-input 1024 algorithms in owned Samsung worker. Primary totalReadyMs includes upload/reduction and dependent result wait; not pure GPU time. Full-output readback/SHA and PNG outside timing. Fresh GL context per run, 3 repeat uploads on same candidate.",
+  "cases": [
+    {
+      "request": {
+        "algorithm": "input-reference",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {},
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "input-reference",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {},
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 0.2999999523162842,
+        "samples": [
+          {
+            "uploadJsMs": 4.799999952316284,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 8.300000190734863,
+            "totalReadyMs": 13.100000143051147
+          },
+          {
+            "uploadJsMs": 0.5,
+            "submitJsMs": 0.10000014305114746,
+            "runToDependentMs": 4.5,
+            "totalReadyMs": 5
+          },
+          {
+            "uploadJsMs": 0.5,
+            "submitJsMs": 0,
+            "runToDependentMs": 2.5999999046325684,
+            "totalReadyMs": 3.0999999046325684
+          }
+        ],
+        "hashes": [
+          "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36"
+        ],
+        "repeatExact": true,
+        "metadata": {},
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5857371,
+          "massRatio": 1,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 207,
+          "invalidPremul": 0,
+          "changedPixels": 0
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 12.400000095367432,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 13.100000143051147,
+        "warmMedianMs": 4.049999952316284
+      },
+      "png": {
+        "file": "input-reference-captured-native-waterstroke-1.png",
+        "bytes": 1030756,
+        "sha256": "4b616253de424f852caa6d91abfb8cd1866d6814f69577a715558440457058ad"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-stable-fluids",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "resolution": 256,
+          "steps": 4,
+          "projection": 4,
+          "force": 2
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-stable-fluids",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "resolution": 256,
+          "steps": 4,
+          "projection": 4,
+          "force": 2
+        },
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 23,
+        "samples": [
+          {
+            "uploadJsMs": 37.799999952316284,
+            "submitJsMs": 1.2999999523162842,
+            "runToDependentMs": 6.900000095367432,
+            "totalReadyMs": 44.700000047683716
+          },
+          {
+            "uploadJsMs": 20.100000143051147,
+            "submitJsMs": 0.5999999046325684,
+            "runToDependentMs": 7.099999904632568,
+            "totalReadyMs": 27.200000047683716
+          },
+          {
+            "uploadJsMs": 20,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 5.799999952316284,
+            "totalReadyMs": 25.799999952316284
+          }
+        ],
+        "hashes": [
+          "6c407c869b7075be7ce94228fb1e61571c86ce7e4ccd0d761fd131e57f0c3812",
+          "6c407c869b7075be7ce94228fb1e61571c86ce7e4ccd0d761fd131e57f0c3812",
+          "6c407c869b7075be7ce94228fb1e61571c86ce7e4ccd0d761fd131e57f0c3812"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "StableFluids-style RGBA8 quantized Jacobi; not exact incompressibility",
+          "resolution": 256,
+          "passes": 39
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5822248,
+          "massRatio": 0.9940036238100677,
+          "lostPixels": 0,
+          "addedPixels": 6008,
+          "outsideWetPixels": 2214,
+          "invalidPremul": 0,
+          "changedPixels": 60412
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 17,
+          "maxTimer": 11.300000190734863,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 44.700000047683716,
+        "warmMedianMs": 26.5
+      },
+      "png": {
+        "file": "alternative-stable-fluids-captured-native-waterstroke-2.png",
+        "bytes": 1041061,
+        "sha256": "043789c74f4d9898fce23e423a1ea740a3d2277599f9659b99c2d8eae3fb0bed"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-lattice-diffusion",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "resolution": 256,
+          "steps": 12,
+          "stride": 2
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-lattice-diffusion",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "resolution": 256,
+          "steps": 12,
+          "stride": 2
+        },
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 13.5,
+        "samples": [
+          {
+            "uploadJsMs": 33.700000047683716,
+            "submitJsMs": 0.7999999523162842,
+            "runToDependentMs": 7.700000047683716,
+            "totalReadyMs": 41.40000009536743
+          },
+          {
+            "uploadJsMs": 22.09999990463257,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 6.200000047683716,
+            "totalReadyMs": 28.299999952316284
+          },
+          {
+            "uploadJsMs": 22.40000009536743,
+            "submitJsMs": 0.19999980926513672,
+            "runToDependentMs": 6.5,
+            "totalReadyMs": 28.90000009536743
+          }
+        ],
+        "hashes": [
+          "f9defa6f29bf8a29fb3fef0861957580982458e757d13d833cb019cf26ca63d3",
+          "f9defa6f29bf8a29fb3fef0861957580982458e757d13d833cb019cf26ca63d3",
+          "f9defa6f29bf8a29fb3fef0861957580982458e757d13d833cb019cf26ca63d3"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "symmetric D2Q9-stencil pigment diffusion, no LBM populations",
+          "resolution": 256,
+          "passes": 14,
+          "positivityBound": 0.75
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5839550,
+          "massRatio": 0.9969575087526469,
+          "lostPixels": 0,
+          "addedPixels": 13697,
+          "outsideWetPixels": 2326,
+          "invalidPremul": 0,
+          "changedPixels": 72568
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 16.799999999999272,
+          "maxTimer": 10.400000095367432,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 41.40000009536743,
+        "warmMedianMs": 28.600000023841858
+      },
+      "png": {
+        "file": "alternative-lattice-diffusion-captured-native-waterstroke-3.png",
+        "bytes": 1042029,
+        "sha256": "96bddf830ae9eacf53bffbb69664c417a1e6e63c9e2885e6b9b663ece264cfd3"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-artistic-front",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "resolution": 256,
+          "steps": 8,
+          "budget": 16,
+          "rim": 0.35
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-artistic-front",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "resolution": 256,
+          "steps": 8,
+          "budget": 16,
+          "rim": 0.35
+        },
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 24.199999809265137,
+        "samples": [
+          {
+            "uploadJsMs": 27.40000009536743,
+            "submitJsMs": 0.7999999523162842,
+            "runToDependentMs": 10,
+            "totalReadyMs": 37.40000009536743
+          },
+          {
+            "uploadJsMs": 23.40000009536743,
+            "submitJsMs": 0.39999985694885254,
+            "runToDependentMs": 9.299999952316284,
+            "totalReadyMs": 32.700000047683716
+          },
+          {
+            "uploadJsMs": 22.600000143051147,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 8.700000047683716,
+            "totalReadyMs": 31.300000190734863
+          }
+        ],
+        "hashes": [
+          "190120d0fa115da31d9212e90724d76dc97cb15100507463d60c01ef5e6e5e33",
+          "190120d0fa115da31d9212e90724d76dc97cb15100507463d60c01ef5e6e5e33",
+          "190120d0fa115da31d9212e90724d76dc97cb15100507463d60c01ef5e6e5e33"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "artistic dyadic costfront and pigment mixing, nonconservative rim",
+          "resolution": 256,
+          "passes": 17
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5994250,
+          "massRatio": 1.023368675127459,
+          "lostPixels": 0,
+          "addedPixels": 52950,
+          "outsideWetPixels": 20692,
+          "invalidPremul": 0,
+          "changedPixels": 117871
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 16.80000000000109,
+          "maxTimer": 12.5,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 37.40000009536743,
+        "warmMedianMs": 32.00000011920929
+      },
+      "png": {
+        "file": "alternative-artistic-front-captured-native-waterstroke-4.png",
+        "bytes": 1064458,
+        "sha256": "86ea2c2d8a41698f990225d0a8b25daedda41eef590001eb16f34d609a431128"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 4,
+          "mobile": 0.4,
+          "share": 0.65,
+          "adsorption": 0.16,
+          "paperBias": 0.9,
+          "coarse": 4
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 4,
+          "mobile": 0.4,
+          "share": 0.65,
+          "adsorption": 0.16,
+          "paperBias": 0.9,
+          "coarse": 4
+        },
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 31.899999856948853,
+        "samples": [
+          {
+            "uploadJsMs": 17,
+            "submitJsMs": 0.7000000476837158,
+            "runToDependentMs": 32.200000047683716,
+            "totalReadyMs": 49.200000047683716
+          },
+          {
+            "uploadJsMs": 6.200000047683716,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 36.89999985694885,
+            "totalReadyMs": 43.09999990463257
+          },
+          {
+            "uploadJsMs": 5.799999952316284,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 36.799999952316284,
+            "totalReadyMs": 42.59999990463257
+          }
+        ],
+        "hashes": [
+          "cf5ac2532bb3aa11df11c298f09e25d1eaf87c9cd8ac87f9faa8de2fc08af0b0",
+          "cf5ac2532bb3aa11df11c298f09e25d1eaf87c9cd8ac87f9faa8de2fc08af0b0",
+          "cf5ac2532bb3aa11df11c298f09e25d1eaf87c9cd8ac87f9faa8de2fc08af0b0"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 15,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.6
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5850595,
+          "massRatio": 0.9988431670112752,
+          "lostPixels": 0,
+          "addedPixels": 3098,
+          "outsideWetPixels": 207,
+          "invalidPremul": 0,
+          "changedPixels": 62869
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 16.799999999999272,
+          "maxTimer": 11.200000047683716,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 49.200000047683716,
+        "warmMedianMs": 42.84999990463257
+      },
+      "png": {
+        "file": "alternative-paper-deposition-captured-native-waterstroke-5.png",
+        "bytes": 1098332,
+        "sha256": "41925e260134295fa6b45350bbc422ae619e05539d7eb9195f55c7a9368a2e56"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 57.90000009536743,
+        "samples": [
+          {
+            "uploadJsMs": 31.700000047683716,
+            "submitJsMs": 0.39999985694885254,
+            "runToDependentMs": 49.69999980926514,
+            "totalReadyMs": 81.39999985694885
+          },
+          {
+            "uploadJsMs": 13.900000095367432,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 45.39999985694885,
+            "totalReadyMs": 59.299999952316284
+          },
+          {
+            "uploadJsMs": 8.200000047683716,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 46.200000047683716,
+            "totalReadyMs": 54.40000009536743
+          }
+        ],
+        "hashes": [
+          "47a38edebf4dfb02cb7dda5f214733451400f0bb859b2b4fb1b8b214e9fd5dc9",
+          "47a38edebf4dfb02cb7dda5f214733451400f0bb859b2b4fb1b8b214e9fd5dc9",
+          "47a38edebf4dfb02cb7dda5f214733451400f0bb859b2b4fb1b8b214e9fd5dc9"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 18,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5835889,
+          "massRatio": 0.996332484317623,
+          "lostPixels": 0,
+          "addedPixels": 6100,
+          "outsideWetPixels": 207,
+          "invalidPremul": 0,
+          "changedPixels": 66858
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 16.80000000000109,
+          "maxTimer": 11.900000095367432,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 81.39999985694885,
+        "warmMedianMs": 56.85000002384186
+      },
+      "png": {
+        "file": "alternative-paper-deposition-captured-native-waterstroke-6.png",
+        "bytes": 1123576,
+        "sha256": "94dccd6fb0d38b37949cb6b644cc164c541d818ba01e4b3f3444779fc133b858"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-correlated-paper-deposition",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 4,
+          "mobile": 0.6,
+          "share": 0.65,
+          "adsorption": 0.14,
+          "paperBias": 0.9,
+          "coarse": 4,
+          "paperScale": 3,
+          "micro": 0.12,
+          "relief": 2.5
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-correlated-paper-deposition",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 4,
+          "mobile": 0.6,
+          "share": 0.65,
+          "adsorption": 0.14,
+          "paperBias": 0.9,
+          "coarse": 4,
+          "paperScale": 3,
+          "micro": 0.12,
+          "relief": 2.5
+        },
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 90.5,
+        "samples": [
+          {
+            "uploadJsMs": 29.600000143051147,
+            "submitJsMs": 0.8999998569488525,
+            "runToDependentMs": 45.09999990463257,
+            "totalReadyMs": 74.70000004768372
+          },
+          {
+            "uploadJsMs": 10.700000047683716,
+            "submitJsMs": 0.5999999046325684,
+            "runToDependentMs": 36.39999985694885,
+            "totalReadyMs": 47.09999990463257
+          },
+          {
+            "uploadJsMs": 6.200000047683716,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 33.5,
+            "totalReadyMs": 39.700000047683716
+          }
+        ],
+        "hashes": [
+          "5e205ad6f525e19cf453f6f04d12fb8dd3eaa4d1e02ea6ee827702caaca6a91c",
+          "5e205ad6f525e19cf453f6f04d12fb8dd3eaa4d1e02ea6ee827702caaca6a91c",
+          "5e205ad6f525e19cf453f6f04d12fb8dd3eaa4d1e02ea6ee827702caaca6a91c"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "correlated terrain affinity + fine microtexture + mobile pigment adsorption; raw water retained",
+          "resolution": 1024,
+          "passes": 17,
+          "paperScale": 3,
+          "micro": 0.12,
+          "relief": 2.5,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.4
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5851282,
+          "massRatio": 0.998960455125687,
+          "lostPixels": 0,
+          "addedPixels": 3606,
+          "outsideWetPixels": 207,
+          "invalidPremul": 0,
+          "changedPixels": 62570
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 16.900000000001455,
+          "maxTimer": 11.599999904632568,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 74.70000004768372,
+        "warmMedianMs": 43.39999997615814
+      },
+      "png": {
+        "file": "alternative-correlated-paper-deposition-captured-native-waterstroke-7.png",
+        "bytes": 1082383,
+        "sha256": "8ea819d966ef55401e3bd5c1a486a87fd7325c218806888cfbbe1d91c8ba400e"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-correlated-paper-deposition",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.09,
+          "paperBias": 1,
+          "coarse": 8,
+          "paperScale": 8,
+          "micro": 0.1,
+          "relief": 4.5
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-correlated-paper-deposition",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.09,
+          "paperBias": 1,
+          "coarse": 8,
+          "paperScale": 8,
+          "micro": 0.1,
+          "relief": 4.5
+        },
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 91.89999985694885,
+        "samples": [
+          {
+            "uploadJsMs": 28.700000047683716,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 62,
+            "totalReadyMs": 90.70000004768372
+          },
+          {
+            "uploadJsMs": 17.200000047683716,
+            "submitJsMs": 0.5999999046325684,
+            "runToDependentMs": 53,
+            "totalReadyMs": 70.20000004768372
+          },
+          {
+            "uploadJsMs": 9,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 55.09999990463257,
+            "totalReadyMs": 64.09999990463257
+          }
+        ],
+        "hashes": [
+          "1381063d559094d2d06f2399b50e0cd3c2d7bcbbdebd3c2d5576ee3848d10130",
+          "1381063d559094d2d06f2399b50e0cd3c2d7bcbbdebd3c2d5576ee3848d10130",
+          "1381063d559094d2d06f2399b50e0cd3c2d7bcbbdebd3c2d5576ee3848d10130"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "correlated terrain affinity + fine microtexture + mobile pigment adsorption; raw water retained",
+          "resolution": 1024,
+          "passes": 20,
+          "paperScale": 8,
+          "micro": 0.1,
+          "relief": 4.5,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5849029,
+          "massRatio": 0.998575811571437,
+          "lostPixels": 0,
+          "addedPixels": 8104,
+          "outsideWetPixels": 207,
+          "invalidPremul": 0,
+          "changedPixels": 67282
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 16.80000000000109,
+          "maxTimer": 19.399999856948853,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 90.70000004768372,
+        "warmMedianMs": 67.14999997615814
+      },
+      "png": {
+        "file": "alternative-correlated-paper-deposition-captured-native-waterstroke-8.png",
+        "bytes": 1071597,
+        "sha256": "e578f3a3fe8a1293be3b0cef28bfe99622778ad54bd5f1842c54712f2a24d5cb"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 98.5,
+        "samples": [
+          {
+            "uploadJsMs": 25.899999856948853,
+            "submitJsMs": 1.3000001907348633,
+            "runToDependentMs": 96.70000004768372,
+            "totalReadyMs": 122.59999990463257
+          },
+          {
+            "uploadJsMs": 12.799999952316284,
+            "submitJsMs": 1,
+            "runToDependentMs": 49.700000047683716,
+            "totalReadyMs": 62.5
+          },
+          {
+            "uploadJsMs": 6.299999952316284,
+            "submitJsMs": 3.200000047683716,
+            "runToDependentMs": 50.09999990463257,
+            "totalReadyMs": 56.39999985694885
+          }
+        ],
+        "hashes": [
+          "7562db1ce61a4532996a2e072777772285abe48b743240af854d196f7af3ecad",
+          "7562db1ce61a4532996a2e072777772285abe48b743240af854d196f7af3ecad",
+          "7562db1ce61a4532996a2e072777772285abe48b743240af854d196f7af3ecad"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 44,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.25,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5860172,
+          "massRatio": 1.0004782008856874,
+          "lostPixels": 0,
+          "addedPixels": 1273,
+          "outsideWetPixels": 207,
+          "invalidPremul": 0,
+          "changedPixels": 59139
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 16.80000000000291,
+          "maxTimer": 13.200000047683716,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 122.59999990463257,
+        "warmMedianMs": 59.449999928474426
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-captured-native-waterstroke-9.png",
+        "bytes": 1080630,
+        "sha256": "315e090ae25750d67bde4f1ecbaebe11d716d8dd93a1d1227447dea87292dd4f"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-coarse-mobile-detail",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 2,
+          "mobile": 0.2,
+          "share": 0.5,
+          "adsorption": 0.1,
+          "paperBias": 0.7,
+          "coarse": 1,
+          "paperScale": 4,
+          "micro": 0.1,
+          "relief": 2,
+          "detail": 0.7,
+          "mobility": 0.65
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-coarse-mobile-detail",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 2,
+          "mobile": 0.2,
+          "share": 0.5,
+          "adsorption": 0.1,
+          "paperBias": 0.7,
+          "coarse": 1,
+          "paperScale": 4,
+          "micro": 0.1,
+          "relief": 2,
+          "detail": 0.7,
+          "mobility": 0.65
+        },
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 121.20000004768372,
+        "samples": [
+          {
+            "uploadJsMs": 56.59999990463257,
+            "submitJsMs": 0.7000000476837158,
+            "runToDependentMs": 30,
+            "totalReadyMs": 86.59999990463257
+          },
+          {
+            "uploadJsMs": 28.200000047683716,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 22.299999952316284,
+            "totalReadyMs": 50.5
+          },
+          {
+            "uploadJsMs": 22.399999856948853,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 20.90000009536743,
+            "totalReadyMs": 43.299999952316284
+          }
+        ],
+        "hashes": [
+          "ae6004dd353f3fc9bfc831624c3fa6bea1c9e5cbab4f1bb5d2fc21863ed881a2",
+          "ae6004dd353f3fc9bfc831624c3fa6bea1c9e5cbab4f1bb5d2fc21863ed881a2",
+          "ae6004dd353f3fc9bfc831624c3fa6bea1c9e5cbab4f1bb5d2fc21863ed881a2"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "strict-wet coarse donor diffusion + bounded detail reconstruction + two correlated deposition steps",
+          "resolution": 1024,
+          "coarseResolution": 256,
+          "detail": 0.7,
+          "mobility": 0.65,
+          "passes": 20,
+          "paperScale": 4,
+          "micro": 0.1,
+          "relief": 2,
+          "conservation": "ideal low donor flux conservative; detail reconstruction/safe footprint mask/clipping/UNORM are NOT globally conservative",
+          "fixedFraction": 0.8
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5832780,
+          "massRatio": 0.9958017001142663,
+          "lostPixels": 0,
+          "addedPixels": 20727,
+          "outsideWetPixels": 207,
+          "invalidPremul": 0,
+          "changedPixels": 74942
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 17,
+          "maxTimer": 20.700000047683716,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 86.59999990463257,
+        "warmMedianMs": 46.89999997615814
+      },
+      "png": {
+        "file": "alternative-coarse-mobile-detail-captured-native-waterstroke-10.png",
+        "bytes": 1056355,
+        "sha256": "34150f504483d8b0930eb38537e04b50843c6dd9889a04ac23f75c8af7462e99"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-coarse-mobile-detail",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 2,
+          "mobile": 0.35,
+          "share": 0.6,
+          "adsorption": 0.1,
+          "paperBias": 0.8,
+          "coarse": 1,
+          "paperScale": 5,
+          "micro": 0.12,
+          "relief": 2.5,
+          "detail": 0.4,
+          "mobility": 1
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-coarse-mobile-detail",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 2,
+          "mobile": 0.35,
+          "share": 0.6,
+          "adsorption": 0.1,
+          "paperBias": 0.8,
+          "coarse": 1,
+          "paperScale": 5,
+          "micro": 0.12,
+          "relief": 2.5,
+          "detail": 0.4,
+          "mobility": 1
+        },
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 82,
+        "samples": [
+          {
+            "uploadJsMs": 49.39999985694885,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 30.600000143051147,
+            "totalReadyMs": 80
+          },
+          {
+            "uploadJsMs": 29.100000143051147,
+            "submitJsMs": 0.39999985694885254,
+            "runToDependentMs": 21.700000047683716,
+            "totalReadyMs": 50.80000019073486
+          },
+          {
+            "uploadJsMs": 24.200000047683716,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 22.299999952316284,
+            "totalReadyMs": 46.5
+          }
+        ],
+        "hashes": [
+          "5acac9226ada9fd992926bf744699edf840c95dc9851400cfa315f4cc024f4a1",
+          "5acac9226ada9fd992926bf744699edf840c95dc9851400cfa315f4cc024f4a1",
+          "5acac9226ada9fd992926bf744699edf840c95dc9851400cfa315f4cc024f4a1"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "strict-wet coarse donor diffusion + bounded detail reconstruction + two correlated deposition steps",
+          "resolution": 1024,
+          "coarseResolution": 256,
+          "detail": 0.4,
+          "mobility": 1,
+          "passes": 20,
+          "paperScale": 5,
+          "micro": 0.12,
+          "relief": 2.5,
+          "conservation": "ideal low donor flux conservative; detail reconstruction/safe footprint mask/clipping/UNORM are NOT globally conservative",
+          "fixedFraction": 0.65
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5815807,
+          "massRatio": 0.9929039837155611,
+          "lostPixels": 0,
+          "addedPixels": 21965,
+          "outsideWetPixels": 207,
+          "invalidPremul": 0,
+          "changedPixels": 79104
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 16.80000000000291,
+          "maxTimer": 11.400000095367432,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 80,
+        "warmMedianMs": 48.65000009536743
+      },
+      "png": {
+        "file": "alternative-coarse-mobile-detail-captured-native-waterstroke-11.png",
+        "bytes": 1053370,
+        "sha256": "b75f360541e860af7635b3e4413994d80e941d42019f66da692b99e773a20f23"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-d2q9-bgk",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "grid": 256,
+          "steps": 16,
+          "diffusion": 0.015
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "wgsl-d2q9-bgk",
+        "fixture": "captured-native-waterstroke",
+        "encoding": "optical-density",
+        "config": {
+          "grid": 256,
+          "steps": 16,
+          "diffusion": 0.015
+        },
+        "fixtureSHA": {
+          "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+          "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "backend": "webgpu",
+        "profileGPU": false,
+        "hardware": {
+          "vendor": "qualcomm",
+          "architecture": "adreno-6xx",
+          "device": "",
+          "description": ""
+        },
+        "createMs": 79.80000019073486,
+        "samples": [
+          {
+            "uploadJsMs": 66.79999995231628,
+            "submitJsMs": 0.7999999523162842,
+            "runToDependentMs": 130,
+            "totalReadyMs": 196.79999995231628
+          },
+          {
+            "uploadJsMs": 53,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 64.10000014305115,
+            "totalReadyMs": 117.10000014305115
+          },
+          {
+            "uploadJsMs": 49.90000009536743,
+            "submitJsMs": 0,
+            "runToDependentMs": 60.89999985694885,
+            "totalReadyMs": 110.79999995231628
+          }
+        ],
+        "hashes": [
+          "09db5aa9dbb31d22492b49c4b773700598203d8ead52ff111ee2a936a4467afa",
+          "09db5aa9dbb31d22492b49c4b773700598203d8ead52ff111ee2a936a4467afa",
+          "09db5aa9dbb31d22492b49c4b773700598203d8ead52ff111ee2a936a4467afa"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "algorithm": "D2Q9-BGK-pull-stream",
+          "size": 1024,
+          "grid": 256,
+          "steps": 16,
+          "omega": 1,
+          "drag": 0.08,
+          "diffusion": 0.015,
+          "evaporation": 0.001,
+          "seedUsed": false,
+          "fluid": "weakly-compressible density1+0.12water; bounceback edges; no pressure projection",
+          "pigment": "semi-Lagrangian+convex local diffusion; coarse bilinear reconstruction",
+          "allocatedGPUBytes": 19398688,
+          "featuresRequired": []
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5857371,
+          "outputMass": 5915035,
+          "massRatio": 1.009844689708062,
+          "lostPixels": 0,
+          "addedPixels": 8539,
+          "outsideWetPixels": 5469,
+          "invalidPremul": 0,
+          "changedPixels": 65157
+        },
+        "orientation": "fixture-row-order",
+        "captureManifest": {
+          "id": "captured-native-waterstroke",
+          "label": "Настоящий мазок через воду Mini",
+          "binarySHA": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+          "source": {
+            "type": "qa-native-capture",
+            "requestId": "oracle805-2",
+            "manifest": {
+              "version": 1,
+              "conversion": "native-optical-depth-linear",
+              "rawRows": "gl-bottom-up",
+              "inputRows": "top-left",
+              "pigmentScale": 0.897887323943662,
+              "nativeMassPerAlpha": 2,
+              "nativeDepthPerRGB": 8,
+              "nativeWaterPerByteFraction": 4,
+              "saturatedWaterPixels": 0,
+              "depthWithoutMassPixels": 0,
+              "tileOrigin": [
+                0,
+                0
+              ],
+              "paperWorldSize": [
+                1024,
+                1024
+              ],
+              "paperScale": 1,
+              "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+              "rawSHA": {
+                "inkColor": "2cc784a28e8b4d4391b97f373f2a4b27cffb8cc0c462e5c386e82057bccd3046",
+                "solvent": "42a79f940eb4aa1abf633452dff45c2bec280a56a20382dd07b586d6309e07b3",
+                "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+              },
+              "commonSHA": {
+                "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+                "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+                "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+              },
+              "carrierViolations": 0,
+              "validForBoundedCarrier": true,
+              "nativeMaterialModel": "front8-detail-flow-v4",
+              "scope": "One owned PB15 wash, converted full1024 before native solve; no capture timing claim"
+            },
+            "size": 1024,
+            "encoding": "optical-density",
+            "seed": 805,
+            "binaryBytes": 6291456,
+            "binarySHA256": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+            "settings": {
+              "size": 90,
+              "water": 95,
+              "pigment": 34,
+              "paint": "PB15",
+              "color": "#2688d3",
+              "force": 0.75
+            },
+            "strokeSettings": [
+              {
+                "size": 360,
+                "water": 95,
+                "pigment": 0,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              },
+              {
+                "size": 90,
+                "water": 95,
+                "pigment": 34,
+                "paint": "PB15",
+                "color": "#2688d3",
+                "force": 0.75
+              }
+            ],
+            "strokeGeometries": [
+              [
+                [
+                  430,
+                  500
+                ],
+                [
+                  510,
+                  520
+                ],
+                [
+                  590,
+                  500
+                ]
+              ],
+              [
+                [
+                  180,
+                  700
+                ],
+                [
+                  190.15625,
+                  694.21875
+                ],
+                [
+                  200.3125,
+                  688.4375
+                ],
+                [
+                  210.46875,
+                  682.65625
+                ],
+                [
+                  220.625,
+                  676.875
+                ],
+                [
+                  230.78125,
+                  671.09375
+                ],
+                [
+                  240.9375,
+                  665.3125
+                ],
+                [
+                  251.09375,
+                  659.53125
+                ],
+                [
+                  261.25,
+                  653.75
+                ],
+                [
+                  271.40625,
+                  647.96875
+                ],
+                [
+                  281.5625,
+                  642.1875
+                ],
+                [
+                  291.71875,
+                  636.40625
+                ],
+                [
+                  301.875,
+                  630.625
+                ],
+                [
+                  312.03125,
+                  624.84375
+                ],
+                [
+                  322.1875,
+                  619.0625
+                ],
+                [
+                  332.34375,
+                  613.28125
+                ],
+                [
+                  342.5,
+                  607.5
+                ],
+                [
+                  352.65625,
+                  601.71875
+                ],
+                [
+                  362.8125,
+                  595.9375
+                ],
+                [
+                  372.96875,
+                  590.15625
+                ],
+                [
+                  383.125,
+                  584.375
+                ],
+                [
+                  393.28125,
+                  578.59375
+                ],
+                [
+                  403.4375,
+                  572.8125
+                ],
+                [
+                  413.59375,
+                  567.03125
+                ],
+                [
+                  423.75,
+                  561.25
+                ],
+                [
+                  433.90625,
+                  555.46875
+                ],
+                [
+                  444.0625,
+                  549.6875
+                ],
+                [
+                  454.21875,
+                  543.90625
+                ],
+                [
+                  464.375,
+                  538.125
+                ],
+                [
+                  474.53125,
+                  532.34375
+                ],
+                [
+                  484.6875,
+                  526.5625
+                ],
+                [
+                  494.84375,
+                  520.78125
+                ],
+                [
+                  505,
+                  515
+                ],
+                [
+                  515.15625,
+                  509.21875
+                ],
+                [
+                  525.3125,
+                  503.4375
+                ],
+                [
+                  535.46875,
+                  497.65625
+                ],
+                [
+                  545.625,
+                  491.875
+                ],
+                [
+                  555.78125,
+                  486.09375
+                ],
+                [
+                  565.9375,
+                  480.3125
+                ],
+                [
+                  576.09375,
+                  474.53125
+                ],
+                [
+                  586.25,
+                  468.75
+                ],
+                [
+                  596.40625,
+                  462.96875
+                ],
+                [
+                  606.5625,
+                  457.1875
+                ],
+                [
+                  616.71875,
+                  451.40625
+                ],
+                [
+                  626.875,
+                  445.625
+                ],
+                [
+                  637.03125,
+                  439.84375
+                ],
+                [
+                  647.1875,
+                  434.0625
+                ],
+                [
+                  657.34375,
+                  428.28125
+                ],
+                [
+                  667.5,
+                  422.5
+                ],
+                [
+                  677.65625,
+                  416.71875
+                ],
+                [
+                  687.8125,
+                  410.9375
+                ],
+                [
+                  697.96875,
+                  405.15625
+                ],
+                [
+                  708.125,
+                  399.375
+                ],
+                [
+                  718.28125,
+                  393.59375
+                ],
+                [
+                  728.4375,
+                  387.8125
+                ],
+                [
+                  738.59375,
+                  382.03125
+                ],
+                [
+                  748.75,
+                  376.25
+                ],
+                [
+                  758.90625,
+                  370.46875
+                ],
+                [
+                  769.0625,
+                  364.6875
+                ],
+                [
+                  779.21875,
+                  358.90625
+                ],
+                [
+                  789.375,
+                  353.125
+                ],
+                [
+                  799.53125,
+                  347.34375
+                ],
+                [
+                  809.6875,
+                  341.5625
+                ],
+                [
+                  819.84375,
+                  335.78125
+                ],
+                [
+                  830,
+                  330
+                ]
+              ]
+            ],
+            "armAcknowledged": true,
+            "geometrySHA": "94e81cb79dc91cc1a8704f999bf1ce9583cda617573f724ec70ddf7af0006979",
+            "sourceHashes": {
+              "entry.js": "50c04738b16c1760a68e9d0b2e9dc5ab88404009ffdf78ee7584ea582e713392",
+              "worker.js": "bc3f5d1a97c14ef51065ec21008d1d4492311679af040753010dc7a329a64f63",
+              "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+              "chunk-WU6USKLY.js": "a72a91c4acc53114c4f49780f5d5b7f52c9fc2cc13ba1116e92c12dba25ee123",
+              "chunk-VVSUDNYC.js": "283176b51e3369f362f356be0aa5f9ab868d33874f4225de85fc01f3b2eebde5",
+              "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+              "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+              "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+              "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+              "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+            }
+          }
+        },
+        "ui": {
+          "maxRAF": 17,
+          "maxTimer": 13.100000143051147,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 196.79999995231628,
+        "warmMedianMs": 113.95000004768372
+      },
+      "png": {
+        "file": "wgsl-d2q9-bgk-captured-native-waterstroke-12.png",
+        "bytes": 1039209,
+        "sha256": "d60ecab61109b2668b42537f9835e1f859f42957c006e0f757575740f03582be"
+      },
+      "pass": true
+    }
+  ],
+  "sourceHashes": {
+    "entry.js": "226255a9b007d20965ecc6df269b926d3a823f5e0995684214d7c6e052a6d68a",
+    "worker.js": "7dd84ef337d0cb0ef8985a98436df76af1465937ded424b625976c2adb0cebe9",
+    "chunk-XWCUE2HP.js": "ac3c112d9595b19ccfdf43179b3e7474bbba2e0c338c16b0b52452fcfde87fc7",
+    "captured-native.bin": "5942c5237332a49831784dec7440fc135527c88e25f40595a96f311d493c8f38",
+    "index.html": "7f174c6068b1a87f196251529b71ac6c4844f011e315c79534a94c0af5b824e4"
+  },
+  "catalog": {
+    "requestId": 1,
+    "algorithms": [
+      {
+        "id": "input-reference",
+        "label": "Исходный след без растекания",
+        "configs": [
+          {}
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-coarse-mobile-detail",
+        "label": "Barrier-safe coarse wash + raw detail + gentle correlated deposition",
+        "configs": [
+          {
+            "steps": 2,
+            "mobile": 0.2,
+            "share": 0.5,
+            "adsorption": 0.1,
+            "paperBias": 0.7,
+            "coarse": 1,
+            "paperScale": 4,
+            "micro": 0.1,
+            "relief": 2,
+            "detail": 0.7,
+            "mobility": 0.65
+          },
+          {
+            "steps": 2,
+            "mobile": 0.35,
+            "share": 0.6,
+            "adsorption": 0.1,
+            "paperBias": 0.8,
+            "coarse": 1,
+            "paperScale": 5,
+            "micro": 0.12,
+            "relief": 2.5,
+            "detail": 0.4,
+            "mobility": 1
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-stable-fluids",
+        "label": "Low-resolution advect/project/pigment (RGBA8)",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 4,
+            "projection": 4,
+            "force": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 4,
+            "projection": 4,
+            "force": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 8,
+            "projection": 6,
+            "force": 4
+          },
+          {
+            "resolution": 512,
+            "steps": 4,
+            "projection": 4,
+            "force": 4
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-lattice-diffusion",
+        "label": "Conservative donor lattice pigment diffusion",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 12,
+            "stride": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 12,
+            "stride": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 24,
+            "stride": 4
+          },
+          {
+            "resolution": 512,
+            "steps": 16,
+            "stride": 4
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-artistic-front",
+        "label": "Cheap dyadic artistic front + multiscale pigment",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 8,
+            "budget": 12,
+            "rim": 0.2
+          },
+          {
+            "resolution": 256,
+            "steps": 8,
+            "budget": 16,
+            "rim": 0.35
+          },
+          {
+            "resolution": 256,
+            "steps": 16,
+            "budget": 24,
+            "rim": 0.5
+          },
+          {
+            "resolution": 512,
+            "steps": 12,
+            "budget": 32,
+            "rim": 0.35
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "search-artistic-program",
+        "label": "Bounded24 ordered artistic programs (approximate search)",
+        "configs": [
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 1
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-wet-boundary-detail",
+        "label": "Donor wet-boundary rim + retained detail + real paper grain",
+        "configs": [
+          {
+            "resolution": 256,
+            "steps": 8,
+            "rim": 0.7,
+            "grain": 0.35,
+            "detail": 0.65,
+            "fullSteps": 2,
+            "share": 0.4
+          },
+          {
+            "resolution": 256,
+            "steps": 10,
+            "rim": 0.85,
+            "grain": 0.6,
+            "detail": 0.8,
+            "fullSteps": 3,
+            "share": 0.35
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-paper-deposition",
+        "label": "Paper-guided mobile pigment and gradual deposition (no pool-edge rim)",
+        "configs": [
+          {
+            "steps": 4,
+            "mobile": 0.4,
+            "share": 0.65,
+            "adsorption": 0.16,
+            "paperBias": 0.9,
+            "coarse": 4
+          },
+          {
+            "steps": 5,
+            "mobile": 0.8,
+            "share": 0.7,
+            "adsorption": 0.12,
+            "paperBias": 1,
+            "coarse": 6
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-porous-water-transport",
+        "label": "Evolving porous water + donor-cell pigment and adsorption",
+        "configs": [
+          {
+            "steps": 8,
+            "mobile": 0.6,
+            "adsorption": 0.1,
+            "coarse": 4,
+            "dt": 0.16,
+            "terrain": 0.18
+          },
+          {
+            "steps": 10,
+            "mobile": 0.8,
+            "adsorption": 0.07,
+            "coarse": 2,
+            "dt": 0.2,
+            "terrain": 0.25
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-correlated-paper-deposition",
+        "label": "Correlated paper affinity, micrograin and gradual pigment deposition",
+        "configs": [
+          {
+            "steps": 4,
+            "mobile": 0.6,
+            "share": 0.65,
+            "adsorption": 0.14,
+            "paperBias": 0.9,
+            "coarse": 4,
+            "paperScale": 3,
+            "micro": 0.12,
+            "relief": 2.5
+          },
+          {
+            "steps": 5,
+            "mobile": 0.75,
+            "share": 0.7,
+            "adsorption": 0.1,
+            "paperBias": 1,
+            "coarse": 6,
+            "paperScale": 5,
+            "micro": 0.15,
+            "relief": 3.5
+          },
+          {
+            "steps": 5,
+            "mobile": 0.8,
+            "share": 0.7,
+            "adsorption": 0.09,
+            "paperBias": 1,
+            "coarse": 8,
+            "paperScale": 8,
+            "micro": 0.1,
+            "relief": 4.5
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "gl-integer-diffusion-match",
+        "label": "GL1: matched local integer diffusion",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "wgsl-integer-diffusion-direct",
+        "label": "WebGPU: local integer diffusion",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-integer-diffusion-tiled4",
+        "label": "WebGPU: same local diffusion, four shared-memory steps",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-d2q9-bgk",
+        "label": "WebGPU: D2Q9 fluid with pigment/water tracers",
+        "configs": [
+          {
+            "grid": 256,
+            "steps": 48
+          },
+          {
+            "grid": 512,
+            "steps": 48
+          },
+          {
+            "grid": 256,
+            "steps": 16,
+            "diffusion": 0.015
+          },
+          {
+            "grid": 128,
+            "steps": 24,
+            "diffusion": 0.025
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-integer-diffusion-texture",
+        "label": "WebGPU: same local integer diffusion, R32Uint texture access",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "dot",
+        "label": "Точка",
+        "description": "Один широкий отпечаток синей кисти"
+      },
+      {
+        "id": "wave",
+        "label": "Широкая волна",
+        "description": "Кисть320 через значительную часть листа"
+      },
+      {
+        "id": "water-only",
+        "label": "Только вода",
+        "description": "Мокрая область без пигмента: краска не должна появляться"
+      },
+      {
+        "id": "water-stroke",
+        "label": "Мазок через лужу",
+        "description": "Узкая синяя линия пересекает широкую мокрую область"
+      },
+      {
+        "id": "two-colors",
+        "label": "Два цвета",
+        "description": "Пересечение синего и розового пигмента в общей мокрой области"
+      },
+      {
+        "id": "crosses",
+        "label": "Повторные пересечения",
+        "description": "Три перекрывающихся следа с разным количеством пигмента"
+      },
+      {
+        "id": "blue-yellow",
+        "label": "Синий и жёлтый",
+        "description": "Проверка смешения пигментов, а не только размытияRGB"
+      },
+      {
+        "id": "fine-detail",
+        "label": "Тонкий след",
+        "description": "Мелкие детали на мокрой и почти сухой бумаге"
+      },
+      {
+        "id": "border",
+        "label": "У края листа",
+        "description": "След касается границы расчётного поля"
+      },
+      {
+        "id": "wave-open",
+        "label": "Волна с открытыми изгибами",
+        "description": "Два крупных изгиба широкой кисти вместо многократного наложения"
+      },
+      {
+        "id": "dry-stroke",
+        "label": "Сухой контроль",
+        "description": "Тот же пигмент, что в мазке через лужу, но воды нет: перенос запрещён"
+      },
+      {
+        "id": "isolated-pools",
+        "label": "Две отдельные лужи",
+        "description": "Синий пигмент только в левой луже; правая отделена сухим промежутком"
+      },
+      {
+        "id": "variable-wash",
+        "label": "Неравномерная заливка",
+        "description": "Перекрывающиеся отпечатки с разным количеством краски на предварительно смоченной бумаге"
+      },
+      {
+        "id": "dry-barrier",
+        "label": "Тонкий сухой разделитель",
+        "description": "Две мокрые области разделены сухой полосой шириной один пиксель; пигмент только слева"
+      },
+      {
+        "id": "captured-native-waterstroke",
+        "label": "Настоящий мазок через воду Mini",
+        "description": "Преобразованный native optical input, реальная вода и бумага; не тождественный native composite"
+      }
+    ]
+  },
+  "sourceStable": true,
+  "pass": true,
+  "errors": [],
+  "intercepts": {
+    "index.html": 1,
+    "entry.js": 1,
+    "chunk-XWCUE2HP.js": 2,
+    "worker.js": 1,
+    "captured-native.bin": 1
+  },
+  "contextClosed": true,
+  "finishedAt": "2026-10-17T21:12:16.151Z"
+}

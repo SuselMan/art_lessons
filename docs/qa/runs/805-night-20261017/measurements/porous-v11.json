@@ -1,0 +1,2050 @@
+{
+  "startedAt": "2026-10-17T20:55:24.184Z",
+  "qualification": "Isolated fixed-input 1024 algorithms in owned Samsung worker. Primary totalReadyMs includes upload/reduction and dependent result wait; not pure GPU time. Full-output readback/SHA and PNG outside timing. Fresh GL context per run, 3 repeat uploads on same candidate.",
+  "cases": [
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "water-stroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 8,
+          "mobile": 0.6,
+          "adsorption": 0.1,
+          "coarse": 4,
+          "dt": 0.16,
+          "terrain": 0.18
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "water-stroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 8,
+          "mobile": 0.6,
+          "adsorption": 0.1,
+          "coarse": 4,
+          "dt": 0.16,
+          "terrain": 0.18
+        },
+        "fixtureSHA": {
+          "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+          "water": "25b133530fa81bcf77318bcd33bd06b73bd4146477556b67cc9e98567b77a956",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 113.5,
+        "samples": [
+          {
+            "uploadJsMs": 12.5,
+            "submitJsMs": 1.2999999523162842,
+            "runToDependentMs": 92.90000009536743,
+            "totalReadyMs": 105.40000009536743
+          },
+          {
+            "uploadJsMs": 6.299999952316284,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 70.60000014305115,
+            "totalReadyMs": 76.90000009536743
+          },
+          {
+            "uploadJsMs": 5.8999998569488525,
+            "submitJsMs": 0.6000001430511475,
+            "runToDependentMs": 74,
+            "totalReadyMs": 79.89999985694885
+          }
+        ],
+        "hashes": [
+          "1b99ac2ab95647f394ea69b4586177c09ffadbb57c918975e2d55890503df1ac",
+          "1b99ac2ab95647f394ea69b4586177c09ffadbb57c918975e2d55890503df1ac",
+          "1b99ac2ab95647f394ea69b4586177c09ffadbb57c918975e2d55890503df1ac"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 36,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.18,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 9367726,
+          "outputMass": 9368668,
+          "massRatio": 1.000100558022299,
+          "lostPixels": 0,
+          "addedPixels": 1202,
+          "outsideWetPixels": 12,
+          "invalidPremul": 0,
+          "changedPixels": 52952
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 23.700000047683716,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 105.40000009536743,
+        "warmMedianMs": 78.39999997615814
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-water-stroke-1.png",
+        "bytes": 768649,
+        "sha256": "5629d56086dd514032086380bb346c8d547062b99aef1820a4f3585918958a3e"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "water-stroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "water-stroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "fixtureSHA": {
+          "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+          "water": "25b133530fa81bcf77318bcd33bd06b73bd4146477556b67cc9e98567b77a956",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 75.40000009536743,
+        "samples": [
+          {
+            "uploadJsMs": 22.199999809265137,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 99.30000019073486,
+            "totalReadyMs": 121.5
+          },
+          {
+            "uploadJsMs": 8,
+            "submitJsMs": 0.5999999046325684,
+            "runToDependentMs": 48.59999990463257,
+            "totalReadyMs": 56.59999990463257
+          },
+          {
+            "uploadJsMs": 5.8999998569488525,
+            "submitJsMs": 0.7000000476837158,
+            "runToDependentMs": 48,
+            "totalReadyMs": 53.89999985694885
+          }
+        ],
+        "hashes": [
+          "f3eeaf9f257249b0218a09b52b396bd917da0b0c8bea5ab91f92d371c35e9446",
+          "f3eeaf9f257249b0218a09b52b396bd917da0b0c8bea5ab91f92d371c35e9446",
+          "f3eeaf9f257249b0218a09b52b396bd917da0b0c8bea5ab91f92d371c35e9446"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 44,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.25,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 9367726,
+          "outputMass": 9369218,
+          "massRatio": 1.0001592702433868,
+          "lostPixels": 0,
+          "addedPixels": 665,
+          "outsideWetPixels": 12,
+          "invalidPremul": 0,
+          "changedPixels": 65596
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 19.699999809265137,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 121.5,
+        "warmMedianMs": 55.24999988079071
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-water-stroke-2.png",
+        "bytes": 767586,
+        "sha256": "195ff2ee602365580db7340a072f39c3d67b293cb7cc24dc0f1fdf7fed0faa0e"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "variable-wash",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 8,
+          "mobile": 0.6,
+          "adsorption": 0.1,
+          "coarse": 4,
+          "dt": 0.16,
+          "terrain": 0.18
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "variable-wash",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 8,
+          "mobile": 0.6,
+          "adsorption": 0.1,
+          "coarse": 4,
+          "dt": 0.16,
+          "terrain": 0.18
+        },
+        "fixtureSHA": {
+          "rgba": "7fe5ee076f8626fa6add892d6459e8adb184b984db0e68a2ddea43c37c7e644a",
+          "water": "5ada07e5271627852ea87bf1adeb8bcbf11eb55a4dc94f7785da3c2c749c1d8c",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 100.5,
+        "samples": [
+          {
+            "uploadJsMs": 22.59999990463257,
+            "submitJsMs": 0.6000001430511475,
+            "runToDependentMs": 93.40000009536743,
+            "totalReadyMs": 116
+          },
+          {
+            "uploadJsMs": 7,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 41.90000009536743,
+            "totalReadyMs": 48.90000009536743
+          },
+          {
+            "uploadJsMs": 3.8000001907348633,
+            "submitJsMs": 0.5999999046325684,
+            "runToDependentMs": 43.19999980926514,
+            "totalReadyMs": 47
+          }
+        ],
+        "hashes": [
+          "9789fb718d0a8e231f09e3f15307e5ca7c5469056eee61a4885a5e4dd26aeaee",
+          "9789fb718d0a8e231f09e3f15307e5ca7c5469056eee61a4885a5e4dd26aeaee",
+          "9789fb718d0a8e231f09e3f15307e5ca7c5469056eee61a4885a5e4dd26aeaee"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 36,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.18,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5048520,
+          "outputMass": 5046829,
+          "massRatio": 0.9996650503513901,
+          "lostPixels": 0,
+          "addedPixels": 61,
+          "outsideWetPixels": 0,
+          "invalidPremul": 0,
+          "changedPixels": 19963
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 11.5,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 116,
+        "warmMedianMs": 47.950000047683716
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-variable-wash-3.png",
+        "bytes": 760307,
+        "sha256": "237fd56e26785131a2a1ddd0ce79d0e374b66107732984ab73ac38918dd3acb7"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "variable-wash",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "variable-wash",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "fixtureSHA": {
+          "rgba": "7fe5ee076f8626fa6add892d6459e8adb184b984db0e68a2ddea43c37c7e644a",
+          "water": "5ada07e5271627852ea87bf1adeb8bcbf11eb55a4dc94f7785da3c2c749c1d8c",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 88.20000004768372,
+        "samples": [
+          {
+            "uploadJsMs": 29.59999990463257,
+            "submitJsMs": 1,
+            "runToDependentMs": 104.5,
+            "totalReadyMs": 134.09999990463257
+          },
+          {
+            "uploadJsMs": 10,
+            "submitJsMs": 3.0999999046325684,
+            "runToDependentMs": 53.5,
+            "totalReadyMs": 63.5
+          },
+          {
+            "uploadJsMs": 5.5,
+            "submitJsMs": 0.5999999046325684,
+            "runToDependentMs": 48.799999952316284,
+            "totalReadyMs": 54.299999952316284
+          }
+        ],
+        "hashes": [
+          "dc4f2a6725378e05e9248d275c17ec4c7a660ecb27c214c859f777ba8b92bf96",
+          "dc4f2a6725378e05e9248d275c17ec4c7a660ecb27c214c859f777ba8b92bf96",
+          "dc4f2a6725378e05e9248d275c17ec4c7a660ecb27c214c859f777ba8b92bf96"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 44,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.25,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5048520,
+          "outputMass": 5047174,
+          "massRatio": 0.9997333872105092,
+          "lostPixels": 0,
+          "addedPixels": 10,
+          "outsideWetPixels": 0,
+          "invalidPremul": 0,
+          "changedPixels": 41725
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 12.300000190734863,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 134.09999990463257,
+        "warmMedianMs": 58.89999997615814
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-variable-wash-4.png",
+        "bytes": 761473,
+        "sha256": "0922bff1372496cadc58e6d2424addae1c6935b3673392308f9243f80b10a056"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "blue-yellow",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 8,
+          "mobile": 0.6,
+          "adsorption": 0.1,
+          "coarse": 4,
+          "dt": 0.16,
+          "terrain": 0.18
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "blue-yellow",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 8,
+          "mobile": 0.6,
+          "adsorption": 0.1,
+          "coarse": 4,
+          "dt": 0.16,
+          "terrain": 0.18
+        },
+        "fixtureSHA": {
+          "rgba": "eb9f485446fbd66d3998d7c1345146118c3ff89e8ffc7acefcbd29ee8f9a2d10",
+          "water": "efe775e232be7cf2676fb67bf27d22684375ffa726a388a7e687fc3dbdb99830",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 94.90000009536743,
+        "samples": [
+          {
+            "uploadJsMs": 29.59999990463257,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 98.10000014305115,
+            "totalReadyMs": 127.70000004768372
+          },
+          {
+            "uploadJsMs": 12.399999856948853,
+            "submitJsMs": 0.6000001430511475,
+            "runToDependentMs": 44.90000009536743,
+            "totalReadyMs": 57.299999952316284
+          },
+          {
+            "uploadJsMs": 6.6000001430511475,
+            "submitJsMs": 0.39999985694885254,
+            "runToDependentMs": 44.39999985694885,
+            "totalReadyMs": 51
+          }
+        ],
+        "hashes": [
+          "a7a4e0936e0a8728b1b6dedff44f227293a639d04a222d90334f5363e506e3af",
+          "a7a4e0936e0a8728b1b6dedff44f227293a639d04a222d90334f5363e506e3af",
+          "a7a4e0936e0a8728b1b6dedff44f227293a639d04a222d90334f5363e506e3af"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 36,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.18,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 38335541,
+          "outputMass": 38337513,
+          "massRatio": 1.0000514405157346,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 52,
+          "invalidPremul": 0,
+          "changedPixels": 166563
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 11.5,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 127.70000004768372,
+        "warmMedianMs": 54.14999997615814
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-blue-yellow-5.png",
+        "bytes": 1007607,
+        "sha256": "6fffd99aa5667bac73fdc691a70d9fdb19b1e9b5c5ad42202b6519d56acfd62e"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "blue-yellow",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "blue-yellow",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "fixtureSHA": {
+          "rgba": "eb9f485446fbd66d3998d7c1345146118c3ff89e8ffc7acefcbd29ee8f9a2d10",
+          "water": "efe775e232be7cf2676fb67bf27d22684375ffa726a388a7e687fc3dbdb99830",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 86.90000009536743,
+        "samples": [
+          {
+            "uploadJsMs": 25,
+            "submitJsMs": 0.7000000476837158,
+            "runToDependentMs": 104,
+            "totalReadyMs": 129
+          },
+          {
+            "uploadJsMs": 7.700000047683716,
+            "submitJsMs": 1.8999998569488525,
+            "runToDependentMs": 53.299999952316284,
+            "totalReadyMs": 61
+          },
+          {
+            "uploadJsMs": 8,
+            "submitJsMs": 0.7999999523162842,
+            "runToDependentMs": 52.10000014305115,
+            "totalReadyMs": 60.10000014305115
+          }
+        ],
+        "hashes": [
+          "5f67f2e902e12232689ebad2a9e44b7e75f21247e67445a088c09e7593da5949",
+          "5f67f2e902e12232689ebad2a9e44b7e75f21247e67445a088c09e7593da5949",
+          "5f67f2e902e12232689ebad2a9e44b7e75f21247e67445a088c09e7593da5949"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 44,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.25,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 38335541,
+          "outputMass": 38341350,
+          "massRatio": 1.0001515304036013,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 52,
+          "invalidPremul": 0,
+          "changedPixels": 255317
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.80000000000109,
+          "maxTimer": 11.300000190734863,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 129,
+        "warmMedianMs": 60.550000071525574
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-blue-yellow-6.png",
+        "bytes": 1009038,
+        "sha256": "e8e14bb4f9b75358b0fc8b9c5d3d02d3d0a656a2a8cbb15a2763fbec2df9bcc3"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "fine-detail",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 8,
+          "mobile": 0.6,
+          "adsorption": 0.1,
+          "coarse": 4,
+          "dt": 0.16,
+          "terrain": 0.18
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "fine-detail",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 8,
+          "mobile": 0.6,
+          "adsorption": 0.1,
+          "coarse": 4,
+          "dt": 0.16,
+          "terrain": 0.18
+        },
+        "fixtureSHA": {
+          "rgba": "c7c22a9bad4ee5ab7d026e1087824563a3642738a2ab908efff44121485ee089",
+          "water": "46a8eba6ca2b3c638d42901d288979e5c18ccffac764e570f84aceb5d5f13cac",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 110.09999990463257,
+        "samples": [
+          {
+            "uploadJsMs": 25.700000047683716,
+            "submitJsMs": 0.5999999046325684,
+            "runToDependentMs": 92.79999995231628,
+            "totalReadyMs": 118.5
+          },
+          {
+            "uploadJsMs": 6.199999809265137,
+            "submitJsMs": 0.3000001907348633,
+            "runToDependentMs": 40.80000019073486,
+            "totalReadyMs": 47
+          },
+          {
+            "uploadJsMs": 6.8999998569488525,
+            "submitJsMs": 0.7999999523162842,
+            "runToDependentMs": 42.90000009536743,
+            "totalReadyMs": 49.799999952316284
+          }
+        ],
+        "hashes": [
+          "cca3737ea7032f0e1dcbdd950c324a8846cf22d7c4d2c61b2f0f61b1e4004343",
+          "cca3737ea7032f0e1dcbdd950c324a8846cf22d7c4d2c61b2f0f61b1e4004343",
+          "cca3737ea7032f0e1dcbdd950c324a8846cf22d7c4d2c61b2f0f61b1e4004343"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 36,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.18,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 2396914,
+          "outputMass": 2396403,
+          "massRatio": 0.9997868092055034,
+          "lostPixels": 0,
+          "addedPixels": 2065,
+          "outsideWetPixels": 262,
+          "invalidPremul": 0,
+          "changedPixels": 16835
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.80000000000109,
+          "maxTimer": 13.199999809265137,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 118.5,
+        "warmMedianMs": 48.39999997615814
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-fine-detail-7.png",
+        "bytes": 707344,
+        "sha256": "4f395223b75a4a00aa86a83158a17862c53d5a5d54d22ab2bef2d61a0ee1fed6"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "fine-detail",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "fine-detail",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "fixtureSHA": {
+          "rgba": "c7c22a9bad4ee5ab7d026e1087824563a3642738a2ab908efff44121485ee089",
+          "water": "46a8eba6ca2b3c638d42901d288979e5c18ccffac764e570f84aceb5d5f13cac",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 110,
+        "samples": [
+          {
+            "uploadJsMs": 26.700000047683716,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 97,
+            "totalReadyMs": 123.70000004768372
+          },
+          {
+            "uploadJsMs": 9.099999904632568,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 49.700000047683716,
+            "totalReadyMs": 58.799999952316284
+          },
+          {
+            "uploadJsMs": 5.400000095367432,
+            "submitJsMs": 0.7000000476837158,
+            "runToDependentMs": 49.09999990463257,
+            "totalReadyMs": 54.5
+          }
+        ],
+        "hashes": [
+          "461e658b1940f3d2d0105124312ff78add68c543233c7b0b6d3dcecfb54ad8b0",
+          "461e658b1940f3d2d0105124312ff78add68c543233c7b0b6d3dcecfb54ad8b0",
+          "461e658b1940f3d2d0105124312ff78add68c543233c7b0b6d3dcecfb54ad8b0"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 44,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.25,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 2396914,
+          "outputMass": 2395041,
+          "massRatio": 0.9992185785555927,
+          "lostPixels": 0,
+          "addedPixels": 990,
+          "outsideWetPixels": 262,
+          "invalidPremul": 0,
+          "changedPixels": 19775
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 17.100000000000364,
+          "maxTimer": 14.700000047683716,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 123.70000004768372,
+        "warmMedianMs": 56.64999997615814
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-fine-detail-8.png",
+        "bytes": 709113,
+        "sha256": "ef3ca964748ea8e2308d9a44fbf3e72bb1393cbfa77d7cfcd20a4d0a8dec31de"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "wave-open",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 8,
+          "mobile": 0.6,
+          "adsorption": 0.1,
+          "coarse": 4,
+          "dt": 0.16,
+          "terrain": 0.18
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "wave-open",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 8,
+          "mobile": 0.6,
+          "adsorption": 0.1,
+          "coarse": 4,
+          "dt": 0.16,
+          "terrain": 0.18
+        },
+        "fixtureSHA": {
+          "rgba": "dc8b4744a7abbbd5566bbec9aaf47ad5904a61225485c84a0b12449db154c32b",
+          "water": "428d6e3a4dc21c9aa35879f96ce12284d74df85e405b57bc37836e3fb0313894",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 95.89999985694885,
+        "samples": [
+          {
+            "uploadJsMs": 18.300000190734863,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 99.19999980926514,
+            "totalReadyMs": 117.5
+          },
+          {
+            "uploadJsMs": 13,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 48.5,
+            "totalReadyMs": 61.5
+          },
+          {
+            "uploadJsMs": 7.299999952316284,
+            "submitJsMs": 2.5,
+            "runToDependentMs": 48.700000047683716,
+            "totalReadyMs": 56
+          }
+        ],
+        "hashes": [
+          "9360db23668427781dce08afd7084c40b198ece57097ed9b46c881577078d86f",
+          "9360db23668427781dce08afd7084c40b198ece57097ed9b46c881577078d86f",
+          "9360db23668427781dce08afd7084c40b198ece57097ed9b46c881577078d86f"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 36,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.18,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 51017175,
+          "outputMass": 51021978,
+          "massRatio": 1.0000941447659537,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 24,
+          "invalidPremul": 0,
+          "changedPixels": 200199
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.80000000000109,
+          "maxTimer": 20.300000190734863,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 117.5,
+        "warmMedianMs": 58.75
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-wave-open-9.png",
+        "bytes": 1096184,
+        "sha256": "1f9a77e31425a5e574373166228501177176eec1e36281613163eb82fb64f4b6"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "wave-open",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "wave-open",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "fixtureSHA": {
+          "rgba": "dc8b4744a7abbbd5566bbec9aaf47ad5904a61225485c84a0b12449db154c32b",
+          "water": "428d6e3a4dc21c9aa35879f96ce12284d74df85e405b57bc37836e3fb0313894",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 91.30000019073486,
+        "samples": [
+          {
+            "uploadJsMs": 20.199999809265137,
+            "submitJsMs": 0.6000001430511475,
+            "runToDependentMs": 108.40000009536743,
+            "totalReadyMs": 128.59999990463257
+          },
+          {
+            "uploadJsMs": 10.900000095367432,
+            "submitJsMs": 2.0999999046325684,
+            "runToDependentMs": 55.700000047683716,
+            "totalReadyMs": 66.60000014305115
+          },
+          {
+            "uploadJsMs": 10.5,
+            "submitJsMs": 0.39999985694885254,
+            "runToDependentMs": 54.299999952316284,
+            "totalReadyMs": 64.79999995231628
+          }
+        ],
+        "hashes": [
+          "f91086c0b41a058e4ba6f08f78d6894902831aa791fe269783506ea2a03f1a54",
+          "f91086c0b41a058e4ba6f08f78d6894902831aa791fe269783506ea2a03f1a54",
+          "f91086c0b41a058e4ba6f08f78d6894902831aa791fe269783506ea2a03f1a54"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 44,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.25,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 51017175,
+          "outputMass": 51025252,
+          "massRatio": 1.0001583192326897,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 24,
+          "invalidPremul": 0,
+          "changedPixels": 427410
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.899999999997817,
+          "maxTimer": 11.299999952316284,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 128.59999990463257,
+        "warmMedianMs": 65.70000004768372
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-wave-open-10.png",
+        "bytes": 1148798,
+        "sha256": "24dd64e911b9772dc21a7e881e3e22267669a4ed3672e6dbf9b539021bb9bb44"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "dry-stroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "dry-stroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "fixtureSHA": {
+          "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+          "water": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 110.69999980926514,
+        "samples": [
+          {
+            "uploadJsMs": 21.300000190734863,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 97.59999990463257,
+            "totalReadyMs": 118.90000009536743
+          },
+          {
+            "uploadJsMs": 12.300000190734863,
+            "submitJsMs": 1.6999998092651367,
+            "runToDependentMs": 48.299999952316284,
+            "totalReadyMs": 60.60000014305115
+          },
+          {
+            "uploadJsMs": 8.300000190734863,
+            "submitJsMs": 0.5999999046325684,
+            "runToDependentMs": 47.89999985694885,
+            "totalReadyMs": 56.200000047683716
+          }
+        ],
+        "hashes": [
+          "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+          "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+          "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 44,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.25,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 9367726,
+          "outputMass": 9367726,
+          "massRatio": 1,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 74366,
+          "invalidPremul": 0,
+          "changedPixels": 0
+        },
+        "orientation": "fixture-row-order",
+        "control": {
+          "exactIdentity": true
+        },
+        "ui": {
+          "maxRAF": 16.80000000000291,
+          "maxTimer": 18.700000047683716,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 118.90000009536743,
+        "warmMedianMs": 58.40000009536743
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-dry-stroke-11.png",
+        "bytes": 763192,
+        "sha256": "b531e180f1d62e6f2192e982a31729c6d79963c47748529760322351b58ca183"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "dry-barrier",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "dry-barrier",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "fixtureSHA": {
+          "rgba": "ea7b876a06ee6c1c5cca87da5fe899ee681fb656a980ad9eaeab78e32fe580ec",
+          "water": "f04b89aa71c005fc35f9128c3e2a961efc54396b9ed32cb5c5425b605d6009da",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 78.59999990463257,
+        "samples": [
+          {
+            "uploadJsMs": 25.299999952316284,
+            "submitJsMs": 0.7000000476837158,
+            "runToDependentMs": 99.5,
+            "totalReadyMs": 124.79999995231628
+          },
+          {
+            "uploadJsMs": 7.700000047683716,
+            "submitJsMs": 2,
+            "runToDependentMs": 49.89999985694885,
+            "totalReadyMs": 57.59999990463257
+          },
+          {
+            "uploadJsMs": 5.5,
+            "submitJsMs": 0.39999985694885254,
+            "runToDependentMs": 48.19999980926514,
+            "totalReadyMs": 53.69999980926514
+          }
+        ],
+        "hashes": [
+          "6e95e9bdd2d71769b715a37100807a7f6d10dd4d752e7e67a083bc85c2242cef",
+          "6e95e9bdd2d71769b715a37100807a7f6d10dd4d752e7e67a083bc85c2242cef",
+          "6e95e9bdd2d71769b715a37100807a7f6d10dd4d752e7e67a083bc85c2242cef"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 44,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.25,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 599742,
+          "outputMass": 600278,
+          "massRatio": 1.000893717631915,
+          "lostPixels": 0,
+          "addedPixels": 579,
+          "outsideWetPixels": 0,
+          "invalidPremul": 0,
+          "changedPixels": 5028
+        },
+        "orientation": "fixture-row-order",
+        "control": {
+          "inputRightAlpha": 0,
+          "outputRightAlpha": 0,
+          "noCrossing": true
+        },
+        "ui": {
+          "maxRAF": 16.80000000000291,
+          "maxTimer": 18.600000143051147,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 124.79999995231628,
+        "warmMedianMs": 55.64999985694885
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-dry-barrier-12.png",
+        "bytes": 660352,
+        "sha256": "e632caa8a2fbcf5704732326dee8efb41257557675fd1f53b825f6a96fc990ed"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "water-only",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "water-only",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "fixtureSHA": {
+          "rgba": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "water": "d4ccabad2d7d244dccccd47af45b2405ae796fa736a8612e08f5da392c1662c2",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 107,
+        "samples": [
+          {
+            "uploadJsMs": 25.600000143051147,
+            "submitJsMs": 0.6999998092651367,
+            "runToDependentMs": 97.39999985694885,
+            "totalReadyMs": 123
+          },
+          {
+            "uploadJsMs": 8,
+            "submitJsMs": 2.0999999046325684,
+            "runToDependentMs": 49.5,
+            "totalReadyMs": 57.5
+          },
+          {
+            "uploadJsMs": 5.599999904632568,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 48.299999952316284,
+            "totalReadyMs": 53.89999985694885
+          }
+        ],
+        "hashes": [
+          "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 44,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.25,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 0,
+          "outputMass": 0,
+          "massRatio": 1,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 0,
+          "invalidPremul": 0,
+          "changedPixels": 0
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.80000000000291,
+          "maxTimer": 11.200000047683716,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 123,
+        "warmMedianMs": 55.699999928474426
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-water-only-13.png",
+        "bytes": 632770,
+        "sha256": "4c4b4e3330f10afd83ad489b82a59cfd6ea3b0387136c320123a6e6944d639e5"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "isolated-pools",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "isolated-pools",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "fixtureSHA": {
+          "rgba": "881c91b0bdaabe02f5a5e3a2d4d6710a2a7bdae94da8006880d9459411dc2792",
+          "water": "6ea2855a9526f2ee318a5b4649f201ef8b08a2c86ed9b51ff28ffd9668186292",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 109.5,
+        "samples": [
+          {
+            "uploadJsMs": 36,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 104.29999995231628,
+            "totalReadyMs": 140.29999995231628
+          },
+          {
+            "uploadJsMs": 8.5,
+            "submitJsMs": 0.39999985694885254,
+            "runToDependentMs": 48.200000047683716,
+            "totalReadyMs": 56.700000047683716
+          },
+          {
+            "uploadJsMs": 5.699999809265137,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 48.10000014305115,
+            "totalReadyMs": 53.799999952316284
+          }
+        ],
+        "hashes": [
+          "ee8ba43d3cc19504ced18614b2f85a7889f92d0cdb606d67fd692b0dee043bf9",
+          "ee8ba43d3cc19504ced18614b2f85a7889f92d0cdb606d67fd692b0dee043bf9",
+          "ee8ba43d3cc19504ced18614b2f85a7889f92d0cdb606d67fd692b0dee043bf9"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 44,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.25,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 1965711,
+          "outputMass": 1965278,
+          "massRatio": 0.9997797234690146,
+          "lostPixels": 0,
+          "addedPixels": 320,
+          "outsideWetPixels": 0,
+          "invalidPremul": 0,
+          "changedPixels": 13655
+        },
+        "orientation": "fixture-row-order",
+        "control": {
+          "inputRightAlpha": 0,
+          "outputRightAlpha": 0,
+          "noCrossing": true
+        },
+        "ui": {
+          "maxRAF": 16.80000000000291,
+          "maxTimer": 11.400000095367432,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 140.29999995231628,
+        "warmMedianMs": 55.25
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-isolated-pools-14.png",
+        "bytes": 669294,
+        "sha256": "1b0e02007389ffcc80062b249250490b0bc0f706d851df2069c026610be1a23b"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "border",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-porous-water-transport",
+        "fixture": "border",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 10,
+          "mobile": 0.8,
+          "adsorption": 0.07,
+          "coarse": 2,
+          "dt": 0.2,
+          "terrain": 0.25
+        },
+        "fixtureSHA": {
+          "rgba": "e1d645dee2946a8dee9e8743e008f6368f78eb615813a8c3d3277b17b5e0ed93",
+          "water": "86d9cb23a863f5049cf045d721769b933d99a5f38d86a8b359f02f1451e60a67",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 102.79999995231628,
+        "samples": [
+          {
+            "uploadJsMs": 30.300000190734863,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 100.79999995231628,
+            "totalReadyMs": 131.10000014305115
+          },
+          {
+            "uploadJsMs": 13.700000047683716,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 49.69999980926514,
+            "totalReadyMs": 63.39999985694885
+          },
+          {
+            "uploadJsMs": 5.6000001430511475,
+            "submitJsMs": 0.39999985694885254,
+            "runToDependentMs": 48.5,
+            "totalReadyMs": 54.10000014305115
+          }
+        ],
+        "hashes": [
+          "29d939474b8c3016c252bcc4a5475d34e6643bf9efb6d25da753ed2b04f474bf",
+          "29d939474b8c3016c252bcc4a5475d34e6643bf9efb6d25da753ed2b04f474bf",
+          "29d939474b8c3016c252bcc4a5475d34e6643bf9efb6d25da753ed2b04f474bf"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "paired porous water flux + donor-cell pigment + adsorption",
+          "resolution": 1024,
+          "passes": 44,
+          "waterEncoding": "RG16 range0..4; nearest rounded, step error<=2/65535",
+          "waterCapacity": 4,
+          "idealWaterBound": 1.25,
+          "conservation": "float paired flows conserve water/mobile mass; RG16/RGBA8 rounding and pigment saturation do not",
+          "pigmentCapacity": 1
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 13343653,
+          "outputMass": 13347230,
+          "massRatio": 1.0002680675224394,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 10,
+          "invalidPremul": 0,
+          "changedPixels": 103841
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.900000000001455,
+          "maxTimer": 14.599999904632568,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 131.10000014305115,
+        "warmMedianMs": 58.75
+      },
+      "png": {
+        "file": "alternative-porous-water-transport-border-15.png",
+        "bytes": 753796,
+        "sha256": "c8fa21ea41654b39d8d8eb835e7fe2d0042c6a197f0e8f11eec7caa2ccbc176d"
+      },
+      "pass": true
+    }
+  ],
+  "sourceHashes": {
+    "entry.js": "0d25822f2f8f427495cd21faf7123288a92e9a4b15c1952647141e4305a93504",
+    "worker.js": "259b431f0063616bd1997957f7adf92bc778373e507dbc146c53a1887b001e2e",
+    "chunk-OXBRW55U.js": "1323ea1a0ae62bd9000f47e65a830339ad2f3736d4f8f79843d3605dc60c0a53",
+    "index.html": "7f174c6068b1a87f196251529b71ac6c4844f011e315c79534a94c0af5b824e4"
+  },
+  "catalog": {
+    "requestId": 1,
+    "algorithms": [
+      {
+        "id": "input-reference",
+        "label": "Исходный след без растекания",
+        "configs": [
+          {}
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-stable-fluids",
+        "label": "Low-resolution advect/project/pigment (RGBA8)",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 4,
+            "projection": 4,
+            "force": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 4,
+            "projection": 4,
+            "force": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 8,
+            "projection": 6,
+            "force": 4
+          },
+          {
+            "resolution": 512,
+            "steps": 4,
+            "projection": 4,
+            "force": 4
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-lattice-diffusion",
+        "label": "Conservative donor lattice pigment diffusion",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 12,
+            "stride": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 12,
+            "stride": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 24,
+            "stride": 4
+          },
+          {
+            "resolution": 512,
+            "steps": 16,
+            "stride": 4
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-artistic-front",
+        "label": "Cheap dyadic artistic front + multiscale pigment",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 8,
+            "budget": 12,
+            "rim": 0.2
+          },
+          {
+            "resolution": 256,
+            "steps": 8,
+            "budget": 16,
+            "rim": 0.35
+          },
+          {
+            "resolution": 256,
+            "steps": 16,
+            "budget": 24,
+            "rim": 0.5
+          },
+          {
+            "resolution": 512,
+            "steps": 12,
+            "budget": 32,
+            "rim": 0.35
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "search-artistic-program",
+        "label": "Bounded24 ordered artistic programs (approximate search)",
+        "configs": [
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 1
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-wet-boundary-detail",
+        "label": "Donor wet-boundary rim + retained detail + real paper grain",
+        "configs": [
+          {
+            "resolution": 256,
+            "steps": 8,
+            "rim": 0.7,
+            "grain": 0.35,
+            "detail": 0.65,
+            "fullSteps": 2,
+            "share": 0.4
+          },
+          {
+            "resolution": 256,
+            "steps": 10,
+            "rim": 0.85,
+            "grain": 0.6,
+            "detail": 0.8,
+            "fullSteps": 3,
+            "share": 0.35
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-paper-deposition",
+        "label": "Paper-guided mobile pigment and gradual deposition (no pool-edge rim)",
+        "configs": [
+          {
+            "steps": 4,
+            "mobile": 0.4,
+            "share": 0.65,
+            "adsorption": 0.16,
+            "paperBias": 0.9,
+            "coarse": 4
+          },
+          {
+            "steps": 5,
+            "mobile": 0.8,
+            "share": 0.7,
+            "adsorption": 0.12,
+            "paperBias": 1,
+            "coarse": 6
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-porous-water-transport",
+        "label": "Evolving porous water + donor-cell pigment and adsorption",
+        "configs": [
+          {
+            "steps": 8,
+            "mobile": 0.6,
+            "adsorption": 0.1,
+            "coarse": 4,
+            "dt": 0.16,
+            "terrain": 0.18
+          },
+          {
+            "steps": 10,
+            "mobile": 0.8,
+            "adsorption": 0.07,
+            "coarse": 2,
+            "dt": 0.2,
+            "terrain": 0.25
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-correlated-paper-deposition",
+        "label": "Correlated paper affinity, micrograin and gradual pigment deposition",
+        "configs": [
+          {
+            "steps": 4,
+            "mobile": 0.6,
+            "share": 0.65,
+            "adsorption": 0.14,
+            "paperBias": 0.9,
+            "coarse": 4,
+            "paperScale": 3,
+            "micro": 0.12,
+            "relief": 2.5
+          },
+          {
+            "steps": 5,
+            "mobile": 0.75,
+            "share": 0.7,
+            "adsorption": 0.1,
+            "paperBias": 1,
+            "coarse": 6,
+            "paperScale": 5,
+            "micro": 0.15,
+            "relief": 3.5
+          },
+          {
+            "steps": 5,
+            "mobile": 0.8,
+            "share": 0.7,
+            "adsorption": 0.09,
+            "paperBias": 1,
+            "coarse": 8,
+            "paperScale": 8,
+            "micro": 0.1,
+            "relief": 4.5
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "gl-integer-diffusion-match",
+        "label": "GL1: matched local integer diffusion",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "wgsl-integer-diffusion-direct",
+        "label": "WebGPU: local integer diffusion",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-integer-diffusion-tiled4",
+        "label": "WebGPU: same local diffusion, four shared-memory steps",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-d2q9-bgk",
+        "label": "WebGPU: D2Q9 fluid with pigment/water tracers",
+        "configs": [
+          {
+            "grid": 256,
+            "steps": 48
+          },
+          {
+            "grid": 512,
+            "steps": 48
+          },
+          {
+            "grid": 256,
+            "steps": 16,
+            "diffusion": 0.015
+          },
+          {
+            "grid": 128,
+            "steps": 24,
+            "diffusion": 0.025
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-integer-diffusion-texture",
+        "label": "WebGPU: same local integer diffusion, R32Uint texture access",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "dot",
+        "label": "Точка",
+        "description": "Один широкий отпечаток синей кисти"
+      },
+      {
+        "id": "wave",
+        "label": "Широкая волна",
+        "description": "Кисть320 через значительную часть листа"
+      },
+      {
+        "id": "water-only",
+        "label": "Только вода",
+        "description": "Мокрая область без пигмента: краска не должна появляться"
+      },
+      {
+        "id": "water-stroke",
+        "label": "Мазок через лужу",
+        "description": "Узкая синяя линия пересекает широкую мокрую область"
+      },
+      {
+        "id": "two-colors",
+        "label": "Два цвета",
+        "description": "Пересечение синего и розового пигмента в общей мокрой области"
+      },
+      {
+        "id": "crosses",
+        "label": "Повторные пересечения",
+        "description": "Три перекрывающихся следа с разным количеством пигмента"
+      },
+      {
+        "id": "blue-yellow",
+        "label": "Синий и жёлтый",
+        "description": "Проверка смешения пигментов, а не только размытияRGB"
+      },
+      {
+        "id": "fine-detail",
+        "label": "Тонкий след",
+        "description": "Мелкие детали на мокрой и почти сухой бумаге"
+      },
+      {
+        "id": "border",
+        "label": "У края листа",
+        "description": "След касается границы расчётного поля"
+      },
+      {
+        "id": "wave-open",
+        "label": "Волна с открытыми изгибами",
+        "description": "Два крупных изгиба широкой кисти вместо многократного наложения"
+      },
+      {
+        "id": "dry-stroke",
+        "label": "Сухой контроль",
+        "description": "Тот же пигмент, что в мазке через лужу, но воды нет: перенос запрещён"
+      },
+      {
+        "id": "isolated-pools",
+        "label": "Две отдельные лужи",
+        "description": "Синий пигмент только в левой луже; правая отделена сухим промежутком"
+      },
+      {
+        "id": "variable-wash",
+        "label": "Неравномерная заливка",
+        "description": "Перекрывающиеся отпечатки с разным количеством краски на предварительно смоченной бумаге"
+      },
+      {
+        "id": "dry-barrier",
+        "label": "Тонкий сухой разделитель",
+        "description": "Две мокрые области разделены сухой полосой шириной один пиксель; пигмент только слева"
+      }
+    ]
+  },
+  "sourceStable": true,
+  "pass": true,
+  "errors": [],
+  "intercepts": {
+    "index.html": 1,
+    "entry.js": 1,
+    "chunk-OXBRW55U.js": 2,
+    "worker.js": 1
+  },
+  "contextClosed": true,
+  "finishedAt": "2026-10-17T20:55:50.806Z"
+}

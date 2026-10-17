@@ -1,0 +1,62 @@
+{
+  "qualification": "Native Mini original wash capture before solver, exported after natural goal. Raw common carrier bytes, no gamma/PNG, no timing claims. Conversion metadata/SHAs preserved. Own fresh engine and trusted pen; hosted source unchanged.",
+  "cases": [
+    {
+      "shape": "water-stroke",
+      "sourceHashes": {
+        "entry.js": "ed5f8b647d4ac3bca8c772d55206b28899eb9bf9346419d9d3099b51b9cc41d0",
+        "worker.js": "1485aeb70699cf4fb03e43d4592430421c6706d1f338919fa47dce0e25f6e462",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-AAJEMBA3.js": "67acc2958a98986bfb054de591bb982215cf9741e850e2cc82775deab246f84b",
+        "chunk-UIVJBE6V.js": "34e7dd4b7e81a369fe724b9be85643a05c6bea1f501c83004007085eaa84bd54",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f"
+      },
+      "failureState": {
+        "snapshot": {
+          "mode": "worker",
+          "generation": 1,
+          "ready": false,
+          "error": "Error: Failed to fetch paper manifest '/paper/manifest.json': HTTP 502. Run `npm run bake:paper` in apps/web (the bake is a prebuild step and its output is not committed).\n    at https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:30917\n    at async r (https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:31704)\n    at async iw (https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:31984)\n    at async aw (https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:32288)\n    at async Vn.load (https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:34452)",
+          "pressed": false,
+          "gestureId": 0,
+          "settings": {
+            "size": 320,
+            "water": 95,
+            "pigment": 34,
+            "paint": "PB15",
+            "color": "#2688d3"
+          },
+          "bootstrap": null,
+          "state": null,
+          "latest": null,
+          "results": [],
+          "clickHistory": [],
+          "acceptedEvents": [],
+          "processedEvents": [],
+          "heartbeat": {
+            "count": 109,
+            "maxGapMs": 16.800000000000182,
+            "over50": 0,
+            "last": 2006.2
+          },
+          "input": {
+            "down": 0,
+            "move": 0,
+            "up": 0,
+            "lastLagMs": 0,
+            "maxLagMs": 0,
+            "lastProcessed": 0
+          },
+          "clicks": 0,
+          "visibility": "visible"
+        },
+        "text": "Mini1024 · расчёт без пауз\nГде считать\nWorker · OffscreenCanvas\nГлавный поток · тот же код\nЧистый лист\nУскорить высыхание\nPNG текущего вида\nКисть\n320\nВода\n95\nПигмент\n34\nКраска\nPB15\nPB29\nPR122\n\nОшибка\n\nЦель (JS): —\n\nВвод: —\n\nОбработано: —\n\n UI RAF: 16.8 мс макс.\n\nПроверить UI: 0\n\nВ Worker расчёт и рисование выполняются вне главного JS-потока. GPU остаётся общим. Скрытый в live-режиме диагностический контурный оверлей здесь не создаётся. В обоих режимах операции solver идут подряд; морфинг после готовности длится 120 секунд.\n\nСмена режима открывает чистый лист. PNG сохраняет текущий вид.\n\nВремя — от отпускания пера до JS-сигнала готовой цели, включая передачу сообщения. Это не отдельный замер GPU.\n\nError: Failed to fetch paper manifest '/paper/manifest.json': HTTP 502. Run `npm run bake:paper` in apps/web (the bake is a prebuild step and its output is not committed).\n    at https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:30917\n    at async r (https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:31704)\n    at async iw (https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:31984)\n    at async aw (https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:32288)\n    at async Vn.load (https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:34452)\n\nДиагностика"
+      },
+      "errors": [],
+      "contextClosed": true
+    }
+  ],
+  "pass": false,
+  "failure": "Error: Error: Failed to fetch paper manifest '/paper/manifest.json': HTTP 502. Run `npm run bake:paper` in apps/web (the bake is a prebuild step and its output is not committed).\n    at https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:30917\n    at async r (https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:31704)\n    at async iw (https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:31984)\n    at async aw (https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:32288)\n    at async Vn.load (https://tools.pecni.com/watercolor-worker-802/chunk-UIVJBE6V.js:5577:34452)\n    at wait (/home/suselman/projects/pencil-agents/805-watercolor-search/docs/qa/harness/805-algorithm-search/native-capture.cjs:5:582)\n    at async /home/suselman/projects/pencil-agents/805-watercolor-search/docs/qa/harness/805-algorithm-search/native-capture.cjs:5:672"
+}

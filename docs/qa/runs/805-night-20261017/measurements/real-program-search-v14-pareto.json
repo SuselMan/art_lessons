@@ -1,0 +1,366 @@
+{
+  "qualification": "Numeric Pareto only, not artistic approval. Same captured native input, exact SHA checks per case. Clock/driver effects and numerical carrier conversion apply.",
+  "count": 24,
+  "uniqueOutputHashes": 16,
+  "allRepeatExact": true,
+  "warmRange": [
+    23.350000023841858,
+    35.949999928474426
+  ],
+  "frontier": [
+    {
+      "index": 1,
+      "id": "f4-8.4.2.1.1_t1.1.1.1_r0",
+      "passes": 12,
+      "warmMs": 27.049999952316284,
+      "coldMs": 67.69999980926514,
+      "massError": 0.00020777239481672982,
+      "outsideWet": 12727,
+      "sha": "bfc76b3b9ed0f19725bda506f3bc94e195b76293b137892256b83e0775f5bf0a",
+      "png": "search-artistic-program-captured-native-waterstroke-1.png"
+    },
+    {
+      "index": 2,
+      "id": "f4-8.4.2.1.1_t1.1.1.1_r1",
+      "passes": 13,
+      "warmMs": 26.149999976158142,
+      "coldMs": 32.799999952316284,
+      "massError": 0.007162428331755066,
+      "outsideWet": 12801,
+      "sha": "637e7468d76cc4da2c8229f49d992959c10c3449a6e6a07e0028658891190ad2",
+      "png": "search-artistic-program-captured-native-waterstroke-2.png"
+    },
+    {
+      "index": 3,
+      "id": "f4-8.4.2.1.1_t4.2.1.1_r0",
+      "passes": 12,
+      "warmMs": 23.350000023841858,
+      "coldMs": 36.700000047683716,
+      "massError": 0.00006675349743079373,
+      "outsideWet": 17333,
+      "sha": "2c1339be2e05ce1375210fe4bb3d34e12727422775a5577b81d742ee5b76e082",
+      "png": "search-artistic-program-captured-native-waterstroke-3.png"
+    },
+    {
+      "index": 9,
+      "id": "f4-4.2.1_t1.1.1.1_r0",
+      "passes": 10,
+      "warmMs": 29.049999952316284,
+      "coldMs": 46.60000014305115,
+      "massError": 0.0002094796453904202,
+      "outsideWet": 12557,
+      "sha": "3b5cc4534a750d48b121cbd1d8839072406a0d5dc0586fe696ed1152f8d7adfb",
+      "png": "search-artistic-program-captured-native-waterstroke-9.png"
+    },
+    {
+      "index": 11,
+      "id": "f4-4.2.1_t4.2.1.1_r0",
+      "passes": 10,
+      "warmMs": 24.649999976158142,
+      "coldMs": 28.200000047683716,
+      "massError": 0.00008519180362653866,
+      "outsideWet": 17091,
+      "sha": "4bb3be81f584006805607abba8d252f3c3947c54332662aa895fdb1ef088ed84",
+      "png": "search-artistic-program-captured-native-waterstroke-11.png"
+    },
+    {
+      "index": 13,
+      "id": "f8-8.4.2.1.1_t1.1.1.1_r0",
+      "passes": 12,
+      "warmMs": 25.950000047683716,
+      "coldMs": 27.799999952316284,
+      "massError": 0.00023406405365133942,
+      "outsideWet": 12904,
+      "sha": "99286085bd39953ea919467671cac1481d48825f125f44fcdeb38d88543055c4",
+      "png": "search-artistic-program-captured-native-waterstroke-13.png"
+    },
+    {
+      "index": 19,
+      "id": "f8-4.2.1.1_t4.2.1.1_r0",
+      "passes": 11,
+      "warmMs": 27.850000023841858,
+      "coldMs": 50.60000014305115,
+      "massError": 0.000015877430335264897,
+      "outsideWet": 19149,
+      "sha": "ab59eff0e2c31daecdfa620f368daabe6704740117b3245f1bb38cae2512bbbb",
+      "png": "search-artistic-program-captured-native-waterstroke-19.png"
+    },
+    {
+      "index": 23,
+      "id": "f8-4.2.1_t4.2.1.1_r0",
+      "passes": 10,
+      "warmMs": 35.949999928474426,
+      "coldMs": 53.200000047683716,
+      "massError": 0.000005463201835809173,
+      "outsideWet": 18713,
+      "sha": "629abf9f64272525d6b068d9834c22ec1b1890ae55ee41b5cc65e42e21cff566",
+      "png": "search-artistic-program-captured-native-waterstroke-23.png"
+    }
+  ],
+  "rows": [
+    {
+      "index": 1,
+      "id": "f4-8.4.2.1.1_t1.1.1.1_r0",
+      "passes": 12,
+      "warmMs": 27.049999952316284,
+      "coldMs": 67.69999980926514,
+      "massError": 0.00020777239481672982,
+      "outsideWet": 12727,
+      "sha": "bfc76b3b9ed0f19725bda506f3bc94e195b76293b137892256b83e0775f5bf0a",
+      "png": "search-artistic-program-captured-native-waterstroke-1.png"
+    },
+    {
+      "index": 2,
+      "id": "f4-8.4.2.1.1_t1.1.1.1_r1",
+      "passes": 13,
+      "warmMs": 26.149999976158142,
+      "coldMs": 32.799999952316284,
+      "massError": 0.007162428331755066,
+      "outsideWet": 12801,
+      "sha": "637e7468d76cc4da2c8229f49d992959c10c3449a6e6a07e0028658891190ad2",
+      "png": "search-artistic-program-captured-native-waterstroke-2.png"
+    },
+    {
+      "index": 3,
+      "id": "f4-8.4.2.1.1_t4.2.1.1_r0",
+      "passes": 12,
+      "warmMs": 23.350000023841858,
+      "coldMs": 36.700000047683716,
+      "massError": 0.00006675349743079373,
+      "outsideWet": 17333,
+      "sha": "2c1339be2e05ce1375210fe4bb3d34e12727422775a5577b81d742ee5b76e082",
+      "png": "search-artistic-program-captured-native-waterstroke-3.png"
+    },
+    {
+      "index": 4,
+      "id": "f4-8.4.2.1.1_t4.2.1.1_r1",
+      "passes": 13,
+      "warmMs": 29.899999976158142,
+      "coldMs": 39.59999990463257,
+      "massError": 0.016773053986165465,
+      "outsideWet": 17341,
+      "sha": "c30de8fe4aced72ade6ec24227fdb82974c4bc61fc3f2ff19b45678ca56ab06e",
+      "png": "search-artistic-program-captured-native-waterstroke-4.png"
+    },
+    {
+      "index": 5,
+      "id": "f4-4.2.1.1_t1.1.1.1_r0",
+      "passes": 11,
+      "warmMs": 28.100000143051147,
+      "coldMs": 51.200000047683716,
+      "massError": 0.00020777239481672982,
+      "outsideWet": 12727,
+      "sha": "bfc76b3b9ed0f19725bda506f3bc94e195b76293b137892256b83e0775f5bf0a",
+      "png": "search-artistic-program-captured-native-waterstroke-5.png"
+    },
+    {
+      "index": 6,
+      "id": "f4-4.2.1.1_t1.1.1.1_r1",
+      "passes": 12,
+      "warmMs": 32.10000002384186,
+      "coldMs": 43.5,
+      "massError": 0.007162428331755066,
+      "outsideWet": 12801,
+      "sha": "637e7468d76cc4da2c8229f49d992959c10c3449a6e6a07e0028658891190ad2",
+      "png": "search-artistic-program-captured-native-waterstroke-6.png"
+    },
+    {
+      "index": 7,
+      "id": "f4-4.2.1.1_t4.2.1.1_r0",
+      "passes": 11,
+      "warmMs": 31.300000071525574,
+      "coldMs": 43.10000014305115,
+      "massError": 0.00006675349743079373,
+      "outsideWet": 17333,
+      "sha": "2c1339be2e05ce1375210fe4bb3d34e12727422775a5577b81d742ee5b76e082",
+      "png": "search-artistic-program-captured-native-waterstroke-7.png"
+    },
+    {
+      "index": 8,
+      "id": "f4-4.2.1.1_t4.2.1.1_r1",
+      "passes": 12,
+      "warmMs": 32,
+      "coldMs": 48.90000009536743,
+      "massError": 0.016773053986165465,
+      "outsideWet": 17341,
+      "sha": "c30de8fe4aced72ade6ec24227fdb82974c4bc61fc3f2ff19b45678ca56ab06e",
+      "png": "search-artistic-program-captured-native-waterstroke-8.png"
+    },
+    {
+      "index": 9,
+      "id": "f4-4.2.1_t1.1.1.1_r0",
+      "passes": 10,
+      "warmMs": 29.049999952316284,
+      "coldMs": 46.60000014305115,
+      "massError": 0.0002094796453904202,
+      "outsideWet": 12557,
+      "sha": "3b5cc4534a750d48b121cbd1d8839072406a0d5dc0586fe696ed1152f8d7adfb",
+      "png": "search-artistic-program-captured-native-waterstroke-9.png"
+    },
+    {
+      "index": 10,
+      "id": "f4-4.2.1_t1.1.1.1_r1",
+      "passes": 11,
+      "warmMs": 30.34999990463257,
+      "coldMs": 47.10000014305115,
+      "massError": 0.007186842014958561,
+      "outsideWet": 12653,
+      "sha": "b3a6035fccdfe1e9261433cf36fd77c1753cf97f6a12108c2a9365539a47633e",
+      "png": "search-artistic-program-captured-native-waterstroke-10.png"
+    },
+    {
+      "index": 11,
+      "id": "f4-4.2.1_t4.2.1.1_r0",
+      "passes": 10,
+      "warmMs": 24.649999976158142,
+      "coldMs": 28.200000047683716,
+      "massError": 0.00008519180362653866,
+      "outsideWet": 17091,
+      "sha": "4bb3be81f584006805607abba8d252f3c3947c54332662aa895fdb1ef088ed84",
+      "png": "search-artistic-program-captured-native-waterstroke-11.png"
+    },
+    {
+      "index": 12,
+      "id": "f4-4.2.1_t4.2.1.1_r1",
+      "passes": 11,
+      "warmMs": 26.100000023841858,
+      "coldMs": 25.200000047683716,
+      "massError": 0.016857050714390365,
+      "outsideWet": 17100,
+      "sha": "cbabf0f50a27d7f91ea875a6e910a863e49a4847d92c2f330718d645e62ec537",
+      "png": "search-artistic-program-captured-native-waterstroke-12.png"
+    },
+    {
+      "index": 13,
+      "id": "f8-8.4.2.1.1_t1.1.1.1_r0",
+      "passes": 12,
+      "warmMs": 25.950000047683716,
+      "coldMs": 27.799999952316284,
+      "massError": 0.00023406405365133942,
+      "outsideWet": 12904,
+      "sha": "99286085bd39953ea919467671cac1481d48825f125f44fcdeb38d88543055c4",
+      "png": "search-artistic-program-captured-native-waterstroke-13.png"
+    },
+    {
+      "index": 14,
+      "id": "f8-8.4.2.1.1_t1.1.1.1_r1",
+      "passes": 13,
+      "warmMs": 35.799999952316284,
+      "coldMs": 49.10000014305115,
+      "massError": 0.007312324932124081,
+      "outsideWet": 13012,
+      "sha": "fc09387f55b996b41cce5947fd48a15a21ae5c86ea2a337f7e4283dd11863be9",
+      "png": "search-artistic-program-captured-native-waterstroke-14.png"
+    },
+    {
+      "index": 15,
+      "id": "f8-8.4.2.1.1_t4.2.1.1_r0",
+      "passes": 12,
+      "warmMs": 29.399999976158142,
+      "coldMs": 47.5,
+      "massError": 0.000015877430335264897,
+      "outsideWet": 19149,
+      "sha": "ab59eff0e2c31daecdfa620f368daabe6704740117b3245f1bb38cae2512bbbb",
+      "png": "search-artistic-program-captured-native-waterstroke-15.png"
+    },
+    {
+      "index": 16,
+      "id": "f8-8.4.2.1.1_t4.2.1.1_r1",
+      "passes": 13,
+      "warmMs": 33.10000002384186,
+      "coldMs": 47.5,
+      "massError": 0.01800603035047632,
+      "outsideWet": 19151,
+      "sha": "e6595b890fffb0423ac3ab80af16d65209d7e89362280741fb0b7e0f9687b93e",
+      "png": "search-artistic-program-captured-native-waterstroke-16.png"
+    },
+    {
+      "index": 17,
+      "id": "f8-4.2.1.1_t1.1.1.1_r0",
+      "passes": 11,
+      "warmMs": 29.450000047683716,
+      "coldMs": 49.700000047683716,
+      "massError": 0.00023406405365133942,
+      "outsideWet": 12904,
+      "sha": "99286085bd39953ea919467671cac1481d48825f125f44fcdeb38d88543055c4",
+      "png": "search-artistic-program-captured-native-waterstroke-17.png"
+    },
+    {
+      "index": 18,
+      "id": "f8-4.2.1.1_t1.1.1.1_r1",
+      "passes": 12,
+      "warmMs": 31.99999988079071,
+      "coldMs": 45.40000009536743,
+      "massError": 0.007312324932124081,
+      "outsideWet": 13012,
+      "sha": "fc09387f55b996b41cce5947fd48a15a21ae5c86ea2a337f7e4283dd11863be9",
+      "png": "search-artistic-program-captured-native-waterstroke-18.png"
+    },
+    {
+      "index": 19,
+      "id": "f8-4.2.1.1_t4.2.1.1_r0",
+      "passes": 11,
+      "warmMs": 27.850000023841858,
+      "coldMs": 50.60000014305115,
+      "massError": 0.000015877430335264897,
+      "outsideWet": 19149,
+      "sha": "ab59eff0e2c31daecdfa620f368daabe6704740117b3245f1bb38cae2512bbbb",
+      "png": "search-artistic-program-captured-native-waterstroke-19.png"
+    },
+    {
+      "index": 20,
+      "id": "f8-4.2.1.1_t4.2.1.1_r1",
+      "passes": 12,
+      "warmMs": 29.75000011920929,
+      "coldMs": 46.40000009536743,
+      "massError": 0.01800603035047632,
+      "outsideWet": 19151,
+      "sha": "e6595b890fffb0423ac3ab80af16d65209d7e89362280741fb0b7e0f9687b93e",
+      "png": "search-artistic-program-captured-native-waterstroke-20.png"
+    },
+    {
+      "index": 21,
+      "id": "f8-4.2.1_t1.1.1.1_r0",
+      "passes": 10,
+      "warmMs": 27.700000047683716,
+      "coldMs": 45.5,
+      "massError": 0.0002330397033071252,
+      "outsideWet": 12885,
+      "sha": "32c7c7123a87cc1cce3afc85b6d51c8b0ec180aa61262e0bf901947bbbbec45c",
+      "png": "search-artistic-program-captured-native-waterstroke-21.png"
+    },
+    {
+      "index": 22,
+      "id": "f8-4.2.1_t1.1.1.1_r1",
+      "passes": 11,
+      "warmMs": 30.449999928474426,
+      "coldMs": 42.39999985694885,
+      "massError": 0.0072522297119304024,
+      "outsideWet": 12990,
+      "sha": "7e7293b36359f3a88dc7a0fe662519e630cb1e3c1fb930eb634d4bb5d1599376",
+      "png": "search-artistic-program-captured-native-waterstroke-22.png"
+    },
+    {
+      "index": 23,
+      "id": "f8-4.2.1_t4.2.1.1_r0",
+      "passes": 10,
+      "warmMs": 35.949999928474426,
+      "coldMs": 53.200000047683716,
+      "massError": 0.000005463201835809173,
+      "outsideWet": 18713,
+      "sha": "629abf9f64272525d6b068d9834c22ec1b1890ae55ee41b5cc65e42e21cff566",
+      "png": "search-artistic-program-captured-native-waterstroke-23.png"
+    },
+    {
+      "index": 24,
+      "id": "f8-4.2.1_t4.2.1.1_r1",
+      "passes": 11,
+      "warmMs": 34.200000047683716,
+      "coldMs": 57.299999952316284,
+      "massError": 0.017736455484892444,
+      "outsideWet": 18718,
+      "sha": "38ddf58d0c2f2f09dce0ce203a28c012e3cf0cd0219b3b336525a1fa1465524a",
+      "png": "search-artistic-program-captured-native-waterstroke-24.png"
+    }
+  ]
+}
