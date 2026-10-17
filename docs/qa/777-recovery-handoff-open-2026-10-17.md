@@ -38,3 +38,23 @@ Debounce должен принадлежать captured board/очереди, а
 перелистыванию, но forced switch, unmount и browser crash не защищает и не
 заменяет durable handoff. Flush в новый engine или resend permanent reject
 не являются исправлением.
+
+## Дополнительный подтверждённый terminal-verdict риск (04:40)
+
+Baseline с настоящими Outbox и server operationRejectReason: room_frozen
+проверен серверным gate на первом send, но ответ ещё на проводе. Board gate уже
+сменился либо queue disposed; затем приходит permanent reject. Ownership guard
+правильно не вызывает UI новой доски, однако исходная запись остаётся pending
+в durable storage. После возврата и unfreeze resendAll отправляет тот же ID;
+сервер уже разрешает его и впервые принимает прежний rejected tail.
+Два теста FAIL именно на desired `accepted.has(original.id) === false`.
+Сохранены как it.fails OPEN, runtime не менялся.
+
+Accepted-only dedup моделируется узким Map seam, matching socketHandlers:
+rejected operations не становятся journal row и не находятся findDuplicateOperation.
+Gate — реальный production helper; это CPU seam regression, не API/PG сертификат.
+Проблема существовала у disposed guard до #776 и остаётся у canSend gate.
+#776 защищает board isolation callbacks, но НЕ terminal-verdict durability.
+Нельзя исправлять её удалением target_gone payload: #777 lost-work baseline
+показывает потерю содержимого. Нужна явно durable terminal-recovery phase из
+плана, которая не участвует в normal resendAll, даже после reload/unfreeze.
