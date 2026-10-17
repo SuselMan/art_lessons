@@ -1,0 +1,464 @@
+{
+  "source": "437c94d2+phase1-31dd5",
+  "highFloat": {
+    "precision": 23,
+    "rangeMin": 127,
+    "rangeMax": 127
+  },
+  "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+  "dither": {
+    "requestedOff": false,
+    "initial": true,
+    "atCapture": true
+  },
+  "inputHashes": {
+    "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+    "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+    "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+    "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+  },
+  "finalInputHashes": {
+    "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+    "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+    "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+    "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+  },
+  "capturedBackingProof": {
+    "requested": true,
+    "handles": [
+      {
+        "width": 2048,
+        "height": 512,
+        "revisionAtCapture": 1,
+        "hasResidency": false,
+        "pixelBytes": 4194304,
+        "retainedAtCapture": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 1,
+        "retainedAfterRelease": 0
+      },
+      {
+        "width": 2048,
+        "height": 512,
+        "revisionAtCapture": 2,
+        "hasResidency": false,
+        "pixelBytes": 4194304,
+        "retainedAtCapture": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 2,
+        "retainedAfterRelease": 0
+      },
+      {
+        "width": 2048,
+        "height": 512,
+        "revisionAtCapture": 2,
+        "hasResidency": false,
+        "pixelBytes": 4194304,
+        "retainedAtCapture": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 2,
+        "retainedAfterRelease": 0
+      },
+      {
+        "width": 2048,
+        "height": 512,
+        "revisionAtCapture": 2,
+        "hasResidency": false,
+        "pixelBytes": 4194304,
+        "retainedAtCapture": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 2,
+        "retainedAfterRelease": 0
+      },
+      {
+        "width": 2048,
+        "height": 512,
+        "revisionAtCapture": 1,
+        "hasResidency": false,
+        "pixelBytes": 4194304,
+        "retainedAtCapture": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 1,
+        "retainedAfterRelease": 0
+      },
+      {
+        "width": 2048,
+        "height": 512,
+        "revisionAtCapture": 1,
+        "hasResidency": false,
+        "pixelBytes": 4194304,
+        "retainedAtCapture": 0,
+        "releaseCalls": 1,
+        "revisionAtRelease": 1,
+        "retainedAfterRelease": 0
+      }
+    ],
+    "qualification": "Uncached standalone buffers: capture path/release proof only, no120MiB memory savings claim",
+    "expectedHandles": 6
+  },
+  "windowSchedule": {
+    "requestedTight32": false,
+    "requestedSkip": false,
+    "allGroups": 4,
+    "kept": 4,
+    "skipped": 0,
+    "decisions": [
+      {
+        "field": {
+          "x": 0,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 0,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 512,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 0,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 512,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 612,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      },
+      {
+        "field": {
+          "x": 128,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 768,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 768,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 612,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      },
+      {
+        "field": {
+          "x": 384,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 1024,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1024,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 612,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      },
+      {
+        "field": {
+          "x": 512,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 1280,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1536,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1792,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1280,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1536,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1792,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 612,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      }
+    ],
+    "sourceSupport": {
+      "width": 2048,
+      "height": 512,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 2048,
+        "height": 512
+      },
+      "rects": [
+        {
+          "x": 0,
+          "y": 0,
+          "width": 2048,
+          "height": 512
+        }
+      ],
+      "noForeignStencil": true
+    }
+  },
+  "postphaseSchedule": {
+    "requested": false,
+    "rectangles": [
+      {
+        "interior": {
+          "x": 0,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": -21,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": false
+      },
+      {
+        "interior": {
+          "x": 512,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": 491,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": false
+      },
+      {
+        "interior": {
+          "x": 1024,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": 1003,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": false
+      },
+      {
+        "interior": {
+          "x": 1536,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": 1515,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": false
+      }
+    ],
+    "kept": 4,
+    "skipped": 0
+  },
+  "referenceDestroyedBuffers": 10,
+  "referenceReleasedBeforeActual": true,
+  "stageDiffs": {
+    "referenceP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+      "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+    },
+    "referenceC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+      "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+    },
+    "solvedP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0",
+      "referenceHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0"
+    },
+    "solvedC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386",
+      "referenceHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386"
+    },
+    "solvedCoverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+      "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+    },
+    "coarse:gate": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+      "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+    },
+    "coarse:beforeP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6",
+      "referenceHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6"
+    },
+    "coarse:afterP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4",
+      "referenceHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4"
+    },
+    "coarse:beforeC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9",
+      "referenceHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9"
+    },
+    "coarse:afterC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70",
+      "referenceHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70"
+    }
+  },
+  "diffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3",
+      "referenceHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256",
+      "referenceHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+    }
+  },
+  "errors": [],
+  "lost": false,
+  "priorSamsungBaselineSHAExact": true,
+  "qualification": "Native Samsung phase1 capturedBacking actualsourceprototype gate. Sixuncached2048x512sourcehandles, eachreleaseonce/revisionstable/retainedAfter0. All10phase/finalNativevsPaged0diff plus exactpriorSamsungdfeSHA. No120MiBmanagedRAM/performance/savingsclaim, noR32/postskip/shaderoverrides. Owncontextclosed/GPU0."
+}
