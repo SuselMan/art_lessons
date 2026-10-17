@@ -32,6 +32,7 @@ interface Layer {
   started: number
   after: number
   presentationDirty: boolean
+  deferredPresentation?: boolean
   dryAt?: number
 }
 type ParkedLayer = Pick<Layer, 'target'|'gesture'|'previous'|'timestamp'|'boundary'|'epoch'>
@@ -49,6 +50,8 @@ export interface PuddleRoomHost extends PuddleTargetHost {
   materialReady?(target: ILayerBuffer): boolean
   rehydrate?(target: ILayerBuffer, beforeRecordedOpId?: string): CpuScratchSnapshot
   drawing(): boolean
+  /** Hidden replay changes material only until its target becomes visible. */
+  deferPresentation?(target: ILayerBuffer): boolean
   render(scratch: RibbonStrokeScratch, tile: PaintTarget, context: Context,
     output: AccumulationBuffer, material: Material): void
   changed(target: ILayerBuffer): void
@@ -293,11 +296,13 @@ export class PuddleRoomController {
     }
     const entry = scratch.peek(tile.buffer)!
     if (!entry.inkLoad || !entry.inkColor) return
-    if (!layer.context) {
+    const deferred=this.host.deferPresentation?.(layer.target)===true
+    if (!layer.context && !deferred) {
       entry.original.copyTo(layer.raw)
       layer.presentation.reset(layer.raw,layer.epoch)
     }
     layer.tile = tile; layer.context = context
+    if(deferred){layer.deferredPresentation=true;layer.dirty=true;layer.after=performance.now()+60;return}
     this.host.render(scratch,tile,context,layer.next,{p:entry.inkLoad,c:entry.inkColor,coverage:entry.coverage})
     layer.presentation.acceptInput(layer.raw,layer.next,layer.epoch)
     layer.presentationDirty=true
@@ -334,7 +339,8 @@ export class PuddleRoomController {
     this.host.render(layer.scratch,layer.tile,layer.context,layer.goal,this.solver.buffers())
     layer.dirty=false;layer.goalReady=true;layer.active=true;layer.started=performance.now()
     if(this.closing.has(layer.target)) layer.dryAt=layer.started
-    layer.presentation.setTarget(layer.goal,this.solver.buffers().coverage,layer.epoch)
+    if(this.host.deferPresentation?.(layer.target)){layer.deferredPresentation=true;layer.active=false}
+    else layer.presentation.setTarget(layer.goal,this.solver.buffers().coverage,layer.epoch)
     this.solving=null
   }
   private readonly frame = (at: number): void => {
@@ -365,10 +371,27 @@ export class PuddleRoomController {
     if (moving || this.solving || [...this.layers.values()].some(l => l.dirty)) this.request()
   }
   private present(layer: Layer): void {
-    if (!layer.tile || !layer.context || !layer.presentationDirty) return
+    if (!layer.tile || !layer.context || !layer.presentationDirty || this.host.deferPresentation?.(layer.target)) return
     layer.presentationDirty=false
     layer.presentation.tick(0,{dry:false}).copyTo(layer.tile.buffer)
     this.host.changed(layer.target)
+  }
+  /** Leave hidden replay once. Canonical material and its ordinary solver
+   * were never skipped; only transient display buffers need initialization. */
+  resumePresentation(target: ILayerBuffer): void {
+    const layer=this.layers.get(target)
+    if(!layer?.deferredPresentation || !layer.tile || !layer.context)return
+    layer.deferredPresentation=false
+    if(layer.goalReady && !layer.dirty){
+      // A completed canonical goal is already authoritative. Keep its water
+      // source, while undo/load appears immediately at the corrected target.
+      layer.presentation.reset(layer.goal,layer.epoch);layer.active=false
+    }else{
+      const entry=layer.scratch.peek(layer.tile.buffer)!
+      this.host.render(layer.scratch,layer.tile,layer.context,layer.raw,{p:entry.inkLoad!,c:entry.inkColor!,coverage:entry.coverage})
+      layer.presentation.reset(layer.raw,layer.epoch)
+    }
+    layer.presentationDirty=true;this.present(layer);this.request()
   }
   /** Materialize natural drying on the operation timeline, independently of
    * whether presentation has completed on this particular device. */
@@ -392,9 +415,12 @@ export class PuddleRoomController {
     this.cancelCurrent()
     paint(entry.original)
     layer.epoch++
-    this.host.render(layer.scratch, layer.tile, layer.context, layer.raw,
-      {p: entry.inkLoad, c: entry.inkColor, coverage: entry.coverage})
-    layer.presentation.reset(layer.raw, layer.epoch)
+    if(this.host.deferPresentation?.(target))layer.deferredPresentation=true
+    else {
+      this.host.render(layer.scratch, layer.tile, layer.context, layer.raw,
+        {p: entry.inkLoad, c: entry.inkColor, coverage: entry.coverage})
+      layer.presentation.reset(layer.raw, layer.epoch)
+    }
     layer.presentationDirty = true
     layer.active = false
     layer.goalReady = false

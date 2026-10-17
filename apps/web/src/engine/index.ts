@@ -1306,6 +1306,7 @@ interface RebuildJob {
   /** (§17.70) The watercolour stroke being replayed a slice of dabs at a time:
    *  one lesson-sized operation is up to 1.3 s of GPU in one draw on the
    *  Surface, past what a frame - or Windows' GPU watchdog - tolerates. */
+  hiddenPresentation?: (materialize?:boolean)=>void
   part: { opId: string; dabs: Dab[]; work: Generator<number, ReadonlyMap<Dab, number> | undefined, void> } | null
 }
 
@@ -1644,6 +1645,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetTex: WebGLTexture | null = null
   private _wetTexSize: [number, number] = [0, 0]
   private _watercolorReview = false
+  /** QA prototype: hidden replay may omit display work, never canonical material. */
+  diagnosticM70HiddenReplay=false
+  private readonly _hiddenM70Replay=new Map<ILayerBuffer,number>()
   /** QA prototype: capture cost on real devices must be measured before enabling. */
   diagnosticOpenWetUndoCache=false
   private _puddle: PuddleRoomController | null = null
@@ -1668,6 +1672,7 @@ export class PencilEngine implements PencilEngineAPI {
       invalidateFrontPaths:()=>this._watercolorPasses.invalidateFrontPaths(),
       hasActiveSettle:()=>!!this._settle,
       drawing:()=>!!this._strokeLayerId || this._rebuildJobs.size > 0,
+      deferPresentation:target=>this._hiddenM70Replay.has(target),
       render:(scratch,tile,ctx,output,material)=>{
         const entry=scratch.peek(tile.buffer)
         if (!entry) return
@@ -4687,11 +4692,23 @@ export class PencilEngine implements PencilEngineAPI {
     return false
   }
 
+  private _deferM70Replay(target: ILayerBuffer): (materialize?:boolean)=>void {
+    if(!this.diagnosticM70HiddenReplay)return ()=>{}
+    this._hiddenM70Replay.set(target,(this._hiddenM70Replay.get(target)??0)+1)
+    let active=true
+    return (materialize=true)=>{
+      if(!active)return;active=false
+      const depth=(this._hiddenM70Replay.get(target)??1)-1
+      if(depth){this._hiddenM70Replay.set(target,depth);return}
+      this._hiddenM70Replay.delete(target)
+      if(materialize)this._puddle?.resumePresentation(target)
+    }
+  }
   private _cancelRebuildJob(layerId: string, restarting = false): void {
     const job = this._rebuildJobs.get(layerId)
     if (!job) return
     if (job.timer) clearTimeout(job.timer)
-    job.part?.work.return(undefined)
+    try {job.part?.work.return(undefined)} finally {job.hiddenPresentation?.(false)}
     job.part=null
     this._rebuildJobs.delete(layerId)
     if (this._settle && this._jobOwnsSettle(job)) this._completeSettle()
@@ -4745,7 +4762,9 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }
     const job: RebuildJob = { layerId, fresh, chunks: new Map(), cp: best?.cp ?? null, start: best?.start ?? 0, applied: [], timer: 0, part: null }
-    if (best) this._seedWashes(best.cp, fresh, job.chunks) // (§17.56)
+    job.hiddenPresentation=this._deferM70Replay(fresh)
+    try {if (best) this._seedWashes(best.cp, fresh, job.chunks)} // (§17.56)
+    catch(error){job.hiddenPresentation(false);for(const chunk of job.chunks.values())chunk.scratch.destroy();this._forgetWashesOf(fresh);fresh.destroy();this._endPoolHold();throw error}
     this._rebuildJobs.set(layerId, job)
     job.timer = setTimeout(() => this._stepRebuildJob(job), 0)
   }
@@ -5036,6 +5055,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._rebuildJobs.delete(layerId)
     this._endPoolHold()
     this._layers.set(layerId, job.fresh)
+    job.hiddenPresentation?.()
     ;(job.fresh instanceof TiledLayerBuffer ? job.fresh : null)?.resumeEviction()
     old?.destroy()
     this._snapshotRepairRebuilds.delete(layerId)
@@ -5069,6 +5089,8 @@ export class PencilEngine implements PencilEngineAPI {
     // tiles. Temporary export/replay buffers must not retire the live layer.
     if (this._layers.get(layerId) === buf) this._sweepReveals(performance.now(), layerId)
     tiled?.suspendEviction()
+    const resumePresentation=this._deferM70Replay(buf)
+    let completed=false
     try {
       let start = 0
       // A source snapshot may be newer than the copy being reconstructed.
@@ -5105,8 +5127,9 @@ export class PencilEngine implements PencilEngineAPI {
         if (cp?.covered?.has(ops[i].id)) continue
         this._applyPixelOp(buf, layerId, ops[i])
       }
+      completed=true
     } finally {
-      tiled?.resumeEviction()
+      try {resumePresentation(completed)} finally {tiled?.resumeEviction()}
     }
   }
 
