@@ -1,0 +1,171 @@
+{
+  "source": "e562d496",
+  "controls": "native-front highp+round; mode11 highp only; forced identical Contrast reference; BAND1",
+  "samsungSHA": "a73e74f66696f61f5da177be4003aa1c2d889847f3c55264e57d9294d1761257",
+  "intelSHA": "76f4dd22c880d5fd07952208e52f42e99002cdefcb59ba4a7b370ed87a09da38",
+  "sameInputHashes": true,
+  "channels": [
+    {
+      "channel": "R",
+      "changed": 398,
+      "max": 6,
+      "signedMin": -6,
+      "signedMax": -2
+    },
+    {
+      "channel": "G",
+      "changed": 7943,
+      "max": 230,
+      "signedMin": -230,
+      "signedMax": 15
+    },
+    {
+      "channel": "B",
+      "changed": 325,
+      "max": 36,
+      "signedMin": -36,
+      "signedMax": 5
+    },
+    {
+      "channel": "A",
+      "changed": 913,
+      "max": 1,
+      "signedMin": -1,
+      "signedMax": 1
+    }
+  ],
+  "first": [
+    {
+      "x": 1306,
+      "y": 1200,
+      "channel": "G",
+      "samsung": 26,
+      "intel": 25
+    },
+    {
+      "x": 628,
+      "y": 1201,
+      "channel": "G",
+      "samsung": 110,
+      "intel": 109
+    },
+    {
+      "x": 631,
+      "y": 1201,
+      "channel": "G",
+      "samsung": 96,
+      "intel": 95
+    },
+    {
+      "x": 632,
+      "y": 1201,
+      "channel": "G",
+      "samsung": 90,
+      "intel": 89
+    },
+    {
+      "x": 635,
+      "y": 1201,
+      "channel": "G",
+      "samsung": 66,
+      "intel": 65
+    },
+    {
+      "x": 636,
+      "y": 1201,
+      "channel": "G",
+      "samsung": 57,
+      "intel": 56
+    },
+    {
+      "x": 638,
+      "y": 1201,
+      "channel": "G",
+      "samsung": 40,
+      "intel": 39
+    },
+    {
+      "x": 1307,
+      "y": 1201,
+      "channel": "G",
+      "samsung": 30,
+      "intel": 28
+    }
+  ],
+  "capture": {
+    "name": "band",
+    "width": 2048,
+    "height": 1536,
+    "bytes": 12582912,
+    "filter": "nearest",
+    "pointSampling": false,
+    "sha256": "a73e74f66696f61f5da177be4003aa1c2d889847f3c55264e57d9294d1761257"
+  },
+  "all10SameGPUZero": true,
+  "finalDiffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "1d52d27f7b6cd18571423a49531838385a2b20ff7cc1429347e718a6d54b95a1",
+      "referenceHash": "1d52d27f7b6cd18571423a49531838385a2b20ff7cc1429347e718a6d54b95a1"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fb94d180f4c4b2e3307e5af32dabb06ac13db37ea56a121ee41362eb1541bb9e",
+      "referenceHash": "fb94d180f4c4b2e3307e5af32dabb06ac13db37ea56a121ee41362eb1541bb9e"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+    }
+  },
+  "gl": [
+    0,
+    0
+  ],
+  "errors": [],
+  "observerRestoration": {
+    "ownershipExact": true,
+    "restored": true
+  },
+  "mode11Precision": {
+    "highpSamplers": true,
+    "roundRGBA": false,
+    "anchorCount": 1,
+    "samplerCount": 6,
+    "originalSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+    "patchedSHA": "d922bcd3be045a50479c2ed875567eea74d6297b28d77b55978bc05bef03c1b1",
+    "uniformKeys": [
+      "u_a",
+      "u_b",
+      "u_c",
+      "u_k",
+      "u_mode",
+      "u_tau",
+      "u_dir",
+      "u_d",
+      "u_e",
+      "u_origin",
+      "u_size",
+      "u_band",
+      "u_world"
+    ],
+    "selectedCalls": 5,
+    "otherCalls": 579,
+    "restoration": {
+      "wrapperExact": true,
+      "propertiesExact": true,
+      "deletedOwnedProgram": true
+    }
+  },
+  "qualification": "QA-only shader controls, not production changes. This probe locates the next boundary, not complete material parity or performance."
+}
