@@ -1,0 +1,151 @@
+{
+  "qualification": "Same frozen source, requests and exact fixture bytes. Full exported carrier hashes verified before comparison; deltas right minus left. Per-device repeatability is separate from cross-device equality.",
+  "sourceHashes": {
+    "entry.js": "e71ee9d4b13f3fdaa6c92cdfc70c6d70925d4b931897d90ae3c5d6c3a5e59fa2",
+    "worker.js": "142bb1e44e9a16cefc104857e0f36a1fa0cd038fae4c435379f6d122ee36d7cd",
+    "chunk-7H4SXYYS.js": "54ce095678a5bf06c8ffe4279aac5117682782a24dabc600ae6eff022a499fdd",
+    "fixtures/native-flow-pool-drop.bin": "3c20c7068cd00c803b1a913343cb2024f93bc5b23667c74a3c73055cf7ccc538",
+    "fixtures/native-flow-separated-colors.bin": "3471744208958a1c64c1e42d53be00c988d5eea11ae46f1d977c89cf3ef24e85",
+    "fixtures/mini-wave.bin": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+    "fixtures/gallery-sheet-7-slot-1.bin": "60d1685ff317b9c4638ccdee4fd0cbf0eafaac4ae90b6b39a38ae7e259c3395f",
+    "fixtures/gallery-sheet-3-slot-1.bin": "566b5bff0205a1220745f8177cd37da5d2e97319e11b90814a5f2cb1ec08b03d",
+    "index.html": "7f174c6068b1a87f196251529b71ac6c4844f011e315c79534a94c0af5b824e4"
+  },
+  "cases": [
+    {
+      "request": {
+        "algorithm": "wgsl-macro-integer-hydraulic",
+        "fixture": "flow-pool-drop",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3,
+        "exportRaw": true
+      },
+      "inputSHA": {
+        "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
+        "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "leftSHA": "8ce7252313c4e1b88db1bca9accbd7b955d6cff3f08d1a837666638db5da7ee8",
+      "rightSHA": "8ce7252313c4e1b88db1bca9accbd7b955d6cff3f08d1a837666638db5da7ee8",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-integer-hydraulic",
+        "fixture": "flow-near-colors",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3,
+        "exportRaw": true
+      },
+      "inputSHA": {
+        "rgba": "d6bfc7d034cba96be9ccad1eb9e1ae0939ad343ce13b67d98082549f92a7eca1",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "leftSHA": "a068da837d05aa364fb915f4553e05c5c8c8af6c715f68f322be07f026231f81",
+      "rightSHA": "a068da837d05aa364fb915f4553e05c5c8c8af6c715f68f322be07f026231f81",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-integer-hydraulic",
+        "fixture": "flow-diagonal-wall",
+        "config": {},
+        "encoding": "optical-density",
+        "repeats": 3,
+        "exportRaw": true
+      },
+      "inputSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "dfdbe13c3b1c92915d505b28c571d189c5d54a5c5eed5c89bc220c07f42621e8",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "leftSHA": "61b14364a6ae2c1458ae5ca940732443635dbc103bba25d38a5ed2b7fb950368",
+      "rightSHA": "61b14364a6ae2c1458ae5ca940732443635dbc103bba25d38a5ed2b7fb950368",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    }
+  ]
+}
