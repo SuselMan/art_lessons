@@ -34,7 +34,7 @@ function field() { const f = new MaterialFieldPages({ width, height, pageSize })
 function exhaust(g: Generator<unknown, number, void>) { let v = g.next(); while (!v.done) v = g.next(); return v.value; }
 describe('material phase pages', () => {
   it('matches independent whole-field reference over sequential diagonal phases in either order, including aliasing', () => {
-    const forward = field(), reverse = field(); let expected = initial();
+    const forward = field(), reverse = field(); let expected: Uint8Array = initial();
     for (const halo of [1, 3, 2, 6]) {
       expected = reference(expected, halo);
       for (const [output, order] of [[forward, 'forward'], [reverse, 'reverse']] as const) {
