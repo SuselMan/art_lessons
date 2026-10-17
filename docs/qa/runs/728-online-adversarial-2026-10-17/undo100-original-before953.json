@@ -2661,13 +2661,21 @@
   },
   "pass": false,
   "assessment": {
-    "samePriorInputSPEC": true,
     "inputSPEC_SHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
     "runtimePixelsExact": true,
-    "boundedROIPollingPassed": false,
-    "pollingLimitMs": 2000,
     "swapStartMs": 1905.5,
-    "firstReadyNominalRAFMs": 1861.699999999997,
-    "timingLimit": "rAF callback timestamp precedes actual execution; screenshot includes CDP/SSH transport; readyDisplay field in original harness is never assigned; original pass false due absent firstCacheChange in bounded2s polling"
+    "ROIMappingStatus": "INVALID measurement in my temporary copy. Original undo100-cache mapping was correct; retracted code-only double-flip claim. See roi-calibration.json. Swap and actual screenshot timings unaffected.",
+    "firstObservedScreenshot": {
+      "requestAfterTriggerMs": 1963,
+      "completeAfterTriggerMs": 2508,
+      "changedChannels": 585,
+      "max": 197,
+      "meanRGB": [
+        245.88671875,
+        245.88671875,
+        245.88671875
+      ]
+    },
+    "timingLimit": "Single run; screenshot includes CDP/SSH. readyDisplay placeholder never assigned in original helper."
   }
 }

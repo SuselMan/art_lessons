@@ -1,0 +1,67 @@
+{
+  "source": "f6e407cb33a6f6fff1aadcb2ffaba7800b0a05d1",
+  "scope": "Own finished original100 room only; in-page remote RED redo, natural frames, actual screenCache red bbox versus pointer inverse; no benchmark",
+  "redo": {
+    "id": "2c8iuOEdAH",
+    "before": "undone"
+  },
+  "geometry": {
+    "point": {
+      "x": 541.7570040916368,
+      "y": 531.0903204873165
+    },
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1100,
+      "height": 850,
+      "top": 0,
+      "right": 1100,
+      "bottom": 850,
+      "left": 0
+    },
+    "canvas": {
+      "w": 1100,
+      "h": 850
+    },
+    "cache": {
+      "w": 1100,
+      "h": 850
+    },
+    "drawingBuffer": {
+      "w": 1100,
+      "h": 850
+    },
+    "camera": {
+      "wx": 664.2031326561822,
+      "wy": 467.20057705086043,
+      "zoom": 0.5803646355976051,
+      "angle": 0
+    },
+    "viewport": {
+      "cx": 461.66668701171875,
+      "cy": 451,
+      "angle": 0,
+      "zoom": 0.5803646183013916
+    },
+    "DPR": 1.0000000298023224,
+    "redBBox": {
+      "minX": 536,
+      "minY": 311,
+      "maxX": 557,
+      "maxY": 326,
+      "count": 273
+    },
+    "glError": 0
+  },
+  "pass": true,
+  "screenshotRedBBox": {
+    "minX": 536,
+    "maxX": 551,
+    "minY": 523,
+    "maxY": 538,
+    "count": 211,
+    "scope": "20x20 crop, x bbox clipped at right edge"
+  },
+  "assessment": "Original undo100-cache H-screenY mapping is correct. My temporary copy removed the required flip, invalidating its firstCacheChange measurements only. Prototype open-wet-undo-cost mapping is correct. Swap and screenshot timings remain valid."
+}
