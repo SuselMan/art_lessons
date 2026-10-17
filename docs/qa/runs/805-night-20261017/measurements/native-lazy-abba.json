@@ -1,0 +1,243 @@
+{
+  "qualification": "ABBA, three consecutive real Mini wave gestures per fresh engine. Geometry/settings same, generated clocks/seeds may differ. One synchronous 1px dependent-result read before goal forwarding per gesture. Does not measure pure GPU time or universal queue completion; observer overhead in both arms.",
+  "arms": [
+    {
+      "name": "native-timing-control-a",
+      "pass": true,
+      "sourceStable": true,
+      "sourceHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "5c4365d68faaac2ef450fc86cdc920ba62cfd54aa4fdfa21f4f8b23b8725768b",
+        "entry.js": "38a565fcd99eaf25d2ad3b4ca8cfbe477573d571d71fd96f47672c22f04401f4",
+        "worker.js": "685c76be452b72ea8f96df454884187f653a64a8b3b009aa9c5e7f143912545d",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-BF6767AQ.js": "d79c2345c2145836ecdcf45a3482f2cd61809308f597695a493486ed6693a2f6",
+        "chunk-KSHPHUSB.js": "52f9c6ad6e6b61ba63cbff019ee1f53c7dfb5f54e6fa6d19735934c475aa6ba9",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "contextClosed": true,
+      "errors": [],
+      "reads": [
+        {
+          "id": 1,
+          "upToJSGoalMs": 213.199951171875,
+          "upToDependentMs": 407.099853515625,
+          "probeTotalMs": 189.89990234375,
+          "readOnlyMs": 185.099853515625,
+          "complete": true,
+          "error": 0,
+          "bindingRestored": true,
+          "logicalBytes": 4
+        },
+        {
+          "id": 2,
+          "upToJSGoalMs": 138.300048828125,
+          "upToDependentMs": 284.099853515625,
+          "probeTotalMs": 133.199951171875,
+          "readOnlyMs": 128.89990234375,
+          "complete": true,
+          "error": 0,
+          "bindingRestored": true,
+          "logicalBytes": 4
+        },
+        {
+          "id": 3,
+          "upToJSGoalMs": 149.39990234375,
+          "upToDependentMs": 363.699951171875,
+          "probeTotalMs": 204.89990234375,
+          "readOnlyMs": 200.800048828125,
+          "complete": true,
+          "error": 0,
+          "bindingRestored": true,
+          "logicalBytes": 4
+        }
+      ],
+      "mainMaxRAFGapMs": 169.89990234375,
+      "mainMaxTimerGapMs": 24.5,
+      "mainLongTasks": []
+    },
+    {
+      "name": "native-timing-lazy-b",
+      "pass": true,
+      "sourceStable": true,
+      "sourceHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "106e56f9bd0369cb2e2d793941f8690885ba4b3089a5097dc24c6062e8f66c75",
+        "entry.js": "db31e2990855b4acec903c8c87e6026b234a271f25bf997cc18ca6fecfbe35fa",
+        "worker.js": "d2a43fd15bd368b7efa5ffa9902d1134191397151ccc9c44c9b4e16408b0d84b",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-BCY3E5QP.js": "eb3e63684959e18c9656d22edd50c7914e9f806bbc82ba13bf586b53c097c5be",
+        "chunk-KO3SADXQ.js": "13d0c0b399953fa8717a71995c298837661cf0fbc37b84a4285387123adb226f",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "contextClosed": true,
+      "errors": [],
+      "reads": [
+        {
+          "id": 1,
+          "upToJSGoalMs": 278.300048828125,
+          "upToDependentMs": 385.300048828125,
+          "probeTotalMs": 101.800048828125,
+          "readOnlyMs": 97.900146484375,
+          "complete": true,
+          "error": 0,
+          "bindingRestored": true,
+          "logicalBytes": 4
+        },
+        {
+          "id": 2,
+          "upToJSGoalMs": 145.900146484375,
+          "upToDependentMs": 353.30029296875,
+          "probeTotalMs": 191.400146484375,
+          "readOnlyMs": 185.7998046875,
+          "complete": true,
+          "error": 0,
+          "bindingRestored": true,
+          "logicalBytes": 4
+        },
+        {
+          "id": 3,
+          "upToJSGoalMs": 141.500244140625,
+          "upToDependentMs": 368.000244140625,
+          "probeTotalMs": 217,
+          "readOnlyMs": 212,
+          "complete": true,
+          "error": 0,
+          "bindingRestored": true,
+          "logicalBytes": 4
+        }
+      ],
+      "mainMaxRAFGapMs": 150.300048828125,
+      "mainMaxTimerGapMs": 29.400146484375,
+      "mainLongTasks": []
+    },
+    {
+      "name": "native-timing-lazy-c",
+      "pass": true,
+      "sourceStable": true,
+      "sourceHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "106e56f9bd0369cb2e2d793941f8690885ba4b3089a5097dc24c6062e8f66c75",
+        "entry.js": "db31e2990855b4acec903c8c87e6026b234a271f25bf997cc18ca6fecfbe35fa",
+        "worker.js": "d2a43fd15bd368b7efa5ffa9902d1134191397151ccc9c44c9b4e16408b0d84b",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-BCY3E5QP.js": "eb3e63684959e18c9656d22edd50c7914e9f806bbc82ba13bf586b53c097c5be",
+        "chunk-KO3SADXQ.js": "13d0c0b399953fa8717a71995c298837661cf0fbc37b84a4285387123adb226f",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "contextClosed": true,
+      "errors": [],
+      "reads": [
+        {
+          "id": 1,
+          "upToJSGoalMs": 247.300048828125,
+          "upToDependentMs": 374.199951171875,
+          "probeTotalMs": 123,
+          "readOnlyMs": 119.699951171875,
+          "complete": true,
+          "error": 0,
+          "bindingRestored": true,
+          "logicalBytes": 4
+        },
+        {
+          "id": 2,
+          "upToJSGoalMs": 140.39990234375,
+          "upToDependentMs": 300,
+          "probeTotalMs": 146,
+          "readOnlyMs": 141.7998046875,
+          "complete": true,
+          "error": 0,
+          "bindingRestored": true,
+          "logicalBytes": 4
+        },
+        {
+          "id": 3,
+          "upToJSGoalMs": 143.10009765625,
+          "upToDependentMs": 361.300048828125,
+          "probeTotalMs": 199.699951171875,
+          "readOnlyMs": 195.39990234375,
+          "complete": true,
+          "error": 0,
+          "bindingRestored": true,
+          "logicalBytes": 4
+        }
+      ],
+      "mainMaxRAFGapMs": 165.199951171875,
+      "mainMaxTimerGapMs": 30,
+      "mainLongTasks": []
+    },
+    {
+      "name": "native-timing-control-d",
+      "pass": true,
+      "sourceStable": true,
+      "sourceHashes": {
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "manifest.json": "5c4365d68faaac2ef450fc86cdc920ba62cfd54aa4fdfa21f4f8b23b8725768b",
+        "entry.js": "38a565fcd99eaf25d2ad3b4ca8cfbe477573d571d71fd96f47672c22f04401f4",
+        "worker.js": "685c76be452b72ea8f96df454884187f653a64a8b3b009aa9c5e7f143912545d",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-BF6767AQ.js": "d79c2345c2145836ecdcf45a3482f2cd61809308f597695a493486ed6693a2f6",
+        "chunk-KSHPHUSB.js": "52f9c6ad6e6b61ba63cbff019ee1f53c7dfb5f54e6fa6d19735934c475aa6ba9",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331"
+      },
+      "inputSHA": "9c3abe9f3f9d7eee46f9fbe64da81639d4b0faf5c1bcd5e9e1b38e554524194f",
+      "contextClosed": true,
+      "errors": [],
+      "reads": [
+        {
+          "id": 1,
+          "upToJSGoalMs": 264.5,
+          "upToDependentMs": 378.699951171875,
+          "probeTotalMs": 108.800048828125,
+          "readOnlyMs": 106.10009765625,
+          "complete": true,
+          "error": 0,
+          "bindingRestored": true,
+          "logicalBytes": 4
+        },
+        {
+          "id": 2,
+          "upToJSGoalMs": 141.80029296875,
+          "upToDependentMs": 298.500244140625,
+          "probeTotalMs": 139.300048828125,
+          "readOnlyMs": 135.5,
+          "complete": true,
+          "error": 0,
+          "bindingRestored": true,
+          "logicalBytes": 4
+        },
+        {
+          "id": 3,
+          "upToJSGoalMs": 140.699951171875,
+          "upToDependentMs": 355.89990234375,
+          "probeTotalMs": 200.7998046875,
+          "readOnlyMs": 195.199951171875,
+          "complete": true,
+          "error": 0,
+          "bindingRestored": true,
+          "logicalBytes": 4
+        }
+      ],
+      "mainMaxRAFGapMs": 105.199951171875,
+      "mainMaxTimerGapMs": 27.300048828125,
+      "mainLongTasks": []
+    }
+  ],
+  "thermal": {
+    "before": {
+      "status": 0,
+      "apC": 30.3,
+      "skinC": 32.5,
+      "batteryC": 29
+    },
+    "after": {
+      "status": 0,
+      "apC": 33.8,
+      "skinC": 33.8,
+      "batteryC": 29.2
+    }
+  }
+}

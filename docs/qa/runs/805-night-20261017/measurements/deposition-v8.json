@@ -1,0 +1,2027 @@
+{
+  "startedAt": "2026-10-17T20:40:33.192Z",
+  "qualification": "Isolated fixed-input 1024 algorithms in owned Samsung worker. Primary totalReadyMs includes upload/reduction and dependent result wait; not pure GPU time. Full-output readback/SHA and PNG outside timing. Fresh GL context per run, 3 repeat uploads on same candidate.",
+  "cases": [
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "water-stroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 4,
+          "mobile": 0.4,
+          "share": 0.65,
+          "adsorption": 0.16,
+          "paperBias": 0.9,
+          "coarse": 4
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "water-stroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 4,
+          "mobile": 0.4,
+          "share": 0.65,
+          "adsorption": 0.16,
+          "paperBias": 0.9,
+          "coarse": 4
+        },
+        "fixtureSHA": {
+          "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+          "water": "25b133530fa81bcf77318bcd33bd06b73bd4146477556b67cc9e98567b77a956",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 111.5,
+        "samples": [
+          {
+            "uploadJsMs": 16.200000047683716,
+            "submitJsMs": 1.1999998092651367,
+            "runToDependentMs": 37.69999980926514,
+            "totalReadyMs": 53.89999985694885
+          },
+          {
+            "uploadJsMs": 9.899999856948853,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 38,
+            "totalReadyMs": 47.89999985694885
+          },
+          {
+            "uploadJsMs": 10.200000047683716,
+            "submitJsMs": 0.5999999046325684,
+            "runToDependentMs": 38.299999952316284,
+            "totalReadyMs": 48.5
+          }
+        ],
+        "hashes": [
+          "b2e419592e546436171a3b24ea0830a0b3d725c58dc75b6763ee9f4b33485b3a",
+          "b2e419592e546436171a3b24ea0830a0b3d725c58dc75b6763ee9f4b33485b3a",
+          "b2e419592e546436171a3b24ea0830a0b3d725c58dc75b6763ee9f4b33485b3a"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 15,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.6
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 9367726,
+          "outputMass": 9362289,
+          "massRatio": 0.9994196030071759,
+          "lostPixels": 0,
+          "addedPixels": 4544,
+          "outsideWetPixels": 12,
+          "invalidPremul": 0,
+          "changedPixels": 78083
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000068,
+          "maxTimer": 12.5,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 53.89999985694885,
+        "warmMedianMs": 48.199999928474426
+      },
+      "png": {
+        "file": "alternative-paper-deposition-water-stroke-1.png",
+        "bytes": 811779,
+        "sha256": "b5f6d1795c020bd0378e6c20316a38ad827dc5fcbf0f7c6a902b5b5d929907d5"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "water-stroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "water-stroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "fixtureSHA": {
+          "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+          "water": "25b133530fa81bcf77318bcd33bd06b73bd4146477556b67cc9e98567b77a956",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 63.700000047683716,
+        "samples": [
+          {
+            "uploadJsMs": 21.199999809265137,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 50.90000009536743,
+            "totalReadyMs": 72.09999990463257
+          },
+          {
+            "uploadJsMs": 12.100000143051147,
+            "submitJsMs": 0.39999985694885254,
+            "runToDependentMs": 48.39999985694885,
+            "totalReadyMs": 60.5
+          },
+          {
+            "uploadJsMs": 5.799999952316284,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 43.799999952316284,
+            "totalReadyMs": 49.59999990463257
+          }
+        ],
+        "hashes": [
+          "ae3ce79afc0f8a1d3988fe8f1a8e0c208e4f8ef3c1a2267a3cdb153cab9bab3c",
+          "ae3ce79afc0f8a1d3988fe8f1a8e0c208e4f8ef3c1a2267a3cdb153cab9bab3c",
+          "ae3ce79afc0f8a1d3988fe8f1a8e0c208e4f8ef3c1a2267a3cdb153cab9bab3c"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 18,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 9367726,
+          "outputMass": 9356177,
+          "massRatio": 0.9987671501066534,
+          "lostPixels": 0,
+          "addedPixels": 7778,
+          "outsideWetPixels": 12,
+          "invalidPremul": 0,
+          "changedPixels": 83009
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 12.099999904632568,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 72.09999990463257,
+        "warmMedianMs": 55.049999952316284
+      },
+      "png": {
+        "file": "alternative-paper-deposition-water-stroke-2.png",
+        "bytes": 899937,
+        "sha256": "d9b3bafc50665ee0b041f83838598ba728c3cfcdc5a87d47a1154a41cd606751"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "variable-wash",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 4,
+          "mobile": 0.4,
+          "share": 0.65,
+          "adsorption": 0.16,
+          "paperBias": 0.9,
+          "coarse": 4
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "variable-wash",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 4,
+          "mobile": 0.4,
+          "share": 0.65,
+          "adsorption": 0.16,
+          "paperBias": 0.9,
+          "coarse": 4
+        },
+        "fixtureSHA": {
+          "rgba": "7fe5ee076f8626fa6add892d6459e8adb184b984db0e68a2ddea43c37c7e644a",
+          "water": "5ada07e5271627852ea87bf1adeb8bcbf11eb55a4dc94f7785da3c2c749c1d8c",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 53.700000047683716,
+        "samples": [
+          {
+            "uploadJsMs": 22.09999990463257,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 39.60000014305115,
+            "totalReadyMs": 61.700000047683716
+          },
+          {
+            "uploadJsMs": 8,
+            "submitJsMs": 0.19999980926513672,
+            "runToDependentMs": 28.299999952316284,
+            "totalReadyMs": 36.299999952316284
+          },
+          {
+            "uploadJsMs": 4.599999904632568,
+            "submitJsMs": 0.10000014305114746,
+            "runToDependentMs": 35.30000019073486,
+            "totalReadyMs": 39.90000009536743
+          }
+        ],
+        "hashes": [
+          "d3772176949f2e09b4c3295e4f819030ce41c1705c2e668904f7762a45db420a",
+          "d3772176949f2e09b4c3295e4f819030ce41c1705c2e668904f7762a45db420a",
+          "d3772176949f2e09b4c3295e4f819030ce41c1705c2e668904f7762a45db420a"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 15,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.6
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5048520,
+          "outputMass": 5043816,
+          "massRatio": 0.9990682417817499,
+          "lostPixels": 0,
+          "addedPixels": 4804,
+          "outsideWetPixels": 0,
+          "invalidPremul": 0,
+          "changedPixels": 83061
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 19.799999952316284,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 61.700000047683716,
+        "warmMedianMs": 38.10000002384186
+      },
+      "png": {
+        "file": "alternative-paper-deposition-variable-wash-3.png",
+        "bytes": 812299,
+        "sha256": "492936081c4fe301a954c4d9044e3197c8dd8bc1a501543c49d7ecee0be9038d"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "variable-wash",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "variable-wash",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "fixtureSHA": {
+          "rgba": "7fe5ee076f8626fa6add892d6459e8adb184b984db0e68a2ddea43c37c7e644a",
+          "water": "5ada07e5271627852ea87bf1adeb8bcbf11eb55a4dc94f7785da3c2c749c1d8c",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 49.40000009536743,
+        "samples": [
+          {
+            "uploadJsMs": 30.799999952316284,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 57.200000047683716,
+            "totalReadyMs": 88
+          },
+          {
+            "uploadJsMs": 9.700000047683716,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 45.90000009536743,
+            "totalReadyMs": 55.60000014305115
+          },
+          {
+            "uploadJsMs": 7.5,
+            "submitJsMs": 0.19999980926513672,
+            "runToDependentMs": 48.69999980926514,
+            "totalReadyMs": 56.19999980926514
+          }
+        ],
+        "hashes": [
+          "6d898321d8cd0ed00bc71395a32a3d68328d5f7836ea2c6246f9e3c8d31e23d8",
+          "6d898321d8cd0ed00bc71395a32a3d68328d5f7836ea2c6246f9e3c8d31e23d8",
+          "6d898321d8cd0ed00bc71395a32a3d68328d5f7836ea2c6246f9e3c8d31e23d8"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 18,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 5048520,
+          "outputMass": 5040674,
+          "massRatio": 0.9984458811691347,
+          "lostPixels": 0,
+          "addedPixels": 12152,
+          "outsideWetPixels": 0,
+          "invalidPremul": 0,
+          "changedPixels": 93636
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.800000000000182,
+          "maxTimer": 12.400000095367432,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 88,
+        "warmMedianMs": 55.89999997615814
+      },
+      "png": {
+        "file": "alternative-paper-deposition-variable-wash-4.png",
+        "bytes": 869355,
+        "sha256": "44554c975162dea4ea88908a449f14269fd7866ae45ba1a5d2f0bd9026f1a945"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "blue-yellow",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 4,
+          "mobile": 0.4,
+          "share": 0.65,
+          "adsorption": 0.16,
+          "paperBias": 0.9,
+          "coarse": 4
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "blue-yellow",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 4,
+          "mobile": 0.4,
+          "share": 0.65,
+          "adsorption": 0.16,
+          "paperBias": 0.9,
+          "coarse": 4
+        },
+        "fixtureSHA": {
+          "rgba": "eb9f485446fbd66d3998d7c1345146118c3ff89e8ffc7acefcbd29ee8f9a2d10",
+          "water": "efe775e232be7cf2676fb67bf27d22684375ffa726a388a7e687fc3dbdb99830",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 48,
+        "samples": [
+          {
+            "uploadJsMs": 23.59999990463257,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 52.40000009536743,
+            "totalReadyMs": 76
+          },
+          {
+            "uploadJsMs": 9.299999952316284,
+            "submitJsMs": 0.7000000476837158,
+            "runToDependentMs": 39.299999952316284,
+            "totalReadyMs": 48.59999990463257
+          },
+          {
+            "uploadJsMs": 8.100000143051147,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 37.39999985694885,
+            "totalReadyMs": 45.5
+          }
+        ],
+        "hashes": [
+          "40d14996e241374c53a1854ecaab3318ce4373c11efc04bed30c588b8b4b1406",
+          "40d14996e241374c53a1854ecaab3318ce4373c11efc04bed30c588b8b4b1406",
+          "40d14996e241374c53a1854ecaab3318ce4373c11efc04bed30c588b8b4b1406"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 15,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.6
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 38335541,
+          "outputMass": 38316657,
+          "massRatio": 0.9995074022823885,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 52,
+          "invalidPremul": 0,
+          "changedPixels": 311648
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 17,
+          "maxTimer": 13.400000095367432,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 76,
+        "warmMedianMs": 47.049999952316284
+      },
+      "png": {
+        "file": "alternative-paper-deposition-blue-yellow-5.png",
+        "bytes": 1217548,
+        "sha256": "3a5b9bc16d892d22226985692c0bfda015e30945090b179b9bbc3c5ee05de9b8"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "blue-yellow",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "blue-yellow",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "fixtureSHA": {
+          "rgba": "eb9f485446fbd66d3998d7c1345146118c3ff89e8ffc7acefcbd29ee8f9a2d10",
+          "water": "efe775e232be7cf2676fb67bf27d22684375ffa726a388a7e687fc3dbdb99830",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 54,
+        "samples": [
+          {
+            "uploadJsMs": 21.399999856948853,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 59.40000009536743,
+            "totalReadyMs": 80.79999995231628
+          },
+          {
+            "uploadJsMs": 10.5,
+            "submitJsMs": 0.3000001907348633,
+            "runToDependentMs": 54.60000014305115,
+            "totalReadyMs": 65.10000014305115
+          },
+          {
+            "uploadJsMs": 11.599999904632568,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 51.40000009536743,
+            "totalReadyMs": 63
+          }
+        ],
+        "hashes": [
+          "6b8c3d2bc1f9f5bd09b7ebe17b982864bf3089bdd9c901dad4ff89ce29250488",
+          "6b8c3d2bc1f9f5bd09b7ebe17b982864bf3089bdd9c901dad4ff89ce29250488",
+          "6b8c3d2bc1f9f5bd09b7ebe17b982864bf3089bdd9c901dad4ff89ce29250488"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 18,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 38335541,
+          "outputMass": 38204776,
+          "massRatio": 0.996588935578084,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 52,
+          "invalidPremul": 0,
+          "changedPixels": 316729
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 18.600000000000364,
+          "maxTimer": 16.699999809265137,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 80.79999995231628,
+        "warmMedianMs": 64.05000007152557
+      },
+      "png": {
+        "file": "alternative-paper-deposition-blue-yellow-6.png",
+        "bytes": 1370856,
+        "sha256": "08b7e4f13eaa23ce6e177a983edbd411712db59660d4fc37c460695751aca7c9"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "fine-detail",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 4,
+          "mobile": 0.4,
+          "share": 0.65,
+          "adsorption": 0.16,
+          "paperBias": 0.9,
+          "coarse": 4
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "fine-detail",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 4,
+          "mobile": 0.4,
+          "share": 0.65,
+          "adsorption": 0.16,
+          "paperBias": 0.9,
+          "coarse": 4
+        },
+        "fixtureSHA": {
+          "rgba": "c7c22a9bad4ee5ab7d026e1087824563a3642738a2ab908efff44121485ee089",
+          "water": "46a8eba6ca2b3c638d42901d288979e5c18ccffac764e570f84aceb5d5f13cac",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 49.59999990463257,
+        "samples": [
+          {
+            "uploadJsMs": 28.300000190734863,
+            "submitJsMs": 0.39999985694885254,
+            "runToDependentMs": 40.19999980926514,
+            "totalReadyMs": 68.5
+          },
+          {
+            "uploadJsMs": 10.100000143051147,
+            "submitJsMs": 0.39999985694885254,
+            "runToDependentMs": 33.5,
+            "totalReadyMs": 43.60000014305115
+          },
+          {
+            "uploadJsMs": 5.3999998569488525,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 30.200000047683716,
+            "totalReadyMs": 35.59999990463257
+          }
+        ],
+        "hashes": [
+          "501654b758f337e9ad54f753efdbce9a96c94bf8b443fc38403d8d14d592400d",
+          "501654b758f337e9ad54f753efdbce9a96c94bf8b443fc38403d8d14d592400d",
+          "501654b758f337e9ad54f753efdbce9a96c94bf8b443fc38403d8d14d592400d"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 15,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.6
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 2396914,
+          "outputMass": 2394710,
+          "massRatio": 0.9990804843227583,
+          "lostPixels": 0,
+          "addedPixels": 7483,
+          "outsideWetPixels": 262,
+          "invalidPremul": 0,
+          "changedPixels": 24994
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 17.100000000000364,
+          "maxTimer": 11.100000143051147,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 68.5,
+        "warmMedianMs": 39.60000002384186
+      },
+      "png": {
+        "file": "alternative-paper-deposition-fine-detail-7.png",
+        "bytes": 715011,
+        "sha256": "f6bfaf3e60f45680c9b4a71af6cbe0baace77e71ab5f810b0a8657ad388a32ca"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "fine-detail",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "fine-detail",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "fixtureSHA": {
+          "rgba": "c7c22a9bad4ee5ab7d026e1087824563a3642738a2ab908efff44121485ee089",
+          "water": "46a8eba6ca2b3c638d42901d288979e5c18ccffac764e570f84aceb5d5f13cac",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 64.59999990463257,
+        "samples": [
+          {
+            "uploadJsMs": 29.90000009536743,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 55.799999952316284,
+            "totalReadyMs": 85.70000004768372
+          },
+          {
+            "uploadJsMs": 13.699999809265137,
+            "submitJsMs": 0.6000001430511475,
+            "runToDependentMs": 46.60000014305115,
+            "totalReadyMs": 60.299999952316284
+          },
+          {
+            "uploadJsMs": 5.800000190734863,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 49.09999990463257,
+            "totalReadyMs": 54.90000009536743
+          }
+        ],
+        "hashes": [
+          "d3b3b4c1ef0d8a366d9b004d058af6aa3c3dba2d17248ffe654a8ab70a43624f",
+          "d3b3b4c1ef0d8a366d9b004d058af6aa3c3dba2d17248ffe654a8ab70a43624f",
+          "d3b3b4c1ef0d8a366d9b004d058af6aa3c3dba2d17248ffe654a8ab70a43624f"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 18,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 2396914,
+          "outputMass": 2393210,
+          "massRatio": 0.99845467964224,
+          "lostPixels": 0,
+          "addedPixels": 12770,
+          "outsideWetPixels": 262,
+          "invalidPremul": 0,
+          "changedPixels": 33280
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.80000000000109,
+          "maxTimer": 20.299999952316284,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 85.70000004768372,
+        "warmMedianMs": 57.60000002384186
+      },
+      "png": {
+        "file": "alternative-paper-deposition-fine-detail-8.png",
+        "bytes": 748950,
+        "sha256": "5f456b330f6baf234a911e1b057b20cdc51dcd5e8b07174e55b96718c3d09535"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "wave-open",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 4,
+          "mobile": 0.4,
+          "share": 0.65,
+          "adsorption": 0.16,
+          "paperBias": 0.9,
+          "coarse": 4
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "wave-open",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 4,
+          "mobile": 0.4,
+          "share": 0.65,
+          "adsorption": 0.16,
+          "paperBias": 0.9,
+          "coarse": 4
+        },
+        "fixtureSHA": {
+          "rgba": "dc8b4744a7abbbd5566bbec9aaf47ad5904a61225485c84a0b12449db154c32b",
+          "water": "428d6e3a4dc21c9aa35879f96ce12284d74df85e405b57bc37836e3fb0313894",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 61.299999952316284,
+        "samples": [
+          {
+            "uploadJsMs": 22.600000143051147,
+            "submitJsMs": 0.7999999523162842,
+            "runToDependentMs": 53.39999985694885,
+            "totalReadyMs": 76
+          },
+          {
+            "uploadJsMs": 11.299999952316284,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 42.59999990463257,
+            "totalReadyMs": 53.89999985694885
+          },
+          {
+            "uploadJsMs": 6.200000047683716,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 43,
+            "totalReadyMs": 49.200000047683716
+          }
+        ],
+        "hashes": [
+          "01371c6d0ee5c5a8ded9b103da1a9194556023e42f0162909d1b70954f9bb602",
+          "01371c6d0ee5c5a8ded9b103da1a9194556023e42f0162909d1b70954f9bb602",
+          "01371c6d0ee5c5a8ded9b103da1a9194556023e42f0162909d1b70954f9bb602"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 15,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.6
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 51017175,
+          "outputMass": 50987411,
+          "massRatio": 0.9994165886292214,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 24,
+          "invalidPremul": 0,
+          "changedPixels": 574119
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.80000000000109,
+          "maxTimer": 11.700000047683716,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 76,
+        "warmMedianMs": 51.549999952316284
+      },
+      "png": {
+        "file": "alternative-paper-deposition-wave-open-9.png",
+        "bytes": 1419296,
+        "sha256": "d4129e5de3a75a6a6f14ed12032d8d281b19290a2fb508abb69eae97e09139d1"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "wave-open",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "wave-open",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "fixtureSHA": {
+          "rgba": "dc8b4744a7abbbd5566bbec9aaf47ad5904a61225485c84a0b12449db154c32b",
+          "water": "428d6e3a4dc21c9aa35879f96ce12284d74df85e405b57bc37836e3fb0313894",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 75.09999990463257,
+        "samples": [
+          {
+            "uploadJsMs": 21.700000047683716,
+            "submitJsMs": 0.7000000476837158,
+            "runToDependentMs": 66.20000004768372,
+            "totalReadyMs": 87.90000009536743
+          },
+          {
+            "uploadJsMs": 11.799999952316284,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 58.5,
+            "totalReadyMs": 70.29999995231628
+          },
+          {
+            "uploadJsMs": 7,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 52.200000047683716,
+            "totalReadyMs": 59.200000047683716
+          }
+        ],
+        "hashes": [
+          "99c4e25aa20e9c792f65c29bfba453cf1e83efb79f2b3a2682efbe4bdac5c107",
+          "99c4e25aa20e9c792f65c29bfba453cf1e83efb79f2b3a2682efbe4bdac5c107",
+          "99c4e25aa20e9c792f65c29bfba453cf1e83efb79f2b3a2682efbe4bdac5c107"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 18,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 51017175,
+          "outputMass": 50949719,
+          "massRatio": 0.9986777786108305,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 24,
+          "invalidPremul": 0,
+          "changedPixels": 584295
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 17,
+          "maxTimer": 12.100000143051147,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 87.90000009536743,
+        "warmMedianMs": 64.75
+      },
+      "png": {
+        "file": "alternative-paper-deposition-wave-open-10.png",
+        "bytes": 1740986,
+        "sha256": "5b75b875d33bd54dfa9cc803600cbac5fff4d16b2a9f1dcfc94b53ac789006a8"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "dot",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "dot",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "fixtureSHA": {
+          "rgba": "9626b2387beaeaff83f0fe85ee37969957f7c974f4a0c8583563e4de5dee7130",
+          "water": "ee8d7edf9c7e090c4c32f8b4aa80789e9a6ab7eaf681b3fdfe508f514dcb522d",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 39.90000009536743,
+        "samples": [
+          {
+            "uploadJsMs": 19,
+            "submitJsMs": 0.6999998092651367,
+            "runToDependentMs": 47,
+            "totalReadyMs": 66
+          },
+          {
+            "uploadJsMs": 13.399999856948853,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 46.5,
+            "totalReadyMs": 59.89999985694885
+          },
+          {
+            "uploadJsMs": 5.900000095367432,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 47,
+            "totalReadyMs": 52.90000009536743
+          }
+        ],
+        "hashes": [
+          "4352bfd868495d95c2c5af8420fc570fd3b905c65736ae08888cf187dd14d6e1",
+          "4352bfd868495d95c2c5af8420fc570fd3b905c65736ae08888cf187dd14d6e1",
+          "4352bfd868495d95c2c5af8420fc570fd3b905c65736ae08888cf187dd14d6e1"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 18,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 6132234,
+          "outputMass": 6124209,
+          "massRatio": 0.9986913415241493,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 8,
+          "invalidPremul": 0,
+          "changedPixels": 70415
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 18,
+          "maxTimer": 11.900000095367432,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 66,
+        "warmMedianMs": 56.39999997615814
+      },
+      "png": {
+        "file": "alternative-paper-deposition-dot-11.png",
+        "bytes": 808414,
+        "sha256": "b4a2336428e74e8e805d7a684393342923f0e993e525835aa8ae4279f799e07b"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "border",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "border",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "fixtureSHA": {
+          "rgba": "e1d645dee2946a8dee9e8743e008f6368f78eb615813a8c3d3277b17b5e0ed93",
+          "water": "86d9cb23a863f5049cf045d721769b933d99a5f38d86a8b359f02f1451e60a67",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 79.80000019073486,
+        "samples": [
+          {
+            "uploadJsMs": 22.299999952316284,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 53.39999985694885,
+            "totalReadyMs": 75.69999980926514
+          },
+          {
+            "uploadJsMs": 7.700000047683716,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 45.39999985694885,
+            "totalReadyMs": 53.09999990463257
+          },
+          {
+            "uploadJsMs": 5.400000095367432,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 45.299999952316284,
+            "totalReadyMs": 50.700000047683716
+          }
+        ],
+        "hashes": [
+          "1f010379d228d1ae763a7a6bda0684df4cf9cf655814c68e0dc96d7d01541e0f",
+          "1f010379d228d1ae763a7a6bda0684df4cf9cf655814c68e0dc96d7d01541e0f",
+          "1f010379d228d1ae763a7a6bda0684df4cf9cf655814c68e0dc96d7d01541e0f"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 18,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 13343653,
+          "outputMass": 13326740,
+          "massRatio": 0.9987325060086619,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 10,
+          "invalidPremul": 0,
+          "changedPixels": 130389
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.80000000000291,
+          "maxTimer": 14.100000143051147,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 75.69999980926514,
+        "warmMedianMs": 51.89999997615814
+      },
+      "png": {
+        "file": "alternative-paper-deposition-border-12.png",
+        "bytes": 877082,
+        "sha256": "b2d53de61c58dd373edf8780ba492bf6a3de2ac261671d848e2de66d4ef0ea06"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "water-only",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "water-only",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "fixtureSHA": {
+          "rgba": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "water": "d4ccabad2d7d244dccccd47af45b2405ae796fa736a8612e08f5da392c1662c2",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 78.70000004768372,
+        "samples": [
+          {
+            "uploadJsMs": 21.799999952316284,
+            "submitJsMs": 0.5999999046325684,
+            "runToDependentMs": 56.799999952316284,
+            "totalReadyMs": 78.59999990463257
+          },
+          {
+            "uploadJsMs": 10.900000095367432,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 46.299999952316284,
+            "totalReadyMs": 57.200000047683716
+          },
+          {
+            "uploadJsMs": 9.5,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 46.90000009536743,
+            "totalReadyMs": 56.40000009536743
+          }
+        ],
+        "hashes": [
+          "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 18,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 0,
+          "outputMass": 0,
+          "massRatio": 1,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 0,
+          "invalidPremul": 0,
+          "changedPixels": 0
+        },
+        "orientation": "fixture-row-order",
+        "ui": {
+          "maxRAF": 16.799999999999272,
+          "maxTimer": 13.299999952316284,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 78.59999990463257,
+        "warmMedianMs": 56.800000071525574
+      },
+      "png": {
+        "file": "alternative-paper-deposition-water-only-13.png",
+        "bytes": 632770,
+        "sha256": "4c4b4e3330f10afd83ad489b82a59cfd6ea3b0387136c320123a6e6944d639e5"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "dry-stroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "dry-stroke",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "fixtureSHA": {
+          "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+          "water": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 77.39999985694885,
+        "samples": [
+          {
+            "uploadJsMs": 23.90000009536743,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 57.700000047683716,
+            "totalReadyMs": 81.60000014305115
+          },
+          {
+            "uploadJsMs": 10.699999809265137,
+            "submitJsMs": 0.20000004768371582,
+            "runToDependentMs": 47.5,
+            "totalReadyMs": 58.19999980926514
+          },
+          {
+            "uploadJsMs": 9.299999952316284,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 50.10000014305115,
+            "totalReadyMs": 59.40000009536743
+          }
+        ],
+        "hashes": [
+          "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+          "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+          "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 18,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 9367726,
+          "outputMass": 9367726,
+          "massRatio": 1,
+          "lostPixels": 0,
+          "addedPixels": 0,
+          "outsideWetPixels": 74366,
+          "invalidPremul": 0,
+          "changedPixels": 0
+        },
+        "orientation": "fixture-row-order",
+        "control": {
+          "exactIdentity": true
+        },
+        "ui": {
+          "maxRAF": 16.799999999999272,
+          "maxTimer": 13,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 81.60000014305115,
+        "warmMedianMs": 58.799999952316284
+      },
+      "png": {
+        "file": "alternative-paper-deposition-dry-stroke-14.png",
+        "bytes": 763192,
+        "sha256": "b531e180f1d62e6f2192e982a31729c6d79963c47748529760322351b58ca183"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "isolated-pools",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "isolated-pools",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "fixtureSHA": {
+          "rgba": "881c91b0bdaabe02f5a5e3a2d4d6710a2a7bdae94da8006880d9459411dc2792",
+          "water": "6ea2855a9526f2ee318a5b4649f201ef8b08a2c86ed9b51ff28ffd9668186292",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 86,
+        "samples": [
+          {
+            "uploadJsMs": 25.299999952316284,
+            "submitJsMs": 0.40000009536743164,
+            "runToDependentMs": 57.09999990463257,
+            "totalReadyMs": 82.39999985694885
+          },
+          {
+            "uploadJsMs": 9.100000143051147,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 43.5,
+            "totalReadyMs": 52.60000014305115
+          },
+          {
+            "uploadJsMs": 8.5,
+            "submitJsMs": 0.19999980926513672,
+            "runToDependentMs": 47.799999952316284,
+            "totalReadyMs": 56.299999952316284
+          }
+        ],
+        "hashes": [
+          "79eb8d121752351943f849878c3bc5c4273e1a868a70b3760b1378f59f89a28b",
+          "79eb8d121752351943f849878c3bc5c4273e1a868a70b3760b1378f59f89a28b",
+          "79eb8d121752351943f849878c3bc5c4273e1a868a70b3760b1378f59f89a28b"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 18,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 1965711,
+          "outputMass": 1962885,
+          "massRatio": 0.9985623522481178,
+          "lostPixels": 0,
+          "addedPixels": 3690,
+          "outsideWetPixels": 0,
+          "invalidPremul": 0,
+          "changedPixels": 19884
+        },
+        "orientation": "fixture-row-order",
+        "control": {
+          "inputRightAlpha": 0,
+          "outputRightAlpha": 0,
+          "noCrossing": true
+        },
+        "ui": {
+          "maxRAF": 16.80000000000291,
+          "maxTimer": 17.899999856948853,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 82.39999985694885,
+        "warmMedianMs": 54.450000047683716
+      },
+      "png": {
+        "file": "alternative-paper-deposition-isolated-pools-15.png",
+        "bytes": 715695,
+        "sha256": "8d47c98a35fcbc80470acf802332e8bdba523f8faa2a5fa0bda001c4ec482d52"
+      },
+      "pass": true
+    },
+    {
+      "request": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "dry-barrier",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "repeats": 3
+      },
+      "result": {
+        "algorithm": "alternative-paper-deposition",
+        "fixture": "dry-barrier",
+        "encoding": "optical-density",
+        "config": {
+          "steps": 5,
+          "mobile": 0.8,
+          "share": 0.7,
+          "adsorption": 0.12,
+          "paperBias": 1,
+          "coarse": 6
+        },
+        "fixtureSHA": {
+          "rgba": "ea7b876a06ee6c1c5cca87da5fe899ee681fb656a980ad9eaeab78e32fe580ec",
+          "water": "f04b89aa71c005fc35f9128c3e2a961efc54396b9ed32cb5c5425b605d6009da",
+          "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+        },
+        "backend": "webgl1",
+        "hardware": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "createMs": 65.90000009536743,
+        "samples": [
+          {
+            "uploadJsMs": 28.799999952316284,
+            "submitJsMs": 0.5,
+            "runToDependentMs": 50.200000047683716,
+            "totalReadyMs": 79
+          },
+          {
+            "uploadJsMs": 8,
+            "submitJsMs": 0.2999999523162842,
+            "runToDependentMs": 47,
+            "totalReadyMs": 55
+          },
+          {
+            "uploadJsMs": 5.8999998569488525,
+            "submitJsMs": 0.3000001907348633,
+            "runToDependentMs": 44.200000047683716,
+            "totalReadyMs": 50.09999990463257
+          }
+        ],
+        "hashes": [
+          "6e7d437bbaf4ec0809a88d075e95178ecbf53d0691ac6ddbad48ad8541d1c542",
+          "6e7d437bbaf4ec0809a88d075e95178ecbf53d0691ac6ddbad48ad8541d1c542",
+          "6e7d437bbaf4ec0809a88d075e95178ecbf53d0691ac6ddbad48ad8541d1c542"
+        ],
+        "repeatExact": true,
+        "metadata": {
+          "family": "multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim",
+          "resolution": 1024,
+          "passes": 18,
+          "conservation": "symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization",
+          "fixedFraction": 0.19999999999999996
+        },
+        "metrics": {
+          "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+          "inputMass": 599742,
+          "outputMass": 598925,
+          "massRatio": 0.9986377475647862,
+          "lostPixels": 0,
+          "addedPixels": 2804,
+          "outsideWetPixels": 0,
+          "invalidPremul": 0,
+          "changedPixels": 7836
+        },
+        "orientation": "fixture-row-order",
+        "control": {
+          "inputRightAlpha": 0,
+          "outputRightAlpha": 0,
+          "noCrossing": true
+        },
+        "ui": {
+          "maxRAF": 16.799999999999272,
+          "maxTimer": 15.5,
+          "longtasks": [],
+          "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+        },
+        "coldMs": 79,
+        "warmMedianMs": 52.549999952316284
+      },
+      "png": {
+        "file": "alternative-paper-deposition-dry-barrier-16.png",
+        "bytes": 673158,
+        "sha256": "c857efad73488c68d2eb7b29e39ed729bfaa67eead182613684ddfe973a38eee"
+      },
+      "pass": true
+    }
+  ],
+  "sourceHashes": {
+    "entry.js": "0d25822f2f8f427495cd21faf7123288a92e9a4b15c1952647141e4305a93504",
+    "worker.js": "aeb35029b112868516e2f2b502cd82912a54a37b8ca1a7db2e433b6cefe7e8cb",
+    "chunk-OXBRW55U.js": "1323ea1a0ae62bd9000f47e65a830339ad2f3736d4f8f79843d3605dc60c0a53",
+    "index.html": "7f174c6068b1a87f196251529b71ac6c4844f011e315c79534a94c0af5b824e4"
+  },
+  "catalog": {
+    "requestId": 1,
+    "algorithms": [
+      {
+        "id": "input-reference",
+        "label": "Исходный след без растекания",
+        "configs": [
+          {}
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-stable-fluids",
+        "label": "Low-resolution advect/project/pigment (RGBA8)",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 4,
+            "projection": 4,
+            "force": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 4,
+            "projection": 4,
+            "force": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 8,
+            "projection": 6,
+            "force": 4
+          },
+          {
+            "resolution": 512,
+            "steps": 4,
+            "projection": 4,
+            "force": 4
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-lattice-diffusion",
+        "label": "Conservative donor lattice pigment diffusion",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 12,
+            "stride": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 12,
+            "stride": 2
+          },
+          {
+            "resolution": 256,
+            "steps": 24,
+            "stride": 4
+          },
+          {
+            "resolution": 512,
+            "steps": 16,
+            "stride": 4
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-artistic-front",
+        "label": "Cheap dyadic artistic front + multiscale pigment",
+        "configs": [
+          {
+            "resolution": 128,
+            "steps": 8,
+            "budget": 12,
+            "rim": 0.2
+          },
+          {
+            "resolution": 256,
+            "steps": 8,
+            "budget": 16,
+            "rim": 0.35
+          },
+          {
+            "resolution": 256,
+            "steps": 16,
+            "budget": 24,
+            "rim": 0.5
+          },
+          {
+            "resolution": 512,
+            "steps": 12,
+            "budget": 32,
+            "rim": 0.35
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "search-artistic-program",
+        "label": "Bounded24 ordered artistic programs (approximate search)",
+        "configs": [
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 4,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 70216,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 4388,
+            "programTransportCode": 4388,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4369,
+            "programRim": 1
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 0
+          },
+          {
+            "programDslVersion": 1,
+            "programNeighbors": 8,
+            "programFrontCode": 292,
+            "programTransportCode": 4388,
+            "programRim": 1
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-wet-boundary-detail",
+        "label": "Donor wet-boundary rim + retained detail + real paper grain",
+        "configs": [
+          {
+            "resolution": 256,
+            "steps": 8,
+            "rim": 0.7,
+            "grain": 0.35,
+            "detail": 0.65,
+            "fullSteps": 2,
+            "share": 0.4
+          },
+          {
+            "resolution": 256,
+            "steps": 10,
+            "rim": 0.85,
+            "grain": 0.6,
+            "detail": 0.8,
+            "fullSteps": 3,
+            "share": 0.35
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "alternative-paper-deposition",
+        "label": "Paper-guided mobile pigment and gradual deposition (no pool-edge rim)",
+        "configs": [
+          {
+            "steps": 4,
+            "mobile": 0.4,
+            "share": 0.65,
+            "adsorption": 0.16,
+            "paperBias": 0.9,
+            "coarse": 4
+          },
+          {
+            "steps": 5,
+            "mobile": 0.8,
+            "share": 0.7,
+            "adsorption": 0.12,
+            "paperBias": 1,
+            "coarse": 6
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "gl-integer-diffusion-match",
+        "label": "GL1: matched local integer diffusion",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgl1"
+      },
+      {
+        "id": "wgsl-integer-diffusion-direct",
+        "label": "WebGPU: local integer diffusion",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-integer-diffusion-tiled4",
+        "label": "WebGPU: same local diffusion, four shared-memory steps",
+        "configs": [
+          {
+            "iterations": 32,
+            "rate": 24
+          }
+        ],
+        "backend": "webgpu"
+      },
+      {
+        "id": "wgsl-d2q9-bgk",
+        "label": "WebGPU: D2Q9 fluid with pigment/water tracers",
+        "configs": [
+          {
+            "grid": 256,
+            "steps": 48
+          },
+          {
+            "grid": 512,
+            "steps": 48
+          },
+          {
+            "grid": 256,
+            "steps": 16,
+            "diffusion": 0.015
+          },
+          {
+            "grid": 128,
+            "steps": 24,
+            "diffusion": 0.025
+          }
+        ],
+        "backend": "webgpu"
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "dot",
+        "label": "Точка",
+        "description": "Один широкий отпечаток синей кисти"
+      },
+      {
+        "id": "wave",
+        "label": "Широкая волна",
+        "description": "Кисть320 через значительную часть листа"
+      },
+      {
+        "id": "water-only",
+        "label": "Только вода",
+        "description": "Мокрая область без пигмента: краска не должна появляться"
+      },
+      {
+        "id": "water-stroke",
+        "label": "Мазок через лужу",
+        "description": "Узкая синяя линия пересекает широкую мокрую область"
+      },
+      {
+        "id": "two-colors",
+        "label": "Два цвета",
+        "description": "Пересечение синего и розового пигмента в общей мокрой области"
+      },
+      {
+        "id": "crosses",
+        "label": "Повторные пересечения",
+        "description": "Три перекрывающихся следа с разным количеством пигмента"
+      },
+      {
+        "id": "blue-yellow",
+        "label": "Синий и жёлтый",
+        "description": "Проверка смешения пигментов, а не только размытияRGB"
+      },
+      {
+        "id": "fine-detail",
+        "label": "Тонкий след",
+        "description": "Мелкие детали на мокрой и почти сухой бумаге"
+      },
+      {
+        "id": "border",
+        "label": "У края листа",
+        "description": "След касается границы расчётного поля"
+      },
+      {
+        "id": "wave-open",
+        "label": "Волна с открытыми изгибами",
+        "description": "Два крупных изгиба широкой кисти вместо многократного наложения"
+      },
+      {
+        "id": "dry-stroke",
+        "label": "Сухой контроль",
+        "description": "Тот же пигмент, что в мазке через лужу, но воды нет: перенос запрещён"
+      },
+      {
+        "id": "isolated-pools",
+        "label": "Две отдельные лужи",
+        "description": "Синий пигмент только в левой луже; правая отделена сухим промежутком"
+      },
+      {
+        "id": "variable-wash",
+        "label": "Неравномерная заливка",
+        "description": "Перекрывающиеся отпечатки с разным количеством краски на предварительно смоченной бумаге"
+      },
+      {
+        "id": "dry-barrier",
+        "label": "Тонкий сухой разделитель",
+        "description": "Две мокрые области разделены сухой полосой шириной один пиксель; пигмент только слева"
+      }
+    ]
+  },
+  "sourceStable": true,
+  "pass": true,
+  "errors": [],
+  "intercepts": {
+    "index.html": 1,
+    "entry.js": 1,
+    "chunk-OXBRW55U.js": 2,
+    "worker.js": 1
+  },
+  "contextClosed": true,
+  "finishedAt": "2026-10-17T20:41:02.399Z"
+}

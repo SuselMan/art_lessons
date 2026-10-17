@@ -1,0 +1,516 @@
+{
+  "qualification": "Native Mini correctness only; each shape owns a fresh engine. Repeat same target/raw/epoch. Full P/C/coverage readback SHA outside any performance measurement. Natural → normal repeat → lazy-noise → normal restored. No hosted changes.",
+  "pass": true,
+  "cases": [
+    {
+      "shape": "wave",
+      "sourceHashes": {
+        "entry.js": "38a565fcd99eaf25d2ad3b4ca8cfbe477573d571d71fd96f47672c22f04401f4",
+        "worker.js": "685c76be452b72ea8f96df454884187f653a64a8b3b009aa9c5e7f143912545d",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-BF6767AQ.js": "d79c2345c2145836ecdcf45a3482f2cd61809308f597695a493486ed6693a2f6",
+        "chunk-KSHPHUSB.js": "52f9c6ad6e6b61ba63cbff019ee1f53c7dfb5f54e6fa6d19735934c475aa6ba9",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f"
+      },
+      "settings": {
+        "size": 320,
+        "water": 95,
+        "pigment": 34,
+        "paint": "PB15",
+        "color": "#2688d3",
+        "force": 0.75
+      },
+      "geometrySHA": "9f90b84c1d3664078d30aecf52bb37c153f5338c857934234cf7f8f9e61a0ef3",
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "oracles": [
+        {
+          "request": {
+            "type": "qa-goal-hashes",
+            "label": "natural"
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-1",
+            "hashes": {
+              "p": "cc13830d83f7a1f142cd8bf798c54d3aec528c0233a1cc6bbf0b20df2f116f25",
+              "c": "32babb822f9befac15df2497cf1bc1c8517934c175d1ff4439b55c4edfe0d165",
+              "coverage": "e805ac7188dce915206facd692bfe931444f5f71ff108dccce49c4dc626d93ad"
+            },
+            "frontJumpStats": null
+          }
+        },
+        {
+          "request": {
+            "type": "qa-repeat-goal",
+            "label": "normal-repeat",
+            "finalOnly": false,
+            "maxOps": 100000
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-2",
+            "hashes": {
+              "p": "cc13830d83f7a1f142cd8bf798c54d3aec528c0233a1cc6bbf0b20df2f116f25",
+              "c": "32babb822f9befac15df2497cf1bc1c8517934c175d1ff4439b55c4edfe0d165",
+              "coverage": "e805ac7188dce915206facd692bfe931444f5f71ff108dccce49c4dc626d93ad"
+            },
+            "frontJumpStats": null
+          }
+        },
+        {
+          "request": {
+            "type": "qa-repeat-goal",
+            "label": "lazy-noise",
+            "finalOnly": false,
+            "maxOps": 100000,
+            "specializeFrontLazy": true
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-3",
+            "hashes": {
+              "p": "cc13830d83f7a1f142cd8bf798c54d3aec528c0233a1cc6bbf0b20df2f116f25",
+              "c": "32babb822f9befac15df2497cf1bc1c8517934c175d1ff4439b55c4edfe0d165",
+              "coverage": "e805ac7188dce915206facd692bfe931444f5f71ff108dccce49c4dc626d93ad"
+            },
+            "frontJumpStats": null
+          }
+        },
+        {
+          "request": {
+            "type": "qa-repeat-goal",
+            "label": "normal-restored",
+            "finalOnly": false,
+            "maxOps": 100000
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-4",
+            "hashes": {
+              "p": "cc13830d83f7a1f142cd8bf798c54d3aec528c0233a1cc6bbf0b20df2f116f25",
+              "c": "32babb822f9befac15df2497cf1bc1c8517934c175d1ff4439b55c4edfe0d165",
+              "coverage": "e805ac7188dce915206facd692bfe931444f5f71ff108dccce49c4dc626d93ad"
+            },
+            "frontJumpStats": null
+          }
+        }
+      ],
+      "pass": true,
+      "errors": [],
+      "contextClosed": true,
+      "final": {
+        "error": "",
+        "settings": {
+          "size": 320,
+          "water": 95,
+          "pigment": 34,
+          "paint": "PB15",
+          "color": "#2688d3"
+        },
+        "inputCount": {
+          "down": 1,
+          "move": 100,
+          "up": 1,
+          "lastLagMs": 33.300048828125,
+          "maxLagMs": 79.10009765625,
+          "lastProcessed": 102
+        },
+        "goalCount": 1,
+        "state": {
+          "type": "state",
+          "state": {
+            "diagnostic": true,
+            "live": true,
+            "active": true,
+            "done": false,
+            "dry": false,
+            "progress": 0.2986829203888152,
+            "durationMs": 120000,
+            "cancellations": 0,
+            "liveInputs": 99,
+            "epoch": 1,
+            "drawing": false,
+            "showingEffect": false,
+            "effectRequested": false,
+            "calculating": false,
+            "goalReady": true,
+            "regions": {
+              "visible": false,
+              "hostOverlayOmitted": true
+            },
+            "target": {
+              "epoch": 1,
+              "iterations": 91,
+              "done": true,
+              "total": 91,
+              "revision": 20
+            }
+          },
+          "asyncError": "",
+          "stepMax": 75.70000004768372
+        }
+      }
+    },
+    {
+      "shape": "dot",
+      "sourceHashes": {
+        "entry.js": "38a565fcd99eaf25d2ad3b4ca8cfbe477573d571d71fd96f47672c22f04401f4",
+        "worker.js": "685c76be452b72ea8f96df454884187f653a64a8b3b009aa9c5e7f143912545d",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-BF6767AQ.js": "d79c2345c2145836ecdcf45a3482f2cd61809308f597695a493486ed6693a2f6",
+        "chunk-KSHPHUSB.js": "52f9c6ad6e6b61ba63cbff019ee1f53c7dfb5f54e6fa6d19735934c475aa6ba9",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f"
+      },
+      "settings": {
+        "size": 320,
+        "water": 95,
+        "pigment": 34,
+        "paint": "PB15",
+        "color": "#2688d3",
+        "force": 0.75
+      },
+      "geometrySHA": "18eaddf9bc99ca4c353a3667f84d79904c29c4603e0cb1cfaa3a5523f6795aa2",
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "oracles": [
+        {
+          "request": {
+            "type": "qa-goal-hashes",
+            "label": "natural"
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-1",
+            "hashes": {
+              "p": "8b0a96458953c470cbd8a0c3397b0b7073a1863491edd5730f5672dd2fd36fbd",
+              "c": "6dd66dff4ae837e0b127111a9c78872008b4b72dbb0950380519c338c87945e9",
+              "coverage": "a060a3cf8f00e0b2ec145f4790313f07ae23a96a8c49a8cacef8548a1368d368"
+            },
+            "frontJumpStats": null
+          }
+        },
+        {
+          "request": {
+            "type": "qa-repeat-goal",
+            "label": "normal-repeat",
+            "finalOnly": false,
+            "maxOps": 100000
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-2",
+            "hashes": {
+              "p": "8b0a96458953c470cbd8a0c3397b0b7073a1863491edd5730f5672dd2fd36fbd",
+              "c": "6dd66dff4ae837e0b127111a9c78872008b4b72dbb0950380519c338c87945e9",
+              "coverage": "a060a3cf8f00e0b2ec145f4790313f07ae23a96a8c49a8cacef8548a1368d368"
+            },
+            "frontJumpStats": null
+          }
+        },
+        {
+          "request": {
+            "type": "qa-repeat-goal",
+            "label": "lazy-noise",
+            "finalOnly": false,
+            "maxOps": 100000,
+            "specializeFrontLazy": true
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-3",
+            "hashes": {
+              "p": "8b0a96458953c470cbd8a0c3397b0b7073a1863491edd5730f5672dd2fd36fbd",
+              "c": "6dd66dff4ae837e0b127111a9c78872008b4b72dbb0950380519c338c87945e9",
+              "coverage": "a060a3cf8f00e0b2ec145f4790313f07ae23a96a8c49a8cacef8548a1368d368"
+            },
+            "frontJumpStats": null
+          }
+        },
+        {
+          "request": {
+            "type": "qa-repeat-goal",
+            "label": "normal-restored",
+            "finalOnly": false,
+            "maxOps": 100000
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-4",
+            "hashes": {
+              "p": "8b0a96458953c470cbd8a0c3397b0b7073a1863491edd5730f5672dd2fd36fbd",
+              "c": "6dd66dff4ae837e0b127111a9c78872008b4b72dbb0950380519c338c87945e9",
+              "coverage": "a060a3cf8f00e0b2ec145f4790313f07ae23a96a8c49a8cacef8548a1368d368"
+            },
+            "frontJumpStats": null
+          }
+        }
+      ],
+      "pass": true,
+      "errors": [],
+      "contextClosed": true,
+      "final": {
+        "error": "",
+        "settings": {
+          "size": 320,
+          "water": 95,
+          "pigment": 34,
+          "paint": "PB15",
+          "color": "#2688d3"
+        },
+        "inputCount": {
+          "down": 1,
+          "move": 1,
+          "up": 1,
+          "lastLagMs": 12.199951171875,
+          "maxLagMs": 58.199951171875,
+          "lastProcessed": 3
+        },
+        "goalCount": 1,
+        "state": {
+          "type": "state",
+          "state": {
+            "diagnostic": true,
+            "live": true,
+            "active": true,
+            "done": false,
+            "dry": false,
+            "progress": 0.24909025345215122,
+            "durationMs": 120000,
+            "cancellations": 0,
+            "liveInputs": 2,
+            "epoch": 1,
+            "drawing": false,
+            "showingEffect": false,
+            "effectRequested": false,
+            "calculating": false,
+            "goalReady": true,
+            "regions": {
+              "visible": false,
+              "hostOverlayOmitted": true
+            },
+            "target": {
+              "epoch": 1,
+              "iterations": 91,
+              "done": true,
+              "total": 91,
+              "revision": 20
+            }
+          },
+          "asyncError": "",
+          "stepMax": 49.200000047683716
+        }
+      }
+    },
+    {
+      "shape": "two-colors",
+      "sourceHashes": {
+        "entry.js": "38a565fcd99eaf25d2ad3b4ca8cfbe477573d571d71fd96f47672c22f04401f4",
+        "worker.js": "685c76be452b72ea8f96df454884187f653a64a8b3b009aa9c5e7f143912545d",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-BF6767AQ.js": "d79c2345c2145836ecdcf45a3482f2cd61809308f597695a493486ed6693a2f6",
+        "chunk-KSHPHUSB.js": "52f9c6ad6e6b61ba63cbff019ee1f53c7dfb5f54e6fa6d19735934c475aa6ba9",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f"
+      },
+      "settings": {
+        "size": 320,
+        "water": 95,
+        "pigment": 34,
+        "paint": "PB15",
+        "color": "#2688d3",
+        "force": 0.75
+      },
+      "geometrySHA": "a37136d09c54c7c373d09b0e0d5209396ab5a281efbf9d71ac9163f017e56878",
+      "bootstrap": {
+        "type": "ready",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "budgetBytes": 314572800,
+        "flags": {
+          "model": "front8-detail-flow-v4",
+          "asyncFinish": false,
+          "joinedTouch": false,
+          "materialPresentation": false
+        },
+        "tuning": {
+          "massThreshold": 0.298116,
+          "compositionThreshold": 0.474721,
+          "hueThreshold": 0.505521,
+          "hueStrength": 1,
+          "backgroundStrength": 0.877969,
+          "minimumRegionArea": 2994.2784,
+          "backgroundDistortion": 0.597529
+        },
+        "glError": 0
+      },
+      "oracles": [
+        {
+          "request": {
+            "type": "qa-goal-hashes",
+            "label": "natural"
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-1",
+            "hashes": {
+              "p": "505f76b23abc348219b2ba03f4c9c2113eaed2efd54e3d282f20484014d51ce2",
+              "c": "34fcbdbd4e7f19722b2f5b50af24df6e0406a6d15ce64174e5df4b9f2534a201",
+              "coverage": "763416a12a822db1b77ac6b5946174016b8d7f2b243ad26327ee55ad0720efe4"
+            },
+            "frontJumpStats": null
+          }
+        },
+        {
+          "request": {
+            "type": "qa-repeat-goal",
+            "label": "normal-repeat",
+            "finalOnly": false,
+            "maxOps": 100000
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-2",
+            "hashes": {
+              "p": "505f76b23abc348219b2ba03f4c9c2113eaed2efd54e3d282f20484014d51ce2",
+              "c": "34fcbdbd4e7f19722b2f5b50af24df6e0406a6d15ce64174e5df4b9f2534a201",
+              "coverage": "763416a12a822db1b77ac6b5946174016b8d7f2b243ad26327ee55ad0720efe4"
+            },
+            "frontJumpStats": null
+          }
+        },
+        {
+          "request": {
+            "type": "qa-repeat-goal",
+            "label": "lazy-noise",
+            "finalOnly": false,
+            "maxOps": 100000,
+            "specializeFrontLazy": true
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-3",
+            "hashes": {
+              "p": "505f76b23abc348219b2ba03f4c9c2113eaed2efd54e3d282f20484014d51ce2",
+              "c": "34fcbdbd4e7f19722b2f5b50af24df6e0406a6d15ce64174e5df4b9f2534a201",
+              "coverage": "763416a12a822db1b77ac6b5946174016b8d7f2b243ad26327ee55ad0720efe4"
+            },
+            "frontJumpStats": null
+          }
+        },
+        {
+          "request": {
+            "type": "qa-repeat-goal",
+            "label": "normal-restored",
+            "finalOnly": false,
+            "maxOps": 100000
+          },
+          "response": {
+            "type": "qa-goal-hashes",
+            "requestId": "oracle805-4",
+            "hashes": {
+              "p": "505f76b23abc348219b2ba03f4c9c2113eaed2efd54e3d282f20484014d51ce2",
+              "c": "34fcbdbd4e7f19722b2f5b50af24df6e0406a6d15ce64174e5df4b9f2534a201",
+              "coverage": "763416a12a822db1b77ac6b5946174016b8d7f2b243ad26327ee55ad0720efe4"
+            },
+            "frontJumpStats": null
+          }
+        }
+      ],
+      "pass": true,
+      "errors": [],
+      "contextClosed": true,
+      "final": {
+        "error": "",
+        "settings": {
+          "size": 320,
+          "water": 95,
+          "pigment": 34,
+          "paint": "PR122",
+          "color": "#ce267c"
+        },
+        "inputCount": {
+          "down": 2,
+          "move": 200,
+          "up": 2,
+          "lastLagMs": 23.800048828125,
+          "maxLagMs": 66,
+          "lastProcessed": 204
+        },
+        "goalCount": 2,
+        "state": {
+          "type": "state",
+          "state": {
+            "diagnostic": true,
+            "live": true,
+            "active": true,
+            "done": false,
+            "dry": false,
+            "progress": 0.33638015943925254,
+            "durationMs": 120000,
+            "cancellations": 1,
+            "liveInputs": 198,
+            "epoch": 2,
+            "drawing": false,
+            "showingEffect": false,
+            "effectRequested": false,
+            "calculating": false,
+            "goalReady": true,
+            "regions": {
+              "visible": false,
+              "hostOverlayOmitted": true
+            },
+            "target": {
+              "epoch": 2,
+              "iterations": 90,
+              "done": true,
+              "total": 90,
+              "revision": 25
+            }
+          },
+          "asyncError": "",
+          "stepMax": 14.599999904632568
+        }
+      }
+    }
+  ]
+}
