@@ -125,3 +125,15 @@ Runtime df1b7fe9, три штатные опции больших окон: пр
 Широкая регрессия после phase-owner нашла19 ошибок прежних тестов Plan: late finish/ops после dispose должны быть no-op, а wrapper выбрасывал Retired field job. Исправлено1b92a6f3: publiccallbacks идемпотентны, scope.run остаётся строгим; lease не освобождается повторно, поздние записи запрещены. Реальная рабочая копия: весьPlan93+core32+6новыхtests=131PASS. Первый full-прогон остановленSIGINT после обнаружения; новый fullengine после исправления запущен отдельно, PASS ещё не заявлен.
 
 Lanpad штатно разбужен, SSH доступен, IntelUHD. Собственный интерактивный браузер готовится отдельно от Samsung; межустройственных pixel-доказательств новой версии пока нет. Samsung6format matrix начала с A4p; первый harness pre-DOWN отказался из-за выбора слоя,0новыхops, не runtime finding.
+
+## 12:54 — responsive input memory enabled; R32 controlled candidate
+
+Runtime aa12e9d8 enables previously measured224MiB input/120MiB solve policy by default. Full engine run PASS266files2588tests428.49s; discovery preceded new R32proof suite. Separate current proof+invalidation run PASS20tests2files6.61s, earlier planner/source run PASS15tests3files2.16s. Web typecheck exit0. Changed-source oxlint exit0, index retains10pre-existing warnings.
+
+R32 remains defaultOFF behind explicit engine diagnostic. Existing1536field/core geometry unchanged. Both Intel and Samsung compactX:4groups→2kept2skipped, all10stage and finalP/C/coverage0diff vsNative. Intel fullstrip keptall4 and sameold dfe bytes; Intel transposedcompactY also4→2 and all0diff. Samsung actual sentinel100draws/fourcases staysR255, finalcoveragezero, GL0. These are numeric gates, not UI performance proof. RealA2Room with fresh owned layer is next.
+
+IntegerContrast BG controlled experiment removed all76crossGPU BGchannel differences and matched exactintegerCPU all65536channels, but final crossGPU P/C remainedmax18/30. Explicit highp samplers did not close it. All integer/highp appchanges reverted and retained externally; crossGPU blocker remains OPEN.
+
+### 13:24 — capture scheduling and stronger controls
+
+Controlled A2 natural target vs independent full API history with baseline612: exact five-tile equality; optimized5 vs baseline29 actual Native preparations. Performance remains FAIL at8.8/9.3s and1.2–1.3s RAF stall. Forced identical true Contrast reference on Intel/Samsung still diverges in solved material: independent later cross-GPU cause remains open. Phase1 captured-read ownership on both GPUs: six actual source handles released exactly once, revisions stable, ten stages and finals equal own old baseline, GL0. Uncached gate does not measure managed memory savings. Root phase1 CPU30/3files PASS; applied revised cooperative phase2+deadline phase3 behind default-OFF QA flags, validation underway.
