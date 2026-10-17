@@ -84,5 +84,24 @@
     "nodePeerSocketClosed": true,
     "ownFixtureRetainedForDefect": true,
     "sharedForwardRetained": true
+  },
+  "serverJournal": {
+    "count": 2,
+    "sha256": "dde00b6448951ca5a4881553c52942d6fca177c2b094a94e984d0c32fcb29666",
+    "operations": [
+      {
+        "id": "08f4cc03-d895-4366-90d2-105cda82847c",
+        "type": "stroke",
+        "seq": 1,
+        "timestamp": 1792202963966
+      },
+      {
+        "id": "RPhkFQN6qa",
+        "type": "stroke",
+        "seq": 2,
+        "timestamp": 1792202964000
+      }
+    ],
+    "allLocallyAcceptedIdsPresent": true
   }
 }
