@@ -2,7 +2,7 @@ import {M70PhaseOwner} from './src/watercolor/puddle/M70PhaseOwner'
 import type {FieldLease} from './src/watercolor/puddle/FieldJobLease'
 import {m70PresentationInputSignature} from './src/watercolor/puddle/PuddleInputFingerprint'
 import {PagedPuddleRoomController} from './src/watercolor/puddle/PagedPuddleRoomController'
-import {createPagedPuddleTarget} from './src/watercolor/puddle/PagedPuddleTarget'
+import {createPagedPuddleTarget,type PagedNativeScopeFactory} from './src/watercolor/puddle/PagedPuddleTarget'
 import {BufferResidency} from './src/buffers/BufferResidency'
 import { cancelRestoreGeneration } from './restoreGeneration'
 import {exactMaterialHistory} from './src/oplog/exactMaterialHistory'
@@ -1680,6 +1680,8 @@ export class PencilEngine implements PencilEngineAPI {
   diagnosticM70SkipEmptyPostphase=false
   /** QA-only capture byte ownership, default OFF; set before creating controller. */
   diagnosticM70CapturedBacking=false
+  /** QA-only synchronous per-window observer; undefined leaves native calls unchanged. */
+  diagnosticM70NativeScopeFactory?:PagedNativeScopeFactory
   /** QA-only bounded immutable CPU proofs across repeated hydration. */
   diagnosticM70PersistCapturedBacking=false
   /** QA-only yielded capture, default OFF; set before creating controller. */
@@ -1811,7 +1813,7 @@ export class PencilEngine implements PencilEngineAPI {
       // RAW reachBounds includes brush/composite reads. Foreign-water donors
       // can extend beyond it; retain whole tiles until their bounds are proven.
       presentationBounds:(scratch,context)=>scratch.foreignSources?.length || scratch.foreignImportedGestures.size ? null : context.bounds,
-      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make,{persistCapturedBacking:this.diagnosticM70PersistCapturedBacking,skipEmptyReference:this.diagnosticM70SkipEmptyReference,stepBudgetMs:this.diagnosticM70StepBudgetMs,cooperativeCapture:this.diagnosticM70CooperativeCapture,capturedBacking:this.diagnosticM70CapturedBacking,skipEmptyPostphase:this.diagnosticM70SkipEmptyPostphase,tightMaterialSupport32:this.diagnosticM70TightSupport32,skipEmptyFixedWindows:true,omitZeroForeignSolventLoad:true,detachedWindowSource:true,sourceCaptured:raw=>{
+      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make,{nativeScope:this.diagnosticM70NativeScopeFactory,persistCapturedBacking:this.diagnosticM70PersistCapturedBacking,skipEmptyReference:this.diagnosticM70SkipEmptyReference,stepBudgetMs:this.diagnosticM70StepBudgetMs,cooperativeCapture:this.diagnosticM70CooperativeCapture,capturedBacking:this.diagnosticM70CapturedBacking,skipEmptyPostphase:this.diagnosticM70SkipEmptyPostphase,tightMaterialSupport32:this.diagnosticM70TightSupport32,skipEmptyFixedWindows:true,omitZeroForeignSolventLoad:true,detachedWindowSource:true,sourceCaptured:raw=>{
         const owner=this._getFieldPhaseOwner()
         const admission=owner.state.enabled?owner.beginSolveSnapshot(raw):{snapshot:raw,lease:owner.acquire()}
         if(!admission)return {defer:true}
