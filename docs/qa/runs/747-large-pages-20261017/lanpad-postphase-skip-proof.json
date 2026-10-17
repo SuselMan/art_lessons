@@ -1,0 +1,409 @@
+{
+  "source": "aa12e9d8+empty-post7e7e-rootguard",
+  "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x000046D1) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "size": {
+    "width": 2048,
+    "height": 512
+  },
+  "inputHashes": {
+    "p": "4878344c60ac3888c9513370994f5d1d09477feebecac29e4ca33dc5b95ea53e",
+    "c": "254437fcdf1c452af05e87937690a82ca314d1ec18fd6b874a92ea4b4c2e5af7",
+    "coverage": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2",
+    "water": "c2ec028c4fadb0e897c6558a7610474b740b02a7beb7d47ebfb0ef73d4f6eeae"
+  },
+  "finalInputHashes": {
+    "p": "4878344c60ac3888c9513370994f5d1d09477feebecac29e4ca33dc5b95ea53e",
+    "c": "254437fcdf1c452af05e87937690a82ca314d1ec18fd6b874a92ea4b4c2e5af7",
+    "coverage": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2",
+    "water": "c2ec028c4fadb0e897c6558a7610474b740b02a7beb7d47ebfb0ef73d4f6eeae"
+  },
+  "windowSchedule": {
+    "requestedTight32": false,
+    "requestedSkip": false,
+    "allGroups": 4,
+    "kept": 4,
+    "skipped": 0,
+    "decisions": [
+      {
+        "field": {
+          "x": 0,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 0,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 512,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 0,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 256,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 512,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 612,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      },
+      {
+        "field": {
+          "x": 128,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 768,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 768,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 612,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      },
+      {
+        "field": {
+          "x": 384,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 1024,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1024,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 612,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      },
+      {
+        "field": {
+          "x": 512,
+          "y": 0,
+          "width": 1536,
+          "height": 1536
+        },
+        "cores": [
+          {
+            "x": 1280,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1536,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1792,
+            "y": 0,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1280,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1536,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          },
+          {
+            "x": 1792,
+            "y": 256,
+            "width": 256,
+            "height": 256
+          }
+        ],
+        "decision": {
+          "radius": 612,
+          "noForeignStencil": true,
+          "kept": true
+        }
+      }
+    ],
+    "sourceSupport": {
+      "width": 2048,
+      "height": 512,
+      "rect": {
+        "x": 941,
+        "y": 197,
+        "width": 119,
+        "height": 119
+      },
+      "rects": [
+        {
+          "x": 941,
+          "y": 197,
+          "width": 119,
+          "height": 119
+        }
+      ],
+      "noForeignStencil": true
+    }
+  },
+  "postphaseSchedule": {
+    "requested": true,
+    "rectangles": [
+      {
+        "interior": {
+          "x": 0,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": -21,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": true
+      },
+      {
+        "interior": {
+          "x": 512,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": 491,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": false
+      },
+      {
+        "interior": {
+          "x": 1024,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": 1003,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": false
+      },
+      {
+        "interior": {
+          "x": 1536,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "allocated": {
+          "x": 1515,
+          "y": -21,
+          "width": 554,
+          "height": 554
+        },
+        "skipped": true
+      }
+    ],
+    "kept": 2,
+    "skipped": 2
+  },
+  "highFloat": {
+    "precision": 23,
+    "rangeMin": 127,
+    "rangeMax": 127
+  },
+  "dither": {
+    "requestedOff": false,
+    "initial": true,
+    "atCapture": true
+  },
+  "stageDiffs": {
+    "referenceP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "b7aaee7062c3e966dbe56fa318687899354c68c39b68bd7dabdba22808d9d548",
+      "referenceHash": "b7aaee7062c3e966dbe56fa318687899354c68c39b68bd7dabdba22808d9d548"
+    },
+    "referenceC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "6bb8ffd862f0688b4147eda854f50286c9902a6423824ce0ee04048c641179f4",
+      "referenceHash": "6bb8ffd862f0688b4147eda854f50286c9902a6423824ce0ee04048c641179f4"
+    },
+    "solvedP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "a3aa036fb4f6a299b5a1bcc4063f9ee907d8648970a54a8ca0d65b0e092b64f0",
+      "referenceHash": "a3aa036fb4f6a299b5a1bcc4063f9ee907d8648970a54a8ca0d65b0e092b64f0"
+    },
+    "solvedC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fb1570506bfe5a7de45d592f04f439a215daed3205fb807792a38a8990c06530",
+      "referenceHash": "fb1570506bfe5a7de45d592f04f439a215daed3205fb807792a38a8990c06530"
+    },
+    "solvedCoverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2",
+      "referenceHash": "0ca98b8539701326649263b3dd044702357413f3aef91e1f8c039f8a079ddba2"
+    },
+    "coarse:gate": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "499a4f2bb5e1a3a45e3ff146b58e73b0c0912652b6d0c4d404bab56851d7543a",
+      "referenceHash": "499a4f2bb5e1a3a45e3ff146b58e73b0c0912652b6d0c4d404bab56851d7543a"
+    },
+    "coarse:beforeP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "56b417690772c06d80f1f5ca41333f74efa7195bfea15397b4236a7b234eeed7",
+      "referenceHash": "56b417690772c06d80f1f5ca41333f74efa7195bfea15397b4236a7b234eeed7"
+    },
+    "coarse:afterP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "56b417690772c06d80f1f5ca41333f74efa7195bfea15397b4236a7b234eeed7",
+      "referenceHash": "56b417690772c06d80f1f5ca41333f74efa7195bfea15397b4236a7b234eeed7"
+    },
+    "coarse:beforeC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "cc10a957b36d73a902edbb138d763b23ef1e53366ce0708c6cf1bb14ca26c3b6",
+      "referenceHash": "cc10a957b36d73a902edbb138d763b23ef1e53366ce0708c6cf1bb14ca26c3b6"
+    },
+    "coarse:afterC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "cc10a957b36d73a902edbb138d763b23ef1e53366ce0708c6cf1bb14ca26c3b6",
+      "referenceHash": "cc10a957b36d73a902edbb138d763b23ef1e53366ce0708c6cf1bb14ca26c3b6"
+    }
+  },
+  "diffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "3765e0a071bd5865c1a750eb64377c5d209318fdc28a080e47f41835dc4980ef",
+      "referenceHash": "3765e0a071bd5865c1a750eb64377c5d209318fdc28a080e47f41835dc4980ef"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "476250a2de2c6f510317a6fa90a35860a3a26cae8287a8c765623f10de992b24",
+      "referenceHash": "476250a2de2c6f510317a6fa90a35860a3a26cae8287a8c765623f10de992b24"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "b166be41b9904ad4cb36540f94e82a76c61e8e4078dea9e45db46830fa156954",
+      "referenceHash": "b166be41b9904ad4cb36540f94e82a76c61e8e4078dea9e45db46830fa156954"
+    }
+  },
+  "reference": {
+    "ms": 2808.300000190735,
+    "steps": 26,
+    "gl": 0
+  },
+  "actual": {
+    "ms": 8920.700000286102,
+    "steps": 24,
+    "gl": 0
+  },
+  "errors": [],
+  "lost": false,
+  "runtimeSourceSHA256": {
+    "apps/web/src/engine/index.ts": "8fad1d0956ceebfad8defa770727b1d5edc07d12563c2e58576be72033820e66",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts": "8071d038ca395009d2b74ea2ae34aa9516526bb5c74580772724c0d102724611",
+    "apps/web/src/engine/src/watercolor/puddle/M70EmptyPostphase.ts": "cc26f7daadbacede5f80e6019466dcea58d7a5bec09f0d0bb596db5343c2a8b6",
+    "apps/web/src/engine/src/watercolor/puddle/M70FixedWindowSkip.ts": "d5e6c047daebe7c2e4784ab5d9c5fc709a5ecf44eecbb5a6c459379ed96b3b3c",
+    "apps/web/src/engine/src/watercolor/puddle/PagedPuddleSource.ts": "98d56eaa05eb62a9273279b16e9903d22a261aa830c3a2f977a5bba01a44b748"
+  },
+  "qualification": "Real Intel standalone hidden-context numeric proof; R32 OFF, only postphase skip ON, not memory/performance proof."
+}
