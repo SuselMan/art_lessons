@@ -1,0 +1,7 @@
+Ночной cold join показал log1..19и21..25 при snapshotcoverage20. CPU baseline подтвердил пользовательское последствие: при sameauthor snapshotнапоследнемштрихе20 и пустомtail первыйUndo выбираетштрих19, а20вUndoисторииотсутствует.
+
+Публичный `restoreRoomState` вызывает `backfillHistory(...latestSnapshotSeq)`; `useRemoteOperations` передаётfromSeqбезизменения в `walkHistoryBackward`, а serverbeforeSeqэксклюзивный(seq.lt). Поэтомуheadоперацияникогданезапрашивается. ПравилоограниченияUndoглубиныпримернодвумяsnapshotнеобосновываетисключениесамойновойоперации.
+
+Baseline: настоящийPencilEngine sourceс20pencilштрихамиавтораA→реальныйbakeLayerByFullReplay→snapshotuploadвreaderA→publicroomrestore/backfill500. ЗапросыbeforeSeq[20,1],19известныхштрихов,head20нет; reader.undo()вернулstroke19. Финальнаяassertexpectedstroke20реальноFAIL. ЭтоCPUреальногоengineUndo/journal, неаппаратныйrasterproof.
+
+Минимальноеисправление: нормализоватьsnapshotwatermarkвexclusivecursorнаentry(positivehead+1), сохранитьdepth500/noSnapshot/cursor0 и неувеличиватьчислозапрашиваемыхопераций. Ужеимеющийсяheadвtail/logдолженdedupeбезповторнойотрисовки. ПроверитьUndo/Redo20иduplicateboundary.
