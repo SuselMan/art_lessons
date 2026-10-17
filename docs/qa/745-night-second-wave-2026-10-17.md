@@ -33,6 +33,35 @@ CPU69targeted+10000graphprefixesPASS; аппаратный повтор Dry/clea
 Отдельный opt-in prototype прошёл restart/atomicity tests, но старые вкладки,
 crash window и cross-batch mapping пока исключают незаметное внедрение.
 
+## Текущая проверка: 05:18
+
+Ночной поиск продолжается. Лимит: **48% использовано, 52% осталось**, один
+reset доступен и не использован. Останавливаемся до согласованного потолка
+расхода либо в 10:00; публикации в production и push не выполнялись.
+
+Новые подтверждённые проблемы:
+
+- **#780 — два подключения одного пользователя.** Закрытие последнего
+  подключившегося устройства удаляло участника, хотя первое оставалось онлайн;
+  владелец терял исключение из room freeze. Серверное исправление подготовлено
+  отдельно: 685 серверных тестов и 14 Socket.IO tests PASS. Дополнительно
+  проверяем переход между досками с незавершённым live-мазком. Пока backend не
+  обновлён, аппаратный прогон текущей сборки не прерываем.
+- **#781 — принятый порядок после offline UP.** Samsung завершает A офлайн,
+  сервер принимает чужой B, затем A. Оба действия сохранены, но legacy wash
+  задерживает пересборку M70 почти на 100 секунд. Через 5 секунд было 11651
+  отличающихся каналов (max28), после ещё 96261ms без ручного вмешательства —
+  точное совпадение. Это длительная задержка сходимости, не потеря данных.
+  Узкий кандидат убирает legacy-ожидание только для M70, CPU/TypeScript PASS;
+  аппаратная проверка исправления ещё впереди.
+
+Текущий soak использует настоящий Surface Intel и Vega AMD, 10 socket-авторов,
+новый контрольный участок каждого цикла и обязательное итоговое сравнение с
+полным replay до закрытия браузеров. Surface: DPR1.5, touch10, native memory8;
+бесконечный GPU budget здесь соответствует текущей политике движка. Vega:
+native deviceMemory16 подтверждена отдельной secure-origin страницей;
+observer viewport/DPR заданы тестом. Это не измерение Samsung-политики 300MiB.
+
 ## Метод
 
 Проверяем переходы общего состояния, а не только отдельные кнопки. Независимые
@@ -809,8 +838,24 @@ capturedrawbuffers/scalars сохраненыДОoracle, post-cycleточнор�
 pre-exact. Четырефинальныхlayer×3actorsphysicalOFFproofs0diff/GL0.
 Сценарийидётчерезrecordedops+настоящийserver, неtrustedpeninputclaim.
 
-Новыйtouchsentinel24cycleSTART:SurfaceDPR1.5/hasTouchtrue/finitebudget
-явноassert, новыйROIвкаждомцикле, recordedDry/eraserUndoRedo, отдельные
+Новыйtouchsentinel24cycle готовится: планDPR1.5/touchprofile, новыйROI
+вкаждомцикле, recordedDry/eraserUndoRedo, отдельные
 timerswork/verification/idle иfinaldeepобоихслоёв×обоихGPUbeforecontextclose.
 Currentrunнепрерываетсяновымисходником. Lastquota05:05:47%used/53%left,
 1resetuntouched. Работа продолжается, итогдо10:00/бюджетаещёневыпущен.
+
+
+### Уточнение setup touch-прогона
+
+Циклы ещё не начались: первоначальный harness ошибочно ожидал finitebudget
+от одного hasTouch=true. Playwright даёт maxTouchPoints1, а реальныйSurface
+имеет touch10; бюджет движок также связывает с deviceMemory<=4. Высокую
+память Surface нельзя искусственно понижать ради expectedbudget.
+Следующий запуск сохраняет реальные secure-origin deviceMemory/budget,
+touch10 иDPR1.5. Нативный Samsung300MiB ранее проверен отдельно.
+Это исправление предположения harness, не найденная ошибка продукта.
+
+Независимый source review #753 не выявил нового подтверждённого corner:
+проверены lease/callback lifecycle, parked timestamps, chunks, lateACK/reject,
+Dry/hide repair debt. Это не добавляет нового GPUproof; long-hold/last-material
+продуктовая семантика остаётся OPEN.
