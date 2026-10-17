@@ -1,0 +1,203 @@
+{
+  "source": "3ee37518+mode6-highp-QA",
+  "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x000046D1) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "inputHashes": {
+    "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+    "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+    "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+    "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+  },
+  "mode6Highp": {
+    "requested": true,
+    "samplerCount": 6,
+    "originalSHA": "b53ec815e0e503925fa25ec9ac2f7105d6d79dd102a36dfa9f68953ae68c2461",
+    "patchedSHA": "95c732a15ffd10e09520f4e453ae0e3b976ac472454dd40ad7c466951b3b829f",
+    "selectedCalls": 10,
+    "otherCalls": 582,
+    "initializedBaseline": true,
+    "restoration": {
+      "wrapperExact": true,
+      "cacheExact": true,
+      "cacheDescriptorRestored": true,
+      "deletedOwnedProgram": true
+    },
+    "uniformKeys": [
+      "u_a",
+      "u_b",
+      "u_c",
+      "u_k",
+      "u_mode",
+      "u_tau",
+      "u_dir",
+      "u_d",
+      "u_origin",
+      "u_size",
+      "u_band",
+      "u_world",
+      "u_mode6Resolution",
+      "u_mode6DirPx",
+      "u_mode6DiscreteGrid"
+    ]
+  },
+  "mode11Precision": {
+    "highpSamplers": true,
+    "roundRGBA": false,
+    "anchorCount": 1,
+    "samplerCount": 6,
+    "originalSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+    "patchedSHA": "d922bcd3be045a50479c2ed875567eea74d6297b28d77b55978bc05bef03c1b1",
+    "uniformKeys": [
+      "u_a",
+      "u_b",
+      "u_c",
+      "u_k",
+      "u_mode",
+      "u_tau",
+      "u_dir",
+      "u_d",
+      "u_e",
+      "u_origin",
+      "u_size",
+      "u_band",
+      "u_world"
+    ],
+    "selectedCalls": 5,
+    "otherCalls": 587,
+    "restoration": {
+      "wrapperExact": true,
+      "propertiesExact": true,
+      "deletedOwnedProgram": true
+    }
+  },
+  "stageDiffs": {
+    "referenceP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9",
+      "referenceHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9"
+    },
+    "referenceC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2",
+      "referenceHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2"
+    },
+    "solvedP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "3c3095c66529d8568eb5f96804f22947c3ac5cb62a525236eac30ea9c58d781e",
+      "referenceHash": "3c3095c66529d8568eb5f96804f22947c3ac5cb62a525236eac30ea9c58d781e"
+    },
+    "solvedC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "6dd7c79a29c3dadd73dfc7384259e083bbf32010824655d8b304c52d00609c4e",
+      "referenceHash": "6dd7c79a29c3dadd73dfc7384259e083bbf32010824655d8b304c52d00609c4e"
+    },
+    "solvedCoverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+      "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+    },
+    "coarse:gate": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "7ab82cb851ef6a91c742a698cbe96cbb4741238b30167b80be1e33c3e1ead411",
+      "referenceHash": "7ab82cb851ef6a91c742a698cbe96cbb4741238b30167b80be1e33c3e1ead411"
+    },
+    "coarse:beforeP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "a0f71c16e1437310fa6edacf4ab16ee9494a9ba552bdc7eb734b4abdc365c3f4",
+      "referenceHash": "a0f71c16e1437310fa6edacf4ab16ee9494a9ba552bdc7eb734b4abdc365c3f4"
+    },
+    "coarse:afterP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "8bc95a3c0d439d32f8819df9e62588c87708eaf4b6687a46cfd4eac1603bb0e6",
+      "referenceHash": "8bc95a3c0d439d32f8819df9e62588c87708eaf4b6687a46cfd4eac1603bb0e6"
+    },
+    "coarse:beforeC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "5f7558deb46761c0bf7cab2b56f2c6c5f979a338ee7cb822fcf80a4c4de74029",
+      "referenceHash": "5f7558deb46761c0bf7cab2b56f2c6c5f979a338ee7cb822fcf80a4c4de74029"
+    },
+    "coarse:afterC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "034fa9aa1478d4c33dc93004092c37a1f7fb0bb75a52259b5c1e0b177ac693c9",
+      "referenceHash": "034fa9aa1478d4c33dc93004092c37a1f7fb0bb75a52259b5c1e0b177ac693c9"
+    }
+  },
+  "diffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "0ade849aac0db2a5ba7b8dbf4605f559e2f7b6a0a8feb17bf9e29397049a90c8",
+      "referenceHash": "0ade849aac0db2a5ba7b8dbf4605f559e2f7b6a0a8feb17bf9e29397049a90c8"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "d9adcc38a561d4e9e5fd5bad30ab3e41f2fa651938727f658fe99fbb8d6fb85d",
+      "referenceHash": "d9adcc38a561d4e9e5fd5bad30ab3e41f2fa651938727f658fe99fbb8d6fb85d"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+    }
+  },
+  "errors": [],
+  "lost": false,
+  "boundary": {
+    "selection": {
+      "kind": "band",
+      "ordinal": 1,
+      "maxBytes": 16777216
+    },
+    "capture": {
+      "name": "band",
+      "width": 2048,
+      "height": 1536,
+      "bytes": 12582912,
+      "filter": "nearest",
+      "pointSampling": false,
+      "sha256": "76f4dd22c880d5fd07952208e52f42e99002cdefcb59ba4a7b370ed87a09da38"
+    },
+    "restoration": {
+      "ownershipExact": true,
+      "restored": true
+    }
+  },
+  "qualification": "QA mode6 highp ONLY, front highp/round and mode11 highp controls retained; no product shader edit or performance claim. Rawcoverage shortcut runtime3ee37518. CrossGPU comparison separate."
+}
