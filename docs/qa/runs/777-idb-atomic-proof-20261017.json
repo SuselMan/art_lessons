@@ -1,0 +1,27 @@
+{
+  "sourceSha": "3f4fb0a0f7d0b12674ffffee54ee1e829a0b0d6b494257a1356cecdb0bd616c7",
+  "browser": "151.0.7922.34",
+  "gpuDisabled": true,
+  "webglContextsCreated": 0,
+  "origin": "http://outbox-prototype.test",
+  "cases": [
+    "sticky terminal put",
+    "sticky terminal delete",
+    "real DataCloneError rollback all originals / zero replacements",
+    "atomic handoff / compact tombstone / filtered reads",
+    "two new writer transactions",
+    "concurrent handoff exactly one winning local transaction",
+    "page restart retained terminal payload and sticky compact tombstone"
+  ],
+  "restart": {
+    "terminal": "target_gone",
+    "rows": [
+      "good",
+      "good2",
+      "restart-terminal",
+      "winner"
+    ],
+    "retired": "retired"
+  },
+  "passed": true
+}

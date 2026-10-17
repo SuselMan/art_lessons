@@ -59,6 +59,14 @@ export interface OutboxDeps {
   onPendingChange?: (pending: number, stalled: number) => void
   now?: () => number
   schedule?: (fn: () => void, delayMs: number) => void
+  /** ISOLATED PROTOTYPE ONLY. No Room/UI caller enables this by default.
+   * observe must own captured board/engine refs; handoff completes at durable
+   * storage commit, never ACK/whenIdle. Terminal non-target_gone stays retained. */
+  experimentalDurableTerminal?: {
+    observe?: (entry:OutboxEntry)=>void
+    handoff?: (entry:OutboxEntry)=>Promise<void>
+    onError?: (entry:OutboxEntry,error:unknown)=>void
+  }
 }
 
 /** Persistent send queue for operations this client has generated but the
@@ -114,8 +122,14 @@ export class Outbox {
   // (#358) Set by dispose(): this queue's room is behind us and nothing it
   // still holds may reach the wire or the UI. See dispose's own comment.
   private disposed = false
+  private readonly durableTerminal:OutboxDeps['experimentalDurableTerminal']
+  private readonly terminalWork=new Map<string,Promise<void>>()
+  private readonly terminalFailures=new Map<string,unknown>()
+  private readonly terminalNotified=new Set<string>()
 
   constructor(deps: OutboxDeps) {
+    if(deps.experimentalDurableTerminal && (!deps.storage.putGuarded || !deps.storage.replaceTerminal))throw new Error('durable terminal prototype requires guarded atomic storage')
+    this.durableTerminal=deps.experimentalDurableTerminal
     this.storage = deps.storage
     this.roomId = deps.roomId
     this.send = deps.send
@@ -240,7 +254,7 @@ export class Outbox {
       const persisted = await this.storage.getAll(this.roomId)
       if (this.disposed) return
       for (const entry of persisted) {
-        if (!this.pending.has(entry.op.id)) this.pending.set(entry.op.id, entry)
+        if (!this.pending.has(entry.op.id) || entry.terminal) this.pending.set(entry.op.id, entry)
       }
     } catch (err) {
       // Nothing to recover from a broken store, but everything queued in
@@ -263,14 +277,20 @@ export class Outbox {
     // Re-arms anything that gave up: a reconnect (or a completed join) is
     // exactly the change of circumstances that could make it succeed now.
     this.stalled.clear()
-    for (const entry of this.pending.values()) entry.attempts = 0
+    for (const entry of this.pending.values()) if(!entry.terminal)entry.attempts = 0
     this.onPendingChange?.(this.pending.size, this.stalled.size)
     for (const opId of [...this.pending.keys()]) this.attempt(opId)
   }
 
   private async persist(entry: OutboxEntry): Promise<void> {
     try {
-      await this.storage.put(entry)
+      if(this.durableTerminal && this.storage.putGuarded){
+        const result=await this.storage.putGuarded(entry)
+        if(this.pending.get(entry.op.id)===entry){
+          if(result.kind==='retired'){this.pending.delete(entry.op.id);this.stalled.delete(entry.op.id)}
+          else this.pending.set(entry.op.id,result.entry)
+        }
+      }else await this.storage.put(entry)
     } catch (err) {
       // Durability across reloads is lost for this operation; delivery is
       // not. Never rethrow — see `pending`'s doc comment.
@@ -278,11 +298,63 @@ export class Outbox {
     }
   }
 
+  /** Prototype completion is storage completion; failures are observable,
+   * unlike the ordinary best-effort persistence path. No server ACK awaited. */
+  async whenTerminalIdle():Promise<void> {
+    while(this.terminalWork.size)await Promise.all([...this.terminalWork.values()])
+    if(this.terminalFailures.size)throw this.terminalFailures.values().next().value
+  }
+
+  private currentBoard():boolean{return !this.disposed && (!this.canSend || this.canSend())}
+
+  private beginTerminal(entry:OutboxEntry,result:Extract<SendResult,{ok:false}>):void {
+    const id=entry.op.id
+    if(this.terminalWork.has(id))return
+    entry.terminal??={result,recordedAt:this.now()}
+    this.terminalFailures.delete(id)
+    const task=Promise.resolve().then(async()=>{
+      // Guarded put is mandatory here: a disk failure must not be swallowed
+      // and must never turn the definitive rejection into a network retry.
+      const stored=await this.storage.putGuarded!(entry)
+      if(stored.kind==='entry'){
+        if(!stored.entry.terminal)throw new Error('terminal write lost its disposition')
+        if(!this.disposed)this.pending.set(id,stored.entry)
+        if(this.currentBoard() && !this.terminalNotified.has(id)){
+          this.terminalNotified.add(id);this.durableTerminal?.observe?.(stored.entry)
+        }
+        await this.durableTerminal?.handoff?.(stored.entry)
+      }
+      if(this.disposed)return
+      const rows=await this.storage.getAll(this.roomId)
+      const held=rows.find(row=>row.op.id===id)
+      if(held?.terminal){this.pending.set(id,held);this.stalled.add(id)}
+      else{this.pending.delete(id);this.stalled.delete(id)}
+      for(const row of rows)if(!this.pending.has(row.op.id) || row.terminal)this.pending.set(row.op.id,row)
+      if(this.currentBoard()){this.onPendingChange?.(this.pending.size,this.stalled.size);this.settleIdleWaiters()}
+      for(const row of rows)if(!row.terminal)this.attempt(row.op.id)
+    })
+    this.terminalWork.set(id,task)
+    // A storage/debounce handoff does not own either of the two network slots.
+    // settling IDs prevent duplicate sends while the slot is already released.
+    this.inFlight.delete(id);this.pump()
+    void task.catch(error=>{
+      this.terminalFailures.set(id,error)
+      if(!this.disposed)this.stalled.add(id)
+      this.durableTerminal?.onError?.(entry,error)
+    }).finally(()=>{if(this.terminalWork.get(id)===task)this.terminalWork.delete(id)})
+  }
+
   private attempt(opId: string): void {
     // Where a scheduled retry of a retired queue dies (#358) — see dispose on
     // why the timers themselves are left to fire.
     if (this.disposed) return
-    if (this.inFlight.has(opId) || this.stalled.has(opId)) return
+    const entry=this.pending.get(opId)
+    if(entry?.terminal){
+      if(this.durableTerminal)this.beginTerminal(entry,entry.terminal.result)
+      else this.stalled.add(opId) // A new reader never re-sends a terminal row.
+      return
+    }
+    if (this.inFlight.has(opId) || this.stalled.has(opId) || this.terminalWork.has(opId)) return
     if (!this.waiting.includes(opId)) this.waiting.push(opId)
     this.pump()
   }
@@ -311,9 +383,16 @@ export class Outbox {
     try {
       const entry = this.pending.get(opId)
       if (!entry) return // already settled (by this attempt's own earlier sibling, or resendAll racing enqueue)
+      if(entry.terminal){if(this.durableTerminal)this.beginTerminal(entry,entry.terminal.result);else this.stalled.add(opId);return}
 
       try {
         const result = await this.send(entry.op)
+        if(this.durableTerminal && !result.ok && !isTransientReject(result.reason)){
+          // This disposition remains meaningful after board retirement. Only
+          // durable captured-board work runs; no current UI ref is consulted.
+          this.beginTerminal(entry,result)
+          return
+        }
         // (#358) The room was left while this was on the wire. Whatever the
         // server made of it, this queue no longer speaks for anybody: don't
         // clear the durable copy and don't report a settlement to a UI that

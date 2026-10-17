@@ -1,4 +1,4 @@
-import type { Operation } from '@grafetto/shared'
+import type { Operation, SendResult } from '@grafetto/shared'
 
 // (#289 epic, reliable history spec v0.2 §9) One record per operation this
 // client has sent but not yet gotten a definitive SendResult for.
@@ -15,6 +15,34 @@ export interface OutboxEntry {
   roomId: string
   attempts: number
   nextRetryAt: number
+  /** PROTOTYPE: local-only definitive rejection, never a server Operation. */
+  terminal?: {result: Extract<SendResult,{ok:false}>; recordedAt:number}
+}
+
+/** Compact sticky fence after atomic handoff; never returned as a wire op. */
+export interface RetiredOutboxRecord {
+  op: {id:string}
+  roomId: string
+  retired: {handoffId:string}
+}
+export type StoredOutboxRecord = OutboxEntry | RetiredOutboxRecord
+export type GuardedOutboxWrite = {kind:'entry';entry:OutboxEntry} | {kind:'retired'}
+const isRetired=(entry:StoredOutboxRecord):entry is RetiredOutboxRecord=>'retired' in entry
+const clone=<T>(value:T):T=>structuredClone(value)
+function guardedResult(existing:StoredOutboxRecord|undefined,incoming:OutboxEntry):GuardedOutboxWrite {
+  if(existing && isRetired(existing))return {kind:'retired'}
+  return {kind:'entry',entry:existing?.terminal ? existing : incoming}
+}
+function validateHandoff(roomId:string,ids:readonly string[],replacement:readonly OutboxEntry[],records:ReadonlyMap<string,StoredOutboxRecord|undefined>):boolean {
+  if(!replacement.length)throw new Error('handoff requires durable replacement rows')
+  if(!ids.length || new Set(ids).size!==ids.length)throw new Error('handoff needs distinct terminal IDs')
+  if(ids.some(id=>{const entry=records.get(id);return !entry || isRetired(entry) || !entry.terminal || entry.roomId!==roomId}))return false
+  const newIds=new Set<string>()
+  for(const entry of replacement){
+    if(entry.roomId!==roomId || entry.terminal || records.has(entry.op.id) && records.get(entry.op.id) || newIds.has(entry.op.id))throw new Error('invalid or colliding recovery replacement')
+    newIds.add(entry.op.id)
+  }
+  return true
 }
 
 // Storage seam Outbox (outbox.ts) is built against, so its retry/backoff
@@ -28,6 +56,10 @@ export interface OutboxStorage {
   getAll(roomId: string): Promise<OutboxEntry[]>
   put(entry: OutboxEntry): Promise<void>
   delete(operationId: string): Promise<void>
+  /** All-new-reader prototype. Existing terminal/retired state wins stale put. */
+  putGuarded?(entry:OutboxEntry):Promise<GuardedOutboxWrite>
+  /** One transaction: all originals terminal and still present, or no writes. */
+  replaceTerminal?(roomId:string,originalIds:readonly string[],replacement:readonly OutboxEntry[]):Promise<boolean>
 }
 
 const DB_NAME = 'pencil-outbox'
@@ -111,36 +143,61 @@ export function createIndexedDbOutboxStorage(): OutboxStorage {
     }
   }
 
+  const writeGuarded=async(entry:OutboxEntry):Promise<GuardedOutboxWrite>=>{
+    const db=await getDb()
+    return new Promise((resolve,reject)=>{
+      const tx=db.transaction(STORE_NAME,'readwrite'),store=tx.objectStore(STORE_NAME)
+      let result:GuardedOutboxWrite,error:unknown
+      tx.oncomplete=()=>resolve(result)
+      tx.onabort=()=>reject(error??tx.error??new Error('outbox write aborted'))
+      tx.onerror=()=>{error??=tx.error}
+      const req=store.get(entry.op.id)
+      req.onsuccess=()=>{try{
+        result=guardedResult(req.result as StoredOutboxRecord|undefined,entry)
+        if(result.kind==='entry' && !((req.result as OutboxEntry|undefined)?.terminal))store.put(result.entry)
+      }catch(cause){error=cause;tx.abort()}}
+    })
+  }
   return {
     async getAll(roomId) {
-      const db = await getDb()
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readonly')
-        // Through the index rather than reading everything and filtering: a
-        // backlog is measured in tens of MB of stroke JSON (#298), and
-        // deserializing another room's share of it just to discard it is the
-        // kind of memory spike that got this app killed on a tablet once.
-        const req = tx.objectStore(STORE_NAME).index(ROOM_INDEX).getAll(roomId)
-        req.onsuccess = () => resolve(req.result as OutboxEntry[])
-        req.onerror = () => reject(req.error as unknown)
+      const db=await getDb()
+      return new Promise((resolve,reject)=>{
+        const tx=db.transaction(STORE_NAME,'readonly')
+        const req=tx.objectStore(STORE_NAME).index(ROOM_INDEX).getAll(roomId)
+        req.onsuccess=()=>resolve((req.result as StoredOutboxRecord[]).filter((entry):entry is OutboxEntry=>!isRetired(entry)))
+        req.onerror=()=>reject(req.error)
       })
     },
-    async put(entry) {
-      const db = await getDb()
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite')
-        tx.objectStore(STORE_NAME).put(entry)
-        tx.oncomplete = () => resolve()
-        tx.onerror = () => reject(tx.error as unknown)
+    async put(entry){await writeGuarded(entry)},
+    putGuarded:writeGuarded,
+    async delete(operationId){
+      const db=await getDb()
+      return new Promise((resolve,reject)=>{
+        const tx=db.transaction(STORE_NAME,'readwrite'),store=tx.objectStore(STORE_NAME)
+        tx.oncomplete=()=>resolve();tx.onabort=()=>reject(tx.error??new Error('outbox delete aborted'))
+        const req=store.get(operationId)
+        req.onsuccess=()=>{const old=req.result as StoredOutboxRecord|undefined;if(!old || !isRetired(old) && !old.terminal)store.delete(operationId)}
       })
     },
-    async delete(operationId) {
-      const db = await getDb()
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite')
-        tx.objectStore(STORE_NAME).delete(operationId)
-        tx.oncomplete = () => resolve()
-        tx.onerror = () => reject(tx.error as unknown)
+    async replaceTerminal(roomId,originalIds,replacement){
+      const db=await getDb()
+      return new Promise((resolve,reject)=>{
+        const tx=db.transaction(STORE_NAME,'readwrite'),store=tx.objectStore(STORE_NAME)
+        const records=new Map<string,StoredOutboxRecord|undefined>()
+        let pending=0,replaced=false,error:unknown
+        tx.oncomplete=()=>resolve(replaced)
+        tx.onabort=()=>reject(error??tx.error??new Error('outbox handoff aborted'))
+        tx.onerror=()=>{error??=tx.error}
+        const finish=()=>{try{
+          if(!validateHandoff(roomId,originalIds,replacement,records))return
+          for(const entry of replacement)store.put(entry)
+          for(const id of originalIds)store.put({op:{id},roomId,retired:{handoffId:originalIds[0]}} satisfies RetiredOutboxRecord)
+          replaced=true
+        }catch(cause){error=cause;tx.abort()}}
+        const keys=new Set([...originalIds,...replacement.map(entry=>entry.op.id)])
+        if(!keys.size){error=new Error('handoff needs terminal originals');tx.abort();return}
+        pending=keys.size
+        for(const id of keys){const req=store.get(id);req.onsuccess=()=>{records.set(id,req.result as StoredOutboxRecord|undefined);if(--pending===0)finish()}}
       })
     },
   }
@@ -159,13 +216,24 @@ export interface InMemoryOutboxStorage extends OutboxStorage {
  *  (outbox.test.ts) — same idea as engine/testing/mockGL.ts, just for this
  *  much smaller seam. Not used by the app itself. */
 export function createInMemoryOutboxStorage(): InMemoryOutboxStorage {
-  const entries = new Map<string, OutboxEntry>()
+  const entries = new Map<string,StoredOutboxRecord>()
+  const putGuarded=async(entry:OutboxEntry):Promise<GuardedOutboxWrite>=>{
+    const result=guardedResult(entries.get(entry.op.id),entry)
+    if(result.kind==='entry'){const stored=clone(result.entry);entries.set(stored.op.id,stored);return {kind:'entry',entry:clone(stored)}}
+    return result
+  }
   return {
-    async getAll(roomId) {
-      const all = [...entries.values()]
-      return roomId === undefined ? all : all.filter(e => e.roomId === roomId)
+    async getAll(roomId){return [...entries.values()].filter((entry):entry is OutboxEntry=>!isRetired(entry) && (roomId===undefined || entry.roomId===roomId)).map(clone)},
+    async put(entry){await putGuarded(entry)},
+    putGuarded,
+    async delete(operationId){const old=entries.get(operationId);if(!old || !isRetired(old) && !old.terminal)entries.delete(operationId)},
+    async replaceTerminal(roomId,ids,replacement){
+      if(!validateHandoff(roomId,ids,replacement,entries))return false
+      // Stage all clone/validation work before changing any row, like IDB abort.
+      const staged=replacement.map(clone)
+      for(const entry of staged)entries.set(entry.op.id,entry)
+      for(const id of ids)entries.set(id,{op:{id},roomId,retired:{handoffId:ids[0]}})
+      return true
     },
-    async put(entry) { entries.set(entry.op.id, entry) },
-    async delete(operationId) { entries.delete(operationId) },
   }
 }
