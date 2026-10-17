@@ -1,0 +1,849 @@
+{
+  "source": "509fb989",
+  "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x000046D1) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "inputHashes": {
+    "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+    "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+    "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+    "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+  },
+  "frontBoundary": {
+    "selection": {
+      "kind": "inward",
+      "ordinal": 10,
+      "maxBytes": 16777216
+    },
+    "capture": {
+      "name": "inward:10",
+      "width": 2048,
+      "height": 1536,
+      "bytes": 12582912,
+      "filter": "linear",
+      "pointSampling": false,
+      "sha256": "d0986c5b68c40fbfc3b5e55aca7c4d41c497d145d1ebe3cf44515dd215fe93fc"
+    },
+    "outward": 25,
+    "inward": 10,
+    "events": [
+      {
+        "method": "fieldOp",
+        "mode": 10,
+        "k": 0.003,
+        "role": "seed"
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 1,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 2,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 3,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 4,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 5,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 6,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 7,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 8,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 9,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 10,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 11,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 12,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 13,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 14,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 15,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 16,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 17,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 8,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 18,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 19,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 20,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 21,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 22,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 23,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 24,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "outward",
+        "ordinal": 25,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 100,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "fieldOp",
+        "mode": 12,
+        "k": 0.96,
+        "role": "inward-seed"
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "inward",
+        "ordinal": 1,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 11,
+        "climb": 0,
+        "floor": 1,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "inward",
+        "ordinal": 2,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 11,
+        "climb": 0,
+        "floor": 1,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "inward",
+        "ordinal": 3,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 11,
+        "climb": 15,
+        "floor": 0.5,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "inward",
+        "ordinal": 4,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 11,
+        "climb": 15,
+        "floor": 0.5,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "inward",
+        "ordinal": 5,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 11,
+        "climb": 15,
+        "floor": 0.5,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "inward",
+        "ordinal": 6,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 11,
+        "climb": 15,
+        "floor": 0.5,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "inward",
+        "ordinal": 7,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 11,
+        "climb": 15,
+        "floor": 0.5,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "inward",
+        "ordinal": 8,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 11,
+        "climb": 15,
+        "floor": 0.5,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "inward",
+        "ordinal": 9,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 11,
+        "climb": 15,
+        "floor": 0.5,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "waterFrontStep",
+        "phase": "inward",
+        "ordinal": 10,
+        "x0": 0,
+        "y0": 0,
+        "dryCost": 48,
+        "max": 11,
+        "climb": 15,
+        "floor": 0.5,
+        "stride": 1,
+        "scale": 1,
+        "foreign": false,
+        "discreteGrid": true
+      },
+      {
+        "method": "fieldOp",
+        "mode": 6,
+        "k": 1,
+        "role": "band"
+      },
+      {
+        "method": "fieldOp",
+        "mode": 6,
+        "k": 0,
+        "role": "band"
+      }
+    ],
+    "fieldArgs": [
+      2048,
+      512,
+      1,
+      "tight",
+      1024
+    ],
+    "rect": {
+      "x": 0,
+      "y": -1024,
+      "width": 2048,
+      "height": 1536
+    },
+    "peakRetainedBytes": 12582912,
+    "restoration": {
+      "ownershipExact": true,
+      "restored": true
+    },
+    "qualification": "One selected first-front plane, CPU raw retention cap; gzip staging additional; no draws/sampler/ops changes, no performance claim",
+    "privateArraysFile": "front-boundary-arrays.json"
+  },
+  "forcedContrastReference": {
+    "qualification": "QA-only fixed-reference diagnostic; not renderer fix, approved art or golden replacement",
+    "manifest": {
+      "width": 2048,
+      "height": 512,
+      "chosenSource": "dfe322c3",
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "arrays": {
+        "contrastReferenceP": {
+          "sha256": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9",
+          "bytes": 4194304
+        },
+        "contrastReferenceC": {
+          "sha256": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2",
+          "bytes": 4194304
+        }
+      }
+    },
+    "applications": [
+      {
+        "stage": "native-reference",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 2048,
+          "height": 512
+        },
+        "planes": 2,
+        "uploadReadbackExact": true
+      },
+      {
+        "stage": "paged-global-reference",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "planes": 2,
+        "uploadReadbackExact": true
+      },
+      {
+        "stage": "paged-global-reference",
+        "rect": {
+          "x": 512,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "planes": 2,
+        "uploadReadbackExact": true
+      },
+      {
+        "stage": "paged-global-reference",
+        "rect": {
+          "x": 1024,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "planes": 2,
+        "uploadReadbackExact": true
+      },
+      {
+        "stage": "paged-global-reference",
+        "rect": {
+          "x": 1536,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        },
+        "planes": 2,
+        "uploadReadbackExact": true
+      },
+      {
+        "stage": "paged-window-reference",
+        "rect": {
+          "x": 0,
+          "y": -1024,
+          "width": 1536,
+          "height": 1536
+        },
+        "planes": 2,
+        "uploadReadbackExact": true
+      },
+      {
+        "stage": "paged-window-reference",
+        "rect": {
+          "x": 128,
+          "y": -1024,
+          "width": 1536,
+          "height": 1536
+        },
+        "planes": 2,
+        "uploadReadbackExact": true
+      },
+      {
+        "stage": "paged-window-reference",
+        "rect": {
+          "x": 384,
+          "y": -1024,
+          "width": 1536,
+          "height": 1536
+        },
+        "planes": 2,
+        "uploadReadbackExact": true
+      },
+      {
+        "stage": "paged-window-reference",
+        "rect": {
+          "x": 512,
+          "y": -1024,
+          "width": 1536,
+          "height": 1536
+        },
+        "planes": 2,
+        "uploadReadbackExact": true
+      }
+    ]
+  },
+  "diffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "0ade849aac0db2a5ba7b8dbf4605f559e2f7b6a0a8feb17bf9e29397049a90c8",
+      "referenceHash": "0ade849aac0db2a5ba7b8dbf4605f559e2f7b6a0a8feb17bf9e29397049a90c8"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "d9adcc38a561d4e9e5fd5bad30ab3e41f2fa651938727f658fe99fbb8d6fb85d",
+      "referenceHash": "d9adcc38a561d4e9e5fd5bad30ab3e41f2fa651938727f658fe99fbb8d6fb85d"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+    }
+  },
+  "stageDiffs": {
+    "referenceP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9",
+      "referenceHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9"
+    },
+    "referenceC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2",
+      "referenceHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2"
+    },
+    "solvedP": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "3c3095c66529d8568eb5f96804f22947c3ac5cb62a525236eac30ea9c58d781e",
+      "referenceHash": "3c3095c66529d8568eb5f96804f22947c3ac5cb62a525236eac30ea9c58d781e"
+    },
+    "solvedC": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "6dd7c79a29c3dadd73dfc7384259e083bbf32010824655d8b304c52d00609c4e",
+      "referenceHash": "6dd7c79a29c3dadd73dfc7384259e083bbf32010824655d8b304c52d00609c4e"
+    },
+    "solvedCoverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+      "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+    },
+    "coarse:gate": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "7ab82cb851ef6a91c742a698cbe96cbb4741238b30167b80be1e33c3e1ead411",
+      "referenceHash": "7ab82cb851ef6a91c742a698cbe96cbb4741238b30167b80be1e33c3e1ead411"
+    },
+    "coarse:beforeP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "a0f71c16e1437310fa6edacf4ab16ee9494a9ba552bdc7eb734b4abdc365c3f4",
+      "referenceHash": "a0f71c16e1437310fa6edacf4ab16ee9494a9ba552bdc7eb734b4abdc365c3f4"
+    },
+    "coarse:afterP": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "8bc95a3c0d439d32f8819df9e62588c87708eaf4b6687a46cfd4eac1603bb0e6",
+      "referenceHash": "8bc95a3c0d439d32f8819df9e62588c87708eaf4b6687a46cfd4eac1603bb0e6"
+    },
+    "coarse:beforeC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "5f7558deb46761c0bf7cab2b56f2c6c5f979a338ee7cb822fcf80a4c4de74029",
+      "referenceHash": "5f7558deb46761c0bf7cab2b56f2c6c5f979a338ee7cb822fcf80a4c4de74029"
+    },
+    "coarse:afterC": {
+      "bytes": 65536,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "034fa9aa1478d4c33dc93004092c37a1f7fb0bb75a52259b5c1e0b177ac693c9",
+      "referenceHash": "034fa9aa1478d4c33dc93004092c37a1f7fb0bb75a52259b5c1e0b177ac693c9"
+    }
+  },
+  "highFloat": {
+    "precision": 23,
+    "rangeMin": 127,
+    "rangeMax": 127
+  },
+  "dither": {
+    "requestedOff": false,
+    "initial": true,
+    "atCapture": true
+  },
+  "errors": [],
+  "historicalForcedFinalExact": {
+    "p": true,
+    "c": true,
+    "coverage": true
+  },
+  "qualification": "Intel standalone first inward endpoint actual10; preceding actualoutward25. Intrusive one-plane observer, no performance claim or crossGPU conclusion until matched counterpart."
+}
