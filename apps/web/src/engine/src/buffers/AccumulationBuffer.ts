@@ -10,6 +10,13 @@ function isPowerOfTwo(n: number): boolean {
 /** Contexts whose RGBA8 framebuffer completeness has been checked once. */
 const checkedContexts = new WeakSet<WebGLRenderingContext>()
 
+/** Lossless uniform encoding of an owned aligned RGBA8 readback. */
+function uniformReadback(pixels:Uint8Array):Uint8Array|readonly [number,number,number,number] {
+  const words=new Uint32Array(pixels.buffer,pixels.byteOffset,pixels.byteLength/4),first=words[0]
+  for(let i=1;i<words.length;i++)if(words[i]!==first)return pixels
+  return [pixels[0],pixels[1],pixels[2],pixels[3]]
+}
+
 export class AccumulationBuffer {
   readonly gl: WebGLRenderingContext
   readonly width: number
@@ -57,9 +64,10 @@ export class AccumulationBuffer {
     this._mipCapable = isPowerOfTwo(width) && isPowerOfTwo(height)
   }
 
+  private _capturedRead?:{token:symbol;revision:number;pixels:Uint8Array}
   private _contentRevision=0
   get contentRevision():number{return this._contentRevision}
-  private _noteContentWrite():void{this._contentRevision=Number.isSafeInteger(this._contentRevision)&&this._contentRevision<Number.MAX_SAFE_INTEGER?this._contentRevision+1:NaN}
+  private _noteContentWrite():void{this._capturedRead=undefined;this._contentRevision=Number.isSafeInteger(this._contentRevision)&&this._contentRevision<Number.MAX_SAFE_INTEGER?this._contentRevision+1:NaN}
 
   private _residency?: BufferResidency
   private _resident = true
@@ -73,6 +81,7 @@ export class AccumulationBuffer {
   /** Exclusive idle pool ownership only. Reacquire disables future discards
    * without hydrating. Mip-bearing buffers retain the lossless path. */
   setIdlePoolDiscardable(on: boolean): void {
+    if(on)this._capturedRead=undefined
     this._idlePoolBuffer = on
     this._idlePoolDiscardable = on && !this._mipsAllocated
     if (this._idlePoolDiscardable && !this._resident && !this._destroyed) {
@@ -100,19 +109,16 @@ export class AccumulationBuffer {
       this._noteContentWrite()
       this._backing = undefined
       this._discardedPoolContents = true
+    } else if(this._capturedRead&&this._capturedRead.revision===this._contentRevision){
+      // Consume proof once. The buffer now owns the same bytes as its ordinary
+      // nonresident backing; the capture scope must not keep their array alive.
+      this._backing=uniformReadback(this._capturedRead.pixels)
+      this._capturedRead=undefined
     } else if (!this._backing || this._backing instanceof Uint8Array) preserveResidencyState(gl, () => {
       const pixels = new Uint8Array(width * height * 4)
       gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
-      // readPixels owns an aligned RGBA8 allocation. Word equality compares
-      // all four channels exactly, independently of host byte order.
-      const words = new Uint32Array(pixels.buffer, pixels.byteOffset, pixels.byteLength / 4)
-      const first = words[0]
-      let uniform = true
-      for (let i = 1; i < words.length; i++) {
-        if (words[i] !== first) { uniform = false; break }
-      }
-      this._backing = uniform ? [pixels[0], pixels[1], pixels[2], pixels[3]] : pixels
+      this._backing=uniformReadback(pixels)
     })
     releaseResidencyTexture(this._texture)
     gl.deleteTexture(this._texture)
@@ -467,6 +473,18 @@ export class AccumulationBuffer {
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     return pixels
+  }
+
+  /** QA candidate only: caller may read but must not mutate pixels while this
+   * capture is owned. No copy, upload or additional GL read occurs here.
+   * The returned lease functions retain only this buffer and an identity token. */
+  captureReadPixels():{pixels:Uint8Array;release():void;retainedBytes():number} {
+    const pixels=this.readPixels(),token=Symbol(),revision=this._contentRevision
+    if(this._residency&&!this._destroyed&&this._resident&&Number.isSafeInteger(revision)
+      &&(!this._backing||this._backing instanceof Uint8Array))this._capturedRead={token,revision,pixels}
+    return {pixels,
+      release:()=>{if(this._capturedRead?.token===token)this._capturedRead=undefined},
+      retainedBytes:()=>this._capturedRead?.token===token?this.width*this.height*4:0}
   }
 
   /** Owned tight bottom-up readback for a snapshot's page-clipped edge tile. */

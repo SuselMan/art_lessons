@@ -1,3 +1,4 @@
+import type {CapturedReadScope} from './CapturedReadScope'
 import {unionM70Support,type M70CapturedSupport} from './M70FixedWindowSkip'
 import {MaterialFieldPages,type MaterialFieldSnapshot,type MaterialRect} from './MaterialFieldPages'
 import {extractMaterialTileRect,materialTileIntersection} from './MaterialTileCoordinates'
@@ -14,7 +15,7 @@ export type PagedPuddleSource=Record<PagedRawPlane|'water',MaterialFieldSnapshot
  * tiles outside the finite sheet are deliberately excluded from this domain;
  * their pixels remain owned by the ordinary layer buffer. */
 export function capturePagedPuddleSource(source:RibbonStrokeScratch,target:ILayerBuffer,
-  size:{width:number;height:number},pool:RibbonScratchPool,passes:WatercolorPasses):PagedPuddleSource {
+  size:{width:number;height:number},pool:RibbonScratchPool,passes:WatercolorPasses,options:{captureReads?:CapturedReadScope;reuseSingleWaterRead?:boolean}={}):PagedPuddleSource {
   const fields=Object.fromEntries([...PAGED_RAW_PLANES,'water'].map(name=>[name,new MaterialFieldPages(size)])) as Record<PagedRawPlane|'water',MaterialFieldPages>
   let support:MaterialRect|null=null
   const supportRects:MaterialRect[]=[]
@@ -29,12 +30,17 @@ export function capturePagedPuddleSource(source:RibbonStrokeScratch,target:ILaye
       fields[name].writeRect(clip.field,bytes)
       if(name!=='original')tileSupport.rect=unionM70Support(tileSupport.rect,clip.field,bytes)
     }
-    for(const name of PAGED_RAW_PLANES){const buffer=entry[name];if(buffer)write(name,buffer.readPixels())}
+    let soleWaterPixels:Uint8Array|undefined
+    for(const name of PAGED_RAW_PLANES){const buffer=entry[name];if(buffer){
+      const pixels=options.captureReads?options.captureReads.read(buffer):buffer.readPixels()
+      write(name,pixels)
+      if(options.reuseSingleWaterRead&&((name==='solventLoad'&&!entry.foreignSolventLoad)||(name==='foreignSolventLoad'&&!entry.solventLoad)))soleWaterPixels=pixels
+    }}
     if(entry.solventLoad&&entry.foreignSolventLoad){
       const combined=pool.acquire(tile.buffer.width,tile.buffer.height)
       try{passes.fieldOp(combined,entry.solventLoad,entry.foreignSolventLoad,1,1);write('water',combined.readPixels())}
       finally{pool.release(combined)}
-    }else{const water=entry.solventLoad??entry.foreignSolventLoad;if(water)write('water',water.readPixels())}
+    }else{const water=entry.solventLoad??entry.foreignSolventLoad;if(water)write('water',soleWaterPixels??water.readPixels())}
     if(tileSupport.rect){const tileRect=tileSupport.rect;supportRects.push(tileRect);if(!support)support={...tileRect};else{const x=Math.min(support.x,tileRect.x),y=Math.min(support.y,tileRect.y);support={x,y,width:Math.max(support.x+support.width,tileRect.x+tileRect.width)-x,height:Math.max(support.y+support.height,tileRect.y+tileRect.height)-y}}}
   }
   const result:PagedPuddleSource=Object.fromEntries(Object.entries(fields).map(([name,field])=>[name,field.snapshot()])) as Record<PagedRawPlane|'water',MaterialFieldSnapshot>

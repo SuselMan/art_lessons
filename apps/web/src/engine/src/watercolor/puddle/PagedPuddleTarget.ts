@@ -1,3 +1,4 @@
+import {CapturedReadScope} from './CapturedReadScope'
 import {emptyM70PostphaseRect} from './M70EmptyPostphase'
 import {committedReadRect} from './CommittedReadRect'
 import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
@@ -18,6 +19,8 @@ import {APPROVED_M70_PARAMETERS} from './PuddleParameters'
  * Windows share global phases and immutable input; only their interiors commit.
  * The 640px halo is certified separately against the approved M70 pass graph. */
 export interface PagedPuddleInspection {
+ /** QA-only default OFF: capture read ownership and reuse sole-water bytes. */
+ capturedBacking?:boolean
  /** QA-only OFF: zero raw allocated-halo postphase rectangles need no GPU work. */
  skipEmptyPostphase?:boolean
  postphaseRect?(interior:MaterialRect,allocated:MaterialRect,decision:{skipped:boolean}):void
@@ -64,7 +67,9 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
  function* rects(step=512):Generator<MaterialRect>{for(let y=0;y<size.height;y+=step)for(let x=0;x<size.width;x+=step)yield{x,y,width:Math.min(step,size.width-x),height:Math.min(step,size.height-y)}}
  function destroyOutputs(){for(const value of outputs.values())for(const b of Object.values(value))b.destroy();outputs.clear()}
  function* solve(source:RibbonStrokeScratch,target:ILayerBuffer,epoch:number):Generator<void>{
-  const raw=capturePagedPuddleSource(source,target,size,host.pool,host.passes)
+  const captureReads=inspect.capturedBacking===true?new CapturedReadScope():undefined
+  try{
+  const raw=capturePagedPuddleSource(source,target,size,host.pool,host.passes,{captureReads,reuseSingleWaterRead:inspect.capturedBacking===true})
   let capturedLease:{release():void}|void
   while(true){
    const admission=inspect.sourceCaptured?.(raw)
@@ -185,6 +190,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
   destroyOutputs();for(const [key,value]of pending)outputs.set(key,value);pending.clear()
   }finally{for(const value of pending.values())for(const b of Object.values(value))b.destroy()}
  }finally{capturedLease?.release()}
+  }finally{captureReads?.dispose()}
  }
  function finishDestroy():void {
   if(destroyed)return

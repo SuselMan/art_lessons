@@ -1677,6 +1677,8 @@ export class PencilEngine implements PencilEngineAPI {
   /** QA-only: certified support skip; enable before creating a large-room controller. */
   diagnosticM70TightSupport32=false
   diagnosticM70SkipEmptyPostphase=false
+  /** QA-only capture byte ownership, default OFF; set before creating controller. */
+  diagnosticM70CapturedBacking=false
   get diagnosticM70PhaseBudget():boolean{return this._diagnosticM70PhaseBudget}
   set diagnosticM70PhaseBudget(enabled:boolean){
     enabled=!!enabled
@@ -1732,6 +1734,8 @@ export class PencilEngine implements PencilEngineAPI {
   }
   /** Existing operation queue is the retry boundary; no operation has mutated yet. */
   private _sharedFieldOperationBusy(op?:Operation):boolean {
+    // Capture precedes field-family admission; its executing stack also owns raw.
+    for(const controller of this._pagedFieldControllers)if(controller.fieldWorkPending)return true
     if(!this._fieldPhaseOwner)return false
     if(this._fieldPhaseOwner.state.executing)return true
     this._cancelPagedFieldWork()
@@ -1800,7 +1804,7 @@ export class PencilEngine implements PencilEngineAPI {
       // RAW reachBounds includes brush/composite reads. Foreign-water donors
       // can extend beyond it; retain whole tiles until their bounds are proven.
       presentationBounds:(scratch,context)=>scratch.foreignSources?.length || scratch.foreignImportedGestures.size ? null : context.bounds,
-      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make,{skipEmptyPostphase:this.diagnosticM70SkipEmptyPostphase,tightMaterialSupport32:this.diagnosticM70TightSupport32,skipEmptyFixedWindows:true,omitZeroForeignSolventLoad:true,detachedWindowSource:true,sourceCaptured:raw=>{
+      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make,{capturedBacking:this.diagnosticM70CapturedBacking,skipEmptyPostphase:this.diagnosticM70SkipEmptyPostphase,tightMaterialSupport32:this.diagnosticM70TightSupport32,skipEmptyFixedWindows:true,omitZeroForeignSolventLoad:true,detachedWindowSource:true,sourceCaptured:raw=>{
         const owner=this._getFieldPhaseOwner()
         const admission=owner.state.enabled?owner.beginSolveSnapshot(raw):{snapshot:raw,lease:owner.acquire()}
         if(!admission)return {defer:true}
