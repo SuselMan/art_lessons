@@ -1,0 +1,118 @@
+{
+  "source": "e562d496",
+  "controls": "native-front highp+round; mode11 highp-only; forced identical Contrast reference; selected first-front group preband:b",
+  "samsungSHA": "e0c3e4d6168fc34d3bca93490b026d9a16eeb111023b18053923ad37f2f8e2ad",
+  "intelSHA": "e0c3e4d6168fc34d3bca93490b026d9a16eeb111023b18053923ad37f2f8e2ad",
+  "sameInputHashes": true,
+  "channels": [
+    {
+      "channel": "R",
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "channel": "G",
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "channel": "B",
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "channel": "A",
+      "changed": 0,
+      "max": 0
+    }
+  ],
+  "sameAsCorrectedMode11Output": true,
+  "sameAsOldMode11Output": false,
+  "capture": {
+    "name": "preband:b",
+    "width": 2048,
+    "height": 1536,
+    "bytes": 12582912,
+    "filter": "nearest",
+    "pointSampling": false,
+    "inputs": {
+      "operand": "b",
+      "aEqualsD": true,
+      "aIsPressure": true,
+      "bIsCoverage": true,
+      "cIsMask": true,
+      "dIsPressure": true,
+      "timing": "before-original-fieldOp"
+    },
+    "sha256": "e0c3e4d6168fc34d3bca93490b026d9a16eeb111023b18053923ad37f2f8e2ad"
+  },
+  "mode11Precision": {
+    "highpSamplers": true,
+    "roundRGBA": false,
+    "anchorCount": 1,
+    "samplerCount": 6,
+    "originalSHA": "be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256",
+    "patchedSHA": "d922bcd3be045a50479c2ed875567eea74d6297b28d77b55978bc05bef03c1b1",
+    "uniformKeys": [
+      "u_a",
+      "u_b",
+      "u_c",
+      "u_k",
+      "u_mode",
+      "u_tau",
+      "u_dir",
+      "u_d",
+      "u_e",
+      "u_origin",
+      "u_size",
+      "u_band",
+      "u_world"
+    ],
+    "selectedCalls": 5,
+    "otherCalls": 581,
+    "restoration": {
+      "wrapperExact": true,
+      "propertiesExact": true,
+      "deletedOwnedProgram": true
+    }
+  },
+  "priorBandSelectedCallsWholeRun": 5,
+  "orderingEvidence": "Observer selects same first field/group at mode10 seed, phase inward on mode12, coverage read after original mode11, preband:b read before original mode6. Prior BAND metadata selectedCalls counts entire run; no causal timestamps recorded, so none inferred.",
+  "all10SameGPUZero": true,
+  "finalDiffs": {
+    "p": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "1d52d27f7b6cd18571423a49531838385a2b20ff7cc1429347e718a6d54b95a1",
+      "referenceHash": "1d52d27f7b6cd18571423a49531838385a2b20ff7cc1429347e718a6d54b95a1"
+    },
+    "c": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "fb94d180f4c4b2e3307e5af32dabb06ac13db37ea56a121ee41362eb1541bb9e",
+      "referenceHash": "fb94d180f4c4b2e3307e5af32dabb06ac13db37ea56a121ee41362eb1541bb9e"
+    },
+    "coverage": {
+      "bytes": 4194304,
+      "changed": 0,
+      "max": 0,
+      "first": [],
+      "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+    }
+  },
+  "gl": [
+    0,
+    0
+  ],
+  "errors": [],
+  "restoration": {
+    "ownershipExact": true,
+    "restored": true
+  },
+  "qualification": "Matched input coverage before BAND is now exact; previous BAND difference is after these selected inputs but does not alone isolate arithmetic vs sampler precision."
+}
