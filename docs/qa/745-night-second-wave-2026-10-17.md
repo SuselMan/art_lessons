@@ -10,6 +10,10 @@
 GPU три повтора с одинаковым входом совпали точно. Исправления координат и
 precision не обеспечили общей сходимости; допустимое отклонение вместо точного
 совпадения не принимаем. Функциональные PASS ниже не означают закрытие #748.
+Дополнительно AMD↔Adreno (Vega/Samsung), один 5-op журнал без snapshot:
+**7993 канала / 3949 пикселей / max16** расходятся одинаково в wet target
+и recordedDry. Повторы и собственный fullAPI replay каждого GPU точны.
+Это подтверждённый target-дефект на третьем GPU, не разброс анимации.
 
 **Остаётся ограничение #747 по размерам:** подтверждены квадратные и
 прямоугольные страницы, помещающиеся в один tile (каждая сторона до 1024).
@@ -33,25 +37,31 @@ CPU69targeted+10000graphprefixesPASS; аппаратный повтор Dry/clea
 Отдельный opt-in prototype прошёл restart/atomicity tests, но старые вкладки,
 crash window и cross-batch mapping пока исключают незаметное внедрение.
 
-## Текущая проверка: 06:19
+## Текущая проверка: 07:19
 
-Работа продолжается. Лимит: **54% использовано, 46% осталось** (06:10),
-один reset не использован. Production и push не выполнялись.
+Работа продолжается. Лимит: **58% использовано, 42% осталось** (07:17).
+Один reset не использован. Production и push не выполнялись.
 
-**QA runtime6cd49722:** все исправления780–784 плюс защита мокрой M70 от
-legacy carried checkpoint. Backend4558 PID4062231 на проверенном786, health/dbup после
-согласованного окна между GPU-прогонами; frontend физики остаётся6cd.30целевыхтестов, fulltypecheck всехworkspace,
-lint/map1123 PASS. Полный engine с одним worker завершён: **231 файл,
-2253 теста PASS**,337,35с. Полный Room:70файлов,673PASS и4expectedFAIL
-по открытым777/778,47,37с. Аппаратные post-fix B1/B8/full100 выполняются;
-B1 уже PASS на точном прежнем порядке: Bseq11,10A до/40A после,
-удержание320,7мс,50уникальныхпопыток/0retry. API51payloads совпали,
-actualcanonical обоих == fullreplay,0diff/GL0/pageerrors0. B8 и full100 также PASS с Bseq11/0retry. Следующаявода/Undo/Redo,
-WETcoldC(hasMaterialtrue), ещёwaterC109, Dry110 у всех3 и drycoldA —
-actualBEFOREfullAPIoracle точны, GL0/pageerrors0. Дваwatercolorfloat
-local/API отличаются~5e-17 внулевомпигменте; это явно сохранённое
-ограничение payload byte-equality, oracle не округлялся.
-Подробности:752-postfix-native-comparison.json.
+Текущий QA-кандидат — **f6a27f98** (последующие коммиты — QA-артефакты): защита мокрых checkpoint, исправления
+онлайна 780–786, отмена старого восстановления 788, сохранение живого
+обычного мазка 774 и включение границы snapshot в Undo 789, плюс guarded CPU-оптимизация744.
+Отдельный QA frontend5384 теперь по умолчанию M70 (PID4092300),
+backend4558:
+PID4062231, health/db up. Последние изменения только клиентские.
+
+Полные проверки на предыдущем e5d08c61: **73 файла, 689 PASS и 4 expected FAIL**
+по открытым 777/778, 53,45с. Полный engine: **232 файла, 2265 PASS**,348,67с с одним worker.
+Общий TypeScript всех workspace/e2e/scripts, lint и map1128 PASS.
+В первом typecheck исправлена только типизация optional limit в тестовом
+моке; runtime после этого не менялся.
+
+Аппаратный post-fix752: B1/B8/full100 PASS с Bseq11, без retry. В B1
+чужой мазок обогнал40 pending-мазков автора (10A до/40A после), удержание
+320,7мс. Дальнейшая вода, Undo/Redo, вход мокрого C, его новый мазок,
+Dry у трёх участников и сухой перезаход — точные actual-before-oracle
+сравнения. Два float-канала цвета воды с нулевым пигментом отличаются
+local/API примерно на5e-17: это сохранённое ограничение byte-equality,
+oracle не округлялся. Подробности:752-postfix-native-comparison.json.
 
 **Подтверждённый #752 CP8:** A50/B0 точен, хотя ordinaryCP8 уже создан.
 Один чужой Bseq11 обгоняет40pendingA: авторA получает5390channels/max37diff,
@@ -62,10 +72,82 @@ Coverage/jobs/queues/unsettled пусты, полные ID/effective/contenthash
 legacycarry, purepencil и provedclosedM70 сохранены. Старое редкое наблюдение
 5байтов послеclosedDry автоматически закрытым не считаем.
 
+**Новый same-GPU drift после board turn — OPEN/RCA:** после перехода на
+другую доску настоящий M70-мазок+Dry дал956 отличающихся каналов против
+собственного replay. Оба preset явно M70, но первый helper не сохранил raw
+actual/hash до assert: это ограничение доказательства отмечено. Полная
+принятая3-op история сохранена; холодный readonlyA даёт exact own replay,
+все3IDs/payloads совпадают, pending/jobs/coverage пусты. Причина не доказана.
+Проверяем raw F64 live-dabs против записанных F32 и этап до/после Dry.
+Guardedbatch здесь не вызывается: в истории нет Undo.
+
+**#744 — независимые исторические лужи:** guarded batch f6a27f98 без нового
+кеша объединяет только доказанно независимые проверки; неизвестные/длинные
+clock-span и связные компоненты используют старый путь. CPU960луж:76–91мс
+вместо5951–6230мс.71уникальный тест, 10000 старых и5760 новых differential
+prefixes, typecheck/lint PASS. Это CPU, не скорость видимого Undo; отдельная
+нативная fast/fallback проверка в работе. Общие проверки после f6 ещё впереди.
+
+**#790 — конфигурация QA:** default frontend5384 был front8, а нормализация
+URL удалялаqaModel. Выделенный Room-стенд переключён на default M70 через
+systemd drop-in; адрес прежний, Mini5383/backend/production не тронуты.
+Native child/root после реального UI-перехода с пустым query теперь имеют
+runtimeM70 и новые accepted preset@m70. Полный parity-gate остановлен новым
+same-GPU finding выше; не объявляем его полным PASS. Linux-setup doccommitf45f026.
+
+**Экспериментальный Undo cache на Samsung:** повтор после CP8fix сохранил
+actual приcacheON ДО отдельного flagsOFF fullAPIoracle: exact,6materialfields
+совпали, Undo/Redo/второйUndo correct. Restorehit1, capture≈6MiB/16,4мс,
+restore-hook41,5мс. Видимое исчезновение лишь coarse interval[0,452]мс;
+это один непарный probe с readback overhead, ускорение не доказано.
+Default cache/hidden остаютсяOFF. Первая старая пара была harness-invalid
+(ON был отвергнут слишком строгим OFF-guard), её не выдаём за PASS.
+
+**Samsung context-loss с новыми сетевыми операциями:**18/18 strict PASS.
+Пока native context действительно был lost, другой SocketB записал воду,
+Dry, пигмент, UndoDry/UndoWater. После восстановления3слоя, новыйtrustedWC,
+Undo/Redo и cold rejoin точно совпали с полным API; GL0/pageerrors0.
+Все собственные комната/auth/контексты/forward/raw этой серии удалены.
+
+**#788 — старый snapshot после reconnect:** подтверждён новый baseline
+publicrestoreRoomState→restoreLatestSnapshot→engineinstall. Oldblob10
+задержан, new20 применён, затем old10 перезаписывает его: decodedRGBA202→41
+при latestKnownSeq20 и безошибочномстатусе. Это CPU с реальнымgzip/decode
+иengineinstall, не аппаратныйpixelproof. Generationfix8ccf41fc интегрирован: oldcaller отменяется, nooldapply/
+tail/readiness/failure; abortcleanup балансирует booleanreplayGate/display
+доnewbegin, oldAUDIT дренируется доnewinstall.54целевыхтеста иwebtsc/lint
+PASS; rootполныйRoom72files684PASS+4expectedFAIL777/778, map1127PASS.
+Native AMD: оба варианта (fetch отменяется / late callback игнорирует
+отмену) PASS, installs только[20], actual сохраняется. Последующие
+trusted pencil/WC/Dry/UndoRedo и cold physical PASS с полным API reference.
+Это public restore с настоящими принятыми prefix10/20 и gzip, контролируемой
+HTTP-доставкой; не имитация полного сетевого reconnect.
+
+**#774 — живой обычный мазок при snapshot:** исправление d70e9260
+интегрировано. Snapshot ждёт физического UP/peer end, а не ACK; audit и
+coverage появляются после установки, отмена освобождает raw views.
+CPU116 PASS, настоящий gzip-тест подтверждает один decoded слой.
+Native pencil: ранняя линия сохранена; новые trusted MOVE меняют удалённый
+от курсора экранный ROI ещё доUP (432 канала/max115). ПослеUP физический
+рисунок точно совпал с full replay. Marker/smudge пока только CPU, их
+аппаратный PASS не заявляем.
+
+**#789 — Undo пропускает snapshot head:** baseline действительно отменял
+мазок19 вместо последнего20 после холодного восстановления snapshot20.
+Исправлен exclusive cursor: запрашиваем beforeSeq21, сохраняя лимит500.
+Четыре CPU-сценария PASS, включая Undo/Redo20 и повторную границу без
+двойного рисования. Native **4/4 PASS**: настоящий POST snapshot20,
+production UI cold join/backfill, CtrlZ отменяет именно20 (physical==prefix19),
+CtrlShiftZ возвращает20 и второй UI rejoin сохраняет prefix20. Own OFF
+fullAPI oracle точен, GL0/pageerrors0.
+
 **#787 — загрузка длинной мокрой истории Samsung:**6/6 точных сравнений
 normal/review на100/300/1000мазках PASS. При1000 внутренний replay
 12,816/12,836с, RoomOpen ready13,647/13,616с. Частичная видимость раньше;
-maxmainthreadblock не измерялся. Это отдельная подтверждённая задержка,
+В отдельном профиле основной generator занял9,49с walltime с GL-вызовами
+и возможными driver waits; resolver всего96,5мс. Внутри engine-фазы
+longtask максимум386мс; GPU timing недоступен на Adreno/WebGL1.
+Это отдельная подтверждённая задержка,
 а не ошибка сходимости. Recordedspan≈30мин, не30мин реального ожидания.
 Все6комнат/auth/контекстов/ownforward/rawcache удалены штатно.
 
@@ -89,8 +171,8 @@ Samsung exactprefix100 — отдельный **SKIP**: Playwrightinit не за
 созданияконтекстов, хотяrawCDP доступен. Это не PASS и не renderFAIL.
 
 Аппаратные #781/#782 **10/10PASS** наSamsung, #776IDBcompletion PASS наVega,
-#780sameidentity **3PASS наодномAMD**. #783nativeboardrace пока отложен ради
-исправления canonicaltarget. CPUserver+Room783:1382PASS+4expectedFAIL777/778;
+#780sameidentity **3PASS наодномAMD**. #783nativeboardrace INCONCLUSIVE:
+owner/guest меняли старый сокет до нужного ACK; аппаратный PASS не заявлен. CPUserver+Room783:1382PASS+4expectedFAIL777/778;
 784target424PASS, candidatefullserver721PASS; всеtypecheckPASS.
 
 Первый fullengine85e:2246PASS+1charcoal5stimeout; изолированный неизменённый

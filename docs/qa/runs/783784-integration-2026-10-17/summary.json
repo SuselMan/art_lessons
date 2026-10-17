@@ -68,6 +68,45 @@
       ],
       "durationSeconds": 47.37,
       "workers": 1
+    },
+    "room788": {
+      "files": 72,
+      "passed": 684,
+      "expectedFail": 4,
+      "expectedFailIssues": [
+        777,
+        778
+      ],
+      "durationSeconds": 52.38,
+      "workers": 1
+    },
+    "map788": {
+      "result": "PASS",
+      "files": 1127
+    },
+    "engine789774": {
+      "files": 232,
+      "passed": 2265,
+      "failed": 0,
+      "durationSeconds": 348.67,
+      "workers": 1
+    },
+    "room789774": {
+      "files": 73,
+      "passed": 689,
+      "expectedFail": 4,
+      "expectedFailIssues": [
+        777,
+        778
+      ],
+      "durationSeconds": 53.45,
+      "workers": 1
+    },
+    "fullTypecheck789774": "PASS after fixing optional limit type in test mock; server/web/shared/e2e/scripts",
+    "lint789774": "PASS, existing warnings only, no app source changes",
+    "map789774": {
+      "result": "PASS",
+      "files": 1128
     }
   },
   "native85e": {
@@ -84,5 +123,32 @@
   "fingerprintsAfter752": {
     "apps/web/src/engine/index.ts": "b2e62ee30f069709d30eeefb01758134f8370ec514adf6098b76d4da62456d8a",
     "apps/web/src/engine/src/oplog/checkpointStore.ts": "07069380ab4fa9f6e8d5da580288db8ebb9b635d0997f03dec362115a91a75b3"
+  },
+  "runtimeAfter788": "8ccf41fc",
+  "backendAfter786": {
+    "pid": 4062231,
+    "health": "ok/db up"
+  },
+  "runtimeAfter789And774": "e5d08c61",
+  "fingerprintsAfter789774": {
+    "apps/web/src/engine/index.ts": "203874be72e517fe66c36f095fc04c8e33efc7187b807f7819a229c215618d0f",
+    "apps/web/src/lib/restoreGeneration.ts": "2e45d6de0f9f229ee3be1cc15af9bd46072caf794b6f9990ceb768c9a9cd7c72",
+    "apps/web/src/pages/Room/restoreRoomState.ts": "5af8f36f601a87def9f6793b099d5b397381394741832969fe247a25d4b161ef",
+    "apps/web/src/pages/Room/useRemoteOperations.ts": "d0d3c841843e1d3df4bbb020e76581643aca7399b5e917a32178b4e1977cbb24",
+    "apps/web/src/pages/Room/net/snapshotRestore.ts": "e533c9aee6c127b7d70ae45ed7331989f9351aee2592068f8f46082ef907d3e0"
+  },
+  "native789774": {
+    "774": "trusted pencil held screen preserved and further MOVE visible; postUP actual/fullAPI exact; marker/smudge CPU only",
+    "789": "4/4 real snapshot POST20 and fresh UI backfill, CtrlZ20/CtrlShiftZ20/cold physical exact",
+    "788": "2 public restore generation controls, trusted tools/Dry/UndoRedo/cold physical exact; controlled real prefix HTTP delivery, not full network reconnect",
+    "748_AMD_Adreno": {
+      "status": "FAIL OPEN",
+      "differentChannels": 7993,
+      "differentPixels": 3949,
+      "maxChannelDifference": 16,
+      "wetAndDrySameDifference": true,
+      "ownGPUOracleExact": true
+    },
+    "783": "native ACK timing inconclusive, socket replaced before ACK"
   }
 }
