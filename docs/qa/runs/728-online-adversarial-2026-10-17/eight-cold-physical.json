@@ -1,0 +1,69 @@
+{
+  "source": "af5d7cea",
+  "scope": "Cold physical raster only, no replay/oracle/canonical request",
+  "errors": [],
+  "pass": true,
+  "actual": {
+    "layers": [
+      {
+        "layerId": "qa-race-495c25d5-c59d-4e0f-97ae-ebc68fbdc153",
+        "hash": "aa07e5f42896adcb0dc4baf2824139f1a1450539cd5cda8165529cc166d518d3",
+        "bytes": 1048596
+      },
+      {
+        "layerId": "qa-race-67004bab-c832-455a-9085-a5a5b7a9fa79",
+        "hash": "9cc309c0350ecee09532358dccb482c1bd79a6ffea68e7a3827b736075bc72f8",
+        "bytes": 1048596
+      },
+      {
+        "layerId": "qa-race-cfaed341-d68c-41b7-aa61-b4de48f703a7",
+        "hash": "71dd8edae903982016cfca940a56f689dfa6e7f6c3204e525c76a8e9c770acac",
+        "bytes": 1048596
+      },
+      {
+        "layerId": "qa-eight-31c7cfe1-7310-4881-a523-5bea77adcc73",
+        "hash": "8b7780c1180b7910ee98fbddd7e8e126ea60cde3976b2de35b2ca136c87786ef",
+        "bytes": 1048596
+      },
+      {
+        "layerId": "qa-eight-43af1ce0-ba50-493a-b2f1-10a2cc76adda",
+        "hash": "43507aa0e9309ac9fbe861bba88c6ef13cf4a46d92281bfde1a130ad6ccaf337",
+        "bytes": 1048596
+      },
+      {
+        "layerId": "qa-eight-5fd54183-9fd6-4fdc-8579-32967b9b6017",
+        "hash": "5bfec7cdd566a40554bf43a2ea25c002158ae0dc0952ec827eea396b40b7c755",
+        "bytes": 1048596
+      },
+      {
+        "layerId": "qa-eight-6c217495-f9da-4dc1-b3fd-1b6bb6df06e8",
+        "hash": "09ffd9409c86f4fdfbda7a9fc286d94034e2b6e4096d0b087c950beba2ba96ab",
+        "bytes": 1048596
+      },
+      {
+        "layerId": "qa-eight-e92237bd-083b-4443-b930-e656814079f6",
+        "hash": "fa42c6ae0fb41d07a36ece8deedc111eb92f9e8692dbfe5cffd124463d805aea",
+        "bytes": 1048596
+      }
+    ],
+    "puddle": {
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 0,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "restoreAudit": [],
+    "glError": 0
+  }
+}

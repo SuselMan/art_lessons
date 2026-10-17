@@ -1,0 +1,364 @@
+{
+  "source": "0be6e667",
+  "scope": "Native GPU M70 lost-work recovery module: scoped Dry and >120s original material gaps, accepted new layer against original journal reference",
+  "cases": [
+    {
+      "name": "recovery-explicit-dry-reference",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-023ba5c0-308b-45ba-a8bb-855dea168acb",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "156cdcdbfebc3edc525584afdc57975952fa30dc8b019184a50e7b7b267b7b0c",
+          "oracleHash": "156cdcdbfebc3edc525584afdc57975952fa30dc8b019184a50e7b7b267b7b0c",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4077,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-023ba5c0-308b-45ba-a8bb-855dea168acb",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "156cdcdbfebc3edc525584afdc57975952fa30dc8b019184a50e7b7b267b7b0c",
+          "oracleHash": "156cdcdbfebc3edc525584afdc57975952fa30dc8b019184a50e7b7b267b7b0c",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4077,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-023ba5c0-308b-45ba-a8bb-855dea168acb",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "156cdcdbfebc3edc525584afdc57975952fa30dc8b019184a50e7b7b267b7b0c",
+          "oracleHash": "156cdcdbfebc3edc525584afdc57975952fa30dc8b019184a50e7b7b267b7b0c",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4077,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "recovery-explicit-dry-new-layer",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "cda0ddb3-4a27-4c6c-9aeb-41e3b4ee6959",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "156cdcdbfebc3edc525584afdc57975952fa30dc8b019184a50e7b7b267b7b0c",
+          "oracleHash": "156cdcdbfebc3edc525584afdc57975952fa30dc8b019184a50e7b7b267b7b0c",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4077,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "cda0ddb3-4a27-4c6c-9aeb-41e3b4ee6959",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "156cdcdbfebc3edc525584afdc57975952fa30dc8b019184a50e7b7b267b7b0c",
+          "oracleHash": "156cdcdbfebc3edc525584afdc57975952fa30dc8b019184a50e7b7b267b7b0c",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4077,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "cda0ddb3-4a27-4c6c-9aeb-41e3b4ee6959",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "156cdcdbfebc3edc525584afdc57975952fa30dc8b019184a50e7b7b267b7b0c",
+          "oracleHash": "156cdcdbfebc3edc525584afdc57975952fa30dc8b019184a50e7b7b267b7b0c",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4077,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "real-recovery-module-server-accepted-explicit-dry",
+      "dead": "qa-wet-erase-5ed2e40a-1950-4bfc-b2e5-98609d656536",
+      "reference": "qa-wet-erase-023ba5c0-308b-45ba-a8bb-855dea168acb",
+      "restored": "cda0ddb3-4a27-4c6c-9aeb-41e3b4ee6959",
+      "timestamps": [
+        100,
+        200,
+        300
+      ],
+      "expected": [
+        {
+          "hash": "0327627710f8b1f53de20cd6a1bda6e2c9d6a26273413034d8025241a447cdd9",
+          "bytes": 1048576,
+          "material": false
+        },
+        {
+          "hash": "0327627710f8b1f53de20cd6a1bda6e2c9d6a26273413034d8025241a447cdd9",
+          "bytes": 1048576,
+          "material": false
+        },
+        {
+          "hash": "0327627710f8b1f53de20cd6a1bda6e2c9d6a26273413034d8025241a447cdd9",
+          "bytes": 1048576,
+          "material": false
+        }
+      ],
+      "actual": [
+        {
+          "hash": "0327627710f8b1f53de20cd6a1bda6e2c9d6a26273413034d8025241a447cdd9",
+          "bytes": 1048576,
+          "material": false
+        },
+        {
+          "hash": "0327627710f8b1f53de20cd6a1bda6e2c9d6a26273413034d8025241a447cdd9",
+          "bytes": 1048576,
+          "material": false
+        },
+        {
+          "hash": "0327627710f8b1f53de20cd6a1bda6e2c9d6a26273413034d8025241a447cdd9",
+          "bytes": 1048576,
+          "material": false
+        }
+      ],
+      "scope": "Real recoveryOperations module + server-accepted retargeted new-layer batch. Lost drafts supplied explicitly; this does not exercise outbox rejection/banner delivery."
+    },
+    {
+      "name": "recovery-natural-gap-reference",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-8cf89b8b-1a30-467d-b240-a9fa4cff65e9",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "eb59cda7dd2d31411e6fd04b9b8edce24508833120ba248dd531af5c27a410f8",
+          "oracleHash": "eb59cda7dd2d31411e6fd04b9b8edce24508833120ba248dd531af5c27a410f8",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4077,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-8cf89b8b-1a30-467d-b240-a9fa4cff65e9",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "eb59cda7dd2d31411e6fd04b9b8edce24508833120ba248dd531af5c27a410f8",
+          "oracleHash": "eb59cda7dd2d31411e6fd04b9b8edce24508833120ba248dd531af5c27a410f8",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4077,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-8cf89b8b-1a30-467d-b240-a9fa4cff65e9",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "eb59cda7dd2d31411e6fd04b9b8edce24508833120ba248dd531af5c27a410f8",
+          "oracleHash": "eb59cda7dd2d31411e6fd04b9b8edce24508833120ba248dd531af5c27a410f8",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4077,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "recovery-natural-gap-new-layer",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "3d4c7086-2366-4780-b00a-02102bbf7da9",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "eb59cda7dd2d31411e6fd04b9b8edce24508833120ba248dd531af5c27a410f8",
+          "oracleHash": "eb59cda7dd2d31411e6fd04b9b8edce24508833120ba248dd531af5c27a410f8",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4077,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "3d4c7086-2366-4780-b00a-02102bbf7da9",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "eb59cda7dd2d31411e6fd04b9b8edce24508833120ba248dd531af5c27a410f8",
+          "oracleHash": "eb59cda7dd2d31411e6fd04b9b8edce24508833120ba248dd531af5c27a410f8",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4077,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "3d4c7086-2366-4780-b00a-02102bbf7da9",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "eb59cda7dd2d31411e6fd04b9b8edce24508833120ba248dd531af5c27a410f8",
+          "oracleHash": "eb59cda7dd2d31411e6fd04b9b8edce24508833120ba248dd531af5c27a410f8",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4077,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "real-recovery-module-server-accepted-natural-gap",
+      "dead": "qa-wet-erase-bdb0d0f5-2bfc-4bc4-9e27-57bcddaac982",
+      "reference": "qa-wet-erase-8cf89b8b-1a30-467d-b240-a9fa4cff65e9",
+      "restored": "3d4c7086-2366-4780-b00a-02102bbf7da9",
+      "timestamps": [
+        100,
+        120200
+      ],
+      "expected": [
+        {
+          "hash": "cf2c55e75c176135ef17cd405968bf1cea471266146d11216e0a803fbb2c9085",
+          "bytes": 1048576,
+          "material": false
+        },
+        {
+          "hash": "cf2c55e75c176135ef17cd405968bf1cea471266146d11216e0a803fbb2c9085",
+          "bytes": 1048576,
+          "material": false
+        },
+        {
+          "hash": "cf2c55e75c176135ef17cd405968bf1cea471266146d11216e0a803fbb2c9085",
+          "bytes": 1048576,
+          "material": false
+        }
+      ],
+      "actual": [
+        {
+          "hash": "cf2c55e75c176135ef17cd405968bf1cea471266146d11216e0a803fbb2c9085",
+          "bytes": 1048576,
+          "material": false
+        },
+        {
+          "hash": "cf2c55e75c176135ef17cd405968bf1cea471266146d11216e0a803fbb2c9085",
+          "bytes": 1048576,
+          "material": false
+        },
+        {
+          "hash": "cf2c55e75c176135ef17cd405968bf1cea471266146d11216e0a803fbb2c9085",
+          "bytes": 1048576,
+          "material": false
+        }
+      ],
+      "scope": "Real recoveryOperations module + server-accepted retargeted new-layer batch. Lost drafts supplied explicitly; this does not exercise outbox rejection/banner delivery."
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "597a190d-2619-4720-b21f-f4ece189d87e",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "7366f4bf-bded-4a2a-b401-9f0926d336b0",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "ad017dcf-864b-4857-a062-c9550cbc9f76",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "currentProof": {
+    "name": "recovery-natural-gap-new-layer",
+    "actor": 2,
+    "layerId": "3d4c7086-2366-4780-b00a-02102bbf7da9",
+    "sourceHiddenReplay": false,
+    "oracleHiddenReplay": false,
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "eb59cda7dd2d31411e6fd04b9b8edce24508833120ba248dd531af5c27a410f8",
+    "oracleHash": "eb59cda7dd2d31411e6fd04b9b8edce24508833120ba248dd531af5c27a410f8",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 4077,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "pass": true,
+  "harnessCorrection": "Initial attempt used invalid single layerId for layer_delete; corrected to layerIds[] before this fresh-fixture run. No engine fix resulted from that harness error."
+}

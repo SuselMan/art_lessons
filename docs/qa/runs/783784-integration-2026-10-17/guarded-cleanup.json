@@ -1,0 +1,24 @@
+{
+  "owner": "/root",
+  "method": "qa-cleanup.py finish; same guarded tool privileged; registry ownership restored",
+  "removed": [
+    "728-online-adversarial-20261017",
+    "744-samsung-boundary-batch-20261017",
+    "744-samsung-cache-on-final-20261017",
+    "792-samsung-ended-disconnect-20261017",
+    "745-samsung-wallclock-soak-20261017",
+    "728-annotation-20261017"
+  ],
+  "remainingOwnedRaw": [],
+  "preservedServices": [
+    "QA Mini 5383",
+    "QA Room 5384",
+    "shared QA backend 4558"
+  ],
+  "productionChanged": false,
+  "push": false,
+  "finishedAt": "2026-10-17T08:31:03.663593+03:00",
+  "activeOwnedBrowserContexts": 0,
+  "activeOwnedDeviceForwards": 0,
+  "allOwnedFixturesDeleted": true
+}

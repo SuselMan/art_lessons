@@ -1,0 +1,261 @@
+{
+  "source": "717506a8e7b0d730079973e229f12aea837d9cd5",
+  "scope": "Native WEBGL_lose_context with recorded wet+dry underlay and unrecorded held tail; accepted journal survives",
+  "cases": [
+    {
+      "name": "native-context-loss-restores-recorded-wet-over-dry",
+      "before": {
+        "lost": false,
+        "stroke": null,
+        "layer": null
+      },
+      "after": {
+        "lost": false,
+        "stroke": null,
+        "layer": null,
+        "puddle": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 1,
+          "residentLayers": 1,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 1,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 1,
+              "ready": true,
+              "active": true
+            }
+          ]
+        },
+        "glError": 0
+      }
+    },
+    {
+      "name": "continued-stroke-after-real-context-restore",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-50b88d75-072e-4dd1-b242-f2729ba645fb",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "083e9bef81f7cd31559b3b29c1e164a4a9d0f1b08bf446d06e1859faa4d5427a",
+          "oracleHash": "083e9bef81f7cd31559b3b29c1e164a4a9d0f1b08bf446d06e1859faa4d5427a",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 14223,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-50b88d75-072e-4dd1-b242-f2729ba645fb",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "32eaa458e25ddaf48eb3c4c46969d2a315b052e1cb239e59edd2ab6ecc9e4c8a",
+          "oracleHash": "32eaa458e25ddaf48eb3c4c46969d2a315b052e1cb239e59edd2ab6ecc9e4c8a",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 14223,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-50b88d75-072e-4dd1-b242-f2729ba645fb",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "083e9bef81f7cd31559b3b29c1e164a4a9d0f1b08bf446d06e1859faa4d5427a",
+          "oracleHash": "083e9bef81f7cd31559b3b29c1e164a4a9d0f1b08bf446d06e1859faa4d5427a",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 14223,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "undo-continued-stroke-after-real-context-restore",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-50b88d75-072e-4dd1-b242-f2729ba645fb",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "193ffbc1780288b43f5f8ad9709138131b8df100e023ae717e68f803a999c220",
+          "oracleHash": "193ffbc1780288b43f5f8ad9709138131b8df100e023ae717e68f803a999c220",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 8405,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-50b88d75-072e-4dd1-b242-f2729ba645fb",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "79a53b7eadd0abc38011c33928ee4e647d45cead9cc8b21fa2445ec477d654f4",
+          "oracleHash": "79a53b7eadd0abc38011c33928ee4e647d45cead9cc8b21fa2445ec477d654f4",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 8405,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-50b88d75-072e-4dd1-b242-f2729ba645fb",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "193ffbc1780288b43f5f8ad9709138131b8df100e023ae717e68f803a999c220",
+          "oracleHash": "193ffbc1780288b43f5f8ad9709138131b8df100e023ae717e68f803a999c220",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 8405,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "continued-input-dry-undo-after-context-restore",
+      "undo": "-NlRONjYoe"
+    },
+    {
+      "name": "native-context-loss-during-unrecorded-held-tail",
+      "before": {
+        "lost": false,
+        "stroke": "NGAbzI6onP",
+        "layer": "qa-wet-erase-50b88d75-072e-4dd1-b242-f2729ba645fb"
+      },
+      "after": {
+        "lost": false,
+        "stroke": null,
+        "layer": null,
+        "glError": 0
+      }
+    },
+    {
+      "name": "held-context-loss-preserves-only-accepted-journal",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-50b88d75-072e-4dd1-b242-f2729ba645fb",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "193ffbc1780288b43f5f8ad9709138131b8df100e023ae717e68f803a999c220",
+          "oracleHash": "193ffbc1780288b43f5f8ad9709138131b8df100e023ae717e68f803a999c220",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 8405,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-50b88d75-072e-4dd1-b242-f2729ba645fb",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "79a53b7eadd0abc38011c33928ee4e647d45cead9cc8b21fa2445ec477d654f4",
+          "oracleHash": "79a53b7eadd0abc38011c33928ee4e647d45cead9cc8b21fa2445ec477d654f4",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 8405,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-50b88d75-072e-4dd1-b242-f2729ba645fb",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "193ffbc1780288b43f5f8ad9709138131b8df100e023ae717e68f803a999c220",
+          "oracleHash": "193ffbc1780288b43f5f8ad9709138131b8df100e023ae717e68f803a999c220",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 8405,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "unrecorded-tail-dropped-not-committed-no-observer-ghost",
+      "held": {
+        "stroke": "NGAbzI6onP",
+        "dabs": 3
+      },
+      "heldState": {
+        "stroke": null,
+        "layer": null,
+        "queue": 0
+      }
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "0f124f71-c546-46ef-a741-bc6b617a7430",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "909d229a-b2b7-4c41-9a18-13ca418dd00a",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "c864ab89-07b1-4af7-9480-3f65a44958e5",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "currentProof": {
+    "name": "held-context-loss-preserves-only-accepted-journal",
+    "actor": 2,
+    "layerId": "qa-wet-erase-50b88d75-072e-4dd1-b242-f2729ba645fb",
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "193ffbc1780288b43f5f8ad9709138131b8df100e023ae717e68f803a999c220",
+    "oracleHash": "193ffbc1780288b43f5f8ad9709138131b8df100e023ae717e68f803a999c220",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 8405,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "pass": true
+}

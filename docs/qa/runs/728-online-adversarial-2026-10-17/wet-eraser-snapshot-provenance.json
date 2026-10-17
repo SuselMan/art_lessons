@@ -1,0 +1,30 @@
+{
+  "source": "717506a8",
+  "scope": "Read-only exact own-room snapshot downloads, raw discarded immediately",
+  "layers": [
+    {
+      "layerId": "qa-wet-erase-68c1d2aa-3ee0-40a8-b726-3dc8d1e6aee8",
+      "seq": 17,
+      "indexHash": "96f6975a16929118ee3f6b6f94e8daab2596c108a407be26e244cb75259c2ba3",
+      "downloadDecodedHash": "96f6975a16929118ee3f6b6f94e8daab2596c108a407be26e244cb75259c2ba3",
+      "compressedBytes": 19319,
+      "decodedBytes": 1048596
+    },
+    {
+      "layerId": "qa-wet-erase-92451aaa-0fba-4a39-ad8e-07812c8c337b",
+      "seq": 13,
+      "indexHash": "c6da3c7c92d91cf4f39cc06c6f9613ede5e0c549e5f4960bbf426205770809ba",
+      "downloadDecodedHash": "c6da3c7c92d91cf4f39cc06c6f9613ede5e0c549e5f4960bbf426205770809ba",
+      "compressedBytes": 13980,
+      "decodedBytes": 1048596
+    },
+    {
+      "layerId": "qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+      "seq": 4,
+      "indexHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+      "downloadDecodedHash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+      "compressedBytes": 19908,
+      "decodedBytes": 1048596
+    }
+  ]
+}

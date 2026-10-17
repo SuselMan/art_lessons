@@ -12,7 +12,20 @@ vi.mock('../../buffers/AccumulationBuffer',()=>({AccumulationBuffer:class{
 }}))
 
 vi.mock('./PuddleTarget',()=>({createNativePuddleTarget:()=>({state:{done:true},resetFromScratch(){},step(){},dry(){},cancel(){},destroy(){},buffers:()=>({})})}))
-vi.mock('./PuddlePresentation',()=>({createPuddlePresentation:()=>({invalidate(){},destroy(){},reset(){},setTarget(){},acceptInput(){},tick:()=>({copyTo(){}})})}))
+vi.mock('./PuddlePresentation',()=>({createPuddlePresentation:()=>{
+ let shown=new Uint8Array()
+ // Exact INPUT alpha branch for this fixture's R=G=B=A material. This is
+ // an owned byte-image display model, not a WebGL watercolor shader oracle.
+ return{invalidate(){},destroy(){},reset(buffer:{pixels:Uint8Array}){shown=buffer.pixels.slice()},setTarget(){},
+  acceptInput(before:{pixels:Uint8Array},after:{pixels:Uint8Array}){
+   if(shown.length!==after.pixels.length)shown=new Uint8Array(after.pixels.length)
+   for(let i=0;i<shown.length;i+=4){const b=before.pixels[i+3]/255,a=after.pixels[i+3]/255,current=shown[i+3]/255
+    if(Math.abs(a-b)<.001)continue
+    const alpha=b<.995?1-(1-current)*(1-a)/Math.max(1-b,1/255):current+a-b
+    shown.fill(Math.round(Math.min(1,Math.max(0,alpha))*255),i,i+4)
+   }
+  },tick:()=>({copyTo(destination:{pixels:Uint8Array}){destination.pixels.set(shown)}})}
+}}))
 import {AccumulationBuffer} from '../../buffers/AccumulationBuffer'
 import {RibbonScratchPool} from '../../buffers/RibbonScratchPool'
 import {PuddleRoomController, MaterialSourceBusy, type PuddleRoomHost} from './PuddleRoomController'
@@ -89,4 +102,124 @@ for(const [width,height]of [[512,768],[768,512]])it(`preserves rectangular ${wid
   expect(controller.has(targets[0])).toBe(false)
   expect(controller.has(targets[1])).toBe(true)
  }finally{controller.destroy();pool.trimFree();expect(pool.bytes.live).toBe(0);vi.unstubAllGlobals()}
+})
+
+it('restores previous goal and water material without target recomputation, then continues painting into that source',()=>{
+ const {controller,pool,profile,targets,draw}=fixture()
+ draw(0);controller.canonicalTiles(targets[0])
+ const wet=Float64Array.of(1,2,.8,12,.4)
+ expect(controller.captureUndo(targets[0],()=>true,()=>wet)).toBe(true)
+ const after=controller.source(targets[0],'new',profile,2,'',{pin:true})
+ after.scratch.peek(targets[0].allResident()[0].buffer)!.inkLoad!.restorePixelsRect(4,4,new Uint8Array(64).fill(200))
+ controller.finish(after.scratch);after.release()
+ const computations=controller.state.computations
+ expect(controller.restoreUndo(targets[0])).toEqual({wet})
+ expect(controller.state.undoHits).toBe(1)
+ expect(controller.state.computations).toBe(computations)
+ expect(targets[0].allResident()[0].buffer.readPixels()).toEqual(new Uint8Array(64).fill(10))
+ const next=controller.source(targets[0],'third',profile,3,'',{pin:true})
+ const entry=next.scratch.peek(targets[0].allResident()[0].buffer)!
+ expect(entry.original.readPixels()).toEqual(new Uint8Array(64))
+ const pixels=entry.inkLoad!.readPixels().map(v=>v+5)
+ entry.inkLoad!.restorePixelsRect(4,4,pixels)
+ controller.finish(next.scratch);next.release()
+ expect(controller.canonicalTiles(targets[0])[0].buffer.readPixels()).toEqual(new Uint8Array(64).fill(15))
+ controller.destroy();pool.trimFree();vi.unstubAllGlobals()
+})
+it('declines not-ready capture without synchronously computing a goal',()=>{
+ const {controller,pool,targets,draw}=fixture()
+ draw(0)
+ expect(controller.captureUndo(targets[0],()=>true,()=>new Float64Array())).toBe(false)
+ expect(controller.state.computations).toBe(0);expect(controller.state.cpuBytes).toBe(0)
+ controller.destroy();pool.trimFree();vi.unstubAllGlobals()
+})
+it('shares one bounded budget with parking, which can overwrite or evict an Undo checkpoint',()=>{
+ const {controller,pool,targets,draw}=fixture(300)
+ draw(0);controller.canonicalTiles(targets[0])
+ // original+coverage+P+C+goal alone exceed 300 bytes.
+ expect(controller.captureUndo(targets[0],()=>true,()=>new Float64Array())).toBe(false)
+ expect(controller.state.cpuBytes).toBeLessThanOrEqual(300)
+ expect(controller.restoreUndo(targets[0])).toBeNull()
+ controller.destroy();pool.trimFree();vi.unstubAllGlobals()
+ const f=fixture()
+ f.draw(0);f.controller.canonicalTiles(f.targets[0]);expect(f.controller.captureUndo(f.targets[0],()=>true,()=>new Float64Array())).toBe(true)
+ f.draw(1);f.draw(2)
+ expect(f.controller.restoreUndo(f.targets[0])).toBeNull() // Parking replaced pre-gesture version.
+ f.controller.destroy();f.pool.trimFree();vi.unstubAllGlobals()
+})
+it('rejects invalid history proof and consumes a successful checkpoint so Redo uses ordinary replay',()=>{
+ const {controller,pool,targets,draw}=fixture()
+ draw(0);controller.canonicalTiles(targets[0])
+ let valid=false
+ expect(controller.captureUndo(targets[0],()=>valid,()=>new Float64Array())).toBe(true)
+ expect(controller.restoreUndo(targets[0])).toBeNull()
+ valid=true;expect(controller.restoreUndo(targets[0])).not.toBeNull()
+ expect(controller.restoreUndo(targets[0])).toBeNull()
+ controller.destroy();pool.trimFree();vi.unstubAllGlobals()
+})
+
+it('parking another layer evicts the resident Undo bytes through the same LRU budget without discarding its pinned live source',()=>{
+ const {controller,pool,profile,targets,draw}=fixture(500)
+ draw(0);controller.canonicalTiles(targets[0])
+ expect(controller.captureUndo(targets[0],()=>true,()=>new Float64Array())).toBe(true)
+ expect(controller.state.cpuBytes).toBe(320)
+ draw(1)
+ const lease=controller.source(targets[0],'g0',profile,2,'',{pin:true})
+ draw(2) // Must park layer 1; layer 0's executing material cannot be evicted.
+ expect(controller.state.cpuBytes).toBeLessThanOrEqual(500)
+ expect(controller.owns(lease.scratch)).toBe(true)
+ lease.release()
+ expect(controller.restoreUndo(targets[0])).toBeNull()
+ expect(controller.state.layers).toBe(3)
+ controller.destroy();pool.trimFree();vi.unstubAllGlobals()
+})
+
+it('initializes the raw delta baseline after resuming an already solved hidden source',()=>{
+ const {controller,pool,targets,draw}=fixture()
+ let hidden=true
+ controller['host'].deferPresentation=()=>hidden
+ try{
+  draw(0)
+  controller.canonicalTiles(targets[0]) // A forced canonical read completes the hidden goal.
+  const layer=controller['layers'].get(targets[0])!
+  expect(layer.goalReady).toBe(true)
+  hidden=false;controller.resumePresentation(targets[0])
+  const baseline=layer.raw.readPixels(),entry=layer.scratch.peek(targets[0].allResident()[0].buffer)!
+  // The renderer in this fixture is a strict source-P copy. A normal next
+  // accept uses raw as beforeRGBA, so a zero/stale baseline re-adds old ink.
+  expect(baseline).toEqual(entry.inkLoad!.readPixels())
+  expect(baseline.some(value=>value!==0)).toBe(true)
+ }finally{controller.destroy();pool.trimFree();vi.unstubAllGlobals()}
+})
+
+it('matches ordinary live before-UP pixels after resuming a solved hidden source',()=>{
+ function run(deferred:boolean){
+  const {controller,pool,profile,targets,draw}=fixture()
+  let hidden=deferred;controller['host'].deferPresentation=()=>hidden
+  try{draw(0);controller.canonicalTiles(targets[0]);hidden=false;controller.resumePresentation(targets[0])
+   const source=controller.source(targets[0],'next-live',profile,2,'',{pin:true})
+   try{const tile=targets[0].allResident()[0],entry=source.scratch.getOrCreate(tile.buffer)
+    entry.inkLoad!.restorePixelsRect(4,4,new Uint8Array(64).fill(20))
+    source.scratch.noteFinish({target:targets[0],bounds:{minX:0,minY:0,maxX:4,maxY:4},fieldSeed:[0,0]} as Parameters<typeof source.scratch.noteFinish>[0])
+    controller.accept(source.scratch) // Real next material input, deliberately no finish/UP.
+    return tile.buffer.readPixels()
+   }finally{source.release()}
+  }finally{controller.destroy();pool.trimFree();vi.unstubAllGlobals()}
+ }
+ const ordinary=run(false),hidden=run(true)
+ expect(ordinary.every(value=>value===20)).toBe(true)
+ expect(hidden).toEqual(ordinary)
+})
+
+it('recorded epoch reconciliation uses the timestamp of a CPU-evicted replay marker',()=>{
+ const {controller,pool,profile,targets,draw,rehydrate}=fixture(0)
+ try{
+  draw(0);const saved=controller.capture(targets[0])!
+  draw(1);draw(2)
+  expect(controller.state.parkedLayers).toBe(1)
+  expect(controller.state.cpuBytes).toBe(0)
+  rehydrate.mockReturnValueOnce(saved)
+  const source=controller.source(targets[0],'local',profile,119_001)
+  expect(source.recordTimestamp(121_001)).toBe(true)
+ }finally{controller.destroy();pool.trimFree();vi.unstubAllGlobals()}
 })

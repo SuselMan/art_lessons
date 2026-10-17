@@ -1,0 +1,340 @@
+{
+  "sourceRuntime": "ec218f98",
+  "date": "2026-10-17",
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "gpuBudget": "314572800",
+    "scratchHolding": false,
+    "touch": 5,
+    "deviceMemory": 4,
+    "DPR": 2.125,
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "flags": {
+      "hidden": false
+    }
+  },
+  "input": {
+    "roomSize": [
+      512,
+      512
+    ],
+    "nativePointer": "CDP Input.dispatchMouseEvent pointerType pen,12moves pertool",
+    "watercolor": {
+      "size": 45,
+      "water": 0.95,
+      "pigment": 0.34
+    },
+    "frameSampling": "RAF gaps without per-frame readPixels; one held screenshot. Gaps include CDP/screenshot waits; displayCallFirstMs is not firstvisible latency."
+  },
+  "cases": [
+    {
+      "name": "watercolor-native-held",
+      "pixels": {
+        "changedChannels": 2028,
+        "max": 217,
+        "meanRGB": [
+          235.38165680473372,
+          55.2914201183432,
+          71.10355029585799
+        ]
+      },
+      "stroke": "f6LWFapw4n",
+      "dabs": 6,
+      "displayCallFirstMs": 290.3000000715256,
+      "displayCalls": 8,
+      "frameGaps": {
+        "count": 192,
+        "p50": 16.700000000000728,
+        "p95": 16.80000000000109,
+        "max": 66.89999999999964
+      },
+      "limit": "Display call is not first visible pixel latency; screenshot readback only once while held"
+    },
+    {
+      "name": "pencil-native-held",
+      "pixels": {
+        "changedChannels": 415,
+        "max": 100,
+        "meanRGB": [
+          237.91863905325442,
+          237.91863905325442,
+          238.21005917159763
+        ]
+      },
+      "stroke": "hPqko_Lvoz",
+      "dabs": 56,
+      "displayCallFirstMs": 202.79999995231628,
+      "displayCalls": 16,
+      "frameGaps": {
+        "count": 178,
+        "p50": 16.700000000000728,
+        "p95": 16.80000000000109,
+        "max": 16.80000000000291
+      },
+      "limit": "Display call is not first visible pixel latency; screenshot readback only once while held"
+    },
+    {
+      "name": "own-undo-redo",
+      "beforeUndo": "53999cd92bcc3970ce11aa314aba27caa67f992a942e59f23d78f829da05ec79",
+      "afterUndo": "89998a8add54903d28b11ef707f26ba2232900895a8cbfc9e0bb287a0b93e6dc",
+      "afterRedo": "53999cd92bcc3970ce11aa314aba27caa67f992a942e59f23d78f829da05ec79"
+    },
+    {
+      "name": "same-context-navigation-normal",
+      "readyIdleWallMs": 8948,
+      "annotationMode": false,
+      "nonzero": 9764,
+      "operations": 4,
+      "glError": 0,
+      "limit": "warm browser/navigation, not browser-cache-cold load"
+    },
+    {
+      "name": "same-context-navigation-annotations",
+      "readyIdleWallMs": 8823,
+      "annotationMode": true,
+      "nonzero": 9764,
+      "operations": 2,
+      "glError": 0,
+      "limit": "warm browser/navigation, not browser-cache-cold load"
+    }
+  ],
+  "nativeFit": {
+    "screen": {
+      "w": 824,
+      "h": 1149
+    },
+    "corners": [
+      {
+        "x": 148.2196840682261,
+        "y": 424.8534174490574
+      },
+      {
+        "x": 499.78875647537774,
+        "y": 424.8534174490574
+      },
+      {
+        "x": 148.2196840682261,
+        "y": 776.4410244176236
+      },
+      {
+        "x": 499.78875647537774,
+        "y": 776.4410244176236
+      }
+    ],
+    "chrome": [
+      {
+        "edge": "top",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 824.4705810546875,
+          "height": 52,
+          "top": 0,
+          "right": 824.4705810546875,
+          "bottom": 52,
+          "left": 0
+        }
+      },
+      {
+        "edge": "left",
+        "rect": {
+          "x": 0,
+          "y": 52,
+          "width": 62,
+          "height": 1097.6470947265625,
+          "top": 52,
+          "right": 62,
+          "bottom": 1149.6470947265625,
+          "left": 0
+        }
+      },
+      {
+        "edge": "left",
+        "rect": {
+          "x": 62,
+          "y": 52,
+          "width": 62,
+          "height": 1097.6470947265625,
+          "top": 52,
+          "right": 124,
+          "bottom": 1149.6470947265625,
+          "left": 62
+        }
+      },
+      {
+        "edge": "right",
+        "rect": {
+          "x": 523.5294189453125,
+          "y": 52,
+          "width": 300.9411926269531,
+          "height": 1097.6470947265625,
+          "top": 52,
+          "right": 824.4706115722656,
+          "bottom": 1149.6470947265625,
+          "left": 523.5294189453125
+        }
+      }
+    ]
+  },
+  "battery": {
+    "before": {
+      "level": 100,
+      "AC": true,
+      "celsius": 39.8
+    },
+    "after": {
+      "level": 100,
+      "AC": true,
+      "celsius": 39.7
+    }
+  },
+  "limitations": [
+    "Single trial, no performance benchmark claim.",
+    "UndoRedo covered last pencil stroke; watercolor-specific undo and second online Samsung observer not covered by this mini-package.",
+    "Load is same-context warm navigation into tiny2stroke fixture, not100stroke/cache-cold/cached-reviewimage path.",
+    "Native tablet824x1149 viewport, no390px phone emulation.",
+    "First partial run navigation timed out because harness did not resubmit nameform. Fixed harness rerun passed; no product failure claimed.",
+    "First partial run was SIGSTOP during QA original100 performance quiet window; partial navigation timing excluded."
+  ],
+  "cleanup": {
+    "ownContextsDisposed": true,
+    "originalTabRestored": true,
+    "ownFixtureOwnerDelete": 200,
+    "sharedTunnelRetainedBy": "qa_cases",
+    "registeredRawCache": "Removed by root through standard privileged qa-cleanup after own process END; identical guards retained. Unprivileged checker had failed closed on inaccessible unrelated own-UID session processes. Shared19335 tunnel untouched."
+  },
+  "pass": true,
+  "loadTimingBoundary": {
+    "start": "VPS Date.now immediately before CDP Page.navigate",
+    "end": "VPS Date.now after engine unlocked, paperReady, ACK/rebuild/puddle idle, final canvas readPixels/nonzero/GL evaluation returned over CDP",
+    "includes": [
+      "navigation/module/network loading",
+      "automatic repeat nameform handling and2RAF wait",
+      "CDP polling intervals/roundtrips",
+      "roomjoin/paper/snapshot/replay when present",
+      "all pending solver and ACK idle",
+      "final readPixels/nonzero count and returnByValue transport"
+    ],
+    "notCaptured": [
+      "individual network/join/paper/snapshot/replay timings",
+      "actual first visible canvas/frame timestamp",
+      "annotation/reviewimage firstinteractive timestamp",
+      "shadercompile duration"
+    ],
+    "interpretation": "Composite harness completion time only. UI persisted stage records show normal join-submit\u2192ready731ms and annotation987ms; fullnavigation vs UI-timer gap remains unassigned. Does not prove9s userwait/replay; firstvisible and earlyreviewimage not captured."
+  },
+  "persistedUiOpenMeasurements": [
+    {
+      "scope": "first-context-empty-entry",
+      "createdAt": "2026-10-17T00:38:26.942Z",
+      "totalMs": 575,
+      "joinMs": 415,
+      "paperMs": 157,
+      "snapshotMs": 0,
+      "replayMs": 3,
+      "reached": "replay",
+      "facts": {
+        "layers": 2,
+        "latestSeq": 0,
+        "snapshotSeq": null,
+        "tailOperations": 0,
+        "restoredFromSnapshot": false
+      },
+      "outcome": "ready",
+      "wasHidden": false,
+      "platform": "android",
+      "browser": "Chrome 155"
+    },
+    {
+      "scope": "second-context-existing-four-ops-entry",
+      "createdAt": "2026-10-17T00:41:37.325Z",
+      "totalMs": 1202,
+      "joinMs": 600,
+      "paperMs": 163,
+      "snapshotMs": 0,
+      "replayMs": 439,
+      "reached": "replay",
+      "facts": {
+        "layers": 2,
+        "latestSeq": 0,
+        "snapshotSeq": null,
+        "tailOperations": 4,
+        "restoredFromSnapshot": false
+      },
+      "outcome": "ready",
+      "wasHidden": false,
+      "platform": "android",
+      "browser": "Chrome 155"
+    },
+    {
+      "scope": "normal-loop-entry",
+      "createdAt": "2026-10-17T00:41:45.797Z",
+      "totalMs": 731,
+      "joinMs": 367,
+      "paperMs": 138,
+      "snapshotMs": 0,
+      "replayMs": 227,
+      "reached": "replay",
+      "facts": {
+        "layers": 2,
+        "latestSeq": 0,
+        "snapshotSeq": null,
+        "tailOperations": 4,
+        "restoredFromSnapshot": false
+      },
+      "outcome": "ready",
+      "wasHidden": false,
+      "platform": "android",
+      "browser": "Chrome 155"
+    },
+    {
+      "scope": "annotation-loop-entry",
+      "createdAt": "2026-10-17T00:41:56.153Z",
+      "totalMs": 987,
+      "joinMs": 378,
+      "paperMs": 126,
+      "snapshotMs": 480,
+      "replayMs": 2,
+      "reached": "replay",
+      "facts": {
+        "layers": 2,
+        "latestSeq": 0,
+        "snapshotSeq": 4,
+        "tailOperations": 0,
+        "restoredFromSnapshot": true
+      },
+      "outcome": "ready",
+      "wasHidden": false,
+      "platform": "android",
+      "browser": "Chrome 155"
+    },
+    {
+      "scope": "normal-final-fit-entry",
+      "createdAt": "2026-10-17T00:42:03.315Z",
+      "totalMs": 981,
+      "joinMs": 387,
+      "paperMs": 135,
+      "snapshotMs": 457,
+      "replayMs": 2,
+      "reached": "replay",
+      "facts": {
+        "layers": 2,
+        "latestSeq": 0,
+        "snapshotSeq": 4,
+        "tailOperations": 0,
+        "restoredFromSnapshot": true
+      },
+      "outcome": "ready",
+      "wasHidden": false,
+      "platform": "android",
+      "browser": "Chrome 155"
+    }
+  ],
+  "persistedUiOpenMeasurementScope": "Read-only exact disposable-room SELECT; records correlated by createdAt and known navigation order. UI OpenTimer starts at join-submit, not page navigation. Normal loop731ms, annotation987ms. Does not separately establish firstvisible/early-reviewimage time or explain prejoin/CDP overhead in8.9s composite."
+}

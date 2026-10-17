@@ -1,0 +1,287 @@
+{
+  "source": "e5d08c61",
+  "scope": "Real20 same-author pencil strokes; real owner snapshot20 HTTP upload; fresh UI room join with production inclusive backfill; trusted CtrlZ must target20, CtrlShiftZ restore20; actual physical before replay",
+  "cases": [
+    "fresh-production-backfill-includes-snapshot-head20",
+    "native-cold-CtrlZ-removes-head20-and-exact-prefix19",
+    "native-cold-CtrlShiftZ-restores-exact-prefix20",
+    "second-fresh-room-physical-persistence-exact"
+  ],
+  "errors": [],
+  "identity": {
+    "paper": {
+      "w": 512,
+      "h": 512
+    },
+    "cache": false,
+    "hidden": false,
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)"
+  },
+  "prefix": {
+    "layer": "layer-1",
+    "hash19": "0c17d9ed964d1fd540e532e69db865a5f831cc2b19fd37fa78f5dac0aa10fd84",
+    "hash20": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2",
+    "uploaded": true,
+    "error": null,
+    "headId": "nunekDjG7k",
+    "userId": "46097c3c-1c4c-4057-aa07-d8596f7459f2"
+  },
+  "snapshotIndex": {
+    "seq": 20,
+    "layerState": {
+      "items": {
+        "layer-1": {
+          "id": "layer-1",
+          "kind": "layer",
+          "name": "Layer 1",
+          "opacity": 1,
+          "visible": true
+        },
+        "background": {
+          "id": "background",
+          "kind": "layer",
+          "name": "Background",
+          "opacity": 1,
+          "visible": true
+        }
+      },
+      "activeId": "layer-1",
+      "rootOrder": [
+        "layer-1",
+        "background"
+      ],
+      "selectedIds": []
+    },
+    "layers": [
+      {
+        "layerId": "layer-1",
+        "seq": 20,
+        "hash": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2"
+      }
+    ]
+  },
+  "seedPhysical": {
+    "layerId": "layer-1",
+    "sourceHiddenReplay": false,
+    "oracleHiddenReplay": false,
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2",
+    "oracleHash": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 3600,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "coldBefore": {
+    "userId": "46097c3c-1c4c-4057-aa07-d8596f7459f2",
+    "coverage": [
+      [
+        "layer-1",
+        20
+      ]
+    ],
+    "entries": [
+      {
+        "id": "aA-Mie6pL2",
+        "seq": 1,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "AqpiMTpmIj",
+        "seq": 2,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "mZD-bBabNz",
+        "seq": 3,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "bwit7G_Nu7",
+        "seq": 4,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "EMMAXPwle8",
+        "seq": 5,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "oNsB0OZq6q",
+        "seq": 6,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "8Icsz-364p",
+        "seq": 7,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "YQVwAM7bSo",
+        "seq": 8,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "OCnOzcN5Rx",
+        "seq": 9,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "n-mt2w3AQQ",
+        "seq": 10,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "wTbW4nNM3g",
+        "seq": 11,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "ulvJywgW6P",
+        "seq": 12,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "FVwoxO4LmU",
+        "seq": 13,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "WWwDQEOKpj",
+        "seq": 14,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "NJv_zK1ei4",
+        "seq": 15,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "GCILrVxwZA",
+        "seq": 16,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "S4ii-9r_bE",
+        "seq": 17,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "kJpMaRaDiI",
+        "seq": 18,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "zbpC2KXRVe",
+        "seq": 19,
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "nunekDjG7k",
+        "seq": 20,
+        "type": "stroke",
+        "state": "done"
+      }
+    ]
+  },
+  "coldPhysical": {
+    "layerId": "layer-1",
+    "sourceHiddenReplay": false,
+    "oracleHiddenReplay": false,
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2",
+    "oracleHash": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 3600,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "undo": {
+    "target": "nunekDjG7k",
+    "head": "nunekDjG7k",
+    "operation": "DH_M_DYPEx"
+  },
+  "afterUndo": {
+    "layerId": "layer-1",
+    "sourceHiddenReplay": false,
+    "oracleHiddenReplay": false,
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "0c17d9ed964d1fd540e532e69db865a5f831cc2b19fd37fa78f5dac0aa10fd84",
+    "oracleHash": "0c17d9ed964d1fd540e532e69db865a5f831cc2b19fd37fa78f5dac0aa10fd84",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 3420,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "redo": {
+    "target": "nunekDjG7k",
+    "operation": "LjdXVCECiN"
+  },
+  "afterRedo": {
+    "layerId": "layer-1",
+    "sourceHiddenReplay": false,
+    "oracleHiddenReplay": false,
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2",
+    "oracleHash": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 3600,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "final": {
+    "layerId": "layer-1",
+    "sourceHiddenReplay": false,
+    "oracleHiddenReplay": false,
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2",
+    "oracleHash": "e848a9ae8399b75fed7d634c908660410c388589cb25ad282387f0da8195cce2",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 3600,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "pass": true,
+  "prefixInput": "Manual engine pointer callbacks, recorded and accepted by real server; Undo/Redo are trusted native keyboard events after fresh UI navigation.",
+  "snapshotDelivery": "Real owner HTTP snapshot upload and real server cold-join response; no HTTP fixtures, no copied production backfill formulas, no manual history absorption.",
+  "cleanup": {
+    "ownFixtureOwnerDeleted": true,
+    "ownAuthRemoved": true,
+    "ownBrowserContextsClosed": true,
+    "remaining": "Owned Vega Chrome566309/profile/19333 and registered diagnostic cache retained for root; root annotationfixture untouched"
+  }
+}

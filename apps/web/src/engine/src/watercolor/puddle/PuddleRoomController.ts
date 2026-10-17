@@ -32,9 +32,14 @@ interface Layer {
   started: number
   after: number
   presentationDirty: boolean
+  deferredPresentation?: boolean
   dryAt?: number
 }
 type ParkedLayer = Pick<Layer, 'target'|'gesture'|'previous'|'timestamp'|'boundary'|'epoch'>
+interface UndoMaterialSnapshot extends CpuScratchSnapshot {
+  undo: {layer: ParkedLayer; goal: Uint8Array; wet: Float64Array; valid: () => boolean}
+}
+function undoSnapshot(value: CpuScratchSnapshot | undefined): value is UndoMaterialSnapshot { return !!value && 'undo' in value }
 export class MaterialSourceBusy extends Error {
   constructor() { super('M70 material sources are executing; retry after an operation boundary') }
 }
@@ -45,6 +50,10 @@ export interface PuddleRoomHost extends PuddleTargetHost {
   materialReady?(target: ILayerBuffer): boolean
   rehydrate?(target: ILayerBuffer, beforeRecordedOpId?: string): CpuScratchSnapshot
   drawing(): boolean
+  /** Synchronous material reads/barriers must acquire the shared field first. */
+  finishLegacySettle?(): void
+  /** Hidden replay changes material only until its target becomes visible. */
+  deferPresentation?(target: ILayerBuffer): boolean
   render(scratch: RibbonStrokeScratch, tile: PaintTarget, context: Context,
     output: AccumulationBuffer, material: Material): void
   changed(target: ILayerBuffer): void
@@ -69,6 +78,10 @@ export class PuddleRoomController {
   private cancellations = 0
   private computations = 0
   private readonly dimensions: {width:number;height:number}
+  private undoCaptures=0
+  private undoHits=0
+  private undoCaptureLastMs=0
+  private undoRestoreLastMs=0
   private readonly host: PuddleRoomHost
   constructor(host: PuddleRoomHost) {
     this.host=host
@@ -82,7 +95,7 @@ export class PuddleRoomController {
     }})
   }
   get state() {
-    return {layers: this.layers.size + this.parked.size, residentLayers:this.layers.size, parkedLayers:this.parked.size, cpuBytes:this.residency.bytes, drying:this.closing.size > 0, cancellations:this.cancellations, computations:this.computations, pending: this.closing.size > 0 || !!this.solving || [...this.layers.values()].some(l => l.dirty),
+    return {undoCaptureLastMs:this.undoCaptureLastMs,undoRestoreLastMs:this.undoRestoreLastMs,undoCaptures:this.undoCaptures,undoHits:this.undoHits,layers: this.layers.size + this.parked.size, residentLayers:this.layers.size, parkedLayers:this.parked.size, cpuBytes:this.residency.bytes, drying:this.closing.size > 0, cancellations:this.cancellations, computations:this.computations, pending: this.closing.size > 0 || !!this.solving || [...this.layers.values()].some(l => l.dirty),
       revisions: [...this.layers.values()].map(l => ({epoch:l.epoch, ready:l.goalReady, active:l.active}))}
   }
   has(target: ILayerBuffer): boolean { return this.layers.has(target) || this.parked.has(target) }
@@ -93,6 +106,7 @@ export class PuddleRoomController {
   /** Read material, never presentation. Structural copies are rare and may
    * synchronously finish the current goal; the original water stays active. */
   canonicalTiles(target: ILayerBuffer): readonly PaintTarget[] {
+    this.host.finishLegacySettle?.()
     const layer = this.layers.get(target)
     if (!layer?.tile || !layer.context) return target.allResident()
     if (!layer.goalReady || layer.dirty) {
@@ -142,11 +156,11 @@ export class PuddleRoomController {
     this.host.changed(victim.target)
   }
   /** Journal fallback must replay a strict prefix, excluding the incoming op. */
-  private awaken(target: ILayerBuffer, beforeRecordedOpId?: string): Layer | undefined {
+  private awaken(target: ILayerBuffer, beforeRecordedOpId?: string, prepared?:CpuScratchSnapshot): Layer | undefined {
     const old=this.parked.get(target)
     if(!old)return undefined
     this.ensureSlot(target)
-    const snapshot=this.residency.take(target) ?? this.host.rehydrate?.(target,beforeRecordedOpId)
+    const snapshot=prepared ?? this.residency.take(target) ?? this.host.rehydrate?.(target,beforeRecordedOpId)
     if(!snapshot)throw new Error('M70 evicted material requires journal reconstruction')
     if(snapshot.tiles.length!==1 || snapshot.tiles[0].originX || snapshot.tiles[0].originY || snapshot.tiles[0].width!==this.dimensions.width || snapshot.tiles[0].height!==this.dimensions.height)throw new Error('M70 material snapshot dimensions differ from page')
     const scratch=RibbonStrokeScratch.restoreCpu(this.host.pool,snapshot,target)
@@ -182,8 +196,59 @@ export class PuddleRoomController {
       return tile ? {originX:tile.originX,originY:tile.originY} : null
     })
   }
-  source(target: ILayerBuffer, gesture: string, profile: RibbonProfile, timestamp: number, boundary='', request?: {pin?: boolean; beforeRecordedOpId?: string}): {scratch: RibbonStrokeScratch; prevDab?: Dab; release: () => void} {
+  /** QA-only fast Undo cache, charged to the same byte budget as parked water.
+   * Never finish a pending goal on DOWN just to manufacture a checkpoint. */
+  captureUndo(target: ILayerBuffer, valid: () => boolean, readWet: () => Float64Array): boolean {
+    const layer=this.layers.get(target)
+    if(!layer?.tile || !layer.context || !layer.goalReady || layer.dirty || this.residency.pinned(target) || this.closing.has(target) || this.residency.byteBudget===0)return false
+    const started=performance.now()
+    try {
+      const source=this.capture(target)
+      if(!source)return false
+      const goal=layer.goal.readPixels()
+      const wet=readWet()
+      const {gesture,previous,timestamp,boundary,epoch}=layer
+      const saved:UndoMaterialSnapshot={...source,bytes:source.bytes+goal.byteLength+wet.byteLength,
+        undo:{layer:{target,gesture,previous,timestamp,boundary,epoch},goal,wet,valid}}
+      if(saved.bytes>this.residency.byteBudget)return false
+      this.residency.store(target,saved)
+      if(!this.residency.hasBytes(target))return false
+      this.undoCaptures++
+      return true
+    } catch { return false } // Optional cache failure must never reject DOWN.
+    finally { this.undoCaptureLastMs=performance.now()-started }
+  }
+  /** The caller has already folded Undo into its journal. Exact proof failure
+   * preserves ordinary replay; water-only/foreign/Dry states cannot use this. */
+  restoreUndo(target: ILayerBuffer): {wet:Float64Array} | null {
+    const saved=this.residency.peek(target)
+    if(!undoSnapshot(saved) || saved.bytes>this.residency.byteBudget || !saved.undo.valid() || this.residency.pinned(target))return null
+    const current=this.layers.get(target)
+    if(!current || this.closing.has(target))return null
+    const started=performance.now()
+    this.residency.take(target)
+    this.parked.set(target,saved.undo.layer)
+    this.releaseResident(current)
+    try {
+      const layer=this.awaken(target,undefined,saved)
+      if(!layer?.tile)throw new Error('Cached Undo has no source tile')
+      layer.goal.restorePixelsRect(this.dimensions.width,this.dimensions.height,saved.undo.goal)
+      layer.presentation.reset(layer.goal,layer.epoch)
+      layer.goalReady=true;layer.dirty=false;layer.active=false;layer.presentationDirty=false
+      layer.goal.copyTo(layer.tile.buffer)
+      this.host.changed(target)
+      this.undoHits++
+      return {wet:saved.undo.wet}
+    } catch { return null } // Root display is unchanged until all restore allocations succeed.
+    finally { this.undoRestoreLastMs=performance.now()-started }
+  }
+  source(target: ILayerBuffer, gesture: string, profile: RibbonProfile, timestamp: number, boundary='', request?: {pin?: boolean; beforeRecordedOpId?: string}): {scratch: RibbonStrokeScratch; prevDab?: Dab; release: () => void; recordTimestamp: (at: number) => boolean} {
     const parked=this.parked.get(target)
+    const prior=this.layers.get(target) ?? parked
+    // Empty prewarm placeholders are not an earlier material epoch.
+    let priorAt=prior && !(prior.gesture==='prewarm' && !('context' in prior && prior.context)) ? prior.timestamp : undefined
+    let boundaryClosed=!!prior && prior.boundary!==boundary
+    let physicalClosed=priorAt!==undefined && (boundaryClosed || timestamp>=priorAt+WATERCOLOR_WET_DRY_MS)
     if(parked && (boundary!==parked.boundary || timestamp>=parked.timestamp+WATERCOLOR_WET_DRY_MS))this.close(target)
     let layer = this.layers.get(target) ?? this.awaken(target,request?.beforeRecordedOpId)
     // Logical operation time, never animation progress, closes a dried wash.
@@ -212,7 +277,18 @@ export class PuddleRoomController {
     layer.presentation.invalidate(layer.epoch)
     layer.active = false
     layer.goalReady = false
-    return {scratch:layer.scratch,prevDab:layer.previous,release:request?.pin ? this.residency.acquire(target) : () => {}}
+    return {scratch:layer.scratch,prevDab:layer.previous,release:request?.pin ? this.residency.acquire(target) : () => {},
+      recordTimestamp:at=>{
+        const recordedClosed=priorAt!==undefined && (boundaryClosed || at>=priorAt+WATERCOLOR_WET_DRY_MS)
+        const repair=recordedClosed!==physicalClosed
+        // Subsequent chunks physically continue this scratch, but their
+        // canonical epoch is measured from the previous recorded chunk.
+        priorAt=at
+        physicalClosed=false
+        boundaryClosed=false
+        if(this.layers.get(target)===layer)layer.timestamp=at
+        return repair
+      }}
   }
   previous(scratch: RibbonStrokeScratch, dab: Dab | undefined): void {
     const layer = this.find(scratch)
@@ -239,11 +315,13 @@ export class PuddleRoomController {
     }
     const entry = scratch.peek(tile.buffer)!
     if (!entry.inkLoad || !entry.inkColor) return
-    if (!layer.context) {
+    const deferred=this.host.deferPresentation?.(layer.target)===true
+    if (!layer.context && !deferred) {
       entry.original.copyTo(layer.raw)
       layer.presentation.reset(layer.raw,layer.epoch)
     }
     layer.tile = tile; layer.context = context
+    if(deferred){layer.deferredPresentation=true;layer.dirty=true;layer.after=performance.now()+60;return}
     this.host.render(scratch,tile,context,layer.next,{p:entry.inkLoad,c:entry.inkColor,coverage:entry.coverage})
     layer.presentation.acceptInput(layer.raw,layer.next,layer.epoch)
     layer.presentationDirty=true
@@ -280,7 +358,8 @@ export class PuddleRoomController {
     this.host.render(layer.scratch,layer.tile,layer.context,layer.goal,this.solver.buffers())
     layer.dirty=false;layer.goalReady=true;layer.active=true;layer.started=performance.now()
     if(this.closing.has(layer.target)) layer.dryAt=layer.started
-    layer.presentation.setTarget(layer.goal,this.solver.buffers().coverage,layer.epoch)
+    if(this.host.deferPresentation?.(layer.target)){layer.deferredPresentation=true;layer.active=false}
+    else layer.presentation.setTarget(layer.goal,this.solver.buffers().coverage,layer.epoch)
     this.solving=null
   }
   private readonly frame = (at: number): void => {
@@ -311,10 +390,29 @@ export class PuddleRoomController {
     if (moving || this.solving || [...this.layers.values()].some(l => l.dirty)) this.request()
   }
   private present(layer: Layer): void {
-    if (!layer.tile || !layer.context || !layer.presentationDirty) return
+    if (!layer.tile || !layer.context || !layer.presentationDirty || this.host.deferPresentation?.(layer.target)) return
     layer.presentationDirty=false
     layer.presentation.tick(0,{dry:false}).copyTo(layer.tile.buffer)
     this.host.changed(layer.target)
+  }
+  /** Leave hidden replay once. Canonical material and its ordinary solver
+   * were never skipped; only transient display buffers need initialization. */
+  resumePresentation(target: ILayerBuffer): void {
+    const layer=this.layers.get(target)
+    if(!layer?.deferredPresentation || !layer.tile || !layer.context)return
+    layer.deferredPresentation=false
+    // raw is the baseline for the next live acceptInput delta even when the
+    // visible correction can start directly from an already solved goal.
+    const entry=layer.scratch.peek(layer.tile.buffer)!
+    this.host.render(layer.scratch,layer.tile,layer.context,layer.raw,{p:entry.inkLoad!,c:entry.inkColor!,coverage:entry.coverage})
+    if(layer.goalReady && !layer.dirty){
+      // A completed canonical goal is already authoritative. Keep its water
+      // source, while undo/load appears immediately at the corrected target.
+      layer.presentation.reset(layer.goal,layer.epoch);layer.active=false
+    }else{
+      layer.presentation.reset(layer.raw,layer.epoch)
+    }
+    layer.presentationDirty=true;this.present(layer);this.request()
   }
   /** Materialize natural drying on the operation timeline, independently of
    * whether presentation has completed on this particular device. */
@@ -338,9 +436,12 @@ export class PuddleRoomController {
     this.cancelCurrent()
     paint(entry.original)
     layer.epoch++
-    this.host.render(layer.scratch, layer.tile, layer.context, layer.raw,
-      {p: entry.inkLoad, c: entry.inkColor, coverage: entry.coverage})
-    layer.presentation.reset(layer.raw, layer.epoch)
+    if(this.host.deferPresentation?.(target))layer.deferredPresentation=true
+    else {
+      this.host.render(layer.scratch, layer.tile, layer.context, layer.raw,
+        {p: entry.inkLoad, c: entry.inkColor, coverage: entry.coverage})
+      layer.presentation.reset(layer.raw, layer.epoch)
+    }
     layer.presentationDirty = true
     layer.active = false
     layer.goalReady = false
@@ -374,6 +475,7 @@ export class PuddleRoomController {
   /** Explicit recorded boundary. Replays and manual Dry use the same goal.
    * This first QA adapter drains the outstanding goal synchronously here. */
   close(target?: ILayerBuffer): void {
+    this.host.finishLegacySettle?.()
     this.cancelCurrent()
     for(const key of [...this.parked.keys()])if(!target || key===target)this.forget(key)
     for (const layer of [...this.layers.values()]) {

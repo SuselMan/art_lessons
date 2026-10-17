@@ -108,7 +108,7 @@ it('sliced replay passes the current chunk timestamp and preceding dry identity 
     const target=engine['_layers'].get('L')!
     const work=engine['_ribbonDabsWork'](target,[dab(32,24)],'watercolor',m70Preset,[0,0,1],undefined,undefined,'gesture',undefined,undefined,undefined,false,6,current)
     expect(()=>work.next()).toThrow(stop)
-    expect(source).toHaveBeenCalledWith(target,'gesture',expect.anything(),2000,'dry-between')
+    expect(source).toHaveBeenCalledWith(target,'gesture',expect.anything(),2000,'dry-between',{pin:true,beforeRecordedOpId:'second'})
     source.mockRestore()
   }finally{engine.destroy()}
 })

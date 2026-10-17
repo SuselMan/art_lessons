@@ -1,0 +1,44 @@
+{
+  "source": "ec218f98",
+  "scope": "Physical layer readPixels world ROI calibration against known opaque red shape and actual DOM screenshot",
+  "errors": [],
+  "layer": {
+    "rect": {
+      "x": 155,
+      "y": 105,
+      "w": 20,
+      "h": 10
+    },
+    "physicalHash": "45122e78f3fc0ae145d710150083acfea6aead2f450db4caa8b42a8dd36dc7ad",
+    "nonzeroAlpha": 200,
+    "redBounds": {
+      "x0": 150,
+      "y0": 100,
+      "x1": 189,
+      "y1": 129
+    },
+    "actualCapturedBeforeOracle": true,
+    "glError": 0,
+    "oracleHash": "45122e78f3fc0ae145d710150083acfea6aead2f450db4caa8b42a8dd36dc7ad",
+    "changed": 0,
+    "max": 0
+  },
+  "dom": {
+    "clip": {
+      "x": 358,
+      "y": 283,
+      "width": 8,
+      "height": 8
+    },
+    "red": 64,
+    "pixels": 64,
+    "meanRGB": [
+      246.96875,
+      50.921875,
+      44.8125
+    ]
+  },
+  "pass": true,
+  "originalFailure": "AssertionError [ERR_ASSERTION]: DOM screenshot does not match known red world ROI\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/calibrate-layer-roi.cjs:3:2697",
+  "assessment": "Physical opaque ROI exactly [255,0,0,255], 200 pixels; full world bounds exactly x150..189/y100..129, own replay exact. Actual DOM center is visibly red (64/64 pixels, mean recorded), modified by normal paper presentation. Initial screenshot classifier incorrectly expected the unpresented raw RGBA; corrected offline using original unchanged PNG, no browser repaint. Shared helper coordinates calibrated."
+}

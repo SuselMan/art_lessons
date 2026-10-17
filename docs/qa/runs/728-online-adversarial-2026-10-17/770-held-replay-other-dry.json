@@ -1,0 +1,242 @@
+{
+  "source": "e50dd217",
+  "scope": "Ten real authenticated Socket.io authors, two GPU observers; author pointer path not covered",
+  "cases": [
+    {
+      "name": "real-foreign-eraser-held-private-job-other-layer-dry-drains",
+      "dry": "c32424ac-1a9a-4608-99e8-ff889bb7f6e2",
+      "eraser": "3I4WYAIOla",
+      "before": {
+        "trace": [
+          {
+            "stage": "private-job-before-real-peer-packet",
+            "job": true,
+            "time": 24675.19999998808
+          },
+          {
+            "stage": "real-peer-packet-after-job",
+            "unrecorded": true,
+            "jobs": 1,
+            "peers": 1,
+            "time": 24675.899999976158
+          },
+          {
+            "stage": "real-peer-packet-after-job",
+            "unrecorded": true,
+            "jobs": 1,
+            "peers": 1,
+            "time": 24778.29999998212
+          }
+        ],
+        "puddle": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 1,
+          "residentLayers": 1,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 2,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 2,
+              "ready": true,
+              "active": true
+            }
+          ]
+        },
+        "jobs": 1,
+        "queue": 0
+      },
+      "after": {
+        "drying": true,
+        "jobs": 0,
+        "queue": 0
+      },
+      "final": [
+        {
+          "queue": 0,
+          "jobs": 0,
+          "drying": false,
+          "trace": [
+            {
+              "stage": "private-job-before-real-peer-packet",
+              "job": true,
+              "time": 24675.19999998808
+            },
+            {
+              "stage": "real-peer-packet-after-job",
+              "unrecorded": true,
+              "jobs": 1,
+              "peers": 1,
+              "time": 24675.899999976158
+            },
+            {
+              "stage": "real-peer-packet-after-job",
+              "unrecorded": true,
+              "jobs": 1,
+              "peers": 1,
+              "time": 24778.29999998212
+            },
+            {
+              "stage": "real-peer-packet-after-job",
+              "unrecorded": true,
+              "jobs": 0,
+              "peers": 1,
+              "time": 25600.899999976158
+            }
+          ]
+        },
+        {
+          "queue": 0,
+          "jobs": 0,
+          "drying": false
+        }
+      ]
+    },
+    {
+      "name": "final-physical-independent-replay-0-qa-job-5891afc6-1104-40fc-b0d9-6ef2ff873550",
+      "proof": {
+        "layerId": "qa-job-5891afc6-1104-40fc-b0d9-6ef2ff873550",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "0ae20ffd1781e7b827b97d2f5bff31f23b55c8d6196e523dd0cc742b3bfb0c05",
+        "oracleHash": "0ae20ffd1781e7b827b97d2f5bff31f23b55c8d6196e523dd0cc742b3bfb0c05",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 8514,
+        "tiles": 1,
+        "bytes": 4194324,
+        "glError": 0
+      }
+    },
+    {
+      "name": "final-physical-independent-replay-0-qa-dry-5329b3a3-40ec-47c5-b63f-26bddb0d6a9c",
+      "proof": {
+        "layerId": "qa-dry-5329b3a3-40ec-47c5-b63f-26bddb0d6a9c",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "7ac8ef9d88befb93d42e547daf24c76539b7997e4df900c0a0df2ee9cbfd7396",
+        "oracleHash": "7ac8ef9d88befb93d42e547daf24c76539b7997e4df900c0a0df2ee9cbfd7396",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 8507,
+        "tiles": 1,
+        "bytes": 4194324,
+        "glError": 0
+      }
+    },
+    {
+      "name": "final-physical-independent-replay-1-qa-job-5891afc6-1104-40fc-b0d9-6ef2ff873550",
+      "proof": {
+        "layerId": "qa-job-5891afc6-1104-40fc-b0d9-6ef2ff873550",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "61884ce90ccd2e27a797169a279903f259617d095e2e395d718a8215e46069c5",
+        "oracleHash": "61884ce90ccd2e27a797169a279903f259617d095e2e395d718a8215e46069c5",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 8514,
+        "tiles": 1,
+        "bytes": 4194324,
+        "glError": 0
+      }
+    },
+    {
+      "name": "final-physical-independent-replay-1-qa-dry-5329b3a3-40ec-47c5-b63f-26bddb0d6a9c",
+      "proof": {
+        "layerId": "qa-dry-5329b3a3-40ec-47c5-b63f-26bddb0d6a9c",
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "927b4e789dd51e7ca124208aec29551f29b561c0333dad41ed7486eb21d7c20f",
+        "oracleHash": "927b4e789dd51e7ca124208aec29551f29b561c0333dad41ed7486eb21d7c20f",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 8507,
+        "tiles": 1,
+        "bytes": 4194324,
+        "glError": 0
+      }
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "98be69eb-ed1f-44d2-b31b-61a969ee22c8",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 1024,
+        "h": 1024
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "18406105-c58f-4089-8d90-d152fd850b9d",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 1024,
+        "h": 1024
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "beforeDry": {
+    "trace": [
+      {
+        "stage": "private-job-before-real-peer-packet",
+        "job": true,
+        "time": 24675.19999998808
+      },
+      {
+        "stage": "real-peer-packet-after-job",
+        "unrecorded": true,
+        "jobs": 1,
+        "peers": 1,
+        "time": 24675.899999976158
+      },
+      {
+        "stage": "real-peer-packet-after-job",
+        "unrecorded": true,
+        "jobs": 1,
+        "peers": 1,
+        "time": 24778.29999998212
+      }
+    ],
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 2,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 2,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "jobs": 1,
+    "queue": 0
+  },
+  "afterDry": {
+    "drying": true,
+    "jobs": 0,
+    "queue": 0
+  },
+  "pass": true,
+  "assessment": "Real Socket operations and live packets; QA-only deterministic private rebuild job armed immediately before actual foreign eraser packet. DryK observed active after job cancellation; final 4 physical rasters exact independent replay. No forced render or artificial timer stepping."
+}

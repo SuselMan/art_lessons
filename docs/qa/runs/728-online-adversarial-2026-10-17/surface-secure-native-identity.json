@@ -1,0 +1,11 @@
+{
+  "observedUTC": "2026-10-17T02:07:52.157643+00:00",
+  "scope": "Read-only navigator identity from new plain404 secure-origin page in owned native Surface Chrome default context. No deviceMemory/touch/DPR emulation on this page; page closed immediately.",
+  "secure": true,
+  "DPR": 1.5,
+  "maxTouchPoints": 10,
+  "deviceMemory": 8,
+  "expectedBudgetFromRuntimePolicy": "Infinity",
+  "policySource": "apps/web/src/engine/index.ts:1815",
+  "harnessCorrection": "Playwright hasTouch:true emulates maxTouchPoints1; it does not prove finite budget. New observer run reproduces physical touch10 before engine initialization, preserves actual memory8, and checks resulting budget policy."
+}

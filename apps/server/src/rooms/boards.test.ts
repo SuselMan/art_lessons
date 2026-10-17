@@ -22,16 +22,16 @@ vi.mock('../db/prisma.js', () => ({ prisma: mockPrisma }))
 
 const {
   _flushPendingWrites, addPaletteColor, createRoom, getParticipant, getRoomGate, getRoomSnapshot, isRoomResident,
-  joinRoom, leaveRoom, releaseRoomIfUnused,
+  joinRoom, leaveRoom, releaseRoomIfUnused, retainRoomForJoin, evictIdleRooms,
 } = await import('./rooms.js')
 const { getResidentRoomStats, getRoomBacklog, listLiveLessons } = await import('./roomStats.js')
-const { getOperationRejectReason } = await import('./operationLog.js')
+const { getOperationRejectReason, recordOperation } = await import('./operationLog.js')
 const { ensureRoomLoaded } = await import('./roomLoader.js')
 const {
   isRoomFrozen, setParticipantFrozen, setRoomClosed, setRoomFrozen, setRoomTools,
 } = await import('./ownerControls.js')
 const {
-  getLessonBoards, noteBoardCreated, noteBoardDeleted, noteBoardRenamed, noteBoardsReordered, setActiveBoard,
+  getLessonBoards, getLessonStateFor, setHandRaised, noteBoardCreated, noteBoardDeleted, noteBoardRenamed, noteBoardsReordered, setActiveBoard,
 } = await import('./classroom.js')
 
 /** What `prisma.room.findUnique` hands back for a row this test seeded. Shaped
@@ -477,4 +477,171 @@ describe('the strip and the active board', () => {
     expect(isRoomResident(lessonId)).toBe(true)
     expect(getLessonBoards(lessonId)?.map(b => b.id)).toEqual([lessonId, second])
   })
+})
+
+it('#780 restores the remaining board seat, frozen state and hand until the final socket leaves', async () => {
+  const lessonId = makeLesson()
+  const boardId = await makeBoard(lessonId)
+  joinRoom(boardId, 'student', 'Alice', sock('student', '-old'))
+  joinRoom(lessonId, 'student', 'Alice', sock('student', '-new'))
+  setParticipantFrozen(lessonId, 'student', true)
+  setHandRaised(lessonId, 'student', true)
+  const color = getParticipant(lessonId, 'student')?.color
+  expect(leaveRoom(lessonId, 'student', sock('student', '-new'))).toBe(false)
+  expect(getParticipant(lessonId, 'student')).toMatchObject({ boardId, frozen: true, color })
+  expect(getLessonStateFor(lessonId, 'teacher')?.handsRaised).toContain('student')
+  expect(isRoomResident(boardId)).toBe(true)
+  expect(leaveRoom(boardId, 'student', sock('student', '-old'))).toBe(true)
+  expect(getLessonStateFor(lessonId, 'teacher')?.handsRaised).not.toContain('student')
+  leaveRoom(lessonId, 'teacher', sock('teacher'))
+  await Promise.all([_flushPendingWrites(lessonId), _flushPendingWrites(boardId)])
+  expect(isRoomResident(lessonId)).toBe(false)
+  expect(isRoomResident(boardId)).toBe(false)
+})
+
+it('#780 leaving a previous lesson preserves the socket roster in its next lesson', async () => {
+  const first = makeLesson()
+  const second = makeLesson()
+  const board = await makeBoard(second)
+  const socket = sock('student')
+  joinRoom(first, 'student', 'Alice', socket)
+  joinRoom(board, 'student', 'Alice', socket)
+  expect(leaveRoom(first, 'student', socket)).toBe(true)
+  expect(isRoomResident(board)).toBe(true)
+  expect(getParticipant(second, 'student')?.boardId).toBe(board)
+  expect(leaveRoom(board, 'student', socket)).toBe(true)
+  await _flushPendingWrites(board)
+  expect(isRoomResident(board)).toBe(false)
+})
+
+// Independent socket model: no rooms/registry internals are read by the oracle.
+it.each([0x780, 0x164, 0x176, 0x595])('#780 seeded multi-socket presence model seed=%i', async seed => {
+  let randomState = seed
+  const random = (limit: number) => {
+    randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0
+    return Math.floor(randomState / 0x100000000 * limit)
+  }
+  const lessons = [makeLesson(), makeLesson()]
+  // Give each lesson a distinct permanent owner transport (helper uses one id).
+  for (const lesson of lessons) {
+    joinRoom(lesson, 'teacher', 'Teacher', `anchor-${lesson}`)
+    leaveRoom(lesson, 'teacher', sock('teacher'))
+    setRoomFrozen(lesson, true)
+  }
+  const boardA = await makeBoard(lessons[0])
+  const boardB = await makeBoard(lessons[1])
+  releaseRoomIfUnused(boardA)
+  releaseRoomIfUnused(boardB)
+  const targets = [lessons[0], boardA, boardB]
+  const lessonOf = (board: string) => board === boardB ? lessons[1] : lessons[0]
+  const sockets = [`model-${seed}-a`, `model-${seed}-b`, `model-${seed}-c`, `model-${seed}-other`]
+  type Seat = { userId: string; board: string; order: number }
+  const model = new Map<string, Seat>()
+  const trace: string[] = []
+  const everFrozen = new Set<string>()
+  let order = 0
+  const move = async (socket: string, board: string) => {
+    const previous = model.get(socket)
+    const userId = socket === sockets[3] ? 'bob' : 'alice'
+    expect(await ensureRoomLoaded(board)).toBe(true)
+    expect(joinRoom(board, userId, userId, socket).ok).toBe(true)
+    if (previous && lessonOf(previous.board) !== lessonOf(board)) leaveRoom(previous.board, userId, socket)
+    model.set(socket, { userId, board, order: ++order })
+    if (userId === 'alice' && !everFrozen.has(lessonOf(board))) {
+      setParticipantFrozen(lessonOf(board), userId, true)
+      everFrozen.add(lessonOf(board))
+    }
+    trace.push(`join ${socket} ${board}`)
+  }
+  const disconnect = (socket: string) => {
+    const previous = model.get(socket)
+    if (previous) leaveRoom(previous.board, previous.userId, socket)
+    model.delete(socket)
+    trace.push(`leave ${socket}`)
+  }
+  const check = async () => {
+    await Promise.all([...lessons, boardA, boardB].map(_flushPendingWrites))
+    const context = `seed=${seed} step=${trace.length} tail=${trace.slice(-8).join(';')}`
+    for (const lesson of lessons) {
+      expect(getParticipant(lesson, 'teacher')?.role, context).toBe('owner')
+      expect(isRoomFrozen(lesson), context).toBe(true)
+      for (const userId of ['alice', 'bob']) {
+        const seats = [...model.values()].filter(seat => seat.userId === userId && lessonOf(seat.board) === lesson)
+        const expected = seats.sort((a, b) => b.order - a.order)[0]
+        const actual = getParticipant(lesson, userId)
+        if (!expected) expect(actual, context).toBeUndefined()
+        else expect(actual, context).toMatchObject({ userId, role: 'member', boardId: expected.board, frozen: userId === 'alice' })
+      }
+    }
+    for (const board of [...lessons, boardA, boardB]) {
+      const expectedSockets = [...model.values()].filter(seat => seat.board === board).length + (lessons.includes(board) ? 1 : 0)
+      expect(getRoomBacklog(board)?.participants ?? 0, context).toBe(expectedSockets)
+      if (!lessons.includes(board)) expect(isRoomResident(board), context).toBe(expectedSockets > 0)
+    }
+  }
+  // Guaranteed asymmetric disconnect, then board turns/cross-lesson/reconnect.
+  await move(sockets[0], targets[0])
+  await move(sockets[1], targets[0])
+  disconnect(sockets[1])
+  await check()
+  for (let step = 0; step < 240; step++) {
+    const socket = sockets[random(sockets.length)]
+    if (random(4) === 0) disconnect(socket)
+    else await move(socket, targets[random(targets.length)])
+    await check()
+  }
+  for (const socket of sockets) disconnect(socket)
+  await check()
+  for (const lesson of lessons) leaveRoom(lesson, 'teacher', `anchor-${lesson}`)
+  await Promise.all([...lessons, boardA, boardB].map(_flushPendingWrites))
+  for (const room of [...lessons, boardA, boardB]) expect(isRoomResident(room)).toBe(false)
+})
+
+it.each(['before-wait', 'during-wait', 'release-before-settle'] as const)('#784 child/parent lease is rechecked around pending writes: %s', async timing => {
+  const lessonId = makeLesson()
+  const boardId = await makeBoard(lessonId)
+  await _flushPendingWrites(lessonId)
+  let finishWrite!: () => void
+  const writes = new Promise<void>(resolve => { finishWrite = resolve })
+  mockPrisma.operation.create.mockImplementation(() => writes)
+  recordOperation(lessonId, stroke('teacher'))
+  recordOperation(boardId, stroke('teacher'))
+  let lease = timing === 'during-wait' ? undefined : retainRoomForJoin(boardId)
+  leaveRoom(lessonId, 'teacher', sock('teacher'))
+  if (!lease) lease = retainRoomForJoin(boardId)
+  // Forced admission cleanup must not bypass residency or pending writes.
+  evictIdleRooms()
+  expect(isRoomResident(lessonId)).toBe(true)
+  expect(isRoomResident(boardId)).toBe(true)
+  if (timing === 'release-before-settle') lease.release()
+  finishWrite()
+  await Promise.all([_flushPendingWrites(lessonId), _flushPendingWrites(boardId)])
+  if (timing !== 'release-before-settle') {
+    expect(isRoomResident(lessonId)).toBe(true)
+    expect(isRoomResident(boardId)).toBe(true)
+    evictIdleRooms()
+    expect(isRoomResident(lessonId)).toBe(true)
+    expect(isRoomResident(boardId)).toBe(true)
+    lease.release()
+  }
+  expect(isRoomResident(lessonId)).toBe(false)
+  expect(isRoomResident(boardId)).toBe(false)
+  // Release is idempotent, no negative/reference leak after duplicate finally.
+  lease.release()
+})
+
+it('#784 releasing one of two leases cannot evict a child or its parent lesson', async () => {
+  const lessonId = makeLesson()
+  const boardId = await makeBoard(lessonId)
+  await _flushPendingWrites(lessonId)
+  const first = retainRoomForJoin(boardId)
+  const second = retainRoomForJoin(boardId)
+  leaveRoom(lessonId, 'teacher', sock('teacher'))
+  first.release()
+  evictIdleRooms()
+  expect(isRoomResident(lessonId)).toBe(true)
+  expect(isRoomResident(boardId)).toBe(true)
+  second.release()
+  expect(isRoomResident(lessonId)).toBe(false)
+  expect(isRoomResident(boardId)).toBe(false)
 })

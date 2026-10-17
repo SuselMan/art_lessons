@@ -1,0 +1,130 @@
+{
+  "source": "f6a27f98",
+  "scope": "Real Samsung compositor film after normal UP; socketA disconnect while same-user socketB remains connected; no recorded operations",
+  "cases": [],
+  "errors": [],
+  "backend": "ac892525",
+  "identity": {
+    "dpr": 2.125,
+    "budget": "314572800",
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)"
+  },
+  "baseBefore": {
+    "layer": "layer-1",
+    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+    "alpha": 0
+  },
+  "beforeDisconnect": {
+    "log": 0,
+    "streams": [
+      {
+        "peer": "80ea399d-9933-49ee-ae87-03d4ec3c2cda",
+        "stroke": "e4df69bc-ed88-4437-b73a-3fdcd1220c0a",
+        "buf": true,
+        "dabs": 12
+      }
+    ],
+    "events": [
+      {
+        "name": "peer_stroke_live",
+        "payload": {
+          "strokeId": "e4df69bc-ed88-4437-b73a-3fdcd1220c0a",
+          "layerId": "layer-1",
+          "tool": "watercolor",
+          "preset": "normal:95:60:PB29:round:wc@m70-r2-v1",
+          "color": [
+            0.9,
+            0.05,
+            0.05
+          ],
+          "packetSeq": 0,
+          "washId": "m70:layer-1",
+          "userId": "80ea399d-9933-49ee-ae87-03d4ec3c2cda"
+        },
+        "at": 8108.200000047684
+      },
+      {
+        "name": "peer_stroke_live_end",
+        "payload": {
+          "userId": "80ea399d-9933-49ee-ae87-03d4ec3c2cda",
+          "strokeId": "e4df69bc-ed88-4437-b73a-3fdcd1220c0a"
+        },
+        "at": 8265.200000047684
+      }
+    ],
+    "gl": 0,
+    "flags": {
+      "cache": false,
+      "hidden": false
+    }
+  },
+  "liveChangedChannels": 4332,
+  "afterDisconnect": {
+    "log": 0,
+    "streams": [],
+    "events": [
+      {
+        "name": "peer_stroke_live",
+        "payload": {
+          "strokeId": "e4df69bc-ed88-4437-b73a-3fdcd1220c0a",
+          "layerId": "layer-1",
+          "tool": "watercolor",
+          "preset": "normal:95:60:PB29:round:wc@m70-r2-v1",
+          "color": [
+            0.9,
+            0.05,
+            0.05
+          ],
+          "packetSeq": 0,
+          "washId": "m70:layer-1",
+          "userId": "80ea399d-9933-49ee-ae87-03d4ec3c2cda"
+        },
+        "at": 8108.200000047684
+      },
+      {
+        "name": "peer_stroke_live_end",
+        "payload": {
+          "userId": "80ea399d-9933-49ee-ae87-03d4ec3c2cda",
+          "strokeId": "e4df69bc-ed88-4437-b73a-3fdcd1220c0a"
+        },
+        "at": 8265.200000047684
+      },
+      {
+        "name": "peer_stroke_live_end",
+        "payload": {
+          "userId": "80ea399d-9933-49ee-ae87-03d4ec3c2cda",
+          "strokeId": "e4df69bc-ed88-4437-b73a-3fdcd1220c0a",
+          "cancelled": true
+        },
+        "at": 9035.5
+      }
+    ],
+    "gl": 0,
+    "flags": {
+      "cache": false,
+      "hidden": false
+    }
+  },
+  "baseAfter": {
+    "layer": "layer-1",
+    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+    "alpha": 0
+  },
+  "afterChangedChannels": 3285,
+  "retainedChangedChannels": 3285,
+  "sameUserBConnected": true,
+  "apiCount": 0,
+  "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n3285 !== 0\n\n    at /home/suselman/projects/pencil-agents/744-hidden-replay/docs/qa/harness/728-night/samsung-ended-live-disconnect.cjs:28:2620",
+  "deleteStatus": 200,
+  "cleanup": {
+    "ownContextsClosed": true,
+    "socketsClosed": true,
+    "privateAuthRemoved": true
+  },
+  "interpretation": {
+    "filmRemoval": "PASS: all1444 ROI pixels chromatic before disconnect, zero after and750ms later; preview streams empty; canonical transparent base unchanged; GL0",
+    "exactUIBackground": "INCONCLUSIVE: original strict assertion failed3285 grayscale channels; paper texture changes, not pigment. Original failure preserved.",
+    "noOracleUsed": true,
+    "newRuns": 0
+  }
+}

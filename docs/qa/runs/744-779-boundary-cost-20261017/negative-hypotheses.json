@@ -1,0 +1,19 @@
+{
+  "runtimeUnchanged": true,
+  "baselineSHA": "7d98c8d485b5356bf41142debcba4775b5b5b53c746c8f8ffde7d1c7da737efe",
+  "whitelistSHA": "386e23dd8dea1c8671a47ef1d05ac6363596f52e3e7853ec0e4ea84416420abd",
+  "closureCacheSHA": "4bd575c1138ec67bf68ed3158755a88d0384bbdd5741f47849b359badfa13081",
+  "decision": "Both hypotheses discarded; no convincing 960-pool gain; exact-result cache not implemented",
+  "counterScope": "temporary counters,120pools,lastUndoDry thirdcycle",
+  "counter": {
+    "privateProofs": 120,
+    "privateProofEntryVisits": 44160,
+    "privateProofNodes": 240,
+    "privateProofIterations": 120,
+    "ordinaryResolveCalls": 1,
+    "ordinaryResolveEntryVisits": 368,
+    "ordinaryResolveNodes": 240,
+    "ordinaryResolveIterations": 1
+  },
+  "whitelistTests": "55 PASS in 4 files; no new semantics claim; candidate discarded"
+}

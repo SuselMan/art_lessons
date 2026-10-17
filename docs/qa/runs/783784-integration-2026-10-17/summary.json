@@ -1,0 +1,249 @@
+{
+  "runtimeFreeze": "e8e1f005",
+  "backendPid": 4040793,
+  "backendHealth": "ok/db up",
+  "fingerprints": {
+    "apps/web/src/engine/index.ts": "4f333bb04439571750ef52318b86b8cd47646fdbab79b81013115b0603402d63",
+    "apps/web/src/pages/Room/net/joinFlow.ts": "d53d71a5d5c44bd48736879bf222ff23135b831a4ac2770a74fcfd912c34d42d",
+    "apps/server/src/rooms/socketHandlers.ts": "41a1cbb27b482e60bd5e479efe727f076b3bfe90d536a8e2ff4fe1da14b0a582",
+    "apps/server/src/rooms/roomRegistry.ts": "63719e79d0a7cc1fa21eb8173dddc19ea48915f8c2c87f2355c6e602be6193dc",
+    "apps/server/src/rooms/roomLoader.ts": "800b0cd04a0fc68b9567e74529986e5879e00ea7522abf296cb14529bfc0ed6e",
+    "apps/server/src/rooms/rooms.ts": "ca60fedb32ff38d343cbac9b497dd594aab375a3f6adbeb4d36ad8bb5e298efb",
+    "apps/web/src/engine/src/oplog/watercolorUndo.ts": "8a9f5ce4196ac02fec221be81c88fc705d7450d02d5df3f84bed9e6de80ceaa4"
+  },
+  "checks": {
+    "engine85e": {
+      "passed": 2246,
+      "failed": 1,
+      "failure": "index.charcoal chisel tilt geometry: 5000ms timeout",
+      "durationSeconds": 265.47
+    },
+    "isolatedCharcoalUnchanged": {
+      "passed": 27,
+      "durationSeconds": 17.37,
+      "timeoutChanged": false
+    },
+    "serverRoom783": {
+      "files": 108,
+      "passed": 1382,
+      "expectedFail": 4,
+      "expectedFailIssues": [
+        777,
+        778
+      ],
+      "durationSeconds": 41.9
+    },
+    "target784Integrated": {
+      "files": 17,
+      "passed": 424,
+      "durationSeconds": 12.42
+    },
+    "realNativeOwnershipControlIntegrated": {
+      "passed": 1
+    },
+    "server784IsolatedCandidate": {
+      "files": 38,
+      "passed": 721,
+      "durationSeconds": 25.19
+    },
+    "fullTypecheck": "PASS server/web/shared/e2e/scripts",
+    "mapCheck": {
+      "result": "PASS",
+      "files": 1121
+    },
+    "lint": "PASS, existing warnings only",
+    "engine6cdAfter752": {
+      "files": 231,
+      "passed": 2253,
+      "failed": 0,
+      "durationSeconds": 337.35,
+      "workers": 1
+    },
+    "room6cdAfter752": {
+      "files": 70,
+      "passed": 673,
+      "expectedFail": 4,
+      "expectedFailIssues": [
+        777,
+        778
+      ],
+      "durationSeconds": 47.37,
+      "workers": 1
+    },
+    "room788": {
+      "files": 72,
+      "passed": 684,
+      "expectedFail": 4,
+      "expectedFailIssues": [
+        777,
+        778
+      ],
+      "durationSeconds": 52.38,
+      "workers": 1
+    },
+    "map788": {
+      "result": "PASS",
+      "files": 1127
+    },
+    "engine789774": {
+      "files": 232,
+      "passed": 2265,
+      "failed": 0,
+      "durationSeconds": 348.67,
+      "workers": 1
+    },
+    "room789774": {
+      "files": 73,
+      "passed": 689,
+      "expectedFail": 4,
+      "expectedFailIssues": [
+        777,
+        778
+      ],
+      "durationSeconds": 53.45,
+      "workers": 1
+    },
+    "fullTypecheck789774": "PASS after fixing optional limit type in test mock; server/web/shared/e2e/scripts",
+    "lint789774": "PASS, existing warnings only, no app source changes",
+    "map789774": {
+      "result": "PASS",
+      "files": 1128
+    },
+    "engineFinalF6": {
+      "runtimeSource": "f6a27f98",
+      "files": 233,
+      "passed": 2280,
+      "failed": 0,
+      "durationSeconds": 343.89,
+      "workers": 1
+    },
+    "roomFinalF6": {
+      "files": 73,
+      "passed": 689,
+      "expectedFail": 4,
+      "expectedFailIssues": [
+        777,
+        778
+      ],
+      "durationSeconds": 53.82,
+      "workers": 1
+    },
+    "typecheckFinalF6": "PASS all workspaces/e2e/scripts",
+    "lintFinalF6": "PASS existing warnings only",
+    "mapFinalF6": {
+      "result": "PASS",
+      "files": 1129
+    },
+    "codecPointerControl": {
+      "files": 1,
+      "passed": 2,
+      "runtimeChanged": false,
+      "durationSeconds": 5.58
+    },
+    "serverFinal792": {
+      "files": 39,
+      "passed": 751,
+      "failed": 0,
+      "durationSeconds": 26.42,
+      "workers": 1
+    },
+    "serverTypecheck792": "PASS",
+    "map792": {
+      "result": "PASS",
+      "files": 1132
+    },
+    "runtime792": "PASS real QA backend/identities/DB; owner DELETE200",
+    "engineFinal785": {
+      "runtimeSource": "43f87295",
+      "files": 235,
+      "passed": 2285,
+      "failed": 0,
+      "durationSeconds": 349.8,
+      "workers": 1
+    },
+    "typecheckFinal785": "PASS all workspaces/e2e/scripts",
+    "mapFinal785": {
+      "result": "PASS",
+      "files": 1133
+    },
+    "samsungWallclockSoak": {
+      "seconds": 1808.497,
+      "socketAuthors": 10,
+      "nativeObservers": 1,
+      "concurrentAuthorsPerCycle": 3,
+      "strokes": 540,
+      "acceptedOperations": 548,
+      "gates": 3,
+      "changedChannels": 0,
+      "canonicalReadAddedComputations": 0,
+      "runtimeErrors": [],
+      "glErrors": 0,
+      "wetEpochs": 2,
+      "midpointOracleIntervention": true,
+      "physicalExactClaim": false
+    }
+  },
+  "native85e": {
+    "samsung781": 5,
+    "samsung782": 5,
+    "vega776": 1,
+    "vega780": 3,
+    "strictCrossGPU": "OPEN #748",
+    "touchSoak": "22/24 incomplete, Surface SSH/CDP lost; final oracle not run"
+  },
+  "changesSince85e": "server join generation, residency leases and UI stale ACK; engine runtime unchanged",
+  "resourceScope": "same 3 QA services; no new runtime/dependency copies; raw logs owned annotation cache until final cleanup",
+  "runtimeAfter752": "6cd49722",
+  "fingerprintsAfter752": {
+    "apps/web/src/engine/index.ts": "b2e62ee30f069709d30eeefb01758134f8370ec514adf6098b76d4da62456d8a",
+    "apps/web/src/engine/src/oplog/checkpointStore.ts": "07069380ab4fa9f6e8d5da580288db8ebb9b635d0997f03dec362115a91a75b3"
+  },
+  "runtimeAfter788": "8ccf41fc",
+  "backendAfter786": {
+    "pid": 4062231,
+    "health": "ok/db up"
+  },
+  "runtimeAfter789And774": "e5d08c61",
+  "fingerprintsAfter789774": {
+    "apps/web/src/engine/index.ts": "203874be72e517fe66c36f095fc04c8e33efc7187b807f7819a229c215618d0f",
+    "apps/web/src/lib/restoreGeneration.ts": "2e45d6de0f9f229ee3be1cc15af9bd46072caf794b6f9990ceb768c9a9cd7c72",
+    "apps/web/src/pages/Room/restoreRoomState.ts": "5af8f36f601a87def9f6793b099d5b397381394741832969fe247a25d4b161ef",
+    "apps/web/src/pages/Room/useRemoteOperations.ts": "d0d3c841843e1d3df4bbb020e76581643aca7399b5e917a32178b4e1977cbb24",
+    "apps/web/src/pages/Room/net/snapshotRestore.ts": "e533c9aee6c127b7d70ae45ed7331989f9351aee2592068f8f46082ef907d3e0"
+  },
+  "native789774": {
+    "774": "trusted pencil held screen preserved and further MOVE visible; postUP actual/fullAPI exact; marker/smudge CPU only",
+    "789": "4/4 real snapshot POST20 and fresh UI backfill, CtrlZ20/CtrlShiftZ20/cold physical exact",
+    "788": "2 public restore generation controls, trusted tools/Dry/UndoRedo/cold physical exact; controlled real prefix HTTP delivery, not full network reconnect",
+    "748_AMD_Adreno": {
+      "status": "FAIL OPEN",
+      "differentChannels": 7993,
+      "differentPixels": 3949,
+      "maxChannelDifference": 16,
+      "wetAndDrySameDifference": true,
+      "ownGPUOracleExact": true
+    },
+    "783": "native ACK timing inconclusive, socket replaced before ACK"
+  },
+  "backendFinal": {
+    "runtimeSource": "ac892525",
+    "pid": 4111624,
+    "health": "ok/db up",
+    "qaOnly": true
+  },
+  "finalFingerprints": {
+    "apps/web/src/engine/index.ts": "415680c6bf3291b7c0e196b9ff971e1b8117984b7f271497c68bc4dc95d3a775",
+    "apps/web/src/engine/src/watercolor/puddle/PuddleRoomController.ts": "73e6781d1124e668434828029e8fa60fe912ec10b2df7ae8609c0da84aa9193f",
+    "apps/web/src/engine/src/oplog/watercolorUndo.ts": "8a9f5ce4196ac02fec221be81c88fc705d7450d02d5df3f84bed9e6de80ceaa4",
+    "apps/server/src/rooms/socketHandlers.ts": "be71e0180ad8c75d33cef938835cdfd5b68af85a1aa36f2be2207d36e59aa912",
+    "apps/server/src/rooms/liveStrokeOwnership.ts": "0173cab2457695954d41581635f53afc8b1fea6bd8f06d1d214296f5955a0d59"
+  },
+  "finalQuota": {
+    "usedPercent": 61,
+    "remainingPercent": 39,
+    "availableResets": 1,
+    "resetUsed": false,
+    "nightCeiling": 62,
+    "reserveForFinalizationPercentagePoints": 1
+  }
+}

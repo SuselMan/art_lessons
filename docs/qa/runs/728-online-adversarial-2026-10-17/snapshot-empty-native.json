@@ -1,0 +1,48 @@
+{
+  "source": "717506a8e7b0d730079973e229f12aea837d9cd5",
+  "scope": "Public snapshot absent/transparent replacement on native GPU; synthetic in-page replay/Undo/Dry, no server-author stress",
+  "cases": [
+    {
+      "name": "public-synthetic-snapshot-dry-preserves-upload",
+      "id": "qa-public-solid",
+      "w": 512,
+      "h": 512,
+      "expected": "f0af3cfc3254db06dc5089dfb8053cfe5b48b4a05aa3cf002a89a33941d9faa6",
+      "actualBefore": "f0af3cfc3254db06dc5089dfb8053cfe5b48b4a05aa3cf002a89a33941d9faa6",
+      "oldMaterial": false,
+      "actualAfter": "f0af3cfc3254db06dc5089dfb8053cfe5b48b4a05aa3cf002a89a33941d9faa6",
+      "oracleScope": "Expected uploaded bitmap, not journal full replay"
+    },
+    {
+      "kind": "absent",
+      "id": "qa-empty-absent",
+      "initial": 1048576,
+      "afterReplace": 0,
+      "afterStroke": 2008,
+      "afterUndo": 0,
+      "afterDry": 0,
+      "oracleNonzero": 0,
+      "glError": 0
+    },
+    {
+      "kind": "transparent",
+      "id": "qa-empty-transparent",
+      "initial": 1048576,
+      "afterReplace": 0,
+      "afterStroke": 2008,
+      "afterUndo": 0,
+      "afterDry": 0,
+      "oracleNonzero": 0,
+      "glError": 0
+    }
+  ],
+  "errors": [],
+  "identity": {
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)"
+  },
+  "pass": true
+}

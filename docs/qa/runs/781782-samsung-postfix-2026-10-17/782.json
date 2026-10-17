@@ -1,0 +1,203 @@
+{
+  "source": "85e83641",
+  "scope": "Samsung trusted pigment offlineUP, B layerDryseq1 before acceptedAseq2, then B water-only interaction; B recorded fixture; actual canonical before oracle",
+  "cases": [
+    {
+      "name": "offline-UP-reconnect",
+      "proof": {
+        "emptyOracle": false,
+        "oracleEmptyExpected": false,
+        "actualAlphaNonzero": 2481,
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "f9e620debf99d45d192f2fd9f040a871a6ec7eaaecc01b930a548e88badae132",
+        "oracleHash": "f9e620debf99d45d192f2fd9f040a871a6ec7eaaecc01b930a548e88badae132",
+        "physicalHash": "6d66076d53c0a7830be8c03f21be0f59d44b78855e3d901762708f3b8ac6402d",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 6759,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    },
+    {
+      "name": "later-dependent-B",
+      "proof": {
+        "emptyOracle": false,
+        "oracleEmptyExpected": false,
+        "actualAlphaNonzero": 5416,
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "4dc634e8bbef45e5711ee8b2d2ef00e969ff7da5320e746bf40eab4bba5bd7c3",
+        "oracleHash": "4dc634e8bbef45e5711ee8b2d2ef00e969ff7da5320e746bf40eab4bba5bd7c3",
+        "physicalHash": "063101273f2cd3a99c967f8cfb93e26e9c596e1bfe0181929a7c0486278e2876",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 15757,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    },
+    {
+      "name": "A-undo-with-dependent-B",
+      "proof": {
+        "emptyOracle": true,
+        "oracleEmptyExpected": true,
+        "actualAlphaNonzero": 0,
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "oracleHash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "physicalHash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 0,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    },
+    {
+      "name": "A-redo-no-double-pigment",
+      "proof": {
+        "emptyOracle": false,
+        "oracleEmptyExpected": false,
+        "actualAlphaNonzero": 5416,
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "4dc634e8bbef45e5711ee8b2d2ef00e969ff7da5320e746bf40eab4bba5bd7c3",
+        "oracleHash": "4dc634e8bbef45e5711ee8b2d2ef00e969ff7da5320e746bf40eab4bba5bd7c3",
+        "physicalHash": "d64fe4382acb42d6c069537eb61756a389a018a289082e829d0b6b7abb40f31b",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 15778,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    },
+    {
+      "name": "fresh-context-rejoin",
+      "proof": {
+        "emptyOracle": false,
+        "oracleEmptyExpected": false,
+        "actualAlphaNonzero": 5416,
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "4dc634e8bbef45e5711ee8b2d2ef00e969ff7da5320e746bf40eab4bba5bd7c3",
+        "oracleHash": "4dc634e8bbef45e5711ee8b2d2ef00e969ff7da5320e746bf40eab4bba5bd7c3",
+        "physicalHash": "94f42ec6370ab57f4ea0c98bae39c8660fde8eb31afece9925d8b1d8f4b3c8b3",
+        "changedChannels": 0,
+        "max": 0,
+        "physicalVsCanonicalChanged": 15765,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      },
+      "allAcceptedIdsPresent": true
+    }
+  ],
+  "errors": [],
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "gpuBudget": "314572800",
+    "scratchHolding": false,
+    "touch": 5,
+    "deviceMemory": 4,
+    "DPR": 2.125,
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "initialOperations": 0,
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "flags": {
+      "hidden": false,
+      "undoCache": false
+    }
+  },
+  "offline": {
+    "sockets": [
+      {
+        "state": 3
+      }
+    ],
+    "pending": [
+      {
+        "id": "EeNvHYCNdw",
+        "type": "stroke",
+        "strokeId": "z5h-d49s56"
+      }
+    ],
+    "strokeHeld": false
+  },
+  "bBeforeReconnect": {
+    "id": "a3532936-c135-4594-b178-ef1f08bc3e1f",
+    "seq": 1
+  },
+  "acceptedOrder": [
+    {
+      "id": "a3532936-c135-4594-b178-ef1f08bc3e1f",
+      "type": "paper_dry",
+      "userId": "045f836a-d0e8-45fe-bf37-bd2d16621066",
+      "state": "done",
+      "serverSeq": 1
+    },
+    {
+      "id": "EeNvHYCNdw",
+      "type": "stroke",
+      "userId": "df6cb4f4-e631-49fb-8004-091feadb1d12",
+      "strokeId": "z5h-d49s56",
+      "state": "done",
+      "serverSeq": 2,
+      "pending": false
+    }
+  ],
+  "reconnectState": {
+    "unsettled": [],
+    "pending": [],
+    "jobs": 0,
+    "queue": 0,
+    "wash": null,
+    "source": {
+      "gesture": "z5h-d49s56",
+      "timestamp": 1792204320278,
+      "epoch": 1,
+      "dirty": false,
+      "goalReady": true
+    }
+  },
+  "apiHistory": [
+    {
+      "id": "a3532936-c135-4594-b178-ef1f08bc3e1f",
+      "seq": 1,
+      "type": "paper_dry",
+      "timestamp": 1792204320227
+    },
+    {
+      "id": "EeNvHYCNdw",
+      "seq": 2,
+      "type": "stroke",
+      "timestamp": 1792204320278
+    }
+  ],
+  "undoStates": [
+    {
+      "id": "EeNvHYCNdw",
+      "state": "undone"
+    },
+    {
+      "id": "d00a9f77-9981-4f8c-8bb8-6b24357bac70",
+      "state": "done"
+    }
+  ],
+  "pass": true,
+  "cleanup": {
+    "ownContextsClosed": true,
+    "nodePeerSocketClosed": true,
+    "originalTabRestored": true,
+    "ownerFixtureDeleted": 200,
+    "privateAuthRemoved": true,
+    "sharedForwardRetained": true
+  },
+  "harnessSha256": "dd657b12bda4a0712caee2813210f0e0e6076c7cf77dae78b152ab4b57da9b8b"
+}

@@ -1,0 +1,9 @@
+{
+  "checks": 7526,
+  "seeds": 240,
+  "localActions": 5760,
+  "status": "exploratory-pass-not-qualified",
+  "reason": "Initial run did not hash mutable candidate before import; controlHistory.ts was edited by its owner around the run. Immutable READY repeat is required.",
+  "coverage": "Public OperationLog state/effectiveWater, own optimistic stroke/undo/redo accept/reject/late-accept, remote B strokes and duplicate authoritative hydration. Full history and partial legacy undone baseline separately.",
+  "excluded": "PencilEngine/GPU pixels, teacher revokes, transforms, genuinely missing older page insertion. No product-fix validation claimed yet."
+}

@@ -1,0 +1,201 @@
+{
+  "source": "93b550b2",
+  "scope": "Accepted natural 800-dab chunk survives permanent final-tail rejection, author stays online, fresh input/Undo/Redo/rejoin do not revive rejected tail",
+  "cases": [
+    {
+      "name": "natural-prefix-accepted-before-permanent-tail-rejection",
+      "prefix": {
+        "gesture": "YixCWd0Cvs",
+        "ops": [
+          "j6i-BYfp3K"
+        ],
+        "tail": 10
+      }
+    },
+    {
+      "name": "accepted-prefix-remains-after-permanent-tail-rejection",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-fddc9ff5-9f06-41df-9e99-5c707ddc0921",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "659e07a24dfa69b2f7bbdeda553b38d764c7e00f68b40c61a5df80e04c110b3b",
+          "oracleHash": "659e07a24dfa69b2f7bbdeda553b38d764c7e00f68b40c61a5df80e04c110b3b",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 30292,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-fddc9ff5-9f06-41df-9e99-5c707ddc0921",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "0a656374a542ad903dcff37e273dd94fc929dc88e8edbf7f37d7aae17c7002da",
+          "oracleHash": "0a656374a542ad903dcff37e273dd94fc929dc88e8edbf7f37d7aae17c7002da",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 30291,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-fddc9ff5-9f06-41df-9e99-5c707ddc0921",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "659e07a24dfa69b2f7bbdeda553b38d764c7e00f68b40c61a5df80e04c110b3b",
+          "oracleHash": "659e07a24dfa69b2f7bbdeda553b38d764c7e00f68b40c61a5df80e04c110b3b",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 30292,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "online-author-rejected-tail-revoked-observer-cleared-prefix-kept",
+      "rejected": {
+        "stroke": null,
+        "queue": 0,
+        "ops": [
+          {
+            "id": "j6i-BYfp3K",
+            "state": "done"
+          },
+          {
+            "id": "8I7P2MnlJb",
+            "state": "gone",
+            "pending": true
+          }
+        ],
+        "suppressedCancel": 0
+      }
+    },
+    {
+      "name": "fresh-input-undo-redo-does-not-revive-rejected-tail",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-fddc9ff5-9f06-41df-9e99-5c707ddc0921",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "3b5af42e79b60f9f0f6c2f111b1f687d3efff3d2f8c27816733a37b9ade5b4d5",
+          "oracleHash": "3b5af42e79b60f9f0f6c2f111b1f687d3efff3d2f8c27816733a37b9ade5b4d5",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 36114,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-fddc9ff5-9f06-41df-9e99-5c707ddc0921",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "3b7b8bcb3776e8e120c488c1751e33104d804d788d875e487b4d46b53ec17567",
+          "oracleHash": "3b7b8bcb3776e8e120c488c1751e33104d804d788d875e487b4d46b53ec17567",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 36113,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-fddc9ff5-9f06-41df-9e99-5c707ddc0921",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "3b5af42e79b60f9f0f6c2f111b1f687d3efff3d2f8c27816733a37b9ade5b4d5",
+          "oracleHash": "3b5af42e79b60f9f0f6c2f111b1f687d3efff3d2f8c27816733a37b9ade5b4d5",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 36114,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "accepted-prefix-only-survives-cold-rejoin",
+      "undo": "NHA-dPzRCd",
+      "redo": "NHA-dPzRCd",
+      "acceptedGestureOps": [
+        "j6i-BYfp3K"
+      ]
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "441a76bb-a4d1-4e2d-b373-e3bee50c5e4a",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "9eb2b64e-ac0c-427e-b801-ec8a26c1f08e",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "e264a260-abd5-47c7-abbd-03f764d67b42",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "rejectedTail": {
+    "id": "8I7P2MnlJb",
+    "pending": true,
+    "strokeAfter": null,
+    "localPendingObserved": true,
+    "serverCancel": {
+      "userId": "9eb2b64e-ac0c-427e-b801-ec8a26c1f08e",
+      "strokeId": "YixCWd0Cvs",
+      "cancelled": true
+    },
+    "scope": "Genuine held800chunkgesture finishes through ordinary engine UP after roomfreeze; local pending tail observed, server reject/cancel confirmed. Engine input callbacks here; trusted DOM pointer route is separately tested.",
+    "localTerminalEntry": {
+      "state": "gone",
+      "goneReason": "reject",
+      "pending": true
+    }
+  },
+  "coldComparisonScope": "Only accepted server identities are durable; terminal rejected local tombstone is allowed to disappear after full reload",
+  "pass": true
+}

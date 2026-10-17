@@ -48,3 +48,25 @@ worldY85.5 имеет alpha255 наобоихGPU, но R175/176. Поэтому 
 не ограничено растушёвкой/SDFкраем. Следующий isolatedpixel-uv диагностирует
 интерполяцию localUV; RGBA8rounding пока остаётся отдельной гипотезой.
 Компактные данные: `uniform-scalars-negative.json`.
+
+Pixel-UV также не даёт exact-сходимости: runtimeb5d29e7c, actual source
+patch подтверждён. Firstdraw41pixels/57channels max1,23pixels на plateau.
+AMDfinal остался9d3aa5ec…, Intelfinal изменился наee4110b4…. Это показывает
+влияние вычисления координат, но не является исправлением. Productshader
+не меняется. Детали `pixel-uv-negative.json`. Intelraw экспортирован
+оператором в registeredprivatecache для отдельного equal-source solverpair;
+этот последующий тест ещё не выполнен на момент записи.
+
+Equal-source solverpair выполнен наaf5d7cea: original/P/C/coverage/solvent
+upload/readback и CPUmetadata **EXACT** обоимGPU; foreignsolvent отсутствует
+наобоих. В каждомGPU reused1/reused2/freshsolver+freshlocalpool дают exact
+одинаковые результаты, но crossGPU finalP/C отличаются, coverageexact.
+Значит solver имеет собственное расхождение даже без разницы deposition.
+Firstdifferentafter — draw1 reset256², ContrastPhase.bg, fragmentSHA
+9681c26f… (сопоставлен с actual source). Draw0alignmentafterexact.
+До новых дополнительных readbacks нельзя различить UV/texture sampling,
+арифметику weighted blur и UNORM8conversion; это не доказательство конкретного
+shaderfix. SameGPU stale-local-pool на этом input не подтвердился3/3;
+отдельный checkpoint5bytegap этим результатом не закрывается. Данные:
+`identical-source-solver.json`. OwnGPUcontexts0, private fullreports/source
+transfer принадлежат QAoperator registeredcache до окончания диагностики.

@@ -1,0 +1,4070 @@
+{
+  "source": "82313a4c",
+  "scope": "Native AMD/Intel GPU and actual three-author server journal: established ghost-water boundary cycles and removed historical bridge negatives; no trusted author pointer path",
+  "cases": [
+    {
+      "name": "paper_dry-established-boundary-cycle-0",
+      "before": [
+        {
+          "targetHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "oracleHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "7985431ff8e96abe2b26008f2135d9318001f45698eb22693a287318e574e1ba"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2af3cd9ed8ad82861e3587f970a7877fab1c9a8dad9908fdafd837c7c701e8d5"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "0958de37-6d97-4cee-aa23-ec5ad8ffa68f",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "bba17233-9aea-4aad-a90f-a76a141167ea"
+            },
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "df909a9a0bbd414544ae55f9b4d1465474772eea57ce2a09ef804f10d49db196",
+          "oracleHash": "df909a9a0bbd414544ae55f9b4d1465474772eea57ce2a09ef804f10d49db196",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "ef2fef20f5a1b6854dc3090bf9136f1bb4abbe32f62c5737158240009402b3ab"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "8cd4e05240bd9af20754bd68fbc120c0bf6fdb7b4cb86d8ca3e9e10b2c1e57ab"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c54fdaecd95f772c004233af34265d663b7d7d4f0a4bf739e985934fc0e35435"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c9aaf2a3b17acc17151171568337c5d63b6facc5d5789f46b96f1522da3e787"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "0958de37-6d97-4cee-aa23-ec5ad8ffa68f",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "bba17233-9aea-4aad-a90f-a76a141167ea"
+            },
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "oracleHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "7985431ff8e96abe2b26008f2135d9318001f45698eb22693a287318e574e1ba"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2af3cd9ed8ad82861e3587f970a7877fab1c9a8dad9908fdafd837c7c701e8d5"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "0958de37-6d97-4cee-aa23-ec5ad8ffa68f",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "bba17233-9aea-4aad-a90f-a76a141167ea"
+            },
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ],
+      "closed": [
+        {
+          "targetHash": "b4172d88b39b28f97a4149b236427fa43230d0d359a339c8b43af7f07daa9559",
+          "oracleHash": "b4172d88b39b28f97a4149b236427fa43230d0d359a339c8b43af7f07daa9559",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 120,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d6b3c3a528defdbfc9f5fcaf11495232f2fba689001ccbd506ef65de4409ec78"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "7985431ff8e96abe2b26008f2135d9318001f45698eb22693a287318e574e1ba"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5a5f4ed28168b8291b99eda67abcb065668c492ada60b42e0f71d5afc002d991"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d57e92bbdb49c4a8e512130a72d268c40c57ce393acf7abacec3c85a42036af4"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "20d3d6c28de0e921fa899d8c6e5ef17c429a671d62e858dd46e71f76bf9867e6",
+          "oracleHash": "20d3d6c28de0e921fa899d8c6e5ef17c429a671d62e858dd46e71f76bf9867e6",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 120,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "90ed84a26bcaed5bc712be6b0565328ec6784f019dcd9ce02c13eede27dddaf1"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "8cd4e05240bd9af20754bd68fbc120c0bf6fdb7b4cb86d8ca3e9e10b2c1e57ab"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "85c412a6331d4c608e622cec2cbb2f44165a9f89575a9498872a99eff91db6bb"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d57e92bbdb49c4a8e512130a72d268c40c57ce393acf7abacec3c85a42036af4"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "b4172d88b39b28f97a4149b236427fa43230d0d359a339c8b43af7f07daa9559",
+          "oracleHash": "b4172d88b39b28f97a4149b236427fa43230d0d359a339c8b43af7f07daa9559",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 120,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d6b3c3a528defdbfc9f5fcaf11495232f2fba689001ccbd506ef65de4409ec78"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "7985431ff8e96abe2b26008f2135d9318001f45698eb22693a287318e574e1ba"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5a5f4ed28168b8291b99eda67abcb065668c492ada60b42e0f71d5afc002d991"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d57e92bbdb49c4a8e512130a72d268c40c57ce393acf7abacec3c85a42036af4"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ],
+      "reopened": [
+        {
+          "targetHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "oracleHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "7985431ff8e96abe2b26008f2135d9318001f45698eb22693a287318e574e1ba"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2af3cd9ed8ad82861e3587f970a7877fab1c9a8dad9908fdafd837c7c701e8d5"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "0958de37-6d97-4cee-aa23-ec5ad8ffa68f",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "bba17233-9aea-4aad-a90f-a76a141167ea"
+            },
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "df909a9a0bbd414544ae55f9b4d1465474772eea57ce2a09ef804f10d49db196",
+          "oracleHash": "df909a9a0bbd414544ae55f9b4d1465474772eea57ce2a09ef804f10d49db196",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "ef2fef20f5a1b6854dc3090bf9136f1bb4abbe32f62c5737158240009402b3ab"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "8cd4e05240bd9af20754bd68fbc120c0bf6fdb7b4cb86d8ca3e9e10b2c1e57ab"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c54fdaecd95f772c004233af34265d663b7d7d4f0a4bf739e985934fc0e35435"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c9aaf2a3b17acc17151171568337c5d63b6facc5d5789f46b96f1522da3e787"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "0958de37-6d97-4cee-aa23-ec5ad8ffa68f",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "bba17233-9aea-4aad-a90f-a76a141167ea"
+            },
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "oracleHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "7985431ff8e96abe2b26008f2135d9318001f45698eb22693a287318e574e1ba"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2af3cd9ed8ad82861e3587f970a7877fab1c9a8dad9908fdafd837c7c701e8d5"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "0958de37-6d97-4cee-aa23-ec5ad8ffa68f",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "bba17233-9aea-4aad-a90f-a76a141167ea"
+            },
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "paper_dry-established-boundary-cycle-1",
+      "before": [
+        {
+          "targetHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "oracleHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "7985431ff8e96abe2b26008f2135d9318001f45698eb22693a287318e574e1ba"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2af3cd9ed8ad82861e3587f970a7877fab1c9a8dad9908fdafd837c7c701e8d5"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "0958de37-6d97-4cee-aa23-ec5ad8ffa68f",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "bba17233-9aea-4aad-a90f-a76a141167ea"
+            },
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "df909a9a0bbd414544ae55f9b4d1465474772eea57ce2a09ef804f10d49db196",
+          "oracleHash": "df909a9a0bbd414544ae55f9b4d1465474772eea57ce2a09ef804f10d49db196",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "ef2fef20f5a1b6854dc3090bf9136f1bb4abbe32f62c5737158240009402b3ab"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "8cd4e05240bd9af20754bd68fbc120c0bf6fdb7b4cb86d8ca3e9e10b2c1e57ab"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c54fdaecd95f772c004233af34265d663b7d7d4f0a4bf739e985934fc0e35435"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c9aaf2a3b17acc17151171568337c5d63b6facc5d5789f46b96f1522da3e787"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "0958de37-6d97-4cee-aa23-ec5ad8ffa68f",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "bba17233-9aea-4aad-a90f-a76a141167ea"
+            },
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "oracleHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "7985431ff8e96abe2b26008f2135d9318001f45698eb22693a287318e574e1ba"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2af3cd9ed8ad82861e3587f970a7877fab1c9a8dad9908fdafd837c7c701e8d5"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "0958de37-6d97-4cee-aa23-ec5ad8ffa68f",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "bba17233-9aea-4aad-a90f-a76a141167ea"
+            },
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ],
+      "closed": [
+        {
+          "targetHash": "b4172d88b39b28f97a4149b236427fa43230d0d359a339c8b43af7f07daa9559",
+          "oracleHash": "b4172d88b39b28f97a4149b236427fa43230d0d359a339c8b43af7f07daa9559",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 120,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d6b3c3a528defdbfc9f5fcaf11495232f2fba689001ccbd506ef65de4409ec78"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "7985431ff8e96abe2b26008f2135d9318001f45698eb22693a287318e574e1ba"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5a5f4ed28168b8291b99eda67abcb065668c492ada60b42e0f71d5afc002d991"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d57e92bbdb49c4a8e512130a72d268c40c57ce393acf7abacec3c85a42036af4"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "20d3d6c28de0e921fa899d8c6e5ef17c429a671d62e858dd46e71f76bf9867e6",
+          "oracleHash": "20d3d6c28de0e921fa899d8c6e5ef17c429a671d62e858dd46e71f76bf9867e6",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 120,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "90ed84a26bcaed5bc712be6b0565328ec6784f019dcd9ce02c13eede27dddaf1"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "8cd4e05240bd9af20754bd68fbc120c0bf6fdb7b4cb86d8ca3e9e10b2c1e57ab"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "85c412a6331d4c608e622cec2cbb2f44165a9f89575a9498872a99eff91db6bb"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d57e92bbdb49c4a8e512130a72d268c40c57ce393acf7abacec3c85a42036af4"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "b4172d88b39b28f97a4149b236427fa43230d0d359a339c8b43af7f07daa9559",
+          "oracleHash": "b4172d88b39b28f97a4149b236427fa43230d0d359a339c8b43af7f07daa9559",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 120,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d6b3c3a528defdbfc9f5fcaf11495232f2fba689001ccbd506ef65de4409ec78"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "7985431ff8e96abe2b26008f2135d9318001f45698eb22693a287318e574e1ba"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5a5f4ed28168b8291b99eda67abcb065668c492ada60b42e0f71d5afc002d991"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d57e92bbdb49c4a8e512130a72d268c40c57ce393acf7abacec3c85a42036af4"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ],
+      "reopened": [
+        {
+          "targetHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "oracleHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "7985431ff8e96abe2b26008f2135d9318001f45698eb22693a287318e574e1ba"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2af3cd9ed8ad82861e3587f970a7877fab1c9a8dad9908fdafd837c7c701e8d5"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "0958de37-6d97-4cee-aa23-ec5ad8ffa68f",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "bba17233-9aea-4aad-a90f-a76a141167ea"
+            },
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "df909a9a0bbd414544ae55f9b4d1465474772eea57ce2a09ef804f10d49db196",
+          "oracleHash": "df909a9a0bbd414544ae55f9b4d1465474772eea57ce2a09ef804f10d49db196",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "ef2fef20f5a1b6854dc3090bf9136f1bb4abbe32f62c5737158240009402b3ab"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "8cd4e05240bd9af20754bd68fbc120c0bf6fdb7b4cb86d8ca3e9e10b2c1e57ab"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c54fdaecd95f772c004233af34265d663b7d7d4f0a4bf739e985934fc0e35435"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c9aaf2a3b17acc17151171568337c5d63b6facc5d5789f46b96f1522da3e787"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "0958de37-6d97-4cee-aa23-ec5ad8ffa68f",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "bba17233-9aea-4aad-a90f-a76a141167ea"
+            },
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "oracleHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "7985431ff8e96abe2b26008f2135d9318001f45698eb22693a287318e574e1ba"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2af3cd9ed8ad82861e3587f970a7877fab1c9a8dad9908fdafd837c7c701e8d5"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "0958de37-6d97-4cee-aa23-ec5ad8ffa68f",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "bba17233-9aea-4aad-a90f-a76a141167ea"
+            },
+            {
+              "id": "787546e6-1cf2-41f5-aa5d-9daa95a151cf",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "2a835306-3501-4b77-87fd-32385c777645"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "paper_dry-established-final-physical",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-fd68893e-c0cb-4c1b-af8e-71cd5cd16641",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "oracleHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 7293,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-fd68893e-c0cb-4c1b-af8e-71cd5cd16641",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "df909a9a0bbd414544ae55f9b4d1465474772eea57ce2a09ef804f10d49db196",
+          "oracleHash": "df909a9a0bbd414544ae55f9b4d1465474772eea57ce2a09ef804f10d49db196",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 7293,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-fd68893e-c0cb-4c1b-af8e-71cd5cd16641",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "oracleHash": "6ff872f622536f2b70f9b8eb002daf0e003539eac5aa1ab5353e28fa33563120",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 7293,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "paper_dry-removed-old-bridge-not-replaced",
+      "protectedBefore": [
+        {
+          "targetHash": "8cba9ea24c6010e02df3cdf8ccfd0c57d4c4b718ecd70976792a01b454632c39",
+          "oracleHash": "8cba9ea24c6010e02df3cdf8ccfd0c57d4c4b718ecd70976792a01b454632c39",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c04524c1c2af37ea8e8e485909e0669ed11a6854d146617520d12a3364f65c7d"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "181e647d56486fce1d1931f92919e7c1959fdb854653f010172f78f92d393ac5"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2cc5fbf6e62a5332525213b4407e24c280d8f212d63961fb4faa90863dd54100"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "27e8ea745a8577803d699096509a61552a4668bc3b3fdcc9e2d18f6da9bf21da"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "8f25d652-aea6-40ce-a058-8b67b81b8540",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "19179e84-d326-461f-a9f1-69d33360bac6"
+            },
+            {
+              "id": "a2c5f18e-6b5c-4d8f-ad06-2a0ab01576aa",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "61f3863e-c17e-44ed-b20a-0ac16e65c68e"
+            },
+            {
+              "id": "8e46477e-5b18-4c23-bedb-9739ac086713",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "da91e7ce-8f47-47dc-85cc-1686d55e10f6"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "d961b4162c4ea4980bff195d96adf5cf6f33b110d1e47007cb1f98dd0ba70aee",
+          "oracleHash": "d961b4162c4ea4980bff195d96adf5cf6f33b110d1e47007cb1f98dd0ba70aee",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "0d7f5c29174bf13986467f226c7abeb1ae108d3a0e54bbd7f377e1eacaaffca4"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "66efbf6f86b95c4c1084c8536031a0c571a22d7ab8de43dc251f4e6172adf1dd"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d272c7e09ff9b40b073b99e72d41ea55f0cf6713ad531b93cd08121c3a9551dc"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "23469ce220a1bbdf67b28c905fb29bf9a981bd32f487d50ad83104905d9872b5"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "8f25d652-aea6-40ce-a058-8b67b81b8540",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "19179e84-d326-461f-a9f1-69d33360bac6"
+            },
+            {
+              "id": "a2c5f18e-6b5c-4d8f-ad06-2a0ab01576aa",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "61f3863e-c17e-44ed-b20a-0ac16e65c68e"
+            },
+            {
+              "id": "8e46477e-5b18-4c23-bedb-9739ac086713",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "da91e7ce-8f47-47dc-85cc-1686d55e10f6"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "8cba9ea24c6010e02df3cdf8ccfd0c57d4c4b718ecd70976792a01b454632c39",
+          "oracleHash": "8cba9ea24c6010e02df3cdf8ccfd0c57d4c4b718ecd70976792a01b454632c39",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c04524c1c2af37ea8e8e485909e0669ed11a6854d146617520d12a3364f65c7d"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "181e647d56486fce1d1931f92919e7c1959fdb854653f010172f78f92d393ac5"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2cc5fbf6e62a5332525213b4407e24c280d8f212d63961fb4faa90863dd54100"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "27e8ea745a8577803d699096509a61552a4668bc3b3fdcc9e2d18f6da9bf21da"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "8f25d652-aea6-40ce-a058-8b67b81b8540",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "19179e84-d326-461f-a9f1-69d33360bac6"
+            },
+            {
+              "id": "a2c5f18e-6b5c-4d8f-ad06-2a0ab01576aa",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "61f3863e-c17e-44ed-b20a-0ac16e65c68e"
+            },
+            {
+              "id": "8e46477e-5b18-4c23-bedb-9739ac086713",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "da91e7ce-8f47-47dc-85cc-1686d55e10f6"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ],
+      "absentBefore": [
+        {
+          "targetHash": "2e9055495e82a050a2fac201c54413c791fa024bd70516598c5fa4798e2fb98f",
+          "oracleHash": "2e9055495e82a050a2fac201c54413c791fa024bd70516598c5fa4798e2fb98f",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 150,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c1b0d9639f0aaf9bdf819bcc1438e8f8871dff97d2fc5eca9e157a450b10213"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "e5525b98de487698cb0082c7407dcc6d5f0a525b854e9c0b79c12637df93cb66"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "06a34eaac0541f0d5e408e5d2a3cc05041b49fa9dfe92fbe3b3c250d8c5ffbd3"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5c5c41901f92dedba80f3f6dc56b00345c559282a3880716a5b4739c574535e3"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "a2c5f18e-6b5c-4d8f-ad06-2a0ab01576aa",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "61f3863e-c17e-44ed-b20a-0ac16e65c68e"
+            },
+            {
+              "id": "74b1caea-c084-4174-9dfb-4bfedab80a81",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "751b8ece-c7fe-4b88-96b6-d182df5ca2e8"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "90cf0e0519919eeabfe1a3dc4e6358d1e7eb8667d370a83b7892f4a191c176e8",
+          "oracleHash": "90cf0e0519919eeabfe1a3dc4e6358d1e7eb8667d370a83b7892f4a191c176e8",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 150,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "b0c5a69e97a14cc79f74c2c81ce60a6dc7b5cc6a4b948a968268083938345b76"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "4f24b1ee8b58e3351d659d05ac22e7ef7e2ba901985b6daec86925350dc6d70e"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2112d594b475e703e0137c7d37409a6d0177b2252f0c6d0be1a27b660f9efcd0"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d689901d96d3f082119ecb3475887276400867281621622b274cb509dddd5177"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "a2c5f18e-6b5c-4d8f-ad06-2a0ab01576aa",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "61f3863e-c17e-44ed-b20a-0ac16e65c68e"
+            },
+            {
+              "id": "74b1caea-c084-4174-9dfb-4bfedab80a81",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "751b8ece-c7fe-4b88-96b6-d182df5ca2e8"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "2e9055495e82a050a2fac201c54413c791fa024bd70516598c5fa4798e2fb98f",
+          "oracleHash": "2e9055495e82a050a2fac201c54413c791fa024bd70516598c5fa4798e2fb98f",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 150,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c1b0d9639f0aaf9bdf819bcc1438e8f8871dff97d2fc5eca9e157a450b10213"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "e5525b98de487698cb0082c7407dcc6d5f0a525b854e9c0b79c12637df93cb66"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "06a34eaac0541f0d5e408e5d2a3cc05041b49fa9dfe92fbe3b3c250d8c5ffbd3"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5c5c41901f92dedba80f3f6dc56b00345c559282a3880716a5b4739c574535e3"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "a2c5f18e-6b5c-4d8f-ad06-2a0ab01576aa",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "61f3863e-c17e-44ed-b20a-0ac16e65c68e"
+            },
+            {
+              "id": "74b1caea-c084-4174-9dfb-4bfedab80a81",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "751b8ece-c7fe-4b88-96b6-d182df5ca2e8"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ],
+      "after": [
+        {
+          "targetHash": "2e9055495e82a050a2fac201c54413c791fa024bd70516598c5fa4798e2fb98f",
+          "oracleHash": "2e9055495e82a050a2fac201c54413c791fa024bd70516598c5fa4798e2fb98f",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 150,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c1b0d9639f0aaf9bdf819bcc1438e8f8871dff97d2fc5eca9e157a450b10213"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "e5525b98de487698cb0082c7407dcc6d5f0a525b854e9c0b79c12637df93cb66"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "06a34eaac0541f0d5e408e5d2a3cc05041b49fa9dfe92fbe3b3c250d8c5ffbd3"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5c5c41901f92dedba80f3f6dc56b00345c559282a3880716a5b4739c574535e3"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "a2c5f18e-6b5c-4d8f-ad06-2a0ab01576aa",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "61f3863e-c17e-44ed-b20a-0ac16e65c68e"
+            },
+            {
+              "id": "74b1caea-c084-4174-9dfb-4bfedab80a81",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "751b8ece-c7fe-4b88-96b6-d182df5ca2e8"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "90cf0e0519919eeabfe1a3dc4e6358d1e7eb8667d370a83b7892f4a191c176e8",
+          "oracleHash": "90cf0e0519919eeabfe1a3dc4e6358d1e7eb8667d370a83b7892f4a191c176e8",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 150,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "b0c5a69e97a14cc79f74c2c81ce60a6dc7b5cc6a4b948a968268083938345b76"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "4f24b1ee8b58e3351d659d05ac22e7ef7e2ba901985b6daec86925350dc6d70e"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2112d594b475e703e0137c7d37409a6d0177b2252f0c6d0be1a27b660f9efcd0"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d689901d96d3f082119ecb3475887276400867281621622b274cb509dddd5177"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "a2c5f18e-6b5c-4d8f-ad06-2a0ab01576aa",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "61f3863e-c17e-44ed-b20a-0ac16e65c68e"
+            },
+            {
+              "id": "74b1caea-c084-4174-9dfb-4bfedab80a81",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "751b8ece-c7fe-4b88-96b6-d182df5ca2e8"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "2e9055495e82a050a2fac201c54413c791fa024bd70516598c5fa4798e2fb98f",
+          "oracleHash": "2e9055495e82a050a2fac201c54413c791fa024bd70516598c5fa4798e2fb98f",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 150,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c1b0d9639f0aaf9bdf819bcc1438e8f8871dff97d2fc5eca9e157a450b10213"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "e5525b98de487698cb0082c7407dcc6d5f0a525b854e9c0b79c12637df93cb66"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "06a34eaac0541f0d5e408e5d2a3cc05041b49fa9dfe92fbe3b3c250d8c5ffbd3"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5c5c41901f92dedba80f3f6dc56b00345c559282a3880716a5b4739c574535e3"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "a2c5f18e-6b5c-4d8f-ad06-2a0ab01576aa",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "61f3863e-c17e-44ed-b20a-0ac16e65c68e"
+            },
+            {
+              "id": "74b1caea-c084-4174-9dfb-4bfedab80a81",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "751b8ece-c7fe-4b88-96b6-d182df5ca2e8"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "paper_dry-negative-final-physical",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-03c14588-066e-454d-bf07-3635ec867228",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "2e9055495e82a050a2fac201c54413c791fa024bd70516598c5fa4798e2fb98f",
+          "oracleHash": "2e9055495e82a050a2fac201c54413c791fa024bd70516598c5fa4798e2fb98f",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 9240,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-03c14588-066e-454d-bf07-3635ec867228",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "90cf0e0519919eeabfe1a3dc4e6358d1e7eb8667d370a83b7892f4a191c176e8",
+          "oracleHash": "90cf0e0519919eeabfe1a3dc4e6358d1e7eb8667d370a83b7892f4a191c176e8",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 9240,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-03c14588-066e-454d-bf07-3635ec867228",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "2e9055495e82a050a2fac201c54413c791fa024bd70516598c5fa4798e2fb98f",
+          "oracleHash": "2e9055495e82a050a2fac201c54413c791fa024bd70516598c5fa4798e2fb98f",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 9240,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "layer_clear-established-boundary-cycle-0",
+      "before": [
+        {
+          "targetHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "oracleHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "f424f782fd12987bf38e8536eef91352117163b46074df0d2b02cc7756c43982"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c2d3fec0cfae8dbfcfd07c512694975f9014f51378da5c11241cfc53db7d20f4"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "affd9bfd-310c-46ec-bf89-7c11c75f9b01",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "ef3288a9-c67b-4932-90e5-62f392ad9df2"
+            },
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "62d7dbcf1b2758b7f8e1b59772cd3dd12c4bb295080395048d582f31b26025e3",
+          "oracleHash": "62d7dbcf1b2758b7f8e1b59772cd3dd12c4bb295080395048d582f31b26025e3",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "ef2fef20f5a1b6854dc3090bf9136f1bb4abbe32f62c5737158240009402b3ab"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d2ecb9fce79b11660d412c09c88de05a034e39bd4d7ff5331fc8a637892a47fa"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "3261a9ba60b863bad58e434596d4ce1d2ba7a5904fdf73e4e31c705d3c71143a"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c9aaf2a3b17acc17151171568337c5d63b6facc5d5789f46b96f1522da3e787"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "affd9bfd-310c-46ec-bf89-7c11c75f9b01",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "ef3288a9-c67b-4932-90e5-62f392ad9df2"
+            },
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "oracleHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "f424f782fd12987bf38e8536eef91352117163b46074df0d2b02cc7756c43982"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c2d3fec0cfae8dbfcfd07c512694975f9014f51378da5c11241cfc53db7d20f4"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "affd9bfd-310c-46ec-bf89-7c11c75f9b01",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "ef3288a9-c67b-4932-90e5-62f392ad9df2"
+            },
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ],
+      "closed": [
+        {
+          "targetHash": "cff3b82fe3dab9b67a3beaaeace13ce82ecbd9f1224960d66f9bab2ed4698453",
+          "oracleHash": "cff3b82fe3dab9b67a3beaaeace13ce82ecbd9f1224960d66f9bab2ed4698453",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 120,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d6b3c3a528defdbfc9f5fcaf11495232f2fba689001ccbd506ef65de4409ec78"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "f424f782fd12987bf38e8536eef91352117163b46074df0d2b02cc7756c43982"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "33abd41cad205751e5bbcde83226eb00617b9aced5eafb0defbc6ea6f54686dd"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d57e92bbdb49c4a8e512130a72d268c40c57ce393acf7abacec3c85a42036af4"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "b3e41b26ef504695bb4df3558088edbfd9a327a5dc0bb2f00d54767be11fa0f0",
+          "oracleHash": "b3e41b26ef504695bb4df3558088edbfd9a327a5dc0bb2f00d54767be11fa0f0",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 120,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "90ed84a26bcaed5bc712be6b0565328ec6784f019dcd9ce02c13eede27dddaf1"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d2ecb9fce79b11660d412c09c88de05a034e39bd4d7ff5331fc8a637892a47fa"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "65df04b532266b9ce19d110f5a6c3fab108772bae7933c21b8efddedae843146"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d57e92bbdb49c4a8e512130a72d268c40c57ce393acf7abacec3c85a42036af4"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "cff3b82fe3dab9b67a3beaaeace13ce82ecbd9f1224960d66f9bab2ed4698453",
+          "oracleHash": "cff3b82fe3dab9b67a3beaaeace13ce82ecbd9f1224960d66f9bab2ed4698453",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 120,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d6b3c3a528defdbfc9f5fcaf11495232f2fba689001ccbd506ef65de4409ec78"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "f424f782fd12987bf38e8536eef91352117163b46074df0d2b02cc7756c43982"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "33abd41cad205751e5bbcde83226eb00617b9aced5eafb0defbc6ea6f54686dd"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d57e92bbdb49c4a8e512130a72d268c40c57ce393acf7abacec3c85a42036af4"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ],
+      "reopened": [
+        {
+          "targetHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "oracleHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "f424f782fd12987bf38e8536eef91352117163b46074df0d2b02cc7756c43982"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c2d3fec0cfae8dbfcfd07c512694975f9014f51378da5c11241cfc53db7d20f4"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "affd9bfd-310c-46ec-bf89-7c11c75f9b01",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "ef3288a9-c67b-4932-90e5-62f392ad9df2"
+            },
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "62d7dbcf1b2758b7f8e1b59772cd3dd12c4bb295080395048d582f31b26025e3",
+          "oracleHash": "62d7dbcf1b2758b7f8e1b59772cd3dd12c4bb295080395048d582f31b26025e3",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "ef2fef20f5a1b6854dc3090bf9136f1bb4abbe32f62c5737158240009402b3ab"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d2ecb9fce79b11660d412c09c88de05a034e39bd4d7ff5331fc8a637892a47fa"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "3261a9ba60b863bad58e434596d4ce1d2ba7a5904fdf73e4e31c705d3c71143a"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c9aaf2a3b17acc17151171568337c5d63b6facc5d5789f46b96f1522da3e787"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "affd9bfd-310c-46ec-bf89-7c11c75f9b01",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "ef3288a9-c67b-4932-90e5-62f392ad9df2"
+            },
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "oracleHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "f424f782fd12987bf38e8536eef91352117163b46074df0d2b02cc7756c43982"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c2d3fec0cfae8dbfcfd07c512694975f9014f51378da5c11241cfc53db7d20f4"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "affd9bfd-310c-46ec-bf89-7c11c75f9b01",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "ef3288a9-c67b-4932-90e5-62f392ad9df2"
+            },
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "layer_clear-established-boundary-cycle-1",
+      "before": [
+        {
+          "targetHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "oracleHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "f424f782fd12987bf38e8536eef91352117163b46074df0d2b02cc7756c43982"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c2d3fec0cfae8dbfcfd07c512694975f9014f51378da5c11241cfc53db7d20f4"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "affd9bfd-310c-46ec-bf89-7c11c75f9b01",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "ef3288a9-c67b-4932-90e5-62f392ad9df2"
+            },
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "62d7dbcf1b2758b7f8e1b59772cd3dd12c4bb295080395048d582f31b26025e3",
+          "oracleHash": "62d7dbcf1b2758b7f8e1b59772cd3dd12c4bb295080395048d582f31b26025e3",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "ef2fef20f5a1b6854dc3090bf9136f1bb4abbe32f62c5737158240009402b3ab"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d2ecb9fce79b11660d412c09c88de05a034e39bd4d7ff5331fc8a637892a47fa"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "3261a9ba60b863bad58e434596d4ce1d2ba7a5904fdf73e4e31c705d3c71143a"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c9aaf2a3b17acc17151171568337c5d63b6facc5d5789f46b96f1522da3e787"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "affd9bfd-310c-46ec-bf89-7c11c75f9b01",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "ef3288a9-c67b-4932-90e5-62f392ad9df2"
+            },
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "oracleHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "f424f782fd12987bf38e8536eef91352117163b46074df0d2b02cc7756c43982"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c2d3fec0cfae8dbfcfd07c512694975f9014f51378da5c11241cfc53db7d20f4"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "affd9bfd-310c-46ec-bf89-7c11c75f9b01",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "ef3288a9-c67b-4932-90e5-62f392ad9df2"
+            },
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ],
+      "closed": [
+        {
+          "targetHash": "cff3b82fe3dab9b67a3beaaeace13ce82ecbd9f1224960d66f9bab2ed4698453",
+          "oracleHash": "cff3b82fe3dab9b67a3beaaeace13ce82ecbd9f1224960d66f9bab2ed4698453",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 120,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d6b3c3a528defdbfc9f5fcaf11495232f2fba689001ccbd506ef65de4409ec78"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "f424f782fd12987bf38e8536eef91352117163b46074df0d2b02cc7756c43982"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "33abd41cad205751e5bbcde83226eb00617b9aced5eafb0defbc6ea6f54686dd"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d57e92bbdb49c4a8e512130a72d268c40c57ce393acf7abacec3c85a42036af4"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "b3e41b26ef504695bb4df3558088edbfd9a327a5dc0bb2f00d54767be11fa0f0",
+          "oracleHash": "b3e41b26ef504695bb4df3558088edbfd9a327a5dc0bb2f00d54767be11fa0f0",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 120,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "90ed84a26bcaed5bc712be6b0565328ec6784f019dcd9ce02c13eede27dddaf1"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d2ecb9fce79b11660d412c09c88de05a034e39bd4d7ff5331fc8a637892a47fa"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "65df04b532266b9ce19d110f5a6c3fab108772bae7933c21b8efddedae843146"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d57e92bbdb49c4a8e512130a72d268c40c57ce393acf7abacec3c85a42036af4"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "cff3b82fe3dab9b67a3beaaeace13ce82ecbd9f1224960d66f9bab2ed4698453",
+          "oracleHash": "cff3b82fe3dab9b67a3beaaeace13ce82ecbd9f1224960d66f9bab2ed4698453",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 120,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d6b3c3a528defdbfc9f5fcaf11495232f2fba689001ccbd506ef65de4409ec78"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "f424f782fd12987bf38e8536eef91352117163b46074df0d2b02cc7756c43982"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "33abd41cad205751e5bbcde83226eb00617b9aced5eafb0defbc6ea6f54686dd"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d57e92bbdb49c4a8e512130a72d268c40c57ce393acf7abacec3c85a42036af4"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ],
+      "reopened": [
+        {
+          "targetHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "oracleHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "f424f782fd12987bf38e8536eef91352117163b46074df0d2b02cc7756c43982"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c2d3fec0cfae8dbfcfd07c512694975f9014f51378da5c11241cfc53db7d20f4"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "affd9bfd-310c-46ec-bf89-7c11c75f9b01",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "ef3288a9-c67b-4932-90e5-62f392ad9df2"
+            },
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "62d7dbcf1b2758b7f8e1b59772cd3dd12c4bb295080395048d582f31b26025e3",
+          "oracleHash": "62d7dbcf1b2758b7f8e1b59772cd3dd12c4bb295080395048d582f31b26025e3",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "ef2fef20f5a1b6854dc3090bf9136f1bb4abbe32f62c5737158240009402b3ab"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d2ecb9fce79b11660d412c09c88de05a034e39bd4d7ff5331fc8a637892a47fa"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "3261a9ba60b863bad58e434596d4ce1d2ba7a5904fdf73e4e31c705d3c71143a"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c9aaf2a3b17acc17151171568337c5d63b6facc5d5789f46b96f1522da3e787"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "affd9bfd-310c-46ec-bf89-7c11c75f9b01",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "ef3288a9-c67b-4932-90e5-62f392ad9df2"
+            },
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "oracleHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 220,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "2e8b155c3fd5df3d8094244531aaa93c48272f750b52a00250fc10ecbce3ca16"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "f424f782fd12987bf38e8536eef91352117163b46074df0d2b02cc7756c43982"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c2d3fec0cfae8dbfcfd07c512694975f9014f51378da5c11241cfc53db7d20f4"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "09c9fdbbfcd2eab9f3333930309ca513f88cb26fc63687ff912a84cab7fdc8fb"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "affd9bfd-310c-46ec-bf89-7c11c75f9b01",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "ef3288a9-c67b-4932-90e5-62f392ad9df2"
+            },
+            {
+              "id": "1484c233-381f-40af-8470-93c8e3da6635",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "de48f8fc-25fc-46d2-8130-5da9d7d798fa"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "layer_clear-established-final-physical",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-44a17988-b939-4a99-bd3e-1afbfbbadb4f",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "oracleHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 7295,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-44a17988-b939-4a99-bd3e-1afbfbbadb4f",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "62d7dbcf1b2758b7f8e1b59772cd3dd12c4bb295080395048d582f31b26025e3",
+          "oracleHash": "62d7dbcf1b2758b7f8e1b59772cd3dd12c4bb295080395048d582f31b26025e3",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 7295,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-44a17988-b939-4a99-bd3e-1afbfbbadb4f",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "oracleHash": "8d0a4d107fafa46dca2a75a8f22266518342e74d71fabdd155abd37d97c2defe",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 7295,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "layer_clear-removed-old-bridge-not-replaced",
+      "protectedBefore": [
+        {
+          "targetHash": "7a51b3a2f1d447c5c4d7fc3b02034ba93b30b255ceea75e1fd7b5efde1f3f066",
+          "oracleHash": "7a51b3a2f1d447c5c4d7fc3b02034ba93b30b255ceea75e1fd7b5efde1f3f066",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c04524c1c2af37ea8e8e485909e0669ed11a6854d146617520d12a3364f65c7d"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "77bc7a5efdf83e5eb915642f4ae8855540843fbf0896b65d92f9560d13118cfb"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "6bf41727dbb8539ed67dcdb1836dd9102e644ee266c76549195a3dbb864635e6"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "27e8ea745a8577803d699096509a61552a4668bc3b3fdcc9e2d18f6da9bf21da"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "414601ac-625d-40ea-9e07-fa6a0a7c0ffb",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "7e714626-5cc1-4e60-8e5f-0c572bf46fe0"
+            },
+            {
+              "id": "be13bebe-bd7a-4fa8-8622-f5adf3c2eb49",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "7d5d5c80-6908-46fd-ab80-f59fb456353b"
+            },
+            {
+              "id": "a9e43125-5511-42d4-900e-bcbc98a85118",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "0394238f-e297-40fa-8c1d-c1f03a25ed7a"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "4806621624182e5fa7617e8489baf3a19ec60d47655504c17b5b0b68d8e18502",
+          "oracleHash": "4806621624182e5fa7617e8489baf3a19ec60d47655504c17b5b0b68d8e18502",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "0d7f5c29174bf13986467f226c7abeb1ae108d3a0e54bbd7f377e1eacaaffca4"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "a8c1b49d826441616a379230dec9d83dc1414541fb76db490dbc96e603239fcd"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "b8029156b81c1b74faa23daa25ad73934ecb6d271f97305f261646b4b19ffc27"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "23469ce220a1bbdf67b28c905fb29bf9a981bd32f487d50ad83104905d9872b5"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "414601ac-625d-40ea-9e07-fa6a0a7c0ffb",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "7e714626-5cc1-4e60-8e5f-0c572bf46fe0"
+            },
+            {
+              "id": "be13bebe-bd7a-4fa8-8622-f5adf3c2eb49",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "7d5d5c80-6908-46fd-ab80-f59fb456353b"
+            },
+            {
+              "id": "a9e43125-5511-42d4-900e-bcbc98a85118",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "0394238f-e297-40fa-8c1d-c1f03a25ed7a"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "7a51b3a2f1d447c5c4d7fc3b02034ba93b30b255ceea75e1fd7b5efde1f3f066",
+          "oracleHash": "7a51b3a2f1d447c5c4d7fc3b02034ba93b30b255ceea75e1fd7b5efde1f3f066",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 90,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "c04524c1c2af37ea8e8e485909e0669ed11a6854d146617520d12a3364f65c7d"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "77bc7a5efdf83e5eb915642f4ae8855540843fbf0896b65d92f9560d13118cfb"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "6bf41727dbb8539ed67dcdb1836dd9102e644ee266c76549195a3dbb864635e6"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "27e8ea745a8577803d699096509a61552a4668bc3b3fdcc9e2d18f6da9bf21da"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "414601ac-625d-40ea-9e07-fa6a0a7c0ffb",
+              "preset": "normal:95:0:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "7e714626-5cc1-4e60-8e5f-0c572bf46fe0"
+            },
+            {
+              "id": "be13bebe-bd7a-4fa8-8622-f5adf3c2eb49",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "7d5d5c80-6908-46fd-ab80-f59fb456353b"
+            },
+            {
+              "id": "a9e43125-5511-42d4-900e-bcbc98a85118",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "0394238f-e297-40fa-8c1d-c1f03a25ed7a"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ],
+      "absentBefore": [
+        {
+          "targetHash": "9dc5054a234d5f0bb0e26ddb13633fc13535890115ff90667090aec0aa71f5fb",
+          "oracleHash": "9dc5054a234d5f0bb0e26ddb13633fc13535890115ff90667090aec0aa71f5fb",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 150,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c1b0d9639f0aaf9bdf819bcc1438e8f8871dff97d2fc5eca9e157a450b10213"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5fb8cfff9fdaae59e0266980dd2a94ba3d465d5d69818a0b53994598227ff46a"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "201736ac54e11b3657b014a845aa64fa5ea174e423de954c03c1da0df04b5b79"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5c5c41901f92dedba80f3f6dc56b00345c559282a3880716a5b4739c574535e3"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "be13bebe-bd7a-4fa8-8622-f5adf3c2eb49",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "7d5d5c80-6908-46fd-ab80-f59fb456353b"
+            },
+            {
+              "id": "9de9b362-a121-4c8b-abca-9f0000e027fd",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "726d0ed4-368e-40f0-8f98-2e01827337c6"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "3e4a81ebfedeb0ae9123d6efd0e508b5271fd26719c7312d9e98c95a2334ec02",
+          "oracleHash": "3e4a81ebfedeb0ae9123d6efd0e508b5271fd26719c7312d9e98c95a2334ec02",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 150,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "b0c5a69e97a14cc79f74c2c81ce60a6dc7b5cc6a4b948a968268083938345b76"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "a6332a6febe3115d4553ebdfb40c650416f8c73b558bc057dde5a1223db4b59e"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "38fe7e9eceb437836c1061c87cb6f7350242b34b6da2e2db6124a9e5f11cb83a"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d689901d96d3f082119ecb3475887276400867281621622b274cb509dddd5177"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "be13bebe-bd7a-4fa8-8622-f5adf3c2eb49",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "7d5d5c80-6908-46fd-ab80-f59fb456353b"
+            },
+            {
+              "id": "9de9b362-a121-4c8b-abca-9f0000e027fd",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "726d0ed4-368e-40f0-8f98-2e01827337c6"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "9dc5054a234d5f0bb0e26ddb13633fc13535890115ff90667090aec0aa71f5fb",
+          "oracleHash": "9dc5054a234d5f0bb0e26ddb13633fc13535890115ff90667090aec0aa71f5fb",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 150,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c1b0d9639f0aaf9bdf819bcc1438e8f8871dff97d2fc5eca9e157a450b10213"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5fb8cfff9fdaae59e0266980dd2a94ba3d465d5d69818a0b53994598227ff46a"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "201736ac54e11b3657b014a845aa64fa5ea174e423de954c03c1da0df04b5b79"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5c5c41901f92dedba80f3f6dc56b00345c559282a3880716a5b4739c574535e3"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "be13bebe-bd7a-4fa8-8622-f5adf3c2eb49",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "7d5d5c80-6908-46fd-ab80-f59fb456353b"
+            },
+            {
+              "id": "9de9b362-a121-4c8b-abca-9f0000e027fd",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "726d0ed4-368e-40f0-8f98-2e01827337c6"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ],
+      "after": [
+        {
+          "targetHash": "9dc5054a234d5f0bb0e26ddb13633fc13535890115ff90667090aec0aa71f5fb",
+          "oracleHash": "9dc5054a234d5f0bb0e26ddb13633fc13535890115ff90667090aec0aa71f5fb",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 150,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c1b0d9639f0aaf9bdf819bcc1438e8f8871dff97d2fc5eca9e157a450b10213"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5fb8cfff9fdaae59e0266980dd2a94ba3d465d5d69818a0b53994598227ff46a"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "201736ac54e11b3657b014a845aa64fa5ea174e423de954c03c1da0df04b5b79"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5c5c41901f92dedba80f3f6dc56b00345c559282a3880716a5b4739c574535e3"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "be13bebe-bd7a-4fa8-8622-f5adf3c2eb49",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "7d5d5c80-6908-46fd-ab80-f59fb456353b"
+            },
+            {
+              "id": "9de9b362-a121-4c8b-abca-9f0000e027fd",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "726d0ed4-368e-40f0-8f98-2e01827337c6"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "3e4a81ebfedeb0ae9123d6efd0e508b5271fd26719c7312d9e98c95a2334ec02",
+          "oracleHash": "3e4a81ebfedeb0ae9123d6efd0e508b5271fd26719c7312d9e98c95a2334ec02",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 150,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "b0c5a69e97a14cc79f74c2c81ce60a6dc7b5cc6a4b948a968268083938345b76"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "a6332a6febe3115d4553ebdfb40c650416f8c73b558bc057dde5a1223db4b59e"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "38fe7e9eceb437836c1061c87cb6f7350242b34b6da2e2db6124a9e5f11cb83a"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "d689901d96d3f082119ecb3475887276400867281621622b274cb509dddd5177"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "be13bebe-bd7a-4fa8-8622-f5adf3c2eb49",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "7d5d5c80-6908-46fd-ab80-f59fb456353b"
+            },
+            {
+              "id": "9de9b362-a121-4c8b-abca-9f0000e027fd",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "726d0ed4-368e-40f0-8f98-2e01827337c6"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        },
+        {
+          "targetHash": "9dc5054a234d5f0bb0e26ddb13633fc13535890115ff90667090aec0aa71f5fb",
+          "oracleHash": "9dc5054a234d5f0bb0e26ddb13633fc13535890115ff90667090aec0aa71f5fb",
+          "changed": 0,
+          "max": 0,
+          "raw": {
+            "storageBounds": {
+              "minX": 150,
+              "minY": 110,
+              "maxX": 310,
+              "maxY": 210
+            },
+            "waterUsed": 0.5,
+            "pigmentUsed": 0.5,
+            "needsInk": true,
+            "needsColor": true,
+            "tiles": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 512,
+                "h": 512,
+                "fields": {
+                  "coverage": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "1c1b0d9639f0aaf9bdf819bcc1438e8f8871dff97d2fc5eca9e157a450b10213"
+                  },
+                  "inkColor": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5fb8cfff9fdaae59e0266980dd2a94ba3d465d5d69818a0b53994598227ff46a"
+                  },
+                  "inkLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "201736ac54e11b3657b014a845aa64fa5ea174e423de954c03c1da0df04b5b79"
+                  },
+                  "original": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+                  },
+                  "solventLoad": {
+                    "w": 512,
+                    "h": 512,
+                    "hash": "5c5c41901f92dedba80f3f6dc56b00345c559282a3880716a5b4739c574535e3"
+                  }
+                }
+              }
+            ]
+          },
+          "effective": [
+            {
+              "id": "be13bebe-bd7a-4fa8-8622-f5adf3c2eb49",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "7d5d5c80-6908-46fd-ab80-f59fb456353b"
+            },
+            {
+              "id": "9de9b362-a121-4c8b-abca-9f0000e027fd",
+              "preset": "normal:95:65:PB29:round:wc@m70-r2-v1",
+              "tool": "watercolor",
+              "strokeId": "726d0ed4-368e-40f0-8f98-2e01827337c6"
+            }
+          ],
+          "actualCanonicalBeforeOracle": true,
+          "oracleHiddenReplay": false,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "layer_clear-negative-final-physical",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-4d18b7c5-8ed3-420b-a350-d2e6b0a008bc",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "9dc5054a234d5f0bb0e26ddb13633fc13535890115ff90667090aec0aa71f5fb",
+          "oracleHash": "9dc5054a234d5f0bb0e26ddb13633fc13535890115ff90667090aec0aa71f5fb",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 9240,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-4d18b7c5-8ed3-420b-a350-d2e6b0a008bc",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "3e4a81ebfedeb0ae9123d6efd0e508b5271fd26719c7312d9e98c95a2334ec02",
+          "oracleHash": "3e4a81ebfedeb0ae9123d6efd0e508b5271fd26719c7312d9e98c95a2334ec02",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 9240,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-4d18b7c5-8ed3-420b-a350-d2e6b0a008bc",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "9dc5054a234d5f0bb0e26ddb13633fc13535890115ff90667090aec0aa71f5fb",
+          "oracleHash": "9dc5054a234d5f0bb0e26ddb13633fc13535890115ff90667090aec0aa71f5fb",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 9240,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "4d30f1e7-4406-4424-87ad-e35b60f81020",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "7b62c4a5-084b-4b66-8dcf-23564a29f62e",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "abc38d53-ae6d-4fec-8325-0ba51f81cbca",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "currentProof": {
+    "name": "layer_clear-negative-final-physical",
+    "actor": 2,
+    "layerId": "qa-wet-erase-4d18b7c5-8ed3-420b-a350-d2e6b0a008bc",
+    "sourceHiddenReplay": false,
+    "oracleHiddenReplay": false,
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "9dc5054a234d5f0bb0e26ddb13633fc13535890115ff90667090aec0aa71f5fb",
+    "oracleHash": "9dc5054a234d5f0bb0e26ddb13633fc13535890115ff90667090aec0aa71f5fb",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 9240,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "pass": true
+}

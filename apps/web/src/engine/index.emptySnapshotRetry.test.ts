@@ -13,14 +13,14 @@ function setup() {
     _layers: Map<string, ILayerBuffer>
     _snapshots: SnapshotLedger
   }
-  engine.appendOperation(makeLayerAdd('a', 'A'), 'remote')
+  engine.appendOperation({ ...makeLayerAdd('a', 'A'), seq: 1 }, 'remote')
   // Keep a real resident transparent target, as drying a pure-water wash
   // does. layer_clear would remove it and would not exercise readback retries.
   const clear = () => {
     for (const target of internal._layers.get('A')!.allResident()) target.buffer.clear()
     internal._snapshots.markDirty('A')
   }
-  engine.appendOperation(fillStroke('a', 'A', 4, 4, 6), 'remote')
+  engine.appendOperation({ ...fillStroke('a', 'A', 4, 4, 6), seq: 2 }, 'remote')
   clear()
   const reads = vi.spyOn(internal.gl, 'readPixels')
   return { engine, internal, ledger: internal._snapshots, reads, clear }

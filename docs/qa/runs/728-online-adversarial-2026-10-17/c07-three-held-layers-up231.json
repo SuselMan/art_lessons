@@ -1,0 +1,849 @@
+{
+  "source": "ec218f98",
+  "scope": "simultaneous three wet-layer race",
+  "cases": [
+    {
+      "name": "three-different-layers-held-before-any-foreign-operation",
+      "layers": [
+        "qa-race-2db68fc6-32ca-44c3-88c7-7f2a4bc56cf1",
+        "qa-race-248181d5-3f52-4f40-bf72-e9c0ff09149c",
+        "qa-race-71ad85d4-a7cc-41d7-91e2-6f9006c79c38"
+      ],
+      "gestures": [
+        "VMYwXva2Cc",
+        "9R3_IJN9n8",
+        "zO-q7aYvTo"
+      ],
+      "before": [
+        {
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 0,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 2,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "committed": 0,
+          "held": "VMYwXva2Cc"
+        },
+        {
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 0,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 2,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "committed": 0,
+          "held": "9R3_IJN9n8"
+        },
+        {
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 0,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 2,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "committed": 0,
+          "held": "zO-q7aYvTo"
+        }
+      ]
+    },
+    {
+      "name": "all-three-server-accepted-and-replicated",
+      "ids": [
+        [
+          "yyQuKcudvX"
+        ],
+        [
+          "MzM5wGKrOt"
+        ],
+        [
+          "A0mZ_RsmWq"
+        ]
+      ],
+      "server": {
+        "strokes": [
+          {
+            "id": "yyQuKcudvX",
+            "layerId": "qa-race-248181d5-3f52-4f40-bf72-e9c0ff09149c",
+            "strokeId": "9R3_IJN9n8",
+            "userId": "59b0ecec-fd89-4786-84ce-ea8bf89fd3c1",
+            "seq": 4
+          },
+          {
+            "id": "MzM5wGKrOt",
+            "layerId": "qa-race-71ad85d4-a7cc-41d7-91e2-6f9006c79c38",
+            "strokeId": "zO-q7aYvTo",
+            "userId": "c5f5c8d0-31e7-44ca-819c-a87ba2b6fbbe",
+            "seq": 5
+          },
+          {
+            "id": "A0mZ_RsmWq",
+            "layerId": "qa-race-2db68fc6-32ca-44c3-88c7-7f2a4bc56cf1",
+            "strokeId": "VMYwXva2Cc",
+            "userId": "e4b2cbe5-7a3d-426a-aa45-6c5fc020a3b4",
+            "seq": 6
+          }
+        ],
+        "operations": 6
+      },
+      "after": [
+        {
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 3,
+            "residentLayers": 2,
+            "parkedLayers": 1,
+            "cpuBytes": 5242880,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 2,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              },
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "entries": [
+            {
+              "id": "fa82e74c-e77b-4258-8862-2ad0a55bcced",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "f4147c64-5087-4299-b52f-58dfd0696d90",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "3cdb750b-5424-4aa5-8411-ff21febb79fc",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "yyQuKcudvX",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "MzM5wGKrOt",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "A0mZ_RsmWq",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            }
+          ],
+          "queue": 0,
+          "pending": 0,
+          "jobs": 0
+        },
+        {
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 3,
+            "residentLayers": 2,
+            "parkedLayers": 1,
+            "cpuBytes": 5242880,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 5,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "entries": [
+            {
+              "id": "fa82e74c-e77b-4258-8862-2ad0a55bcced",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "f4147c64-5087-4299-b52f-58dfd0696d90",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "3cdb750b-5424-4aa5-8411-ff21febb79fc",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "yyQuKcudvX",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "MzM5wGKrOt",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "A0mZ_RsmWq",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            }
+          ],
+          "queue": 0,
+          "pending": 0,
+          "jobs": 0
+        },
+        {
+          "puddle": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 3,
+            "residentLayers": 2,
+            "parkedLayers": 1,
+            "cpuBytes": 5242880,
+            "drying": false,
+            "cancellations": 1,
+            "computations": 3,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              },
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "entries": [
+            {
+              "id": "fa82e74c-e77b-4258-8862-2ad0a55bcced",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "f4147c64-5087-4299-b52f-58dfd0696d90",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "3cdb750b-5424-4aa5-8411-ff21febb79fc",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "yyQuKcudvX",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "MzM5wGKrOt",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "A0mZ_RsmWq",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            }
+          ],
+          "queue": 0,
+          "pending": 0,
+          "jobs": 0
+        }
+      ]
+    },
+    {
+      "name": "all-nine-layer-author-actual-rasters-equal-independent-replay",
+      "raster": [
+        [
+          {
+            "actor": 0,
+            "layerId": "qa-race-2db68fc6-32ca-44c3-88c7-7f2a4bc56cf1",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "8add16284c8151e06a818a58240b9bf007e6b55fc58c148a0a53a7b1bd56c353",
+            "oracleHash": "8add16284c8151e06a818a58240b9bf007e6b55fc58c148a0a53a7b1bd56c353",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 1,
+            "layerId": "qa-race-2db68fc6-32ca-44c3-88c7-7f2a4bc56cf1",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "b7cfcbd00be0cd604e7745691aa2463b824fb4d5931d4aa050d560319ceed650",
+            "oracleHash": "b7cfcbd00be0cd604e7745691aa2463b824fb4d5931d4aa050d560319ceed650",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 2,
+            "layerId": "qa-race-2db68fc6-32ca-44c3-88c7-7f2a4bc56cf1",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "8add16284c8151e06a818a58240b9bf007e6b55fc58c148a0a53a7b1bd56c353",
+            "oracleHash": "8add16284c8151e06a818a58240b9bf007e6b55fc58c148a0a53a7b1bd56c353",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          }
+        ],
+        [
+          {
+            "actor": 0,
+            "layerId": "qa-race-248181d5-3f52-4f40-bf72-e9c0ff09149c",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "55097e6b7121773f8e2501b95fd68c30b0ca3bc3edf4da993b834dbabc60f373",
+            "oracleHash": "55097e6b7121773f8e2501b95fd68c30b0ca3bc3edf4da993b834dbabc60f373",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 1,
+            "layerId": "qa-race-248181d5-3f52-4f40-bf72-e9c0ff09149c",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "e3a8dd06af36cf98b4d7b4fa848ed29c8cffa0fb0851ace286ca0c077d3c0dd3",
+            "oracleHash": "e3a8dd06af36cf98b4d7b4fa848ed29c8cffa0fb0851ace286ca0c077d3c0dd3",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 2,
+            "layerId": "qa-race-248181d5-3f52-4f40-bf72-e9c0ff09149c",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "55097e6b7121773f8e2501b95fd68c30b0ca3bc3edf4da993b834dbabc60f373",
+            "oracleHash": "55097e6b7121773f8e2501b95fd68c30b0ca3bc3edf4da993b834dbabc60f373",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          }
+        ],
+        [
+          {
+            "actor": 0,
+            "layerId": "qa-race-71ad85d4-a7cc-41d7-91e2-6f9006c79c38",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "6550a9db402a890d9466d105e3d975800d38b64d8ab6937bbb29fb675622d058",
+            "oracleHash": "6550a9db402a890d9466d105e3d975800d38b64d8ab6937bbb29fb675622d058",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 1,
+            "layerId": "qa-race-71ad85d4-a7cc-41d7-91e2-6f9006c79c38",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "98548f4e354ae4dc5369dab46ea2806b6983699335c6ca7028092cb2835e9e6e",
+            "oracleHash": "98548f4e354ae4dc5369dab46ea2806b6983699335c6ca7028092cb2835e9e6e",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 2,
+            "layerId": "qa-race-71ad85d4-a7cc-41d7-91e2-6f9006c79c38",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "6550a9db402a890d9466d105e3d975800d38b64d8ab6937bbb29fb675622d058",
+            "oracleHash": "6550a9db402a890d9466d105e3d975800d38b64d8ab6937bbb29fb675622d058",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          }
+        ]
+      ]
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "e4b2cbe5-7a3d-426a-aa45-6c5fc020a3b4",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "59b0ecec-fd89-4786-84ce-ea8bf89fd3c1",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "c5f5c8d0-31e7-44ca-819c-a87ba2b6fbbe",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "upOrder": [
+    2,
+    3,
+    1
+  ],
+  "server": {
+    "strokes": [
+      {
+        "id": "yyQuKcudvX",
+        "layerId": "qa-race-248181d5-3f52-4f40-bf72-e9c0ff09149c",
+        "strokeId": "9R3_IJN9n8",
+        "userId": "59b0ecec-fd89-4786-84ce-ea8bf89fd3c1",
+        "seq": 4
+      },
+      {
+        "id": "MzM5wGKrOt",
+        "layerId": "qa-race-71ad85d4-a7cc-41d7-91e2-6f9006c79c38",
+        "strokeId": "zO-q7aYvTo",
+        "userId": "c5f5c8d0-31e7-44ca-819c-a87ba2b6fbbe",
+        "seq": 5
+      },
+      {
+        "id": "A0mZ_RsmWq",
+        "layerId": "qa-race-2db68fc6-32ca-44c3-88c7-7f2a4bc56cf1",
+        "strokeId": "VMYwXva2Cc",
+        "userId": "e4b2cbe5-7a3d-426a-aa45-6c5fc020a3b4",
+        "seq": 6
+      }
+    ],
+    "operations": 6
+  },
+  "after": [
+    {
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 3,
+        "residentLayers": 2,
+        "parkedLayers": 1,
+        "cpuBytes": 5242880,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 2,
+        "pending": true,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": false,
+            "active": false
+          },
+          {
+            "epoch": 1,
+            "ready": false,
+            "active": false
+          }
+        ]
+      },
+      "entries": [
+        {
+          "id": "fa82e74c-e77b-4258-8862-2ad0a55bcced",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "f4147c64-5087-4299-b52f-58dfd0696d90",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "3cdb750b-5424-4aa5-8411-ff21febb79fc",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "yyQuKcudvX",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "MzM5wGKrOt",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "A0mZ_RsmWq",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        }
+      ],
+      "queue": 0,
+      "pending": 0,
+      "jobs": 0
+    },
+    {
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 3,
+        "residentLayers": 2,
+        "parkedLayers": 1,
+        "cpuBytes": 5242880,
+        "drying": false,
+        "cancellations": 2,
+        "computations": 5,
+        "pending": true,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          },
+          {
+            "epoch": 1,
+            "ready": false,
+            "active": false
+          }
+        ]
+      },
+      "entries": [
+        {
+          "id": "fa82e74c-e77b-4258-8862-2ad0a55bcced",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "f4147c64-5087-4299-b52f-58dfd0696d90",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "3cdb750b-5424-4aa5-8411-ff21febb79fc",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "yyQuKcudvX",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "MzM5wGKrOt",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "A0mZ_RsmWq",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        }
+      ],
+      "queue": 0,
+      "pending": 0,
+      "jobs": 0
+    },
+    {
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 3,
+        "residentLayers": 2,
+        "parkedLayers": 1,
+        "cpuBytes": 5242880,
+        "drying": false,
+        "cancellations": 1,
+        "computations": 3,
+        "pending": true,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": false,
+            "active": false
+          },
+          {
+            "epoch": 1,
+            "ready": false,
+            "active": false
+          }
+        ]
+      },
+      "entries": [
+        {
+          "id": "fa82e74c-e77b-4258-8862-2ad0a55bcced",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "f4147c64-5087-4299-b52f-58dfd0696d90",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "3cdb750b-5424-4aa5-8411-ff21febb79fc",
+          "type": "layer_add",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "yyQuKcudvX",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "MzM5wGKrOt",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        },
+        {
+          "id": "A0mZ_RsmWq",
+          "type": "stroke",
+          "state": "done",
+          "pending": false
+        }
+      ],
+      "queue": 0,
+      "pending": 0,
+      "jobs": 0
+    }
+  ],
+  "wetAfterDrain": [
+    {
+      "state": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 3,
+        "residentLayers": 2,
+        "parkedLayers": 1,
+        "cpuBytes": 5242880,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 3,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          },
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          }
+        ]
+      },
+      "queue": 0,
+      "jobs": 0
+    },
+    {
+      "state": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 3,
+        "residentLayers": 2,
+        "parkedLayers": 1,
+        "cpuBytes": 5242880,
+        "drying": false,
+        "cancellations": 2,
+        "computations": 5,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          },
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          }
+        ]
+      },
+      "queue": 0,
+      "jobs": 0
+    },
+    {
+      "state": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 3,
+        "residentLayers": 2,
+        "parkedLayers": 1,
+        "cpuBytes": 5242880,
+        "drying": false,
+        "cancellations": 1,
+        "computations": 4,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          },
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          }
+        ]
+      },
+      "queue": 0,
+      "jobs": 0
+    }
+  ],
+  "pass": true,
+  "assessment": "All3 genuine browser authors held DOWN on distinct layers BEFORE any canonical stroke arrived; UP order2\u21923\u21921. Every actor has3logicalwet sources, <=2GPU resident, queue/jobs0. All9 final physical layer/actor rasters exact their own independent fullReplay; no dropped accepted operations."
+}

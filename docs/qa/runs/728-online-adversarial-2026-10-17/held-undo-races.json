@@ -1,0 +1,372 @@
+{
+  "source": "c8a9d09c30e10592fdb5ccad32f783839b089657",
+  "scope": "Held M70 local/remote Undo, Undo Dry, structural layer Undo and unrelated-layer Undo; actual rasters after lease release",
+  "cases": [
+    {
+      "name": "held-own-undo-after-up-actual-replay-exact",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-4602157d-a14d-46e9-89d3-fe2b700c7c5c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "ee040c2dfbde981daead6d80ca403a848bfda63a30ae8ef5b85a672850b68e80",
+          "oracleHash": "ee040c2dfbde981daead6d80ca403a848bfda63a30ae8ef5b85a672850b68e80",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 1945,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-4602157d-a14d-46e9-89d3-fe2b700c7c5c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "1eb6244d77dbde8844785a5e343148a98e5541e7d9ec7aaa464799f6ef2142c3",
+          "oracleHash": "1eb6244d77dbde8844785a5e343148a98e5541e7d9ec7aaa464799f6ef2142c3",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 1945,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-4602157d-a14d-46e9-89d3-fe2b700c7c5c",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "ee040c2dfbde981daead6d80ca403a848bfda63a30ae8ef5b85a672850b68e80",
+          "oracleHash": "ee040c2dfbde981daead6d80ca403a848bfda63a30ae8ef5b85a672850b68e80",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 1945,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "held-own-undo-preserves-lease-until-up",
+      "held": "4ZfHOXfYEf",
+      "undo": "V6RjQDJAR5",
+      "during": {
+        "stroke": "4ZfHOXfYEf",
+        "lease": true,
+        "deferred": true,
+        "job": false,
+        "layer": true,
+        "liveTimer": false
+      },
+      "after": {
+        "stroke": null,
+        "lease": false,
+        "deferred": false,
+        "job": false,
+        "layer": true,
+        "liveTimer": false
+      }
+    },
+    {
+      "name": "held-remote-undo-after-up-actual-replay-exact",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-d6ae3dbc-4125-4ec8-8c96-45728aa00e56",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "7ae146fe5296eac86559cf43f6ed8a0278a89ea48967e08537f8b2fa4b539e91",
+          "oracleHash": "7ae146fe5296eac86559cf43f6ed8a0278a89ea48967e08537f8b2fa4b539e91",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 1945,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-d6ae3dbc-4125-4ec8-8c96-45728aa00e56",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "05c5a183e610fcdd29f62487219a7d6cd96894a1f4c12f0003afc84f10508998",
+          "oracleHash": "05c5a183e610fcdd29f62487219a7d6cd96894a1f4c12f0003afc84f10508998",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 1945,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-d6ae3dbc-4125-4ec8-8c96-45728aa00e56",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "7ae146fe5296eac86559cf43f6ed8a0278a89ea48967e08537f8b2fa4b539e91",
+          "oracleHash": "7ae146fe5296eac86559cf43f6ed8a0278a89ea48967e08537f8b2fa4b539e91",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 1945,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "held-remote-undo-preserves-lease-until-up",
+      "held": "rctojhffib",
+      "undo": "oROkARvIgk",
+      "during": {
+        "stroke": "rctojhffib",
+        "lease": true,
+        "deferred": true,
+        "job": false,
+        "layer": true,
+        "liveTimer": false
+      },
+      "after": {
+        "stroke": null,
+        "lease": false,
+        "deferred": false,
+        "job": false,
+        "layer": true,
+        "liveTimer": false
+      }
+    },
+    {
+      "name": "held-dry-undo-after-up-actual-replay-exact",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-4ca6105f-9057-4165-8763-0c257fd3af39",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "8e53db486a943adcc22c796e051bdbc1cede4523a1488e13277c7295c13de2cc",
+          "oracleHash": "8e53db486a943adcc22c796e051bdbc1cede4523a1488e13277c7295c13de2cc",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 7768,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-4ca6105f-9057-4165-8763-0c257fd3af39",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "7ca177ba9414855d06752ef773615f538f9cc03cacd73dc2026e6c44fb406b88",
+          "oracleHash": "7ca177ba9414855d06752ef773615f538f9cc03cacd73dc2026e6c44fb406b88",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 7768,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-4ca6105f-9057-4165-8763-0c257fd3af39",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "8e53db486a943adcc22c796e051bdbc1cede4523a1488e13277c7295c13de2cc",
+          "oracleHash": "8e53db486a943adcc22c796e051bdbc1cede4523a1488e13277c7295c13de2cc",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 7768,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "held-dry-undo-preserves-lease-until-up",
+      "held": "syZnE0xhRF",
+      "undo": "b1d7adca-00a3-4862-bb3d-6ffaa3bcad91",
+      "during": {
+        "stroke": "syZnE0xhRF",
+        "lease": true,
+        "deferred": true,
+        "job": false,
+        "layer": true,
+        "liveTimer": false
+      },
+      "after": {
+        "stroke": null,
+        "lease": false,
+        "deferred": false,
+        "job": false,
+        "layer": true,
+        "liveTimer": false
+      }
+    },
+    {
+      "name": "structural-undo-redo-preserves-recorded-prefix-not-unrecorded-tail",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-held-delete-2e26081c-4111-46c0-b6e9-595d28b32e81",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "6c2771c93c5d33063560542f2ec1e1469374750000a808c5f1300e413b0a982e",
+          "oracleHash": "6c2771c93c5d33063560542f2ec1e1469374750000a808c5f1300e413b0a982e",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 34719,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-held-delete-2e26081c-4111-46c0-b6e9-595d28b32e81",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "ca071e4c4bd5638674d3139a5a75e78646e2098b280ec17cdcb985ccaf890d4d",
+          "oracleHash": "ca071e4c4bd5638674d3139a5a75e78646e2098b280ec17cdcb985ccaf890d4d",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 34718,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-held-delete-2e26081c-4111-46c0-b6e9-595d28b32e81",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "6c2771c93c5d33063560542f2ec1e1469374750000a808c5f1300e413b0a982e",
+          "oracleHash": "6c2771c93c5d33063560542f2ec1e1469374750000a808c5f1300e413b0a982e",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 34719,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "structural-undo-held-layer-cancels-only-tail-and-late-events",
+      "held": "mhdWxdIPFb",
+      "prefix": {
+        "ids": [
+          "XeVDvdLcCz"
+        ],
+        "tail": 6,
+        "gesture": "mhdWxdIPFb"
+      },
+      "undo": "4384a732-4acb-4d2a-a186-bbef3c8e0ae5",
+      "redo": "4384a732-4acb-4d2a-a186-bbef3c8e0ae5",
+      "cancelled": {
+        "stroke": null,
+        "lease": false,
+        "deferred": false,
+        "job": false,
+        "layer": false,
+        "liveTimer": false
+      }
+    },
+    {
+      "name": "unrelated-undo-during-held-input-final-exact",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-dee23ddc-02ca-4590-bc24-b68b0c8e2f43",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "387065200ac428a6107924df8e6f833a95040aebd229eee75154f28c241c6a36",
+          "oracleHash": "387065200ac428a6107924df8e6f833a95040aebd229eee75154f28c241c6a36",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 1944,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-dee23ddc-02ca-4590-bc24-b68b0c8e2f43",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "b720c7b3fccda0ecbe9a8aba7d1b27b82c0f11ab623850ebf878474a3e862a0e",
+          "oracleHash": "b720c7b3fccda0ecbe9a8aba7d1b27b82c0f11ab623850ebf878474a3e862a0e",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 1944,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-dee23ddc-02ca-4590-bc24-b68b0c8e2f43",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "387065200ac428a6107924df8e6f833a95040aebd229eee75154f28c241c6a36",
+          "oracleHash": "387065200ac428a6107924df8e6f833a95040aebd229eee75154f28c241c6a36",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 1944,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "unrelated-layer-undo-immediate-while-other-source-leased",
+      "otherUndo": "hDrdlYVOxO",
+      "duringOther": {
+        "stroke": "kD-6SFSLJL",
+        "lease": true,
+        "deferred": false,
+        "job": false,
+        "layer": true,
+        "liveTimer": false
+      },
+      "alpha": 0
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "04a3f2af-9cfd-412f-ab0b-c081d50b48e1",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "a678fd2a-5a7a-4ae9-8e93-b4a2a42e63ea",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "efeb4081-a5f7-4688-b3ec-aa962aa8291b",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "pass": true
+}

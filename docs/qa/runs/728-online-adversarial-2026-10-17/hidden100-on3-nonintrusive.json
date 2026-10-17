@@ -1,0 +1,275 @@
+{
+  "strokes": 100,
+  "errors": [],
+  "scope": "Original100-stroke A-red then B-Dry then Undo input and original H-screenY readback unchanged; live read each RAF up to2s; no display/replay forced",
+  "instrumentationChange": "Only baseline RGB added from existing initial read. Prior incorrect correction was retracted after actual red bbox calibration",
+  "source": "ec218f98",
+  "hiddenReplay": true,
+  "readDuringUndo": false,
+  "identity": {
+    "model": "m70-r2-v1",
+    "gpuBudget": "Infinity",
+    "scratchHolding": false,
+    "touch": 10,
+    "deviceMemory": 8,
+    "DPR": 1.0000000298023224,
+    "page": {
+      "w": 1024,
+      "h": 1024
+    },
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "inputSpec": {
+    "canvas": 1024,
+    "count": 100,
+    "authors": 2,
+    "tool": "watercolor",
+    "water": 0.95,
+    "pigment": 0.34,
+    "size": 32,
+    "pressure": 0.75,
+    "moves": 4,
+    "deltaX": 4,
+    "blue": [
+      0.1,
+      0.25,
+      0.8
+    ],
+    "red": [
+      0.9,
+      0.05,
+      0.05
+    ],
+    "blueX": "480+(i%5)*5",
+    "blueY": "490+(i%3)*5",
+    "lastA": {
+      "x": 650,
+      "y": 650
+    },
+    "yield": "every3marks"
+  },
+  "inputSpecSHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
+  "seedWallMs": 7033,
+  "actualInputSHA": "6913196a26ca8d30236ee762d9d7f79a59a27bb24689566b4ab873e3ad1897aa",
+  "baselineRGB": [
+    236.1640625,
+    135.171875,
+    133.234375
+  ],
+  "firstObservedActualChange": {
+    "requestAfterTriggerMs": 1487,
+    "completeAfterTriggerMs": 1886,
+    "changedChannels": 588,
+    "max": 194,
+    "meanRGB": [
+      245.88671875,
+      245.88671875,
+      245.88671875
+    ]
+  },
+  "actorTimings": [
+    {
+      "origin": 1792198621359,
+      "undoCPU": 23.399999856948853,
+      "start": 32242.60000014305,
+      "meta": "FMi_3bYlld",
+      "ack": 32420.5,
+      "arrival": 32253.9,
+      "readyDisplay": null,
+      "glErrors": [],
+      "cacheROI": {
+        "x": 541.7570040916368,
+        "y": 531.0903204873165,
+        "width": 8,
+        "height": 8
+      },
+      "cacheBaselineNonzero": true,
+      "cacheBaselineRGB": [
+        238.046875,
+        64.03125,
+        64.03125
+      ],
+      "cacheBaselineIsRed": true,
+      "pixelReadCount": 0,
+      "beforePuddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 0,
+        "residentLayers": 0,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 2,
+        "computations": 5,
+        "pending": false,
+        "revisions": []
+      },
+      "firstFramePuddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 0,
+        "residentLayers": 0,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 2,
+        "computations": 5,
+        "pending": false,
+        "revisions": []
+      },
+      "swapMs": 1053.5,
+      "lastState": {
+        "pending": 0,
+        "jobs": 0,
+        "queue": 0,
+        "puddle": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 0,
+          "residentLayers": 0,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 2,
+          "computations": 6,
+          "pending": false,
+          "revisions": []
+        }
+      },
+      "preset": "normal:95:34:PB29:round",
+      "readyPuddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 0,
+        "residentLayers": 0,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 2,
+        "computations": 6,
+        "pending": false,
+        "revisions": []
+      },
+      "sampleSummary": {
+        "count": 152,
+        "first": {
+          "at": 32104.298,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        "last": {
+          "at": 35037.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        "maxGapMs": 300.0
+      }
+    },
+    {
+      "origin": 1792198632848.1,
+      "undoCPU": null,
+      "start": null,
+      "meta": "FMi_3bYlld",
+      "ack": 20931.5,
+      "arrival": 20931.5,
+      "readyDisplay": null,
+      "glErrors": [],
+      "cacheROI": {
+        "x": 541.7570040916368,
+        "y": 531.0903204873165,
+        "width": 8,
+        "height": 8
+      },
+      "cacheBaselineNonzero": true,
+      "cacheBaselineRGB": [
+        238.046875,
+        64.03125,
+        64.03125
+      ],
+      "cacheBaselineIsRed": true,
+      "pixelReadCount": 0,
+      "lastState": {
+        "pending": 0,
+        "jobs": 0,
+        "queue": 0,
+        "puddle": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 0,
+          "residentLayers": 0,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 1,
+          "computations": 5,
+          "pending": false,
+          "revisions": []
+        }
+      },
+      "preset": "normal:95:34:PB29:round",
+      "readyPuddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 0,
+        "residentLayers": 0,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 1,
+        "computations": 5,
+        "pending": false,
+        "revisions": []
+      },
+      "sampleSummary": {
+        "count": 154,
+        "first": {
+          "at": 20649.36,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        "last": {
+          "at": 23631.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        "maxGapMs": 249.89999999999782
+      }
+    }
+  ],
+  "settledWallMs": 2996,
+  "target": {
+    "oracleHiddenReplay": false,
+    "liveLength": 4194324,
+    "targetLength": 4194324,
+    "changedChannels": 0,
+    "liveHash": "bc251f6bc2ac2a4cae66246d93e4cdf43e2388dcc0cbd8044033972adf044ac5",
+    "targetHash": "bc251f6bc2ac2a4cae66246d93e4cdf43e2388dcc0cbd8044033972adf044ac5",
+    "liveMatchesTarget": true
+  },
+  "pass": true,
+  "assessment": "Nonintrusive repeat: no screenCache.readPixels between Undo and screenshot. Same SPEC100, fresh op/stroke IDs. Final source target checked against explicit hiddenReplay OFF fullReplay. Swap is rebuild submission boundary; screenshot includes CDP/SSH overhead; no claim for absent readyDisplay."
+}

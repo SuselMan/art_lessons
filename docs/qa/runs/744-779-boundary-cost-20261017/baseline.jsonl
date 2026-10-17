@@ -1,0 +1,3 @@
+{"source":"728-watercolor-room-integration","independentPools":240,"entries":728,"samples":[{"ms":355.05,"waterOnly":240},{"ms":260.24,"waterOnly":240},{"ms":255.4,"waterOnly":240}]}
+{"source":"728-watercolor-room-integration","independentPools":480,"entries":1448,"samples":[{"ms":1178.83,"waterOnly":480},{"ms":1239.57,"waterOnly":480},{"ms":1508.9,"waterOnly":480}]}
+{"source":"728-watercolor-room-integration","independentPools":960,"entries":2888,"samples":[{"ms":6180.27,"waterOnly":960},{"ms":6230.01,"waterOnly":960},{"ms":5951.18,"waterOnly":960}]}

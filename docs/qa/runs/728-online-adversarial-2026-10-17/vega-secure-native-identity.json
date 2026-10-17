@@ -1,0 +1,12 @@
+{
+  "observedUTC": "2026-10-17T02:09:08.675329+00:00",
+  "scope": "Read-only navigator identity from new plain404 secure-origin page in owned Vega Chrome default context, no initScripts/emulation on this page; closed immediately.",
+  "secure": true,
+  "DPR": 1.5,
+  "maxTouchPoints": 10,
+  "deviceMemory": 16,
+  "ua": "Linux Chrome155",
+  "memoryPreloadInHarness": false,
+  "currentObserverDPR": 1,
+  "limitation": "Vega observer DPR1 is emulated desktop; this run does not establish actual native-DPR1.5 display performance. GPU material target comparisons remain on realAMD hardware."
+}

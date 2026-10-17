@@ -1,0 +1,107 @@
+{
+  "source": "82313a4c",
+  "scope": "Samsung trusted pen offline UP, independent SocketB WC, reconnect accepted-order convergence; B recorded input fixture, no second GPU",
+  "cases": [
+    {
+      "name": "offline-UP-reconnect",
+      "proof": {
+        "actualPhysicalCapturedBeforeCanonicalRead": true,
+        "actualCanonicalCapturedBeforeOracle": true,
+        "actualHash": "d8b078b4ac9dc25bbaba3e472d6e1b0db68c8433e997167a10f7807700f004e3",
+        "oracleHash": "a9752d4fee1409219b90186b4003d2759353ff165af1018a92cf3b51b39b96aa",
+        "physicalHash": "caa6139d09caea507a33f15e98385fcb467428d5ae5e18a297eeca49da07d374",
+        "changedChannels": 11972,
+        "max": 22,
+        "physicalVsCanonicalChanged": 19575,
+        "glError": 0,
+        "scope": "Physical frame is decorative and not compared to dry oracle as a pass condition; current canonical material is captured BEFORE independent complete accepted-history replay"
+      }
+    }
+  ],
+  "errors": [],
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "gpuBudget": "314572800",
+    "scratchHolding": false,
+    "touch": 5,
+    "deviceMemory": 4,
+    "DPR": 2.125,
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "flags": {
+      "hidden": false,
+      "undoCache": false
+    }
+  },
+  "offline": {
+    "sockets": [
+      {
+        "state": 3
+      }
+    ],
+    "pending": [
+      {
+        "id": "RPhkFQN6qa",
+        "type": "stroke",
+        "strokeId": "9Gp9_gTv52"
+      }
+    ],
+    "strokeHeld": false
+  },
+  "bBeforeReconnect": {
+    "id": "08f4cc03-d895-4366-90d2-105cda82847c",
+    "seq": 1
+  },
+  "acceptedOrder": [
+    {
+      "id": "08f4cc03-d895-4366-90d2-105cda82847c",
+      "type": "stroke",
+      "userId": "34084dfe-7d8e-44b2-964f-b021e647ac13",
+      "strokeId": "08f4cc03-d895-4366-90d2-105cda82847c",
+      "state": "done",
+      "serverSeq": 1
+    },
+    {
+      "id": "RPhkFQN6qa",
+      "type": "stroke",
+      "userId": "091c9576-0836-4611-8336-93a7ea658435",
+      "strokeId": "9Gp9_gTv52",
+      "state": "done",
+      "serverSeq": 2,
+      "pending": false
+    }
+  ],
+  "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n11972 !== 0\n\n    at /home/suselman/projects/pencil-agents/744-hidden-replay/docs/qa/harness/728-night/samsung-transport-drop.cjs:47:114",
+  "harnessSha256": "3c979f1c3297c0d11be3328fc3009bfd8961f2d179fd9bb1213e8bd0c619050f",
+  "cleanup": {
+    "ownContextsClosed": true,
+    "originalTabRestored": true,
+    "nodePeerSocketClosed": true,
+    "ownFixtureRetainedForDefect": true,
+    "sharedForwardRetained": true
+  },
+  "serverJournal": {
+    "count": 2,
+    "sha256": "dde00b6448951ca5a4881553c52942d6fca177c2b094a94e984d0c32fcb29666",
+    "operations": [
+      {
+        "id": "08f4cc03-d895-4366-90d2-105cda82847c",
+        "type": "stroke",
+        "seq": 1,
+        "timestamp": 1792202963966
+      },
+      {
+        "id": "RPhkFQN6qa",
+        "type": "stroke",
+        "seq": 2,
+        "timestamp": 1792202964000
+      }
+    ],
+    "allLocallyAcceptedIdsPresent": true
+  }
+}

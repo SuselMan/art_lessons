@@ -293,9 +293,12 @@ export class SnapshotIO {
     // genuinely empty. Restoring onto a live buffer — a reconnect re-restoring
     // an engine that already holds pixels — is the one case where an
     // all-transparent tile is *doing* something: clearing what is under it.
-    // Nothing clears the layer ahead of this, so that distinction is ours to
-    // make, and one cheap check makes it without asking per tile.
+    // Preserve explicit transparent uploads in the restore audit on a live
+    // layer, while omitting their allocation for an initially empty layer.
     const uploads = buf.allResident().length === 0 ? painted : retiled
+    // A snapshot replaces the whole layer, including tiles absent from its
+    // sparse payload. Retaining old tiles would resurrect cleared content.
+    buf.clear()
     // (#474) Any error already pending is drained first, so what this reads
     // afterward is this restore's own — the same discipline generatePaperMipmaps
     // uses, and for the same reason: an inherited error would accuse the wrong
@@ -353,13 +356,14 @@ export class SnapshotIO {
   /** See restore's own doc comment for why this exists. Replaces (rather than
    *  adds to) any pinned checkpoint this layer already had — only relevant if
    *  restore is ever called twice for the same layer in one engine lifetime
-   *  (e.g. a reconnect re-restoring a still-mounted engine); the newer restore
-   *  is always a superset, and `CheckpointStore.best`'s "first checkpoint of
+   *  (e.g. a reconnect re-restoring a still-mounted engine). A newer snapshot
+   *  may also remove pixels; `CheckpointStore.best`'s "first checkpoint of
    *  the longest matching length wins" tie-break would otherwise let a stale
    *  one linger and win ties against the newer, more complete one at the same
    *  (empty) opIds length. */
   private _pinSnapshotCheckpoint(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
-    if (!tiles.length) return
+    // Empty snapshots replace old bitmap checkpoints too: later Undo must
+    // restore the new empty baseline rather than the previous image.
     // These pixels are authoritative again, so whatever made this layer
     // unpublishable no longer holds (#522).
     this.ctx.ledger.allowPublishing(layerId)
@@ -383,20 +387,21 @@ export class SnapshotIO {
     const log = this.ctx.log()
     const previous = new Map(log.entries.map(entry => [entry.op.id, { state: entry.state, goneReason: entry.goneReason }]))
     const ops = log.absorbHistorical(pageOps)
-    if (ops.length === 0) return []
+    // Metadata-only pages can confirm held IDs and complete a missing prefix.
+    // Coverage uses original page seqs even when no journal IDs were admitted.
+    this.ctx.checkpoints().markCovered(pageOps.filter(op => op.seq !== undefined))
     const changed = log.entries.filter(entry => {
       const before = previous.get(entry.op.id)
       return before && (before.state !== entry.state || before.goneReason !== entry.goneReason)
     }).map(entry => entry.op)
+    // Authoritative acceptance can change wet eligibility while a later
+    // control masks the target's final state. Repair its material as for ACK.
+    for(const op of pageOps)if(op.seq!==undefined && previous.get(op.id)?.goneReason==='reject'){
+      const targetId=op.type==='operation_undo' || op.type==='operation_redo' || op.type==='operation_revoke' ? op.targetOpId : op.id
+      const target=log.entries.find(entry=>entry.op.id===targetId)?.op
+      if(target && !changed.some(entry=>entry.id===target.id))changed.push(target)
+    }
     this._historicalEntryCount += ops.length
-    // (#479) These operations are now in the log, and a restored layer's
-    // pinned checkpoint already holds the pixels of whichever of them predate
-    // its snapshot — record them so a later rebuild skips rather than repaints
-    // them. Read from `ops` rather than the log because only these copies
-    // still carry the server's seq: `OperationLog.append` renumbers entries to
-    // their array index (see SnapshotLedger.isCovered's own comment), so once they
-    // are in, "is this older than the snapshot?" is no longer answerable.
-    this.ctx.checkpoints().markCovered(ops)
     // (#398) Nothing is painted here — but an undo/redo later rebuilds a
     // layer from exactly these operations, and that rebuild is synchronous.
     // Decoding in the background now is what lets it find the image ready;
@@ -441,6 +446,7 @@ export class SnapshotIO {
         // also have changed dependent water under that same apparent state.
         const uncertain=mutation.historical && this.ctx.log().entries.some(entry=>
           (entry.op.type==='operation_undo' || entry.op.type==='operation_redo' || entry.op.type==='operation_revoke')
+          && entry.goneReason!=='reject'
           && (entry.pending || entry.serverSeq===undefined || entry.serverSeq>snapshot.coveredSeq!))
         if(!uncertain)continue
       }

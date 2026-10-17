@@ -1,0 +1,37 @@
+{
+  "source": "af5d7cea",
+  "scope": "Samsung native live wet pigment then independent red shape; actual physical raster before oracle",
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "gpuBudget": "314572800",
+    "scratchHolding": false,
+    "touch": 5,
+    "deviceMemory": 4,
+    "DPR": 2.125,
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)"
+  },
+  "cases": [],
+  "errors": [],
+  "pass": true,
+  "redImmediate": 10000,
+  "redAfter": 10000,
+  "raster": {
+    "layerId": "qa-samsung-shape-5c4b8ada-1eb2-4947-811f-2e7bd61f78cc",
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "3aeb3a6d11c59073caf9c16e699d794761e2847ef06799c03c74898f0e448b3c",
+    "oracleHash": "3aeb3a6d11c59073caf9c16e699d794761e2847ef06799c03c74898f0e448b3c",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 16106,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  }
+}

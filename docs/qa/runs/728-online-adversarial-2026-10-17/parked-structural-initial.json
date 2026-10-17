@@ -1,0 +1,742 @@
+{
+  "source": "81eb5d04",
+  "scope": "Zero-CPU parked wet source duplicate/merge/clear with real online authors; same-GPU independent replay",
+  "cases": [
+    {
+      "name": "three-wet-layers-zero-retained-cpu",
+      "state": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 3,
+        "residentLayers": 2,
+        "parkedLayers": 1,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 3,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          },
+          {
+            "epoch": 1,
+            "ready": true,
+            "active": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicate-parked-source-target-exact",
+      "source": [
+        {
+          "hash": "0c035a61e09dc197fc55dec0e351be87120ec1a94440288107879792d7af5381",
+          "bytes": 1048576,
+          "material": false
+        },
+        {
+          "hash": "0c035a61e09dc197fc55dec0e351be87120ec1a94440288107879792d7af5381",
+          "bytes": 1048576,
+          "material": false
+        },
+        {
+          "hash": "0c035a61e09dc197fc55dec0e351be87120ec1a94440288107879792d7af5381",
+          "bytes": 1048576,
+          "material": false
+        }
+      ],
+      "duplicate": [
+        {
+          "hash": "0c035a61e09dc197fc55dec0e351be87120ec1a94440288107879792d7af5381",
+          "bytes": 1048576,
+          "material": false
+        },
+        {
+          "hash": "0c035a61e09dc197fc55dec0e351be87120ec1a94440288107879792d7af5381",
+          "bytes": 1048576,
+          "material": false
+        },
+        {
+          "hash": "0c035a61e09dc197fc55dec0e351be87120ec1a94440288107879792d7af5381",
+          "bytes": 1048576,
+          "material": false
+        }
+      ]
+    },
+    {
+      "name": "copy-not-mutated-by-source-water",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-duplicate-976d6d64-14ff-4a44-a63c-78c71ba42886",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "8afa2d9c367b937d91027efac917fdf8628e16d0c2afc9224af3e2764f1a5739",
+          "oracleHash": "8afa2d9c367b937d91027efac917fdf8628e16d0c2afc9224af3e2764f1a5739",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-duplicate-976d6d64-14ff-4a44-a63c-78c71ba42886",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "8afa2d9c367b937d91027efac917fdf8628e16d0c2afc9224af3e2764f1a5739",
+          "oracleHash": "8afa2d9c367b937d91027efac917fdf8628e16d0c2afc9224af3e2764f1a5739",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-duplicate-976d6d64-14ff-4a44-a63c-78c71ba42886",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "8afa2d9c367b937d91027efac917fdf8628e16d0c2afc9224af3e2764f1a5739",
+          "oracleHash": "8afa2d9c367b937d91027efac917fdf8628e16d0c2afc9224af3e2764f1a5739",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 5819,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "parked-resident-merge-opacity-half-full",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-merge-318e0c0f-dcc5-4866-a3f2-9423ffa1765f",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "c3354a2d187d117f2fc9957c198bf4e0a979862abfc53d476f6035229e0609c9",
+          "oracleHash": "c3354a2d187d117f2fc9957c198bf4e0a979862abfc53d476f6035229e0609c9",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 11435,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-merge-318e0c0f-dcc5-4866-a3f2-9423ffa1765f",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "c3354a2d187d117f2fc9957c198bf4e0a979862abfc53d476f6035229e0609c9",
+          "oracleHash": "c3354a2d187d117f2fc9957c198bf4e0a979862abfc53d476f6035229e0609c9",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 11435,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-merge-318e0c0f-dcc5-4866-a3f2-9423ffa1765f",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "c3354a2d187d117f2fc9957c198bf4e0a979862abfc53d476f6035229e0609c9",
+          "oracleHash": "c3354a2d187d117f2fc9957c198bf4e0a979862abfc53d476f6035229e0609c9",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 11435,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "merged-structural-undo-redo",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-merge-318e0c0f-dcc5-4866-a3f2-9423ffa1765f",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "c3354a2d187d117f2fc9957c198bf4e0a979862abfc53d476f6035229e0609c9",
+          "oracleHash": "c3354a2d187d117f2fc9957c198bf4e0a979862abfc53d476f6035229e0609c9",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 11435,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-merge-318e0c0f-dcc5-4866-a3f2-9423ffa1765f",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "c3354a2d187d117f2fc9957c198bf4e0a979862abfc53d476f6035229e0609c9",
+          "oracleHash": "c3354a2d187d117f2fc9957c198bf4e0a979862abfc53d476f6035229e0609c9",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 11435,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-merge-318e0c0f-dcc5-4866-a3f2-9423ffa1765f",
+          "sourceHiddenReplay": false,
+          "oracleHiddenReplay": false,
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "c3354a2d187d117f2fc9957c198bf4e0a979862abfc53d476f6035229e0609c9",
+          "oracleHash": "c3354a2d187d117f2fc9957c198bf4e0a979862abfc53d476f6035229e0609c9",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 11435,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "dd14df3d-6336-4227-afb6-93d74e6908e0",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "ccc75d3a-8dd5-427a-b072-abef1074d262",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "ece0f79d-156d-42ee-a0bf-e66ab4310c2c",
+      "model": "m70-r2-v1",
+      "hiddenReplay": false,
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "currentProof": {
+    "name": "merged-structural-undo-redo",
+    "actor": 2,
+    "layerId": "qa-merge-318e0c0f-dcc5-4866-a3f2-9423ffa1765f",
+    "sourceHiddenReplay": false,
+    "oracleHiddenReplay": false,
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "c3354a2d187d117f2fc9957c198bf4e0a979862abfc53d476f6035229e0609c9",
+    "oracleHash": "c3354a2d187d117f2fc9957c198bf4e0a979862abfc53d476f6035229e0609c9",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 11435,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "pass": false,
+  "failure": "page.evaluate: Error: Missing independent oracle\n    at eval (eval at evaluate (:311:30), <anonymous>:6:209)\n    at UtilityScript.evaluate (<anonymous>:313:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at actualRasterProof (/home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/actual-raster-proof.cjs:3:14)\n    at exactDry (/home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/parked-structural.cjs:12:115)\n    at async /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/parked-structural.cjs:26:57",
+  "diag0": {
+    "locked": false,
+    "stroke": null,
+    "queue": 0,
+    "pending": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 2,
+      "residentLayers": 2,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 8,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": true,
+          "active": true
+        },
+        {
+          "epoch": 1,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "peerLive": 0,
+    "journal": [
+      {
+        "id": "df293583-a330-47fa-9266-43450890cf56",
+        "type": "layer_add",
+        "state": "done",
+        "pending": false,
+        "seq": 0
+      },
+      {
+        "id": "__XIEciC37",
+        "type": "stroke",
+        "strokeId": "FdHrrfPo0r",
+        "state": "done",
+        "pending": false,
+        "seq": 1
+      },
+      {
+        "id": "b9f41d57-5c8a-4b08-87d7-a60ccd4ed5de",
+        "type": "layer_add",
+        "state": "done",
+        "pending": false,
+        "seq": 2
+      },
+      {
+        "id": "1P49OlKiS2",
+        "type": "stroke",
+        "strokeId": "HibYZImQQg",
+        "state": "done",
+        "seq": 3
+      },
+      {
+        "id": "a4c1d605-8e5a-49fa-b45b-24584b486d43",
+        "type": "layer_add",
+        "state": "done",
+        "pending": false,
+        "seq": 4
+      },
+      {
+        "id": "gd-kSaJC1f",
+        "type": "stroke",
+        "strokeId": "if6ZTgXAIH",
+        "state": "done",
+        "seq": 5
+      },
+      {
+        "id": "3d103596-73d5-497a-8083-373673ed1284",
+        "type": "layer_duplicate",
+        "state": "done",
+        "pending": false,
+        "seq": 6
+      },
+      {
+        "id": "2y4mdq3g8J",
+        "type": "stroke",
+        "strokeId": "H-8NbnsNCK",
+        "state": "done",
+        "seq": 7
+      },
+      {
+        "id": "0bcd1481-8426-4e8f-abe1-1a3ecd620676",
+        "type": "paper_dry",
+        "state": "done",
+        "seq": 8
+      },
+      {
+        "id": "e75eec84-a0eb-4c95-bedf-8a13b7b1eb31",
+        "type": "layer_merge",
+        "state": "done",
+        "pending": false,
+        "seq": 9
+      },
+      {
+        "id": "bGnmEUStfW",
+        "type": "operation_undo",
+        "targetOpId": "e75eec84-a0eb-4c95-bedf-8a13b7b1eb31",
+        "state": "done",
+        "pending": false,
+        "seq": 10
+      },
+      {
+        "id": "yxz213Q24h",
+        "type": "operation_redo",
+        "targetOpId": "e75eec84-a0eb-4c95-bedf-8a13b7b1eb31",
+        "state": "done",
+        "pending": false,
+        "seq": 11
+      },
+      {
+        "id": "0aeb6bfd-269d-4efe-83e0-c1a82561caf4",
+        "type": "layer_add",
+        "state": "done",
+        "pending": false,
+        "seq": 12
+      },
+      {
+        "id": "BMbJTH3VYS",
+        "type": "stroke",
+        "strokeId": "9l8goKEIbg",
+        "state": "done",
+        "seq": 13
+      },
+      {
+        "id": "d748ca57-0bd7-4e03-b493-d4201784b670",
+        "type": "layer_add",
+        "state": "done",
+        "pending": false,
+        "seq": 14
+      },
+      {
+        "id": "JLGLUP72be",
+        "type": "stroke",
+        "strokeId": "EYRy1uyPA-",
+        "state": "done",
+        "seq": 15
+      },
+      {
+        "id": "b7d2cf16-390b-464a-8988-554744f912ed",
+        "type": "layer_clear",
+        "state": "done",
+        "pending": false,
+        "seq": 16
+      }
+    ]
+  },
+  "diag1": {
+    "locked": false,
+    "stroke": null,
+    "queue": 0,
+    "pending": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 2,
+      "residentLayers": 2,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 1,
+      "computations": 9,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 2,
+          "ready": true,
+          "active": true
+        },
+        {
+          "epoch": 1,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "peerLive": 0,
+    "journal": [
+      {
+        "id": "df293583-a330-47fa-9266-43450890cf56",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 0
+      },
+      {
+        "id": "__XIEciC37",
+        "type": "stroke",
+        "strokeId": "FdHrrfPo0r",
+        "state": "done",
+        "seq": 1
+      },
+      {
+        "id": "b9f41d57-5c8a-4b08-87d7-a60ccd4ed5de",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 2
+      },
+      {
+        "id": "1P49OlKiS2",
+        "type": "stroke",
+        "strokeId": "HibYZImQQg",
+        "state": "done",
+        "pending": false,
+        "seq": 3
+      },
+      {
+        "id": "a4c1d605-8e5a-49fa-b45b-24584b486d43",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 4
+      },
+      {
+        "id": "gd-kSaJC1f",
+        "type": "stroke",
+        "strokeId": "if6ZTgXAIH",
+        "state": "done",
+        "seq": 5
+      },
+      {
+        "id": "3d103596-73d5-497a-8083-373673ed1284",
+        "type": "layer_duplicate",
+        "state": "done",
+        "seq": 6
+      },
+      {
+        "id": "2y4mdq3g8J",
+        "type": "stroke",
+        "strokeId": "H-8NbnsNCK",
+        "state": "done",
+        "pending": false,
+        "seq": 7
+      },
+      {
+        "id": "0bcd1481-8426-4e8f-abe1-1a3ecd620676",
+        "type": "paper_dry",
+        "state": "done",
+        "seq": 8
+      },
+      {
+        "id": "e75eec84-a0eb-4c95-bedf-8a13b7b1eb31",
+        "type": "layer_merge",
+        "state": "done",
+        "seq": 9
+      },
+      {
+        "id": "bGnmEUStfW",
+        "type": "operation_undo",
+        "targetOpId": "e75eec84-a0eb-4c95-bedf-8a13b7b1eb31",
+        "state": "done",
+        "seq": 10
+      },
+      {
+        "id": "yxz213Q24h",
+        "type": "operation_redo",
+        "targetOpId": "e75eec84-a0eb-4c95-bedf-8a13b7b1eb31",
+        "state": "done",
+        "seq": 11
+      },
+      {
+        "id": "0aeb6bfd-269d-4efe-83e0-c1a82561caf4",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 12
+      },
+      {
+        "id": "BMbJTH3VYS",
+        "type": "stroke",
+        "strokeId": "9l8goKEIbg",
+        "state": "done",
+        "pending": false,
+        "seq": 13
+      },
+      {
+        "id": "d748ca57-0bd7-4e03-b493-d4201784b670",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 14
+      },
+      {
+        "id": "JLGLUP72be",
+        "type": "stroke",
+        "strokeId": "EYRy1uyPA-",
+        "state": "done",
+        "pending": false,
+        "seq": 15
+      },
+      {
+        "id": "b7d2cf16-390b-464a-8988-554744f912ed",
+        "type": "layer_clear",
+        "state": "done",
+        "seq": 16
+      }
+    ]
+  },
+  "diag2": {
+    "locked": false,
+    "stroke": null,
+    "queue": 0,
+    "pending": 0,
+    "jobs": 0,
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 2,
+      "residentLayers": 2,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 1,
+      "computations": 9,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": true,
+          "active": true
+        },
+        {
+          "epoch": 1,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "peerLive": 0,
+    "journal": [
+      {
+        "id": "df293583-a330-47fa-9266-43450890cf56",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 0
+      },
+      {
+        "id": "__XIEciC37",
+        "type": "stroke",
+        "strokeId": "FdHrrfPo0r",
+        "state": "done",
+        "seq": 1
+      },
+      {
+        "id": "b9f41d57-5c8a-4b08-87d7-a60ccd4ed5de",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 2
+      },
+      {
+        "id": "1P49OlKiS2",
+        "type": "stroke",
+        "strokeId": "HibYZImQQg",
+        "state": "done",
+        "seq": 3
+      },
+      {
+        "id": "a4c1d605-8e5a-49fa-b45b-24584b486d43",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 4
+      },
+      {
+        "id": "gd-kSaJC1f",
+        "type": "stroke",
+        "strokeId": "if6ZTgXAIH",
+        "state": "done",
+        "pending": false,
+        "seq": 5
+      },
+      {
+        "id": "3d103596-73d5-497a-8083-373673ed1284",
+        "type": "layer_duplicate",
+        "state": "done",
+        "seq": 6
+      },
+      {
+        "id": "2y4mdq3g8J",
+        "type": "stroke",
+        "strokeId": "H-8NbnsNCK",
+        "state": "done",
+        "seq": 7
+      },
+      {
+        "id": "0bcd1481-8426-4e8f-abe1-1a3ecd620676",
+        "type": "paper_dry",
+        "state": "done",
+        "pending": false,
+        "seq": 8
+      },
+      {
+        "id": "e75eec84-a0eb-4c95-bedf-8a13b7b1eb31",
+        "type": "layer_merge",
+        "state": "done",
+        "seq": 9
+      },
+      {
+        "id": "bGnmEUStfW",
+        "type": "operation_undo",
+        "targetOpId": "e75eec84-a0eb-4c95-bedf-8a13b7b1eb31",
+        "state": "done",
+        "seq": 10
+      },
+      {
+        "id": "yxz213Q24h",
+        "type": "operation_redo",
+        "targetOpId": "e75eec84-a0eb-4c95-bedf-8a13b7b1eb31",
+        "state": "done",
+        "seq": 11
+      },
+      {
+        "id": "0aeb6bfd-269d-4efe-83e0-c1a82561caf4",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 12
+      },
+      {
+        "id": "BMbJTH3VYS",
+        "type": "stroke",
+        "strokeId": "9l8goKEIbg",
+        "state": "done",
+        "seq": 13
+      },
+      {
+        "id": "d748ca57-0bd7-4e03-b493-d4201784b670",
+        "type": "layer_add",
+        "state": "done",
+        "seq": 14
+      },
+      {
+        "id": "JLGLUP72be",
+        "type": "stroke",
+        "strokeId": "EYRy1uyPA-",
+        "state": "done",
+        "seq": 15
+      },
+      {
+        "id": "b7d2cf16-390b-464a-8988-554744f912ed",
+        "type": "layer_clear",
+        "state": "done",
+        "seq": 16
+      }
+    ]
+  },
+  "interpretation": "Five parked duplicate/merge checks passed. Empty clear produced correct null fullReplay; generic physical proof helper rejected null oracle. This harness false positive is corrected using nonzeroBytes=0 + null oracle, with focused continuation."
+}

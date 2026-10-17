@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict'),{installHydrateProfile}=require('./hydrate-profile.cjs');
+global.window=global;global.PerformanceObserver=class{observe(){}takeRecords(){return[]}disconnect(){}};
+let draw=0;const gl={drawArrays(){draw++},drawElements(){draw++}};
+const puddle={host:{render(){return 'render'}},source(){return 'source'},accept(){gl.drawArrays()},finish(){this.accept()}};
+const log={entries:[],_revision:0,_watercolorViewRevision:-1,watercolorEffectiveOperations(){this._watercolorViewRevision=this._revision;return['same']},layerPixelOps(){return this.watercolorEffectiveOperations()}};
+const engine={gl,_log:log,_puddleFor(){return puddle},*_ribbonDabsWork(...a){const x=yield 12;this._puddleFor().finish();return x+1},_display(){return'visible'}};
+installHydrateProfile(()=>({stop:async()=>({supported:false})}));global.__engine=engine;
+assert.deepEqual(log.layerPixelOps(),['same']);assert.deepEqual(log.layerPixelOps(),['same']);
+const args=Array(14);args[13]={id:'op',timestamp:123};const work=engine._ribbonDabsWork(...args);assert.deepEqual(work.next(),{value:12,done:false});assert.deepEqual(work.next(6),{value:7,done:true});assert.equal(draw,1);assert.equal(engine._display(),'visible');
+(async()=>{const result=await __hydrateProfile.stop();assert.equal(result.installedBeforeHydration,true);assert.equal(result.cpu.resolverRevisionMiss.calls,1);assert.equal(result.cpu.resolverCacheHit.calls,1);assert.equal(result.perOp[0].id,'op');assert.equal(result.perOp[0].draws,1);const before=JSON.stringify(result.cpu);log.layerPixelOps();assert.equal(JSON.stringify(result.cpu),before);console.log('transparent wrappers: generator send/return, resolver hit/miss, nested draw count, stop PASS')})().catch(e=>{console.error(e);process.exitCode=1});

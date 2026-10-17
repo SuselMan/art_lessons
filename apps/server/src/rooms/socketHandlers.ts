@@ -1,6 +1,6 @@
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
-import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
+import type { ClientToServerEvents, JoinResult, Operation, ServerToClientEvents } from '@grafetto/shared'
 import { isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import {
@@ -10,9 +10,10 @@ import {
 } from './classroom.js'
 import {
   addPaletteColor, createRoom, evictIdleRooms, getParticipant, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom,
-  leaveRoom, releaseRoomIfUnused, removePaletteColor,
+  leaveRoom, removePaletteColor, retainRoomForJoin,
 } from './rooms.js'
 import { getRoomBacklog } from './roomStats.js'
+import { createLiveStrokeOwnership } from './liveStrokeOwnership.js'
 import { findDuplicateOperation, getOperationRejectReason, recordOperation, updateAliveIds } from './operationLog.js'
 import { ensureRoomLoaded } from './roomLoader.js'
 import { prepareSnapshotReplay } from './snapshotReplayLoader.js'
@@ -168,12 +169,17 @@ export async function removeUserFromRoom(io: AppServer, lessonId: string, userId
  *  seat in the lesson. */
 export async function evacuateBoard(io: AppServer, lessonId: string, boardId: string): Promise<void> {
   if (boardId === lessonId) return
-  for (const socket of await io.in(boardId).fetchSockets()) {
-    const userId = socket.data.userId
-    if (!userId || socket.data.roomId !== boardId) continue
+  for (const candidate of await io.in(boardId).fetchSockets()) {
+    const userId = candidate.data.userId
+    if (!userId || candidate.data.roomId !== boardId) continue
 
-    const name = getParticipant(lessonId, userId)?.name ?? FALLBACK_PARTICIPANT_NAME
     const replay = await prepareSnapshotReplay(lessonId)
+    // The snapshot query yielded: the socket may have disconnected or moved.
+    // This process owns the sockets (no cross-process adapter); use its live
+    // registry, never a handle captured before the await (#786).
+    const socket = io.sockets.sockets.get(candidate.id)
+    if (!socket?.connected || socket.data.roomId !== boardId || socket.data.lessonId !== lessonId) continue
+    const name = getParticipant(lessonId, userId)?.name ?? FALLBACK_PARTICIPANT_NAME
     const result = joinRoom(lessonId, userId, name, socket.id)
     void socket.leave(boardId)
     socket.data.roomId = lessonId
@@ -300,6 +306,28 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
   })
 
   io.on('connection', (socket) => {
+    let joinGeneration = 0
+    const beginSeatIntent = (roomId: string, ack: (result: JoinResult) => void) => {
+      const generation = ++joinGeneration
+      const residency = retainRoomForJoin(roomId)
+      return {
+        residency,
+        obsolete: () => {
+          if (socket.connected && generation === joinGeneration) return false
+          ack({ ok: false, error: 'server_busy' })
+          return true
+        },
+        finish: residency.release,
+      }
+    }
+    // Bounded to this transport, never to userId: a sibling tab's live ink
+    // must survive this connection leaving (#780).
+    const activeLiveStrokes = createLiveStrokeOwnership()
+    const cancelLiveStrokes = (userId: string) => {
+      for (const { strokeId, boardId } of activeLiveStrokes.drain()) {
+        socket.to(boardId).emit('peer_stroke_live_end', { userId, strokeId, cancelled: true })
+      }
+    }
     // (#480) Устройство здесь же, рядом с userId — см. clientDescription.ts:
     // до этого связать одно с другим можно было только склейкой с nginx по
     // времени хендшейка.
@@ -321,196 +349,215 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // "Teacher" here as a result.
     socket.on('create_room', async ({ room, password, name, accessMode, lastKnownSeq }, ack) => {
       const userId = socket.data.userId!
-      // Same reload-safety as join_room below: the creator's own tab can
-      // legitimately emit create_room again for a room that already exists
-      // (browsers keep history.state across a reload — see createRoom's doc
-      // comment on rooms.ts), so this needs the same cold-load-from-Postgres
-      // chance to recognize that before createRoom decides whether it's
-      // actually new.
-      //
-      // (#415) И тот же гейт по памяти, что у `join_room`: путь именно этот —
-      // холодная загрузка существующей комнаты, — так что «создание» здесь
-      // способно стоить ровно столько же, сколько вход. Новую комнату гейт
-      // тоже может отвести, и это правильнее, чем завести урок в процессе,
-      // который до его середины не доживёт.
-      if (!admitRoomLoad(room.id, log)) {
-        log.warn({ socketId: socket.id, roomId: room.id, userId }, 'create_room refused — server busy')
-        ack({ ok: false, error: 'server_busy' })
-        return
+      const intent = beginSeatIntent(room.id, ack)
+      try {
+        // Same reload-safety as join_room below: the creator's own tab can
+        // legitimately emit create_room again for a room that already exists
+        // (browsers keep history.state across a reload — see createRoom's doc
+        // comment on rooms.ts), so this needs the same cold-load-from-Postgres
+        // chance to recognize that before createRoom decides whether it's
+        // actually new.
+        //
+        // (#415) И тот же гейт по памяти, что у `join_room`: путь именно этот —
+        // холодная загрузка существующей комнаты, — так что «создание» здесь
+        // способно стоить ровно столько же, сколько вход. Новую комнату гейт
+        // тоже может отвести, и это правильнее, чем завести урок в процессе,
+        // который до его середины не доживёт.
+        if (!admitRoomLoad(room.id, log)) {
+          log.warn({ socketId: socket.id, roomId: room.id, userId }, 'create_room refused — server busy')
+          ack({ ok: false, error: 'server_busy' })
+          return
+        }
+        await ensureRoomLoaded(room.id, intent.residency)
+        if (intent.obsolete()) return
+        // No one else is in the room yet, so there's no peer_joined broadcast
+        // to make — unlike join_room below, the returned participant is unused.
+        // Same defensive trim/fallback `join_room` gets from the gate's own
+        // validation — a socket is not a form, and an empty label would leave a
+        // nameless row in every participants list in the room.
+        // (#232) Checked rather than trusted: the wire type is a compile-time
+        // promise about a payload we don't compile. A bogus mode would reach a
+        // Postgres enum that cannot hold it, and since the room row is written
+        // fire-and-forget (rooms.ts), the room would end up live in memory with
+        // nothing behind it. Anything unrecognised — including absent — is the
+        // open room this has always created.
+        createRoom(
+          // (#548) Sanitized on the way in for the same reason `accessMode` is
+          // checked: a socket payload is not compiled by us, and this list is
+          // written into the row fire-and-forget. `sanitizeEnabledTools` drops
+          // ids it doesn't know and refuses a set with no drawing tool left,
+          // so what lands is always a toolset a room can be used with.
+          { ...room, enabledTools: sanitizeEnabledTools(room.enabledTools) },
+          password, userId, name?.trim() || FALLBACK_PARTICIPANT_NAME, socket.id,
+          isRoomAccessMode(accessMode) ? accessMode : 'anyone_with_link',
+        )
+        socket.data.roomId = room.id
+        socket.data.lessonId = room.id
+
+        // Same ordering guarantee as join_room below (#36): join the Socket.IO
+        // room and emit the snapshot synchronously, before yielding back to the
+        // event loop, so nothing else can interleave between them.
+        socket.join(room.id)
+        socket.join(lessonChannel(room.id))
+        const snapshot = getRoomSnapshot(room.id, lastKnownSeq, userId)
+        if (snapshot) socket.emit('room_state', snapshot)
+
+        log.info({ socketId: socket.id, roomId: room.id, userId }, 'socket created room')
+        ack({ ok: true, userId })
+      } finally {
+        intent.finish()
       }
-      await ensureRoomLoaded(room.id)
-      // No one else is in the room yet, so there's no peer_joined broadcast
-      // to make — unlike join_room below, the returned participant is unused.
-      // Same defensive trim/fallback `join_room` gets from the gate's own
-      // validation — a socket is not a form, and an empty label would leave a
-      // nameless row in every participants list in the room.
-      // (#232) Checked rather than trusted: the wire type is a compile-time
-      // promise about a payload we don't compile. A bogus mode would reach a
-      // Postgres enum that cannot hold it, and since the room row is written
-      // fire-and-forget (rooms.ts), the room would end up live in memory with
-      // nothing behind it. Anything unrecognised — including absent — is the
-      // open room this has always created.
-      createRoom(
-        // (#548) Sanitized on the way in for the same reason `accessMode` is
-        // checked: a socket payload is not compiled by us, and this list is
-        // written into the row fire-and-forget. `sanitizeEnabledTools` drops
-        // ids it doesn't know and refuses a set with no drawing tool left,
-        // so what lands is always a toolset a room can be used with.
-        { ...room, enabledTools: sanitizeEnabledTools(room.enabledTools) },
-        password, userId, name?.trim() || FALLBACK_PARTICIPANT_NAME, socket.id,
-        isRoomAccessMode(accessMode) ? accessMode : 'anyone_with_link',
-      )
-      socket.data.roomId = room.id
-      socket.data.lessonId = room.id
-
-      // Same ordering guarantee as join_room below (#36): join the Socket.IO
-      // room and emit the snapshot synchronously, before yielding back to the
-      // event loop, so nothing else can interleave between them.
-      socket.join(room.id)
-      socket.join(lessonChannel(room.id))
-      const snapshot = getRoomSnapshot(room.id, lastKnownSeq, userId)
-      if (snapshot) socket.emit('room_state', snapshot)
-
-      log.info({ socketId: socket.id, roomId: room.id, userId }, 'socket created room')
-      ack({ ok: true, userId })
     })
 
     socket.on('join_room', async ({ roomId, name, password, lastKnownSeq }, ack) => {
       const userId = socket.data.userId!
-      // (#415) Единственная проверка, стоящая *перед* загрузкой, а не после:
-      // всё остальное решает, можно ли этому человеку в эту комнату, а это —
-      // выдержит ли коробка саму загрузку. Порядок обязателен, гейт после
-      // `ensureRoomLoaded` уже оплатил бы аллокацию, от которой защищает.
-      if (!admitRoomLoad(roomId, log)) {
-        log.warn({ socketId: socket.id, roomId, userId }, 'join_room refused — server busy')
-        ack({ ok: false, error: 'server_busy' })
-        return
-      }
-      // Repopulates the in-memory room from Postgres (#74) if this is the
-      // first time this process has touched it this session — a cold server
-      // start, or the room went idle and was evicted (see leaveRoom). A
-      // no-op, synchronously fast, when the room's already live.
-      await ensureRoomLoaded(roomId)
-
-      const displayName = name?.trim() || FALLBACK_PARTICIPANT_NAME
-
-      // (#225) Access is decided here and only here — blocks, password,
-      // access mode, waiting queue. `joinRoom` below does the seating and
-      // trusts this completely, so nothing may seat a participant without
-      // having come through it first. The `await` sits before `socket.join`
-      // and the snapshot emit, leaving #36's ordering guarantee (those two
-      // happen with no yield between them) exactly as it was.
-      const access = await checkJoinAccess(roomId, userId, displayName, password)
-      if (!access.ok) {
-        // (#227) Someone just joined the queue — tell the owner, wherever they
-        // are, before releasing the room. Emitted to their own channel rather
-        // than into the room: an owner deciding who gets into a lesson is
-        // usually looking at the lesson, not drawing in it.
-        // (#176) Addressed by the lesson: the request row was written under
-        // it, and the owner's queue is per lesson, not per board.
-        const gate = getRoomGate(roomId)
-        if (access.queued && gate) {
-          io.to(userChannel(gate.ownerId)).emit('join_request_created', { roomId: gate.lessonId, request: access.queued })
-        }
-        // (#292) The load above just pulled this room into memory, and a
-        // rejected join means nobody is in it — without this it would sit
-        // there, fully populated, until the process restarted. No-op if
-        // anyone else is actually present.
-        releaseRoomIfUnused(roomId)
-        log.info({ socketId: socket.id, roomId, userId, error: access.error }, 'join_room refused')
-        // Only the reason travels back, never `queued`: it is the server's own
-        // bookkeeping, and the asker learns their fate through
-        // `join_request_resolved`, not through the refusal.
-        ack({ ok: false, error: access.error })
-        return
-      }
-
-      // (#595, ADR 015 §3) Being let into the lesson is not being let onto
-      // every board of it: a classmate's personal board is theirs and the
-      // teacher's unless the lesson shows work to the class. After the lesson
-      // gate, so the answer is only ever given to someone who is in.
-      if (!canSeeResidentBoard(roomId, userId)) {
-        releaseRoomIfUnused(roomId)
-        log.info({ socketId: socket.id, roomId, userId }, 'join_room refused — personal board not visible')
-        ack({ ok: false, error: 'board_not_visible' })
-        return
-      }
-
-      let replay
+      const intent = beginSeatIntent(roomId, ack)
       try {
-        replay = await prepareSnapshotReplay(roomId)
-      } catch (err) {
-        releaseRoomIfUnused(roomId)
-        log.error({ err, roomId, socketId: socket.id }, 'join_room snapshot dependency preparation failed')
-        ack({ ok: false, error: 'server_busy' })
-        return
-      }
-      const result = joinRoom(roomId, userId, displayName, socket.id, true)
-      if (!result.ok) {
-        releaseRoomIfUnused(roomId)
-        log.info({ socketId: socket.id, roomId, error: result.error }, 'join_room rejected')
-        ack(result)
-        return
-      }
-
-      const { lessonId } = result
-      const previousRoomId = socket.data.roomId
-      const previousLessonId = socket.data.lessonId
-
-      // (#292) A socket that joins a second room must leave the first, or
-      // the first keeps a participant nobody can ever remove: `disconnect`
-      // below reads this single field, so it would only ever leave the last
-      // room joined, and the earlier one could never reach zero
-      // participants — the sole condition under which a room is evicted.
-      //
-      // (#176) "Second room" means second *lesson*. A `join_room` for another
-      // board of the same lesson is a page turn, not a departure: `joinRoom`
-      // above already moved the seat, and the only thing to leave is the old
-      // board's content channel, below.
-      if (previousLessonId && previousLessonId !== lessonId) {
-        if (previousRoomId && leaveRoom(previousRoomId, userId, socket.id)) {
-          socket.to(lessonChannel(previousLessonId)).emit('peer_left', userId)
+        // (#415) Единственная проверка, стоящая *перед* загрузкой, а не после:
+        // всё остальное решает, можно ли этому человеку в эту комнату, а это —
+        // выдержит ли коробка саму загрузку. Порядок обязателен, гейт после
+        // `ensureRoomLoaded` уже оплатил бы аллокацию, от которой защищает.
+        if (!admitRoomLoad(roomId, log)) {
+          log.warn({ socketId: socket.id, roomId, userId }, 'join_room refused — server busy')
+          ack({ ok: false, error: 'server_busy' })
+          return
         }
-        void socket.leave(lessonChannel(previousLessonId))
-      }
-      if (previousRoomId && previousRoomId !== roomId) void socket.leave(previousRoomId)
-      socket.data.roomId = roomId
-      socket.data.lessonId = lessonId
+        // Repopulates the in-memory room from Postgres (#74) if this is the
+        // first time this process has touched it this session — a cold server
+        // start, or the room went idle and was evicted (see leaveRoom). A
+        // no-op, synchronously fast, when the room's already live.
+        await ensureRoomLoaded(roomId, intent.residency)
+        if (intent.obsolete()) return
 
-      // Join the Socket.IO room and emit the snapshot synchronously, in that
-      // order, before yielding back to the event loop (#36). Socket.io/Node
-      // run all of this on one thread with no `await` in between, so no
-      // 'operation' from another socket can be relayed to the room between
-      // `socket.join` and `socket.emit('room_state', ...)` — this socket is
-      // already a member by the time any such relay could happen, and the
-      // snapshot read happens before that relay's write, so nothing is
-      // double-delivered or lost.
-      //
-      // (#176) Two channels: the board's for content, the lesson's for
-      // everything social. Joining a socket.io room it is already in is a
-      // no-op, so a page turn simply keeps the lesson channel.
-      socket.join(roomId)
-      socket.join(lessonChannel(lessonId))
-      const snapshot = getRoomSnapshot(roomId, lastKnownSeq, userId, replay)
-      if (snapshot) socket.emit('room_state', snapshot)
-      // (#176) Someone the lesson already had, now on a different board, is
-      // announced as having moved; everyone else — first join or a reconnect
-      // to the same board — as having joined, exactly as before.
-      const switched = result.previousBoardId !== undefined && result.previousBoardId !== roomId
-      if (switched) socket.to(lessonChannel(lessonId)).emit('peer_board_changed', { userId, boardId: roomId })
-      else socket.to(lessonChannel(lessonId)).emit('peer_joined', result.participant)
+        const displayName = name?.trim() || FALLBACK_PARTICIPANT_NAME
 
-      log.info({ socketId: socket.id, roomId, lessonId, userId, role: result.participant.role }, 'socket joined room')
-      ack({ ok: true, userId })
+        // (#225) Access is decided here and only here — blocks, password,
+        // access mode, waiting queue. `joinRoom` below does the seating and
+        // trusts this completely, so nothing may seat a participant without
+        // having come through it first. The `await` sits before `socket.join`
+        // and the snapshot emit, leaving #36's ordering guarantee (those two
+        // happen with no yield between them) exactly as it was.
+        const access = await checkJoinAccess(roomId, userId, displayName, password)
+        if (intent.obsolete()) return
+        if (!access.ok) {
+          // (#227) Someone just joined the queue — tell the owner, wherever they
+          // are, before releasing the room. Emitted to their own channel rather
+          // than into the room: an owner deciding who gets into a lesson is
+          // usually looking at the lesson, not drawing in it.
+          // (#176) Addressed by the lesson: the request row was written under
+          // it, and the owner's queue is per lesson, not per board.
+          const gate = getRoomGate(roomId)
+          if (access.queued && gate) {
+            io.to(userChannel(gate.ownerId)).emit('join_request_created', { roomId: gate.lessonId, request: access.queued })
+          }
+          // (#292) The load above just pulled this room into memory, and a
+          // rejected join means nobody is in it — without this it would sit
+          // there, fully populated, until the process restarted. No-op if
+          // anyone else is actually present.
+          log.info({ socketId: socket.id, roomId, userId, error: access.error }, 'join_room refused')
+          // Only the reason travels back, never `queued`: it is the server's own
+          // bookkeeping, and the asker learns their fate through
+          // `join_request_resolved`, not through the refusal.
+          ack({ ok: false, error: access.error })
+          return
+        }
 
-      // (#595, ADR 015 §4) A student arriving mid-round gets their board now,
-      // the same blank one everybody else got when it was handed out. After
-      // the ack: the join itself is complete and must not wait on a write.
-      if (result.participant.role === 'member') {
-        void givePersonalBoard(lessonId, { userId, name: displayName }).catch(err => {
-          log.error({ err, lessonId, userId }, 'failed to create a latecomer\'s personal board')
-          reportException(err, { lessonId, userId })
-        })
+        // (#595, ADR 015 §3) Being let into the lesson is not being let onto
+        // every board of it: a classmate's personal board is theirs and the
+        // teacher's unless the lesson shows work to the class. After the lesson
+        // gate, so the answer is only ever given to someone who is in.
+        if (!canSeeResidentBoard(roomId, userId)) {
+          log.info({ socketId: socket.id, roomId, userId }, 'join_room refused — personal board not visible')
+          ack({ ok: false, error: 'board_not_visible' })
+          return
+        }
+
+        let replay
+        try {
+          replay = await prepareSnapshotReplay(roomId)
+        } catch (err) {
+          log.error({ err, roomId, socketId: socket.id }, 'join_room snapshot dependency preparation failed')
+          ack({ ok: false, error: 'server_busy' })
+          return
+        }
+        if (intent.obsolete()) return
+        const result = joinRoom(roomId, userId, displayName, socket.id, true)
+        if (!result.ok) {
+          log.info({ socketId: socket.id, roomId, error: result.error }, 'join_room rejected')
+          ack(result)
+          return
+        }
+
+        const { lessonId } = result
+        const previousRoomId = socket.data.roomId
+        const previousLessonId = socket.data.lessonId
+
+        // (#292) A socket that joins a second room must leave the first, or
+        // the first keeps a participant nobody can ever remove: `disconnect`
+        // below reads this single field, so it would only ever leave the last
+        // room joined, and the earlier one could never reach zero
+        // participants — the sole condition under which a room is evicted.
+        //
+        // (#176) "Second room" means second *lesson*. A `join_room` for another
+        // board of the same lesson is a page turn, not a departure: `joinRoom`
+        // above already moved the seat, and the only thing to leave is the old
+        // board's content channel, below.
+        // A successful board/lesson departure ends only this socket's live
+        // tails on their original boards. A rejected join leaves them intact.
+        if (previousRoomId && previousRoomId !== roomId) cancelLiveStrokes(userId)
+        if (previousLessonId && previousLessonId !== lessonId) {
+          const previousBoardId = getParticipant(previousLessonId, userId)?.boardId
+          if (previousRoomId && leaveRoom(previousRoomId, userId, socket.id)) {
+            socket.to(lessonChannel(previousLessonId)).emit('peer_left', userId)
+          } else {
+            const participant = getParticipant(previousLessonId, userId)
+            if (participant?.boardId && participant.boardId !== previousBoardId) {
+              io.to(lessonChannel(previousLessonId)).emit('peer_board_changed', { userId, boardId: participant.boardId })
+            }
+          }
+          void socket.leave(lessonChannel(previousLessonId))
+        }
+        if (previousRoomId && previousRoomId !== roomId) void socket.leave(previousRoomId)
+        socket.data.roomId = roomId
+        socket.data.lessonId = lessonId
+
+        // Join the Socket.IO room and emit the snapshot synchronously, in that
+        // order, before yielding back to the event loop (#36). Socket.io/Node
+        // run all of this on one thread with no `await` in between, so no
+        // 'operation' from another socket can be relayed to the room between
+        // `socket.join` and `socket.emit('room_state', ...)` — this socket is
+        // already a member by the time any such relay could happen, and the
+        // snapshot read happens before that relay's write, so nothing is
+        // double-delivered or lost.
+        //
+        // (#176) Two channels: the board's for content, the lesson's for
+        // everything social. Joining a socket.io room it is already in is a
+        // no-op, so a page turn simply keeps the lesson channel.
+        socket.join(roomId)
+        socket.join(lessonChannel(lessonId))
+        const snapshot = getRoomSnapshot(roomId, lastKnownSeq, userId, replay)
+        if (snapshot) socket.emit('room_state', snapshot)
+        // (#176) Someone the lesson already had, now on a different board, is
+        // announced as having moved; everyone else — first join or a reconnect
+        // to the same board — as having joined, exactly as before.
+        const switched = result.previousBoardId !== undefined && result.previousBoardId !== roomId
+        if (switched) socket.to(lessonChannel(lessonId)).emit('peer_board_changed', { userId, boardId: roomId })
+        else socket.to(lessonChannel(lessonId)).emit('peer_joined', result.participant)
+
+        log.info({ socketId: socket.id, roomId, lessonId, userId, role: result.participant.role }, 'socket joined room')
+        ack({ ok: true, userId })
+
+        // (#595, ADR 015 §4) A student arriving mid-round gets their board now,
+        // the same blank one everybody else got when it was handed out. After
+        // the ack: the join itself is complete and must not wait on a write.
+        if (result.participant.role === 'member') {
+          void givePersonalBoard(lessonId, { userId, name: displayName }).catch(err => {
+            log.error({ err, lessonId, userId }, 'failed to create a latecomer\'s personal board')
+            reportException(err, { lessonId, userId })
+          })
+        }
+      } finally {
+        intent.finish()
       }
     })
 
@@ -585,6 +632,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
           // its ordinary pen-up has arrived. Accepted chunks remain in the log;
           // cancellation repairs only the unrecorded remainder on observers.
           if (op.type === 'stroke' && op.strokeId) {
+            activeLiveStrokes.forget(op.strokeId)
             socket.to(roomId).emit('peer_stroke_live_end', { userId, strokeId: op.strokeId, cancelled: true })
           }
           return
@@ -607,6 +655,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         updateAliveIds(roomId, op)
 
         const stamped = recordOperation(roomId, op)
+        if (stamped.type === 'stroke') activeLiveStrokes.accepted(stamped)
         ack?.({ ok: true, seq: stamped.seq! })
         io.to(roomId).emit('operation_confirmed', { seq: stamped.seq!, operation: stamped })
         // (#480) После рассылки, а не до: проверка — наблюдение за комнатой, и
@@ -664,11 +713,16 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     socket.on('stroke_live', data => {
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return
+      if (typeof data.strokeId !== 'string' || !data.strokeId || data.strokeId.length > 256) return
       const standIn: Operation = {
         id: data.strokeId, type: 'stroke', userId, timestamp: 0,
         layerId: data.layerId, tool: data.tool, preset: data.preset, color: data.color, dabs: [],
       }
       if (getOperationRejectReason(roomId, userId, standIn)) return
+      const slot = activeLiveStrokes.reserve(data.strokeId)
+      if (!slot.allowed) return
+      if (slot.evicted) socket.to(slot.evicted.boardId).emit('peer_stroke_live_end', { userId, strokeId: slot.evicted.strokeId, cancelled: true })
+      activeLiveStrokes.live(roomId, data)
       socket.to(roomId).emit('peer_stroke_live', { ...data, userId })
     })
 
@@ -682,6 +736,8 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     socket.on('stroke_live_end', ({ strokeId, cancelled }) => {
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return
+      if (cancelled === true) activeLiveStrokes.forget(strokeId)
+      else activeLiveStrokes.end(strokeId)
       socket.to(roomId).emit('peer_stroke_live_end', { userId, strokeId, ...(cancelled === true ? { cancelled: true } : {}) })
     })
 
@@ -887,7 +943,13 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         // newer socket for this same room+userId already took over — see
         // its own doc comment) — must not broadcast peer_left in that case,
         // the user is still very much present via that newer socket.
+        cancelLiveStrokes(userId)
+        const previousBoardId = getParticipant(roomId, userId)?.boardId
         const actuallyLeft = leaveRoom(roomId, userId, socket.id)
+        const participant = getParticipant(lessonId ?? roomId, userId)
+        if (participant?.boardId && participant.boardId !== previousBoardId) {
+          io.to(lessonChannel(lessonId ?? roomId)).emit('peer_board_changed', { userId, boardId: participant.boardId })
+        }
         if (actuallyLeft) socket.to(lessonChannel(lessonId ?? roomId)).emit('peer_left', userId)
         // (#480) Только если комната действительно ушла из памяти. Забывать
         // на каждом разрыве нельзя: урок 21.08 состоял из десяти

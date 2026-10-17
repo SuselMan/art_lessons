@@ -1,0 +1,140 @@
+{
+  "source": "b5d29e7c",
+  "scope": "Samsung native touch/DPR observer + final rejection + wet shape; isolated contexts only",
+  "identity": {
+    "model": "m70-r2-v1",
+    "asyncFinish": false,
+    "gpuBudget": "314572800",
+    "scratchHolding": false,
+    "touch": 5,
+    "deviceMemory": 4,
+    "DPR": 2.125,
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)"
+  },
+  "waterDiagnostic": {
+    "waterPixels": {
+      "changedChannels": 0,
+      "max": 0,
+      "meanRGB": [
+        246.02514792899407,
+        246.02514792899407,
+        246.02514792899407
+      ]
+    },
+    "roi": {
+      "x": 247.95814823763314,
+      "y": 438.86288288948026
+    },
+    "author": {
+      "held": "jg0biK1fA4",
+      "queue": 0,
+      "journal": [
+        {
+          "id": "22cfce52-9c61-44e9-a61d-27859c5a4e61",
+          "type": "layer_add",
+          "state": "done"
+        },
+        {
+          "id": "e1426f88-b89c-4074-8878-635e40988dc4",
+          "type": "layer_add",
+          "state": "done"
+        },
+        {
+          "id": "412cb578-e941-4057-b763-0a9d6b04d9a1",
+          "type": "layer_add",
+          "state": "done"
+        },
+        {
+          "id": "7036c156-c0c0-4c83-85ff-b328fa022cda",
+          "type": "layer_add",
+          "state": "done"
+        }
+      ]
+    },
+    "state": {
+      "visibility": "visible",
+      "sameEngine": true,
+      "previewEvents": [
+        {
+          "key": "append",
+          "strokeId": "jg0biK1fA4",
+          "dabs": 1,
+          "streams": 1,
+          "at": 20532.399999976158
+        },
+        {
+          "key": "append",
+          "strokeId": "jg0biK1fA4",
+          "dabs": 4,
+          "streams": 1,
+          "at": 20615.5
+        },
+        {
+          "key": "clear",
+          "args": [
+            false
+          ],
+          "at": 21210.800000071526,
+          "stack": "Error\n    at film.<computed> [as clear] (<anonymous>:1:502)\n    at PencilEngine.resizeCanvas (https://tools.pecni.com/src/engine/index.ts?t=1792192467753:2934:32)\n    at applySize (https://tools.pecni.com/src/pages/Room/useCanvasViewport.ts:84:12)\n    at ResizeObserver.<anonymous> (https://tools.pecni.com/src/pages/Room/useCanvasViewport.ts:90:4)"
+        },
+        {
+          "key": "clear",
+          "args": [
+            false
+          ],
+          "at": 21360.700000047684,
+          "stack": "Error\n    at film.<computed> [as clear] (<anonymous>:1:502)\n    at PencilEngine.resizeCanvas (https://tools.pecni.com/src/engine/index.ts?t=1792192467753:2934:32)\n    at applySize (https://tools.pecni.com/src/pages/Room/useCanvasViewport.ts:84:12)\n    at ResizeObserver.<anonymous> (https://tools.pecni.com/src/pages/Room/useCanvasViewport.ts:90:4)"
+        }
+      ],
+      "peerLive": [
+        {
+          "peerId": "a33ec086-0154-4096-88a2-900be7ce01af",
+          "strokeId": "jg0biK1fA4",
+          "ended": false,
+          "desynced": false,
+          "liveOffset": 5
+        }
+      ],
+      "viewport": {
+        "w": 824,
+        "h": 1149
+      },
+      "order": [
+        {
+          "id": "background",
+          "opacity": 1
+        },
+        {
+          "id": "layer-1",
+          "opacity": 1
+        },
+        {
+          "id": "qa-samsung-online-b9758060-d437-45c8-8da1-b26814cc496a",
+          "opacity": 1
+        },
+        {
+          "id": "qa-samsung-online-b3f0bd7c-8bcb-4319-b1e8-7da774259527",
+          "opacity": 1
+        },
+        {
+          "id": "qa-samsung-online-00a00a2d-0805-46ac-aa9c-b80eabab6ba5",
+          "opacity": 1
+        },
+        {
+          "id": "qa-samsung-online-68f50616-e653-4d67-956a-bb7e56fb2ca2",
+          "opacity": 1
+        }
+      ],
+      "active": "layer-1",
+      "streams": [],
+      "error": 0
+    }
+  },
+  "errors": [],
+  "failure": "AssertionError [ERR_ASSERTION]: Samsung did not display observer water before UP\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/samsung-online.cjs:21:1235"
+}

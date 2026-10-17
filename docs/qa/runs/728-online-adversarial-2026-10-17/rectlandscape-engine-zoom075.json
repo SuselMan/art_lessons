@@ -1,0 +1,291 @@
+{
+  "source": "c8a9d09c30e10592fdb5ccad32f783839b089657",
+  "scope": "Rectangular single-tile M70: real far-edge visible pigment, foreign water, Dry undo/redo and actual/replay equality",
+  "cases": [
+    {
+      "name": "rectangular-far-edge-visible-before-up",
+      "held": "AW_cG8lafe",
+      "point": {
+        "x": 628,
+        "y": 256
+      },
+      "visible": [
+        {
+          "actor": 0,
+          "changed": 432,
+          "max": 213
+        },
+        {
+          "actor": 1,
+          "changed": 432,
+          "max": 132
+        },
+        {
+          "actor": 2,
+          "changed": 432,
+          "max": 134
+        }
+      ]
+    },
+    {
+      "name": "rectangular-dry-full-actual-raster-equals-independent-replay",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-ec01f698-74ec-49b8-ad92-a9ba8605da3a",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "401d217f8fb5c47c47399e9a5cff9d66f1b33641a2cf8478e50f9df2da7860f1",
+          "oracleHash": "401d217f8fb5c47c47399e9a5cff9d66f1b33641a2cf8478e50f9df2da7860f1",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 6557,
+          "tiles": 1,
+          "bytes": 1572884,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-ec01f698-74ec-49b8-ad92-a9ba8605da3a",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "a1c0a6a8c24bc415a5c34e294bafb15e0cacf5400cd571d9ec2666e78c9ec9e9",
+          "oracleHash": "a1c0a6a8c24bc415a5c34e294bafb15e0cacf5400cd571d9ec2666e78c9ec9e9",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 6558,
+          "tiles": 1,
+          "bytes": 1572884,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-ec01f698-74ec-49b8-ad92-a9ba8605da3a",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "401d217f8fb5c47c47399e9a5cff9d66f1b33641a2cf8478e50f9df2da7860f1",
+          "oracleHash": "401d217f8fb5c47c47399e9a5cff9d66f1b33641a2cf8478e50f9df2da7860f1",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 6557,
+          "tiles": 1,
+          "bytes": 1572884,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "rectangular-redo-dry-actual-exact",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-ec01f698-74ec-49b8-ad92-a9ba8605da3a",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "401d217f8fb5c47c47399e9a5cff9d66f1b33641a2cf8478e50f9df2da7860f1",
+          "oracleHash": "401d217f8fb5c47c47399e9a5cff9d66f1b33641a2cf8478e50f9df2da7860f1",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 6557,
+          "tiles": 1,
+          "bytes": 1572884,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-ec01f698-74ec-49b8-ad92-a9ba8605da3a",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "a1c0a6a8c24bc415a5c34e294bafb15e0cacf5400cd571d9ec2666e78c9ec9e9",
+          "oracleHash": "a1c0a6a8c24bc415a5c34e294bafb15e0cacf5400cd571d9ec2666e78c9ec9e9",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 6558,
+          "tiles": 1,
+          "bytes": 1572884,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-ec01f698-74ec-49b8-ad92-a9ba8605da3a",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "401d217f8fb5c47c47399e9a5cff9d66f1b33641a2cf8478e50f9df2da7860f1",
+          "oracleHash": "401d217f8fb5c47c47399e9a5cff9d66f1b33641a2cf8478e50f9df2da7860f1",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 6557,
+          "tiles": 1,
+          "bytes": 1572884,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "rectangular-layer-geometry-and-dry-undo-redo",
+      "undo": "b5839d73-a9f1-406d-8add-77d798798963",
+      "redo": "b5839d73-a9f1-406d-8add-77d798798963",
+      "geometry": [
+        [
+          {
+            "w": 768,
+            "h": 512,
+            "originX": 0,
+            "originY": 0
+          }
+        ],
+        [
+          {
+            "w": 768,
+            "h": 512,
+            "originX": 0,
+            "originY": 0
+          }
+        ],
+        [
+          {
+            "w": 768,
+            "h": 512,
+            "originX": 0,
+            "originY": 0
+          }
+        ]
+      ]
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "7e6bfcdd-c2bd-44c2-bd5c-fba9d023342c",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 768,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "835afd6f-8644-44a0-b17a-7cc42aa82308",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 768,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "6d892ba4-98d1-4b4e-ab3c-0cb48f0f4bb6",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 768,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "page": {
+    "w": 768,
+    "h": 512
+  },
+  "viewportOverride": 0.75,
+  "rois": [
+    {
+      "x": 727,
+      "y": 419,
+      "width": 12,
+      "height": 12
+    },
+    {
+      "x": 727,
+      "y": 419,
+      "width": 12,
+      "height": 12
+    },
+    {
+      "x": 727,
+      "y": 419,
+      "width": 12,
+      "height": 12
+    }
+  ],
+  "roiElements": [
+    {
+      "tag": "CANVAS",
+      "canvas": true,
+      "elementClass": "_canvas_vwl67_503",
+      "insideSidebar": false,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1100,
+        "height": 850,
+        "top": 0,
+        "right": 1100,
+        "bottom": 850,
+        "left": 0
+      }
+    },
+    {
+      "tag": "CANVAS",
+      "canvas": true,
+      "elementClass": "_canvas_vwl67_503",
+      "insideSidebar": false,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1100,
+        "height": 850,
+        "top": 0,
+        "right": 1100,
+        "bottom": 850,
+        "left": 0
+      }
+    },
+    {
+      "tag": "CANVAS",
+      "canvas": true,
+      "elementClass": "_canvas_vwl67_503",
+      "insideSidebar": false,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1100,
+        "height": 850,
+        "top": 0,
+        "right": 1100,
+        "bottom": 850,
+        "left": 0
+      }
+    }
+  ],
+  "geometry": [
+    [
+      {
+        "w": 768,
+        "h": 512,
+        "originX": 0,
+        "originY": 0
+      }
+    ],
+    [
+      {
+        "w": 768,
+        "h": 512,
+        "originX": 0,
+        "originY": 0
+      }
+    ],
+    [
+      {
+        "w": 768,
+        "h": 512,
+        "originX": 0,
+        "originY": 0
+      }
+    ]
+  ],
+  "pass": true
+}

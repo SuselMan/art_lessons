@@ -1,0 +1,265 @@
+{
+  "sourceRuntime": "81eb5d04",
+  "inputSpecSHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
+  "originalSeededInputSHA": "be557708af31112a67ca8529e094c7fd3f43f2d876ce8bef1aca8c61749b8c63",
+  "authoritativeFilledInput": {
+    "operations": 102,
+    "strokes": 100,
+    "sha": "1fc978866de00651020a48aa2e88c3a0d3efbd5be0dac2763f97df63630beee9"
+  },
+  "actualReviewImageExport": {
+    "bytes": 1124472,
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 1024,
+      "height": 1024
+    }
+  },
+  "cases": [
+    {
+      "mode": "normal",
+      "warmSameContext": false,
+      "freshBrowserContext": true,
+      "form": true,
+      "engineReadyVpsMs": 10244,
+      "idleVpsMs": 14522,
+      "submitFromNavigationMs": 8498,
+      "uiReadyFromNavigationMs": 12682,
+      "uiOpenReport": {
+        "outcome": "ready",
+        "totalMs": 3609,
+        "stages": {
+          "join": 324,
+          "paper": 161,
+          "snapshot": 1761,
+          "replay": 1362
+        },
+        "reached": "replay",
+        "facts": {
+          "tailOperations": 102,
+          "latestSeq": 0,
+          "snapshotSeq": 101,
+          "restoredFromSnapshot": true,
+          "layers": 2
+        }
+      },
+      "initial": {
+        "annotationMode": false,
+        "reviewHistory": false
+      },
+      "proof": {
+        "layer": "layer-1",
+        "changedChannels": 0,
+        "liveHash": "a5252bc04dc4652cca7977c14db21fc551a8bf916881784caee934c59c80e616",
+        "targetHash": "a5252bc04dc4652cca7977c14db21fc551a8bf916881784caee934c59c80e616",
+        "operations": 102,
+        "glError": 0,
+        "DPR": 1.5,
+        "touch": 1,
+        "firstNonemptyDisplay": 12621.299999952316,
+        "twoRafAfterNonemptyDisplay": 12895.5
+      },
+      "scope": "Browser process/cache warm; fresh isolated context then same-context reload(normal)/navigation(preview). UI timer separate from navigation and firstvisible proxy. Annotation proof captured before leaving actual preview; canonical oracle follows normal hydration."
+    },
+    {
+      "mode": "normal",
+      "warmSameContext": true,
+      "freshBrowserContext": false,
+      "form": true,
+      "engineReadyVpsMs": 9688,
+      "idleVpsMs": 13995,
+      "submitFromNavigationMs": 8024,
+      "uiReadyFromNavigationMs": 12283,
+      "uiOpenReport": {
+        "outcome": "ready",
+        "totalMs": 3521,
+        "stages": {
+          "join": 322,
+          "paper": 121,
+          "snapshot": 1734,
+          "replay": 1345
+        },
+        "reached": "replay",
+        "facts": {
+          "tailOperations": 102,
+          "latestSeq": 0,
+          "snapshotSeq": 101,
+          "restoredFromSnapshot": true,
+          "layers": 2
+        }
+      },
+      "initial": {
+        "annotationMode": false,
+        "reviewHistory": false
+      },
+      "proof": {
+        "layer": "layer-1",
+        "changedChannels": 0,
+        "liveHash": "a5252bc04dc4652cca7977c14db21fc551a8bf916881784caee934c59c80e616",
+        "targetHash": "a5252bc04dc4652cca7977c14db21fc551a8bf916881784caee934c59c80e616",
+        "operations": 102,
+        "glError": 0,
+        "DPR": 1.5,
+        "touch": 1,
+        "firstNonemptyDisplay": 12069.399999856949,
+        "twoRafAfterNonemptyDisplay": 12311.199999809265
+      },
+      "scope": "Browser process/cache warm; fresh isolated context then same-context reload(normal)/navigation(preview). UI timer separate from navigation and firstvisible proxy. Annotation proof captured before leaving actual preview; canonical oracle follows normal hydration."
+    },
+    {
+      "mode": "annotations",
+      "warmSameContext": false,
+      "freshBrowserContext": true,
+      "form": true,
+      "engineReadyVpsMs": null,
+      "idleVpsMs": 14273,
+      "submitFromNavigationMs": 8258,
+      "uiReadyFromNavigationMs": 12634,
+      "uiOpenReport": {
+        "outcome": "ready",
+        "totalMs": 3650,
+        "stages": {
+          "join": 313,
+          "paper": 179,
+          "snapshot": 1833,
+          "replay": 1325
+        },
+        "reached": "replay",
+        "facts": {
+          "tailOperations": 102,
+          "latestSeq": 0,
+          "snapshotSeq": 101,
+          "restoredFromSnapshot": true,
+          "layers": 2
+        }
+      },
+      "initial": {
+        "annotationMode": true,
+        "reviewHistory": true,
+        "earlyReviewImage": {
+          "at": 9672.800000190735,
+          "width": 1024,
+          "height": 1024,
+          "mode": true,
+          "earlyHistory": true
+        },
+        "previewObservedVpsMs": 9944,
+        "previewObserved": {
+          "earlyReviewImage": {
+            "at": 9672.800000190735,
+            "width": 1024,
+            "height": 1024,
+            "mode": true,
+            "earlyHistory": true
+          },
+          "annotationMode": true
+        }
+      },
+      "proof": {
+        "layer": "layer-1",
+        "changedChannels": 0,
+        "liveHash": "a5252bc04dc4652cca7977c14db21fc551a8bf916881784caee934c59c80e616",
+        "targetHash": "a5252bc04dc4652cca7977c14db21fc551a8bf916881784caee934c59c80e616",
+        "operations": 102,
+        "glError": 0,
+        "DPR": 1.5,
+        "touch": 1,
+        "earlyReviewImage": {
+          "at": 9672.800000190735,
+          "width": 1024,
+          "height": 1024,
+          "mode": true,
+          "earlyHistory": true
+        },
+        "firstNonemptyDisplay": 12483.800000190735,
+        "twoRafAfterNonemptyDisplay": 12681.300000190735
+      },
+      "scope": "Browser process/cache warm; fresh isolated context then same-context reload(normal)/navigation(preview). UI timer separate from navigation and firstvisible proxy. Annotation proof captured before leaving actual preview; canonical oracle follows normal hydration."
+    },
+    {
+      "mode": "annotations",
+      "warmSameContext": true,
+      "freshBrowserContext": false,
+      "form": true,
+      "engineReadyVpsMs": null,
+      "idleVpsMs": 14236,
+      "submitFromNavigationMs": 8245,
+      "uiReadyFromNavigationMs": 12699,
+      "uiOpenReport": {
+        "outcome": "ready",
+        "totalMs": 3597,
+        "stages": {
+          "join": 333,
+          "paper": 83,
+          "snapshot": 1861,
+          "replay": 1319
+        },
+        "reached": "replay",
+        "facts": {
+          "tailOperations": 102,
+          "latestSeq": 0,
+          "snapshotSeq": 101,
+          "restoredFromSnapshot": true,
+          "layers": 2
+        }
+      },
+      "initial": {
+        "annotationMode": true,
+        "reviewHistory": true,
+        "earlyReviewImage": {
+          "at": 9823.299999952316,
+          "width": 1024,
+          "height": 1024,
+          "mode": true,
+          "earlyHistory": true
+        },
+        "previewObservedVpsMs": 10047,
+        "previewObserved": {
+          "earlyReviewImage": {
+            "at": 9823.299999952316,
+            "width": 1024,
+            "height": 1024,
+            "mode": true,
+            "earlyHistory": true
+          },
+          "annotationMode": true
+        }
+      },
+      "proof": {
+        "layer": "layer-1",
+        "changedChannels": 0,
+        "liveHash": "a5252bc04dc4652cca7977c14db21fc551a8bf916881784caee934c59c80e616",
+        "targetHash": "a5252bc04dc4652cca7977c14db21fc551a8bf916881784caee934c59c80e616",
+        "operations": 102,
+        "glError": 0,
+        "DPR": 1.5,
+        "touch": 1,
+        "earlyReviewImage": {
+          "at": 9823.299999952316,
+          "width": 1024,
+          "height": 1024,
+          "mode": true,
+          "earlyHistory": true
+        },
+        "firstNonemptyDisplay": 12486.5,
+        "twoRafAfterNonemptyDisplay": 12714.100000143051
+      },
+      "scope": "Browser process/cache warm; fresh isolated context then same-context reload(normal)/navigation(preview). UI timer separate from navigation and firstvisible proxy. Annotation proof captured before leaving actual preview; canonical oracle follows normal hydration."
+    }
+  ],
+  "pass": true,
+  "timingScopes": [
+    "UI-ready report is main engine diagnostic readiness after join submission; it is not firstvisible/firstinteractive preview.",
+    "Navigation VPS wall includes devmodule loading, automatic nameform handling, remoteCDP and polling.",
+    "Preview initial/previewObserved proves actual annotationMode and1024\u00b2blobimage with earlyHistory before normal hydration.",
+    "Annotation canonical oracle is checked after leaving preview through actual narrowHeader Menu\u2192Annotations checkbox; normal snapshot/replay stages are not relabelled firstpreview latency.",
+    "Browser process/cache warm; fresh isolated context and samecontext navigation/reload only. No browsercachecold or productionbuild claim."
+  ],
+  "cleanup": {
+    "contextsClosed": true,
+    "threeExactOwnedFixturesDeletedViaOwnerAPI": true,
+    "authDeleted": true,
+    "sharedSurfaceTunnelUntouched": true
+  }
+}

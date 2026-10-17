@@ -1,0 +1,20 @@
+{
+  "owner": "/root/qa_cases",
+  "started": "2026-10-17T03:23:06.127Z",
+  "finished": "2026-10-17T03:23:08.858Z",
+  "fixtureCount": 92,
+  "ownerDeleteHttpStatuses": {
+    "200": 92
+  },
+  "errors": [],
+  "hostAuthFilesRemaining": 0,
+  "preservedAcceptedJournals": 30,
+  "remainingResources": [
+    "Owned Vega Chrome566309/profile and19333 SSH forward; reserved for further root-coordinated native QA",
+    "Registered disposable62MiB cache:744/748/752 evidence plus preserved accepted journals; retained until RCA complete",
+    "Root-owned annotation3boards fixture remains untouched",
+    "Existing shared QA frontends5383/5384 and backend4558 remain; no new server"
+  ],
+  "surface": "No owned Chrome after planned Windows OSupdate; old profile retained for final cleanup",
+  "samsung": "Separate dry_contract operator owns current device QA cleanup"
+}

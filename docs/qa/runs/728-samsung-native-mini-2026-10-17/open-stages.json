@@ -1,0 +1,102 @@
+[
+  {
+    "createdAt": "2026-10-17T00:38:26.942Z",
+    "totalMs": 575,
+    "joinMs": 415,
+    "paperMs": 157,
+    "snapshotMs": 0,
+    "replayMs": 3,
+    "reached": "replay",
+    "facts": {
+      "layers": 2,
+      "latestSeq": 0,
+      "snapshotSeq": null,
+      "tailOperations": 0,
+      "restoredFromSnapshot": false
+    },
+    "outcome": "ready",
+    "wasHidden": false,
+    "platform": "android",
+    "browser": "Chrome 155"
+  },
+  {
+    "createdAt": "2026-10-17T00:41:37.325Z",
+    "totalMs": 1202,
+    "joinMs": 600,
+    "paperMs": 163,
+    "snapshotMs": 0,
+    "replayMs": 439,
+    "reached": "replay",
+    "facts": {
+      "layers": 2,
+      "latestSeq": 0,
+      "snapshotSeq": null,
+      "tailOperations": 4,
+      "restoredFromSnapshot": false
+    },
+    "outcome": "ready",
+    "wasHidden": false,
+    "platform": "android",
+    "browser": "Chrome 155"
+  },
+  {
+    "createdAt": "2026-10-17T00:41:45.797Z",
+    "totalMs": 731,
+    "joinMs": 367,
+    "paperMs": 138,
+    "snapshotMs": 0,
+    "replayMs": 227,
+    "reached": "replay",
+    "facts": {
+      "layers": 2,
+      "latestSeq": 0,
+      "snapshotSeq": null,
+      "tailOperations": 4,
+      "restoredFromSnapshot": false
+    },
+    "outcome": "ready",
+    "wasHidden": false,
+    "platform": "android",
+    "browser": "Chrome 155"
+  },
+  {
+    "createdAt": "2026-10-17T00:41:56.153Z",
+    "totalMs": 987,
+    "joinMs": 378,
+    "paperMs": 126,
+    "snapshotMs": 480,
+    "replayMs": 2,
+    "reached": "replay",
+    "facts": {
+      "layers": 2,
+      "latestSeq": 0,
+      "snapshotSeq": 4,
+      "tailOperations": 0,
+      "restoredFromSnapshot": true
+    },
+    "outcome": "ready",
+    "wasHidden": false,
+    "platform": "android",
+    "browser": "Chrome 155"
+  },
+  {
+    "createdAt": "2026-10-17T00:42:03.315Z",
+    "totalMs": 981,
+    "joinMs": 387,
+    "paperMs": 135,
+    "snapshotMs": 457,
+    "replayMs": 2,
+    "reached": "replay",
+    "facts": {
+      "layers": 2,
+      "latestSeq": 0,
+      "snapshotSeq": 4,
+      "tailOperations": 0,
+      "restoredFromSnapshot": true
+    },
+    "outcome": "ready",
+    "wasHidden": false,
+    "platform": "android",
+    "browser": "Chrome 155"
+  }
+]

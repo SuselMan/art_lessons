@@ -1,0 +1,515 @@
+{
+  "source": "ec218f98",
+  "scope": "Same Intel GPU, identical recorded stroke identities and input; forced goal while hidden, resume, fixed recorded continuation; no fullReplay oracle in gate",
+  "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+  "identity": {
+    "model": "m70-r2-v1",
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "DPR": 1.0000000298023224,
+    "gpuBudget": "Infinity",
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "dither": true,
+    "earlyContexts": [
+      {
+        "kind": "webgl",
+        "before": true,
+        "after": true,
+        "at": 2547
+      },
+      {
+        "kind": "webgl",
+        "before": true,
+        "after": true,
+        "at": 7195.200000047684
+      },
+      {
+        "kind": "webgl",
+        "before": true,
+        "after": true,
+        "at": 7199.700000047684
+      },
+      {
+        "kind": "webgl",
+        "before": true,
+        "after": true,
+        "at": 8818.299999952316
+      }
+    ],
+    "initialOperations": 0
+  },
+  "materialGoalPass": true,
+  "defaultEnabled": false,
+  "rows": [
+    {
+      "stage": "solvedWhileHidden",
+      "exact": true,
+      "differences": [],
+      "raw": {
+        "original": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+          "nonzero": 0,
+          "sum": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "P": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "3c969cdb1e4710b8c01b8aa4fc659c21bdba20e3680bd95f5b44d0a7e9954d44",
+          "nonzero": 32618,
+          "sum": [
+            1227387,
+            1227387,
+            872750,
+            1227387
+          ]
+        },
+        "C": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "27326c0ee02e799c2100a22cae322e86555916c0be2009783ccea3332343646e",
+          "nonzero": 32487,
+          "sum": [
+            414062,
+            229007,
+            48668,
+            872750
+          ]
+        },
+        "coverage": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "a34636a6a0a96346a5c6a61e0b3a1921b58cfc0c938d8bc17302788e1d0075d3",
+          "nonzero": 27424,
+          "sum": [
+            1000537,
+            68173,
+            1999596,
+            1999596
+          ]
+        },
+        "solvent": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "e46ab3ed0b49036d6947c25ce97b8494a2e4b083bc7533c4b4aac751d903e3ea",
+          "nonzero": 16322,
+          "sum": [
+            474108,
+            0,
+            0,
+            474108
+          ]
+        },
+        "foreignSolvent": null
+      },
+      "solverGoal": {
+        "p": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "a5f0e263c73c06a24967ff84be4acac672f8e53da5660057613c044dfdc5878e",
+          "nonzero": 32650,
+          "sum": [
+            1177375,
+            1177375,
+            840192,
+            1177375
+          ]
+        },
+        "c": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "b2ad7e0aa620c5fc6612980df2247371c794626f7918eb4e3b2e80568fef336f",
+          "nonzero": 32600,
+          "sum": [
+            394009,
+            218709,
+            38956,
+            840192
+          ]
+        },
+        "coverage": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "f9764e60b9725fdc489043b6052ee0fc5aa15e9ae88762a58e1b72464fde4d59",
+          "nonzero": 19214,
+          "sum": [
+            1000537,
+            68173,
+            0,
+            1999596
+          ]
+        }
+      },
+      "targetGoal": {
+        "width": 512,
+        "height": 512,
+        "bytes": 1048576,
+        "hash": "e326fe3abdfad1080e0b0a810d78cf02e76da46016e868086c072fd2c1a42ee7",
+        "nonzero": 24475,
+        "sum": [
+          0,
+          396054,
+          1220526,
+          1494327
+        ]
+      },
+      "states": [
+        {
+          "dirty": false,
+          "goalReady": true,
+          "active": true,
+          "epoch": 2
+        },
+        {
+          "dirty": false,
+          "goalReady": true,
+          "active": false,
+          "epoch": 2
+        }
+      ]
+    },
+    {
+      "stage": "resumed",
+      "exact": true,
+      "differences": [],
+      "raw": {
+        "original": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+          "nonzero": 0,
+          "sum": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "P": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "3c969cdb1e4710b8c01b8aa4fc659c21bdba20e3680bd95f5b44d0a7e9954d44",
+          "nonzero": 32618,
+          "sum": [
+            1227387,
+            1227387,
+            872750,
+            1227387
+          ]
+        },
+        "C": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "27326c0ee02e799c2100a22cae322e86555916c0be2009783ccea3332343646e",
+          "nonzero": 32487,
+          "sum": [
+            414062,
+            229007,
+            48668,
+            872750
+          ]
+        },
+        "coverage": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "a34636a6a0a96346a5c6a61e0b3a1921b58cfc0c938d8bc17302788e1d0075d3",
+          "nonzero": 27424,
+          "sum": [
+            1000537,
+            68173,
+            1999596,
+            1999596
+          ]
+        },
+        "solvent": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "e46ab3ed0b49036d6947c25ce97b8494a2e4b083bc7533c4b4aac751d903e3ea",
+          "nonzero": 16322,
+          "sum": [
+            474108,
+            0,
+            0,
+            474108
+          ]
+        },
+        "foreignSolvent": null
+      },
+      "solverGoal": {
+        "p": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "a5f0e263c73c06a24967ff84be4acac672f8e53da5660057613c044dfdc5878e",
+          "nonzero": 32650,
+          "sum": [
+            1177375,
+            1177375,
+            840192,
+            1177375
+          ]
+        },
+        "c": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "b2ad7e0aa620c5fc6612980df2247371c794626f7918eb4e3b2e80568fef336f",
+          "nonzero": 32600,
+          "sum": [
+            394009,
+            218709,
+            38956,
+            840192
+          ]
+        },
+        "coverage": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "f9764e60b9725fdc489043b6052ee0fc5aa15e9ae88762a58e1b72464fde4d59",
+          "nonzero": 19214,
+          "sum": [
+            1000537,
+            68173,
+            0,
+            1999596
+          ]
+        }
+      },
+      "targetGoal": {
+        "width": 512,
+        "height": 512,
+        "bytes": 1048576,
+        "hash": "e326fe3abdfad1080e0b0a810d78cf02e76da46016e868086c072fd2c1a42ee7",
+        "nonzero": 24475,
+        "sum": [
+          0,
+          396054,
+          1220526,
+          1494327
+        ]
+      },
+      "states": [
+        {
+          "dirty": false,
+          "goalReady": true,
+          "active": true,
+          "epoch": 2
+        },
+        {
+          "dirty": false,
+          "goalReady": true,
+          "active": false,
+          "epoch": 2
+        }
+      ]
+    },
+    {
+      "stage": "fixedContinuation",
+      "exact": true,
+      "differences": [],
+      "raw": {
+        "original": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+          "nonzero": 0,
+          "sum": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "P": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "f929210187137e6e7c813906b8f1c54b2b428f0a8311c3cfb767a220a98dd488",
+          "nonzero": 32618,
+          "sum": [
+            1534189,
+            1534189,
+            1067644,
+            1534189
+          ]
+        },
+        "C": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "368e6297b75c6ea82eec021f6b2ac1e442afa63f068188119a06f12cbc2761e2",
+          "nonzero": 32538,
+          "sum": [
+            401609,
+            415093,
+            212862,
+            1159058
+          ]
+        },
+        "coverage": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "9271971b8b073c6867c6371733624426071808a93d156a43d636cc8e796b2a42",
+          "nonzero": 27424,
+          "sum": [
+            1009385,
+            69612,
+            2017399,
+            2017399
+          ]
+        },
+        "solvent": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "07d2712edcdab1a04bb7e4a57ebb9c4afbfc242d5725b77e8ef47345a04820ae",
+          "nonzero": 16330,
+          "sum": [
+            712987,
+            0,
+            0,
+            712987
+          ]
+        },
+        "foreignSolvent": null
+      },
+      "solverGoal": {
+        "p": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "7914dd0a6e0387d229011b788d7494ba12f353d883effa59f9e405cc68e480f1",
+          "nonzero": 32666,
+          "sum": [
+            1464938,
+            1464938,
+            1111132,
+            1464938
+          ]
+        },
+        "c": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "5b0d38f0a0fc4493fa83eeee4a1b92e4a56867b7840c694ff12b9aa6c8306c79",
+          "nonzero": 32651,
+          "sum": [
+            382114,
+            397899,
+            199368,
+            1111571
+          ]
+        },
+        "coverage": {
+          "width": 512,
+          "height": 512,
+          "bytes": 1048576,
+          "hash": "17595d7373d26d4bb6e55e8a27184e13494623f2818317435b68d2c2a4c62d56",
+          "nonzero": 19214,
+          "sum": [
+            1009385,
+            69612,
+            0,
+            2017399
+          ]
+        }
+      },
+      "targetGoal": {
+        "width": 512,
+        "height": 512,
+        "bytes": 1048576,
+        "hash": "a9ed4911468b1945f2696a4ebb8ab7f4e4d913d1b9fbf73291146a8394a807c9",
+        "nonzero": 24488,
+        "sum": [
+          144134,
+          198478,
+          762494,
+          1622496
+        ]
+      },
+      "states": [
+        {
+          "dirty": false,
+          "goalReady": true,
+          "active": true,
+          "epoch": 3
+        },
+        {
+          "dirty": false,
+          "goalReady": true,
+          "active": true,
+          "epoch": 3
+        }
+      ]
+    }
+  ],
+  "leaseAfterResume": [
+    0,
+    0
+  ],
+  "nativeHeld": "Invalid fixture setup: local-only recorded layer became editing_locked; actual _onStart correctly refused. No held-visibility claim, next version uses genuine server layerAdd roundtrip.",
+  "nativeSetup": {
+    "point": {
+      "x": 396.66584519223915,
+      "y": 362.7845761640153
+    },
+    "element": "<canvas class=\"_canvas_vwl67_503\" width=\"1100\" height=\"850\" style=\"width: 100%; height: 100%; touch-action: none;\"></canvas>",
+    "storeTool": "watercolor",
+    "active": "qa-1aa2871d-468d-42c2-8fad-7b8358a33d9b",
+    "locked": true,
+    "start": {
+      "before": {
+        "locked": true,
+        "active": "qa-1aa2871d-468d-42c2-8fad-7b8358a33d9b",
+        "tool": "watercolor",
+        "storeTool": "watercolor",
+        "puddle": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 1,
+          "residentLayers": 1,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 2,
+          "pending": false,
+          "revisions": [
+            {
+              "epoch": 3,
+              "ready": true,
+              "active": true
+            }
+          ]
+        }
+      },
+      "after": null
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "source": "717506a8e7b0d730079973e229f12aea837d9cd5",
+  "scope": "Cold physical raster only, no replay/oracle/canonical request",
+  "errors": [],
+  "actual": {
+    "layers": [
+      {
+        "layerId": "qa-wet-erase-68c1d2aa-3ee0-40a8-b726-3dc8d1e6aee8",
+        "hash": "96f6975a16929118ee3f6b6f94e8daab2596c108a407be26e244cb75259c2ba3",
+        "bytes": 1048596
+      },
+      {
+        "layerId": "qa-wet-erase-92451aaa-0fba-4a39-ad8e-07812c8c337b",
+        "hash": "6026f54423e72221184d8d6a5351cedcdf46ba09990a841981078b6f69dd702f",
+        "bytes": 1048596
+      },
+      {
+        "layerId": "qa-wet-erase-9f198452-3151-47b6-a949-bef4043cad7c",
+        "hash": "3f0c89bfd9175f22f2a59e16e7d2dbf48c1903839bb0fa225c773ee4350677f2",
+        "bytes": 1048596
+      }
+    ],
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 4,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "restoreAudit": [],
+    "glError": 0
+  },
+  "pass": true
+}

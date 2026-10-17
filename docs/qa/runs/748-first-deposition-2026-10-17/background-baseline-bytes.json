@@ -1,0 +1,410 @@
+{
+  "source": "717506a8",
+  "scope": "Ideal exact-rational shader with ideal UV/NEAREST addressing; half-up tie choice is explicit, not a production oracle",
+  "referenceExactHalfTies": 1,
+  "gpus": {
+    "vega": {
+      "verified": {
+        "original": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "inkLoad": "69c9fd93afffd1b5a3816b8d8ee9bb668409a3cbc7efe26d43484d25b5bf0eab",
+        "inkColor": "172b87acabfd7d7e75166943a57f72461b3594166e0330c1dd628e0b54893692",
+        "coverage": "1380faea0f4a5962bbb4deba0a754a001ca2815f18bf8a038d203a98de53aca2",
+        "solventLoad": "305b3410cd95e5623b7080a9f6bc43c9a7ab0442b7bf5eabc7dd6cff5b4817c8"
+      },
+      "metadataSHA": "f929229a9cbb3a5e41db5657bf0b1f80773f7f37c0cf058394356b967fbd04f4",
+      "firstBackground": {
+        "samplers": {
+          "color": {
+            "unit": 0,
+            "sourceField": null,
+            "min": 9728,
+            "mag": 9728,
+            "wrapS": 33071,
+            "wrapT": 33071
+          }
+        },
+        "index": 1,
+        "phase": "reused-1:reset",
+        "args": [
+          4,
+          0,
+          6
+        ],
+        "viewport": [
+          0,
+          0,
+          256,
+          256
+        ],
+        "framebufferBound": true,
+        "errorBefore": 0,
+        "errorAfter": 0,
+        "uniforms": {
+          "stride": [
+            0.046875,
+            0.046875
+          ],
+          "color": 0
+        },
+        "state": {
+          "blend": false,
+          "dither": true,
+          "scissor": false,
+          "colorMask": [
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        "beforeSHA": "17c7f53ddabfe94fa6b22c0ab74bfe763c89cd61908ab33775fdb012ad919a5a",
+        "afterSHA": "cf6559085b6917bf4e172e0ff2f24a97873e98bd694aab024b80df5d190e048b",
+        "program": [
+          {
+            "type": 35633,
+            "sha": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05"
+          },
+          {
+            "type": 35632,
+            "sha": "9681c26f542b28f0df04d7927fbfa890f733cbb2b848550c80ea78dea17fd403"
+          }
+        ]
+      },
+      "reference": {
+        "changed": 40,
+        "maxDiff": 1,
+        "tieDiff": 1,
+        "addressCandidatePixelMatches": [
+          65497,
+          62415,
+          61800,
+          61409
+        ],
+        "explainedPixels": 65511,
+        "unexplainedPixels": 25,
+        "examples": [
+          {
+            "x": 178,
+            "y": 69,
+            "channel": 3,
+            "actual": 12,
+            "idealHalfUp": 13
+          },
+          {
+            "x": 168,
+            "y": 71,
+            "channel": 3,
+            "actual": 18,
+            "idealHalfUp": 19
+          },
+          {
+            "x": 191,
+            "y": 73,
+            "channel": 1,
+            "actual": 7,
+            "idealHalfUp": 8
+          },
+          {
+            "x": 171,
+            "y": 77,
+            "channel": 3,
+            "actual": 32,
+            "idealHalfUp": 33
+          },
+          {
+            "x": 172,
+            "y": 78,
+            "channel": 3,
+            "actual": 28,
+            "idealHalfUp": 29
+          },
+          {
+            "x": 156,
+            "y": 80,
+            "channel": 3,
+            "actual": 21,
+            "idealHalfUp": 22
+          },
+          {
+            "x": 155,
+            "y": 82,
+            "channel": 0,
+            "actual": 7,
+            "idealHalfUp": 8
+          },
+          {
+            "x": 174,
+            "y": 84,
+            "channel": 3,
+            "actual": 40,
+            "idealHalfUp": 41
+          },
+          {
+            "x": 172,
+            "y": 87,
+            "channel": 0,
+            "actual": 28,
+            "idealHalfUp": 29
+          },
+          {
+            "x": 169,
+            "y": 89,
+            "channel": 3,
+            "actual": 48,
+            "idealHalfUp": 49
+          },
+          {
+            "x": 148,
+            "y": 93,
+            "channel": 3,
+            "actual": 20,
+            "idealHalfUp": 21
+          },
+          {
+            "x": 169,
+            "y": 93,
+            "channel": 3,
+            "actual": 39,
+            "idealHalfUp": 40
+          }
+        ]
+      },
+      "runs": [
+        {
+          "mode": "reused-1",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "28c62c5a2058de3670c80c2770c6d24152c4a6d2df7e7c4307c4b86ea111a394",
+            "c": "2eee41f6b0328e330a1061290a6c5fa34a014ff54184b88eef9f23d124a805d9",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 22
+          }
+        },
+        {
+          "mode": "reused-2",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "28c62c5a2058de3670c80c2770c6d24152c4a6d2df7e7c4307c4b86ea111a394",
+            "c": "2eee41f6b0328e330a1061290a6c5fa34a014ff54184b88eef9f23d124a805d9",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 27
+          }
+        },
+        {
+          "mode": "fresh-solver-local-pool",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "28c62c5a2058de3670c80c2770c6d24152c4a6d2df7e7c4307c4b86ea111a394",
+            "c": "2eee41f6b0328e330a1061290a6c5fa34a014ff54184b88eef9f23d124a805d9",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 5
+          }
+        }
+      ]
+    },
+    "surface": {
+      "verified": {
+        "original": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "inkLoad": "69c9fd93afffd1b5a3816b8d8ee9bb668409a3cbc7efe26d43484d25b5bf0eab",
+        "inkColor": "172b87acabfd7d7e75166943a57f72461b3594166e0330c1dd628e0b54893692",
+        "coverage": "1380faea0f4a5962bbb4deba0a754a001ca2815f18bf8a038d203a98de53aca2",
+        "solventLoad": "305b3410cd95e5623b7080a9f6bc43c9a7ab0442b7bf5eabc7dd6cff5b4817c8"
+      },
+      "metadataSHA": "f929229a9cbb3a5e41db5657bf0b1f80773f7f37c0cf058394356b967fbd04f4",
+      "firstBackground": {
+        "samplers": {
+          "color": {
+            "unit": 0,
+            "sourceField": null,
+            "min": 9728,
+            "mag": 9728,
+            "wrapS": 33071,
+            "wrapT": 33071
+          }
+        },
+        "index": 1,
+        "phase": "reused-1:reset",
+        "args": [
+          4,
+          0,
+          6
+        ],
+        "viewport": [
+          0,
+          0,
+          256,
+          256
+        ],
+        "framebufferBound": true,
+        "errorBefore": 0,
+        "errorAfter": 0,
+        "uniforms": {
+          "stride": [
+            0.046875,
+            0.046875
+          ],
+          "color": 0
+        },
+        "state": {
+          "blend": false,
+          "dither": true,
+          "scissor": false,
+          "colorMask": [
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        "beforeSHA": "ed28661b6f4b3b7ba563fb9e5cb824b744a00b0ed903762a26f2eb50828d90c9",
+        "afterSHA": "ed28661b6f4b3b7ba563fb9e5cb824b744a00b0ed903762a26f2eb50828d90c9",
+        "program": [
+          {
+            "type": 35633,
+            "sha": "55fd6cc6e2154cf6779677655791f53820697571d63b095e1180780e5382da05"
+          },
+          {
+            "type": 35632,
+            "sha": "9681c26f542b28f0df04d7927fbfa890f733cbb2b848550c80ea78dea17fd403"
+          }
+        ]
+      },
+      "reference": {
+        "changed": 6,
+        "maxDiff": 1,
+        "tieDiff": 1,
+        "addressCandidatePixelMatches": [
+          65530,
+          62413,
+          61798,
+          61407
+        ],
+        "explainedPixels": 65532,
+        "unexplainedPixels": 4,
+        "examples": [
+          {
+            "x": 172,
+            "y": 78,
+            "channel": 3,
+            "actual": 28,
+            "idealHalfUp": 29
+          },
+          {
+            "x": 169,
+            "y": 93,
+            "channel": 3,
+            "actual": 39,
+            "idealHalfUp": 40
+          },
+          {
+            "x": 165,
+            "y": 110,
+            "channel": 0,
+            "actual": 16,
+            "idealHalfUp": 17
+          },
+          {
+            "x": 163,
+            "y": 111,
+            "channel": 3,
+            "actual": 28,
+            "idealHalfUp": 29
+          },
+          {
+            "x": 168,
+            "y": 111,
+            "channel": 3,
+            "actual": 28,
+            "idealHalfUp": 29
+          },
+          {
+            "x": 163,
+            "y": 113,
+            "channel": 3,
+            "actual": 25,
+            "idealHalfUp": 26
+          }
+        ]
+      },
+      "runs": [
+        {
+          "mode": "reused-1",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "88ff905b7fe360db94e7f4ac0c2b0921c7c3809b27e237169923dae64fc00248",
+            "c": "8f1f51ee5f89758b0f1373c59768acbb2cbd100e4b22bc88aa460942a58443ae",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 20
+          }
+        },
+        {
+          "mode": "reused-2",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "88ff905b7fe360db94e7f4ac0c2b0921c7c3809b27e237169923dae64fc00248",
+            "c": "8f1f51ee5f89758b0f1373c59768acbb2cbd100e4b22bc88aa460942a58443ae",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 25
+          }
+        },
+        {
+          "mode": "fresh-solver-local-pool",
+          "steps": 90,
+          "draws": 224,
+          "output": {
+            "p": "88ff905b7fe360db94e7f4ac0c2b0921c7c3809b27e237169923dae64fc00248",
+            "c": "8f1f51ee5f89758b0f1373c59768acbb2cbd100e4b22bc88aa460942a58443ae",
+            "coverage": "81ae02ebd1407bbbd688accda7f5b696f7a6a4d5cb900942b0c431f4f00e4d38"
+          },
+          "state": {
+            "epoch": 1,
+            "iterations": 90,
+            "done": true,
+            "total": 90,
+            "revision": 5
+          }
+        }
+      ]
+    }
+  },
+  "crossGPU": {
+    "channels": 34,
+    "pixels": 34,
+    "maxDiff": 1
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "source": "ec218f98",
+  "scope": "Ten real authenticated Socket.io authors, two GPU observers; author pointer path not covered",
+  "cases": [
+    {
+      "name": "ten-independent-socket-authors-joined",
+      "users": [
+        "f9e20651-52c2-4d01-88d6-a055482f9bb3",
+        "d60dcd81-e712-42ef-932c-2ed232197387",
+        "57328d8a-139f-45b4-a1e0-dc8196e54fbd",
+        "f92f4668-3b82-4b89-a9c2-81d4522395fc",
+        "ec2318f5-3a65-49ec-af30-87334c446a73",
+        "d2175e88-7eb6-4e15-8c43-2053523a0ccc",
+        "230b8df0-c0af-44c5-af64-b041d6328de2",
+        "87f1d095-4bcf-47d3-931e-11e7196ebfe0",
+        "7edd75ce-0a1e-4f96-a83c-900c73717e7b",
+        "2bf78b45-cd5c-42eb-8c3f-1d11b06abcb8"
+      ],
+      "browserObservers": 2,
+      "pointerPathTested": false
+    },
+    {
+      "name": "accepted-interleaved-stroke-round-0",
+      "accepted": 10
+    },
+    {
+      "name": "accepted-interleaved-stroke-round-1",
+      "accepted": 20
+    },
+    {
+      "name": "accepted-interleaved-stroke-round-2",
+      "accepted": 30
+    },
+    {
+      "name": "permuted-ten-author-own-undo-redo"
+    },
+    {
+      "name": "five-authors-disconnect-during-unrecorded-tail-and-rejoin",
+      "interrupted": [
+        {
+          "author": 0,
+          "strokeId": "qa-socket-b365b76a-eadf-4db1-ac5e-5dc61e099d56"
+        },
+        {
+          "author": 2,
+          "strokeId": "qa-socket-d106aa84-ca33-482c-abf3-580b1b329fd1"
+        },
+        {
+          "author": 4,
+          "strokeId": "qa-socket-cb3ce8fd-4c11-4573-9490-41a78b398746"
+        },
+        {
+          "author": 6,
+          "strokeId": "qa-socket-c133e125-34ed-4b6d-a05b-043865b49774"
+        },
+        {
+          "author": 8,
+          "strokeId": "qa-socket-36e7c5fc-35c1-4244-8dc8-384927d98109"
+        }
+      ]
+    },
+    {
+      "name": "terminal-dry-two-real-gpu-observers-exact-independent-replay",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-ten-8c3093a7-1fe2-45b2-a5a2-4014c3822e42",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "f551e079ed4ccaaf5b8ad758bfc6fd030219e034e994fb1031b75f7293b90309",
+          "oracleHash": "f551e079ed4ccaaf5b8ad758bfc6fd030219e034e994fb1031b75f7293b90309",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-ten-8c3093a7-1fe2-45b2-a5a2-4014c3822e42",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "15565f9af306072128d9ab0e68c6b56c6a630fc4a09d5c6744fa0c8bf0754095",
+          "oracleHash": "15565f9af306072128d9ab0e68c6b56c6a630fc4a09d5c6744fa0c8bf0754095",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 4543,
+          "tiles": 1,
+          "bytes": 1048596,
+          "glError": 0
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "7bfc0ee4-57d1-4bbc-8bc8-a9b0a7dc35e2",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "b6dfea74-d01b-467a-884c-0c21e34317c3",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "pass": true,
+  "assessment": "10 authenticated real Socket.io identities, 30 canonical mixed water/pigment strokes in shared layer, all10 ownUndo/Redo permuted,5 disconnect during uncommitted tail and reconnect. Two physical GPU observers have identical causal history, no leftover films and final actual raster equal own independent replay. Author browser pointer path is explicitly not covered by this socket stress."
+}

@@ -1,0 +1,80 @@
+{
+  "source": "b7c19950015a984a4ea224b02f5451d8b121f017",
+  "mode": "default",
+  "repeat": 1,
+  "inputSHA": "df1f5758da2b4f5a253bbd6f2d9542456868789f993428094ab6808349484826",
+  "identity": {
+    "model": "m70-r2-v1",
+    "page": {
+      "w": 512,
+      "h": 512
+    },
+    "DPR": 1.0000000298023224,
+    "gpuBudget": "Infinity",
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "dither": true,
+    "earlyContexts": [
+      {
+        "kind": "webgl",
+        "before": true,
+        "after": true,
+        "at": 2685
+      },
+      {
+        "kind": "webgl",
+        "before": true,
+        "after": true,
+        "at": 7330.299999982119
+      },
+      {
+        "kind": "webgl",
+        "before": true,
+        "after": true,
+        "at": 7347.299999982119
+      },
+      {
+        "kind": "webgl",
+        "before": true,
+        "after": true,
+        "at": 9383.899999976158
+      }
+    ],
+    "initialOperations": 0
+  },
+  "target": {
+    "length": 1048596,
+    "hash": "9d3aa5ecb32af53b1ddea80b17be96dec5ec9a8b37d9f7019d814d892ab79ddc",
+    "dither": true,
+    "glError": 0,
+    "journal": [
+      {
+        "id": "ef5c3073-e28f-440f-8f97-bb76ae0a4c5b",
+        "type": "layer_add",
+        "state": "done"
+      },
+      {
+        "id": "iS6idSqAMt",
+        "type": "stroke",
+        "state": "gone",
+        "goneReason": "branch"
+      },
+      {
+        "id": "GCVQWfoOpu",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "QnUxLiRc8c",
+        "type": "operation_undo",
+        "state": "done"
+      },
+      {
+        "id": "8de683fb-8e34-47bc-aa6d-024bb99390af",
+        "type": "paper_dry",
+        "state": "done"
+      }
+    ]
+  },
+  "pass": true,
+  "errors": []
+}

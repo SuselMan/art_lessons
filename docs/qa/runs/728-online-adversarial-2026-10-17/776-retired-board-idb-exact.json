@@ -1,0 +1,40 @@
+{
+  "source": "85e83641",
+  "mode": "delete",
+  "scope": "Trusted owner WC stroke; selected callback gate delays either real accepted IDB-delete notification (default), or actual ACK with <5s timing guard; real UI board switch, old-board dedup and no new-board mutation",
+  "errors": [],
+  "held": {
+    "id": "OJQ7jUOY_s",
+    "acceptedOldEntry": {
+      "id": "OJQ7jUOY_s",
+      "pending": false,
+      "state": "done",
+      "board": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2"
+    },
+    "board": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2"
+  },
+  "release": {
+    "released": 1,
+    "heldMs": 1338,
+    "board": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+    "oldIdInNewLog": false
+  },
+  "proof": {
+    "layerId": "qa-retired-ack-39a9d333-e394-455a-8349-484f8bd6d41d",
+    "sourceHiddenReplay": false,
+    "oracleHiddenReplay": false,
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "5ac231304aa7b43307a45a06c78f76496e3daf24cae95387df563cc79046f32d",
+    "oracleHash": "5ac231304aa7b43307a45a06c78f76496e3daf24cae95387df563cc79046f32d",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 1355,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "pass": true,
+  "deviceScope": "Single real AMD Vega GPU, trusted CDP pen, actual owner board switching; shared QA backend under unrelated CPU correctness suite, no latency benchmark",
+  "limitations": "Native IDB transaction is committed normally; QA delays only completion callback resolving delete promise. This tests retirement after accepted ACK, not an ACK response delayed beyond send timeout."
+}

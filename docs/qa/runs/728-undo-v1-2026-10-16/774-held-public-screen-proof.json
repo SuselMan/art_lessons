@@ -1,0 +1,77 @@
+{
+  "source": "d70e9260",
+  "scope": "Accepted native pencil prefix snapshot with real gzip; public restoreRoomState+restoreLatestSnapshot through engine-returned deferred apply promise; trusted further MOVE must remain visible while restore pending. HTTP response fixture, not socket reconnect stress.",
+  "errors": [],
+  "identity": {
+    "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+    "cache": false,
+    "hidden": false
+  },
+  "initialVisible": {
+    "channels": 432,
+    "max": 120
+  },
+  "pending": {
+    "done": false,
+    "deferred": true,
+    "signal": true,
+    "stroke": "zpxpVm5l4I",
+    "suspend": 1
+  },
+  "earlyDuringRestore": {
+    "channels": 0,
+    "max": 0
+  },
+  "continuedVisible": {
+    "channels": 432,
+    "max": 115
+  },
+  "earlyPreserved": {
+    "channels": 0,
+    "max": 0
+  },
+  "stillPending": {
+    "done": false,
+    "stroke": "zpxpVm5l4I",
+    "queued": 0
+  },
+  "physical": {
+    "layerId": "layer-1",
+    "sourceHiddenReplay": false,
+    "oracleHiddenReplay": false,
+    "actualCapturedBeforeOracle": true,
+    "targetHash": "82b025a42f8ef455f0b5cba26105aebe794d5dc742debeb63f6fbc18999d3030",
+    "oracleHash": "82b025a42f8ef455f0b5cba26105aebe794d5dc742debeb63f6fbc18999d3030",
+    "targetChanged": 0,
+    "physicalChanged": 0,
+    "max": 0,
+    "nonzeroAlpha": 4818,
+    "tiles": 1,
+    "bytes": 1048596,
+    "glError": 0
+  },
+  "pass": true,
+  "qualification": "Single native AMD local trusted pencil + public restore lifecycle. HTTP response fixture contains real accepted prefix pixels; not real reconnect/remote-held stress. Prototype is not automatically promoted from this case.",
+  "screenGeometry": {
+    "earlyRoiCenterWorld": {
+      "x": 150,
+      "y": 260
+    },
+    "farRoiCenterWorld": {
+      "x": 250,
+      "y": 260
+    },
+    "finalTrustedCursorWorld": {
+      "x": 300,
+      "y": 260
+    },
+    "farRoiToCursorWorldDistance": 50,
+    "pencilConfiguredSizeWorld": 24,
+    "roiSizeCSS": {
+      "width": 12,
+      "height": 12
+    },
+    "mapping": "Same inverse engine pointer transform for screenshot ROI and trusted CDP pen coordinates; far ROI is behind terminal pointer position, outside radius12 brush cursor."
+  },
+  "measurementQualification": "Display suspend depth1 was measured immediately after deferred restore. After subsequent MOVE, donefalse and same active stroke were measured; depth was not re-read then. No force display/repair/oracle before either screenshot."
+}

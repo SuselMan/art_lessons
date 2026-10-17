@@ -1,0 +1,198 @@
+{
+  "source": "c8a9d09c30e10592fdb5ccad32f783839b089657",
+  "enabled": true,
+  "scope": "Open wet Undo prototype cost; actual trusted pen event + natural screen-cache ROI; no forced presentation",
+  "errors": [],
+  "identity": [
+    {
+      "page": {
+        "w": 1024,
+        "h": 1024
+      },
+      "DPR": 1.5,
+      "touch": 1,
+      "budget": "Infinity",
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "prototypeField": true
+    },
+    {
+      "page": {
+        "w": 1024,
+        "h": 1024
+      },
+      "DPR": 1.5,
+      "touch": 1,
+      "budget": "Infinity",
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "prototypeField": true
+    }
+  ],
+  "spec": {
+    "prefix": 100,
+    "authors": 2,
+    "blue": [
+      0.1,
+      0.25,
+      0.8
+    ],
+    "size": 32,
+    "water": 0.95,
+    "pigment": 0.34,
+    "moves": 4,
+    "deltaX": 4,
+    "lastRed": {
+      "x": 650,
+      "y": 650
+    },
+    "newGesture": {
+      "input": "trusted CDP pen",
+      "moves": 4,
+      "deltaXCSS": 3,
+      "force": 0.75
+    },
+    "DPR": 1.5,
+    "hasTouch": true
+  },
+  "specSHA": "3ed3d1d2171ab7297a8156e038a6ecab20652224844fc29f63e61c0cc7aa9407",
+  "before": {
+    "point": {
+      "x": 650.8046874999974,
+      "y": 525.804687499998
+    },
+    "before": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 12,
+      "computations": 13,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 101,
+          "ready": true,
+          "active": true
+        }
+      ]
+    }
+  },
+  "metrics": {
+    "before": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 12,
+      "computations": 13,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 101,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "downAt": 27113,
+    "downCPU": 60.5,
+    "afterDown": {
+      "undoCaptureLastMs": 54.89999985694885,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 1,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 25166944,
+      "drying": false,
+      "cancellations": 12,
+      "computations": 13,
+      "pending": true,
+      "revisions": [
+        {
+          "epoch": 102,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "firstDownVisible": {
+      "ms": 80.5,
+      "changed": 192,
+      "readCPU": 14.199999809265137
+    },
+    "undoBefore": {
+      "undoCaptureLastMs": 54.89999985694885,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 1,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 25166944,
+      "drying": false,
+      "cancellations": 12,
+      "computations": 14,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 102,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "undoAt": 28811.400000095367,
+    "undoCPU": 71.59999990463257,
+    "firstUndoVisible": {
+      "ms": 144.89999985694885,
+      "changed": 192,
+      "readCPU": 23.299999952316284
+    },
+    "after": {
+      "undoCaptureLastMs": 54.89999985694885,
+      "undoRestoreLastMs": 44.200000047683716,
+      "undoCaptures": 1,
+      "undoHits": 1,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 12,
+      "computations": 15,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 100,
+          "ready": true,
+          "active": true
+        }
+      ]
+    }
+  },
+  "goal": {
+    "readMs": 8.699999809265137,
+    "bytes": 4194304,
+    "canonicalHash": "1fefd5413165e738326e65d76638099100c665ab1fbd89dabc8de1b057bce0fe",
+    "oracleHash": "1fefd5413165e738326e65d76638099100c665ab1fbd89dabc8de1b057bce0fe",
+    "changed": 0,
+    "max": 0,
+    "glError": 0
+  },
+  "pass": false,
+  "failure": "AssertionError [ERR_ASSERTION]: Cached Undo recomputed old goal\n\n15 !== 14\n\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/open-wet-undo-cost.cjs:7:1153",
+  "actualOperationsSHA": "c64ed331adb40f349a6c5a00dc9a67031a8f5605af8dc65d75c45ca23c08b970",
+  "acceptedOperationCount": 102,
+  "comparisonLimit": "Same pointer SPEC, distinct random stroke identities and per-device timing; exact equality checked against each own replay"
+}

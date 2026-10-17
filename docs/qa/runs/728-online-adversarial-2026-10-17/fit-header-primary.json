@@ -1,0 +1,302 @@
+{
+  "source": "f149b70a",
+  "cases": [
+    {
+      "name": "landscape-fit-between-actual-panels",
+      "viewport": {
+        "cx": 461.66668701171875,
+        "cy": 451,
+        "angle": 0,
+        "zoom": 0.7738194910685221
+      },
+      "locked": false,
+      "dimensions": {
+        "w": 768,
+        "h": 512
+      },
+      "corners": [
+        {
+          "x": 164.51999095320656,
+          "y": 252.90220515754376
+        },
+        {
+          "x": 758.8133778051523,
+          "y": 252.90220515754376
+        },
+        {
+          "x": 164.51999095320656,
+          "y": 649.0977963921742
+        },
+        {
+          "x": 758.8133778051523,
+          "y": 649.0977963921742
+        }
+      ],
+      "chrome": [
+        {
+          "edge": "top",
+          "hidden": false,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1100,
+            "height": 52,
+            "top": 0,
+            "right": 1100,
+            "bottom": 52,
+            "left": 0
+          }
+        },
+        {
+          "edge": "left",
+          "hidden": false,
+          "rect": {
+            "x": 0,
+            "y": 52,
+            "width": 62,
+            "height": 798,
+            "top": 52,
+            "right": 62,
+            "bottom": 850,
+            "left": 0
+          }
+        },
+        {
+          "edge": "left",
+          "hidden": false,
+          "rect": {
+            "x": 62,
+            "y": 52,
+            "width": 62,
+            "height": 798,
+            "top": 52,
+            "right": 124,
+            "bottom": 850,
+            "left": 62
+          }
+        },
+        {
+          "edge": "right",
+          "hidden": false,
+          "rect": {
+            "x": 799.3333740234375,
+            "y": 52,
+            "width": 300.66668701171875,
+            "height": 798,
+            "top": 52,
+            "right": 1100.0000610351562,
+            "bottom": 850,
+            "left": 799.3333740234375
+          }
+        }
+      ],
+      "screen": {
+        "w": 1100,
+        "h": 850
+      }
+    },
+    {
+      "name": "locked-quarter-turn-fit",
+      "viewport": {
+        "cx": 461.66668701171875,
+        "cy": 451,
+        "angle": 1.5707963267948966,
+        "zoom": 0.914375
+      },
+      "locked": true,
+      "dimensions": {
+        "w": 768,
+        "h": 512
+      },
+      "corners": [
+        {
+          "x": 695.7466913552685,
+          "y": 99.8799903106684
+        },
+        {
+          "x": 695.7466913552685,
+          "y": 802.1200112390474
+        },
+        {
+          "x": 227.5866774030401,
+          "y": 99.8799903106684
+        },
+        {
+          "x": 227.5866774030401,
+          "y": 802.1200112390474
+        }
+      ],
+      "chrome": [
+        {
+          "edge": "top",
+          "hidden": false,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1100,
+            "height": 52,
+            "top": 0,
+            "right": 1100,
+            "bottom": 52,
+            "left": 0
+          }
+        },
+        {
+          "edge": "left",
+          "hidden": false,
+          "rect": {
+            "x": 0,
+            "y": 52,
+            "width": 62,
+            "height": 798,
+            "top": 52,
+            "right": 62,
+            "bottom": 850,
+            "left": 0
+          }
+        },
+        {
+          "edge": "left",
+          "hidden": false,
+          "rect": {
+            "x": 62,
+            "y": 52,
+            "width": 62,
+            "height": 798,
+            "top": 52,
+            "right": 124,
+            "bottom": 850,
+            "left": 62
+          }
+        },
+        {
+          "edge": "right",
+          "hidden": false,
+          "rect": {
+            "x": 799.3333740234375,
+            "y": 52,
+            "width": 300.66668701171875,
+            "height": 798,
+            "top": 52,
+            "right": 1100.0000610351562,
+            "bottom": 850,
+            "left": 799.3333740234375
+          }
+        }
+      ],
+      "screen": {
+        "w": 1100,
+        "h": 850
+      }
+    }
+  ],
+  "errors": [],
+  "scope": "Actual Fit canvas geometry on a rectangular room, dock panels, rotation lock, minimal UI and compact viewport",
+  "identity": {
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "DPR": 1.0000000298023224,
+    "touch": 1,
+    "scope": "Desktop Chrome viewport/deviceType emulation; no native Samsung or phone performance claim"
+  },
+  "currentFit": {
+    "name": "locked-quarter-turn-fit",
+    "viewport": {
+      "cx": 461.66668701171875,
+      "cy": 451,
+      "angle": 1.5707963267948966,
+      "zoom": 0.914375
+    },
+    "locked": true,
+    "dimensions": {
+      "w": 768,
+      "h": 512
+    },
+    "corners": [
+      {
+        "x": 695.7466913552685,
+        "y": 99.8799903106684
+      },
+      {
+        "x": 695.7466913552685,
+        "y": 802.1200112390474
+      },
+      {
+        "x": 227.5866774030401,
+        "y": 99.8799903106684
+      },
+      {
+        "x": 227.5866774030401,
+        "y": 802.1200112390474
+      }
+    ],
+    "chrome": [
+      {
+        "edge": "top",
+        "hidden": false,
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 1100,
+          "height": 52,
+          "top": 0,
+          "right": 1100,
+          "bottom": 52,
+          "left": 0
+        }
+      },
+      {
+        "edge": "left",
+        "hidden": false,
+        "rect": {
+          "x": 0,
+          "y": 52,
+          "width": 62,
+          "height": 798,
+          "top": 52,
+          "right": 62,
+          "bottom": 850,
+          "left": 0
+        }
+      },
+      {
+        "edge": "left",
+        "hidden": false,
+        "rect": {
+          "x": 62,
+          "y": 52,
+          "width": 62,
+          "height": 798,
+          "top": 52,
+          "right": 124,
+          "bottom": 850,
+          "left": 62
+        }
+      },
+      {
+        "edge": "right",
+        "hidden": false,
+        "rect": {
+          "x": 799.3333740234375,
+          "y": 52,
+          "width": 300.66668701171875,
+          "height": 798,
+          "top": 52,
+          "right": 1100.0000610351562,
+          "bottom": 850,
+          "left": 799.3333740234375
+        }
+      }
+    ],
+    "screen": {
+      "w": 1100,
+      "h": 850
+    }
+  },
+  "pass": false,
+  "assessment": "Both primary geometry checks PASS on f149b70a: landscape between visible panels and locked 90-degree rotation respecting external header. Later minimal-UI touch-hide wait timed out in harness; no product classification, no relaxed corner tolerance. Compact stage not reached.",
+  "scopeResult": {
+    "geometryPass": true,
+    "minimalUi": "inconclusive harness wait",
+    "compact": "not reached"
+  }
+}

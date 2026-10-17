@@ -63,7 +63,7 @@ export function QuickSettingsBar({
   const selectionActive = settingsToolId === 'selection'
 
   return (
-    <aside className={clsx(
+    <aside data-canvas-fit-edge="left" data-canvas-fit-hidden={compact && uiHidden} className={clsx(
       styles.quickSettingsBar,
       uiHidden && (compact ? styles.uiHidden : styles.quickSettingsBarMinimal),
       styles.strokeBlockable,

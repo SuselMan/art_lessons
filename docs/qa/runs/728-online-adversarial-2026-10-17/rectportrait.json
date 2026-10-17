@@ -1,0 +1,220 @@
+{
+  "source": "b7c19950015a984a4ea224b02f5451d8b121f017",
+  "scope": "Rectangular single-tile M70: real far-edge visible pigment, foreign water, Dry undo/redo and actual/replay equality",
+  "cases": [
+    {
+      "name": "rectangular-far-edge-visible-before-up",
+      "held": "aHIlZT9o0m",
+      "point": {
+        "x": 256,
+        "y": 668
+      },
+      "visible": [
+        {
+          "actor": 0,
+          "changed": 432,
+          "max": 218
+        },
+        {
+          "actor": 1,
+          "changed": 432,
+          "max": 138
+        },
+        {
+          "actor": 2,
+          "changed": 432,
+          "max": 141
+        }
+      ]
+    },
+    {
+      "name": "rectangular-dry-full-actual-raster-equals-independent-replay",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-16ea009e-e4fc-4bb3-a68c-f6b4dfaa7c15",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "893f9239a757127b0bd8c75aab8a4dd0cfaf6a976c146b3525ac1d6d36eeb9c9",
+          "oracleHash": "893f9239a757127b0bd8c75aab8a4dd0cfaf6a976c146b3525ac1d6d36eeb9c9",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 6559,
+          "tiles": 1,
+          "bytes": 1572884,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-16ea009e-e4fc-4bb3-a68c-f6b4dfaa7c15",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "9c4c9c0531b2db330c7be6b6b0883d24ff0d3e4712dd8ca554fa8ad2a6ced16b",
+          "oracleHash": "9c4c9c0531b2db330c7be6b6b0883d24ff0d3e4712dd8ca554fa8ad2a6ced16b",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 6555,
+          "tiles": 1,
+          "bytes": 1572884,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-16ea009e-e4fc-4bb3-a68c-f6b4dfaa7c15",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "893f9239a757127b0bd8c75aab8a4dd0cfaf6a976c146b3525ac1d6d36eeb9c9",
+          "oracleHash": "893f9239a757127b0bd8c75aab8a4dd0cfaf6a976c146b3525ac1d6d36eeb9c9",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 6559,
+          "tiles": 1,
+          "bytes": 1572884,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "rectangular-redo-dry-actual-exact",
+      "proofs": [
+        {
+          "actor": 0,
+          "layerId": "qa-wet-erase-16ea009e-e4fc-4bb3-a68c-f6b4dfaa7c15",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "893f9239a757127b0bd8c75aab8a4dd0cfaf6a976c146b3525ac1d6d36eeb9c9",
+          "oracleHash": "893f9239a757127b0bd8c75aab8a4dd0cfaf6a976c146b3525ac1d6d36eeb9c9",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 6559,
+          "tiles": 1,
+          "bytes": 1572884,
+          "glError": 0
+        },
+        {
+          "actor": 1,
+          "layerId": "qa-wet-erase-16ea009e-e4fc-4bb3-a68c-f6b4dfaa7c15",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "9c4c9c0531b2db330c7be6b6b0883d24ff0d3e4712dd8ca554fa8ad2a6ced16b",
+          "oracleHash": "9c4c9c0531b2db330c7be6b6b0883d24ff0d3e4712dd8ca554fa8ad2a6ced16b",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 6555,
+          "tiles": 1,
+          "bytes": 1572884,
+          "glError": 0
+        },
+        {
+          "actor": 2,
+          "layerId": "qa-wet-erase-16ea009e-e4fc-4bb3-a68c-f6b4dfaa7c15",
+          "actualCapturedBeforeOracle": true,
+          "targetHash": "893f9239a757127b0bd8c75aab8a4dd0cfaf6a976c146b3525ac1d6d36eeb9c9",
+          "oracleHash": "893f9239a757127b0bd8c75aab8a4dd0cfaf6a976c146b3525ac1d6d36eeb9c9",
+          "targetChanged": 0,
+          "physicalChanged": 0,
+          "max": 0,
+          "nonzeroAlpha": 6559,
+          "tiles": 1,
+          "bytes": 1572884,
+          "glError": 0
+        }
+      ]
+    },
+    {
+      "name": "rectangular-layer-geometry-and-dry-undo-redo",
+      "undo": "f617b098-e044-4c34-b4c5-d0134342e875",
+      "redo": "f617b098-e044-4c34-b4c5-d0134342e875",
+      "geometry": [
+        [
+          {
+            "w": 512,
+            "h": 768,
+            "originX": 0,
+            "originY": 0
+          }
+        ],
+        [
+          {
+            "w": 512,
+            "h": 768,
+            "originX": 0,
+            "originY": 0
+          }
+        ],
+        [
+          {
+            "w": 512,
+            "h": 768,
+            "originX": 0,
+            "originY": 0
+          }
+        ]
+      ]
+    }
+  ],
+  "errors": [],
+  "identity": [
+    {
+      "user": "c64a102b-7362-4ebe-943f-207cae85e078",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 768
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "bc3adf5d-ad7e-4d54-8a6c-103a59ad4bf5",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 768
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "4f7076a6-104c-4dd0-8d60-e86f4c2d52fd",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 768
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "page": {
+    "w": 512,
+    "h": 768
+  },
+  "geometry": [
+    [
+      {
+        "w": 512,
+        "h": 768,
+        "originX": 0,
+        "originY": 0
+      }
+    ],
+    [
+      {
+        "w": 512,
+        "h": 768,
+        "originX": 0,
+        "originY": 0
+      }
+    ],
+    [
+      {
+        "w": 512,
+        "h": 768,
+        "originX": 0,
+        "originY": 0
+      }
+    ]
+  ],
+  "pass": true
+}

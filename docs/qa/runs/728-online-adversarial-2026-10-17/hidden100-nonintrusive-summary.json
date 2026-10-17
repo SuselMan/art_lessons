@@ -1,0 +1,139 @@
+{
+  "source": "ec218f98",
+  "defaultEnabled": false,
+  "inputSpecSHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
+  "order": [
+    "OFF2",
+    "ON2",
+    "ON3",
+    "OFF3"
+  ],
+  "scope": "Two counterbalanced nonintrusive pairs, one Intel Surface, 1024paper and100strokes; same workload spec but actual mottle/strokeIDs differ; no between-Undo-and-first-screenshot readPixels. All4 final physical targets exact against hiddenReplay OFF full replay.",
+  "rows": [
+    {
+      "case": "off2",
+      "enabled": false,
+      "inputSpecSHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
+      "actualInputSHA": "498ae8cc279c39e2039a92f50ae07944febbb3b9630a142004d7f492300c4d5c",
+      "pass": true,
+      "swapMs": 1304.3000001907349,
+      "undoCPUms": 23.300000190734863,
+      "screenshot": {
+        "requestAfterTriggerMs": 1148,
+        "completeAfterTriggerMs": 1765,
+        "changedChannels": 588,
+        "max": 178,
+        "meanRGB": [
+          245.88671875,
+          245.88671875,
+          245.88671875
+        ]
+      },
+      "finalTarget": {
+        "oracleHiddenReplay": false,
+        "liveLength": 4194324,
+        "targetLength": 4194324,
+        "changedChannels": 0,
+        "liveHash": "4b96f6fffd76e5b4b326a4a0d4ff13a711ac9f8f2271efb695c6775600872818",
+        "targetHash": "4b96f6fffd76e5b4b326a4a0d4ff13a711ac9f8f2271efb695c6775600872818",
+        "liveMatchesTarget": true
+      }
+    },
+    {
+      "case": "on2",
+      "enabled": true,
+      "inputSpecSHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
+      "actualInputSHA": "999f17605abf9bb15bc22f5bc0e3521e8a588c554fd93c68876e982bbea0575a",
+      "pass": true,
+      "swapMs": 1284,
+      "undoCPUms": 20.699999809265137,
+      "screenshot": {
+        "requestAfterTriggerMs": 1285,
+        "completeAfterTriggerMs": 2005,
+        "changedChannels": 587,
+        "max": 185,
+        "meanRGB": [
+          245.88671875,
+          245.88671875,
+          245.88671875
+        ]
+      },
+      "finalTarget": {
+        "oracleHiddenReplay": false,
+        "liveLength": 4194324,
+        "targetLength": 4194324,
+        "changedChannels": 0,
+        "liveHash": "630eb944372cf319ccbbfd3d3b4102aa0a9baa0dce34fe220ed5dcc2eda598c5",
+        "targetHash": "630eb944372cf319ccbbfd3d3b4102aa0a9baa0dce34fe220ed5dcc2eda598c5",
+        "liveMatchesTarget": true
+      }
+    },
+    {
+      "case": "on3",
+      "enabled": true,
+      "inputSpecSHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
+      "actualInputSHA": "6913196a26ca8d30236ee762d9d7f79a59a27bb24689566b4ab873e3ad1897aa",
+      "pass": true,
+      "swapMs": 1053.5,
+      "undoCPUms": 23.399999856948853,
+      "screenshot": {
+        "requestAfterTriggerMs": 1487,
+        "completeAfterTriggerMs": 1886,
+        "changedChannels": 588,
+        "max": 194,
+        "meanRGB": [
+          245.88671875,
+          245.88671875,
+          245.88671875
+        ]
+      },
+      "finalTarget": {
+        "oracleHiddenReplay": false,
+        "liveLength": 4194324,
+        "targetLength": 4194324,
+        "changedChannels": 0,
+        "liveHash": "bc251f6bc2ac2a4cae66246d93e4cdf43e2388dcc0cbd8044033972adf044ac5",
+        "targetHash": "bc251f6bc2ac2a4cae66246d93e4cdf43e2388dcc0cbd8044033972adf044ac5",
+        "liveMatchesTarget": true
+      }
+    },
+    {
+      "case": "off3",
+      "enabled": false,
+      "inputSpecSHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
+      "actualInputSHA": "1123d87c8b1d4f7f0e796fc400a3ecaa9c82a3d97d1cba4b8ff204278d434a8f",
+      "pass": true,
+      "swapMs": 1351.7999999523163,
+      "undoCPUms": 23.40000009536743,
+      "screenshot": {
+        "requestAfterTriggerMs": 1103,
+        "completeAfterTriggerMs": 2009,
+        "changedChannels": 587,
+        "max": 193,
+        "meanRGB": [
+          245.88671875,
+          245.88671875,
+          245.88671875
+        ]
+      },
+      "finalTarget": {
+        "oracleHiddenReplay": false,
+        "liveLength": 4194324,
+        "targetLength": 4194324,
+        "changedChannels": 0,
+        "liveHash": "08b76a92c83c4b224f91fb3b2872d7577ef650dc78de57a6acef6796c3a87265",
+        "targetHash": "08b76a92c83c4b224f91fb3b2872d7577ef650dc78de57a6acef6796c3a87265",
+        "liveMatchesTarget": true
+      }
+    }
+  ],
+  "medianSwapMs": {
+    "False": 1328.0500000715256,
+    "True": 1168.75
+  },
+  "medianScreenshotCompleteMs": {
+    "False": 1887.0,
+    "True": 1945.5
+  },
+  "assessment": "Internal swap median about12% lower with ON in n=2 per mode, but screenshot completion does not demonstrate user-visible improvement. Original singlepair29% not reproduced consistently; default stays OFF. No production performance fix claimed."
+}

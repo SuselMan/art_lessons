@@ -1,0 +1,230 @@
+{
+  "source": "e8e1f005",
+  "traceDiagnostic": true,
+  "enabled": false,
+  "scope": "Open wet Undo prototype cost; actual trusted pen event + natural screen-cache ROI; no forced presentation",
+  "errors": [],
+  "identity": [
+    {
+      "page": {
+        "w": 1024,
+        "h": 1024
+      },
+      "DPR": 1.5,
+      "touch": 1,
+      "budget": "Infinity",
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "prototypeField": true
+    },
+    {
+      "page": {
+        "w": 1024,
+        "h": 1024
+      },
+      "DPR": 1.5,
+      "touch": 1,
+      "budget": "Infinity",
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "prototypeField": true
+    }
+  ],
+  "spec": {
+    "prefix": 100,
+    "authors": 2,
+    "prefixDabs": 0,
+    "prefixInput": "manual engine pointer callbacks",
+    "blue": [
+      0.1,
+      0.25,
+      0.8
+    ],
+    "size": 32,
+    "water": 0.95,
+    "pigment": 0.34,
+    "moves": 4,
+    "deltaX": 4,
+    "lastRed": {
+      "x": 650,
+      "y": 650
+    },
+    "newGesture": {
+      "input": "trusted CDP pen",
+      "moves": 4,
+      "deltaXCSS": 3,
+      "force": 0.75
+    },
+    "DPR": 1.5,
+    "hasTouch": true
+  },
+  "specSHA": "3242b6ed5cedee9c907174969ae3dcc332068d3cb9983bbc53d5518e3442aee7",
+  "before": {
+    "point": {
+      "x": 541.757004337313,
+      "y": 531.0903173255941
+    },
+    "before": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 3,
+      "computations": 5,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 92,
+          "ready": true,
+          "active": true
+        }
+      ]
+    }
+  },
+  "metrics": {
+    "before": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 3,
+      "computations": 5,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 92,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "traceNoReadback": true,
+    "trace": [],
+    "downAt": 21824.399999976158,
+    "downCPU": 6.4000000059604645,
+    "afterDown": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 3,
+      "computations": 5,
+      "pending": true,
+      "revisions": [
+        {
+          "epoch": 93,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "undoBefore": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 3,
+      "computations": 6,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 93,
+          "ready": true,
+          "active": true
+        }
+      ]
+    },
+    "undoAt": 22894.399999976158,
+    "undoCPU": 5.600000023841858,
+    "swapMs": 480.40000000596046,
+    "swapCompleteMs": 480.5,
+    "idleCompleteMs": 981.3000000119209,
+    "readyDisplayMs": 996.6000000238419,
+    "readyDisplayCompleteMs": 996.8000000119209,
+    "idlePlusTwoRAFsMs": 1019.3000000119209,
+    "after": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 3,
+      "computations": 7,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 100,
+          "ready": true,
+          "active": true
+        }
+      ]
+    }
+  },
+  "goal": {
+    "readMs": 12.5,
+    "bytes": 4194304,
+    "canonicalHash": "9d6e021665209dd5de43fcf7ff2a718c027a9b698865425768e6e2637ed15b41",
+    "oracleHash": "9d6e021665209dd5de43fcf7ff2a718c027a9b698865425768e6e2637ed15b41",
+    "changed": 0,
+    "max": 0,
+    "glError": 0
+  },
+  "pass": true,
+  "synchronousErrors": [
+    [],
+    []
+  ],
+  "acceptedJournalSummary": {
+    "source": "e8e1f005",
+    "mode": "off",
+    "operations": 102,
+    "strokes": 101,
+    "tools": [
+      "watercolor"
+    ],
+    "presets": [
+      "normal:95:34:PB29:round:wc@m70-r2-v1"
+    ],
+    "keys": [
+      "id",
+      "seq",
+      "tool",
+      "type",
+      "color",
+      "preset",
+      "userId",
+      "washId",
+      "layerId",
+      "strokeId",
+      "timestamp",
+      "dabsPacked"
+    ],
+    "timestampMin": 1792205048648,
+    "timestampMax": 1792205054283,
+    "timestampSpanMs": 5635,
+    "sha": "bf9594e142c32700ce73516683797aa7b4e23843d5a5ca799e36cb5dd6872380"
+  },
+  "qualification": "Two AMD GPU authors; manual callback prefix100 then trusted101. ON ownership error happened before cache enable; OFF control passed. These runs do not establish cache causality. Existing report.goal is canonicalTiles goal before forced-OFF oracle, not a direct physical dry-raster claim."
+}

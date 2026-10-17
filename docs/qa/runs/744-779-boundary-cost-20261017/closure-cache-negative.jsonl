@@ -1,0 +1,3 @@
+{"source":"744-boundary-resolver-cost","independentPools":240,"entries":728,"samples":[{"ms":360.58,"waterOnly":240},{"ms":280.66,"waterOnly":240},{"ms":295.07,"waterOnly":240}]}
+{"source":"744-boundary-resolver-cost","independentPools":480,"entries":1448,"samples":[{"ms":1341.49,"waterOnly":480},{"ms":1406.26,"waterOnly":480},{"ms":1273.01,"waterOnly":480}]}
+{"source":"744-boundary-resolver-cost","independentPools":960,"entries":2888,"samples":[{"ms":5806.8,"waterOnly":960},{"ms":5410.21,"waterOnly":960},{"ms":5758.39,"waterOnly":960}]}

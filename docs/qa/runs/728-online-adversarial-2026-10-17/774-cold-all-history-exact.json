@@ -1,0 +1,146 @@
+{
+  "source": "81eb5d04",
+  "scope": "Cold snapshot-covered metadata: actual physical capture before explicit OFF independent replay; no requirement that covered old ops remain materialized in log",
+  "errors": [],
+  "history": {
+    "entries": [
+      {
+        "id": "8b44dfaf-84dd-4a74-90b7-813b2346de92",
+        "type": "layer_add",
+        "state": "done",
+        "serverSeq": 1
+      },
+      {
+        "id": "J8KXzy9ysb",
+        "type": "stroke",
+        "state": "done",
+        "serverSeq": 3
+      },
+      {
+        "id": "e8a5a23f-3a04-4dd8-8e07-5a257ee18af7",
+        "type": "paper_dry",
+        "state": "done",
+        "serverSeq": 4
+      },
+      {
+        "id": "68F50fqeAC",
+        "type": "stroke",
+        "state": "done",
+        "serverSeq": 5
+      },
+      {
+        "id": "ve9LsAM1Eh",
+        "type": "operation_undo",
+        "state": "done",
+        "serverSeq": 6
+      },
+      {
+        "id": "77vav0kprZ",
+        "type": "operation_redo",
+        "state": "done",
+        "serverSeq": 7
+      }
+    ],
+    "snapshotAudit": []
+  },
+  "actual": {
+    "layers": [
+      {
+        "layerId": "qa-held-snapshot-ecb5f526-d2b3-4cbd-808d-bbb61846640d",
+        "hash": "22914e143093a2228e0a564cda8a3bc978463637d778fb7be1dd3105c5b473e8",
+        "bytes": 1048596
+      }
+    ],
+    "puddle": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 2,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "restoreAudit": [],
+    "glError": 0
+  },
+  "absorb": {
+    "serverCount": 7,
+    "beforeIds": [
+      "8b44dfaf-84dd-4a74-90b7-813b2346de92",
+      "J8KXzy9ysb",
+      "e8a5a23f-3a04-4dd8-8e07-5a257ee18af7",
+      "68F50fqeAC",
+      "ve9LsAM1Eh",
+      "77vav0kprZ"
+    ],
+    "after": [
+      {
+        "id": "8b44dfaf-84dd-4a74-90b7-813b2346de92",
+        "state": "done",
+        "serverSeq": 1
+      },
+      {
+        "id": "1UU1nhkUEu",
+        "state": "done",
+        "serverSeq": 2
+      },
+      {
+        "id": "J8KXzy9ysb",
+        "state": "done",
+        "serverSeq": 3
+      },
+      {
+        "id": "e8a5a23f-3a04-4dd8-8e07-5a257ee18af7",
+        "state": "done",
+        "serverSeq": 4
+      },
+      {
+        "id": "68F50fqeAC",
+        "state": "done",
+        "serverSeq": 5
+      },
+      {
+        "id": "ve9LsAM1Eh",
+        "state": "done",
+        "serverSeq": 6
+      },
+      {
+        "id": "77vav0kprZ",
+        "state": "done",
+        "serverSeq": 7
+      }
+    ]
+  },
+  "proofs": [
+    {
+      "layer": "qa-held-snapshot-ecb5f526-d2b3-4cbd-808d-bbb61846640d",
+      "layerId": "qa-held-snapshot-ecb5f526-d2b3-4cbd-808d-bbb61846640d",
+      "sourceHiddenReplay": false,
+      "oracleHiddenReplay": false,
+      "actualCapturedBeforeOracle": true,
+      "targetHash": "22914e143093a2228e0a564cda8a3bc978463637d778fb7be1dd3105c5b473e8",
+      "oracleHash": "22914e143093a2228e0a564cda8a3bc978463637d778fb7be1dd3105c5b473e8",
+      "targetChanged": 0,
+      "physicalChanged": 0,
+      "max": 0,
+      "nonzeroAlpha": 4569,
+      "tiles": 1,
+      "bytes": 1048596,
+      "glError": 0
+    }
+  ],
+  "pass": true,
+  "interpretation": "All seven authoritative server operations absorbed only AFTER cold physical capture. Missing covered pencil metadata added; physical raster remained exact pre-cold Redo hash22914e; independent OFF full replay then exact. Earlier cold timeout/mismatch was an incomplete-history oracle limitation, not persistent image loss."
+}

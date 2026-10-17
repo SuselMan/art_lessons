@@ -1,0 +1,280 @@
+{
+  "strokes": 100,
+  "errors": [],
+  "scope": "Original100-stroke A-red then B-Dry then Undo input and original H-screenY readback unchanged; live read each RAF up to2s; no display/replay forced",
+  "instrumentationChange": "Only baseline RGB added from existing initial read. Prior incorrect correction was retracted after actual red bbox calibration",
+  "source": "ec218f98",
+  "hiddenReplay": true,
+  "identity": {
+    "model": "m70-r2-v1",
+    "gpuBudget": "Infinity",
+    "scratchHolding": false,
+    "touch": 10,
+    "deviceMemory": 8,
+    "DPR": 1.0000000298023224,
+    "page": {
+      "w": 1024,
+      "h": 1024
+    },
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "inputSpec": {
+    "canvas": 1024,
+    "count": 100,
+    "authors": 2,
+    "tool": "watercolor",
+    "water": 0.95,
+    "pigment": 0.34,
+    "size": 32,
+    "pressure": 0.75,
+    "moves": 4,
+    "deltaX": 4,
+    "blue": [
+      0.1,
+      0.25,
+      0.8
+    ],
+    "red": [
+      0.9,
+      0.05,
+      0.05
+    ],
+    "blueX": "480+(i%5)*5",
+    "blueY": "490+(i%3)*5",
+    "lastA": {
+      "x": 650,
+      "y": 650
+    },
+    "yield": "every3marks"
+  },
+  "inputSpecSHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
+  "seedWallMs": 7313,
+  "actualInputSHA": "bce9870783a6e05cc5d80384d9a799d6a2a677b65cad0e5ab00f3f965a043a22",
+  "baselineRGB": [
+    236.65234375,
+    136.59375,
+    134.6328125
+  ],
+  "firstObservedActualChange": {
+    "requestAfterTriggerMs": 1230,
+    "completeAfterTriggerMs": 2027,
+    "changedChannels": 585,
+    "max": 193,
+    "meanRGB": [
+      245.88671875,
+      245.88671875,
+      245.88671875
+    ]
+  },
+  "actorTimings": [
+    {
+      "origin": 1792197613045.9,
+      "undoCPU": 23,
+      "start": 31721.700000047684,
+      "meta": "u-LfMSDHPT",
+      "ack": 31928.2,
+      "arrival": 31728.1,
+      "readyDisplay": null,
+      "glErrors": [],
+      "cacheROI": {
+        "x": 541.7570040916368,
+        "y": 531.0903204873165,
+        "width": 8,
+        "height": 8
+      },
+      "cacheBaselineNonzero": true,
+      "cacheBaselineRGB": [
+        238.921875,
+        64.625,
+        64.625
+      ],
+      "cacheBaselineIsRed": true,
+      "pixelReadCount": 49,
+      "beforePuddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 0,
+        "residentLayers": 0,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 2,
+        "computations": 5,
+        "pending": false,
+        "revisions": []
+      },
+      "firstFramePuddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 0,
+        "residentLayers": 0,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 2,
+        "computations": 5,
+        "pending": false,
+        "revisions": []
+      },
+      "swapMs": 1212.6999998092651,
+      "firstCacheChangeMs": {
+        "at": 1705.1999998092651,
+        "readCPU": 154,
+        "changedChannels": 189,
+        "max": 200
+      },
+      "lastState": {
+        "pending": 0,
+        "jobs": 0,
+        "queue": 0,
+        "puddle": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 0,
+          "residentLayers": 0,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 2,
+          "computations": 6,
+          "pending": false,
+          "revisions": []
+        }
+      },
+      "preset": "normal:95:34:PB29:round",
+      "readyPuddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 0,
+        "residentLayers": 0,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 2,
+        "computations": 6,
+        "pending": false,
+        "revisions": []
+      },
+      "sampleSummary": {
+        "count": 123,
+        "first": {
+          "at": 31545.194,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        "last": {
+          "at": 34478.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        "maxGapMs": 333.5
+      }
+    },
+    {
+      "origin": 1792197624407.4,
+      "undoCPU": null,
+      "start": null,
+      "meta": "u-LfMSDHPT",
+      "ack": 20550,
+      "arrival": 20550,
+      "readyDisplay": null,
+      "glErrors": [],
+      "cacheROI": {
+        "x": 541.7570040916368,
+        "y": 531.0903204873165,
+        "width": 8,
+        "height": 8
+      },
+      "cacheBaselineNonzero": true,
+      "cacheBaselineRGB": [
+        238.921875,
+        64.625,
+        64.625
+      ],
+      "cacheBaselineIsRed": true,
+      "pixelReadCount": 0,
+      "lastState": {
+        "pending": 0,
+        "jobs": 0,
+        "queue": 0,
+        "puddle": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 0,
+          "residentLayers": 0,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 1,
+          "computations": 5,
+          "pending": false,
+          "revisions": []
+        }
+      },
+      "preset": "normal:95:34:PB29:round",
+      "readyPuddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 0,
+        "residentLayers": 0,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 1,
+        "computations": 5,
+        "pending": false,
+        "revisions": []
+      },
+      "sampleSummary": {
+        "count": 148,
+        "first": {
+          "at": 20259.046,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        "last": {
+          "at": 23183.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        "maxGapMs": 266.59999999999854
+      }
+    }
+  ],
+  "settledWallMs": 2945,
+  "target": {
+    "liveLength": 4194324,
+    "targetLength": 4194324,
+    "changedChannels": 0,
+    "liveHash": "54de84b1c522e2b35efc84c480c077a5eb916e11d3220b0fd5dda829d36b378b",
+    "targetHash": "54de84b1c522e2b35efc84c480c077a5eb916e11d3220b0fd5dda829d36b378b",
+    "liveMatchesTarget": true,
+    "oracleHiddenReplay": true
+  },
+  "pass": true,
+  "assessment": "Single pair on one Intel device with intrusive 8x8 natural-screen-cache polling each RAF until firstchange; same original100 SPEC, random actual stroke identities differ. Each final physical target equals own fullReplay. Swap is submission/rebuild boundary, screenshot completion includes CDP/SSH transport. Legacy readyDisplay remains null, no invented ready timing. CORRECTION: pair1 ON fullReplay inherited hiddenReplay ON. It proves own ON replay consistency, not OFF-baseline art equality. Timing remains valid; following pairs explicitly force oracle OFF."
+}

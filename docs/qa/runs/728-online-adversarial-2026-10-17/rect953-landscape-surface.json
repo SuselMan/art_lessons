@@ -1,0 +1,82 @@
+{
+  "source": "f6e407cb33a6f6fff1aadcb2ffaba7800b0a05d1",
+  "inputSHA": "64e52d474f03e81df69e09a588415a128f541e6c8565caaf22dd9e745239a6ba",
+  "identity": {
+    "model": "m70-r2-v1",
+    "page": {
+      "w": 768,
+      "h": 512
+    },
+    "DPR": 1.0000000298023224,
+    "gpuBudget": "Infinity",
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "dither": true,
+    "earlyContexts": [
+      {
+        "kind": "webgl",
+        "before": true,
+        "after": true,
+        "at": 2763.2999999523163
+      },
+      {
+        "kind": "webgl",
+        "before": true,
+        "after": true,
+        "at": 7878
+      },
+      {
+        "kind": "webgl",
+        "before": true,
+        "after": true,
+        "at": 7885
+      },
+      {
+        "kind": "webgl",
+        "before": true,
+        "after": true,
+        "at": 9530.599999904633
+      }
+    ],
+    "initialOperations": 0
+  },
+  "target": {
+    "length": 1572884,
+    "hash": "a1c0a6a8c24bc415a5c34e294bafb15e0cacf5400cd571d9ec2666e78c9ec9e9",
+    "dither": true,
+    "glError": 0,
+    "journal": [
+      {
+        "id": "d9690338-a383-4f36-8825-6ef05a81f8ac",
+        "type": "layer_add",
+        "state": "done"
+      },
+      {
+        "id": "8ZVUKu5aca",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "vLWr6ysgO8",
+        "type": "stroke",
+        "state": "done"
+      },
+      {
+        "id": "b5839d73-a9f1-406d-8add-77d798798963",
+        "type": "paper_dry",
+        "state": "done"
+      },
+      {
+        "id": "PCn1_Qj-by",
+        "type": "operation_undo",
+        "state": "done"
+      },
+      {
+        "id": "eX6V3ISdX2",
+        "type": "operation_redo",
+        "state": "done"
+      }
+    ]
+  },
+  "errors": [],
+  "pass": true
+}

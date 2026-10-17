@@ -1,0 +1,326 @@
+{
+  "source": "f6a27f987c1ea63ce3924b4d541b5a32e0f391b7",
+  "issue790": "Configuration/model-selection part verified after ENV fix; overall native gate interrupted by separate same-GPU live material mismatch956channels",
+  "liveModelSelection": {
+    "source": "f6a27f98",
+    "scope": "Fresh2boards; actual child URL canonicalization and UI turn; runtime and accepted authoring model; cold root URL WITHOUT qaModel uses fixed dedicated M70 service fallback",
+    "cases": [
+      "child-entry-canonicalization-runtime-and-new-preset-M70"
+    ],
+    "errors": [],
+    "entry": {
+      "board": "fa1a8d8e-f184-41b9-836e-f66ec0b06423",
+      "pathname": "/room/qa-undo-v1-fe8f48d5-a592-4719-9876-5df1453ef9c3",
+      "search": "",
+      "model": "m70-r2-v1",
+      "asyncFinish": false,
+      "cache": false,
+      "hidden": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)"
+    },
+    "servedFallbackOptions": {
+      "joinedTouch": false,
+      "asyncFinish": false,
+      "watercolorReview": true,
+      "watercolorModel": "m70-r2-v1",
+      "materialPresentation": false
+    },
+    "beforeTurn": {
+      "identity": {
+        "board": "fa1a8d8e-f184-41b9-836e-f66ec0b06423",
+        "pathname": "/room/qa-undo-v1-fe8f48d5-a592-4719-9876-5df1453ef9c3",
+        "search": "",
+        "model": "m70-r2-v1",
+        "asyncFinish": false,
+        "cache": false,
+        "hidden": false,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)"
+      },
+      "stroke": "XJWDOIJdFP",
+      "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+      "operations": 3,
+      "proof": {
+        "layerId": "qa-model-B-067b7017-9cb6-436b-85cd-e3cc2706d9cd",
+        "sourceHiddenReplay": false,
+        "oracleHiddenReplay": false,
+        "actualCapturedBeforeOracle": true,
+        "targetHash": "4170db9f6919b825d4ebbc6c51342bf7dd43c9e8ebf710036c2dd600f31d6a73",
+        "oracleHash": "4170db9f6919b825d4ebbc6c51342bf7dd43c9e8ebf710036c2dd600f31d6a73",
+        "targetChanged": 0,
+        "physicalChanged": 0,
+        "max": 0,
+        "nonzeroAlpha": 876,
+        "tiles": 1,
+        "bytes": 1048596,
+        "glError": 0
+      }
+    },
+    "afterTurnIdentity": {
+      "board": "qa-undo-v1-fe8f48d5-a592-4719-9876-5df1453ef9c3",
+      "pathname": "/room/qa-undo-v1-fe8f48d5-a592-4719-9876-5df1453ef9c3",
+      "search": "",
+      "model": "m70-r2-v1",
+      "asyncFinish": false,
+      "cache": false,
+      "hidden": false,
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)"
+    },
+    "pass": false,
+    "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n956 !== 0\n\n    at draw (/home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/790-model-navigation.cjs:5:2193)\n    at async /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/790-model-navigation.cjs:6:784",
+    "failureIdentity": {
+      "search": "",
+      "model": "m70-r2-v1",
+      "board": "qa-undo-v1-fe8f48d5-a592-4719-9876-5df1453ef9c3"
+    }
+  },
+  "acceptedA": [
+    {
+      "id": "6c5f7422-401f-4c69-b0f9-b2396532e587",
+      "seq": 1,
+      "name": "M70 navigation witness",
+      "type": "layer_add",
+      "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+      "layerId": "qa-model-A-b225ec75-d815-4203-8774-d485d5771bff",
+      "timestamp": 1792210295705
+    },
+    {
+      "id": "Krbv77fXSw",
+      "seq": 2,
+      "tool": "watercolor",
+      "type": "stroke",
+      "color": [
+        0.1,
+        0.25,
+        0.8
+      ],
+      "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+      "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+      "washId": "m70:qa-model-A-b225ec75-d815-4203-8774-d485d5771bff",
+      "layerId": "qa-model-A-b225ec75-d815-4203-8774-d485d5771bff",
+      "strokeId": "e8lE_V6eUn",
+      "timestamp": 1792210297141,
+      "dabsPacked": "1://9bQwAAXEMAAEA/AAAAAAAAAABMvJ9BAACAPwAAAACkcH0/AAAAADwKY0MAAFxDAABAPwAAAAAAAAAA29rdQQAAgD8AAAAApHB9P80MzUN6FGpDAABcQwAAQD8AAAAAAAAAANva3UEAAIA/AAAAAKRwfT8zs/9DJzNtQwAAXEPD9Sg9AAAAAAAAAACQWb9BAACAPwAAAACkcH0/AIAZRNVRcEMAAFxDrkfhPAAAAAAAAAAARdigQQAAgD8AAAAApHB9PwCAGUSCcHNDAABcQ65HYTwAAAAAAAAAAPpWgkEAAIA/AAAAAKRwfT8AgBlEMI92QwAAXEMAAAAAAAAAAAAAAABeq0dBAACAPwAAAACkcH0/AIAZRA=="
+    },
+    {
+      "id": "27997e7c-f324-4f31-a169-0f947e07d636",
+      "seq": 3,
+      "type": "paper_dry",
+      "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+      "layerId": "qa-model-A-b225ec75-d815-4203-8774-d485d5771bff",
+      "timestamp": 1792210297957
+    }
+  ],
+  "acceptedB": [
+    {
+      "id": "f9743ed0-4830-45bc-bbf5-6933a81fb4aa",
+      "seq": 1,
+      "name": "M70 navigation witness",
+      "type": "layer_add",
+      "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+      "layerId": "qa-model-B-067b7017-9cb6-436b-85cd-e3cc2706d9cd",
+      "timestamp": 1792210288462
+    },
+    {
+      "id": "sRc03Ggo7V",
+      "seq": 2,
+      "tool": "watercolor",
+      "type": "stroke",
+      "color": [
+        0.1,
+        0.25,
+        0.8
+      ],
+      "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+      "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+      "washId": "m70:qa-model-B-067b7017-9cb6-436b-85cd-e3cc2706d9cd",
+      "layerId": "qa-model-B-067b7017-9cb6-436b-85cd-e3cc2706d9cd",
+      "strokeId": "XJWDOIJdFP",
+      "timestamp": 1792210289877,
+      "dabsPacked": "1://9bQwAAXEMAAEA/AAAAAAAAAABMvJ9BAACAPwAAAACkcH0/AAAAADwKY0MAAFxDAABAPwAAAAAAAAAA29rdQQAAgD8AAAAApHB9PwAAmUN6FGpDAABcQwAAQD8AAAAAAAAAANva3UEAAIA/AAAAAKRwfT/NLABEJzNtQwAAXEPD9Sg9AAAAAAAAAACQWb9BAACAPwAAAACkcH0/AKAaRNVRcEMAAFxDrkfhPAAAAAAAAAAARdigQQAAgD8AAAAApHB9PwCgGkSCcHNDAABcQ65HYTwAAAAAAAAAAPpWgkEAAIA/AAAAAKRwfT8AoBpEMI92QwAAXEMAAAAAAAAAAAAAAABeq0dBAACAPwAAAACkcH0/AKAaRA=="
+    },
+    {
+      "id": "cd648467-90f8-433f-b138-ec0bc75c8b71",
+      "seq": 3,
+      "type": "paper_dry",
+      "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+      "layerId": "qa-model-B-067b7017-9cb6-436b-85cd-e3cc2706d9cd",
+      "timestamp": 1792210290585
+    }
+  ],
+  "acceptedASHA": "c1db869e581f07b34c2f7cd8fa8158d479fc6fe777317fcf8ee7b982b8baeef8",
+  "acceptedBSHA": "e72488476a3db0fae9030893f12ebfb23cd7c955f49c6248527a22824a97ae66",
+  "coldReadonlyA": {
+    "source": "f6a27f98",
+    "scope": "Readonly retained A exact API/local material parity; complete production backfill; no absorb, repair, presentation forcing or authoring",
+    "errors": [],
+    "acceptedApi": [
+      {
+        "id": "6c5f7422-401f-4c69-b0f9-b2396532e587",
+        "seq": 1,
+        "name": "M70 navigation witness",
+        "type": "layer_add",
+        "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+        "layerId": "qa-model-A-b225ec75-d815-4203-8774-d485d5771bff",
+        "timestamp": 1792210295705
+      },
+      {
+        "id": "Krbv77fXSw",
+        "seq": 2,
+        "tool": "watercolor",
+        "type": "stroke",
+        "color": [
+          0.1,
+          0.25,
+          0.8
+        ],
+        "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+        "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+        "washId": "m70:qa-model-A-b225ec75-d815-4203-8774-d485d5771bff",
+        "layerId": "qa-model-A-b225ec75-d815-4203-8774-d485d5771bff",
+        "strokeId": "e8lE_V6eUn",
+        "timestamp": 1792210297141,
+        "dabsPacked": "1://9bQwAAXEMAAEA/AAAAAAAAAABMvJ9BAACAPwAAAACkcH0/AAAAADwKY0MAAFxDAABAPwAAAAAAAAAA29rdQQAAgD8AAAAApHB9P80MzUN6FGpDAABcQwAAQD8AAAAAAAAAANva3UEAAIA/AAAAAKRwfT8zs/9DJzNtQwAAXEPD9Sg9AAAAAAAAAACQWb9BAACAPwAAAACkcH0/AIAZRNVRcEMAAFxDrkfhPAAAAAAAAAAARdigQQAAgD8AAAAApHB9PwCAGUSCcHNDAABcQ65HYTwAAAAAAAAAAPpWgkEAAIA/AAAAAKRwfT8AgBlEMI92QwAAXEMAAAAAAAAAAAAAAABeq0dBAACAPwAAAACkcH0/AIAZRA=="
+      },
+      {
+        "id": "27997e7c-f324-4f31-a169-0f947e07d636",
+        "seq": 3,
+        "type": "paper_dry",
+        "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+        "layerId": "qa-model-A-b225ec75-d815-4203-8774-d485d5771bff",
+        "timestamp": 1792210297957
+      }
+    ],
+    "actualBeforeOracle": true,
+    "actualHash": "890868ab8e9065105fbdc4aa5c9d312a82b9aa3467afe930328c0cfbce90e21b",
+    "paper": {
+      "w": 512,
+      "h": 512
+    },
+    "canvas": {
+      "w": 1600,
+      "h": 1000
+    },
+    "identity": {
+      "model": "m70-r2-v1",
+      "asyncFinish": false,
+      "cache": false,
+      "hidden": false,
+      "joinedTouch": false,
+      "materialPresentation": false,
+      "solverBatchMax": 4,
+      "splitQuanta": false,
+      "bandBatch": true
+    },
+    "idle": {
+      "locked": false,
+      "unsettled": [],
+      "pending": [],
+      "jobs": 0,
+      "queue": 0,
+      "pendingCanonical": false,
+      "pendingDry": false,
+      "puddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 1,
+        "residentLayers": 1,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 1,
+        "computations": 2,
+        "pending": false,
+        "revisions": [
+          {
+            "epoch": 1,
+            "ready": false,
+            "active": false
+          }
+        ]
+      }
+    },
+    "coverage": [],
+    "checkpoints": [
+      {
+        "layerId": "qa-model-A-b225ec75-d815-4203-8774-d485d5771bff",
+        "opIds": [
+          "Krbv77fXSw"
+        ]
+      }
+    ],
+    "local": [
+      {
+        "op": {
+          "id": "6c5f7422-401f-4c69-b0f9-b2396532e587",
+          "seq": 0,
+          "name": "M70 navigation witness",
+          "type": "layer_add",
+          "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+          "layerId": "qa-model-A-b225ec75-d815-4203-8774-d485d5771bff",
+          "timestamp": 1792210295705
+        },
+        "state": "done",
+        "seq": 1
+      },
+      {
+        "op": {
+          "id": "Krbv77fXSw",
+          "seq": 1,
+          "tool": "watercolor",
+          "type": "stroke",
+          "color": [
+            0.1,
+            0.25,
+            0.8
+          ],
+          "preset": "normal:95:34:PB29:round:wc@m70-r2-v1",
+          "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+          "washId": "m70:qa-model-A-b225ec75-d815-4203-8774-d485d5771bff",
+          "layerId": "qa-model-A-b225ec75-d815-4203-8774-d485d5771bff",
+          "strokeId": "e8lE_V6eUn",
+          "timestamp": 1792210297141,
+          "dabsPacked": "1://9bQwAAXEMAAEA/AAAAAAAAAABMvJ9BAACAPwAAAACkcH0/AAAAADwKY0MAAFxDAABAPwAAAAAAAAAA29rdQQAAgD8AAAAApHB9P80MzUN6FGpDAABcQwAAQD8AAAAAAAAAANva3UEAAIA/AAAAAKRwfT8zs/9DJzNtQwAAXEPD9Sg9AAAAAAAAAACQWb9BAACAPwAAAACkcH0/AIAZRNVRcEMAAFxDrkfhPAAAAAAAAAAARdigQQAAgD8AAAAApHB9PwCAGUSCcHNDAABcQ65HYTwAAAAAAAAAAPpWgkEAAIA/AAAAAKRwfT8AgBlEMI92QwAAXEMAAAAAAAAAAAAAAABeq0dBAACAPwAAAACkcH0/AIAZRA=="
+        },
+        "state": "done",
+        "seq": 2
+      },
+      {
+        "op": {
+          "id": "27997e7c-f324-4f31-a169-0f947e07d636",
+          "seq": 2,
+          "type": "paper_dry",
+          "userId": "843b5fc2-eed0-4089-b867-bf842dc4f88b",
+          "layerId": "qa-model-A-b225ec75-d815-4203-8774-d485d5771bff",
+          "timestamp": 1792210297957
+        },
+        "state": "done",
+        "seq": 3
+      }
+    ],
+    "fields": {},
+    "timeAgeMs": 171862,
+    "oracleHash": "890868ab8e9065105fbdc4aa5c9d312a82b9aa3467afe930328c0cfbce90e21b",
+    "changedChannels": 0,
+    "max": 0,
+    "glError": 0,
+    "apiContentSHA": "395da56ec9284b4557327ff7f3d82c7905b1e6228591dda6aeb3c861f8d0005c",
+    "localContentSHA": "395da56ec9284b4557327ff7f3d82c7905b1e6228591dda6aeb3c861f8d0005c",
+    "pass": true,
+    "snapshotIndex": null,
+    "puddleSource": null,
+    "sourceFullSHA": "f6a27f987c1ea63ce3924b4d541b5a32e0f391b7"
+  },
+  "qualifications": [
+    "Live A956channels assertion was recorded, but initial draw helper failed to preserve live actual/oracle hashes or raw before assertion; no fabricated reconstruction.",
+    "Retained cold A has exact full API/local content, empty coverage and no snapshot, strict idle, flagsOFF; actual and own independent replay exact.",
+    "Float64 live vs recorded Float32 is an RCA candidate from readonly code, not established causal result.",
+    "Original fresh2board lesson and owner auth are retained for root-approved RCA; root annotation fixture untouched."
+  ],
+  "remainingResources": [
+    "Retained790 owned2board fixture/auth",
+    "Owned Vega Chrome566309/profile/19333",
+    "Registered diagnostic cache including cold actual/oracle encoded raw; no active owned browser context"
+  ]
+}

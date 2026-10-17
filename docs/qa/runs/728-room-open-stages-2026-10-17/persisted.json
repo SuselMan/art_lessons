@@ -1,0 +1,668 @@
+{
+  "scope": "Read-only exact9knownQAroom/board IDs only, no user/device identifiers or auth; persisted UI timer begins at join submission.",
+  "importantLimits": [
+    "Original100 benchmarks create empty room and seed100 AFTER entry: these open metrics measure EMPTY-room entry, not100stroke load.",
+    "Annotation roomId may be rewritten to shared lesson/root URL. Platform identifies Linux vs Windows but mode/deviceGPU is not stored in RoomOpenMeasurement; do not infer per-row mode without joined actor timestamps.",
+    "earlyReviewImage latches are independent document-clock observations, not ready latency.",
+    "Rows include repeated QA attempts from same knownfixture; no filtering to newest only."
+  ],
+  "groups": [
+    {
+      "case": "hidden100-off",
+      "expectedDevice": "Surface",
+      "room": "qa-undo-v1-41b0b77d-3c74-494d-adee-529531f6150c",
+      "measurements": [
+        {
+          "roomId": "qa-undo-v1-41b0b77d-3c74-494d-adee-529531f6150c",
+          "createdAt": "2026-10-17T00:38:54.405Z",
+          "totalMs": 587,
+          "joinMs": 422,
+          "paperMs": 162,
+          "snapshotMs": 0,
+          "replayMs": 3,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "windows",
+          "browser": "Chrome 155",
+          "deviceType": "tablet"
+        },
+        {
+          "roomId": "qa-undo-v1-41b0b77d-3c74-494d-adee-529531f6150c",
+          "createdAt": "2026-10-17T00:39:49.748Z",
+          "totalMs": 511,
+          "joinMs": 335,
+          "paperMs": 174,
+          "snapshotMs": 0,
+          "replayMs": 2,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "windows",
+          "browser": "Chrome 155",
+          "deviceType": "tablet"
+        }
+      ]
+    },
+    {
+      "case": "hidden100-on",
+      "expectedDevice": "Surface",
+      "room": "qa-undo-v1-4b275b57-23f3-4abd-a77f-842b6b31fcdb",
+      "measurements": [
+        {
+          "roomId": "qa-undo-v1-4b275b57-23f3-4abd-a77f-842b6b31fcdb",
+          "createdAt": "2026-10-17T00:40:22.755Z",
+          "totalMs": 584,
+          "joinMs": 402,
+          "paperMs": 181,
+          "snapshotMs": 0,
+          "replayMs": 2,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "windows",
+          "browser": "Chrome 155",
+          "deviceType": "tablet"
+        },
+        {
+          "roomId": "qa-undo-v1-4b275b57-23f3-4abd-a77f-842b6b31fcdb",
+          "createdAt": "2026-10-17T00:40:34.009Z",
+          "totalMs": 413,
+          "joinMs": 263,
+          "paperMs": 149,
+          "snapshotMs": 0,
+          "replayMs": 1,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "windows",
+          "browser": "Chrome 155",
+          "deviceType": "tablet"
+        }
+      ]
+    },
+    {
+      "case": "hidden100-off2",
+      "expectedDevice": "Surface",
+      "room": "qa-undo-v1-a11c7b33-4fbb-4a7a-ab67-ee7dac8f202d",
+      "measurements": [
+        {
+          "roomId": "qa-undo-v1-a11c7b33-4fbb-4a7a-ab67-ee7dac8f202d",
+          "createdAt": "2026-10-17T00:55:55.972Z",
+          "totalMs": 573,
+          "joinMs": 414,
+          "paperMs": 157,
+          "snapshotMs": 0,
+          "replayMs": 2,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "windows",
+          "browser": "Chrome 155",
+          "deviceType": "tablet"
+        },
+        {
+          "roomId": "qa-undo-v1-a11c7b33-4fbb-4a7a-ab67-ee7dac8f202d",
+          "createdAt": "2026-10-17T00:56:07.118Z",
+          "totalMs": 520,
+          "joinMs": 363,
+          "paperMs": 156,
+          "snapshotMs": 0,
+          "replayMs": 2,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "windows",
+          "browser": "Chrome 155",
+          "deviceType": "tablet"
+        }
+      ]
+    },
+    {
+      "case": "hidden100-on2",
+      "expectedDevice": "Surface",
+      "room": "qa-undo-v1-4ce7938a-2d83-43d7-89c3-a2d53c1cd4c9",
+      "measurements": [
+        {
+          "roomId": "qa-undo-v1-4ce7938a-2d83-43d7-89c3-a2d53c1cd4c9",
+          "createdAt": "2026-10-17T00:56:33.392Z",
+          "totalMs": 556,
+          "joinMs": 384,
+          "paperMs": 171,
+          "snapshotMs": 0,
+          "replayMs": 2,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "windows",
+          "browser": "Chrome 155",
+          "deviceType": "tablet"
+        },
+        {
+          "roomId": "qa-undo-v1-4ce7938a-2d83-43d7-89c3-a2d53c1cd4c9",
+          "createdAt": "2026-10-17T00:56:44.522Z",
+          "totalMs": 471,
+          "joinMs": 329,
+          "paperMs": 140,
+          "snapshotMs": 0,
+          "replayMs": 1,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "windows",
+          "browser": "Chrome 155",
+          "deviceType": "tablet"
+        }
+      ]
+    },
+    {
+      "case": "hidden100-off3",
+      "expectedDevice": "Surface",
+      "room": "qa-undo-v1-a8b6f1d6-c90a-4ab4-af26-3bd4aefdd15b",
+      "measurements": [
+        {
+          "roomId": "qa-undo-v1-a8b6f1d6-c90a-4ab4-af26-3bd4aefdd15b",
+          "createdAt": "2026-10-17T00:57:49.627Z",
+          "totalMs": 584,
+          "joinMs": 387,
+          "paperMs": 195,
+          "snapshotMs": 0,
+          "replayMs": 1,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "windows",
+          "browser": "Chrome 155",
+          "deviceType": "tablet"
+        },
+        {
+          "roomId": "qa-undo-v1-a8b6f1d6-c90a-4ab4-af26-3bd4aefdd15b",
+          "createdAt": "2026-10-17T00:58:00.791Z",
+          "totalMs": 454,
+          "joinMs": 297,
+          "paperMs": 155,
+          "snapshotMs": 0,
+          "replayMs": 2,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "windows",
+          "browser": "Chrome 155",
+          "deviceType": "tablet"
+        }
+      ]
+    },
+    {
+      "case": "hidden100-on3",
+      "expectedDevice": "Surface",
+      "room": "qa-undo-v1-1cb6afb2-9e8d-4a6e-9329-8a1f9239db62",
+      "measurements": [
+        {
+          "roomId": "qa-undo-v1-1cb6afb2-9e8d-4a6e-9329-8a1f9239db62",
+          "createdAt": "2026-10-17T00:57:11.088Z",
+          "totalMs": 523,
+          "joinMs": 353,
+          "paperMs": 169,
+          "snapshotMs": 0,
+          "replayMs": 1,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "windows",
+          "browser": "Chrome 155",
+          "deviceType": "tablet"
+        },
+        {
+          "roomId": "qa-undo-v1-1cb6afb2-9e8d-4a6e-9329-8a1f9239db62",
+          "createdAt": "2026-10-17T00:57:23.212Z",
+          "totalMs": 442,
+          "joinMs": 311,
+          "paperMs": 129,
+          "snapshotMs": 0,
+          "replayMs": 1,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "windows",
+          "browser": "Chrome 155",
+          "deviceType": "tablet"
+        }
+      ]
+    },
+    {
+      "case": "annotation-board-0",
+      "expectedDevice": "derive from platform; repeated actors share lesson URL",
+      "room": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+      "measurements": [
+        {
+          "roomId": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+          "createdAt": "2026-10-17T00:41:42.772Z",
+          "totalMs": 249,
+          "joinMs": 191,
+          "paperMs": 57,
+          "snapshotMs": 0,
+          "replayMs": 1,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "linux",
+          "browser": "Chrome 155",
+          "deviceType": "desktop"
+        },
+        {
+          "roomId": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+          "createdAt": "2026-10-17T00:42:25.064Z",
+          "totalMs": 238,
+          "joinMs": 166,
+          "paperMs": 44,
+          "snapshotMs": 0,
+          "replayMs": 28,
+          "reached": "replay",
+          "facts": {
+            "layers": 3,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 3,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "linux",
+          "browser": "Chrome 155",
+          "deviceType": "desktop"
+        },
+        {
+          "roomId": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+          "createdAt": "2026-10-17T00:44:02.829Z",
+          "totalMs": 578,
+          "joinMs": 259,
+          "paperMs": 58,
+          "snapshotMs": 260,
+          "replayMs": 1,
+          "reached": "replay",
+          "facts": {
+            "layers": 3,
+            "latestSeq": 0,
+            "snapshotSeq": 3,
+            "tailOperations": 1,
+            "restoredFromSnapshot": true
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "linux",
+          "browser": "Chrome 155",
+          "deviceType": "desktop"
+        },
+        {
+          "roomId": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+          "createdAt": "2026-10-17T00:44:56.552Z",
+          "totalMs": 536,
+          "joinMs": 183,
+          "paperMs": 52,
+          "snapshotMs": 300,
+          "replayMs": 1,
+          "reached": "replay",
+          "facts": {
+            "layers": 3,
+            "latestSeq": 0,
+            "snapshotSeq": 3,
+            "tailOperations": 1,
+            "restoredFromSnapshot": true
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "linux",
+          "browser": "Chrome 155",
+          "deviceType": "desktop"
+        },
+        {
+          "roomId": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+          "createdAt": "2026-10-17T00:45:17.985Z",
+          "totalMs": 467,
+          "joinMs": 183,
+          "paperMs": 55,
+          "snapshotMs": 227,
+          "replayMs": 2,
+          "reached": "replay",
+          "facts": {
+            "layers": 3,
+            "latestSeq": 0,
+            "snapshotSeq": 3,
+            "tailOperations": 1,
+            "restoredFromSnapshot": true
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "linux",
+          "browser": "Chrome 155",
+          "deviceType": "desktop"
+        },
+        {
+          "roomId": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+          "createdAt": "2026-10-17T00:46:43.746Z",
+          "totalMs": 626,
+          "joinMs": 184,
+          "paperMs": 53,
+          "snapshotMs": 388,
+          "replayMs": 1,
+          "reached": "replay",
+          "facts": {
+            "layers": 3,
+            "latestSeq": 0,
+            "snapshotSeq": 3,
+            "tailOperations": 1,
+            "restoredFromSnapshot": true
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "linux",
+          "browser": "Chrome 155",
+          "deviceType": "desktop"
+        },
+        {
+          "roomId": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+          "createdAt": "2026-10-17T00:46:53.317Z",
+          "totalMs": 943,
+          "joinMs": 404,
+          "paperMs": 195,
+          "snapshotMs": 340,
+          "replayMs": 4,
+          "reached": "replay",
+          "facts": {
+            "layers": 3,
+            "latestSeq": 0,
+            "snapshotSeq": 3,
+            "tailOperations": 1,
+            "restoredFromSnapshot": true
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "windows",
+          "browser": "Chrome 155",
+          "deviceType": "tablet"
+        },
+        {
+          "roomId": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+          "createdAt": "2026-10-17T00:47:05.330Z",
+          "totalMs": 594,
+          "joinMs": 190,
+          "paperMs": 57,
+          "snapshotMs": 345,
+          "replayMs": 3,
+          "reached": "replay",
+          "facts": {
+            "layers": 3,
+            "latestSeq": 0,
+            "snapshotSeq": 3,
+            "tailOperations": 4,
+            "restoredFromSnapshot": true
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "linux",
+          "browser": "Chrome 155",
+          "deviceType": "desktop"
+        },
+        {
+          "roomId": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+          "createdAt": "2026-10-17T00:48:52.753Z",
+          "totalMs": 683,
+          "joinMs": 186,
+          "paperMs": 57,
+          "snapshotMs": 390,
+          "replayMs": 51,
+          "reached": "replay",
+          "facts": {
+            "layers": 3,
+            "latestSeq": 0,
+            "snapshotSeq": 3,
+            "tailOperations": 5,
+            "restoredFromSnapshot": true
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "linux",
+          "browser": "Chrome 155",
+          "deviceType": "desktop"
+        },
+        {
+          "roomId": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+          "createdAt": "2026-10-17T00:49:02.506Z",
+          "totalMs": 632,
+          "joinMs": 121,
+          "paperMs": 43,
+          "snapshotMs": 356,
+          "replayMs": 112,
+          "reached": "replay",
+          "facts": {
+            "layers": 3,
+            "latestSeq": 0,
+            "snapshotSeq": 3,
+            "tailOperations": 5,
+            "restoredFromSnapshot": true
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "linux",
+          "browser": "Chrome 155",
+          "deviceType": "desktop"
+        }
+      ]
+    },
+    {
+      "case": "annotation-board-1",
+      "expectedDevice": "derive from platform; repeated actors share lesson URL",
+      "room": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+      "measurements": [
+        {
+          "roomId": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+          "createdAt": "2026-10-17T00:41:56.923Z",
+          "totalMs": 214,
+          "joinMs": 172,
+          "paperMs": 42,
+          "snapshotMs": 0,
+          "replayMs": 1,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "linux",
+          "browser": "Chrome 155",
+          "deviceType": "desktop"
+        },
+        {
+          "roomId": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+          "createdAt": "2026-10-17T00:45:06.494Z",
+          "totalMs": 724,
+          "joinMs": 395,
+          "paperMs": 200,
+          "snapshotMs": 0,
+          "replayMs": 130,
+          "reached": "replay",
+          "facts": {
+            "layers": 3,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 3,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "windows",
+          "browser": "Chrome 155",
+          "deviceType": "tablet"
+        }
+      ]
+    },
+    {
+      "case": "annotation-board-2",
+      "expectedDevice": "derive from platform; repeated actors share lesson URL",
+      "room": "efe76c8a-1436-443d-a29f-5d8fd86310a8",
+      "measurements": [
+        {
+          "roomId": "efe76c8a-1436-443d-a29f-5d8fd86310a8",
+          "createdAt": "2026-10-17T00:42:10.848Z",
+          "totalMs": 218,
+          "joinMs": 171,
+          "paperMs": 47,
+          "snapshotMs": 0,
+          "replayMs": 1,
+          "reached": "replay",
+          "facts": {
+            "layers": 2,
+            "latestSeq": 0,
+            "snapshotSeq": null,
+            "tailOperations": 0,
+            "restoredFromSnapshot": false
+          },
+          "outcome": "ready",
+          "wasHidden": false,
+          "platform": "linux",
+          "browser": "Chrome 155",
+          "deviceType": "desktop"
+        }
+      ]
+    }
+  ],
+  "earlyAnnotationImageProof": [
+    {
+      "name": "early-actual-review-image-or-full-history-actor-0",
+      "board": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+      "reviewBoard": "qa-undo-v1-35dc8461-1d03-4755-bfc8-a3c4d39f2fb2",
+      "annotation": true,
+      "earlyHistory": true,
+      "history": 0,
+      "image": {
+        "width": 512,
+        "height": 512
+      },
+      "documentPerformanceNowMs": 8330.100000023842,
+      "timingScope": "Latched first early-image observation in document clock, not navigation/join duration; no ready timestamp synchronization inferred"
+    },
+    {
+      "name": "early-actual-review-image-or-full-history-actor-1",
+      "board": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+      "reviewBoard": "b56367ba-ea9e-4e87-98e1-d9c326e1940d",
+      "annotation": true,
+      "earlyHistory": true,
+      "history": 0,
+      "image": {
+        "width": 512,
+        "height": 512
+      },
+      "documentPerformanceNowMs": 9362.799999952316,
+      "timingScope": "Latched first early-image observation in document clock, not navigation/join duration; no ready timestamp synchronization inferred"
+    },
+    {
+      "name": "early-actual-review-image-or-full-history-actor-2",
+      "board": "efe76c8a-1436-443d-a29f-5d8fd86310a8",
+      "reviewBoard": "efe76c8a-1436-443d-a29f-5d8fd86310a8",
+      "annotation": true,
+      "earlyHistory": true,
+      "history": 0,
+      "image": {
+        "width": 512,
+        "height": 512
+      },
+      "documentPerformanceNowMs": 11589.40000000596,
+      "timingScope": "Latched first early-image observation in document clock, not navigation/join duration; no ready timestamp synchronization inferred"
+    }
+  ]
+}

@@ -240,20 +240,24 @@ export function createJoinFlow({
    *  Idempotent against the board already shown or already asked for, so the
    *  follow logic can call it on every event that could mean "the teacher
    *  moved" without checking first. */
+  let boardJoinGeneration = 0
   const switchBoard = async (next: string) => {
     if (!hasJoinedRef.current) return
     if (next === (wantedBoardRef.current ?? boardIdRef.current)) return
+    const generation = ++boardJoinGeneration
     wantedBoardRef.current = next
     setRoomContentReady(false)
     await outboxRef.current.whenIdle(BOARD_SWITCH_DRAIN_MS)
     // Superseded while waiting — by a later turn, or by the server moving
     // us (a deleted board). The later call owns the emit.
-    if (wantedBoardRef.current !== next || !isCurrentSocket()) return
+    if (generation !== boardJoinGeneration || wantedBoardRef.current !== next || !isCurrentSocket()) return
     socketBoardRef.current = null
     joinRoom(
           { roomId: next, ...joinCredentials() },
       result => {
+        if (generation !== boardJoinGeneration || !isCurrentSocket()) return
         if (result.ok) { applyIdentity(result.userId); return }
+        if (wantedBoardRef.current !== next) return
         // Still on the previous board server-side; say so and unblock it.
         if (wantedBoardRef.current === next) {
           wantedBoardRef.current = null

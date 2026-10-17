@@ -1,0 +1,36 @@
+{
+  "source": "ec218f98",
+  "sameInputSpecSHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
+  "device": {
+    "model": "m70-r2-v1",
+    "gpuBudget": "Infinity",
+    "scratchHolding": false,
+    "touch": 10,
+    "deviceMemory": 8,
+    "DPR": 1.0000000298023224,
+    "page": {
+      "w": 1024,
+      "h": 1024
+    },
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "pairs": 1,
+  "defaultEnabled": false,
+  "swapMs": [
+    1705.2999999523163,
+    1212.6999998092651
+  ],
+  "undoCPUms": [
+    22.899999856948853,
+    23
+  ],
+  "physicalMatchesOwnReplay": [
+    true,
+    true
+  ],
+  "assessment": "ON swap about29% lower in this single pair; insufficient for enabling production. Two further pairs without between-Undo-and-screenshot readPixels and additional lifecycle gates are queued. Pair1 ON oracle inherited ON, art equivalence with OFF is NOT claimed; same-input material gate is separately positive.",
+  "oracleModes": {
+    "OFF": "OFF",
+    "ON": "ON inherited, not OFF-independent verification"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "observedUTC": "2026-10-17T00:02:46.918152+00:00",
+  "device": "Samsung SM-T970",
+  "scope": "Read-only cached ADB dumpsys battery",
+  "ACPowered": true,
+  "batteryPercent": 100,
+  "temperatureC": 39.6,
+  "healthCode": 2,
+  "settingsChanged": false,
+  "performanceComparisonLimit": "Temperature is recorded; no cross-device latency equivalence claimed"
+}

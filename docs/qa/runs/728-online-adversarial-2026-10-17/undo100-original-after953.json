@@ -1,0 +1,2741 @@
+{
+  "strokes": 100,
+  "errors": [],
+  "scope": "Original100-stroke A-red then B-Dry then Undo input unchanged; corrected screen-cache ROI Y double-flip only; live read each RAF up to2s; no display/replay forced",
+  "instrumentationChange": "Original sy was already bottom-origin; readPixels now uses sy directly, original input generator unchanged",
+  "source": "f6e407cb33a6f6fff1aadcb2ffaba7800b0a05d1",
+  "identity": {
+    "model": "m70-r2-v1",
+    "gpuBudget": "Infinity",
+    "scratchHolding": false,
+    "touch": 10,
+    "deviceMemory": 8,
+    "DPR": 1.0000000298023224,
+    "page": {
+      "w": 1024,
+      "h": 1024
+    },
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "inputSpec": {
+    "canvas": 1024,
+    "count": 100,
+    "authors": 2,
+    "tool": "watercolor",
+    "water": 0.95,
+    "pigment": 0.34,
+    "size": 32,
+    "pressure": 0.75,
+    "moves": 4,
+    "deltaX": 4,
+    "blue": [
+      0.1,
+      0.25,
+      0.8
+    ],
+    "red": [
+      0.9,
+      0.05,
+      0.05
+    ],
+    "blueX": "480+(i%5)*5",
+    "blueY": "490+(i%3)*5",
+    "lastA": {
+      "x": 650,
+      "y": 650
+    },
+    "yield": "every3marks"
+  },
+  "inputSpecSHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
+  "seedWallMs": 6909,
+  "actualInputSHA": "67d61ee7211db5f0a66e8c20532d20e1241beb55b7f7ec5d9ce7494bb191b231",
+  "baselineRGB": [
+    236.98046875,
+    139.28515625,
+    137.5078125
+  ],
+  "firstObservedActualChange": {
+    "requestAfterTriggerMs": 2166,
+    "completeAfterTriggerMs": 2588,
+    "changedChannels": 587,
+    "max": 187,
+    "meanRGB": [
+      245.88671875,
+      245.88671875,
+      245.88671875
+    ]
+  },
+  "actorTimings": [
+    {
+      "origin": 1792196035181.4,
+      "samples": [
+        {
+          "at": 30615.898,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 30632.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 30649,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 30665.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 30682.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 30699.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 30715.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 30732.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 30748.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 30765.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 30782.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 30799,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 30882.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 30915.6,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 30932.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 30949,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 30965.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 30999.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31049.1,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31165.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31182.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31232.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31248.9,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31282.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31315.6,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31415.6,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31465.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31482.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31498.9,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31549.1,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31582.3,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31615.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31649,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31682.3,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31715.5,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31732.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31765.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31798.9,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31832.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31865.6,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31932.3,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 31982.6,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32032.3,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32082.3,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32115.8,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32165.5,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32198.8,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32315.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32515.6,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32548.9,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32565.6,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32582.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32598.9,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32615.6,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32632.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32665.6,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32682.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32698.9,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32715.6,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32732.3,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32765.6,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 32782.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 32815.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 32832.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33015.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33032.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33049.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33065.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33082.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33099.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33116,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33132.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33149.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33166,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33182.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33198.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33215.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33232.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33249.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33265.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33282.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33298.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33315.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33332.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33349,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33365.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33382.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33399,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33415.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33432.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33448.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33465.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33483,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33499.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33515.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33532.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33549.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33565.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33582.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33599.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33615.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33632.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33649.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33665.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33682.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33699.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33716,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33732.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33749.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33765.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33782.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33799.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33815.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33832.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33849.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33865.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33882.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33899.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33915.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33932.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33949.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33965.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33982.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 33999.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 34015.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 34032.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        }
+      ],
+      "undoCPU": 22.90000009536743,
+      "start": 30790.89999985695,
+      "meta": "byHxFcm20w",
+      "ack": 31049.1,
+      "arrival": 30799,
+      "readyDisplay": null,
+      "glErrors": [],
+      "cacheROI": {
+        "x": 541.7570040916368,
+        "y": 531.0903204873165,
+        "width": 8,
+        "height": 8
+      },
+      "cacheBaselineNonzero": true,
+      "cacheBaselineRGB": [
+        245.84375,
+        245.84375,
+        245.84375
+      ],
+      "cacheBaselineIsRed": false,
+      "pixelReadCount": 50,
+      "beforePuddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 0,
+        "residentLayers": 0,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 5,
+        "pending": false,
+        "revisions": []
+      },
+      "firstFramePuddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 0,
+        "residentLayers": 0,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 5,
+        "pending": false,
+        "revisions": []
+      },
+      "swapMs": 2023.8000001907349,
+      "lastState": {
+        "pending": 0,
+        "jobs": 0,
+        "queue": 0,
+        "puddle": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 0,
+          "residentLayers": 0,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 0,
+          "computations": 6,
+          "pending": false,
+          "revisions": []
+        }
+      },
+      "preset": "normal:95:34:PB29:round",
+      "readyPuddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 0,
+        "residentLayers": 0,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 0,
+        "computations": 6,
+        "pending": false,
+        "revisions": []
+      }
+    },
+    {
+      "origin": 1792196046374.6,
+      "samples": [
+        {
+          "at": 19489.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19506,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19522.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19539.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19555.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19572.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19589.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19605.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19622.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19639.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19655.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19672.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19689.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19705.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19722.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19739.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19755.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19772.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19789.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19822.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 19872.3,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 19889,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 19922.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 19939,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 19955.9,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 19972.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 19989.1,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20005.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20022.6,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20039.3,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20055.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20072.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20089.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20105.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20122.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20139.1,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20155.9,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20172.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20222.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20239.1,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20255.8,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20272.5,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20289,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20305.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20322.3,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20339.3,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20356,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20372.5,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20389.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20405.8,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20422.5,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20439.1,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20455.9,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20472.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20489.1,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20505.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20522.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20539.1,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20555.8,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20572.5,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20589.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20605.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20622.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20639.1,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20655.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20672.5,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20689.1,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20705.8,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20722.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20739.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20755.8,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20772.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20789.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20805.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20822.6,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20839.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20855.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20872.5,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20889.1,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20905.8,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20922.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20939.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20955.9,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20972.4,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 20989.2,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 21005.7,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 21022.5,
+          "jobs": 1,
+          "pending": 0,
+          "queue": 0,
+          "puddle": true,
+          "stroke": null
+        },
+        {
+          "at": 21039.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21122.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21139.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21305.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21355.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21372.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21389,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21405.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21422.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21439.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21455.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21472.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21489,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21505.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21522.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21539.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21555.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21572.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21589,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21605.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21622.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21639.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21655.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21672.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21689.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21705.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21722.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21739.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21755.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21772.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21789.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21805.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21822.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21839.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21856.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21872.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21889.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21906.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21922.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21939.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21956.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21972.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 21989.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22005.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22022.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22039.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22056,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22072.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22089.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22105.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22122.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22139.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22155.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22172.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22189.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22205.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22222.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22239.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22255.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22272.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22289.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22306,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22322.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22339.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22355.9,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22372.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22389.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22406,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22422.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22439.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22456,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22472.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22489.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22506,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22522.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22539.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22556.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22572.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22589.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22606.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22622.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22639.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22656.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22672.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22689.5,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22706,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22722.8,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22739.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22756.1,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22772.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22789.2,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22806,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22822.6,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22839.4,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22856,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22872.7,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22889.3,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        },
+        {
+          "at": 22906,
+          "jobs": 0,
+          "pending": 0,
+          "queue": 0,
+          "puddle": false,
+          "stroke": null
+        }
+      ],
+      "undoCPU": null,
+      "start": null,
+      "meta": "byHxFcm20w",
+      "ack": 19789.2,
+      "arrival": 19789.2,
+      "readyDisplay": null,
+      "glErrors": [],
+      "cacheROI": {
+        "x": 541.7570040916368,
+        "y": 531.0903204873165,
+        "width": 8,
+        "height": 8
+      },
+      "cacheBaselineNonzero": true,
+      "cacheBaselineRGB": [
+        245.84375,
+        245.84375,
+        245.84375
+      ],
+      "cacheBaselineIsRed": false,
+      "pixelReadCount": 0,
+      "lastState": {
+        "pending": 0,
+        "jobs": 0,
+        "queue": 0,
+        "puddle": {
+          "undoCaptureLastMs": 0,
+          "undoRestoreLastMs": 0,
+          "undoCaptures": 0,
+          "undoHits": 0,
+          "layers": 0,
+          "residentLayers": 0,
+          "parkedLayers": 0,
+          "cpuBytes": 0,
+          "drying": false,
+          "cancellations": 3,
+          "computations": 6,
+          "pending": false,
+          "revisions": []
+        }
+      },
+      "preset": "normal:95:34:PB29:round",
+      "readyPuddle": {
+        "undoCaptureLastMs": 0,
+        "undoRestoreLastMs": 0,
+        "undoCaptures": 0,
+        "undoHits": 0,
+        "layers": 0,
+        "residentLayers": 0,
+        "parkedLayers": 0,
+        "cpuBytes": 0,
+        "drying": false,
+        "cancellations": 3,
+        "computations": 6,
+        "pending": false,
+        "revisions": []
+      }
+    }
+  ],
+  "settledWallMs": 3450,
+  "target": {
+    "liveLength": 4194324,
+    "targetLength": 4194324,
+    "changedChannels": 0,
+    "liveHash": "0f450d1b512ef4e7a84f3899b403835a8ef79905b76c27b27103a8db439c6586",
+    "targetHash": "0f450d1b512ef4e7a84f3899b403835a8ef79905b76c27b27103a8db439c6586",
+    "liveMatchesTarget": true
+  },
+  "pass": false,
+  "assessment": {
+    "inputSPEC_SHA": "f73f6115c900e070ee3cf4b8d5c64f3849a531dd33d36ca56b78415b729728e4",
+    "runtimePixelsExact": true,
+    "swapStartMs": 2023.8000001907349,
+    "ROIMappingStatus": "INVALID measurement in my temporary copy. Original undo100-cache mapping was correct; retracted code-only double-flip claim. See roi-calibration.json. Swap and actual screenshot timings unaffected.",
+    "firstObservedScreenshot": {
+      "requestAfterTriggerMs": 2166,
+      "completeAfterTriggerMs": 2588,
+      "changedChannels": 587,
+      "max": 187,
+      "meanRGB": [
+        245.88671875,
+        245.88671875,
+        245.88671875
+      ]
+    },
+    "timingLimit": "Single run; screenshot includes CDP/SSH. readyDisplay placeholder never assigned in original helper."
+  }
+}

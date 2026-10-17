@@ -1,0 +1,10 @@
+{
+  "runtime": "ac892525",
+  "case": "normal pen-up then disconnect with sibling socket",
+  "pass": true,
+  "operationCount": 0,
+  "targetedCancellation": true,
+  "siblingConnected": true,
+  "authorPeerLeft": 0,
+  "ownerDelete": 200
+}

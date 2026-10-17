@@ -1,0 +1,21 @@
+{
+  "pass": true,
+  "source": {
+    "OperationLog.ts": "fbd30be908e10d7d4ad633cc7ed0e6c4762a871186c194f58e2c1c560a2296e4",
+    "controlHistory.ts": "65bdf95a8c924e32b530efe25247e983d48f1cbccedcfd9cba0c051057deea91",
+    "watercolorUndo.ts": "7d98c8d485b5356bf41142debcba4775b5b5b53c746c8f8ffde7d1c7da737efe"
+  },
+  "harnessSHA": "9fde64ef14e7d13acbc412510c20cbaa4ad0a16a783b69e0fcf95d5bc9779937",
+  "seedRange": [
+    1,
+    120
+  ],
+  "modes": [
+    "fullhistory",
+    "partiallegacyundone"
+  ],
+  "seeds": 240,
+  "localActions": 5760,
+  "checks": 7526,
+  "scope": "OperationLog state/effectivewater; no GPU/pixel claim; authoritative-only fresh journal oracle; partial legacy separately"
+}

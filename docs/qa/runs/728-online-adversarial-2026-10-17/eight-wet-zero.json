@@ -1,0 +1,1649 @@
+{
+  "source": "af5d7cea",
+  "scope": "Three simultaneous wet layers then eight logical wet layers, bounded GPU/CPU residency, reopen first and cold join",
+  "identity": [
+    {
+      "user": "52a2b9cb-e003-4b13-b2b5-e614d9c253f4",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "5367b1e3-ea56-43e2-a871-be7e701a2ea4",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "DPR": 1.0000000298023224
+    },
+    {
+      "user": "cc7acd3b-785d-486f-aaa9-6790a28f1989",
+      "model": "m70-r2-v1",
+      "page": {
+        "w": 512,
+        "h": 512
+      },
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "DPR": 1.0000000298023224
+    }
+  ],
+  "cases": [
+    {
+      "name": "three-different-layers-held-before-any-foreign-operation",
+      "layers": [
+        "qa-race-67004bab-c832-455a-9085-a5a5b7a9fa79",
+        "qa-race-495c25d5-c59d-4e0f-97ae-ebc68fbdc153",
+        "qa-race-cfaed341-d68c-41b7-aa61-b4de48f703a7",
+        "qa-eight-e92237bd-083b-4443-b930-e656814079f6",
+        "qa-eight-31c7cfe1-7310-4881-a523-5bea77adcc73",
+        "qa-eight-6c217495-f9da-4dc1-b3fd-1b6bb6df06e8",
+        "qa-eight-5fd54183-9fd6-4fdc-8579-32967b9b6017",
+        "qa-eight-43af1ce0-ba50-493a-b2f1-10a2cc76adda"
+      ],
+      "gestures": [
+        "B-kMJnoiWb",
+        "xmqiD8pjoe",
+        "SM76aA2H5k"
+      ],
+      "before": [
+        {
+          "puddle": {
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 0,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 2,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "committed": 0,
+          "held": "B-kMJnoiWb"
+        },
+        {
+          "puddle": {
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 0,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 2,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "committed": 0,
+          "held": "xmqiD8pjoe"
+        },
+        {
+          "puddle": {
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 0,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 2,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "committed": 0,
+          "held": "SM76aA2H5k"
+        }
+      ]
+    },
+    {
+      "name": "all-three-server-accepted-and-replicated",
+      "ids": [
+        [
+          "SZkGQdjlCs"
+        ],
+        [
+          "dMTT80_bxZ"
+        ],
+        [
+          "t9GJUn711F"
+        ]
+      ],
+      "server": {
+        "strokes": [
+          {
+            "id": "dMTT80_bxZ",
+            "layerId": "qa-race-495c25d5-c59d-4e0f-97ae-ebc68fbdc153",
+            "strokeId": "xmqiD8pjoe",
+            "userId": "5367b1e3-ea56-43e2-a871-be7e701a2ea4",
+            "seq": 4
+          },
+          {
+            "id": "t9GJUn711F",
+            "layerId": "qa-race-cfaed341-d68c-41b7-aa61-b4de48f703a7",
+            "strokeId": "SM76aA2H5k",
+            "userId": "cc7acd3b-785d-486f-aaa9-6790a28f1989",
+            "seq": 5
+          },
+          {
+            "id": "SZkGQdjlCs",
+            "layerId": "qa-race-67004bab-c832-455a-9085-a5a5b7a9fa79",
+            "strokeId": "B-kMJnoiWb",
+            "userId": "52a2b9cb-e003-4b13-b2b5-e614d9c253f4",
+            "seq": 6
+          }
+        ],
+        "operations": 6
+      },
+      "after": [
+        {
+          "puddle": {
+            "layers": 3,
+            "residentLayers": 2,
+            "parkedLayers": 1,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 5,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "entries": [
+            {
+              "id": "2f59eaeb-f304-4031-b0f3-b827e0b3d21f",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "5fe5f260-f595-4b91-aa19-6a6323d30f7b",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "8a07fea3-ed1f-4ce4-88c3-0298542879ba",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "dMTT80_bxZ",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "t9GJUn711F",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "SZkGQdjlCs",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            }
+          ],
+          "queue": 0,
+          "pending": 0,
+          "jobs": 0
+        },
+        {
+          "puddle": {
+            "layers": 3,
+            "residentLayers": 2,
+            "parkedLayers": 1,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 4,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              },
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "entries": [
+            {
+              "id": "2f59eaeb-f304-4031-b0f3-b827e0b3d21f",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "5fe5f260-f595-4b91-aa19-6a6323d30f7b",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "8a07fea3-ed1f-4ce4-88c3-0298542879ba",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "dMTT80_bxZ",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "t9GJUn711F",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "SZkGQdjlCs",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            }
+          ],
+          "queue": 0,
+          "pending": 0,
+          "jobs": 0
+        },
+        {
+          "puddle": {
+            "layers": 3,
+            "residentLayers": 2,
+            "parkedLayers": 1,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 4,
+            "pending": true,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              },
+              {
+                "epoch": 1,
+                "ready": false,
+                "active": false
+              }
+            ]
+          },
+          "entries": [
+            {
+              "id": "2f59eaeb-f304-4031-b0f3-b827e0b3d21f",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "5fe5f260-f595-4b91-aa19-6a6323d30f7b",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "8a07fea3-ed1f-4ce4-88c3-0298542879ba",
+              "type": "layer_add",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "dMTT80_bxZ",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "t9GJUn711F",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            },
+            {
+              "id": "SZkGQdjlCs",
+              "type": "stroke",
+              "state": "done",
+              "pending": false
+            }
+          ],
+          "queue": 0,
+          "pending": 0,
+          "jobs": 0
+        }
+      ]
+    },
+    {
+      "name": "concurrent-three-source-residency-bounded",
+      "states": [
+        {
+          "state": {
+            "layers": 3,
+            "residentLayers": 2,
+            "parkedLayers": 1,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 5,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 6,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 3,
+            "residentLayers": 2,
+            "parkedLayers": 1,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 5,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 6,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 3,
+            "residentLayers": 2,
+            "parkedLayers": 1,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 5,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 6,
+          "dryCount": 0
+        }
+      ]
+    },
+    {
+      "name": "resting-layer-count-4",
+      "states": [
+        {
+          "state": {
+            "layers": 4,
+            "residentLayers": 2,
+            "parkedLayers": 2,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 6,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 8,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 4,
+            "residentLayers": 2,
+            "parkedLayers": 2,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 6,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 8,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 4,
+            "residentLayers": 2,
+            "parkedLayers": 2,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 6,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 8,
+          "dryCount": 0
+        }
+      ]
+    },
+    {
+      "name": "resting-layer-count-5",
+      "states": [
+        {
+          "state": {
+            "layers": 5,
+            "residentLayers": 2,
+            "parkedLayers": 3,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 7,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 10,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 5,
+            "residentLayers": 2,
+            "parkedLayers": 3,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 7,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 10,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 5,
+            "residentLayers": 2,
+            "parkedLayers": 3,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 7,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 10,
+          "dryCount": 0
+        }
+      ]
+    },
+    {
+      "name": "resting-layer-count-6",
+      "states": [
+        {
+          "state": {
+            "layers": 6,
+            "residentLayers": 2,
+            "parkedLayers": 4,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 8,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 12,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 6,
+            "residentLayers": 2,
+            "parkedLayers": 4,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 8,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 12,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 6,
+            "residentLayers": 2,
+            "parkedLayers": 4,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 8,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 12,
+          "dryCount": 0
+        }
+      ]
+    },
+    {
+      "name": "resting-layer-count-7",
+      "states": [
+        {
+          "state": {
+            "layers": 7,
+            "residentLayers": 2,
+            "parkedLayers": 5,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 9,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 14,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 7,
+            "residentLayers": 2,
+            "parkedLayers": 5,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 9,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 14,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 7,
+            "residentLayers": 2,
+            "parkedLayers": 5,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 9,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 14,
+          "dryCount": 0
+        }
+      ]
+    },
+    {
+      "name": "resting-layer-count-8",
+      "states": [
+        {
+          "state": {
+            "layers": 8,
+            "residentLayers": 2,
+            "parkedLayers": 6,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 10,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 16,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 8,
+            "residentLayers": 2,
+            "parkedLayers": 6,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 10,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 16,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 8,
+            "residentLayers": 2,
+            "parkedLayers": 6,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 10,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 16,
+          "dryCount": 0
+        }
+      ]
+    },
+    {
+      "name": "eight-resting-wet-sources",
+      "states": [
+        {
+          "state": {
+            "layers": 8,
+            "residentLayers": 2,
+            "parkedLayers": 6,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 10,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 16,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 8,
+            "residentLayers": 2,
+            "parkedLayers": 6,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 10,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 16,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 8,
+            "residentLayers": 2,
+            "parkedLayers": 6,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 10,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 0,
+          "opCount": 16,
+          "dryCount": 0
+        }
+      ]
+    },
+    {
+      "name": "all-eight-wet-targets-equal-independent-replay",
+      "wetProof": [
+        {
+          "layer": "qa-race-67004bab-c832-455a-9085-a5a5b7a9fa79",
+          "row": [
+            {
+              "actor": 0,
+              "actualHash": "eb0a9b55ca35f0b7c95fc081f1a9d14a5972a086ae39c6f6af0a591fd557c68b",
+              "oracleHash": "eb0a9b55ca35f0b7c95fc081f1a9d14a5972a086ae39c6f6af0a591fd557c68b",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 1,
+              "actualHash": "d3586a7b024c38d26dd8741fa852cf08e86b6405e8a275f81abba128a1d15550",
+              "oracleHash": "d3586a7b024c38d26dd8741fa852cf08e86b6405e8a275f81abba128a1d15550",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 2,
+              "actualHash": "eb0a9b55ca35f0b7c95fc081f1a9d14a5972a086ae39c6f6af0a591fd557c68b",
+              "oracleHash": "eb0a9b55ca35f0b7c95fc081f1a9d14a5972a086ae39c6f6af0a591fd557c68b",
+              "changed": 0,
+              "max": 0
+            }
+          ]
+        },
+        {
+          "layer": "qa-race-495c25d5-c59d-4e0f-97ae-ebc68fbdc153",
+          "row": [
+            {
+              "actor": 0,
+              "actualHash": "87c8798adb271ef4421bf1868c6a5907b61f9995fa21cfefd46a18e5b69ef3e2",
+              "oracleHash": "87c8798adb271ef4421bf1868c6a5907b61f9995fa21cfefd46a18e5b69ef3e2",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 1,
+              "actualHash": "192d3f03788b6980bb7d68d3c19d5bcbb92d920dbfc46ac7eff74a0deaed9a5a",
+              "oracleHash": "192d3f03788b6980bb7d68d3c19d5bcbb92d920dbfc46ac7eff74a0deaed9a5a",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 2,
+              "actualHash": "87c8798adb271ef4421bf1868c6a5907b61f9995fa21cfefd46a18e5b69ef3e2",
+              "oracleHash": "87c8798adb271ef4421bf1868c6a5907b61f9995fa21cfefd46a18e5b69ef3e2",
+              "changed": 0,
+              "max": 0
+            }
+          ]
+        },
+        {
+          "layer": "qa-race-cfaed341-d68c-41b7-aa61-b4de48f703a7",
+          "row": [
+            {
+              "actor": 0,
+              "actualHash": "0c55f27fdd62ab26f5b595fc62f7aa6c50f6a0866d777700427745c8ac2f7772",
+              "oracleHash": "0c55f27fdd62ab26f5b595fc62f7aa6c50f6a0866d777700427745c8ac2f7772",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 1,
+              "actualHash": "df1b00f4deb0cf4f56b7d4d011d25eb6d011866c5e018be3243d3c6fd6d10501",
+              "oracleHash": "df1b00f4deb0cf4f56b7d4d011d25eb6d011866c5e018be3243d3c6fd6d10501",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 2,
+              "actualHash": "0c55f27fdd62ab26f5b595fc62f7aa6c50f6a0866d777700427745c8ac2f7772",
+              "oracleHash": "0c55f27fdd62ab26f5b595fc62f7aa6c50f6a0866d777700427745c8ac2f7772",
+              "changed": 0,
+              "max": 0
+            }
+          ]
+        },
+        {
+          "layer": "qa-eight-e92237bd-083b-4443-b930-e656814079f6",
+          "row": [
+            {
+              "actor": 0,
+              "actualHash": "301538753cb5040756e3f7cb4b77a66fff931dba9980a161cac57eec47c53315",
+              "oracleHash": "301538753cb5040756e3f7cb4b77a66fff931dba9980a161cac57eec47c53315",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 1,
+              "actualHash": "5952718806c46c58fb9884cf7a32a102c2ac9699f1795d1e4f6759e38256bee8",
+              "oracleHash": "5952718806c46c58fb9884cf7a32a102c2ac9699f1795d1e4f6759e38256bee8",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 2,
+              "actualHash": "301538753cb5040756e3f7cb4b77a66fff931dba9980a161cac57eec47c53315",
+              "oracleHash": "301538753cb5040756e3f7cb4b77a66fff931dba9980a161cac57eec47c53315",
+              "changed": 0,
+              "max": 0
+            }
+          ]
+        },
+        {
+          "layer": "qa-eight-31c7cfe1-7310-4881-a523-5bea77adcc73",
+          "row": [
+            {
+              "actor": 0,
+              "actualHash": "d6d2543caebf95d51c64376abdb254c1063115c56e07a871a6de36d5f6a307d9",
+              "oracleHash": "d6d2543caebf95d51c64376abdb254c1063115c56e07a871a6de36d5f6a307d9",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 1,
+              "actualHash": "5a45bfe9817116e6075324930c06c6ab888c26ed4a0de10dd6b74c38edd89f38",
+              "oracleHash": "5a45bfe9817116e6075324930c06c6ab888c26ed4a0de10dd6b74c38edd89f38",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 2,
+              "actualHash": "d6d2543caebf95d51c64376abdb254c1063115c56e07a871a6de36d5f6a307d9",
+              "oracleHash": "d6d2543caebf95d51c64376abdb254c1063115c56e07a871a6de36d5f6a307d9",
+              "changed": 0,
+              "max": 0
+            }
+          ]
+        },
+        {
+          "layer": "qa-eight-6c217495-f9da-4dc1-b3fd-1b6bb6df06e8",
+          "row": [
+            {
+              "actor": 0,
+              "actualHash": "283c11914052813d020d25143bec17215a11ea08b46e331b7ce74bb73f64d63f",
+              "oracleHash": "283c11914052813d020d25143bec17215a11ea08b46e331b7ce74bb73f64d63f",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 1,
+              "actualHash": "3ce8d02dd3abde5eccf994f6280269a6c37054498cada5daada40757cd3f7944",
+              "oracleHash": "3ce8d02dd3abde5eccf994f6280269a6c37054498cada5daada40757cd3f7944",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 2,
+              "actualHash": "283c11914052813d020d25143bec17215a11ea08b46e331b7ce74bb73f64d63f",
+              "oracleHash": "283c11914052813d020d25143bec17215a11ea08b46e331b7ce74bb73f64d63f",
+              "changed": 0,
+              "max": 0
+            }
+          ]
+        },
+        {
+          "layer": "qa-eight-5fd54183-9fd6-4fdc-8579-32967b9b6017",
+          "row": [
+            {
+              "actor": 0,
+              "actualHash": "6e1b7769122220cd238214fc800c59a6be8f76c9af8e4954bf5b2b5e997dfa0d",
+              "oracleHash": "6e1b7769122220cd238214fc800c59a6be8f76c9af8e4954bf5b2b5e997dfa0d",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 1,
+              "actualHash": "ab90ba0f09ac0bf54cbe5b07a156f06a2bf5d00239807ff0f9be3ad0e9fcfc4e",
+              "oracleHash": "ab90ba0f09ac0bf54cbe5b07a156f06a2bf5d00239807ff0f9be3ad0e9fcfc4e",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 2,
+              "actualHash": "6e1b7769122220cd238214fc800c59a6be8f76c9af8e4954bf5b2b5e997dfa0d",
+              "oracleHash": "6e1b7769122220cd238214fc800c59a6be8f76c9af8e4954bf5b2b5e997dfa0d",
+              "changed": 0,
+              "max": 0
+            }
+          ]
+        },
+        {
+          "layer": "qa-eight-43af1ce0-ba50-493a-b2f1-10a2cc76adda",
+          "row": [
+            {
+              "actor": 0,
+              "actualHash": "f85e97502bbde8b53585d1323b4290c49661781a28265f877eab1291eec02a89",
+              "oracleHash": "f85e97502bbde8b53585d1323b4290c49661781a28265f877eab1291eec02a89",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 1,
+              "actualHash": "aaf14ff1fc51b9761e74c3e930969e4c5cff59d0fd24172f89e2c64abb1c5474",
+              "oracleHash": "aaf14ff1fc51b9761e74c3e930969e4c5cff59d0fd24172f89e2c64abb1c5474",
+              "changed": 0,
+              "max": 0
+            },
+            {
+              "actor": 2,
+              "actualHash": "f85e97502bbde8b53585d1323b4290c49661781a28265f877eab1291eec02a89",
+              "oracleHash": "f85e97502bbde8b53585d1323b4290c49661781a28265f877eab1291eec02a89",
+              "changed": 0,
+              "max": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "first-parked-source-reopened",
+      "states": [
+        {
+          "state": {
+            "layers": 8,
+            "residentLayers": 2,
+            "parkedLayers": 6,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 11,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 3,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 1,
+          "opCount": 17,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 8,
+            "residentLayers": 2,
+            "parkedLayers": 6,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 11,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 2,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 1,
+          "opCount": 17,
+          "dryCount": 0
+        },
+        {
+          "state": {
+            "layers": 8,
+            "residentLayers": 2,
+            "parkedLayers": 6,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 2,
+            "computations": 11,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 2,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "budget": 0,
+          "rehydrate": 1,
+          "opCount": 17,
+          "dryCount": 0
+        }
+      ]
+    },
+    {
+      "name": "reopened-first-layer-undo",
+      "reopen": "doyBGmsL5h",
+      "undo": "doyBGmsL5h"
+    },
+    {
+      "name": "all-eight-layer-author-actual-rasters-equal-independent-replay",
+      "raster": [
+        [
+          {
+            "actor": 0,
+            "layerId": "qa-race-67004bab-c832-455a-9085-a5a5b7a9fa79",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "df6f388de48539be1d9d3f821348195966b9b601de8dd60274a2a3f152ad52b7",
+            "oracleHash": "df6f388de48539be1d9d3f821348195966b9b601de8dd60274a2a3f152ad52b7",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 1,
+            "layerId": "qa-race-67004bab-c832-455a-9085-a5a5b7a9fa79",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "9cc309c0350ecee09532358dccb482c1bd79a6ffea68e7a3827b736075bc72f8",
+            "oracleHash": "9cc309c0350ecee09532358dccb482c1bd79a6ffea68e7a3827b736075bc72f8",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 2,
+            "layerId": "qa-race-67004bab-c832-455a-9085-a5a5b7a9fa79",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "df6f388de48539be1d9d3f821348195966b9b601de8dd60274a2a3f152ad52b7",
+            "oracleHash": "df6f388de48539be1d9d3f821348195966b9b601de8dd60274a2a3f152ad52b7",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          }
+        ],
+        [
+          {
+            "actor": 0,
+            "layerId": "qa-race-495c25d5-c59d-4e0f-97ae-ebc68fbdc153",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "414b8b1a7abe7be904abb8e1afb1ea61e52ef9c39eacbf0fb270d47a8daa1152",
+            "oracleHash": "414b8b1a7abe7be904abb8e1afb1ea61e52ef9c39eacbf0fb270d47a8daa1152",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 1,
+            "layerId": "qa-race-495c25d5-c59d-4e0f-97ae-ebc68fbdc153",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "aa07e5f42896adcb0dc4baf2824139f1a1450539cd5cda8165529cc166d518d3",
+            "oracleHash": "aa07e5f42896adcb0dc4baf2824139f1a1450539cd5cda8165529cc166d518d3",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 2,
+            "layerId": "qa-race-495c25d5-c59d-4e0f-97ae-ebc68fbdc153",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "414b8b1a7abe7be904abb8e1afb1ea61e52ef9c39eacbf0fb270d47a8daa1152",
+            "oracleHash": "414b8b1a7abe7be904abb8e1afb1ea61e52ef9c39eacbf0fb270d47a8daa1152",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          }
+        ],
+        [
+          {
+            "actor": 0,
+            "layerId": "qa-race-cfaed341-d68c-41b7-aa61-b4de48f703a7",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "ba87db7002c519200591906e5331235c28f83e73579d24c8b09308d1cf9c709f",
+            "oracleHash": "ba87db7002c519200591906e5331235c28f83e73579d24c8b09308d1cf9c709f",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 1,
+            "layerId": "qa-race-cfaed341-d68c-41b7-aa61-b4de48f703a7",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "71dd8edae903982016cfca940a56f689dfa6e7f6c3204e525c76a8e9c770acac",
+            "oracleHash": "71dd8edae903982016cfca940a56f689dfa6e7f6c3204e525c76a8e9c770acac",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 2,
+            "layerId": "qa-race-cfaed341-d68c-41b7-aa61-b4de48f703a7",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "ba87db7002c519200591906e5331235c28f83e73579d24c8b09308d1cf9c709f",
+            "oracleHash": "ba87db7002c519200591906e5331235c28f83e73579d24c8b09308d1cf9c709f",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          }
+        ],
+        [
+          {
+            "actor": 0,
+            "layerId": "qa-eight-e92237bd-083b-4443-b930-e656814079f6",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "070322446ef0a15e06a6c9a04e69c0d3137cb133e5d8f5c0a879f38db59b1de1",
+            "oracleHash": "070322446ef0a15e06a6c9a04e69c0d3137cb133e5d8f5c0a879f38db59b1de1",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 1,
+            "layerId": "qa-eight-e92237bd-083b-4443-b930-e656814079f6",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "fa42c6ae0fb41d07a36ece8deedc111eb92f9e8692dbfe5cffd124463d805aea",
+            "oracleHash": "fa42c6ae0fb41d07a36ece8deedc111eb92f9e8692dbfe5cffd124463d805aea",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 2,
+            "layerId": "qa-eight-e92237bd-083b-4443-b930-e656814079f6",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "070322446ef0a15e06a6c9a04e69c0d3137cb133e5d8f5c0a879f38db59b1de1",
+            "oracleHash": "070322446ef0a15e06a6c9a04e69c0d3137cb133e5d8f5c0a879f38db59b1de1",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          }
+        ],
+        [
+          {
+            "actor": 0,
+            "layerId": "qa-eight-31c7cfe1-7310-4881-a523-5bea77adcc73",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "112761d70762652fee4f7b0421646789505628a2961f64b2b6d46841f2465b16",
+            "oracleHash": "112761d70762652fee4f7b0421646789505628a2961f64b2b6d46841f2465b16",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 1,
+            "layerId": "qa-eight-31c7cfe1-7310-4881-a523-5bea77adcc73",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "8b7780c1180b7910ee98fbddd7e8e126ea60cde3976b2de35b2ca136c87786ef",
+            "oracleHash": "8b7780c1180b7910ee98fbddd7e8e126ea60cde3976b2de35b2ca136c87786ef",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 2,
+            "layerId": "qa-eight-31c7cfe1-7310-4881-a523-5bea77adcc73",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "112761d70762652fee4f7b0421646789505628a2961f64b2b6d46841f2465b16",
+            "oracleHash": "112761d70762652fee4f7b0421646789505628a2961f64b2b6d46841f2465b16",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          }
+        ],
+        [
+          {
+            "actor": 0,
+            "layerId": "qa-eight-6c217495-f9da-4dc1-b3fd-1b6bb6df06e8",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "b9b5f3d528d186dfdde99e1274318ba55e86bc809fdbea47b3a367d67929ab12",
+            "oracleHash": "b9b5f3d528d186dfdde99e1274318ba55e86bc809fdbea47b3a367d67929ab12",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 1,
+            "layerId": "qa-eight-6c217495-f9da-4dc1-b3fd-1b6bb6df06e8",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "09ffd9409c86f4fdfbda7a9fc286d94034e2b6e4096d0b087c950beba2ba96ab",
+            "oracleHash": "09ffd9409c86f4fdfbda7a9fc286d94034e2b6e4096d0b087c950beba2ba96ab",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 2,
+            "layerId": "qa-eight-6c217495-f9da-4dc1-b3fd-1b6bb6df06e8",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "b9b5f3d528d186dfdde99e1274318ba55e86bc809fdbea47b3a367d67929ab12",
+            "oracleHash": "b9b5f3d528d186dfdde99e1274318ba55e86bc809fdbea47b3a367d67929ab12",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          }
+        ],
+        [
+          {
+            "actor": 0,
+            "layerId": "qa-eight-5fd54183-9fd6-4fdc-8579-32967b9b6017",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "ddb156d630fba689c3292008a8c82b0adfa24a86c961e63ab1e9f9f842a7d86a",
+            "oracleHash": "ddb156d630fba689c3292008a8c82b0adfa24a86c961e63ab1e9f9f842a7d86a",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 1,
+            "layerId": "qa-eight-5fd54183-9fd6-4fdc-8579-32967b9b6017",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "5bfec7cdd566a40554bf43a2ea25c002158ae0dc0952ec827eea396b40b7c755",
+            "oracleHash": "5bfec7cdd566a40554bf43a2ea25c002158ae0dc0952ec827eea396b40b7c755",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 2,
+            "layerId": "qa-eight-5fd54183-9fd6-4fdc-8579-32967b9b6017",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "ddb156d630fba689c3292008a8c82b0adfa24a86c961e63ab1e9f9f842a7d86a",
+            "oracleHash": "ddb156d630fba689c3292008a8c82b0adfa24a86c961e63ab1e9f9f842a7d86a",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          }
+        ],
+        [
+          {
+            "actor": 0,
+            "layerId": "qa-eight-43af1ce0-ba50-493a-b2f1-10a2cc76adda",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "a6c3b0690b5f13eae3d2603d9a0c4738a178cefc595933bbcda227e8f2a77d01",
+            "oracleHash": "a6c3b0690b5f13eae3d2603d9a0c4738a178cefc595933bbcda227e8f2a77d01",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 1,
+            "layerId": "qa-eight-43af1ce0-ba50-493a-b2f1-10a2cc76adda",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "43507aa0e9309ac9fbe861bba88c6ef13cf4a46d92281bfde1a130ad6ccaf337",
+            "oracleHash": "43507aa0e9309ac9fbe861bba88c6ef13cf4a46d92281bfde1a130ad6ccaf337",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          },
+          {
+            "actor": 2,
+            "layerId": "qa-eight-43af1ce0-ba50-493a-b2f1-10a2cc76adda",
+            "actualCapturedBeforeOracle": true,
+            "targetHash": "a6c3b0690b5f13eae3d2603d9a0c4738a178cefc595933bbcda227e8f2a77d01",
+            "oracleHash": "a6c3b0690b5f13eae3d2603d9a0c4738a178cefc595933bbcda227e8f2a77d01",
+            "targetChanged": 0,
+            "physicalChanged": 0,
+            "max": 0,
+            "nonzeroAlpha": 2533,
+            "tiles": 1,
+            "bytes": 1048596,
+            "glError": 0
+          }
+        ]
+      ]
+    }
+  ],
+  "errors": [],
+  "reopenAgeMs": 23959,
+  "pass": false,
+  "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n630 !== 0\n\n    at /home/suselman/projects/pencil-agents/728-watercolor-room-integration/docs/qa/harness/728-night/eight-wet-residency.cjs:16:1415"
+}
