@@ -1,0 +1,288 @@
+{
+  "qualification": "Real Intel interactive Chrome, hidden; standalone synchronous correctness only, no UI/FPS/perf claim. No QA sampling flags.",
+  "reports": [
+    {
+      "case": "default-dfe",
+      "source": "dfe322c3",
+      "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x000046D1) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "0ade849aac0db2a5ba7b8dbf4605f559e2f7b6a0a8feb17bf9e29397049a90c8",
+          "referenceHash": "0ade849aac0db2a5ba7b8dbf4605f559e2f7b6a0a8feb17bf9e29397049a90c8"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d9adcc38a561d4e9e5fd5bad30ab3e41f2fa651938727f658fe99fbb8d6fb85d",
+          "referenceHash": "d9adcc38a561d4e9e5fd5bad30ab3e41f2fa651938727f658fe99fbb8d6fb85d"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9",
+          "referenceHash": "690d0fabf47194f3b7dba6bcecad4dd362f079d5f4dbe0c705408a1ca3c9a0c9"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2",
+          "referenceHash": "65a39f4b8863a3fc3e3c2a7a256ec74ffd7dfb98df9b073f1e7d8b4e393b20a2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "3c3095c66529d8568eb5f96804f22947c3ac5cb62a525236eac30ea9c58d781e",
+          "referenceHash": "3c3095c66529d8568eb5f96804f22947c3ac5cb62a525236eac30ea9c58d781e"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "6dd7c79a29c3dadd73dfc7384259e083bbf32010824655d8b304c52d00609c4e",
+          "referenceHash": "6dd7c79a29c3dadd73dfc7384259e083bbf32010824655d8b304c52d00609c4e"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "7ab82cb851ef6a91c742a698cbe96cbb4741238b30167b80be1e33c3e1ead411",
+          "referenceHash": "7ab82cb851ef6a91c742a698cbe96cbb4741238b30167b80be1e33c3e1ead411"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "a0f71c16e1437310fa6edacf4ab16ee9494a9ba552bdc7eb734b4abdc365c3f4",
+          "referenceHash": "a0f71c16e1437310fa6edacf4ab16ee9494a9ba552bdc7eb734b4abdc365c3f4"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "8bc95a3c0d439d32f8819df9e62588c87708eaf4b6687a46cfd4eac1603bb0e6",
+          "referenceHash": "8bc95a3c0d439d32f8819df9e62588c87708eaf4b6687a46cfd4eac1603bb0e6"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "5f7558deb46761c0bf7cab2b56f2c6c5f979a338ee7cb822fcf80a4c4de74029",
+          "referenceHash": "5f7558deb46761c0bf7cab2b56f2c6c5f979a338ee7cb822fcf80a4c4de74029"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "034fa9aa1478d4c33dc93004092c37a1f7fb0bb75a52259b5c1e0b177ac693c9",
+          "referenceHash": "034fa9aa1478d4c33dc93004092c37a1f7fb0bb75a52259b5c1e0b177ac693c9"
+        }
+      },
+      "reference": {
+        "ms": 3656.199999809265,
+        "steps": 27,
+        "gl": 0
+      },
+      "actual": {
+        "ms": 12809.200000286102,
+        "steps": 24,
+        "gl": 0
+      },
+      "glErrors": [
+        0,
+        0
+      ],
+      "errors": [],
+      "lost": false,
+      "previousSource": "6a1e029d",
+      "samePreviousFinalHashes": {
+        "p": true,
+        "c": true,
+        "coverage": true
+      },
+      "samePreviousStageHashes": {
+        "referenceP": true,
+        "referenceC": true,
+        "solvedP": true,
+        "solvedC": true,
+        "solvedCoverage": true,
+        "coarse:gate": true,
+        "coarse:beforeP": true,
+        "coarse:afterP": true,
+        "coarse:beforeC": true,
+        "coarse:afterC": true
+      }
+    },
+    {
+      "case": "1536-dfe",
+      "source": "dfe322c3",
+      "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x000046D1) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "inputHashes": {
+        "p": "088d44b0a654b21c2fa37aa10bdaea9be502c587c117bb2a35aeda96bbf10c8a",
+        "c": "2c690c2d6e2cd5042c0c4d439e5bb1114b10518ff86616c261350de37b0f7d93",
+        "coverage": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214",
+        "water": "12d0114d4d8ff826948a2eb1dc51cabd4915faef81c36fe8727f9b6b0c7d373f"
+      },
+      "diffs": {
+        "p": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "93fc100767844fb2f604f979a3c109495fde7dfc0b002fa5d7d0bb9d84fb65cc",
+          "referenceHash": "93fc100767844fb2f604f979a3c109495fde7dfc0b002fa5d7d0bb9d84fb65cc"
+        },
+        "c": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "54644a7b4b83da48b97841fd404a4a2e16aceef6889930d326f37e6e4d473230",
+          "referenceHash": "54644a7b4b83da48b97841fd404a4a2e16aceef6889930d326f37e6e4d473230"
+        },
+        "coverage": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "691cd783f8a78c7304d5206372c6555795adb68b754aeb83caf996e7ed267563",
+          "referenceHash": "691cd783f8a78c7304d5206372c6555795adb68b754aeb83caf996e7ed267563"
+        }
+      },
+      "stageDiffs": {
+        "referenceP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "fd127bebf68f93c598a6f9f58e547acc13ddce16c27ad491ca834844797a9037",
+          "referenceHash": "fd127bebf68f93c598a6f9f58e547acc13ddce16c27ad491ca834844797a9037"
+        },
+        "referenceC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "42b8136e69be07480fdd72725c84cdd75989d3240a0a57da0c683148394b51eb",
+          "referenceHash": "42b8136e69be07480fdd72725c84cdd75989d3240a0a57da0c683148394b51eb"
+        },
+        "solvedP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "00390c23eb38ee7cabe56b212f50f8943a3d90fc95fd079eaa22bd215e78637b",
+          "referenceHash": "00390c23eb38ee7cabe56b212f50f8943a3d90fc95fd079eaa22bd215e78637b"
+        },
+        "solvedC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "f3825b79d9bce980680ffada21c7950ec488dd10c029f6caa12989c6245f6c75",
+          "referenceHash": "f3825b79d9bce980680ffada21c7950ec488dd10c029f6caa12989c6245f6c75"
+        },
+        "solvedCoverage": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214",
+          "referenceHash": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214"
+        },
+        "coarse:gate": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "2901c5ec5e67b3be424208232336f4221d45fff4175838e9edad3bcdc313e1dc",
+          "referenceHash": "2901c5ec5e67b3be424208232336f4221d45fff4175838e9edad3bcdc313e1dc"
+        },
+        "coarse:beforeP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "7b2ae5fa8a8d91f0e6bf15c78775d73c4e10e59d05d5837ebb467fb85c43eb50",
+          "referenceHash": "7b2ae5fa8a8d91f0e6bf15c78775d73c4e10e59d05d5837ebb467fb85c43eb50"
+        },
+        "coarse:afterP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "5c88ea1355fc419ceca5998b0cc2989c5e40115d38435e67c9cb343068a27adc",
+          "referenceHash": "5c88ea1355fc419ceca5998b0cc2989c5e40115d38435e67c9cb343068a27adc"
+        },
+        "coarse:beforeC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "87477a725a1e8c6e8fdacdfba4b187a4b5ad5d68f273388e89472803eaf2a33d",
+          "referenceHash": "87477a725a1e8c6e8fdacdfba4b187a4b5ad5d68f273388e89472803eaf2a33d"
+        },
+        "coarse:afterC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "8c836ec0b12b8e10adba88c2690745f0c316f9d9cad9ed19e2017dd822c78faf",
+          "referenceHash": "8c836ec0b12b8e10adba88c2690745f0c316f9d9cad9ed19e2017dd822c78faf"
+        }
+      },
+      "reference": {
+        "ms": 1784.1999998092651,
+        "steps": 23,
+        "gl": 0
+      },
+      "actual": {
+        "ms": 3446.2000002861023,
+        "steps": 11,
+        "gl": 0
+      },
+      "glErrors": [
+        0,
+        0
+      ],
+      "errors": [],
+      "lost": false,
+      "previousSource": "1b92a6f3",
+      "samePreviousFinalHashes": {
+        "p": true,
+        "c": true,
+        "coverage": true
+      },
+      "samePreviousStageHashes": {
+        "referenceP": true,
+        "referenceC": true,
+        "solvedP": true,
+        "solvedC": true,
+        "solvedCoverage": true,
+        "coarse:gate": true,
+        "coarse:beforeP": true,
+        "coarse:afterP": true,
+        "coarse:beforeC": true,
+        "coarse:afterC": true
+      }
+    }
+  ]
+}
