@@ -1,0 +1,825 @@
+{
+  "source": "3ee37518+7a48f0b8-QA",
+  "fixture": "Fresh owned A2 landscape #16, blank before own LayerAdd and two strokes",
+  "geometry": {
+    "width": 3508,
+    "height": 2480
+  },
+  "initialLineage": {
+    "operations": [],
+    "controller": {
+      "undoCaptureLastMs": 0,
+      "undoRestoreLastMs": 0,
+      "undoCaptures": 0,
+      "undoHits": 0,
+      "layers": 1,
+      "residentLayers": 1,
+      "parkedLayers": 0,
+      "cpuBytes": 0,
+      "drying": false,
+      "cancellations": 0,
+      "computations": 0,
+      "pending": false,
+      "revisions": [
+        {
+          "epoch": 1,
+          "ready": false,
+          "active": false
+        }
+      ]
+    },
+    "layerCount": 2
+  },
+  "correctness": "PASS",
+  "responsiveness": "FAIL: both natural goals still take seconds",
+  "qualification": "Both gestures unprofiled. Separate inputs/lineage from earlier fixtures, not strict speed A/B. QA scope outside cache, managed input224MiB/solve120MiB unchanged. Nested telemetry overlaps.",
+  "gestures": [
+    {
+      "name": "trusted-pen-crosses-both1024-seams",
+      "upToIdleMs": 3952.0999999046326,
+      "scopeRows": 4,
+      "selected": 4,
+      "fallback": 0,
+      "scopeStats": {
+        "draws": 800,
+        "clears": 113,
+        "skippedClears": 687,
+        "clearArea": 266600448,
+        "pixelArea": 42688800,
+        "fullArea": 1887436800,
+        "runs": 84,
+        "stateSnapshots": 84,
+        "detaches": 84,
+        "allDisposed": true,
+        "allOwnershipExact": true
+      },
+      "allOutsideCacheTrue": true,
+      "methods": {
+        "engine._onStart@DOWN": {
+          "count": 1,
+          "sumMs": 78.79999995231628,
+          "maxMs": 78.79999995231628
+        },
+        "engine._onMove@DOWN": {
+          "count": 4,
+          "sumMs": 49.69999980926514,
+          "maxMs": 23.200000047683716
+        },
+        "engine._onEnd@UP": {
+          "count": 1,
+          "sumMs": 116.09999990463257,
+          "maxMs": 116.09999990463257
+        },
+        "gl.readPixels@UP": {
+          "count": 94,
+          "sumMs": 741.2000007629395,
+          "maxMs": 71.39999985694885,
+          "nominalBytes": 165860416
+        },
+        "solver.step@UP": {
+          "count": 135,
+          "sumMs": 2575.299999475479,
+          "maxMs": 284.59999990463257
+        },
+        "actualBuffer._residencyEvict@UP": {
+          "count": 101,
+          "sumMs": 206.89999961853027,
+          "maxMs": 21.5,
+          "nominalBytes": 208250880,
+          "roles": {
+            "presentation.goal": 4,
+            "solverOrOther": 38,
+            "pooledFree": 31,
+            "presentation.next": 4,
+            "presentation.raw": 4,
+            "source.original": 4,
+            "source.coverage": 4,
+            "source.inkLoad": 4,
+            "source.inkColor": 4,
+            "source.solventLoad": 4
+          },
+          "idleDiscardCalls": 31,
+          "capturedBackingReuseCalls": 24,
+          "capturedBackingReuseNominalBytes": 121634816
+        },
+        "plan.prepare@UP": {
+          "count": 4,
+          "sumMs": 11.800000190734863,
+          "maxMs": 9.400000095367432
+        },
+        "actualBuffer._residencyHydrate@UP": {
+          "count": 58,
+          "sumMs": 11.600000381469727,
+          "maxMs": 0.8000001907348633,
+          "nominalBytes": 88544256,
+          "roles": {
+            "solverOrOther": 34,
+            "source.inkLoad": 4,
+            "source.inkColor": 4,
+            "source.coverage": 4,
+            "presentation.goal": 4,
+            "source.original": 4,
+            "presentation.next": 4
+          }
+        },
+        "controller.complete@UP": {
+          "count": 1,
+          "sumMs": 11.099999904632568,
+          "maxMs": 11.099999904632568
+        }
+      },
+      "RAF": {
+        "count": 169,
+        "sumMs": 4513.5,
+        "maxMs": 284.09999999999854,
+        "histogram": [
+          0,
+          71,
+          74,
+          11,
+          4,
+          8,
+          1,
+          0
+        ],
+        "over50": 13,
+        "over100": 9
+      },
+      "visibility": [
+        {
+          "at": 32780.40000009537,
+          "hidden": false,
+          "state": "visible"
+        },
+        {
+          "at": 37303.09999990463,
+          "hidden": false,
+          "state": "visible"
+        }
+      ],
+      "windowSchedule": {
+        "plannedPerSnapshot": 60,
+        "snapshots": [
+          {
+            "support": {
+              "width": 3508,
+              "height": 2480,
+              "rect": {
+                "x": 968,
+                "y": 1409,
+                "width": 103,
+                "height": 103
+              },
+              "rects": [
+                {
+                  "x": 968,
+                  "y": 1456,
+                  "width": 56,
+                  "height": 56
+                },
+                {
+                  "x": 1024,
+                  "y": 1456,
+                  "width": 24,
+                  "height": 24
+                },
+                {
+                  "x": 1000,
+                  "y": 1432,
+                  "width": 24,
+                  "height": 24
+                },
+                {
+                  "x": 1024,
+                  "y": 1409,
+                  "width": 47,
+                  "height": 47
+                }
+              ],
+              "noForeignStencil": true
+            },
+            "metadataForeignAbsent": true,
+            "radius": 32,
+            "planned": 60,
+            "expectedKept": 4,
+            "expectedSkipped": 56
+          }
+        ],
+        "actualNativePrepare": 4,
+        "qualification": "Actual Native prepare count; planned/skipped inferred from same pure fixed-window grouping/support functions and captured immutable source certificate. No inspection hook injected."
+      }
+    },
+    {
+      "name": "trusted-pen-far-right-bottom",
+      "upToIdleMs": 4413.700000047684,
+      "scopeRows": 5,
+      "selected": 5,
+      "fallback": 0,
+      "scopeStats": {
+        "draws": 1000,
+        "clears": 140,
+        "skippedClears": 860,
+        "clearArea": 330301440,
+        "pixelArea": 49313600,
+        "fullArea": 2359296000,
+        "runs": 105,
+        "stateSnapshots": 105,
+        "detaches": 105,
+        "allDisposed": true,
+        "allOwnershipExact": true
+      },
+      "allOutsideCacheTrue": true,
+      "methods": {
+        "engine._onStart@DOWN": {
+          "count": 1,
+          "sumMs": 32.09999990463257,
+          "maxMs": 32.09999990463257
+        },
+        "engine._onMove@DOWN": {
+          "count": 2,
+          "sumMs": 7.3999998569488525,
+          "maxMs": 7.299999952316284
+        },
+        "engine._onEnd@UP": {
+          "count": 1,
+          "sumMs": 26,
+          "maxMs": 26
+        },
+        "gl.readPixels@UP": {
+          "count": 127,
+          "sumMs": 961.300000667572,
+          "maxMs": 77,
+          "nominalBytes": 219785632
+        },
+        "solver.step@UP": {
+          "count": 156,
+          "sumMs": 2984.0999999046326,
+          "maxMs": 281.30000019073486
+        },
+        "actualBuffer._residencyHydrate@UP": {
+          "count": 56,
+          "sumMs": 41.200000286102295,
+          "maxMs": 22,
+          "nominalBytes": 131470336,
+          "roles": {
+            "source.solventLoad": 4,
+            "solverOrOther": 22,
+            "source.inkLoad": 5,
+            "source.inkColor": 5,
+            "source.coverage": 5,
+            "presentation.goal": 5,
+            "source.original": 5,
+            "presentation.next": 2,
+            "presentation.raw": 3
+          }
+        },
+        "actualBuffer._residencyEvict@UP": {
+          "count": 110,
+          "sumMs": 214.10000038146973,
+          "maxMs": 14.399999856948853,
+          "nominalBytes": 236224512,
+          "roles": {
+            "solverOrOther": 61,
+            "presentation.goal": 5,
+            "presentation.next": 5,
+            "pooledFree": 13,
+            "presentation.raw": 1,
+            "source.original": 5,
+            "source.coverage": 5,
+            "source.inkLoad": 5,
+            "source.inkColor": 5,
+            "source.solventLoad": 5
+          },
+          "idleDiscardCalls": 13,
+          "capturedBackingReuseCalls": 26,
+          "capturedBackingReuseNominalBytes": 135266304
+        },
+        "plan.prepare@UP": {
+          "count": 5,
+          "sumMs": 8.899999856948853,
+          "maxMs": 6.299999952316284
+        },
+        "controller.complete@UP": {
+          "count": 1,
+          "sumMs": 109.70000004768372,
+          "maxMs": 109.70000004768372
+        }
+      },
+      "RAF": {
+        "count": 184,
+        "sumMs": 4647.300000000003,
+        "maxMs": 384.59999999999854,
+        "histogram": [
+          0,
+          72,
+          90,
+          8,
+          10,
+          2,
+          2,
+          0
+        ],
+        "over50": 14,
+        "over100": 4
+      },
+      "visibility": [
+        {
+          "at": 38077.299999952316,
+          "hidden": false,
+          "state": "visible"
+        },
+        {
+          "at": 42735,
+          "hidden": false,
+          "state": "visible"
+        }
+      ],
+      "windowSchedule": {
+        "plannedPerSnapshot": 60,
+        "snapshots": [
+          {
+            "support": {
+              "width": 3508,
+              "height": 2480,
+              "rect": {
+                "x": 968,
+                "y": 33,
+                "width": 2507,
+                "height": 1479
+              },
+              "rects": [
+                {
+                  "x": 968,
+                  "y": 1456,
+                  "width": 56,
+                  "height": 56
+                },
+                {
+                  "x": 1024,
+                  "y": 1456,
+                  "width": 24,
+                  "height": 24
+                },
+                {
+                  "x": 1000,
+                  "y": 1432,
+                  "width": 24,
+                  "height": 24
+                },
+                {
+                  "x": 1024,
+                  "y": 1409,
+                  "width": 47,
+                  "height": 47
+                },
+                {
+                  "x": 3421,
+                  "y": 33,
+                  "width": 54,
+                  "height": 54
+                }
+              ],
+              "noForeignStencil": true
+            },
+            "metadataForeignAbsent": true,
+            "radius": 32,
+            "planned": 60,
+            "expectedKept": 5,
+            "expectedSkipped": 55
+          }
+        ],
+        "actualNativePrepare": 5,
+        "qualification": "Actual Native prepare count; planned/skipped inferred from same pure fixed-window grouping/support functions and captured immutable source certificate. No inspection hook injected."
+      }
+    }
+  ],
+  "oracle": {
+    "name": "canonical-goal-first-full-API-replay-proof",
+    "wallAt": 1792240475683,
+    "actualSource": "canonical-goal",
+    "actualCapturedBeforeOracle": true,
+    "oracleTightSupport32": false,
+    "oracleControllers": [
+      {
+        "nativeScopeFactoryOff": true,
+        "type": "PagedPuddleRoomController",
+        "tightFlagAtCreation": false,
+        "actualOptions": {
+          "diagnosticM70TightSupport32": false,
+          "diagnosticM70CapturedBacking": false,
+          "diagnosticM70PersistCapturedBacking": false,
+          "diagnosticM70CooperativeCapture": false,
+          "diagnosticM70StepBudgetMs": 0,
+          "diagnosticM70SkipEmptyPostphase": false,
+          "diagnosticM70SkipEmptyReference": false
+        },
+        "createdWhilePuddleNull": true
+      }
+    ],
+    "oracleNativePrepare": 29,
+    "liveControllerRestored": true,
+    "liveTightFlagRestored": true,
+    "oracleLog": "complete-api",
+    "oracleOperationCount": 3,
+    "liveLogUnchanged": true,
+    "page": {
+      "width": 3508,
+      "height": 2480
+    },
+    "physicalChanged": 0,
+    "max": 0,
+    "alpha": 6046,
+    "tiles": [
+      {
+        "x": 0,
+        "y": 0,
+        "w": 1024,
+        "h": 1024,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 2028
+      },
+      {
+        "x": 1024,
+        "y": 0,
+        "w": 1024,
+        "h": 1024,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 300
+      },
+      {
+        "x": 0,
+        "y": 1024,
+        "w": 1024,
+        "h": 1024,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 291
+      },
+      {
+        "x": 1024,
+        "y": 1024,
+        "w": 1024,
+        "h": 1024,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 1559
+      },
+      {
+        "x": 3072,
+        "y": 2048,
+        "w": 436,
+        "h": 432,
+        "storageW": 1024,
+        "storageH": 1024,
+        "changed": 0,
+        "alpha": 1868
+      }
+    ],
+    "actualHash": "c4baf059fc691bdf94ddba5a8bf9afc1c60c78c069355ccf76530634f4058d27",
+    "oracleHash": "c4baf059fc691bdf94ddba5a8bf9afc1c60c78c069355ccf76530634f4058d27",
+    "glError": 0,
+    "nativeScopeFactoryRestored": true
+  },
+  "rawROI": {
+    "name": "raw-ROI-full-render-proof",
+    "wallAt": 1792240455407,
+    "correctOrigin": false,
+    "originCorrections": 0,
+    "context": {
+      "layerGesture": "LRqyqIscWa",
+      "epoch": 3,
+      "context": {
+        "preset": {
+          "opacity": 0.99,
+          "hardness": 0.88,
+          "sizeMultiplier": 1
+        },
+        "fieldSeed": [
+          980.0000610351562,
+          980.0001831054688
+        ],
+        "bounds": {
+          "minX": 3401.5204181671143,
+          "minY": 2373.5209064483643,
+          "maxX": 3498.9504540197336,
+          "maxY": 2470.9509423009836
+        },
+        "opacity": 0.9900000095367432
+      },
+      "finishContext": {
+        "preset": {
+          "opacity": 0.99,
+          "hardness": 0.88,
+          "sizeMultiplier": 1
+        },
+        "fieldSeed": [
+          980.0000610351562,
+          980.0001831054688
+        ],
+        "bounds": {
+          "minX": 3401.5204181671143,
+          "minY": 2373.5209064483643,
+          "maxX": 3498.9504540197336,
+          "maxY": 2470.9509423009836
+        }
+      }
+    },
+    "tiles": [
+      {
+        "freshVsFull": 0,
+        "freshVsFullMax": 0,
+        "stale": 0,
+        "staleMax": 0,
+        "freshFirst": [],
+        "freshHash": "fae8ef2e4c91e2963d11bdbe22045caa90f60cde22d3516d6d02c253758a66de",
+        "tile": {
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 1024
+        },
+        "region": {
+          "x": 832,
+          "y": 0,
+          "width": 192,
+          "height": 192
+        },
+        "changedInside": 0,
+        "maxInside": 0,
+        "changedOutside": 0,
+        "maxOutside": 0,
+        "first": [],
+        "rawHash": "fae8ef2e4c91e2963d11bdbe22045caa90f60cde22d3516d6d02c253758a66de",
+        "fullHash": "e20ba0172d57dd83bea63101cff6cdab08f83f42ab5e2288758be7f36fe5a3af",
+        "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      {
+        "freshVsFull": 0,
+        "freshVsFullMax": 0,
+        "stale": 0,
+        "staleMax": 0,
+        "freshFirst": [],
+        "freshHash": "7dd1c490fdb0839b2bb76078dcd2b90322733f618ba8e07181a73466e53ec468",
+        "tile": {
+          "x": 1024,
+          "y": 0,
+          "w": 1024,
+          "h": 1024
+        },
+        "region": {
+          "x": 0,
+          "y": 0,
+          "width": 1024,
+          "height": 192
+        },
+        "changedInside": 0,
+        "maxInside": 0,
+        "changedOutside": 0,
+        "maxOutside": 0,
+        "first": [],
+        "rawHash": "7dd1c490fdb0839b2bb76078dcd2b90322733f618ba8e07181a73466e53ec468",
+        "fullHash": "cc83f3a651dfad41abb29f6252e894e4c25efa300bbd024fadfdcfb61b8b189b",
+        "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      {
+        "freshVsFull": 0,
+        "freshVsFullMax": 0,
+        "stale": 0,
+        "staleMax": 0,
+        "freshFirst": [],
+        "freshHash": "096f7fcd9525106c1cc5cea4349b6b13a5e4c545783b1547e74dba3eb00c8d05",
+        "tile": {
+          "x": 0,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024
+        },
+        "region": {
+          "x": 832,
+          "y": 0,
+          "width": 192,
+          "height": 1024
+        },
+        "changedInside": 0,
+        "maxInside": 0,
+        "changedOutside": 0,
+        "maxOutside": 0,
+        "first": [],
+        "rawHash": "096f7fcd9525106c1cc5cea4349b6b13a5e4c545783b1547e74dba3eb00c8d05",
+        "fullHash": "3f7b2f5dfb00b076c0241037efd2a88c4a70bb6664eaffa6ca38c11edbac33c9",
+        "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      {
+        "freshVsFull": 0,
+        "freshVsFullMax": 0,
+        "stale": 0,
+        "staleMax": 0,
+        "freshFirst": [],
+        "freshHash": "595a3689e56fa93f2762d68e677f30e435310ef6ca6869418d2ea2838f47a259",
+        "tile": {
+          "x": 1024,
+          "y": 1024,
+          "w": 1024,
+          "h": 1024
+        },
+        "region": {
+          "x": 0,
+          "y": 0,
+          "width": 1024,
+          "height": 1024
+        },
+        "changedInside": 0,
+        "maxInside": 0,
+        "changedOutside": 0,
+        "maxOutside": 0,
+        "first": [],
+        "rawHash": "595a3689e56fa93f2762d68e677f30e435310ef6ca6869418d2ea2838f47a259",
+        "fullHash": "595a3689e56fa93f2762d68e677f30e435310ef6ca6869418d2ea2838f47a259",
+        "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      {
+        "freshVsFull": 0,
+        "freshVsFullMax": 0,
+        "stale": 0,
+        "staleMax": 0,
+        "freshFirst": [],
+        "freshHash": "4c8bc0f4c06117d29864c39c3fdcf30c9d876a5dd5f8c522ef43614067063420",
+        "tile": {
+          "x": 3072,
+          "y": 2048,
+          "w": 1024,
+          "h": 1024
+        },
+        "region": {
+          "x": 0,
+          "y": 512,
+          "width": 512,
+          "height": 512
+        },
+        "changedInside": 0,
+        "maxInside": 0,
+        "changedOutside": 0,
+        "maxOutside": 0,
+        "first": [],
+        "rawHash": "4c8bc0f4c06117d29864c39c3fdcf30c9d876a5dd5f8c522ef43614067063420",
+        "fullHash": "f2593ad02c67d2704cdfa2c7c6210051c3b828a946c74fff073fb639e88f58fb",
+        "originalHash": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      }
+    ],
+    "sourceMemory": {
+      "fields": {
+        "original": {
+          "count": 5,
+          "bytes": 20971520,
+          "dimensions": [
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            }
+          ]
+        },
+        "coverage": {
+          "count": 5,
+          "bytes": 20971520,
+          "dimensions": [
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            }
+          ]
+        },
+        "inkLoad": {
+          "count": 5,
+          "bytes": 20971520,
+          "dimensions": [
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            }
+          ]
+        },
+        "inkColor": {
+          "count": 5,
+          "bytes": 20971520,
+          "dimensions": [
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            }
+          ]
+        },
+        "solventLoad": {
+          "count": 5,
+          "bytes": 20971520,
+          "dimensions": [
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            },
+            {
+              "w": 1024,
+              "h": 1024
+            }
+          ]
+        }
+      },
+      "uniqueBytes": 104857600,
+      "bufferCount": 25
+    },
+    "pool": {
+      "live": 104857600,
+      "free": 66650112
+    },
+    "cache": {
+      "resident": 217497600,
+      "budget": 234881024
+    },
+    "gl": 0,
+    "lost": false
+  },
+  "journalSHA": "9a6ac50a1c3f11b6229464762fb02cbeb289caba535b03f0cbf607e208f7dc46",
+  "errors": [],
+  "cleanup": "Own context/page closed by finally; protected fixture16 retained with prior15, no room deletion."
+}
