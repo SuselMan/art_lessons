@@ -4,7 +4,7 @@ import { operationLayerIds, strokeDabs } from '@grafetto/shared'
 
 import { watercolorMixFromPreset } from '../presets/watercolorPresets'
 import { WatercolorFootprintIndex, type FootprintBounds } from './watercolorFootprintIndex'
-import { watercolorMaterialBoundaryLayers } from './watercolorMaterialBoundaries'
+import { m70WaterResetLayers } from './watercolorMaterialBoundaries'
 
 /** Minimal journal projection, independent of the OperationLog implementation. */
 export interface WatercolorHistoryEntry {
@@ -146,6 +146,14 @@ function groupOf(op: StrokeOperation): string {
   return group
 }
 
+/** The exact source-closing operations used by material replay. Undefined
+ * means the historical all-layer Dry; an empty array closes no source. */
+function closedWaterLayers(op: Operation): string[] | undefined {
+  if(op.type==='paper_dry')return op.layerId ? [op.layerId] : undefined
+  if(op.type==='layer_clear' || op.type==='layer_delete' || op.type==='layer_visibility' && !op.visible)return operationLayerIds(op)
+  return m70WaterResetLayers(op)
+}
+
 function resolveGeometry(
   entries: readonly WatercolorHistoryEntry[], options: WatercolorUndoOptions = {},
   eligibility?: Eligibility, unrestricted = new Set<string>(), observed?: Eligibility, enabled?: Set<string>, links?: Eligibility,
@@ -183,16 +191,9 @@ function resolveGeometry(
     for (const entry of entries) {
       const op = entry.op
       if (entry.state === 'done') {
-        for (const id of watercolorMaterialBoundaryLayers(op)) close(id)
-        if (op.type === 'paper_dry') {
-          if (op.layerId) close(op.layerId); else { open.clear(); layerLastAt.clear(); spatial.clear() }
-        } else if (op.type === 'layer_clear' || op.type === 'layer_delete'
-          || (op.type === 'layer_visibility' && !op.visible)) {
-          for (const layer of operationLayerIds(op)) close(layer)
-        } else if (op.type === 'stroke' && op.tool !== 'eraser' && !isM70WatercolorStroke(op)) {
-          // Current adapter commits wet material before ordinary tools paint.
-          close(op.layerId)
-        }
+        const layers=closedWaterLayers(op)
+        if(layers)for(const id of layers)close(id)
+        else {open.clear();layerLastAt.clear();spatial.clear()}
         if (op.type === 'stroke' && (options.dryingScope ?? 'layer') === 'layer') {
           const last = layerLastAt.get(op.layerId)
           if (last !== undefined && op.timestamp >= last + dryAfter) close(op.layerId)
@@ -293,6 +294,44 @@ function resolveGeometry(
       ? [waterOnlyStroke(entry.op)] : [])
 }
 
+const clockProjections=new WeakMap<StrokeOperation,StrokeOperation>()
+/** A new gesture can refresh the layer clock, but cannot become a historical
+ * connector in a dormant source's proof. Zero-water nodes do not join pools. */
+function clockOnlyStroke(op: StrokeOperation): StrokeOperation {
+  let projected=clockProjections.get(op)
+  if(!projected){const preset=op.preset.split(':');preset[1]='0';preset[2]='0';projected={...op,preset:preset.join(':')};clockProjections.set(op,projected)}
+  return projected
+}
+/** Reopening an original material barrier may restore an already observed
+ * whole-water dependency, never grant eligibility to a new foreign gesture. */
+function enableHistoricalBoundarySources(boundary: Operation, entries: readonly WatercolorHistoryEntry[], eligibility: Eligibility, reactivators: Eligibility, enabled: Set<string>, options: WatercolorUndoOptions): void {
+  const layers=closedWaterLayers(boundary)
+  if(layers?.length===0)return
+  const at=entries.findIndex(entry=>entry.op.id===boundary.id)
+  const groups=new Map<string,{layer:string;first:number;last:number}>()
+  const removed=new Set<string>()
+  for(const [index,entry]of entries.entries())if(isM70WatercolorStroke(entry.op)){
+    const id=groupOf(entry.op),prior=groups.get(id)
+    groups.set(id,{layer:entry.op.layerId,first:prior?.first??index,last:index})
+    if(isRemovedWaterCandidate(entry))removed.add(entry.op.id)
+  }
+  for(const [source,consumers]of eligibility){
+    const from=groups.get(source)
+    if(enabled.has(source) || !consumers.size || !from || layers && !layers.includes(from.layer))continue
+    const historical=new Set(reactivators.get(source));historical.add(source)
+    const members=[...historical].flatMap(id=>{const group=groups.get(id);return group?.layer===from.layer ? [group] : []})
+    // A whole gesture/connector can lie on either side of the barrier. The
+    // already observed component, not only the source/consumer pair, spans it.
+    if(!members.some(group=>group.first<at) || !members.some(group=>at<group.last))continue
+    const probe=entries.map(entry=>isM70WatercolorStroke(entry.op) && !historical.has(groupOf(entry.op)) ? {...entry,op:clockOnlyStroke(entry.op)} : entry)
+    const candidateEnabled=new Set(enabled);candidateEnabled.add(source)
+    // Recheck old connectors as well as active consumers and dry/expiry
+    // boundaries. A replacement bridge drawn while water was absent cannot
+    // be the path that resurrects it merely because Dry was undone.
+    if(resolveGeometry(probe,options,eligibility,undefined,undefined,candidateEnabled).some(op=>removed.has(op.id) && isM70WatercolorStroke(op) && groupOf(op)===source))enabled.add(source)
+  }
+}
+
 type TimelineState = {
   source: Operation[]; simulated: WatercolorHistoryEntry[]; byId: Map<string, WatercolorHistoryEntry>
   eligibility: Eligibility; reactivators: Eligibility; view: Operation[]; material?: Operation[]; enabled: Set<string>; dryAfterMs: number | undefined; dryingScope: WatercolorUndoOptions['dryingScope']
@@ -354,6 +393,7 @@ export function effectiveWatercolorOperations(
           const group = isM70WatercolorStroke(entry.op) ? groupOf(entry.op) : undefined
           if (op.type === 'operation_undo' && entry.state === 'done') {
             entry.state = 'undone'
+            enableHistoricalBoundarySources(entry.op,simulated,eligibility,reactivators,enabled,options)
             if (group) { eligibility.delete(group); reactivators.delete(group); freshUndo.add(group); enabled.add(group) }
           } else if (op.type === 'operation_redo' && entry.state === 'undone') {
             entry.state = 'done'; entry.goneReason = undefined
