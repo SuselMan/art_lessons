@@ -1,3 +1,4 @@
+import {definitions as finiteVolume} from './finite-volume'
 import {definitions as hybrid} from './hybrid-wash'
 import {definitions as porous} from './porous-water'
 import {definitions as stable} from './stable-fluids'
@@ -6,4 +7,4 @@ import {definitions as artistic,programDefinitions} from './artistic-front'
 import {definitions as wetBoundary} from './wet-boundary-detail'
 import {definitions as paperDeposition} from './paper-deposition'
 import {definitions as correlatedPaper} from './correlated-paper'
-export const definitions=[...hybrid,...stable,...lattice,...artistic,...programDefinitions,...wetBoundary,...paperDeposition,...porous,...correlatedPaper]
+export const definitions=[...finiteVolume,...hybrid,...stable,...lattice,...artistic,...programDefinitions,...wetBoundary,...paperDeposition,...porous,...correlatedPaper]
