@@ -15,22 +15,26 @@ const depositFns=`${paperFns}vec4 deposited(vec4 moving,vec4 terrain,float adsor
 const depositFixed=h+`uniform sampler2D settled,mobile,aux;uniform float adsorption;${depositFns}void main(){vec4 moving=bytes(mobile,uv),terrain=bytes(aux,uv),stuck=bytes(settled,uv);vec4 added=deposited(moving,terrain,adsorption);gl_FragColor=min(stuck+added,vec4(255.))/255.;}`
 const depositMobile=h+`uniform sampler2D mobile,aux;uniform float adsorption;${depositFns}void main(){vec4 moving=bytes(mobile,uv),terrain=bytes(aux,uv);gl_FragColor=(moving-deposited(moving,terrain,adsorption))/255.;}`
 const finish=h+`uniform sampler2D settled,mobile,original,aux;${paperFns}void main(){if(bytes(aux,uv).r==0.){gl_FragColor=bytes(original,uv)/255.;return;}vec4 c=min(bytes(settled,uv)+bytes(mobile,uv),vec4(255.))/255.;gl_FragColor=vec4(min(c.rgb,vec3(c.a)),c.a);}`
+const fineDiffuse=h+`uniform sampler2D source,aux;uniform float share;void main(){vec4 own=texture2D(source,uv),result=own;float wi=texture2D(aux,uv).r;if(wi==0.){gl_FragColor=own;return;}for(int k=0;k<4;k++){vec2 d=k==0?vec2(1.,0.):k==1?vec2(-1.,0.):k==2?vec2(0.,1.):vec2(0.,-1.);vec2 q=uv+d/1024.;if(q.x<0.||q.y<0.||q.x>1.||q.y>1.)continue;float gate=texture2D(aux,q).r>0.?1.:0.;result+=share*.25*gate*(texture2D(source,q)-own);}gl_FragColor=result;}`
 export function create(gl:WebGLRenderingContext,size:number,config:Record<string,number>):GLAlgorithm{
  if(size!==1024)throw Error('paper deposition requires1024')
  const steps=Math.floor(number(config,'steps',4,1,8)),mobileFraction=number(config,'mobile',.4,0,.85),share=number(config,'share',.65,0,.9),adsorption=number(config,'adsorption',.16,0,.4),coarse=number(config,'coarse',4,1,8)
  if(!Number.isInteger(coarse))throw Error('coarse stride must be integer')
+ const paperGain=number(config,'paperGain',1,0,1),fineSmooth=number(config,'fineSmooth',0,0,2)
+ if(!Number.isInteger(fineSmooth))throw Error('fineSmooth must be integer')
  const gpu=new GPU(gl)
  try {
   const original=gpu.target(size),aux=gpu.target(size),mobile=[gpu.target(size),gpu.target(size)],fixed=[gpu.target(size),gpu.target(size)],out=gpu.target(size),coarseColor=[gpu.target(256),gpu.target(256)],coarseIn=[gpu.target(256),gpu.target(256)],domain=gpu.target(256)
   const seed=gpu.program(split,['original','aux','mobileFraction','part']),move=gpu.program(exchange,['mobile','inflow0','inflow1','domain','aux','stride','rate']),averageProgram=gpu.program(average,['mobile','part']),incomingProgram=gpu.program(incoming,['coarse0','coarse1','domain','stride','rate','part']),immobilize=gpu.program(depositFixed,['settled','mobile','aux','adsorption']),remainder=gpu.program(depositMobile,['mobile','aux','adsorption']),sum=gpu.program(finish,['settled','mobile','original','aux'])
+  const smooth=fineSmooth?gpu.program(fineDiffuse,['source','aux','share']):undefined
   let packed:Uint8Array|undefined=new Uint8Array(size*size*4),ready=false
   return {
-   metadata:{family:'conservative coarse-to-fine finite-volume exchange and adsorption',resolution:size,passes:3+7*steps,conservation:'whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact',fixedFraction:1-mobileFraction},
+   metadata:{family:'conservative coarse-to-fine finite-volume exchange and adsorption',resolution:size,passes:3+7*steps+fineSmooth,paperGain,fineSmooth,conservation:'whole ideal float pipeline mass-conservative; GPU RGBA8 average/incoming/flow rounding and saturation NOT exact',fixedFraction:1-mobileFraction},
    upload(input:AlgorithmInput){
     ready=false
     if(!packed)throw Error('destroyed')
     if(input.size!==size||input.rgba.length!==size*size*4||input.water.length!==size*size||input.paper.length!==size*size)throw Error('invalid input dimensions')
-    const weights=receiverWeights(input.water,input.paper)
+    const weights=receiverWeights(input.water,input.paper,paperGain)
     for(let i=0;i<size*size;i++){packed[i*4]=input.water[i];packed[i*4+1]=input.paper[i];packed[i*4+2]=weights.codes[i]>>>8;packed[i*4+3]=weights.codes[i]&255}
     gpu.upload(domain,weights.domain)
     gpu.upload(original,input.rgba);gpu.upload(aux,packed);ready=true
@@ -50,11 +54,13 @@ export function create(gl:WebGLRenderingContext,size:number,config:Record<string
       gpu.draw(mobile[1-mi],remainder,{mobile:mobile[mi],aux},{adsorption});mi=1-mi
      }
      gpu.draw(out,sum,{settled:fixed[fi],mobile:mobile[mi],original,aux})
-     return out
+     let result=out
+     for(let i=0;i<fineSmooth;i++){const next=i%2===0?mobile[0]:out;gpu.draw(next,smooth!,{source:result,aux},{share:.8});result=next}
+     return result
     })
    },
    destroy(){ready=false;packed=undefined;gpu.destroy()},
   }
  }catch(e){gpu.destroy();throw e}
 }
-export const definitions:GLDefinition[]=[{id:'alternative-finite-volume-exchange',label:'Conservative coarse-to-fine exchange with normalized paper deposition',create,configs:[{steps:4,mobile:.6,share:.65,adsorption:.1,coarse:4},{steps:6,mobile:.8,share:.75,adsorption:.08,coarse:2}]}]
+export const definitions:GLDefinition[]=[{id:'alternative-finite-volume-exchange',label:'Conservative coarse-to-fine exchange with normalized paper deposition',create,configs:[{steps:4,mobile:.6,share:.65,adsorption:.1,coarse:4},{steps:6,mobile:.8,share:.75,adsorption:.08,coarse:2},{steps:6,mobile:.8,share:.75,adsorption:.08,coarse:2,paperGain:0,fineSmooth:2},{steps:6,mobile:.8,share:.75,adsorption:.08,coarse:2,paperGain:.25,fineSmooth:2},{steps:6,mobile:.8,share:.75,adsorption:.08,coarse:2,paperGain:.5,fineSmooth:1}]}]
