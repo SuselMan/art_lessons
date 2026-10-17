@@ -131,19 +131,20 @@ const MORPH = HEADER + `
   }
 `
 
-export function createPuddlePresentation(gl: WebGLRenderingContext, size: number | { width: number; height: number }, options: {smoothArrival?:boolean} = {}) {
+export function createPuddlePresentation(gl: WebGLRenderingContext, size: number | { width: number; height: number }, options: {smoothArrival?:boolean; bufferFactory?:(width:number,height:number,filter?:'linear'|'nearest')=>AccumulationBuffer} = {}) {
   const width = typeof size === 'number' ? size : size.width
   const height = typeof size === 'number' ? size : size.height
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) throw new Error('Invalid presentation size')
-  let current = new AccumulationBuffer(gl, width, height)
-  let next = new AccumulationBuffer(gl, width, height)
-  const target = new AccumulationBuffer(gl, width, height)
-  const wet = new AccumulationBuffer(gl, width, height)
-  const anchor = new AccumulationBuffer(gl, width, height)
+  const allocate=(w:number,h:number)=>options.bufferFactory?.(w,h,'linear') ?? new AccumulationBuffer(gl,w,h)
+  let current = allocate(width, height)
+  let next = allocate(width, height)
+  const target = allocate(width, height)
+  const wet = allocate(width, height)
+  const anchor = allocate(width, height)
   const fw = Math.min(128, width), fh = Math.min(128, height)
-  const sourceFeature = new AccumulationBuffer(gl, fw, fh)
-  const targetFeature = new AccumulationBuffer(gl, fw, fh)
-  const flow = new AccumulationBuffer(gl, fw, fh)
+  const sourceFeature = allocate(fw, fh)
+  const targetFeature = allocate(fw, fh)
+  const flow = allocate(fw, fh)
   const buffers = [current, next, target, wet, anchor, sourceFeature, targetFeature, flow]
   const quad = createFullscreenQuad(gl)
   const state = new PresentationEpoch()
