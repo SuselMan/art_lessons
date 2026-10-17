@@ -42,7 +42,7 @@ M70. Исправление количества мокрых слоёв сам�
 | C03 | Chunk обгоняет несколько live-пакетов | Записанный префикс удаляется из film ровно один раз, поздние пакеты его не воскрешают. Cursor unit-тесты и аппаратная матрица Online D с 800-dab chunks прошли; поздний префикс не рисуется повторно. |
 | C04 | Cancel до UP / peer leave / reconnect | Аппаратный повтор #743 PASS: cancel и disconnect дали 0 изменённых каналов экрана. DOM курсор исключён до baseline; прежний cancel finding отозван как ложный. |
 | C05 | Freeze/lock после live, отказ окончательной операции | Сервер должен отменить незаписанный live-хвост. Реальный Socket.io baseline FAIL → исправление #762; 9 socket tests и аппаратный room_frozen повтор PASS, автор остаётся онлайн. |
-| C06 | Принятый chunk → отказ следующего | Принятый материал сохраняется; отменяется только незаписанный хвост. Canonical operation log не переписывается cancellation. |
+| C06 | Принятый chunk → отказ следующего | Принятый материал сохраняется; отменяется только незаписанный хвост. C06: accepted800prefix→freeze→настоящийUP/permanentreject→Dry/newUndoRedo/coldrejoin, 5 аппаратных этапов PASS; отклонённый хвост не вернулся. |
 | C07 | Три автора начинают на трёх слоях до чужих UP | Локальный preflight не гарантирует общий лимит двух источников. C07: три настоящих автора DOWN до любой принятой операции, UP 2→3→1; wet3/resident≤2/queue0/jobs0, девять actual raster сравнений точны own replay. |
 | C08 | Чужой Dry посреди chunked gesture | Журнал задаёт границу, поздний chunk не смешивается через Dry. Online D: удерживаемый чужой Dry и последующие Undo/Redo прошли, 12 этапов, actual=own replay на трёх клиентах. |
 | C09 | A рисует, B/C вносят вклад, A Undo, затем B/C Undo/Redo | Защищённая вода освобождается по правилу активных зависимостей. 672 incremental/cold состояния совпали. |
@@ -54,7 +54,7 @@ M70. Исправление количества мокрых слоёв сам�
 | C15 | Undo пигмента/сушки до C14 checkpoint | Обязательно отвергнуть старый CP; сохранение скорости не может оставить старый материал. Негативные tests и Online D (Undo Dry / Redo Dry / cold join) PASS, старый CP отвергается. |
 | C16 | Мокрый M70 → shape/area/filter/image/transform | Следующая анимация не перезаписывает новую операцию. Восемь lifecycle baseline FAIL, #760. GPU baseline: 10000 красных пикселей фигуры исчезали; после исправления на Vega и Samsung 10000→10000 и actual=own replay. |
 | C17 | Новый жест около 120 с, длинный предыдущий жест | Live и replay выбирают одну эпоху. Три исполняемых clock finding tests #753 фиксируют текущее расхождение; скрытой смены контракта старых комнат нет. |
-| C18 | Одни CPU-входы/пустой FBO, разные GPU | Найден первый различающийся draw0 nib coverage; гипотезы теперь проверяются на одном проходе. DITHER, highp sampler и uniform-scalars не изменили расхождение. Следующая изолированная гипотеза — интерполяция UV; продуктовый shader пока не изменён. |
+| C18 | Одни CPU-входы/пустой FBO, разные GPU | Найден первый различающийся draw0 nib coverage; гипотезы теперь проверяются на одном проходе. DITHER, highp sampler и uniform-scalars не изменили расхождение. Отдельные controls bg pixel UV и highp sampler также не изменили first-bg расхождение34канала/max1. Продуктовый shader не изменён. |
 
 ## Текущие границы
 
@@ -642,3 +642,100 @@ map:check1111 PASS. Engine не менялся относительно посл
 удалён штатным qa-cleanup с сохранённой проверкой активных процессов
 и доступом к /proc через sudo. Владение registry восстановлено.
 Общие QA-туннели и три существующих сервиса оставлены для следующих тестов.
+
+
+## Срез 04:34 — восстановление материала на hardware и начало endurance
+
+#778 native PASS6: real recoveryOperations на удалённый target выдаёт
+новые IDs и сохраняет исходные timestamps; настоящий сервер принимает
+новый layer и retargeted journal. Для A→Dry→B и A→gap120100ms→B
+recovered canonical exact accepted-original reference на том же GPU;
+все4 слоя×3actor actual raster exact OFF full replay, GL0.
+Это доказательство module→server→engine, не полная проверка UI-banner/outbox delivery.
+
+Endurance начат на runtime0be6e667:10 socket identities,2 native GPU
+observers (Vega/Surface),60циклов×30mixedwater/pigmentstrokes+20UndoRedo,
+terminalDry,45s idle; deep exact OFF replay каждые6циклов. Первые6циклов
+без pageerrors/GLerrors,308ops в одинаковых журналах, pending/closingfalse.
+Цикл0 уже прошёл exact pixel oracle; весь60-cycle run ещё НЕ закончен.
+8–10% — доля активной части wallclock, не измеренный GPU utilization.
+Observer viewport1100×850/DPR1: это native GPU functional/endurance,
+а не проверка Surface touch/DPR1.5 memory/performance профиля.
+
+Дополнительный найденный переход: ранее защищённая вода может исчезнуть
+после RedoDry→UndoDry. Новый regression/fix готовится отдельно;
+endurance не прерываем изменением исходников посреди теста.
+
+
+## Срез 04:41 — Samsung и новый Undo boundary finding
+
+Нативный Adreno650, исходный touch/DPR профиль и300MiB budget: настоящий
+held watercolor виден доUP; trustedCtrlZ дал empty canonical, CtrlShiftZ
+вернул прежний hashc010..; все3 target сравнения точны own full replay.
+Это WCUndo/Redo, в отличие от прежнего mini, где Undo отменял только карандаш.
+Время Undo здесь не измерялось и не объявляется быстрым.
+
+Заполненная1024² комната100×8encodeddabs+recordedDry: normalfresh/warm
+UIready1234/967ms, reviewfresh/warm1269/1096ms, отдельный первый вход
+после посева безготового новогоsnapshot3284ms. Четыре actual target
+точны полным103 accepted operations; partialrawlog102 легально не содержал
+coveredstroke seq2 при положительномsnapshot/ledger. Actualpixels сохранены
+ДО independent full-history oracle; живой canvas этим не ремонтировался.
+Это RoomOpen postjoin UIready, не firstframe/navigationwall; backend параллельно
+обслуживал endurance10authors, результат не является isolated benchmark.
+Review ранний exportedimage1024² отдельно latched. GL/contextloss0.
+Proof40498952. Две ownedfixtures DELETE200, auth/contexts убраны, исходная
+пользовательская вкладка восстановлена. Registered745-samsung-filled100
+сырой каталог удалён штатным guarded privilegedfinish, общие forwards пока QA.
+
+#779: найдено исчезновение УЖЕ защищённой воды при reversible
+RedoBoundary→UndoBoundary. Baseline подтвердил Dry/hide/pencil/shape/clear/
+delete; wholegesture с чанками по обе стороны границы требует проверки
+всего старого connectedcomponent, не одного source/consumer interval.
+Кандидат00997e03+17d73a66:19focusedcases+10000naivegraphprefixesPASS,
+69targetedtests/fullwebtypecheck/lintPASS. Новые bridge/consumer не дают
+eligibility; старые коннекторы/активность/120s перепроверяются отдельно.
+Интеграция ожидает завершения текущего endurance, runtime сейчас0be6e667.
+
+#777 дополнительно подтверждён: поздний permanentroom_frozen при retired
+очереди оставляет originalentry sendable; послеunfreeze/return тотжеID
+может впервые приниматься сервером. Это existingdisposedgap, #776 исправляет
+boardisolation, но не terminalrejectdurability. SavedOPENregressions908b9644.
+Готовится изолированный durablehandoff prototype для review; он ещё не является
+исправлением тестовой сборки. Нужны честные restart/atomicity/oldreader границы.
+
+Endurancecycle12:665ops, обаGPU actualexact own OFF replay, GL0/pageerrors0.
+Самостоятельный GC междуdeepchecks возвращал heapк104/108MiB; текущие
+readback/replay пики не выдаются за измеренную утечку. TargetRGB/alpha меняются
+междуциклами, но сатурация приближается; это не pixelproof каждого lateop.
+Лимит04:34:45%использовано,55%осталось, resetнеприменялся.
+
+
+## Срез 04:47 — #753 уже подтверждён на настоящем устройстве
+
+Samsung, неизменный runtime0be6e667: настоящий trustedDOWN за550ms
+до120s expiry старого serveraccepted WC; trustedUP через2192ms после
+expiry. После ACK, jobs0/unsettledfalse/pendingfalse canonicalTiles автора
+СОХРАНЕНЫ ДО oracle:19505 отличающихся каналов/max106 против полного
+accepted-history replay на ТОМЖЕ GPU, GL0. Это не animation/crossGPUtolerance.
+Proof634282fe/интеграция12496b5e. Ownedfixture DELETE200/authremoved/
+contextclosed; registered753-samsung-clock rawcache удалён guardedfinish.
+
+Исследуется узкое legacy-convergence исправление: записанный op.timestamp
+остаётся прежней канонической истиной, live/source decision сравнивается
+с ним при chunk/UP; если120s epoch отличается — существующий postUPrepair,
+иначе только согласовать transient logical timestamp без replay. Новый
+material-clock формат/переписывание старой истории не вводятся. Пока это
+исследование, runtime fix не объявлен. Правильная продуктовая семантика
+lastactualmaterial vs длительный hold всё ещё требует отдельного решения.
+
+#744 optionalcache: обнаружен admissionbug — source с owedphysicalrepair
+мог попасть вCPU Undo cache. Кандидат8232cfda добавляет per-layer guard
+unsettled/pending/runningreplay наcapture/restore,2baselineFAIL→17PASS
+с прежними15 cachecases; webtypecheckPASS. Это не доказанная GPUcorruption
+и не ускорение Undo; flagOFF остаётсяOFF. Пока не интегрирован из-за freeze.
+
+GPUcachefeasibility499db96b/67f44ae3: прежний GPU snapshot хранит8полей,
+M70требует10+flags; destructive spill нельзя подменить captureнаDOWN.
+Потребуются явное владение/dispose и GPUbudgetadmission (~44MiB для1024²),
+а не помещение GLресурсов вCPU-only residency. Такой контракт не реализован.
