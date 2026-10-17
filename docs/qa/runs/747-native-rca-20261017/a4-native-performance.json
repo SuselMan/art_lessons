@@ -1,0 +1,620 @@
+{
+  "qualification": "Physical Room trusted pen, timing scopes stop BEFORE pixel reads. One compact gesture on a new layer. First run intentionally stopped by >10s gate; second is profile-only without replay oracle. Nested method timings overlap and must not be added. First dynamic-import prototype did not match actual cached class; only second run has valid actual-cache instrumentation. Fresh scopes were visible; long RAF gaps indicate blocked work, not initial background 1Hz throttling. No A3/A2 performance claim.",
+  "reports": [
+    {
+      "case": "a4l-runtime-telemetry",
+      "sourceLabel": "1af85f06",
+      "geometry": {
+        "width": 1754,
+        "height": 1240
+      },
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "model": "m70-r2-v1",
+      "cases": [
+        {
+          "name": "room-native-ready",
+          "wallAt": 1792222269978
+        },
+        {
+          "name": "RAF-foreground-probe",
+          "wallAt": 1792222270544,
+          "times": [
+            16.69999999999709,
+            16.80000000000291,
+            16.69999999999709,
+            16.700000000004366,
+            16.69999999999709,
+            16.700000000004366,
+            16.69999999999709,
+            16.69999999999709,
+            16.700000000004366,
+            16.799999999995634,
+            16.60000000000582,
+            16.799999999995634,
+            16.700000000004366,
+            16.799999999995634,
+            16.700000000004366,
+            33.39999999999418,
+            16.700000000004366,
+            16.69999999999709,
+            16.80000000000291,
+            16.69999999999709
+          ],
+          "hidden": false,
+          "visibility": "visible"
+        },
+        {
+          "name": "operation-layer_add-idle",
+          "wallAt": 1792222270973,
+          "telemetry": {
+            "label": "layer_add",
+            "start": 39033.09999990463,
+            "lru": {},
+            "worst": [],
+            "raf": {
+              "count": 18,
+              "sumMs": 317.59999999999854,
+              "maxMs": 33.400000000001455,
+              "histogram": [
+                0,
+                8,
+                9,
+                1,
+                0,
+                0,
+                0,
+                0
+              ],
+              "over50": 0,
+              "over100": 0
+            },
+            "visibility": [
+              {
+                "at": 39033.299999952316,
+                "hidden": false,
+                "state": "visible"
+              },
+              {
+                "at": 39362.59999990463,
+                "hidden": false,
+                "state": "visible"
+              }
+            ],
+            "end": 39362.59999990463,
+            "wallMs": 329.5
+          },
+          "nativeElapsedMs": 379.5
+        },
+        {
+          "name": "trusted-pen-crosses-both1024-seams",
+          "wallAt": 1792222325004,
+          "telemetry": {
+            "label": "trusted-pen-crosses-both1024-seams",
+            "start": 39945.90000009537,
+            "lru": {},
+            "worst": [],
+            "raf": {
+              "count": 52,
+              "sumMs": 53393.200000000004,
+              "maxMs": 13423.5,
+              "histogram": [
+                0,
+                17,
+                15,
+                0,
+                1,
+                7,
+                4,
+                8
+              ],
+              "over50": 20,
+              "over100": 19
+            },
+            "visibility": [
+              {
+                "at": 39945.90000009537,
+                "hidden": false,
+                "state": "visible"
+              },
+              {
+                "at": 93350.90000009537,
+                "hidden": false,
+                "state": "visible"
+              }
+            ],
+            "end": 93350.90000009537,
+            "wallMs": 53405
+          },
+          "upToObservedIdleMs": 27884.5
+        },
+        {
+          "name": "actual-physical-first-after-UP-cache120MiB",
+          "wallAt": 1792222325124,
+          "physical": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "hash": "d41738af2daad6624b92384739025337db4eff959557b9533f877dd1525efa6c",
+              "alpha": 2034
+            },
+            {
+              "x": 1024,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "hash": "e9bebe625e02c336fd7583af5f57e142993143377ab0ce0dbc208a471adc7d15",
+              "alpha": 300
+            },
+            {
+              "x": 0,
+              "y": 1024,
+              "w": 1024,
+              "h": 1024,
+              "hash": "19eadbc3092dd9f4a60b500ef731e672aae876291b3f230d8da456658a76bbad",
+              "alpha": 291
+            },
+            {
+              "x": 1024,
+              "y": 1024,
+              "w": 1024,
+              "h": 1024,
+              "hash": "469bb44ad2dc5391b2ae5ba744614f10a0aa12f50d2a2a654287d4986b3318cc",
+              "alpha": 1564
+            }
+          ],
+          "puddle": "PagedPuddleRoomController",
+          "state": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 1,
+            "residentLayers": 1,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 1,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 2,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "cache": {
+            "resident": 123557168,
+            "budget": 125829120
+          },
+          "gl": 0,
+          "lost": false
+        }
+      ],
+      "pass": false,
+      "profileOnly": false,
+      "failure": "Error: Compact gesture exceeded 10 seconds; stop for performance investigation\n    at /home/suselman/projects/pencil-agents/747-single-rect/docs/qa/harness/747/room-public-android.cjs:38:120",
+      "errors": []
+    },
+    {
+      "case": "a4l-deep-profile",
+      "sourceLabel": "1af85f06-uniformscan-dirty",
+      "geometry": {
+        "width": 1754,
+        "height": 1240
+      },
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "model": "m70-r2-v1",
+      "cases": [
+        {
+          "name": "room-native-ready",
+          "wallAt": 1792222544103
+        },
+        {
+          "name": "RAF-foreground-probe",
+          "wallAt": 1792222544784,
+          "times": [
+            16.69999999999709,
+            16.80000000000291,
+            16.69999999999709,
+            16.700000000004366,
+            16.69999999999709,
+            16.80000000000291,
+            16.599999999998545,
+            16.799999999995634,
+            16.700000000004366,
+            16.69999999999709,
+            16.80000000000291,
+            16.69999999999709,
+            16.599999999998545,
+            16.700000000004366,
+            16.799999999995634,
+            16.700000000004366,
+            16.69999999999709,
+            16.700000000004366,
+            16.799999999995634,
+            16.599999999998545
+          ],
+          "hidden": false,
+          "visibility": "visible"
+        },
+        {
+          "name": "operation-layer_add-idle",
+          "wallAt": 1792222545212,
+          "telemetry": {
+            "label": "layer_add",
+            "start": 57484.200000047684,
+            "lru": {},
+            "worst": [],
+            "raf": {
+              "count": 15,
+              "sumMs": 301,
+              "maxMs": 50.19999999999709,
+              "histogram": [
+                0,
+                4,
+                9,
+                1,
+                1,
+                0,
+                0,
+                0
+              ],
+              "over50": 1,
+              "over100": 0
+            },
+            "visibility": [
+              {
+                "at": 57484.299999952316,
+                "hidden": false,
+                "state": "visible"
+              },
+              {
+                "at": 57803.299999952316,
+                "hidden": false,
+                "state": "visible"
+              }
+            ],
+            "end": 57803.299999952316,
+            "wallMs": 319.09999990463257
+          },
+          "nativeElapsedMs": 383.2000000476837
+        },
+        {
+          "0": {
+            "controller": "PagedPuddleRoomController"
+          },
+          "1": {
+            "constructor": "AccumulationBuffer",
+            "dynamicImportSame": false
+          },
+          "name": "deep-telemetry-identity",
+          "wallAt": 1792222545539
+        },
+        {
+          "name": "trusted-pen-crosses-both1024-seams",
+          "wallAt": 1792222574553,
+          "telemetry": {
+            "label": "trusted-pen-crosses-both1024-seams",
+            "start": 58605.40000009537,
+            "lru": {},
+            "worst": [],
+            "raf": {
+              "count": 49,
+              "sumMs": 27532.299999999996,
+              "maxMs": 5850.799999999996,
+              "histogram": [
+                0,
+                14,
+                11,
+                1,
+                1,
+                8,
+                7,
+                7
+              ],
+              "over50": 23,
+              "over100": 22
+            },
+            "visibility": [
+              {
+                "at": 58605.40000009537,
+                "hidden": false,
+                "state": "visible"
+              },
+              {
+                "at": 86484.70000004768,
+                "hidden": false,
+                "state": "visible"
+              }
+            ],
+            "methods": {
+              "controller.present@DOWN": {
+                "count": 20,
+                "sumMs": 69.59999990463257,
+                "maxMs": 47.799999952316284
+              },
+              "actualCache.touch@DOWN": {
+                "count": 963,
+                "sumMs": 10141.299997329712,
+                "maxMs": 106.5
+              },
+              "controller.frame@DOWN": {
+                "count": 23,
+                "sumMs": 9.199999570846558,
+                "maxMs": 5.5
+              },
+              "controller.source@DOWN": {
+                "count": 1,
+                "sumMs": 1,
+                "maxMs": 1
+              },
+              "engine._ribbonDabsWork@DOWN": {
+                "count": 4,
+                "sumMs": 0,
+                "maxMs": 0
+              },
+              "controller.beforePaint@DOWN": {
+                "count": 4,
+                "sumMs": 0,
+                "maxMs": 0
+              },
+              "scratch.compositeScalars@DOWN": {
+                "count": 20,
+                "sumMs": 0.09999990463256836,
+                "maxMs": 0.09999990463256836
+              },
+              "pool.acquire@DOWN": {
+                "count": 44,
+                "sumMs": 266.0000002384186,
+                "maxMs": 19.700000047683716
+              },
+              "gl.readPixels@DOWN": {
+                "count": 360,
+                "sumMs": 2291.6999995708466,
+                "maxMs": 31.899999856948853
+              },
+              "actualBuffer._residencyEvict@DOWN": {
+                "count": 360,
+                "sumMs": 3646.4000022411346,
+                "maxMs": 44.5
+              },
+              "actualCache.reserve@DOWN": {
+                "count": 354,
+                "sumMs": 3743.2999987602234,
+                "maxMs": 44.59999990463257
+              },
+              "actualBuffer._residencyHydrate@DOWN": {
+                "count": 282,
+                "sumMs": 7020.499999284744,
+                "maxMs": 74.10000014305115
+              },
+              "actualCache.register@DOWN": {
+                "count": 72,
+                "sumMs": 640.3000001907349,
+                "maxMs": 36
+              },
+              "host.makeBuffer@DOWN": {
+                "count": 44,
+                "sumMs": 458.2000005245209,
+                "maxMs": 37.299999952316284
+              },
+              "controller.accept@DOWN": {
+                "count": 4,
+                "sumMs": 1686.5,
+                "maxMs": 858.2999999523163
+              },
+              "engine._onStart@DOWN": {
+                "count": 1,
+                "sumMs": 688.4000000953674,
+                "maxMs": 688.4000000953674
+              },
+              "engine._onMove@DOWN": {
+                "count": 4,
+                "sumMs": 8092.999999761581,
+                "maxMs": 4561.700000047684
+              },
+              "engine._ribbonDabsWork@UP": {
+                "count": 1,
+                "sumMs": 0,
+                "maxMs": 0
+              },
+              "controller.beforePaint@UP": {
+                "count": 1,
+                "sumMs": 0,
+                "maxMs": 0
+              },
+              "scratch.compositeScalars@UP": {
+                "count": 22,
+                "sumMs": 0.09999990463256836,
+                "maxMs": 0.09999990463256836
+              },
+              "gl.readPixels@UP": {
+                "count": 747,
+                "sumMs": 5824.10000038147,
+                "maxMs": 199.10000014305115
+              },
+              "actualBuffer._residencyEvict@UP": {
+                "count": 664,
+                "sumMs": 7506.400003194809,
+                "maxMs": 292.40000009536743
+              },
+              "actualCache.reserve@UP": {
+                "count": 884,
+                "sumMs": 7653.200001716614,
+                "maxMs": 292.59999990463257
+              },
+              "actualBuffer._residencyHydrate@UP": {
+                "count": 630,
+                "sumMs": 5447.099997997284,
+                "maxMs": 129.80000019073486
+              },
+              "actualCache.touch@UP": {
+                "count": 2792,
+                "sumMs": 11538.799999713898,
+                "maxMs": 143.30000019073486
+              },
+              "controller.present@UP": {
+                "count": 87,
+                "sumMs": 311.2999999523163,
+                "maxMs": 98.5
+              },
+              "controller.accept@UP": {
+                "count": 2,
+                "sumMs": 1236.9000000953674,
+                "maxMs": 705.5
+              },
+              "controller.finish@UP": {
+                "count": 1,
+                "sumMs": 705.7000000476837,
+                "maxMs": 705.7000000476837
+              },
+              "engine._onEnd@UP": {
+                "count": 1,
+                "sumMs": 5170.700000047684,
+                "maxMs": 5170.700000047684
+              },
+              "controller.frame@UP": {
+                "count": 27,
+                "sumMs": 10825.900000095367,
+                "maxMs": 2436.7000000476837
+              },
+              "solver.resetFromScratch@UP": {
+                "count": 1,
+                "sumMs": 0.10000014305114746,
+                "maxMs": 0.10000014305114746
+              },
+              "controller.start@UP": {
+                "count": 1,
+                "sumMs": 0.10000014305114746,
+                "maxMs": 0.10000014305114746
+              },
+              "actualBuffer.readPixels@UP": {
+                "count": 83,
+                "sumMs": 1292.2000000476837,
+                "maxMs": 84.30000019073486
+              },
+              "actualCache.register@UP": {
+                "count": 254,
+                "sumMs": 1595.1000003814697,
+                "maxMs": 292.59999990463257
+              },
+              "solver.step@UP": {
+                "count": 23,
+                "sumMs": 5587.60000038147,
+                "maxMs": 1177.0999999046326
+              },
+              "pool.acquire@UP": {
+                "count": 45,
+                "sumMs": 1368.9999995231628,
+                "maxMs": 294.19999980926514
+              },
+              "scratch.captureFinishMetadata@UP": {
+                "count": 3,
+                "sumMs": 1,
+                "maxMs": 0.5
+              },
+              "plan.prepare@UP": {
+                "count": 3,
+                "sumMs": 64.00000023841858,
+                "maxMs": 24.800000190734863
+              },
+              "solver.dry@UP": {
+                "count": 1,
+                "sumMs": 0.09999990463256836,
+                "maxMs": 0.09999990463256836
+              },
+              "controller.complete@UP": {
+                "count": 1,
+                "sumMs": 1642.3999998569489,
+                "maxMs": 1642.3999998569489
+              }
+            },
+            "phase": "UP",
+            "end": 86484.70000004768,
+            "wallMs": 27879.299999952316
+          },
+          "upToObservedIdleMs": 17087.5
+        },
+        {
+          "name": "actual-physical-first-after-UP-cache120MiB",
+          "wallAt": 1792222574984,
+          "physical": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "hash": "c8d64f02de1a6fabe4e18d8d05b427b8b8d22d96b6f20348756ea2173c0eb5cc",
+              "alpha": 2034
+            },
+            {
+              "x": 1024,
+              "y": 0,
+              "w": 1024,
+              "h": 1024,
+              "hash": "d8eb99b8703264e78fd2ddb8db92de8a4a7ad184745734af6a299bf0113d055a",
+              "alpha": 300
+            },
+            {
+              "x": 0,
+              "y": 1024,
+              "w": 1024,
+              "h": 1024,
+              "hash": "bc3487aa4f16161534fee306a9eafbafe74bcb8528c404bad3da2065856b3bb3",
+              "alpha": 291
+            },
+            {
+              "x": 1024,
+              "y": 1024,
+              "w": 1024,
+              "h": 1024,
+              "hash": "2f9f03cf1c9cfe23ded6977d1a54272d4011dc41437d48c15cf90667161f6b07",
+              "alpha": 1564
+            }
+          ],
+          "puddle": "PagedPuddleRoomController",
+          "state": {
+            "undoCaptureLastMs": 0,
+            "undoRestoreLastMs": 0,
+            "undoCaptures": 0,
+            "undoHits": 0,
+            "layers": 2,
+            "residentLayers": 2,
+            "parkedLayers": 0,
+            "cpuBytes": 0,
+            "drying": false,
+            "cancellations": 0,
+            "computations": 2,
+            "pending": false,
+            "revisions": [
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              },
+              {
+                "epoch": 1,
+                "ready": true,
+                "active": true
+              }
+            ]
+          },
+          "cache": {
+            "resident": 123469788,
+            "budget": 125829120
+          },
+          "gl": 0,
+          "lost": false
+        }
+      ],
+      "pass": true,
+      "profileOnly": true,
+      "failure": null,
+      "errors": []
+    }
+  ]
+}
