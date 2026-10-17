@@ -14,7 +14,7 @@ LABELS = {
 'wgsl-integer-diffusion-tiled4':'WebGPU · четыре шага в shared memory',
 'wgsl-d2q9-bgk':'D2Q9 LBM',
 }
-SCENES={'dot':'Точка','wave':'Широкий след','wave-open':'Волна','water-only':'Чистая вода','water-stroke':'Мазок через воду','two-colors':'Синий и розовый','blue-yellow':'Синий и жёлтый','fine-detail':'Тонкие линии','border':'Край листа','dry-stroke':'Сухой контроль','isolated-pools':'Раздельные лужи','crosses':'Пересечения'}
+SCENES={'dot':'Точка','wave':'Широкий след','wave-open':'Волна','water-only':'Чистая вода','water-stroke':'Мазок через воду','two-colors':'Синий и розовый','blue-yellow':'Синий и жёлтый','fine-detail':'Тонкие линии','border':'Край листа','dry-stroke':'Сухой контроль','isolated-pools':'Раздельные лужи','crosses':'Пересечения','variable-wash':'Неравномерная заливка','dry-barrier':'Тонкий сухой разделитель'}
 
 def main():
  p=argparse.ArgumentParser();p.add_argument('cache',type=Path);p.add_argument('output',type=Path);p.add_argument('--selection',type=Path,required=True);a=p.parse_args()
@@ -23,7 +23,7 @@ def main():
  for item in selection['cases']:
   report=json.loads((a.cache/item['batch']/'report.json').read_text());case=report['cases'][item['case']];r=case['result'];image=case['png']['file'];dest=item['batch']+'-'+image
   shutil.copy2(a.cache/item['batch']/image,a.output/'images'/dest)
-  rows.append(dict(label=LABELS.get(r['algorithm'],r['algorithm']),algorithm=r['algorithm'],scene=SCENES.get(r['fixture'],r['fixture']),fixture=r['fixture'],encoding=r.get('encoding','premultiplied-rgb'),config=r['config'],warm=r['warmMedianMs'],cold=r['coldMs'],compile=r['createMs'],samples=r['samples'],repeatExact=r['repeatExact'],hashes=r['hashes'],metrics=r['metrics'],ui=r.get('ui'),metadata=r.get('metadata'),fixtureSHA=r['fixtureSHA'],image='images/'+dest,note=item.get('note',''),batch=item['batch']))
+  rows.append(dict(label=LABELS.get(r['algorithm'],r['algorithm']),algorithm=r['algorithm'],scene=SCENES.get(r['fixture'],r['fixture']),fixture=r['fixture'],encoding=r.get('encoding','premultiplied-rgb'),config=r['config'],warm=r['warmMedianMs'],cold=r['coldMs'],compile=r['createMs'],samples=r['samples'],repeatExact=r['repeatExact'],hashes=r['hashes'],metrics=r['metrics'],ui=r.get('ui'),control=r.get('control'),metadata=r.get('metadata'),fixtureSHA=r['fixtureSHA'],image='images/'+dest,note=item.get('note',''),batch=item['batch']))
  for f in ['wave','dot','two-colors','water-only']:
   if (a.cache/'old-mini-reference'/f'{f}.png').exists():shutil.copy2(a.cache/'old-mini-reference'/f'{f}.png',a.output/'images'/f'old-{f}.png')
  data=dict(summary=selection.get('summary',[]),rows=rows,qualification=selection.get('qualification',''),quota=selection.get('quota',''),source=selection.get('source',''))

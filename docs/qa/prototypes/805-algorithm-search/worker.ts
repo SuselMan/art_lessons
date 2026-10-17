@@ -40,5 +40,13 @@ self.onmessage=async({data})=>{if(busy){send({requestId:data.requestId,error:'Al
  if(data.type==='list'){const gpuDefinitions=webgpuModule?(await webgpuModule).definitions:[];send({requestId:data.requestId,algorithms:[...definitions.map(d=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgl1'})),...gpuDefinitions.map((d:any)=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgpu'}))],fixtures:fixtureIds.map(id=>({id,...fixtureInfo[id]}))});return}
  if(data.type!=='run')throw Error('Unknown request');const encoding=data.encoding??'premultiplied-rgb',input=createFixture(data.fixture as FixtureId,1024,encoding),fixtureSHA={rgba:await digest(input.rgba),water:await digest(input.water),paper:await digest(input.paper)},repeats=Math.max(1,Math.min(5,Math.floor(data.repeats??3)))
  const result=data.algorithm.startsWith('wgsl-')?await runGPU(data.algorithm,input,data.config??{},repeats):await runGL(data.algorithm,input,data.config??{},repeats)
- const {output,...report}=result;(self as any).postMessage({requestId:data.requestId,result:{algorithm:data.algorithm,fixture:data.fixture,encoding,config:data.config??{},fixtureSHA,...report},output},[output.buffer])
+ const {output,...report}=result
+ let control:Record<string,number|boolean>|undefined
+ if(data.fixture==='dry-stroke')control={exactIdentity:output.every((v,i)=>v===input.rgba[i])}
+ if(data.fixture==='isolated-pools'||data.fixture==='dry-barrier'){
+  let inputRight=0,outputRight=0
+  for(let y=0;y<input.size;y++)for(let x=(input.size>>1)+1;x<input.size;x++){const p=(y*input.size+x)*4+3;inputRight+=input.rgba[p];outputRight+=output[p]}
+  control={inputRightAlpha:inputRight,outputRightAlpha:outputRight,noCrossing:inputRight===0&&outputRight===0}
+ }
+ ;(self as any).postMessage({requestId:data.requestId,result:{algorithm:data.algorithm,fixture:data.fixture,encoding,config:data.config??{},fixtureSHA,...report,...(control?{control}:{})},output},[output.buffer])
  }catch(e){send({requestId:data.requestId,error:String((e as Error).stack??e)})}finally{busy=false}}

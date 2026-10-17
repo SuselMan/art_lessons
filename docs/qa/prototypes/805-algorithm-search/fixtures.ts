@@ -1,5 +1,5 @@
 import type {AlgorithmInput,PigmentEncoding} from './protocol'
-export const fixtureIds=['dot','wave','water-only','water-stroke','two-colors','crosses','blue-yellow','fine-detail','border','wave-open','dry-stroke','isolated-pools','variable-wash'] as const
+export const fixtureIds=['dot','wave','water-only','water-stroke','two-colors','crosses','blue-yellow','fine-detail','border','wave-open','dry-stroke','isolated-pools','variable-wash','dry-barrier'] as const
 export type FixtureId=typeof fixtureIds[number]
 export const fixtureInfo:Record<FixtureId,{label:string;description:string}>={
  dot:{label:'Точка',description:'Один широкий отпечаток синей кисти'},
@@ -15,6 +15,7 @@ export const fixtureInfo:Record<FixtureId,{label:string;description:string}>={
  'dry-stroke':{label:'Сухой контроль',description:'Тот же пигмент, что в мазке через лужу, но воды нет: перенос запрещён'},
  'isolated-pools':{label:'Две отдельные лужи',description:'Синий пигмент только в левой луже; правая отделена сухим промежутком'},
  'variable-wash':{label:'Неравномерная заливка',description:'Перекрывающиеся отпечатки с разным количеством краски на предварительно смоченной бумаге'},
+ 'dry-barrier':{label:'Тонкий сухой разделитель',description:'Две мокрые области разделены сухой полосой шириной один пиксель; пигмент только слева'},
 }
 function hash(x:number,y:number,seed:number){let h=Math.imul(x^seed,374761393)^Math.imul(y,668265263);h=Math.imul(h^(h>>>13),1274126177);return(h^(h>>>16))>>>0}
 export function paperBytes(size:number,seed=805){const out=new Uint8Array(size*size);for(let y=0;y<size;y++)for(let x=0;x<size;x++){
@@ -55,6 +56,10 @@ export function createFixture(id:FixtureId,size=1024,encoding:PigmentEncoding='p
   const path=Array.from({length:25},(_,i)=>{const t=i/24;return[180+664*t,512+140*Math.sin(2*Math.PI*t)]})
   dot(path,100,blue,0,.95)
   for(let i=0;i<path.length;i++)dot([path[i]],42+12*Math.sin(i*.5),blue,.10+.08*(.5+.5*Math.cos(i*.7)),.65)
+ }
+ if(id==='dry-barrier'){
+  dot(line(500,400,500,620),10,blue,.5,0)
+  for(let y=Math.ceil(256*scale);y<Math.floor(768*scale);y++)for(let x=Math.ceil(256*scale);x<Math.floor(768*scale);x++)if(x!==Math.floor(512*scale))water[y*size+x]=242
  }
  return{size,rgba,water,paper,seed:805,encoding}
 }
