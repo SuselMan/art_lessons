@@ -1,0 +1,514 @@
+{
+  "qualification": "Uncached ordinary factory and global engine pool. Strict native same-GPU numeric/work-count gates, NOT managed120MiB memory or real Room latency proof. Engine defaults remain OFF. A failed initial skip attempt passed a physical tile instead of target adapter; it produced no material result and is excluded. Wide omission return metadata was expanded after execution; baseline/actual window equality was asserted during execution; DITHER was not recorded in that case. No unique total GPU allocated byte measurement.",
+  "reports": [
+    {
+      "case": "opt-skip-square-fixed",
+      "source": "a0e8f72f",
+      "actualOptInFlags": {
+        "skip": true,
+        "omit": false
+      },
+      "baselineFlags": {
+        "skip": false,
+        "omit": false
+      },
+      "harness": "fixed-window-skip-ab.cjs",
+      "geometry": 2048,
+      "domain": null,
+      "scheduledWindows": {
+        "baseline": 16,
+        "optimized": 4
+      },
+      "dither": {
+        "baseline": true,
+        "optimized": true
+      },
+      "inputHashes": {
+        "p": "e79675e984d50b173e20f3d78b2447c4f23e58008b818d33da475a774f6fdec4",
+        "c": "182674cd96d33ee4085fb5b29d409aeb52f9220965b64848aebc3f373c004ae9",
+        "coverage": "3046bf1b3e787d1778151cdddf428e7c6367d1a4640eda1bbc494da02eedec16",
+        "water": "1624d79d18248a0f0a2426392d7cac6960e82fc216a77e9eefe6e343ceef1944"
+      },
+      "finalInputHashes": null,
+      "referenceDestroyedBuffers": 10,
+      "stageDiffs": {
+        "referenceP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "8f9883fb0f0c286fdecc0859058775906c0c8eee5ecc03bd1f4bf30561ccd338",
+          "referenceHash": "8f9883fb0f0c286fdecc0859058775906c0c8eee5ecc03bd1f4bf30561ccd338"
+        },
+        "referenceC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "fce6d4b2b18695c2be3b132d62aeb3ff06b504e11a5b53287e261f034a16cdb7",
+          "referenceHash": "fce6d4b2b18695c2be3b132d62aeb3ff06b504e11a5b53287e261f034a16cdb7"
+        },
+        "solvedP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "f236a9a564ff10442be0e26932df297ee90a99180879eb967a676bf62711ac38",
+          "referenceHash": "f236a9a564ff10442be0e26932df297ee90a99180879eb967a676bf62711ac38"
+        },
+        "solvedC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "852b1a0538df3d97c65d747759adffdbbbd461ba2978d3e6d6ec2029df8c78ec",
+          "referenceHash": "852b1a0538df3d97c65d747759adffdbbbd461ba2978d3e6d6ec2029df8c78ec"
+        },
+        "solvedCoverage": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "3046bf1b3e787d1778151cdddf428e7c6367d1a4640eda1bbc494da02eedec16",
+          "referenceHash": "3046bf1b3e787d1778151cdddf428e7c6367d1a4640eda1bbc494da02eedec16"
+        },
+        "coarse:gate": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "bc182240378e3e415570af935b210c7f854f37d17f48188f520e326808e897e6",
+          "referenceHash": "bc182240378e3e415570af935b210c7f854f37d17f48188f520e326808e897e6"
+        },
+        "coarse:beforeP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "92bfa0f7cee4add704b98cdfaa989848c4d0720b163d43761fc2704fe10f68e1",
+          "referenceHash": "92bfa0f7cee4add704b98cdfaa989848c4d0720b163d43761fc2704fe10f68e1"
+        },
+        "coarse:afterP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "92bfa0f7cee4add704b98cdfaa989848c4d0720b163d43761fc2704fe10f68e1",
+          "referenceHash": "92bfa0f7cee4add704b98cdfaa989848c4d0720b163d43761fc2704fe10f68e1"
+        },
+        "coarse:beforeC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "ccda30b75cca2e95dd5b8fabc5d82c25907c3b41030f2e3b4fececf2a6e11a6b",
+          "referenceHash": "ccda30b75cca2e95dd5b8fabc5d82c25907c3b41030f2e3b4fececf2a6e11a6b"
+        },
+        "coarse:afterC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "ccda30b75cca2e95dd5b8fabc5d82c25907c3b41030f2e3b4fececf2a6e11a6b",
+          "referenceHash": "ccda30b75cca2e95dd5b8fabc5d82c25907c3b41030f2e3b4fececf2a6e11a6b"
+        }
+      },
+      "diffs": {
+        "p": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "86f70698a901396c4948bd99d0c71dab2318822a05f5cdd9c056eb618966bbfe",
+          "referenceHash": "86f70698a901396c4948bd99d0c71dab2318822a05f5cdd9c056eb618966bbfe"
+        },
+        "c": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "8e410ba5d36ae2e9f388942ab2fc13986dfbee512e426a1e1b9bce4b14d3669b",
+          "referenceHash": "8e410ba5d36ae2e9f388942ab2fc13986dfbee512e426a1e1b9bce4b14d3669b"
+        },
+        "coverage": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "61b211f1dbf638053b246dd79daadb2906759bf024ec5b367935787587746f0a",
+          "referenceHash": "61b211f1dbf638053b246dd79daadb2906759bf024ec5b367935787587746f0a"
+        }
+      },
+      "errors": [],
+      "lost": false
+    },
+    {
+      "case": "opt-omit-wide",
+      "source": "a0e8f72f",
+      "actualOptInFlags": {
+        "skip": false,
+        "omit": true
+      },
+      "baselineFlags": {
+        "skip": false,
+        "omit": false
+      },
+      "harness": "omit-foreign-ab.cjs",
+      "geometry": {
+        "width": 2048,
+        "height": 512
+      },
+      "domain": {
+        "width": 2048,
+        "height": 1536
+      },
+      "scheduledWindows": {
+        "baseline": 4,
+        "optimized": 4,
+        "basis": "asserted equal in executed harness"
+      },
+      "dither": "not recorded in this wide-case return metadata",
+      "inputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "finalInputHashes": {
+        "p": "a70d2a5646f2fc6e9e546a3ad5442164aa75bd571874eeef3322e24083533e52",
+        "c": "a0be99d478e402d0a74094102894283cc4cab131eef9ce9474a255daf83c1d02",
+        "coverage": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+        "water": "d90f89c8d4be89640ab63f3d59808b2033b92113a8d56ce5ccce55cf62102123"
+      },
+      "referenceDestroyedBuffers": 10,
+      "stageDiffs": {
+        "referenceP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb",
+          "referenceHash": "25ff40ff1624576e8975236f11670c109059d17b14a709d9cbb90573e6f10dfb"
+        },
+        "referenceC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2",
+          "referenceHash": "d7a151f23b353882fa033d0bafa40c9aedad2f815bab1f8d9e490ba2ed2b35d2"
+        },
+        "solvedP": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0",
+          "referenceHash": "384a945debb7014aa7c6d70068213eb9c7516f298a96a5a2b4b27c98175293c0"
+        },
+        "solvedC": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386",
+          "referenceHash": "fc5e1a078a968621eeef7285cbbca89df7d74499945b66f163132290aa3b5386"
+        },
+        "solvedCoverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192",
+          "referenceHash": "fab91d301d7c6b92f61a367ae81c31d59d976dca6dc7148754e88f72fffeb192"
+        },
+        "coarse:gate": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038",
+          "referenceHash": "264209b8bff5e701ebdbab6a2ad98f3008efcc19409dc3581337c89938f05038"
+        },
+        "coarse:beforeP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6",
+          "referenceHash": "260210203a09ec335159011de043b4d85f824328d1d9caed95f65c4aae2b8bf6"
+        },
+        "coarse:afterP": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4",
+          "referenceHash": "e5263142d0db75ebc7a3e41d1151c64aaa38fad56ceb3908267f4c10c7ecc9d4"
+        },
+        "coarse:beforeC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9",
+          "referenceHash": "1cd043ff509d8b049b0d6f2ca14f9aaf82d5104f745da00266f1852f338b5cf9"
+        },
+        "coarse:afterC": {
+          "bytes": 65536,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70",
+          "referenceHash": "7bab080650f8cad9a25ff5dc54eeb4520511d122aa662a9510a542b5730ecb70"
+        }
+      },
+      "diffs": {
+        "p": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3",
+          "referenceHash": "98165bd5c3eada765d1950e5e3a7db50e9cc875609dd94fef4d2e142ab05d8b3"
+        },
+        "c": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256",
+          "referenceHash": "cfe8cec826962ba1edbf4b753c42686a4339c2dc61858e45018b37cc6de4e256"
+        },
+        "coverage": {
+          "bytes": 4194304,
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+          "referenceHash": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110"
+        }
+      },
+      "errors": [],
+      "lost": false
+    },
+    {
+      "case": "opt-omit-1536",
+      "source": "a0e8f72f",
+      "actualOptInFlags": {
+        "skip": false,
+        "omit": true
+      },
+      "baselineFlags": {
+        "skip": false,
+        "omit": false
+      },
+      "harness": "omit-foreign-1536-ab.cjs",
+      "geometry": 1536,
+      "domain": null,
+      "scheduledWindows": {
+        "baseline": 1,
+        "optimized": 1
+      },
+      "dither": {
+        "baseline": true,
+        "optimized": true
+      },
+      "inputHashes": {
+        "p": "088d44b0a654b21c2fa37aa10bdaea9be502c587c117bb2a35aeda96bbf10c8a",
+        "c": "2c690c2d6e2cd5042c0c4d439e5bb1114b10518ff86616c261350de37b0f7d93",
+        "coverage": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214",
+        "water": "12d0114d4d8ff826948a2eb1dc51cabd4915faef81c36fe8727f9b6b0c7d373f"
+      },
+      "finalInputHashes": null,
+      "referenceDestroyedBuffers": 10,
+      "stageDiffs": {
+        "referenceP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "296307e2da1afefbe809c3a59087eda0f733d255795253496afc7ca0a6f389b6",
+          "referenceHash": "296307e2da1afefbe809c3a59087eda0f733d255795253496afc7ca0a6f389b6"
+        },
+        "referenceC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "9d206eb828e46ec7051d0fe90ea0b2460c19f8bc776cbedb6de84cde1b288b4f",
+          "referenceHash": "9d206eb828e46ec7051d0fe90ea0b2460c19f8bc776cbedb6de84cde1b288b4f"
+        },
+        "solvedP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "ab8e1301df7600a8f6d10e957b1f0ea655d49792c0de84681d6fa9a5211d97ff",
+          "referenceHash": "ab8e1301df7600a8f6d10e957b1f0ea655d49792c0de84681d6fa9a5211d97ff"
+        },
+        "solvedC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "80fdd575e05594836e0a885f1994ef8653a79b6c492d6df0eaa466ea332e6d38",
+          "referenceHash": "80fdd575e05594836e0a885f1994ef8653a79b6c492d6df0eaa466ea332e6d38"
+        },
+        "solvedCoverage": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214",
+          "referenceHash": "c25ce12aeb33b1cab35be211fedcbf7a02705c3217e559563d5a18d854a57214"
+        },
+        "coarse:gate": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "2901c5ec5e67b3be424208232336f4221d45fff4175838e9edad3bcdc313e1dc",
+          "referenceHash": "2901c5ec5e67b3be424208232336f4221d45fff4175838e9edad3bcdc313e1dc"
+        },
+        "coarse:beforeP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "b18f2920a908a6df8348d74484954c8d0941ddca609fada8db4fec377c98392e",
+          "referenceHash": "b18f2920a908a6df8348d74484954c8d0941ddca609fada8db4fec377c98392e"
+        },
+        "coarse:afterP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "0a40feee833ac9a6d826dcdddcf02c1fbc55ef582e0a363276d0e2ea325d95ef",
+          "referenceHash": "0a40feee833ac9a6d826dcdddcf02c1fbc55ef582e0a363276d0e2ea325d95ef"
+        },
+        "coarse:beforeC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "0ff3fa042a73952e65fbbdce971fc49da3ec3ad721fd4e5d2c6d1bc555f781d8",
+          "referenceHash": "0ff3fa042a73952e65fbbdce971fc49da3ec3ad721fd4e5d2c6d1bc555f781d8"
+        },
+        "coarse:afterC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "8d0913be99719af932068e1eb8a147a1ec2936ad8cdc367947763686ee30be8c",
+          "referenceHash": "8d0913be99719af932068e1eb8a147a1ec2936ad8cdc367947763686ee30be8c"
+        }
+      },
+      "diffs": {
+        "p": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "14f5827f625a88271185804b9644d9a0dad26d267299358bfdd8f78db54dabfb",
+          "referenceHash": "14f5827f625a88271185804b9644d9a0dad26d267299358bfdd8f78db54dabfb"
+        },
+        "c": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "27553090ee9d1d9474c26dacb3489ce87b1e4fb83a877bb15455635ac934cc75",
+          "referenceHash": "27553090ee9d1d9474c26dacb3489ce87b1e4fb83a877bb15455635ac934cc75"
+        },
+        "coverage": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "691cd783f8a78c7304d5206372c6555795adb68b754aeb83caf996e7ed267563",
+          "referenceHash": "691cd783f8a78c7304d5206372c6555795adb68b754aeb83caf996e7ed267563"
+        }
+      },
+      "errors": [],
+      "lost": false
+    },
+    {
+      "case": "opt-combined-square",
+      "source": "a0e8f72f",
+      "actualOptInFlags": {
+        "skip": true,
+        "omit": true
+      },
+      "baselineFlags": {
+        "skip": false,
+        "omit": false
+      },
+      "harness": "combined-window-foreign-ab.cjs",
+      "geometry": 2048,
+      "domain": null,
+      "scheduledWindows": {
+        "baseline": 16,
+        "optimized": 4
+      },
+      "dither": {
+        "baseline": true,
+        "optimized": true
+      },
+      "inputHashes": {
+        "p": "e79675e984d50b173e20f3d78b2447c4f23e58008b818d33da475a774f6fdec4",
+        "c": "182674cd96d33ee4085fb5b29d409aeb52f9220965b64848aebc3f373c004ae9",
+        "coverage": "3046bf1b3e787d1778151cdddf428e7c6367d1a4640eda1bbc494da02eedec16",
+        "water": "1624d79d18248a0f0a2426392d7cac6960e82fc216a77e9eefe6e343ceef1944"
+      },
+      "finalInputHashes": {
+        "p": "e79675e984d50b173e20f3d78b2447c4f23e58008b818d33da475a774f6fdec4",
+        "c": "182674cd96d33ee4085fb5b29d409aeb52f9220965b64848aebc3f373c004ae9",
+        "coverage": "3046bf1b3e787d1778151cdddf428e7c6367d1a4640eda1bbc494da02eedec16",
+        "water": "1624d79d18248a0f0a2426392d7cac6960e82fc216a77e9eefe6e343ceef1944"
+      },
+      "referenceDestroyedBuffers": 10,
+      "stageDiffs": {
+        "referenceP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "8f9883fb0f0c286fdecc0859058775906c0c8eee5ecc03bd1f4bf30561ccd338",
+          "referenceHash": "8f9883fb0f0c286fdecc0859058775906c0c8eee5ecc03bd1f4bf30561ccd338"
+        },
+        "referenceC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "fce6d4b2b18695c2be3b132d62aeb3ff06b504e11a5b53287e261f034a16cdb7",
+          "referenceHash": "fce6d4b2b18695c2be3b132d62aeb3ff06b504e11a5b53287e261f034a16cdb7"
+        },
+        "solvedP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "f236a9a564ff10442be0e26932df297ee90a99180879eb967a676bf62711ac38",
+          "referenceHash": "f236a9a564ff10442be0e26932df297ee90a99180879eb967a676bf62711ac38"
+        },
+        "solvedC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "852b1a0538df3d97c65d747759adffdbbbd461ba2978d3e6d6ec2029df8c78ec",
+          "referenceHash": "852b1a0538df3d97c65d747759adffdbbbd461ba2978d3e6d6ec2029df8c78ec"
+        },
+        "solvedCoverage": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "3046bf1b3e787d1778151cdddf428e7c6367d1a4640eda1bbc494da02eedec16",
+          "referenceHash": "3046bf1b3e787d1778151cdddf428e7c6367d1a4640eda1bbc494da02eedec16"
+        },
+        "coarse:gate": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "bc182240378e3e415570af935b210c7f854f37d17f48188f520e326808e897e6",
+          "referenceHash": "bc182240378e3e415570af935b210c7f854f37d17f48188f520e326808e897e6"
+        },
+        "coarse:beforeP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "92bfa0f7cee4add704b98cdfaa989848c4d0720b163d43761fc2704fe10f68e1",
+          "referenceHash": "92bfa0f7cee4add704b98cdfaa989848c4d0720b163d43761fc2704fe10f68e1"
+        },
+        "coarse:afterP": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "92bfa0f7cee4add704b98cdfaa989848c4d0720b163d43761fc2704fe10f68e1",
+          "referenceHash": "92bfa0f7cee4add704b98cdfaa989848c4d0720b163d43761fc2704fe10f68e1"
+        },
+        "coarse:beforeC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "ccda30b75cca2e95dd5b8fabc5d82c25907c3b41030f2e3b4fececf2a6e11a6b",
+          "referenceHash": "ccda30b75cca2e95dd5b8fabc5d82c25907c3b41030f2e3b4fececf2a6e11a6b"
+        },
+        "coarse:afterC": {
+          "changed": 0,
+          "max": 0,
+          "actualHash": "ccda30b75cca2e95dd5b8fabc5d82c25907c3b41030f2e3b4fececf2a6e11a6b",
+          "referenceHash": "ccda30b75cca2e95dd5b8fabc5d82c25907c3b41030f2e3b4fececf2a6e11a6b"
+        }
+      },
+      "diffs": {
+        "p": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "86f70698a901396c4948bd99d0c71dab2318822a05f5cdd9c056eb618966bbfe",
+          "referenceHash": "86f70698a901396c4948bd99d0c71dab2318822a05f5cdd9c056eb618966bbfe"
+        },
+        "c": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "8e410ba5d36ae2e9f388942ab2fc13986dfbee512e426a1e1b9bce4b14d3669b",
+          "referenceHash": "8e410ba5d36ae2e9f388942ab2fc13986dfbee512e426a1e1b9bce4b14d3669b"
+        },
+        "coverage": {
+          "changed": 0,
+          "max": 0,
+          "first": [],
+          "actualHash": "61b211f1dbf638053b246dd79daadb2906759bf024ec5b367935787587746f0a",
+          "referenceHash": "61b211f1dbf638053b246dd79daadb2906759bf024ec5b367935787587746f0a"
+        }
+      },
+      "errors": [],
+      "lost": false
+    }
+  ]
+}
