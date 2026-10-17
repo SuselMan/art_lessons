@@ -1,0 +1,30 @@
+# #805: wet-boundary/detail — отдельныйqualitycandidate
+
+Rootпосмотрелinitialimages: stable/lattice выгляделикакsoftblur, artfrontдал
+широкийбледныйhalo/искусственныйкрай. Этиоценкинеявляютсяизмерениемновоймодели.
+ДобавленотдельныйID `alternative-wet-boundary-detail`; old3иsearchграфынеизменены.
+
+Новаягеометрияисходитизgradient исходноговодяногополя, анеfar-costband.
+Каждыйdonorоставляет≥1-shareсвоегопигмента, распределяя≤share по4/8faces.
+Входящийflux умножаетсянаreceiveraffinity: реальнаяwetboundary+низкоеположение
+впредоставленнойpaperheightmap. ПарныеflowsотменяютсядоRGBA8, всеRGBA/C-mass
+компонентыпереносятсяоднимидолями. Нетмножителяbrightness/densityдлясозданияrim.
+
+Fullresolutionreconstruction возвращаетsoftчасть`original−upsampledLowOriginal`
+поверхизменённогоlowtransport, чтобынестеретьтонкиеисходныедетали. Этаоперация
+сwetfade/clippingНЕимеетmass-neutralсертификата:massratioнуженнакаждойfixture.
+Затем2/3fullres4faceпроходаиспользуютреальнуюполноразмернуюpaperheightmap,
+а неусреднённуювlowresnoise. Грануляцияперераспределяетимеющуюсякраску,
+ноUNORM8/сaturationмогуттерятьмассу. Fullwater0 branch+facegateоставляют
+исходныесухиепикселинетронутымивмодельнойарифметике; actualbytesещёнетестировались.
+
+Presets: gentle(14passes,4fullres) и stronger(17passes,5fullres).
+BaseGPUtexturesоколо21.25MiBпри256, безmips/float/MRT; uploadдобавляетfullauxpack4MiB.
+Compile/alloc/uploadвнеrun, runfixed/repeatablereset. Optical-densityC
+транспортируетсятожекаклинейныйвектор, commonviewerдекодируетцвет.
+
+CPU: strictTS0; FakeGLdefault+2configs lifecycle/passcounts/repeatrun PASS.
+`quality-math.cjs`:200seededfloatdonorcases4/8faces проверяютpositivity,
+premul,dryidentity,zero-pigmentиmasserror<1e-10;1000high-passchecksfinite/premul/
+dryidentity/zero. ЭтоНЕGLSL/driverpixelproof иНЕобещаниехудожественногоулучшения.
+GPUперф/картинки/bytecontrols выполняетsoleoperator; агентустройствнеоткрывал.
