@@ -1688,8 +1688,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonPainter.diagnosticBandBatch=true
     this.diagnosticWatercolorLiftSteps=4
     this.diagnosticNativeFieldMinimum=1024
+    const settlePlan=large?this._settlePlan.withScratchPool(pool):this._settlePlan
     const host:PuddleRoomHost={
-      gl:this.gl, size:{width:w,height:h}, settlePlan:this._settlePlan, pool, passes:this._watercolorPasses,
+      gl:this.gl, size:{width:w,height:h}, settlePlan, pool, passes:this._watercolorPasses,
       invalidateFrontPaths:()=>this._watercolorPasses.invalidateFrontPaths(),
       hasActiveSettle:()=>!!this._settle,
       finishLegacySettle:()=>this._completeSettle(),
@@ -1720,10 +1721,12 @@ export class PencilEngine implements PencilEngineAPI {
       },
     }
     if(!large)return this._puddle=new PuddleRoomController(host)
-    const controller=new PagedPuddleRoomController({...host,makeBuffer:make,
-      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make)})
+    let controller:PagedPuddleRoomController
+    try{controller=new PagedPuddleRoomController({...host,makeBuffer:make,
+      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make)})}
+    catch(error){try{settlePlan.destroyTextures()}finally{try{pool.destroy()}finally{cache!.dispose()}}throw error}
     const destroy=controller.destroy.bind(controller)
-    controller.destroy=()=>{try{destroy()}finally{pool.destroy();cache!.dispose()}}
+    controller.destroy=()=>{try{destroy()}finally{try{settlePlan.destroyTextures()}finally{try{pool.destroy()}finally{cache!.dispose()}}}}
     return this._puddle=controller
   }
   /** QA cache miss: reconstruct material without touching the operation stream.

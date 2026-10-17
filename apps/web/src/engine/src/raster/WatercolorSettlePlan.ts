@@ -77,6 +77,11 @@ export class WatercolorSettlePlan {
   lazyContacts = false
   constructor(ctx: WatercolorSettlePlanContext) { this.ctx = ctx }
   private get gl(): WebGLRenderingContext { return this.ctx.gl() }
+  /** Isolated material ownership with the same field/raster context. A scratch
+   * must return every temporary to the pool that created its entries. */
+  withScratchPool(pool: RibbonScratchPool): WatercolorSettlePlan {
+    return new WatercolorSettlePlan({...this.ctx,pool:()=>pool})
+  }
 
   /** Upload caches for recorded brush travel and preceding wet contacts. */
   private _brushFlowTex: WebGLTexture | null = null
