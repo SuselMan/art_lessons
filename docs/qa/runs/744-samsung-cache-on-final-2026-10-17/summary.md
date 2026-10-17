@@ -1,0 +1,15 @@
+#744: дозавершённый Samsung ON-only диагностический сценарий
+
+Runtime f6a27f98, dedicatedQAstandтеперьM70ENV, no boardturn. Одинновый512²seed100штрихов×8packed dabs,10авторов, nativeAdreno650/DPR2.125/300MiB. Initial100actual==independentOFFfullAPIreference hash7d778b831f7c753884baba596b6bcc08cb226e226e96060c9c6f35c644901825. Новыйtrusted101M70presetстрогопроверенпоacceptedAPI. СтаруюQA-invalidOFF/ONпарунеиспользуемдлясравнения.
+
+Принципдоказательства: physicalзатемnaturallyreadygoalчитаютсяприcacheON, копируютсявNodeиactual.rgbaпишетсянадиск. ТолькоследующийCDPвызоввыключаетобаdiagnosticflags, строитindependentOperationLogизполногоacceptedAPIсUndo/RedofoldирендеритOFForacle. Сравниваютсясохранённыеранееbytes, неперечитанныйactual. Флагиfinallyвосстановлены; productiondefaultнеизменён.
+
+PostUndo100, Redo101, secondUndo100 —0diff/GL0. CacheONточноприactualcaptureподтверждёнвreport. Undoвозвращаетисходный100hash, Redoотличаетсяот100, secondUndoснова100. ВсешестьGPUsourcefieldhashesпослепервогоhitсовпали сpre-DOWN(втомчислеsolvent). НовогоwaterпослеRedo/Undoнебыло — этонепокрываетсяэтимпрогоном.
+
+CacheпервогоизмеряемогоUndo: capture1/hit1, записанныхmiss0; successreturnреальныхметодов. Snapshot6325776CPUbytesизexisting64MiBmaterialresidencybudget. Обёрткаcapture16.4мс, internalcapture15.8мс; restoreобёртка41.5мс, internalrestore21.1мс. Разницавключаетguards/validation/hostwork, чистыеCPU/GPUдолинеизмерены. Этоwalltimeдиагностика, неbenchmark.
+
+ROI256/440 внеprefix(y≤224), background2samplesstable; доcross0changedchannels, heldink2028changedchannels, pointerфинал400/440внеROI. Firstinkпервыйsampleужеположительный, поэтомуexactlatencyN/A, upperbound949мсвключаетнесколькоMOVE/CDP/screenshotreadback. ПослеUIUndoпервыйcompositorscreenshotужеbackground: rawpreinputnegative−1мс, firstpositive452мс; честныйcoarseinterval[0,452]мс, НЕexactfirstframe. `canonicalReadyAfterUndoMs=505` — тольконаблюдённыйupperboundпослеscreenshotpoll, неearliestcanonicalready. НикакихscreenCache/readPixelsвместокомпозиторногоROI.
+
+Вывод: материальнаякорректностьэтогоON-onlycachehitподтверждена, ускорениенедоказано. n1, sharedQA, нетвалидногопарногоOFFвтойжеконфигурации, readbackoverheadзначителен. DefaultOFF/#744OPENсохраняются, новыхcasesнет.
+
+СохраненыPNGactualgoalпослеUndo/Redo(сыраяRGBArow-order, НЕUIскриншоты), hashes/APIjournal иполныйaccepted-input. СобственнаякомнатаDELETE200/auth0, context/socketsзакрытыfinally, originaltabrestored, ownSSH4093228/session21226остановлен. Remote9235/userChromeнетронуты. Battery100%AC37.6→37.6°C. RawID744-samsung-cache-on-final-20261017послеcompactproofподлежитguardedfinish.
