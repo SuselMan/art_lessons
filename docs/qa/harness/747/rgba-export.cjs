@@ -1,0 +1,2 @@
+// QA-only installer. Call BEFORE the standalone solver evaluate; never app code.
+module.exports=()=>{globalThis.__qa747ExportRGBA=async named=>{const output={};for(const[name,bytes]of Object.entries(named)){const stream=new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip')),gzip=new Uint8Array(await new Response(stream).arrayBuffer());let binary='';for(let i=0;i<gzip.length;i+=8192)binary+=String.fromCharCode(...gzip.subarray(i,i+8192));output[name]={bytes:bytes.byteLength,gzipBase64:btoa(binary)}}return output}};

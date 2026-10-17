@@ -12,6 +12,7 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),WS=r
   const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true},session);if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result?.value};
   for(let i=0;i<100;i++){if(await evaluate('location.origin==='+JSON.stringify(env.QA_BASE_URL.replace(/\/$/,''))+'&&document.readyState!=="loading"'))break;await new Promise(r=>setTimeout(r,100));if(i===99)throw Error('Own QA page did not load')}
   const source=fs.readFileSync(path.join(__dirname,'native-paged-ab.cjs'),'utf8'),start='const result=await page.evaluate(async()=>{',end='\n });\n const report=';
+  if(env.QA_EXPORT_RGBA==='1')await evaluate('('+require('./rgba-export.cjs').toString()+')()');
   assert.equal(source.split(start).length,2);assert.equal(source.split(end).length,2);const code='(async()=>{'+source.split(start)[1].split(end)[0]+'})()';
   for(const[flag,name]of [['QA_POINT_FRONT','PointFront'],['QA_POINT_FIELD','PointField'],['QA_POINT_DIFFUSE','PointDiffuse'],['QA_MANUAL_MODE6','ManualMode6']])await evaluate('globalThis.__qa747'+name+'='+JSON.stringify(env[flag]==='1'));const result=await evaluate(code),report={source:env.QA_SOURCE,transport:'raw Android CDP; exact shared browser function',...result,errors};
   fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
