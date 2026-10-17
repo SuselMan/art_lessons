@@ -41,3 +41,47 @@ describe('Room repair hook render identity', () => {
     expect(firstFailure).not.toHaveBeenCalled()
   })
 })
+
+it.each(['board','engine'] as const)('does not install or publish an awaited snapshot after its %s owner changes',async change=>{
+ hooks.slots=[];hooks.cursor=0
+ const noop=vi.fn(),engine={setBaseLayers:vi.fn(),restoreLayerFromSnapshot:vi.fn(),takeSnapshotRestoreAudit:vi.fn(),setActiveLayer:vi.fn(),setCompositeOrder:vi.fn()} as unknown as PencilEngineAPI
+ const deps={engineRef:{current:engine},boardId:'old-board',onHistoryRepairFailure:noop,appliedOpIdsRef:{current:new Set<string>()},deferredOpsQueueRef:{current:[]},restoredLayerStateRef:{current:null},markActive:noop,resolveTransformCommit:noop,confirmOwnOperation:noop,noteOperationSeq:noop,syncFromLog:noop,checkSnapshotBoundary:noop} as RemoteOperationsDeps
+ const network=await import('./net/snapshotRestore')
+ let deliver!:()=>void
+ vi.mocked(network.restoreLatestSnapshot).mockImplementationOnce(async(_room,sink)=>{
+  await new Promise<void>(resolve=>{deliver=resolve})
+  sink.beginLayers({items:{},rootOrder:[],activeId:'background',selectedIds:[]})
+  return{status:'none'}
+ })
+ const first=useRemoteOperations(deps),work=first.restoreFromSnapshot(engine,'old-board')
+ // Record a handler immediately; cancellation is an expected rejected completion.
+ const settled=work.then(()=>null,error=>error as Error)
+ if(change==='board'){hooks.cursor=0;useRemoteOperations({...deps,boardId:'new-board'})}
+ else deps.engineRef.current={} as PencilEngineAPI
+ deliver()
+ expect((await settled)?.name).toBe('AbortError')
+ expect(engine.setBaseLayers).not.toHaveBeenCalled();expect(engine.restoreLayerFromSnapshot).not.toHaveBeenCalled();expect(engine.takeSnapshotRestoreAudit).toHaveBeenCalledTimes(1);expect(engine.setActiveLayer).not.toHaveBeenCalled()
+})
+
+it('retires partial old audit synchronously before new pixels can append their audit',async()=>{
+ hooks.slots=[];hooks.cursor=0
+ const audit:string[]=[];const reports:string[][]=[];const noop=vi.fn()
+ const engine={setBaseLayers:noop,restoreLayerFromSnapshot:(_layer:string,_tiles:unknown,seq:number)=>audit.push(String(seq)),takeSnapshotRestoreAudit:()=>{const out=audit.splice(0);reports.push(out);return[]},gpuInfo:()=>null} as unknown as PencilEngineAPI
+ const deps={engineRef:{current:engine},boardId:'room',onHistoryRepairFailure:noop,appliedOpIdsRef:{current:new Set<string>()},deferredOpsQueueRef:{current:[]},restoredLayerStateRef:{current:null},markActive:noop,resolveTransformCommit:noop,confirmOwnOperation:noop,noteOperationSeq:noop,syncFromLog:noop,checkSnapshotBoundary:noop} as RemoteOperationsDeps
+ const network=await import('./net/snapshotRestore'),generation=await import('../../lib/restoreGeneration')
+ let release!:()=>void
+ vi.mocked(network.restoreLatestSnapshot).mockImplementationOnce(async(_room,sink)=>{
+  sink.applyLayer('L',[],10)
+  await new Promise<void>(resolve=>{release=resolve})
+  return{status:'none'}
+ }).mockImplementationOnce(async(_room,sink)=>{sink.applyLayer('L',[],20);return{status:'none'}})
+ const hook=useRemoteOperations(deps),oldOwner=generation.beginRestoreGeneration(engine)
+ const old=hook.restoreFromSnapshot(engine,'room',oldOwner.signal).catch(error=>error as Error)
+ const newOwner=generation.beginRestoreGeneration(engine)
+ expect(reports).toEqual([['10']])
+ await hook.restoreFromSnapshot(engine,'room',newOwner.signal)
+ expect(reports).toEqual([['10'],['20']])
+ release();expect((await old as Error).name).toBe('AbortError')
+ expect(reports).toEqual([['10'],['20']])
+ generation.finishRestoreGeneration(engine,newOwner)
+})

@@ -1,3 +1,4 @@
+import { isRestoreCancelled } from '../../lib/restoreGeneration'
 import { useCallback, useRef, type RefObject } from 'react'
 
 import type { LayerState, Operation } from '@grafetto/shared'
@@ -45,6 +46,8 @@ export function useRemoteOperations({
   engineRef, boardId, onHistoryRepairFailure, appliedOpIdsRef, deferredOpsQueueRef, restoredLayerStateRef, markActive, resolveTransformCommit,
   confirmOwnOperation, noteOperationSeq, syncFromLog, checkSnapshotBoundary,
 }: RemoteOperationsDeps) {
+  const currentBoard = useRef(boardId)
+  currentBoard.current = boardId
   const ordinaryBackfills = useRef(new Map<PencilEngineAPI, Promise<void>>())
   const repairs = useRef(new Map<PencilEngineAPI, Promise<void>>())
   const repairFailure = useRef(onHistoryRepairFailure)
@@ -163,15 +166,30 @@ export function useRemoteOperations({
    *  was withheld in favour of pixels that then did not arrive. The boolean
    *  collapsed them, and the second one used to open a blank room. */
   const restoreFromSnapshot = useCallback(async (
-    engine: PencilEngineAPI, roomId: string,
+    engine: PencilEngineAPI, roomId: string, signal?: AbortSignal,
   ): Promise<SnapshotRestoreOutcome['status']> => {
-    const outcome = await restoreLatestSnapshot(roomId, {
-      beginLayers: (layerState, replayStructure) => engine.setBaseLayers(
+    const checkCurrent = () => {
+      signal?.throwIfAborted()
+      if (engineRef.current !== engine || currentBoard.current !== roomId) {
+        try { engine.takeSnapshotRestoreAudit() } catch { /* retired owner's audit */ }
+        throw new DOMException('Restore owner changed', 'AbortError')
+      }
+    }
+    checkCurrent()
+    // Drain this generation's partial audit synchronously when it retires,
+    // before a new generation can install pixels and append its own audit.
+    const retireAudit = () => { try { engine.takeSnapshotRestoreAudit() } catch { /* cleanup only */ } }
+    signal?.addEventListener('abort', retireAudit, { once: true })
+    let outcome: SnapshotRestoreOutcome
+    try { outcome = await restoreLatestSnapshot(roomId, {
+      beginLayers: (layerState, replayStructure) => { checkCurrent(); engine.setBaseLayers(
         replayStructure ? IMPLICIT_LAYER_IDS : Object.values(layerState.items).filter(item => item.kind === 'layer').map(item => item.id),
-      ),
-      restoreHistory: (operations, replayStructure) => engine.restoreHistoricalOperations(operations, replayStructure),
-      applyLayer: (layerId, tiles, coveredSeq) => engine.restoreLayerFromSnapshot(layerId, tiles, coveredSeq),
-    })
+      ) },
+      restoreHistory: (operations, replayStructure) => { checkCurrent(); return engine.restoreHistoricalOperations(operations, replayStructure, signal) },
+      applyLayer: (layerId, tiles, coveredSeq) => { checkCurrent(); engine.restoreLayerFromSnapshot(layerId, tiles, coveredSeq) },
+    }, { signal }) } finally { signal?.removeEventListener('abort', retireAudit) }
+    checkCurrent()
+    if (outcome.status === 'failed' && isRestoreCancelled(outcome.error)) throw outcome.error
     // (#474) Drained here and nowhere else, on every path including failure:
     // the audit is what the engine saw, and leaving it behind on a failed
     // restore would hand those records to the *next* one. This is also the
@@ -194,7 +212,7 @@ export function useRemoteOperations({
     engine.setCompositeOrder(computeCompositeOrder(folded))
     restoredLayerStateRef.current = head.replayStructure ? null : head.layerState
     return 'restored'
-  }, [restoredLayerStateRef])
+  }, [restoredLayerStateRef, engineRef])
 
   // (#169) Walks the room's history backward from `fromSeq` (the restored
   // snapshot's own seq) in pages, merging each into the engine's log purely

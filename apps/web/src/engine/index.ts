@@ -1,3 +1,4 @@
+import { cancelRestoreGeneration } from '../lib/restoreGeneration'
 import {exactMaterialHistory} from './src/oplog/exactMaterialHistory'
 import {closedWatercolorCheckpoint} from './src/oplog/closedWatercolorCheckpoint'
 import {PuddleRoomController, MaterialSourceBusy, MaterialHistoryNotReady} from './src/watercolor/puddle/PuddleRoomController'
@@ -764,7 +765,7 @@ export interface PencilEngineAPI {
   absorbHistoricalOperations(ops: Operation[]): void
   /** Inclusive snapshot prefix plus dependency source history; seeds the log
    * before tail meta-ops and rebuilds only live layers not covered by restored pixels. */
-  restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean): Promise<void>
+  restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean, signal?: AbortSignal): Promise<void>
   // (#289 epic, reliable history spec v0.2 §13) Bakes the same bytes
   // bakeNetworkSnapshot would, but reached by a deliberately *independent*
   // route: a scratch buffer replayed from zero through every one of this
@@ -4372,6 +4373,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   destroy(): void {
+    cancelRestoreGeneration(this)
     this._cancelLiveDabFlush()
     this._puddleStrokeRelease?.();this._puddleStrokeRelease=null;this._puddleStrokeRecorded=null
     this._continuationGpuFence?.release()
@@ -6219,7 +6221,8 @@ export class PencilEngine implements PencilEngineAPI {
    * The original prefix fold (including boundary undo) precedes tail redo. */
   private _replayRestoredStructure = false
 
-  async restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean): Promise<void> {
+  async restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted()
     const affected = new Set<string>()
     for (const op of ops) for (const id of pixelWriteLayerIds(op)) {
       if (this._layers.has(id) && !this._snapshots.isCovered(id, op.seq)) affected.add(id)
@@ -6234,18 +6237,34 @@ export class PencilEngine implements PencilEngineAPI {
       this._syncBuffersToLog(false)
     }
     await this.preloadImages(ops)
+    signal?.throwIfAborted()
     if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
     if (replayStructure) return
     // Tail merge/copy reads live source buffers. Deferring these until the
     // eventual resumeDisplay would let that tail copy an empty source. Run
     // the existing rebuild machinery now, preserving its GPU slicing.
-    for (const id of affected) {
-      this._pendingRebuilds.delete(id)
-      this._rebuildLayer(id)
+    const ownedJobs = new Map<string, RebuildJob>()
+    const cancelOwned = () => {
+      for (const [id, job] of ownedJobs) if (this._rebuildJobs.get(id) === job) this._cancelRebuildJob(id)
     }
-    while ([...affected].some(id => this._rebuildJobs.has(id))) {
-      if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
-      await new Promise<void>(resolve => setTimeout(resolve, 16))
+    signal?.addEventListener('abort', cancelOwned, { once: true })
+    try {
+      for (const id of affected) {
+        this._pendingRebuilds.delete(id)
+        const before = this._rebuildJobs.get(id)
+        this._rebuildLayer(id)
+        const job = this._rebuildJobs.get(id)
+        if (job && job !== before) ownedJobs.set(id, job)
+      }
+      while ([...affected].some(id => this._rebuildJobs.has(id))) {
+        if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
+        await new Promise<void>(resolve => setTimeout(resolve, 16))
+        signal?.throwIfAborted()
+      }
+      signal?.throwIfAborted()
+    } finally {
+      signal?.removeEventListener('abort', cancelOwned)
+      if (signal?.aborted) cancelOwned()
     }
     if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
   }
