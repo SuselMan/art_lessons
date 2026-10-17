@@ -590,17 +590,20 @@ export class RibbonStrokeScratch {
       // is read — copyTo overwrites `original` outright, the others are
       // cleared — so a reused buffer carries nothing of whatever gesture had
       // it last.
-      const original = this.pool.acquire(tile.width, tile.height)
+      const allocated:AccumulationBuffer[]=[]
+      const acquire=()=>{const buffer=this.pool.acquire(tile.width,tile.height);allocated.push(buffer);return buffer}
+      try {
+      const original = acquire()
       tile.copyTo(original)
-      const coverage = this.pool.acquire(tile.width, tile.height)
+      const coverage = acquire()
       coverage.clear()
       let inkLoad: AccumulationBuffer | null = null
       let inkColor: AccumulationBuffer | null = null
       if (this.needsInk) {
-        inkLoad = this.pool.acquire(tile.width, tile.height)
+        inkLoad = acquire()
         inkLoad.clear()
         if (this.needsColor) {
-          inkColor = this.pool.acquire(tile.width, tile.height)
+          inkColor = acquire()
           inkColor.clear()
         }
       }
@@ -609,6 +612,7 @@ export class RibbonStrokeScratch {
       // the churn #385 is about.
       entry = { original, coverage, inkLoad, inkSettled: null, inkColor, colorSettled: null, strokeInk: null, inkBase: null, strokeColor: null, colorBase: null, filmGesture: -1, inkDry: null, colorDry: null }
       this._tiles.set(tile, entry)
+      }catch(error){for(const buffer of allocated)this.pool.release(buffer);throw error}
     }
     return entry
   }
