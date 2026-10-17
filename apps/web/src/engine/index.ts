@@ -6015,6 +6015,9 @@ export class PencilEngine implements PencilEngineAPI {
       for(const cp of [...this._checkpoints.all()])if(cp.layerId===layerId && !cp.fromSnapshot)this._checkpoints.remove(cp)
     }
     this._snapshotIO.restore(layerId, tiles, coveredSeq)
+    // A held ordinary gesture is ahead of the journal. The handover replaced
+    // its early pixels; repair from its durable operation once it arrives.
+    if(this._hasUnrecordedInk(layerId))this._unsettledLayers.add(layerId)
     if(!target || coveredSeq===undefined)return
     // The log's op.seq is a local index. Only actual confirmed room sequences
     // can prove that this bitmap already contains an accepted operation.
@@ -6031,6 +6034,7 @@ export class PencilEngine implements PencilEngineAPI {
       return
     }
     if(tail.length)this._rebuildLayerOrDefer(layerId)
+
   }
 
   takeSnapshotRestoreAudit(): SnapshotRestoreAudit[] {
