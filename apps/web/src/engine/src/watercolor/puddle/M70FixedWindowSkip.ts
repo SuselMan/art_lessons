@@ -1,11 +1,12 @@
 import type {MaterialRect} from './MaterialFieldPages'
 /** Capture-only proof, GL bottom-up coordinates; absent metadata fails closed. */
-export interface M70CapturedSupport {width:number;height:number;rect:MaterialRect|null;rects?:readonly MaterialRect[]}
+export interface M70CapturedSupport {width:number;height:number;rect:MaterialRect|null;rects?:readonly MaterialRect[];noForeignStencil?:true}
 type Group={field:MaterialRect;cores:readonly MaterialRect[]}
 const positive=(n:number)=>Number.isSafeInteger(n)&&n>0
 const valid=(r:MaterialRect,w:number,h:number)=>!!r&&typeof r==='object'&&[r.x,r.y,r.width,r.height,r.x+r.width,r.y+r.height].every(Number.isSafeInteger)&&r.x>=0&&r.y>=0&&r.width>0&&r.height>0&&r.x+r.width<=w&&r.y+r.height<=h
 /** Geometry is NEVER changed. Keep every unknown/invalid case. */
-export function keepM70FixedGroup(page:{width:number;height:number},group:Group,support:M70CapturedSupport|undefined):boolean {
+export function keepM70FixedGroup(page:{width:number;height:number},group:Group,support:M70CapturedSupport|undefined,requestedRadius:32|612=612):boolean {
+ const radius=requestedRadius===32&&support?.noForeignStencil===true?32:612
  if(!positive(page.width)||!positive(page.height)||!support||support.width!==page.width||support.height!==page.height)return true
  if(!group.cores.length||!group.cores.every(r=>valid(r,page.width,page.height)))return true
  // A present list is authoritative only when every rectangle is valid and
@@ -25,7 +26,7 @@ export function keepM70FixedGroup(page:{width:number;height:number},group:Group,
  if(!regions.every(r=>valid(r,page.width,page.height)))return true
  return regions.some(r=>{
   // Integer world top-down: capture rectangles are GL bottom-up.
-  const left=r.x-612,right=r.x+r.width+612,top=page.height-r.y-r.height-612,bottom=page.height-r.y+612
+  const left=r.x-radius,right=r.x+r.width+radius,top=page.height-r.y-r.height-radius,bottom=page.height-r.y+radius
   if(![left,right,top,bottom].every(Number.isSafeInteger))return true
   return group.cores.some(c=>c.x<right&&c.x+c.width>left&&c.y<bottom&&c.y+c.height>top)
  })

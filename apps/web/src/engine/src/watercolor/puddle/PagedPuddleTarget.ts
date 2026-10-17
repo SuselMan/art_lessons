@@ -17,6 +17,9 @@ import {APPROVED_M70_PARAMETERS} from './PuddleParameters'
  * Windows share global phases and immutable input; only their interiors commit.
  * The 640px halo is certified separately against the approved M70 pass graph. */
 export interface PagedPuddleInspection {
+ /** QA certificate experiment only, default OFF. Fixed field geometry unchanged. */
+ tightMaterialSupport32?:boolean
+ windowSupport?(field:MaterialRect,cores:readonly MaterialRect[],decision:{radius:32|612;noForeignStencil:boolean;kept:boolean}):void
  /** Optional diagnostic barrier after immutable capture, before field allocation. */
  sourceCaptured?(raw:PagedPuddleSource):{release():void}|{defer:true}|void
  /** QA-only; default preserves the six-plane baseline. */
@@ -80,8 +83,18 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
   background.capture({initialP:raw.inkLoad,referenceP:referenceP.snapshot(),coverage:raw.coverage});yield
   const solvedP=new MaterialFieldPages(size),solvedC=new MaterialFieldPages(size),solvedCoverage=new MaterialFieldPages(size)
   const domain={width:Math.max(1536,Math.ceil(size.width/256)*256),height:Math.max(1536,Math.ceil(size.height/256)*256)}
+  const noForeign=(value:unknown)=>value===null||(Array.isArray(value)&&value.length===0)
+  const metadataKnown=()=>typeof source.captureFinishMetadata==='function'&&noForeign(source.captureFinishMetadata().foreignSources)
+  // Metadata proof belongs to this immutable captured revision. Unknown falls
+  // back to612; appearance of a donor AFTER tight skips is an invalidation.
+  const radius:32|612=inspect.tightMaterialSupport32===true&&raw.materialSupport?.noForeignStencil===true&&metadataKnown()?32:612
   for(const window of m70WindowGroups(size,domain,612)){
-   if(inspect.skipEmptyFixedWindows===true&&!keepM70FixedGroup(size,window,raw.materialSupport)){
+   if(radius===32&&!metadataKnown())throw Error('M70 support metadata changed during immutable solve')
+   const kept=inspect.skipEmptyFixedWindows!==true||keepM70FixedGroup(size,window,raw.materialSupport,radius)
+   inspect.windowSupport?.(window.field,window.cores,{radius,noForeignStencil:raw.materialSupport?.noForeignStencil===true,kept})
+   if(radius===32&&!metadataKnown())throw Error('M70 support metadata changed during window inspection')
+   if(pendingCancel)return
+   if(!kept){
     // Native output coverage is the captured contour, not the front's temporary coverage.
     // Keep P/C pages zero; preserve exact raw coverage for every skipped core.
     for(const core of window.cores){const interior={...core,y:size.height-core.y-core.height};solvedCoverage.writeRect(interior,raw.coverage.readRect(interior))}
@@ -101,6 +114,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
     else{key=host.pool.acquire(1536,1536);restorePagedPuddleWindow(raw,rect,windowSource,key,host.pool,restoreOptions)}
     const context=source.finishContext;if(!context)throw Error('Missing paged finish context')
     const metadata=source.captureFinishMetadata()
+    if(radius===32&&!noForeign(metadata.foreignSources))throw Error('M70 support metadata changed during window restore')
     windowSource.gesture=source.gesture;for(const paint of source.paints)windowSource.paints.add(paint)
     windowSource.brushTravel=metadata.brushTravel.map(d=>({...d}));windowSource.wetContacts=metadata.wetContacts.map(d=>({...d}));windowSource.foreignSources=structuredClone(metadata.foreignSources)
     windowSource.noteFinish({...context,bounds:{minX:ox,minY:oy,maxX:ox+1536,maxY:oy+1536}})
@@ -123,6 +137,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
    }finally{try{native?.destroy()}finally{try{windowSource.destroy()}finally{if(key&&!detachedWindowSource)host.pool.release(key)}}}
    yield
   }
+  if(radius===32&&!metadataKnown())throw Error('M70 support metadata changed after window solve')
   inspect.solved?.(solvedP.snapshot(),solvedC.snapshot(),solvedCoverage.snapshot())
   background.prepareSolved({p:solvedP.snapshot(),c:solvedC.snapshot()});inspect.coarse?.(background.readback());yield
   const finalP=new MaterialFieldPages(size),finalC=new MaterialFieldPages(size),coverage=solvedCoverage.snapshot()
@@ -157,6 +172,7 @@ export function createPagedPuddleTarget(host:PuddleTargetHost,size:{width:number
     buffer.writePixels(bytes)
    }
   }
+  if(radius===32&&!metadataKnown())throw Error('M70 support metadata changed before publication')
   if(pendingCancel)return
   destroyOutputs();for(const [key,value]of pending)outputs.set(key,value);pending.clear()
   }finally{for(const value of pending.values())for(const b of Object.values(value))b.destroy()}

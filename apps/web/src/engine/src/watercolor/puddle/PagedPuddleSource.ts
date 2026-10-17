@@ -38,7 +38,8 @@ export function capturePagedPuddleSource(source:RibbonStrokeScratch,target:ILaye
     if(tileSupport.rect){const tileRect=tileSupport.rect;supportRects.push(tileRect);if(!support)support={...tileRect};else{const x=Math.min(support.x,tileRect.x),y=Math.min(support.y,tileRect.y);support={x,y,width:Math.max(support.x+support.width,tileRect.x+tileRect.width)-x,height:Math.max(support.y+support.height,tileRect.y+tileRect.height)-y}}}
   }
   const result:PagedPuddleSource=Object.fromEntries(Object.entries(fields).map(([name,field])=>[name,field.snapshot()])) as Record<PagedRawPlane|'water',MaterialFieldSnapshot>
-  result.materialSupport={width:size.width,height:size.height,rect:support,rects:supportRects}
+  const noForeign=source.foreignSources===null||(Array.isArray(source.foreignSources)&&source.foreignSources.length===0)
+  result.materialSupport={width:size.width,height:size.height,rect:support,rects:supportRects,...(noForeign?{noForeignStencil:true as const}:{})}
   return result
 }
 

@@ -1672,8 +1672,10 @@ export class PencilEngine implements PencilEngineAPI {
   /** QA prototype: capture cost on real devices must be measured before enabling. */
   diagnosticOpenWetUndoCache=false
   private _puddle: PuddleRoomController | PagedPuddleRoomController | null = null
-  /** QA-only phase budget; toggling is allowed only without active field ownership. */
-  private _diagnosticM70PhaseBudget=false
+  /** Separate live-input and field-solve budgets; QA may toggle only while quiescent. */
+  private _diagnosticM70PhaseBudget=true
+  /** QA-only: certified support skip; enable before creating a large-room controller. */
+  diagnosticM70TightSupport32=false
   get diagnosticM70PhaseBudget():boolean{return this._diagnosticM70PhaseBudget}
   set diagnosticM70PhaseBudget(enabled:boolean){
     enabled=!!enabled
@@ -1797,7 +1799,7 @@ export class PencilEngine implements PencilEngineAPI {
       // RAW reachBounds includes brush/composite reads. Foreign-water donors
       // can extend beyond it; retain whole tiles until their bounds are proven.
       presentationBounds:(scratch,context)=>scratch.foreignSources?.length || scratch.foreignImportedGestures.size ? null : context.bounds,
-      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make,{skipEmptyFixedWindows:true,omitZeroForeignSolventLoad:true,detachedWindowSource:true,sourceCaptured:raw=>{
+      createSolver:()=>createPagedPuddleTarget(host,{width:w,height:h},make,{tightMaterialSupport32:this.diagnosticM70TightSupport32,skipEmptyFixedWindows:true,omitZeroForeignSolventLoad:true,detachedWindowSource:true,sourceCaptured:raw=>{
         const owner=this._getFieldPhaseOwner()
         const admission=owner.state.enabled?owner.beginSolveSnapshot(raw):{snapshot:raw,lease:owner.acquire()}
         if(!admission)return {defer:true}
