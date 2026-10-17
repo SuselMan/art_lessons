@@ -171,3 +171,15 @@ Scissor64 firstSamsung run stopped by failclosed ownership guard before numerica
 Fixed actualprototype QA ownership, not renderer. Samsung fullcompact fourwindow scissorPagedonly vs unclippedNative all10stage/final P/C/coverage0diff, GL0, exact2prototypesrestored. 800producerdraws eachsemanticfullclear; ROIarea48,807,200 /full1,887,436,800=2.59%. Separate NO_PASS_READS gate also0diff: actual3377.4ms fourwindows vs Native776.6ms onefield; NOT controlledspeedAB/NOT UIperformance. Optionalpassobserverreads0; mandatorystage/finalreadsremain. InstrumentedrequiredROIreadPixelsRegion12calls102.3ms/max22.2, nottotalallGLreads; native.step max92.1ms,resetmax164.1ms. Candidate not enabledinRoom/app; actualRoomdesignpending.
 
 #748 external exactbyteCPUoracle on matchedoutward17 reproduces Intel18 allRGBA0diff. Samsung18 differs2594R/max1,allnegative1; GBA0. Fixtureflatpaperconstant/coveragebinary assumptions explicit, no universalshadercertificate. Intel nativeonly fivehighpsamplers control leavesprefix17/first18/final unchanged; programrestored/deletedexact. Samsungmatchedcontrolpending.
+
+### 14:23 — native sampler precision control partial effect only
+
+Intel nativefivehighpsampler control leavesoutward17/18/final exactownOFF. Samsungprefix17exact; first18highp fixes1163of2594Rdifferences, residual1431R/max1/allnegative1 vsIntel, GBA0. OwnNativePaged all10stage/final0/GL0,5samplerpatchedprogram/restored3props/deletedownedprogramexact. DeterminismNOTfixed; appshaderunchanged. NativeprogramONLYDITHERoff first17/18 matchedcontrols underway, prefixprograms/samplers unchanged. No globalDITHER experiment reused as proof.
+
+ActualRoomscissor candidate design approved for externalreview: genericdefaultundefined inspect nativeScope perwindow, hooksONLYinside synchronousreset/stepfinallyrestore, nohooksacrossRAF; immutablecapturedsupport/noForeign andunknownfallback, family/cancel lifetime retained. Noappchangesappliedyet.
+
+### 14:29 — A3 portrait actual Room PARTIAL correctness PASS / performance FAIL
+
+Samsung A3p1754x2480 current509+7earlyflags: seamUP6159.3ms,edge6964.3; DOWN97.4/65.5,MOVEmax118.1/5,UPcallback134.6/73.3; RAF317.5/417.9,solvermax331/344. Strictcontinuous exactly1solveeach. NaturalgoalFIRST vs independentfullAPIall7OFFbaseline61216Nativeprepares: all5physicaltiles rawROI/full/outside0diff, final0diff,GL0,3ops/historyunchanged. UndoRedoDry NOTexecuted; onlytwo-stroke partialPASS, fixturepreservedforfollowup.
+
+NativeDITHERonly first17/18 unchangedOFF on BOTHGPUs; matched140nativecalls disabled/restored140, prefix/other956draws untouched. Thus DITHERcontrol no effectfirst18; notgeneralUNORMroundproof. ROUND_R externalQAoneprogram originalsamplers control rootreviewed, matched17/18 GPUcases underway. Appsource509unchanged.
