@@ -1,0 +1,156 @@
+{
+  "diffs": [
+    {
+      "offset": 9835545,
+      "x": 1286,
+      "y": 1200,
+      "channel": "G",
+      "intel": 236,
+      "samsung": 237,
+      "samsungMinusIntel": 1
+    },
+    {
+      "offset": 10574614,
+      "x": 1733,
+      "y": 1290,
+      "channel": "B",
+      "intel": 6,
+      "samsung": 7,
+      "samsungMinusIntel": 1
+    },
+    {
+      "offset": 11032341,
+      "x": 1477,
+      "y": 1346,
+      "channel": "G",
+      "intel": 254,
+      "samsung": 253,
+      "samsungMinusIntel": -1
+    }
+  ],
+  "sourceIntel": "3d9be901+mode6-canonical-QA",
+  "sourceSamsung": "3d9be901",
+  "inputEqual": true,
+  "finalHashes": {
+    "p": {
+      "intel": "5c4e3cfd8cc572ff9a90b4684e0325cb0a7ffbb7183c669ee02efc952f6d3a7d",
+      "samsung": "3dfcde25ead8cebb6892ed7cf745914bed899c082945f1d1afb7d387c012de26",
+      "exact": false
+    },
+    "c": {
+      "intel": "ce5bf6d36d515d819b987fbfeecda153fcf3b4511e509d07461b44cb972d81b3",
+      "samsung": "b1b75d92fcec7ca6c2c93a02699e4259ef455a73a49c984015a15a5acd5e613e",
+      "exact": false
+    },
+    "coverage": {
+      "intel": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "samsung": "85d3577bf7ab45e38ef7db80435173ca9a876b8052de5c7f75d195f3802e7110",
+      "exact": true
+    }
+  },
+  "qualification": "Exact offlineRGBA8 comparison; no tolerance; canonicalQA remains not crossGPU exact. FullfinalP/C remains crossGPUdifferent; do not promote lattice QA model. G scalar is extremely close to halfbyte boundaries; actualshaderfloats may differ from decimal-rational ideal. B depends additionalauxiliarymath; no specificcauseproved.",
+  "idealRationalAnalysis": {
+    "qualification": "Exact-rational ideal decimal GLSL constants/UNORM lattice values and interpolation. Actual GLSL uses finite floats/compiler/FMA; this is not universal GPU rounding proof. G-only formula justified by matched input bytes.",
+    "rows": [
+      {
+        "offset": 9835545,
+        "x": 1286,
+        "y": 1200,
+        "channel": "G",
+        "intel": 236,
+        "samsung": 237,
+        "samsungMinusIntel": 1,
+        "idealNoise": 0.5738447659343159,
+        "idealRim": 0.9274512200042919,
+        "idealRimByte": 236.50006110109445,
+        "nearestHalfDistance": 6.11010944532406e-05,
+        "idealRimHalfUp": 237,
+        "noiseCellBytes": [
+          [
+            238,
+            104,
+            21,
+            194
+          ],
+          [
+            243,
+            77,
+            84,
+            223
+          ]
+        ],
+        "worldNoiseCoords": [
+          "7719/500",
+          "-2013/500"
+        ],
+        "interpretation": "G ideal equals rim*255 here: pressure below budget, inward.B0 => inside1/over0"
+      },
+      {
+        "offset": 10574614,
+        "x": 1733,
+        "y": 1290,
+        "channel": "B",
+        "intel": 6,
+        "samsung": 7,
+        "samsungMinusIntel": 1,
+        "idealNoise": 0.5586150828879738,
+        "idealRim": 0.8322775257963524,
+        "idealRimByte": 212.23076907806987,
+        "nearestHalfDistance": 0.2692309219301418,
+        "idealRimHalfUp": 212,
+        "noiseCellBytes": [
+          [
+            96,
+            175,
+            83,
+            212
+          ],
+          [
+            214,
+            4,
+            196,
+            36
+          ]
+        ],
+        "worldNoiseCoords": [
+          "10401/500",
+          "-1473/500"
+        ],
+        "interpretation": "B also depends tide/convex ring; rim-only is NOT B oracle"
+      },
+      {
+        "offset": 11032341,
+        "x": 1477,
+        "y": 1346,
+        "channel": "G",
+        "intel": 254,
+        "samsung": 253,
+        "samsungMinusIntel": -1,
+        "idealNoise": 0.5928850914321604,
+        "idealRim": 0.9941174599873704,
+        "idealRimByte": 253.49995229677947,
+        "nearestHalfDistance": 4.77032205250284e-05,
+        "idealRimHalfUp": 253,
+        "noiseCellBytes": [
+          [
+            198,
+            107,
+            35,
+            250
+          ],
+          [
+            7,
+            125,
+            54,
+            222
+          ]
+        ],
+        "worldNoiseCoords": [
+          "1773/100",
+          "-1137/500"
+        ],
+        "interpretation": "G ideal equals rim*255 here: pressure below budget, inward.B0 => inside1/over0"
+      }
+    ]
+  }
+}
