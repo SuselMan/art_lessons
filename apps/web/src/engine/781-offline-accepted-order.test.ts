@@ -44,3 +44,21 @@ it('preserves the legacy open-wash joining delay for an owed accepted-order repa
   expect(rebuild).not.toHaveBeenCalled()
  }finally{engine.destroy()}
 })
+
+it('does not retain the M70 joining delay after ordinary peer closure',async()=>{
+ const {engine}=createTestEngine({userId:'A',watercolorModel:'m70-r2-v1'},{width:64,height:64});await engine.paperReady()
+ Object.defineProperty(engine['gl'],'colorMask',{value:vi.fn(),configurable:true})
+ try{
+  engine.appendOperation(makeLayerAdd('A','L','L',{seq:0}),'remote');engine.setActiveLayer('L');engine.setCompositeOrder([{id:'L',opacity:1}]);engine.setTool('watercolor');engine.setPencil('normal:95:34:PB29:round:wc@m70-r2-v1');engine.setSize(6)
+  simulateStrokeStart(engine,20,24);simulateStrokeMove(engine,30,24);simulateStrokeEnd(engine,36,24)
+  const own=engine.getOperations().find(op=>op.type==='stroke'&&op.userId==='A')!,rebuild=vi.spyOn(engine as unknown as {_rebuildLayerOrDefer(id:string):void},'_rebuildLayerOrDefer')
+  engine.suspendDisplay()
+  engine.appendOperation(makeStroke('B','L',[dab(22,24)],{id:'pencil-B',strokeId:'pencil-B',seq:1,tool:'pencil',preset:'HB',timestamp:Date.now()}),'remote')
+  engine.confirmOperation(own.id,2)
+  expect(engine['_puddle']?.hasMaterial(engine['_layers'].get('L')!)).toBe(false)
+  expect(engine['_wash']).toBe(null) // Controller release clears its exact owned wash.
+  engine.resumeDisplay()
+  expect(rebuild).toHaveBeenCalledWith('L')
+  expect(engine['_unsettledLayers'].has('L')).toBe(false)
+ }finally{engine.destroy()}
+})
