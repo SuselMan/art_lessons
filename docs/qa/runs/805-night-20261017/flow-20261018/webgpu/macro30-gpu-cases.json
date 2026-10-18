@@ -1,0 +1,227 @@
+{
+  "algorithm": "wgsl-macro-coherent-physical-dt",
+  "qualification": "NEW approximate physical timestep compression; t1 exact original shader. Not whole-solver equivalence/TVD or guaranteed4x elapsed speed.",
+  "repeat": 3,
+  "idleBetweenMs": 5000,
+  "exportRaw": true,
+  "cases": [
+    {
+      "fixture": "mini-wave",
+      "config": {
+        "physicalDt": 1,
+        "steps": 256,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "mini-wave",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "mini-wave",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "native-flow-pool-drop",
+      "config": {
+        "physicalDt": 1,
+        "steps": 256,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "native-flow-pool-drop",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "native-flow-pool-drop",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-two-strokes",
+      "config": {
+        "physicalDt": 1,
+        "steps": 256,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-two-strokes",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-two-strokes",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-stroke-through-pool",
+      "config": {
+        "physicalDt": 1,
+        "steps": 256,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-stroke-through-pool",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-stroke-through-pool",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "gallery-sheet-3-slot-1",
+      "config": {
+        "physicalDt": 1,
+        "steps": 256,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "gallery-sheet-3-slot-1",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "gallery-sheet-3-slot-1",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "gallery-sheet-4-slot-1",
+      "config": {
+        "physicalDt": 1,
+        "steps": 256,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "gallery-sheet-4-slot-1",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "gallery-sheet-4-slot-1",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "config": {
+        "physicalDt": 1,
+        "steps": 256,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    }
+  ],
+  "checks": [
+    "physicalDt1 actual pairSourceSHA==coherentSource3 and fullRGBA baseline equal",
+    "pair dispatches256/128/64; PACK unchanged",
+    "allfour coarse M+D and W+S ledger conservation, guards/cap/premul",
+    "repeat exactsameGPU SHA",
+    "quality: edge/mixing/useful transport vs time1; no assume enlarged step preserves shape",
+    "totalReady and runGPUcompletion reported separately; compile/alloc beforetimers readbackafter"
+  ]
+}
