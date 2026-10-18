@@ -2,6 +2,7 @@
 """Rebuild the current review from an explicit manifest of physical-device evidence."""
 import argparse,json,subprocess,sys
 from pathlib import Path
+from review_timing import apply_timing
 p=argparse.ArgumentParser();p.add_argument('manifest',type=Path);p.add_argument('output',type=Path);a=p.parse_args();m=json.loads(a.manifest.read_text());here=Path(__file__).parent;intermediate=a.manifest.parent
 native=intermediate/'current-native-cards.json';dynamic=intermediate/'current-dynamic-cards.json'
 args=[sys.executable,str(here/'assemble-native-flow.py')]
@@ -27,6 +28,7 @@ for scene in scenes:
   algorithm=v.get('evidence',{}).get('algorithm')
   return preferred.index(algorithm) if algorithm in preferred else 100
  scene['variants'].sort(key=priority)
+apply_timing(scenes,m.get('timingReports',[]),m.get('idleTimingReports',[]))
 data={'title':'Как разные алгоритмы меняют мазок','note':'Исследование продолжается. Переключайте варианты и исходный мазок, увеличивайте до1:1. У новых моделей проверяем перенос краски, качество и совпадение между устройствами отдельно. Время не является полным откликом Grafetto.','relatedLinks':[{'href':'report.html','label':'Проблемы, исправления и что ещё не проверено'},{'href':'eddy/index.html','label':'Подбор формы вихрей: 12 сочетаний'},{'href':'../index.html','label':'Первое сравнение13мазков'}],'scenes':scenes}
 combined=intermediate/'current-all-cards.json';combined.write_text(json.dumps(data,ensure_ascii=False,indent=2))
 subprocess.run([sys.executable,str(here/'compare.py'),str(combined),str(a.output)],check=True)
