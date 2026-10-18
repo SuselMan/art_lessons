@@ -6,6 +6,7 @@ from flow_labels import review_label
 p=argparse.ArgumentParser();p.add_argument('reports',nargs='+',type=Path);p.add_argument('--output',required=True,type=Path);a=p.parse_args()
 titles={'dynamic-wet-on-dry':'Мокрый мазок на сухой бумаге','dynamic-water-drop':'Капля воды в мокрый пигмент','dynamic-stroke-through-pool':'Штрих проходит через заранее смоченный участок','dynamic-two-strokes':'Два цветных мазка в общей луже'}
 labels={'wgsl-macro-integer-dynamic':'Целочисленное движение воды — без смешения','wgsl-macro-integer-smooth-control':'То же движение воды: сглаживание','wgsl-macro-integer-mixing-smooth':'Целочисленная вода и смешение','wgsl-macro-dynamic-wetness-smooth-dither':'Плавная вода: сглаживание цветовых полос','input-reference':'Исходное состояние','wgsl-macro-dynamic-wetness':'Вода и впитывание: блочная реконструкция','wgsl-macro-dynamic-wetness-smooth':'Та же вода: плавная реконструкция'}
+notes={'dynamic-stroke-through-pool':'В центре — широкая лужа, штрих проходит насквозь. Внутри он должен растекаться сильнее.','dynamic-two-strokes':'Два цвета нанесены рядом в общую лужу. Следы изначально не соприкасаются.','dynamic-wet-on-dry':'Мокрый мазок на сухой бумаге. Вода может смачивать бумагу за его краем.','dynamic-water-drop':'В середину мокрой краски добавлена чистая вода.'}
 scenes={};seen=set()
 for file in reversed(a.reports):
  for row in json.loads(file.read_text())['cases']:
@@ -14,8 +15,8 @@ for file in reversed(a.reports):
   if fid not in titles:continue
   key=(fid,r['algorithm'],json.dumps(r['config'],sort_keys=True))
   if key in seen:continue
-  seen.add(key);s=scenes.setdefault(fid,{'id':fid,'title':titles[fid],'note':'В этой модели вода сама смачивает бумагу. Выход за начальную мокрую область ожидаем; проверяем сохранение воды и пигмента.','variants':[]});m=r['metadata'];t=r['transportMetrics'];f=m.get('finalState');reference=r['algorithm']=='input-reference'
-  failed=bool(f and f.get('prePackGuardPassed') is False);text='Исходный ввод — без расчёта' if reference else 'Вода распространяется по бумаге'
+  seen.add(key);s=scenes.setdefault(fid,{'id':fid,'title':titles[fid],'note':notes[fid],'variants':[]});m=r['metadata'];t=r['transportMetrics'];f=m.get('finalState');reference=r['algorithm']=='input-reference'
+  failed=bool(f and f.get('prePackGuardPassed') is False) or m.get('fineLedger',{}).get('guardPassed',True) is False;text='Исходный ввод — без расчёта' if reference else 'Вода распространяется по бумаге'
   dm=r.get('dynamicMetrics') or {};mix=dm.get('mixedCarrierFraction');ratio=dm.get('insideOutsideWidthRatio')
   if mix is not None and fid=='dynamic-two-strokes':text+=' · смешение '+str(round(mix*100,1))+'%'
   if ratio is not None:text+=' · ширина внутри/снаружи '+str(round(ratio,2))
