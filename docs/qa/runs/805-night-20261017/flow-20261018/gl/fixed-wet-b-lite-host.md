@@ -4,7 +4,7 @@ ID `wgsl-fixed-wet-b-lite-coherent`, единственный preset `{fineSteps
 
 ## Настоящий путь материала
 
-`webgpu/fixed-wet-b-lite.ts` сохраняет исходный carrier и маску: `raw water > 0` разрешает обмен; W0 сохраняет исходный RGBA буквально. RGB>A несовместим с этим bounded common-carrier host и явно отвергается; известные семь таких пикселей sheet7 не исправляются clamp.
+`webgpu/fixed-wet-b-lite.ts` сохраняет исходный carrier и маску: `raw water > 0` разрешает обмен; W0 сохраняет исходный RGBA буквально. RGB>A несовместим с этим bounded common-carrier host и явно отвергается; старое предупреждение о семи пикселях sheet7 относится к иной capture/provenance. QA перепроверил все 30 текущих frozen inputs: RGB>A=0 (sheet7 SHA2638edf9…). Эти входы не требуют adapter; общий validator остаётся failclosed, без clamp.
 
 Полный мокрый 8×8 cell входит в bulk. Частично мокрый cell не входит в coarse пигмент вообще: его мокрые raw пиксели позднее входят в fine M без уменьшения и без stationary freeze. Сухой raw пигмент находится только в literal. Bulk/partial/dry — непересекающееся разбиение. Вода всех coarse cells сохраняет исходную редукцию; новый gate запрещает pair flux, если хотя бы один cell не full-wet. Локальное W→S/M→D поглощение остаётся. Coarse использует actual physicalDtSource(3,4), e8/c64, 64 фазы; добавляется только этот gate. Stream ψ действительно вычисляет существующая coherent factory.
 
