@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-18T06:52:06.174Z",
+  "owner": "puddle_undo",
+  "scope": "Final authorized hold UI follow-up after prior cleanup",
+  "ownBootstrapClosed": 1,
+  "measurementContextsClosed": true,
+  "remainingKnownOwnTargets": 0,
+  "forward19336Removed": true,
+  "otherMappingsUnchanged": true,
+  "foreignTargetsUntouched": true,
+  "noDeviceDownloadsCreated": true,
+  "newProcessesOrServices": 0
+}
