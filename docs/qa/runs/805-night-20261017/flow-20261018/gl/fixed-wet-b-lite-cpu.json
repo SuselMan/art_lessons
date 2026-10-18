@@ -1,0 +1,214 @@
+{
+  "qualification": "CPU geometry/partition/exchange oracle; coarse uses quartercomponentmix stand-in, NOT existing hydraulicWGSL solver. NoGPU/performance/artclaim. RawinputSHA unchanged; coarse and byte encoder deltas separate.",
+  "coarsePhases": "H-even,V-even,H-odd,V-odd",
+  "finePhases": "H-even,H-odd,V-even,V-odd",
+  "coarseSteps": 8,
+  "fineSteps": 12,
+  "sourceSHA": "fa4815db5d5dacff3f9b163a218be97a4978b2f51221cc17692b21c76d9453a9",
+  "cases": [
+    {
+      "width": 1,
+      "inputSHA": {
+        "rgba": "91cde27b7036af9472f6b92283b549bffac187e56b3b089c09855619fdf80a60",
+        "water": "086362d6f95f233517101098ad374d3a79dd57a48ad579b946b0ae3c8e4db056"
+      },
+      "inputUnchanged": true,
+      "bulkCells": 0,
+      "partialWetPixels": 48,
+      "rawDryPixels": 4048,
+      "boundaryOriginalAlphaCodes": 789504,
+      "initialRawCodes": [
+        460287,
+        5140,
+        395009,
+        855039
+      ],
+      "coarseEncoderDeltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedFineMobileDeposit": [
+        394752,
+        0,
+        394752,
+        789504
+      ],
+      "finalFineMobileDeposit": [
+        394752,
+        0,
+        394752,
+        789504
+      ],
+      "combinedFineLiteralCodes": [
+        460287,
+        5140,
+        395009,
+        855039
+      ],
+      "outputByteQuantizationDeltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "dryChanges": 0,
+      "mixedPixels": 6,
+      "outputSHA": "9faf993eb04d83716a0524bc67ed1eadfec82c1913cc87cd242452527efb7294"
+    },
+    {
+      "width": 2,
+      "inputSHA": {
+        "rgba": "0810b14d5cfe3ccc290f54fbefcca8a2f8c0b9357f5ef3972569b290a88ad95c",
+        "water": "da6083f9a5d1142b6d8236e13eae1f20c6372d0a4b205b4636ebc7dce67bd070"
+      },
+      "inputUnchanged": true,
+      "bulkCells": 0,
+      "partialWetPixels": 96,
+      "rawDryPixels": 4000,
+      "boundaryOriginalAlphaCodes": 1579008,
+      "initialRawCodes": [
+        855039,
+        5140,
+        789761,
+        1644543
+      ],
+      "coarseEncoderDeltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedFineMobileDeposit": [
+        789504,
+        0,
+        789504,
+        1579008
+      ],
+      "finalFineMobileDeposit": [
+        789504,
+        0,
+        789504,
+        1579008
+      ],
+      "combinedFineLiteralCodes": [
+        855039,
+        5140,
+        789761,
+        1644543
+      ],
+      "outputByteQuantizationDeltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "dryChanges": 0,
+      "mixedPixels": 12,
+      "outputSHA": "8ebb041aa7b30f9ec9e7441d747e6410c89797770cdd55d554d1c85765a25129"
+    },
+    {
+      "width": 7,
+      "inputSHA": {
+        "rgba": "186cdfeaee3c98338cf97b54344ac579ec3921032fe5e0c1b51b2bd2cf180517",
+        "water": "9d10ff46f23965110cbb79c3aecafc3e039b34217a0f01c0ef69b35b8deac48a"
+      },
+      "inputUnchanged": true,
+      "bulkCells": 0,
+      "partialWetPixels": 336,
+      "rawDryPixels": 3760,
+      "boundaryOriginalAlphaCodes": 5526528,
+      "initialRawCodes": [
+        2828799,
+        5140,
+        2763521,
+        5592063
+      ],
+      "coarseEncoderDeltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedFineMobileDeposit": [
+        2763264,
+        0,
+        2763264,
+        5526528
+      ],
+      "finalFineMobileDeposit": [
+        2763264,
+        0,
+        2763264,
+        5526528
+      ],
+      "combinedFineLiteralCodes": [
+        2828799,
+        5140,
+        2763521,
+        5592063
+      ],
+      "outputByteQuantizationDeltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "dryChanges": 0,
+      "mixedPixels": 42,
+      "outputSHA": "b9d52b7a3870479ba4e7dc579199003221bb4042c3bc6232d99acaaf7b60adbe"
+    },
+    {
+      "width": 16,
+      "inputSHA": {
+        "rgba": "0f09b56c9feda989bf3ac599182fe751e8103aed86765acc2572aff17c763558",
+        "water": "e4b9f8e809ba0a89c18908ffd3e0aa8a5a8821cd742be1ea9de21f1701af0386"
+      },
+      "inputUnchanged": true,
+      "bulkCells": 12,
+      "partialWetPixels": 0,
+      "rawDryPixels": 3328,
+      "boundaryOriginalAlphaCodes": 0,
+      "initialRawCodes": [
+        6381567,
+        5140,
+        6316289,
+        12697599
+      ],
+      "coarseEncoderDeltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedFineMobileDeposit": [
+        6316032,
+        0,
+        6316032,
+        12632064
+      ],
+      "finalFineMobileDeposit": [
+        6316032,
+        0,
+        6316032,
+        12632064
+      ],
+      "combinedFineLiteralCodes": [
+        6381567,
+        5140,
+        6316289,
+        12697599
+      ],
+      "outputByteQuantizationDeltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "dryChanges": 0,
+      "mixedPixels": 768,
+      "outputSHA": "4c1497452ebf14903f0565add97bf47dcb996ec7222f3566cafb3e245e1f24ff"
+    }
+  ]
+}
