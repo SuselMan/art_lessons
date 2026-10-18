@@ -1,0 +1,607 @@
+{
+  "scope": "Two exact native authored targets on physical Samsung; no old matrix or Curtis runs",
+  "device": "Samsung SM-T970 / Adreno650 / Chrome155.0.8059.39",
+  "model": "front8-detail-flow-v4; archived ORIGINAL flags zero+prefixzero exact shortcuts, no lazy/octave/cache; actual input7 and finalRAW P/C/coverage byteexact original",
+  "timerExtensionAvailable": false,
+  "boundaryQualification": "Host submission intervals and full-output CPU-read wall are actual measured quantities. No GPU elapsed attribution, no additive prefix differences.",
+  "warmBaselines": {
+    "control-warm-three": {
+      "fullOutputMs": [
+        679.5,
+        690.2999999523163,
+        689.5
+      ],
+      "medianFullOutputMs": 689.5,
+      "preparationMs": [
+        263.90000009536743,
+        256.7999997138977,
+        274.1000003814697
+      ],
+      "corePlusMergeDependentMs": [
+        397.89999985694885,
+        419.900000333786,
+        395.69999980926514
+      ],
+      "reportSHA256": "bd3fa80e20a8a21059c83c867884ffbbf2b8b1c6fd0b8094ebcf5a00a18dc316",
+      "inputSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "outputCommonSHA": "4c27e6f63ab00989862c23bf7108bbda07331cf76d9628038465e768ce354241",
+      "rawFinal": {
+        "p": "a081465bc4f4f9d8905069c61b1db847d6389ac368cbb6964713c89087e67063",
+        "c": "5eb542098fc1b13202dbdb6d2aefdab130ab95459bed416a5e378eda46e7df1b",
+        "coverage": "1634030c757e127a29d4c189f092f931f8557fd21c7bc0f35e57bde22af54a05"
+      }
+    },
+    "trace-warm-three": {
+      "fullOutputMs": [
+        699.6000001430511,
+        729.1999998092651,
+        671.5999999046326
+      ],
+      "medianFullOutputMs": 699.6000001430511,
+      "preparationMs": [
+        281.5000002384186,
+        276.5000002384186,
+        244.70000004768372
+      ],
+      "corePlusMergeDependentMs": [
+        398.89999985694885,
+        433.59999990463257,
+        404.7999999523163
+      ],
+      "reportSHA256": "79512d74a7eebd8d45cc8ed0cb57ba5582e7bb200f74f181b48c8c4ff13ee324",
+      "inputSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "outputCommonSHA": "4c27e6f63ab00989862c23bf7108bbda07331cf76d9628038465e768ce354241",
+      "rawFinal": {
+        "p": "a081465bc4f4f9d8905069c61b1db847d6389ac368cbb6964713c89087e67063",
+        "c": "5eb542098fc1b13202dbdb6d2aefdab130ab95459bed416a5e378eda46e7df1b",
+        "coverage": "1634030c757e127a29d4c189f092f931f8557fd21c7bc0f35e57bde22af54a05"
+      }
+    },
+    "two-colors-control-warm-three": {
+      "fullOutputMs": [
+        505.10000014305115,
+        500.60000014305115,
+        477
+      ],
+      "medianFullOutputMs": 500.60000014305115,
+      "preparationMs": [
+        280.80000019073486,
+        266.40000009536743,
+        257.80000019073486
+      ],
+      "corePlusMergeDependentMs": [
+        203.79999995231628,
+        212.5,
+        198.20000004768372
+      ],
+      "reportSHA256": "d2baef671ba3d5254fed2638675725490812e8cca8a6709f4be863ead8469c76",
+      "inputSHA": {
+        "rgba": "f03ca9ddcac1ca92d4c039aede7007323e527043166b5161e2e8586facf43704",
+        "water": "ceba695da63e56355e7c5b3a449eeb17281e64066378501c85f6bc24861f1ab5",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "outputCommonSHA": "799e8b6bdab0fa90b1d7c29e1974049c6223b492c7b02ba12cfe5b73778bc664",
+      "rawFinal": {
+        "p": "8510cca2aa3048a000edcc24d3d71c5d9cda5e7493e7c6d20c8ee6b6a0b8eb14",
+        "c": "be531871f57471f37a6b8cfe5a15aed9859e5e9462bdc1ea3f4a2dbe378de860",
+        "coverage": "3be059de8679a0b208c779c39e43399f135ff3d6ebe5adeafc85d622d4f2f1c2"
+      }
+    },
+    "two-colors-trace-warm-three": {
+      "fullOutputMs": [
+        499.2000000476837,
+        507.60000014305115,
+        517.4000000953674
+      ],
+      "medianFullOutputMs": 507.60000014305115,
+      "preparationMs": [
+        272.5,
+        290.80000019073486,
+        295.5000002384186
+      ],
+      "corePlusMergeDependentMs": [
+        206.70000004768372,
+        205.29999995231628,
+        203.69999980926514
+      ],
+      "reportSHA256": "577278abb4e634a97d1cec9c8d20384d0eca18d4d1e59839983aa7569fc32f14",
+      "inputSHA": {
+        "rgba": "f03ca9ddcac1ca92d4c039aede7007323e527043166b5161e2e8586facf43704",
+        "water": "ceba695da63e56355e7c5b3a449eeb17281e64066378501c85f6bc24861f1ab5",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "outputCommonSHA": "799e8b6bdab0fa90b1d7c29e1974049c6223b492c7b02ba12cfe5b73778bc664",
+      "rawFinal": {
+        "p": "8510cca2aa3048a000edcc24d3d71c5d9cda5e7493e7c6d20c8ee6b6a0b8eb14",
+        "c": "be531871f57471f37a6b8cfe5a15aed9859e5e9462bdc1ea3f4a2dbe378de860",
+        "coverage": "3be059de8679a0b208c779c39e43399f135ff3d6ebe5adeafc85d622d4f2f1c2"
+      }
+    }
+  },
+  "observations": {
+    "miniWaveComponents": [
+      221483,
+      3,
+      1
+    ],
+    "eventsPerComponent": [
+      176,
+      176,
+      176
+    ],
+    "fieldOpsPerComponent": [
+      48,
+      48,
+      48
+    ],
+    "prefixJumpsPerComponent": [
+      17,
+      17,
+      17
+    ],
+    "resolution": [
+      1024,
+      1024
+    ],
+    "miniWaveMobileInitiallyZero": true,
+    "reason": "Actual retained-component mask is entirely zero after filtering Q; mobile seed is zero before front, not a stale snapshot",
+    "twoColorsPairedMobilePresent": true,
+    "snapshots": {
+      "miniWave": 23,
+      "twoColors": 20
+    },
+    "snapshotTiming": "Separate untimed replay; actual producer planes read while alive, final RAW guard passed"
+  },
+  "ui": {
+    "qualification": "Actual Samsung Chrome real HTTPS; owned isolated context, trusted CDP touch input. Static native anatomy UI only; no target computation.",
+    "errors": [],
+    "scenes": [
+      {
+        "id": "mini-wave",
+        "tracks": [
+          {
+            "id": "native",
+            "stages": 17,
+            "decodedImages": 26,
+            "overflow": false
+          },
+          {
+            "id": "qa",
+            "stages": 11,
+            "decodedImages": 4,
+            "overflow": false
+          }
+        ],
+        "touchHold": {
+          "heldMs": 1000,
+          "inputVisible": true,
+          "releasedRestore": true,
+          "sliderPreserved": true,
+          "noSelection": true
+        },
+        "screenshot": {
+          "file": "mini-wave-mobile.png",
+          "sha256": "4b3813b333a8756661e7370c6be56df45f9f5758948f93523bbf704cce82384d"
+        }
+      },
+      {
+        "id": "mini-two-colors",
+        "tracks": [
+          {
+            "id": "native",
+            "stages": 17,
+            "decodedImages": 25,
+            "overflow": false
+          },
+          {
+            "id": "qa",
+            "stages": 9,
+            "decodedImages": 2,
+            "overflow": false
+          }
+        ],
+        "touchHold": {
+          "heldMs": 1000,
+          "inputVisible": true,
+          "releasedRestore": true,
+          "sliderPreserved": true,
+          "noSelection": true
+        },
+        "screenshot": {
+          "file": "mini-two-colors-mobile.png",
+          "sha256": "158f652cc40309c59fcfad18afdec0c2e4854fe523371277873c0fded3324f57"
+        }
+      }
+    ],
+    "operatorSHA256": "0597de6e3f47a4f8e535fa3dde190e577d4e0e7e3061e7b2d8266d7c658c959f",
+    "browser": "Chrome/155.0.8059.39",
+    "htmlSHA256": "40eb19af79ee3c681211394f47eefc20c8794e5f6664ab5e9016fbf72aa96241",
+    "lastTrustedInputs": [
+      {
+        "type": "pointerdown",
+        "target": "qa-materialize",
+        "x": 195.05882263183594,
+        "y": 422.1911926269531,
+        "scrollY": 2545.88232421875,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "touchstart",
+        "target": "qa-materialize",
+        "x": 195.05882263183594,
+        "y": 422.191162109375,
+        "scrollY": 2545.88232421875,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "pointerup",
+        "target": "qa-materialize",
+        "x": 195.05882263183594,
+        "y": 422.1911926269531,
+        "scrollY": 2545.88232421875,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "touchend",
+        "target": "qa-materialize",
+        "x": 195.05882263183594,
+        "y": 422.191162109375,
+        "scrollY": 2545.88232421875,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "click",
+        "target": "qa-materialize",
+        "x": 195,
+        "y": 422,
+        "scrollY": 2545.88232421875,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "pointerdown",
+        "target": "qa-fork",
+        "x": 195.05882263183594,
+        "y": 421.88238525390625,
+        "scrollY": 3017.411865234375,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "touchstart",
+        "target": "qa-fork",
+        "x": 195.05882263183594,
+        "y": 421.88232421875,
+        "scrollY": 3017.411865234375,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "pointerup",
+        "target": "qa-fork",
+        "x": 195.05882263183594,
+        "y": 421.88238525390625,
+        "scrollY": 3017.411865234375,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "touchend",
+        "target": "qa-fork",
+        "x": 195.05882263183594,
+        "y": 421.88232421875,
+        "scrollY": 3017.411865234375,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "click",
+        "target": "qa-fork",
+        "x": 195,
+        "y": 422,
+        "scrollY": 3017.411865234375,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "pointerdown",
+        "target": "qa-main",
+        "x": 195.05882263183594,
+        "y": 422.1911926269531,
+        "scrollY": 3378.823486328125,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "touchstart",
+        "target": "qa-main",
+        "x": 195.05882263183594,
+        "y": 422.191162109375,
+        "scrollY": 3378.823486328125,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "pointerup",
+        "target": "qa-main",
+        "x": 195.05882263183594,
+        "y": 422.1911926269531,
+        "scrollY": 3378.823486328125,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "touchend",
+        "target": "qa-main",
+        "x": 195.05882263183594,
+        "y": 422.191162109375,
+        "scrollY": 3378.823486328125,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "click",
+        "target": "qa-main",
+        "x": 195,
+        "y": 422,
+        "scrollY": 3378.823486328125,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "pointerdown",
+        "target": "qa-release",
+        "x": 195.05882263183594,
+        "y": 435.36767578125,
+        "scrollY": 3454.11767578125,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "touchstart",
+        "target": "qa-release",
+        "x": 195.05882263183594,
+        "y": 435.36767578125,
+        "scrollY": 3454.11767578125,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "pointerup",
+        "target": "qa-release",
+        "x": 195.05882263183594,
+        "y": 435.36767578125,
+        "scrollY": 3454.11767578125,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "touchend",
+        "target": "qa-release",
+        "x": 195.05882263183594,
+        "y": 435.36767578125,
+        "scrollY": 3454.11767578125,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "click",
+        "target": "qa-release",
+        "x": 195,
+        "y": 435,
+        "scrollY": 3454.11767578125,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "pointerdown",
+        "target": "qa-read",
+        "x": 195.05882263183594,
+        "y": 528.5735473632812,
+        "scrollY": 2847.529296875,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "touchstart",
+        "target": "qa-read",
+        "x": 195.05882263183594,
+        "y": 528.573486328125,
+        "scrollY": 2847.529296875,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "pointerup",
+        "target": "qa-read",
+        "x": 195.05882263183594,
+        "y": 528.5735473632812,
+        "scrollY": 2847.529296875,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "touchend",
+        "target": "qa-read",
+        "x": 195.05882263183594,
+        "y": 528.573486328125,
+        "scrollY": 2847.529296875,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "click",
+        "target": "qa-read",
+        "x": 195,
+        "y": 528,
+        "scrollY": 2847.529296875,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "pointerdown",
+        "target": "DIV",
+        "x": 195.05882263183594,
+        "y": 422.01470947265625,
+        "scrollY": 794.3529663085938,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "touchstart",
+        "target": "DIV",
+        "x": 195.05882263183594,
+        "y": 422.01470947265625,
+        "scrollY": 794.3529663085938,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "pointerup",
+        "target": "DIV",
+        "x": 195.05882263183594,
+        "y": 422.01470947265625,
+        "scrollY": 794.3529663085938,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "touchend",
+        "target": "DIV",
+        "x": 195.05882263183594,
+        "y": 422.01470947265625,
+        "scrollY": 794.3529663085938,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      },
+      {
+        "type": "click",
+        "target": "DIV",
+        "x": 195,
+        "y": 422,
+        "scrollY": 794.3529663085938,
+        "viewport": {
+          "offsetTop": 0,
+          "scale": 1
+        },
+        "trusted": true
+      }
+    ],
+    "pass": true,
+    "contextClosed": true
+  },
+  "cleanup": {
+    "owner": "puddle_undo",
+    "task": "native target semantic-stage profiling only",
+    "serial": "R52RB0JXVSY",
+    "forward": "tcp:19336",
+    "createdAt": "2026-10-18T12:20:02.912915+00:00",
+    "state": "closed",
+    "oldQueues": "paused-user-do-not-resume",
+    "closedAt": "2026-10-18T12:48:24.988885+00:00",
+    "contextClosed": true,
+    "forwardRemoved": true,
+    "downloadsCreated": false,
+    "processesRemaining": []
+  },
+  "durableEvidence": "~/.local/share/project-services/gl1-review/flow-805-20261018/native-anatomy/evidence/manifest.json"
+}
