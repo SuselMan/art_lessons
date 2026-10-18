@@ -124,7 +124,7 @@ def validate_component_isolation(proof, inp, source, authored_source=None):
                 'component paper/endpoint audit failed')
 
 
-def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
+def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None, native_timings=None, timing_builds=None):
     """Return new data only after complete exact coverage. Inputs are not mutated.
 
     Source proofs are explicitly supplied, never inferred from id, PNG or dry identity.
@@ -266,6 +266,9 @@ def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
                                   'cells': len(found), 'registrySHA': manifest['registrySHA'],
                                   'qualification': 'Explicit fixed-policy evidence only; no historical slot fallback.'}
     annotate_resolution(out)
+    if native_timings:
+        from review_native_timing import apply_native_timings
+        out = apply_native_timings(out, cells, manifest, plan, native_timings, timing_builds or [])
     return out
 
 
@@ -379,6 +382,8 @@ def main(argv=None):
     parser.add_argument('--allowed-builds', required=True, type=Path, help='Explicit choice→immutable manifest/source allowlist; no implicit latest build.')
     parser.add_argument('--input-catalog', required=True, type=Path, help='Frozen30 input+capture metadata catalogue.')
     parser.add_argument('--native-source-proofs', type=Path, help='Explicit certified authored input/7plane/paper/replay binding; absence blocks authored cells.')
+    parser.add_argument('--native-timings', nargs='*', type=Path, help='Optional closed actual timed native sidecars; no proof-loop fallback.')
+    parser.add_argument('--timing-builds', type=Path, help='Explicit verified timed-build allowlist, separate from functional source builds.')
     parser.add_argument('--component-counts', required=True, type=Path,
                         help='Independent frozen-input four-connected counts, including zero-solve scenes.')
     parser.add_argument('--coverage-report', required=True, type=Path)
@@ -414,6 +419,7 @@ def main(argv=None):
             scale = 1
         require(isinstance(scale, (int, float)) and 0 < scale <= 1, 'invalid original source density scale')
         inp['expectedDisplayDensityScale'] = scale
+        inp['expectedInputBinarySHA256'] = record.get('binarySHA256')
         native = [r for r in native_sources if r['id'] == inp['id']]
         require(len(native) <= 1, 'duplicate authored source proof')
         if native:
@@ -460,7 +466,10 @@ def main(argv=None):
     if not report['complete']:
         return 2
     if args.output:
-        out = assemble_fixed_matrix(shell, plan, manifest, cells)
+        timed = [load(file) for file in (args.native_timings or [])]
+        require(not timed or args.timing_builds is not None, 'timed sidecars need explicit source/build allowlist')
+        out = assemble_fixed_matrix(shell, plan, manifest, cells, native_timings=timed,
+                                    timing_builds=load(args.timing_builds) if args.timing_builds else None)
         temp = args.output.with_name(args.output.name + '.pending-' + str(os.getpid()))
         try:
             temp.write_text(json.dumps(out, ensure_ascii=False, indent=2) + '\n')

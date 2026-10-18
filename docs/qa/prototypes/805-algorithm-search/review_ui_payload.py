@@ -25,7 +25,7 @@ def compact_ui_payload(data):
                                    'earlierComparison'))
             if 'gridResolution' in variant:
                 v['gridResolution'] = selected(variant['gridResolution'], ('transportGrid', 'localFineGrid', 'fineSteps', 'outputSize'))
-            for key, names in (('nativeTimed', ('contract', 'changePercent', 'baselineMs', 'comparison')),
+            for key, names in (('nativeTimed', ('contract', 'changePercent', 'baselineMs', 'comparison', 'outputMatchesOriginal')),
                                ('nativeCacheTiming', ('changePercent',)), ('modelTiming', ('dt4ChangePercent',))):
                 if key in variant:
                     v[key] = selected(variant[key], names)

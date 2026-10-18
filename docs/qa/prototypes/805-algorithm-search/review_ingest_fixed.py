@@ -74,6 +74,7 @@ def enrich_manifest(manifest, catalog, ledger):
             scale = 1
         require(isinstance(scale, (int, float)) and 0 < scale <= 1, 'invalid source scale')
         inp['expectedDisplayDensityScale'] = scale
+        inp['expectedInputBinarySHA256'] = record.get('binarySHA256')
     manifest['allowedBuilds'] = {r['key']: r['builds'] for r in ledger['choices']}
     return manifest
 
