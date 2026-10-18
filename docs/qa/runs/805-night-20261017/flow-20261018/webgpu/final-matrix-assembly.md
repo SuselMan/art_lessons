@@ -55,3 +55,5 @@ Original report.pass:false не переписывается в true. Для у�
 В каждой принятой клетке сохраняется batchScope successful-rows-only-v1 с reportPass:false, reportSHA,closureSHA,rowIndex и excludedFailedRows. Ошибка исходного batch остаётся видимой в progress; успешные клетки не теряются, но не становятся доказательством успеха неисполненных/неуспешных вариантов. Это не автоматический импорт по одному row.pass.
 
 Уточнение счётчика: goalRuns=len(actualcomponents)=expected wet components; waterOnlyRuns=wet−pigmented. Для каждой water-only компоненты zeroCOutputNonzero обязан быть0. Поле coverage nativePigmentedGoalsMinimum не выдаётся за полное число native вызовов. Independent common component counts не подгоняются при расхождении с actual authored source; такой случай требует отдельного source-bound count proof.
+
+Проверка actual conversion: commonWater=min(255,solventA+foreignA), поэтому positive-W topology исходных native7 и captured common совпадает точно (Y-flip не меняет связность). Certified actual-native counts обязаны совпасть и с independent common counts. Расхождение — source/partition bug, не разрешённая смена лужи.

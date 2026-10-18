@@ -50,6 +50,9 @@ def validate_build_binding(cell, choice, manifest):
 def validate_component_isolation(proof, inp, source, authored_source=None):
     expected = authored_source.get('nativeComponentCounts') if authored_source is not None else inp.get('nativeComponentCounts')
     require(isinstance(expected, dict), 'missing independent frozen component counts')
+    if authored_source is not None:
+        require(expected == inp.get('nativeComponentCounts'),
+                'authored native topology differs from exact common capture')
     require(proof.get('policy') == 'native-component-isolated-v1'
             and proof.get('inputSHA') == inp['sha'] and proof.get('sourceHashes') == source
             and proof.get('connectivity') == 4 and proof.get('threshold') == 0,
