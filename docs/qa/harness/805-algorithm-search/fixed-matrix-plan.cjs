@@ -15,7 +15,7 @@ function planFixedMatrix(manifest,catalog,completedReports=[],sourceHashes,limit
  const flush=()=>{if(batch.length)batches.push(batch);batch=[]};let previousFixture;
  for(const job of manifest.jobs){
   if(job.kind!=='worker'){nonWorker.push(job.id);continue}
-  const input=manifest.inputs[job.inputIndex],request={...job.request,fixedInitialWet:true,expectedInputSHA:input.sha,exportRaw:false};
+  const input=manifest.inputs[job.inputIndex],request={...job.request,fixedInitialWet:true,expectedInputSHA:input.sha,exportRaw:false,exportRawGzip:true};
   assert.equal(request.fixture,input.reference?.catalogId||request.fixture);assert.ok(input.sha&&Object.keys(input.sha).length===3);
   const key=requestKey(request),before=done.get(key);
   if(before&&canonical(before)===canonical(input.sha)){completed.push(job.id);continue}

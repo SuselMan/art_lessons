@@ -105,6 +105,6 @@ self.onmessage=async({data})=>{if(busy){send({requestId:data.requestId,error:'Al
   for(let y=0;y<input.size;y++)for(let x=(input.size>>1)+1;x<input.size;x++){const p=(y*input.size+x)*4+3;inputRight+=input.rgba[p];outputRight+=output[p]}
   control={inputRightAlpha:inputRight,outputRightAlpha:outputRight,noCrossing:inputRight===0&&outputRight===0}
  }
- const paper=isCapturedFixture(data.fixture)?input.paper.slice():undefined
+ const paper=data.fixedInitialWet||isCapturedFixture(data.fixture)?input.paper.slice():undefined
  ;(self as any).postMessage({requestId:data.requestId,result:{algorithm:data.algorithm,fixture:data.fixture,encoding,config:data.config??{},fixtureSHA,fixtureSHAAfter,inputUnchanged:true,initialWetAudit,requestedDomainPolicy:data.fixedInitialWet?'initial-fixed-v1':'historical',...report,flowMetrics:flowMetrics(data.fixture,input,output),dynamicMetrics:dynamicMetrics(data.fixture,input,output),...(data.measureTransport?{transportMetrics:transportMetrics(input.rgba,output,input.size,input.water)}:{}),...(control?{control}:{}),...(paper?{captureManifest:capturedRecord(data.fixture)}:{})},output,paper},[output.buffer,...(paper?[paper.buffer]:[])])
  }catch(e){send({requestId:data.requestId,error:String((e as Error).stack??e)})}finally{busy=false}}
