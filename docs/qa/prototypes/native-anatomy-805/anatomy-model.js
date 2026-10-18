@@ -21,6 +21,7 @@ function validate(data){
     }
    }
   }
+  if(scene.initial)checkImage(scene.initial);
   if(scene.final)checkImage(scene.final);
   if(scene.sameFinalTargetSHA!==undefined&&!hash(scene.sameFinalTargetSHA))fail('Неверный SHA конечного материала');
  }

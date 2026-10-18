@@ -3,7 +3,7 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const {validate}=require('./anatomy-model.js');
 function build(dataPath,outputPath){
  const source=path.resolve(dataPath),data=validate(JSON.parse(fs.readFileSync(source,'utf8'))),output=path.resolve(outputPath),root=path.dirname(source);
- const images=data.scenes.flatMap(s=>[s.final,...s.tracks.flatMap(t=>t.stages.flatMap(n=>[n.beforeImage,n.afterImage]))].filter(Boolean));
+ const images=data.scenes.flatMap(s=>[s.initial,s.final,...s.tracks.flatMap(t=>t.stages.flatMap(n=>[n.beforeImage,n.afterImage]))].filter(Boolean));
  for(const image of images){const full=path.resolve(root,image.src);if(!full.startsWith(root+path.sep))throw Error('Image escapes data directory');const payload=fs.readFileSync(full);if(crypto.createHash('sha256').update(payload).digest('hex')!==image.sha256)throw Error('Image SHA mismatch: '+image.src)}
  let html=fs.readFileSync(path.join(__dirname,'anatomy.html'),'utf8');
  html=html.replace('{"schemaVersion":1,"scenes":[]}',JSON.stringify(data).replace(/</g,'\\u003c')).replace('<script src="anatomy-model.js"></script>','<script>'+fs.readFileSync(path.join(__dirname,'anatomy-model.js'),'utf8').replace(/<\/script/gi,'<\\/script')+'</script>');
