@@ -27,6 +27,26 @@ def digest(value):
     return isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value) is not None
 
 
+def catalog_identity_sha(plan):
+    """Stable requested model identity, excluding labels, encoding and source capability."""
+    import json
+    identity = [{k: c[k] for k in ('key', 'kind', 'algorithm', 'config', 'flags') if k in c}
+                for c in plan['choices']]
+    return hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()).hexdigest()
+
+
+def validate_build_binding(cell, choice, manifest):
+    kind = choice['kind']
+    if kind == 'input-reference':
+        return
+    allowed = manifest.get('allowedBuilds', {}).get(choice['key'], [])
+    policy = 'initial-fixed-v1' if kind == 'worker-factory' else 'native-component-isolated-v1'
+    require(digest(cell.get('buildManifestSHA256')) and any(
+        b.get('buildManifestSHA256') == cell['buildManifestSHA256']
+        and b.get('sourceHashes') == cell.get('sourceHashes') and b.get('policy') == policy
+        for b in allowed), 'cell source/build not allowed for choice: ' + choice['key'])
+
+
 def validate_component_isolation(proof, inp, source):
     expected = inp.get('nativeComponentCounts')
     require(isinstance(expected, dict), 'missing independent frozen component counts')
@@ -41,8 +61,10 @@ def validate_component_isolation(proof, inp, source):
             'component dispatch count mismatch')
     require(len({c['id'] for c in components}) == len(components), 'duplicate component dispatch')
     planes = proof.get('originalPlaneSHA', {})
-    require(len(planes) == 7 and all(digest(v) for v in planes.values())
-            and digest(proof.get('paperSHA')), 'missing original seven planes/paper')
+    plane_keys = {'p', 'c', 'coverage', 'solvent', 'foreign', 'original', 'paper'}
+    masked_keys = plane_keys - {'original', 'paper'}
+    require(set(planes) == plane_keys and all(digest(v) for v in planes.values())
+            and proof.get('paperSHA') == planes['paper'], 'missing original seven planes/paper')
     for component in components:
         expected_planes = component.get('expectedMaskedPlaneSHA', {})
         require(set(expected_planes) == set(planes) and all(digest(v) for v in expected_planes.values())
@@ -50,7 +72,8 @@ def validate_component_isolation(proof, inp, source):
                 and digest(component.get('inputMaskSHA')),
                 'masked source plane readback mismatch')
         require(component.get('insideOriginalChangedChannels') == {k: 0 for k in planes}
-                and component.get('outsideNonzeroChannels') == {k: 0 for k in planes},
+                and component.get('outsideNonzeroChannels') == {k: 0 for k in masked_keys}
+                and component.get('backdropGlobalSHA') == {k: planes[k] for k in ('original', 'paper')},
                 'masked source inside/outside mismatch')
         require(component.get('paperExpectedSHA') == proof['paperSHA']
                 and component.get('paperActualSHA') == proof['paperSHA']
@@ -107,6 +130,7 @@ def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
                 and inp['expectedDisplayDensityScale'] > 0
                 and renderer.get('paperSHA') == inp['sha']['paper'], 'unproven common renderer: ' + tag)
         kind = choice['kind']
+        validate_build_binding(cell, choice, manifest)
         if kind == 'worker-factory':
             require(request.get('fixedInitialWet') is True, 'old policy request: ' + tag)
             require(request.get('algorithm') == choice['algorithm'] == result.get('algorithm')
@@ -171,6 +195,8 @@ def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
                                'fixedMatrix': True, 'sourceHashes': copy.deepcopy(source),
                                'inputSHA': copy.deepcopy(inp['sha']), 'rawSHA': cell['rawSHA'],
                                'metadata': copy.deepcopy(result.get('metadata', {})),
+                               'buildManifestSHA256': cell.get('buildManifestSHA256'),
+                               'allowedBuildsSHA256': manifest.get('allowedBuildsSHA256'),
                                'nativeProof': copy.deepcopy(cell.get('nativeProof')),
                                'rawAudit': copy.deepcopy(raw_audit),
                                'commonRenderer': copy.deepcopy(renderer),
@@ -193,7 +219,7 @@ def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
     return out
 
 
-def worker_cell_from_batch(report, row, *, scene_id, comparison_key, variant, raw_audit, common_renderer):
+def worker_cell_from_batch(report, row, *, scene_id, comparison_key, variant, raw_audit, common_renderer, build_manifest_sha):
     """Normalize one physical batch row. Independent raw_audit must name exact bytes.
 
     No filename/scene inference: caller resolves the frozen input/choice indices.
@@ -209,7 +235,7 @@ def worker_cell_from_batch(report, row, *, scene_id, comparison_key, variant, ra
     result['pass'] = True
     return {'sceneId': scene_id, 'comparisonKey': comparison_key,
             'request': copy.deepcopy(row['request']), 'result': result,
-            'sourceHashes': copy.deepcopy(report['sourceHashes']),
+            'sourceHashes': copy.deepcopy(report['sourceHashes']), 'buildManifestSHA256': build_manifest_sha,
             'variant': copy.deepcopy(variant), 'pngSHA': row['png']['sha256'],
             'rawSHA': row['carrier']['decodedSHA256'],
             'rawAudit': copy.deepcopy(raw_audit), 'commonRenderer': copy.deepcopy(common_renderer)}
@@ -243,7 +269,9 @@ def coverage_report(shell, plan, manifest, cells, read_bytes=None):
         tiny_plan = {'choices': [by_choice[key]], 'matrix': [{'scene': sid}],
                      'registrySourceSHA256': plan['registrySourceSHA256']}
         tiny_manifest = {'inputs': [by_input[sid]], 'choices': [by_choice[key]],
-                         'registrySHA': manifest['registrySHA']}
+                         'registrySHA': manifest['registrySHA'],
+                         'allowedBuilds': manifest.get('allowedBuilds', {}),
+                         'allowedBuildsSHA256': manifest.get('allowedBuildsSHA256')}
         try:
             assemble_fixed_matrix({'scenes': [by_scene[sid]]}, tiny_plan, tiny_manifest, [cell], read_bytes)
             valid.add(pair)
@@ -277,6 +305,7 @@ def main(argv=None):
     parser.add_argument('--cells', required=True, nargs='+', type=Path)
     parser.add_argument('--references', required=True, type=Path,
                         help='Exactly one certified input-reference cell per frozen scene (30 in final matrix).')
+    parser.add_argument('--allowed-builds', required=True, type=Path, help='Explicit choice→immutable manifest/source allowlist; no implicit latest build.')
     parser.add_argument('--input-catalog', required=True, type=Path, help='Frozen30 input+capture metadata catalogue.')
     parser.add_argument('--native-source-proofs', type=Path, help='Explicit certified authored input/7plane/paper/replay binding; absence blocks authored cells.')
     parser.add_argument('--component-counts', required=True, type=Path,
@@ -287,6 +316,14 @@ def main(argv=None):
     args = parser.parse_args(argv)
     load = lambda p: json.loads(p.read_text())
     shell, plan, manifest = map(load, (args.shell, args.plan, args.manifest))
+    allowed_ledger = load(args.allowed_builds)
+    require(allowed_ledger.get('catalogSHA256') == catalog_identity_sha(plan), 'allowed build catalogue identity mismatch')
+    allowed_rows = allowed_ledger['choices']
+    known_keys = {c['key'] for c in plan['choices']}
+    require(len({r['key'] for r in allowed_rows}) == len(allowed_rows)
+            and all(r['key'] in known_keys for r in allowed_rows), 'unknown/duplicate build-ledger choice')
+    manifest['allowedBuilds'] = {r['key']: r['builds'] for r in allowed_rows}
+    manifest['allowedBuildsSHA256'] = hashlib.sha256(args.allowed_builds.read_bytes()).hexdigest()
     catalog = load(args.input_catalog)
     require(len(catalog) == len(manifest['inputs']) and {r['id'] for r in catalog} == {i['id'] for i in manifest['inputs']},
             'frozen input catalogue scene set mismatch')
@@ -330,6 +367,8 @@ def main(argv=None):
             and all(r['comparisonKey'] in ref_keys for r in refs), 'reference set mismatch')
     cells.extend(refs)
     report = coverage_report(shell, plan, manifest, cells)
+    report['allowedBuildsSHA256'] = manifest['allowedBuildsSHA256']
+    report['catalogIdentitySHA256'] = catalog_identity_sha(plan)
     report['nativeComponentGoalsRequired'] = sum(r['pigmented'] for r in component_counts) * sum(c['kind'] == 'native-mini' for c in plan['choices'])
     report['componentCountsSHA256'] = hashlib.sha256(args.component_counts.read_bytes()).hexdigest()
     args.coverage_report.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')

@@ -4,7 +4,7 @@ import unittest
 import json
 import tempfile
 from pathlib import Path
-from review_fixed_matrix import assemble_fixed_matrix, worker_cell_from_batch, coverage_report, main, MatrixError
+from review_fixed_matrix import assemble_fixed_matrix, worker_cell_from_batch, coverage_report, catalog_identity_sha, main, MatrixError
 
 
 class MatrixTest(unittest.TestCase):
@@ -14,7 +14,8 @@ class MatrixTest(unittest.TestCase):
         self.shell = {'scenes': [{'id': 's', 'variants': [{'id': 'old', 'image': 'historic.png'}]}]}
         self.plan = {'choices': [self.choice], 'matrix': [{'scene': 's'}]}
         self.manifest = {'choices': [self.choice], 'inputs': [{'id': 's', 'sha': self.sha, 'encoding': 'optical-density', 'expectedDisplayDensityScale': 1}], 'registrySHA': 'e' * 64}
-        self.cell = {'sceneId': 's', 'comparisonKey': 'model:x',
+        self.manifest['allowedBuilds'] = {'model:x': [{'buildManifestSHA256': '7' * 64, 'sourceHashes': {'worker': 'd' * 64}, 'policy': 'initial-fixed-v1'}]}
+        self.cell = {'buildManifestSHA256': '7' * 64, 'sceneId': 's', 'comparisonKey': 'model:x',
                      'sourceHashes': {'worker': 'd' * 64}, 'rawSHA': 'f' * 64,
                      'pngSHA': hashlib.sha256(b'png').hexdigest(),
                      'variant': {'id': 'fresh', 'imageSource': 'fresh.png', 'image': 'stale.png'},
@@ -77,7 +78,7 @@ class MatrixTest(unittest.TestCase):
         def normalize():
             return worker_cell_from_batch(report, row, scene_id='s', comparison_key='model:x',
                                           variant=self.cell['variant'], raw_audit=self.cell['rawAudit'],
-                                          common_renderer=self.cell['commonRenderer'])
+                                          common_renderer=self.cell['commonRenderer'], build_manifest_sha='7' * 64)
         self.assertTrue(self.run_cells([normalize()])['fixedMatrixCoverage']['complete'])
         report['sourceStable'] = False
         with self.assertRaises(MatrixError):
@@ -86,6 +87,19 @@ class MatrixTest(unittest.TestCase):
         row['fixedInitialWetVerified'] = False
         with self.assertRaises(MatrixError):
             normalize()
+
+    def test_choice_build_allowlist_rejects_unknown_build_or_other_source(self):
+        good = copy.deepcopy(self.cell)
+        for change in ('build', 'source', 'policy'):
+            self.cell = copy.deepcopy(good)
+            if change == 'build':
+                self.cell['buildManifestSHA256'] = '8' * 64
+            elif change == 'source':
+                self.cell['sourceHashes'] = {'worker': '9' * 64}
+            else:
+                self.manifest['allowedBuilds']['model:x'][0]['policy'] = 'old-policy'
+            with self.subTest(change=change), self.assertRaises(MatrixError):
+                self.run_cells([self.cell])
 
     def test_coverage_reports_invalid_missing_and_duplicates_without_completeness(self):
         self.plan['registrySourceSHA256'] = self.manifest['registrySHA']
@@ -119,7 +133,10 @@ class MatrixTest(unittest.TestCase):
             catalog.write_text(json.dumps([{'id': 's', 'sha': self.sha, 'encoding': 'optical-density',
                                             'metadata': str(metadata),
                                             'metadataSHA256': hashlib.sha256(metadata.read_bytes()).hexdigest()}]))
-            args += ['--input-catalog', str(catalog)]
+            allowed = root / 'allowed.json'
+            allowed.write_text(json.dumps({'catalogSHA256': catalog_identity_sha(self.plan),
+                'choices': [{'key': 'model:x', 'builds': self.manifest['allowedBuilds']['model:x']}]}))
+            args += ['--input-catalog', str(catalog), '--allowed-builds', str(allowed)]
             args += ['--coverage-report', str(root / 'coverage.json'), '--output', str(root / 'assembled.json')]
             self.assertEqual(main(args), 0)
             saved = (root / 'assembled.json').read_bytes()
@@ -130,6 +147,7 @@ class MatrixTest(unittest.TestCase):
     def test_native_requires_per_input_proof_not_authored_id(self):
         self.choice.update(key='original', kind='native-mini', flags={'frontZero': True})
         self.cell['comparisonKey'] = 'original'
+        self.manifest['allowedBuilds']['original'] = [{'buildManifestSHA256': '7' * 64, 'sourceHashes': self.cell['sourceHashes'], 'policy': 'native-component-isolated-v1'}]
         self.cell['request']['flags'] = {'frontZero': True}
         with self.assertRaises(MatrixError):
             self.run_cells([self.cell])
@@ -139,11 +157,13 @@ class MatrixTest(unittest.TestCase):
         with self.assertRaises(MatrixError):
             self.run_cells([self.cell])
         self.manifest['inputs'][0]['nativeComponentCounts'] = {'components': 1, 'pigmented': 1}
-        planes = {str(i): '3' * 64 for i in range(7)}
+        planes = {k: '3' * 64 for k in ('p', 'c', 'coverage', 'solvent', 'foreign', 'original', 'paper')}
+        planes['paper'] = '5' * 64
         component = dict(id=0, inputMaskSHA='4' * 64, expectedMaskedPlaneSHA=planes,
                          actualMaskedPlaneSHA=planes,
                          insideOriginalChangedChannels={k: 0 for k in planes},
-                         outsideNonzeroChannels={k: 0 for k in planes},
+                         outsideNonzeroChannels={k: 0 for k in ('p', 'c', 'coverage', 'solvent', 'foreign')},
+                         backdropGlobalSHA={k: planes[k] for k in ('original', 'paper')},
                          paperExpectedSHA='5' * 64, paperActualSHA='5' * 64,
                          endpointSHA='6' * 64, outsideEndpointChangedChannels=0,
                          rawDryChangedChannels=0, runCount=1)

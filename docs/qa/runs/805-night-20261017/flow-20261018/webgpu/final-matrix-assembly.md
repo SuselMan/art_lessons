@@ -7,6 +7,7 @@ python3 docs/qa/prototypes/805-algorithm-search/review_fixed_matrix.py \
   --shell "$QA_STATIC/flow/comparison.json" \
   --plan docs/qa/runs/805-night-20261017/flow-20261018/webgpu/comparison-coverage-plan.json \
   --manifest "$QA_FLOW_CACHE/review-135x30-job-manifest.json" \
+  --allowed-builds "$QA_FLOW_CACHE/allowed-fixed-builds.json" \
   --input-catalog "$QA_FROZEN_INPUT30/catalog.json" \
   --native-source-proofs "$QA_FLOW_CACHE/certified-authored-source-proofs.json" \
   --component-counts "$QA_FROZEN_INPUT30/component-counts.json" \
@@ -27,7 +28,7 @@ Authored13 не переводятся принудительно в forward see
 
 `nativeProof.componentIsolation` связывается с immutable inputSHA и sourceHashes; policy `native-component-isolated-v1`, connectivity4, threshold0. Независимые frozen counts задают ожидаемое число компонент и pigmented goals. Для30 сцен это39 pigmented component goals на одну native-руку,156 на4 руки/120 клеток; water-only/dry-only могут иметь0 solves, что не означает пропуск.
 
-Проверяется массив actual dispatch, а не declared pass: семь исходных planeSHA и paperSHA; для каждой компоненты уникальный id/inputMaskSHA, ожидаемые CPU masked-plane SHA и реальные GPU readback SHA, нулевые inside-original diffs и outside-source channels, exact sampled paper, endpointSHA, нулевые outside-endpoint/raw-dry diffs, ровно один goal. Counts, маски и аудиты должен подготовить независимый нормализатор из фактического отчёта. Сам сборщик не превращает dryIdentity в доказательство внутренних путей и не сертифицирует неизвестные поля.
+Проверяется массив actual dispatch, а не declared pass: семь исходных planeSHA и paperSHA; для каждой компоненты уникальный id/inputMaskSHA, ожидаемые CPU masked-plane SHA и реальные GPU readback SHA, нулевые inside-original diffs; только пять material planes p/c/coverage/solvent/foreign обязаны быть нулевыми вне компоненты; original и paper сохраняются глобально с exact original SHA. Exact sampled paper, endpointSHA, нулевые outside-endpoint/raw-dry diffs, ровно один goal. Counts, маски и аудиты должен подготовить независимый нормализатор из фактического отчёта. Сам сборщик не превращает dryIdentity в доказательство внутренних путей и не сертифицирует неизвестные поля.
 
 Никакого output-dependent dose scaling, старых нефикисированных вариантов или автоматического authored fallback. Common renderer требует входозависимый scale и явное отсутствие нормализации по результату. Native authored composite сохраняется отдельно оговорённым actual доказательством, а не подменяется PNG нового seed.
 
@@ -38,3 +39,11 @@ Authored13 не переводятся принудительно в forward see
 CLI читает exact metadataSHA из frozen catalogue. Для captured входов ожидаемый displayDensityScale берётся только из original `metadata.manifest.pigmentScale` с совпавшим manifest.commonSHA. Для явно записанного deterministic-fixture он1. Renderer обязан вернуть численно этот scale и input.paper SHA; seedEncodingScale0.5 не заменяет original source scale. Test отвергает неверный scale/paper даже при inputDerivedScale:true.
 
 Authored native требует отдельный certified source-proof sidecar: `{id,inputSHA,originalPlaneSHA,paperSHA,replaySHA,nativeRawSHA}`. Семь originalPlaneSHA должны точно совпасть с componentIsolation, остальные поля — с authored proof и input. Нельзя подставить произвольные семь digest. В существующих старых capture rawSHA есть p/c/coverage/water/foreignWater/original, foreignWater иногда `absent`; из этого автоматически НЕ создаётся семь новых валидных SHA. Отсутствующие actual source-plane/paper доказательства — явный блокер, который должен заполнить оператор/независимый нормализатор. Никакого угадывания aliases water/solvent или foreignWater/foreign.
+
+## Несколько разрешённых immutable builds
+
+`--allowed-builds` обязателен. Ledger: `{catalogSHA256,choices:[{key,builds:[{buildManifestSHA256,sourceHashes,policy}]}]}`. `catalog_identity_sha(plan)` экспортирован: SHA256 UTF8 sorted compact JSON упорядоченного массива choice identity `{key,kind,algorithm?,config?,flags?}`. Список choices не зависит от output/encoding/label.
+
+buildManifestSHA256 — SHA фактических байтов существующего manifest.json; sourceHashes — точный `readBuild(directory).hashes` после проверки всех файлов, не исходного Git commit и не выдуманный subset. Policy worker=`initial-fixed-v1`, native=`native-component-isolated-v1`. Нормализованная solver-клетка обязана иметь такой buildManifestSHA256 и точно тот же sourceHashes, разрешённый для её comparisonKey. Например noncapillary worker может принадлежать final-v1, а четыре capillary — будущему final-v2. Это не старый fallback и не разрешение всех исторических output. Ledger/source SHA сохраняются в итоговых evidence; CPU references имеют отдельные проверенные renderer SHA и не требуют GPU build.
+
+Actual component plane keys: p,c,coverage,solvent,foreign,original,paper. Paper уже входит в семь; отдельный paperSHA должен равняться originalPlaneSHA.paper. OutsideNonzeroChannels содержит ровно material5; backdropGlobalSHA содержит original/paper. Сборщик не требует обнуления фоновой бумаги ради искусственной формы доказательства.
