@@ -1,0 +1,531 @@
+{
+  "sourceReportSHA256": "2f9412b5bc64ef14f2530dd6fa2c9d583e701d79bdc134a63408572ad7cf067e",
+  "cases": 20,
+  "allRequiredFieldsPresent": true,
+  "allFourRGBAIndependentComparisonPassed": true,
+  "waterPassed": true,
+  "rawStateGuardCountsZero": true,
+  "qualification": "Actual physical Samsung V28 coarse u16 ledger only. FinalRGBA8 representation loss remains; not all-layer/native equivalence or proof of finalquantizedmass. No own GPU execution or newreads.",
+  "rows": [
+    {
+      "fixture": "stress-coarse-checker",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "initialRGBA": [
+        269516671,
+        403748799,
+        358456404,
+        539033342
+      ],
+      "finalRGBA": [
+        269516671,
+        403748799,
+        358456404,
+        539033342
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 136323072,
+      "finalWaterCodes": 136323072,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 1.0000033076571728
+    },
+    {
+      "fixture": "stress-coarse-checker",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "initialRGBA": [
+        269516671,
+        403748799,
+        358456404,
+        539033342
+      ],
+      "finalRGBA": [
+        269516671,
+        403748799,
+        358456404,
+        539033342
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 136323072,
+      "finalWaterCodes": 136323072,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 0.9999679440342022
+    },
+    {
+      "fixture": "stress-low-water-1",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "initialRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "finalRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 262144,
+      "finalWaterCodes": 262144,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 1.0000341593689832
+    },
+    {
+      "fixture": "stress-low-water-1",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "initialRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "finalRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 262144,
+      "finalWaterCodes": 262144,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 0.9999285758648531
+    },
+    {
+      "fixture": "stress-low-water-4",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "initialRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "finalRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 1052672,
+      "finalWaterCodes": 1052672,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 0.9999518663437054
+    },
+    {
+      "fixture": "stress-low-water-4",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "initialRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "finalRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 1052672,
+      "finalWaterCodes": 1052672,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 0.9998897584000994
+    },
+    {
+      "fixture": "stress-low-water-61",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "initialRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "finalRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 16052224,
+      "finalWaterCodes": 16052224,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 0.9999254704676728
+    },
+    {
+      "fixture": "stress-low-water-61",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "initialRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "finalRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 16052224,
+      "finalWaterCodes": 16052224,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 0.9996226942425936
+    },
+    {
+      "fixture": "stress-low-water-255",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "initialRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "finalRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 67108864,
+      "finalWaterCodes": 67108864,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 1.0001428482702939
+    },
+    {
+      "fixture": "stress-low-water-255",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "initialRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "finalRGBA": [
+        1149438,
+        1005755,
+        1149438,
+        2586220
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 67108864,
+      "finalWaterCodes": 67108864,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 0.9991258306937457
+    },
+    {
+      "fixture": "stress-stationary-phase-a1",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "initialRGBA": [
+        6309888,
+        12619712,
+        4206592,
+        16826304
+      ],
+      "finalRGBA": [
+        6309888,
+        12619712,
+        4206592,
+        16826304
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 11830976,
+      "finalWaterCodes": 11830976,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 1.0000322174789609
+    },
+    {
+      "fixture": "stress-stationary-phase-a1",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "initialRGBA": [
+        6309888,
+        12619712,
+        4206592,
+        16826304
+      ],
+      "finalRGBA": [
+        6309888,
+        12619712,
+        4206592,
+        16826304
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 11830976,
+      "finalWaterCodes": 11830976,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 0.9996062308127014
+    },
+    {
+      "fixture": "stress-stationary-phase-a2",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "initialRGBA": [
+        6309888,
+        12619712,
+        4206592,
+        16826304
+      ],
+      "finalRGBA": [
+        6309888,
+        12619712,
+        4206592,
+        16826304
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 11830976,
+      "finalWaterCodes": 11830976,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 1.0000322169868956
+    },
+    {
+      "fixture": "stress-stationary-phase-a2",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "initialRGBA": [
+        6309888,
+        12619712,
+        4206592,
+        16826304
+      ],
+      "finalRGBA": [
+        6309888,
+        12619712,
+        4206592,
+        16826304
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 11830976,
+      "finalWaterCodes": 11830976,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 0.999606236826832
+    },
+    {
+      "fixture": "stress-stationary-phase-a128",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "initialRGBA": [
+        6309888,
+        12619712,
+        4206592,
+        16826304
+      ],
+      "finalRGBA": [
+        6309888,
+        12619712,
+        4206592,
+        16826304
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 11830976,
+      "finalWaterCodes": 11830976,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 1.0000321551067073
+    },
+    {
+      "fixture": "stress-stationary-phase-a128",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "initialRGBA": [
+        6309888,
+        12619712,
+        4206592,
+        16826304
+      ],
+      "finalRGBA": [
+        6309888,
+        12619712,
+        4206592,
+        16826304
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 11830976,
+      "finalWaterCodes": 11830976,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 0.9996069931402439
+    },
+    {
+      "fixture": "stress-stationary-phase-a254",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "initialRGBA": [
+        5921280,
+        11842560,
+        3947520,
+        15790080
+      ],
+      "finalRGBA": [
+        5921280,
+        11842560,
+        3947520,
+        15790080
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 11830976,
+      "finalWaterCodes": 11830976,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 0.9933521361409487
+    },
+    {
+      "fixture": "stress-stationary-phase-a254",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "initialRGBA": [
+        5921280,
+        11842560,
+        3947520,
+        15790080
+      ],
+      "finalRGBA": [
+        5921280,
+        11842560,
+        3947520,
+        15790080
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 11830976,
+      "finalWaterCodes": 11830976,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 0.9929677277637464
+    },
+    {
+      "fixture": "stress-stationary-phase-a255",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "initialRGBA": [
+        5921280,
+        11842560,
+        3947520,
+        15790080
+      ],
+      "finalRGBA": [
+        5921280,
+        11842560,
+        3947520,
+        15790080
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 11830976,
+      "finalWaterCodes": 11830976,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 0.9929390699408158
+    },
+    {
+      "fixture": "stress-stationary-phase-a255",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "initialRGBA": [
+        5921280,
+        11842560,
+        3947520,
+        15790080
+      ],
+      "finalRGBA": [
+        5921280,
+        11842560,
+        3947520,
+        15790080
+      ],
+      "deltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialWaterCodes": 11830976,
+      "finalWaterCodes": 11830976,
+      "guardPassed": true,
+      "representationOutputAlphaRatio": 0.9925382643358133
+    }
+  ]
+}

@@ -1,0 +1,187 @@
+{
+  "algorithm": "wgsl-macro-gpu-initial-coherent-dt4",
+  "phases": [
+    {
+      "phase": "verifyInitial",
+      "qualification": "CPUfastoracle+5MiBsnapshots; NOTperf",
+      "cases": [
+        {
+          "fixture": "mini-wave",
+          "config": {
+            "steps": 64,
+            "physicalDt": 4,
+            "mobilityGain": 3,
+            "eddyCells": 8,
+            "curlStrength": 64,
+            "verifyInitializer": 1
+          },
+          "repeats": 3,
+          "exportRaw": true
+        },
+        {
+          "fixture": "mini-two-colors",
+          "config": {
+            "steps": 64,
+            "physicalDt": 4,
+            "mobilityGain": 3,
+            "eddyCells": 8,
+            "curlStrength": 64,
+            "verifyInitializer": 1
+          },
+          "repeats": 3,
+          "exportRaw": true
+        },
+        {
+          "fixture": "gallery-sheet-12-slot-1",
+          "config": {
+            "steps": 64,
+            "physicalDt": 4,
+            "mobilityGain": 3,
+            "eddyCells": 8,
+            "curlStrength": 64,
+            "verifyInitializer": 1
+          },
+          "repeats": 3,
+          "exportRaw": true
+        },
+        {
+          "fixture": "dynamic-opaque-stationary",
+          "config": {
+            "steps": 64,
+            "physicalDt": 4,
+            "mobilityGain": 3,
+            "eddyCells": 8,
+            "curlStrength": 64,
+            "verifyInitializer": 1
+          },
+          "repeats": 3,
+          "exportRaw": true
+        },
+        {
+          "fixture": "dynamic-saturated-pigment",
+          "config": {
+            "steps": 64,
+            "physicalDt": 4,
+            "mobilityGain": 3,
+            "eddyCells": 8,
+            "curlStrength": 64,
+            "verifyInitializer": 1
+          },
+          "repeats": 3,
+          "exportRaw": true
+        },
+        {
+          "fixture": "stress-coarse-checker",
+          "config": {
+            "steps": 64,
+            "physicalDt": 4,
+            "mobilityGain": 3,
+            "eddyCells": 8,
+            "curlStrength": 64,
+            "verifyInitializer": 1
+          },
+          "repeats": 3,
+          "exportRaw": true
+        }
+      ]
+    },
+    {
+      "phase": "performanceOnlyIfVerifyPass",
+      "qualification": "totalReady fair; run includes GPUinit+solver/PACK, uploadboundary differs",
+      "cases": [
+        {
+          "fixture": "mini-wave",
+          "config": {
+            "steps": 64,
+            "physicalDt": 4,
+            "mobilityGain": 3,
+            "eddyCells": 8,
+            "curlStrength": 64,
+            "verifyInitializer": 0
+          },
+          "repeats": 3,
+          "idleBetweenMs": 5000,
+          "exportRaw": true
+        },
+        {
+          "fixture": "mini-two-colors",
+          "config": {
+            "steps": 64,
+            "physicalDt": 4,
+            "mobilityGain": 3,
+            "eddyCells": 8,
+            "curlStrength": 64,
+            "verifyInitializer": 0
+          },
+          "repeats": 3,
+          "idleBetweenMs": 5000,
+          "exportRaw": true
+        },
+        {
+          "fixture": "gallery-sheet-12-slot-1",
+          "config": {
+            "steps": 64,
+            "physicalDt": 4,
+            "mobilityGain": 3,
+            "eddyCells": 8,
+            "curlStrength": 64,
+            "verifyInitializer": 0
+          },
+          "repeats": 3,
+          "idleBetweenMs": 5000,
+          "exportRaw": true
+        },
+        {
+          "fixture": "dynamic-opaque-stationary",
+          "config": {
+            "steps": 64,
+            "physicalDt": 4,
+            "mobilityGain": 3,
+            "eddyCells": 8,
+            "curlStrength": 64,
+            "verifyInitializer": 0
+          },
+          "repeats": 3,
+          "idleBetweenMs": 5000,
+          "exportRaw": true
+        },
+        {
+          "fixture": "dynamic-saturated-pigment",
+          "config": {
+            "steps": 64,
+            "physicalDt": 4,
+            "mobilityGain": 3,
+            "eddyCells": 8,
+            "curlStrength": 64,
+            "verifyInitializer": 0
+          },
+          "repeats": 3,
+          "idleBetweenMs": 5000,
+          "exportRaw": true
+        },
+        {
+          "fixture": "stress-coarse-checker",
+          "config": {
+            "steps": 64,
+            "physicalDt": 4,
+            "mobilityGain": 3,
+            "eddyCells": 8,
+            "curlStrength": 64,
+            "verifyInitializer": 0
+          },
+          "repeats": 3,
+          "idleBetweenMs": 5000,
+          "exportRaw": true
+        }
+      ]
+    }
+  ],
+  "required": [
+    "initializerVerification.passed=true inEVERYverify1sample; state/aux/stationaryfullSHA+summaryexact",
+    "wholeRGBA output==CPUinitializerdt4 baseline sameinput/params",
+    "all4coarseRGBA+W/SledgerzeroDeltas andguardsTRUE",
+    "sourcepairSHA==physicalDtSource3_4 andPACKSHA==MACRO19safePACK",
+    "repeatexact andvalidation/context errors0"
+  ],
+  "next": "Onlyif12pass runfull13capturedverify1/fullSHA thenboundedverify0ABBA; do notclaimperf fromverify1"
+}
