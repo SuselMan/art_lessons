@@ -1,0 +1,3762 @@
+{
+  "qualification": "Native control/cache balanced ABBA or BAAB, same authored source, three repeats per request and 5s idle. Two paused samples/request, four/arm/scene. All cold and outliers retained. Cache fill inside timed solve. Full P/C/coverage/raw/PNG equality asserted for observed cases, not a universal numeric equivalence proof.",
+  "cases": [
+    {
+      "scene": "mini-wave",
+      "cacheEnabled": false,
+      "id": "mini-wave",
+      "title": "Волна из проверки октав",
+      "transform": {
+        "policy": "Whole selected scene uniformly fit to700px including conservative dab size×aspect radius, centered1024. Only XY and size rewritten toFloat32; other packed bits/IDs/presets/relative timestamps preserved. Reconstructed scene, not historical room pixels.",
+        "sourceBounds": [
+          40,
+          114.16827392578125,
+          984,
+          909.8317260742188
+        ],
+        "scale": 0.7415254237288136,
+        "sourceCenter": [
+          512,
+          512
+        ],
+        "targetCenter": [
+          512,
+          512
+        ],
+        "paperWorld": [
+          1024,
+          1024
+        ],
+        "size": 1024
+      },
+      "operationSHA": "b3afa2402c7ceb10d9957ca35cfbe70e432de44490f17561bc90ac33be95cc07",
+      "variants": [
+        {
+          "id": "original",
+          "label": "Native current front8 control",
+          "sourceHashes": {
+            "entry.js": "d766cb2017e327f2a5eb892642fcafcf7ada1db6599ec742ed68d45cb1c4a4d9",
+            "worker.js": "54428f8a7bec52b3151e3ea310bb90942ffaa5e87bff01a5b36b39e2a9ea9f33",
+            "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+            "chunk-25VPIKYH.js": "fe34fe3a7adc584d20d441480e8b9d45d5a7f67a0e257534578f0c233f17b029",
+            "chunk-B3CWKNPF.js": "bd0db6510dc37a160c14a911bc4e81ba3305b2c177be2ab5a308171b2b5a6c07",
+            "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+            "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+            "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+            "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+            "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+          },
+          "replay": {
+            "operationCount": 1,
+            "sourceReady": true,
+            "epoch": 1,
+            "model": "front8-detail-flow-v4",
+            "presetOverrides": [
+              {
+                "original": "normal:95:34:PB15:round",
+                "replayed": "normal:95:34:PB15:round:wc@front8-detail-flow-v4"
+              }
+            ],
+            "operationSHA": "b9dc0929ed50728c587d62d585e5233c34d772b57ba1e57ba38d094b2348e954"
+          },
+          "rawSHA": {
+            "p": "cf055f511aa3f7248cf409afc0eb4f32892397e1ffa6bb26b94e40bbc560ba96",
+            "c": "b52e030f3990336f09bae719c4827a2558325e071b25f9607bba6c3e96e5d83e",
+            "coverage": "0a1dd23c6d94bd35e3d95815947a60a763a845511733647232df7b018e3f857d",
+            "water": "f733dec9f2b5dc1f4936d87ef7807f32a2e0bbad7cb6a098ca3e6d3e284325c9",
+            "foreignWater": "absent",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+          },
+          "commonSHA": {
+            "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+            "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+            "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+          },
+          "captureMetadata": {
+            "version": 1,
+            "conversion": "native-optical-depth-linear",
+            "rawRows": "gl-bottom-up",
+            "inputRows": "top-left",
+            "pigmentScale": 0.6781914893617021,
+            "nativeMassPerAlpha": 2,
+            "nativeDepthPerRGB": 8,
+            "nativeWaterPerByteFraction": 4,
+            "saturatedWaterPixels": 0,
+            "depthWithoutMassPixels": 0,
+            "tileOrigin": [
+              0,
+              0
+            ],
+            "paperWorldSize": [
+              1024,
+              1024
+            ],
+            "paperScale": 1,
+            "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+            "rawSHA": {
+              "inkColor": "b52e030f3990336f09bae719c4827a2558325e071b25f9607bba6c3e96e5d83e",
+              "solvent": "f733dec9f2b5dc1f4936d87ef7807f32a2e0bbad7cb6a098ca3e6d3e284325c9",
+              "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+            },
+            "commonSHA": {
+              "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+              "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+              "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+            },
+            "carrierViolations": 0,
+            "validForBoundedCarrier": true,
+            "nativeMaterialModel": "front8-detail-flow-v4",
+            "scope": "One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim"
+          },
+          "commonAvailable": true,
+          "expectedCanonicalCaptureExact": true,
+          "idleBetweenSamplesMs": 5000,
+          "endpoint": {
+            "file": "mini-wave/goal-native-c.bin",
+            "bytes": 4194304,
+            "sha256": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+            "metadata": {
+              "size": 1024,
+              "rows": "gl-bottom-up",
+              "channels": "native inkColor optical-depth RGB and pigment-mass A",
+              "sha256": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "qualification": "Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale."
+            }
+          },
+          "samples": [
+            {
+              "submitJsMs": 172,
+              "runToDependentMs": 114.20000004768372,
+              "totalReadyMs": 286.2000000476837,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                96,
+                156,
+                189
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 0
+            },
+            {
+              "submitJsMs": 28.59999990463257,
+              "runToDependentMs": 190.90000009536743,
+              "totalReadyMs": 219.5,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                96,
+                156,
+                189
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 5000.200000047684
+            },
+            {
+              "submitJsMs": 29.59999990463257,
+              "runToDependentMs": 186,
+              "totalReadyMs": 215.59999990463257,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                96,
+                156,
+                189
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 5000.200000047684
+            }
+          ],
+          "hashes": [
+            {
+              "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+              "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+            },
+            {
+              "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+              "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+            },
+            {
+              "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+              "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+            }
+          ],
+          "repeatExact": true,
+          "warmMedianMs": 217.54999995231628,
+          "warmSampleCount": 2,
+          "png": {
+            "file": "mini-wave/original.png",
+            "sha256": "285af1033d66e34ddea8cd4438aea611fd4a9acfca0ea152cccd866fb25cd99a",
+            "bytes": 1447256
+          },
+          "sourceStable": true,
+          "pass": true,
+          "errors": [],
+          "contextClosed": true
+        }
+      ],
+      "commonAvailable": true,
+      "capture": {
+        "file": "mini-wave/fixture.bin",
+        "manifestFile": "mini-wave/capture-manifest.json",
+        "binarySHA": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+        "commonAvailable": true
+      },
+      "pass": true
+    },
+    {
+      "scene": "mini-wave",
+      "cacheEnabled": true,
+      "id": "mini-wave",
+      "title": "Волна из проверки октав",
+      "transform": {
+        "policy": "Whole selected scene uniformly fit to700px including conservative dab size×aspect radius, centered1024. Only XY and size rewritten toFloat32; other packed bits/IDs/presets/relative timestamps preserved. Reconstructed scene, not historical room pixels.",
+        "sourceBounds": [
+          40,
+          114.16827392578125,
+          984,
+          909.8317260742188
+        ],
+        "scale": 0.7415254237288136,
+        "sourceCenter": [
+          512,
+          512
+        ],
+        "targetCenter": [
+          512,
+          512
+        ],
+        "paperWorld": [
+          1024,
+          1024
+        ],
+        "size": 1024
+      },
+      "operationSHA": "b3afa2402c7ceb10d9957ca35cfbe70e432de44490f17561bc90ac33be95cc07",
+      "variants": [
+        {
+          "id": "original",
+          "label": "Native current front8 control",
+          "sourceHashes": {
+            "entry.js": "5b059c9929efc9fc12c19dbc06e6be91d25352ddafd46bc5c5296fb89d35619d",
+            "worker.js": "e9749f82d57636020764ff789ead7227bd6dbab4416cfdd58871ed1d28272b73",
+            "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+            "chunk-LYZ4OXIH.js": "88f8e265fb353583c0710e731f166379d453ac2e9523b7ae571c0d2950e5f35a",
+            "chunk-STOHRCIG.js": "3e80e5e8390818215ef02e812ef7e8feaaeaa9f1e449a9e0762289fe52d6451c",
+            "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+            "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+            "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+            "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+            "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+          },
+          "replay": {
+            "operationCount": 1,
+            "sourceReady": true,
+            "epoch": 1,
+            "model": "front8-detail-flow-v4",
+            "presetOverrides": [
+              {
+                "original": "normal:95:34:PB15:round",
+                "replayed": "normal:95:34:PB15:round:wc@front8-detail-flow-v4"
+              }
+            ],
+            "operationSHA": "b9dc0929ed50728c587d62d585e5233c34d772b57ba1e57ba38d094b2348e954"
+          },
+          "rawSHA": {
+            "p": "cf055f511aa3f7248cf409afc0eb4f32892397e1ffa6bb26b94e40bbc560ba96",
+            "c": "b52e030f3990336f09bae719c4827a2558325e071b25f9607bba6c3e96e5d83e",
+            "coverage": "0a1dd23c6d94bd35e3d95815947a60a763a845511733647232df7b018e3f857d",
+            "water": "f733dec9f2b5dc1f4936d87ef7807f32a2e0bbad7cb6a098ca3e6d3e284325c9",
+            "foreignWater": "absent",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+          },
+          "commonSHA": {
+            "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+            "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+            "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+          },
+          "captureMetadata": {
+            "version": 1,
+            "conversion": "native-optical-depth-linear",
+            "rawRows": "gl-bottom-up",
+            "inputRows": "top-left",
+            "pigmentScale": 0.6781914893617021,
+            "nativeMassPerAlpha": 2,
+            "nativeDepthPerRGB": 8,
+            "nativeWaterPerByteFraction": 4,
+            "saturatedWaterPixels": 0,
+            "depthWithoutMassPixels": 0,
+            "tileOrigin": [
+              0,
+              0
+            ],
+            "paperWorldSize": [
+              1024,
+              1024
+            ],
+            "paperScale": 1,
+            "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+            "rawSHA": {
+              "inkColor": "b52e030f3990336f09bae719c4827a2558325e071b25f9607bba6c3e96e5d83e",
+              "solvent": "f733dec9f2b5dc1f4936d87ef7807f32a2e0bbad7cb6a098ca3e6d3e284325c9",
+              "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+            },
+            "commonSHA": {
+              "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+              "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+              "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+            },
+            "carrierViolations": 0,
+            "validForBoundedCarrier": true,
+            "nativeMaterialModel": "front8-detail-flow-v4",
+            "scope": "One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim"
+          },
+          "commonAvailable": true,
+          "expectedCanonicalCaptureExact": true,
+          "idleBetweenSamplesMs": 5000,
+          "endpoint": {
+            "file": "mini-wave/goal-native-c.bin",
+            "bytes": 4194304,
+            "sha256": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+            "metadata": {
+              "size": 1024,
+              "rows": "gl-bottom-up",
+              "channels": "native inkColor optical-depth RGB and pigment-mass A",
+              "sha256": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "qualification": "Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale."
+            }
+          },
+          "nativeFeatherCache": {
+            "fillDraws": 3,
+            "consumerCalls": 135,
+            "cacheHits": 132,
+            "prefixShaderGuards": 2,
+            "cacheBytes": 4194304,
+            "invalidations": 3,
+            "restored": false,
+            "sourceID": "805-native-feather-cache16-v1",
+            "fills": [
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              },
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              },
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              }
+            ],
+            "sourceSHA": {
+              "fill": "208d17128a867abb36709e40a6e540240c5259e483973bb7d38f180f9d3e289a",
+              "native": "adea5170cae95804d11e88a617c94f992dd1c07eaed7211217e7a73418c3b1ee",
+              "prefix0": "fa472748319c297e69e3c96f65d48779236c1cbd8c11ad2e9a6760766665fc94",
+              "prefix1": "8b35327c91dd42b7ad8917448d5a7cc597d700cb59841f250fe341306b43bca2"
+            },
+            "qualification": "QA-only feather16 quantization; cachefill inside timed solve; source hashes outside interval; no other noise consumer in current native/prefix entrypoints"
+          },
+          "samples": [
+            {
+              "submitJsMs": 150.60000014305115,
+              "runToDependentMs": 91.29999995231628,
+              "totalReadyMs": 241.90000009536743,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                96,
+                156,
+                189
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 0
+            },
+            {
+              "submitJsMs": 37.799999952316284,
+              "runToDependentMs": 148,
+              "totalReadyMs": 185.79999995231628,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                96,
+                156,
+                189
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 5003.599999904633
+            },
+            {
+              "submitJsMs": 30,
+              "runToDependentMs": 153.29999995231628,
+              "totalReadyMs": 183.29999995231628,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                96,
+                156,
+                189
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 5000.199999809265
+            }
+          ],
+          "hashes": [
+            {
+              "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+              "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+            },
+            {
+              "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+              "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+            },
+            {
+              "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+              "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+            }
+          ],
+          "repeatExact": true,
+          "warmMedianMs": 184.54999995231628,
+          "warmSampleCount": 2,
+          "png": {
+            "file": "mini-wave/original.png",
+            "sha256": "285af1033d66e34ddea8cd4438aea611fd4a9acfca0ea152cccd866fb25cd99a",
+            "bytes": 1447256
+          },
+          "sourceStable": true,
+          "pass": true,
+          "errors": [],
+          "contextClosed": true
+        }
+      ],
+      "commonAvailable": true,
+      "capture": {
+        "file": "mini-wave/fixture.bin",
+        "manifestFile": "mini-wave/capture-manifest.json",
+        "binarySHA": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+        "commonAvailable": true
+      },
+      "pass": true
+    },
+    {
+      "scene": "mini-wave",
+      "cacheEnabled": true,
+      "id": "mini-wave",
+      "title": "Волна из проверки октав",
+      "transform": {
+        "policy": "Whole selected scene uniformly fit to700px including conservative dab size×aspect radius, centered1024. Only XY and size rewritten toFloat32; other packed bits/IDs/presets/relative timestamps preserved. Reconstructed scene, not historical room pixels.",
+        "sourceBounds": [
+          40,
+          114.16827392578125,
+          984,
+          909.8317260742188
+        ],
+        "scale": 0.7415254237288136,
+        "sourceCenter": [
+          512,
+          512
+        ],
+        "targetCenter": [
+          512,
+          512
+        ],
+        "paperWorld": [
+          1024,
+          1024
+        ],
+        "size": 1024
+      },
+      "operationSHA": "b3afa2402c7ceb10d9957ca35cfbe70e432de44490f17561bc90ac33be95cc07",
+      "variants": [
+        {
+          "id": "original",
+          "label": "Native current front8 control",
+          "sourceHashes": {
+            "entry.js": "5b059c9929efc9fc12c19dbc06e6be91d25352ddafd46bc5c5296fb89d35619d",
+            "worker.js": "e9749f82d57636020764ff789ead7227bd6dbab4416cfdd58871ed1d28272b73",
+            "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+            "chunk-LYZ4OXIH.js": "88f8e265fb353583c0710e731f166379d453ac2e9523b7ae571c0d2950e5f35a",
+            "chunk-STOHRCIG.js": "3e80e5e8390818215ef02e812ef7e8feaaeaa9f1e449a9e0762289fe52d6451c",
+            "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+            "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+            "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+            "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+            "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+          },
+          "replay": {
+            "operationCount": 1,
+            "sourceReady": true,
+            "epoch": 1,
+            "model": "front8-detail-flow-v4",
+            "presetOverrides": [
+              {
+                "original": "normal:95:34:PB15:round",
+                "replayed": "normal:95:34:PB15:round:wc@front8-detail-flow-v4"
+              }
+            ],
+            "operationSHA": "b9dc0929ed50728c587d62d585e5233c34d772b57ba1e57ba38d094b2348e954"
+          },
+          "rawSHA": {
+            "p": "cf055f511aa3f7248cf409afc0eb4f32892397e1ffa6bb26b94e40bbc560ba96",
+            "c": "b52e030f3990336f09bae719c4827a2558325e071b25f9607bba6c3e96e5d83e",
+            "coverage": "0a1dd23c6d94bd35e3d95815947a60a763a845511733647232df7b018e3f857d",
+            "water": "f733dec9f2b5dc1f4936d87ef7807f32a2e0bbad7cb6a098ca3e6d3e284325c9",
+            "foreignWater": "absent",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+          },
+          "commonSHA": {
+            "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+            "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+            "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+          },
+          "captureMetadata": {
+            "version": 1,
+            "conversion": "native-optical-depth-linear",
+            "rawRows": "gl-bottom-up",
+            "inputRows": "top-left",
+            "pigmentScale": 0.6781914893617021,
+            "nativeMassPerAlpha": 2,
+            "nativeDepthPerRGB": 8,
+            "nativeWaterPerByteFraction": 4,
+            "saturatedWaterPixels": 0,
+            "depthWithoutMassPixels": 0,
+            "tileOrigin": [
+              0,
+              0
+            ],
+            "paperWorldSize": [
+              1024,
+              1024
+            ],
+            "paperScale": 1,
+            "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+            "rawSHA": {
+              "inkColor": "b52e030f3990336f09bae719c4827a2558325e071b25f9607bba6c3e96e5d83e",
+              "solvent": "f733dec9f2b5dc1f4936d87ef7807f32a2e0bbad7cb6a098ca3e6d3e284325c9",
+              "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+            },
+            "commonSHA": {
+              "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+              "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+              "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+            },
+            "carrierViolations": 0,
+            "validForBoundedCarrier": true,
+            "nativeMaterialModel": "front8-detail-flow-v4",
+            "scope": "One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim"
+          },
+          "commonAvailable": true,
+          "expectedCanonicalCaptureExact": true,
+          "idleBetweenSamplesMs": 5000,
+          "endpoint": {
+            "file": "mini-wave/goal-native-c.bin",
+            "bytes": 4194304,
+            "sha256": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+            "metadata": {
+              "size": 1024,
+              "rows": "gl-bottom-up",
+              "channels": "native inkColor optical-depth RGB and pigment-mass A",
+              "sha256": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "qualification": "Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale."
+            }
+          },
+          "nativeFeatherCache": {
+            "fillDraws": 3,
+            "consumerCalls": 135,
+            "cacheHits": 132,
+            "prefixShaderGuards": 2,
+            "cacheBytes": 4194304,
+            "invalidations": 3,
+            "restored": false,
+            "sourceID": "805-native-feather-cache16-v1",
+            "fills": [
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              },
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              },
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              }
+            ],
+            "sourceSHA": {
+              "fill": "208d17128a867abb36709e40a6e540240c5259e483973bb7d38f180f9d3e289a",
+              "native": "adea5170cae95804d11e88a617c94f992dd1c07eaed7211217e7a73418c3b1ee",
+              "prefix0": "fa472748319c297e69e3c96f65d48779236c1cbd8c11ad2e9a6760766665fc94",
+              "prefix1": "8b35327c91dd42b7ad8917448d5a7cc597d700cb59841f250fe341306b43bca2"
+            },
+            "qualification": "QA-only feather16 quantization; cachefill inside timed solve; source hashes outside interval; no other noise consumer in current native/prefix entrypoints"
+          },
+          "samples": [
+            {
+              "submitJsMs": 113.79999995231628,
+              "runToDependentMs": 91.5,
+              "totalReadyMs": 205.29999995231628,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                96,
+                156,
+                189
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 0
+            },
+            {
+              "submitJsMs": 35.60000014305115,
+              "runToDependentMs": 154,
+              "totalReadyMs": 189.60000014305115,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                96,
+                156,
+                189
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 5001.700000047684
+            },
+            {
+              "submitJsMs": 33,
+              "runToDependentMs": 152.39999985694885,
+              "totalReadyMs": 185.39999985694885,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                96,
+                156,
+                189
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 5000.700000047684
+            }
+          ],
+          "hashes": [
+            {
+              "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+              "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+            },
+            {
+              "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+              "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+            },
+            {
+              "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+              "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+            }
+          ],
+          "repeatExact": true,
+          "warmMedianMs": 187.5,
+          "warmSampleCount": 2,
+          "png": {
+            "file": "mini-wave/original.png",
+            "sha256": "285af1033d66e34ddea8cd4438aea611fd4a9acfca0ea152cccd866fb25cd99a",
+            "bytes": 1447256
+          },
+          "sourceStable": true,
+          "pass": true,
+          "errors": [],
+          "contextClosed": true
+        }
+      ],
+      "commonAvailable": true,
+      "capture": {
+        "file": "mini-wave/fixture.bin",
+        "manifestFile": "mini-wave/capture-manifest.json",
+        "binarySHA": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+        "commonAvailable": true
+      },
+      "pass": true
+    },
+    {
+      "scene": "mini-wave",
+      "cacheEnabled": false,
+      "id": "mini-wave",
+      "title": "Волна из проверки октав",
+      "transform": {
+        "policy": "Whole selected scene uniformly fit to700px including conservative dab size×aspect radius, centered1024. Only XY and size rewritten toFloat32; other packed bits/IDs/presets/relative timestamps preserved. Reconstructed scene, not historical room pixels.",
+        "sourceBounds": [
+          40,
+          114.16827392578125,
+          984,
+          909.8317260742188
+        ],
+        "scale": 0.7415254237288136,
+        "sourceCenter": [
+          512,
+          512
+        ],
+        "targetCenter": [
+          512,
+          512
+        ],
+        "paperWorld": [
+          1024,
+          1024
+        ],
+        "size": 1024
+      },
+      "operationSHA": "b3afa2402c7ceb10d9957ca35cfbe70e432de44490f17561bc90ac33be95cc07",
+      "variants": [
+        {
+          "id": "original",
+          "label": "Native current front8 control",
+          "sourceHashes": {
+            "entry.js": "d766cb2017e327f2a5eb892642fcafcf7ada1db6599ec742ed68d45cb1c4a4d9",
+            "worker.js": "54428f8a7bec52b3151e3ea310bb90942ffaa5e87bff01a5b36b39e2a9ea9f33",
+            "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+            "chunk-25VPIKYH.js": "fe34fe3a7adc584d20d441480e8b9d45d5a7f67a0e257534578f0c233f17b029",
+            "chunk-B3CWKNPF.js": "bd0db6510dc37a160c14a911bc4e81ba3305b2c177be2ab5a308171b2b5a6c07",
+            "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+            "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+            "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+            "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+            "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+          },
+          "replay": {
+            "operationCount": 1,
+            "sourceReady": true,
+            "epoch": 1,
+            "model": "front8-detail-flow-v4",
+            "presetOverrides": [
+              {
+                "original": "normal:95:34:PB15:round",
+                "replayed": "normal:95:34:PB15:round:wc@front8-detail-flow-v4"
+              }
+            ],
+            "operationSHA": "b9dc0929ed50728c587d62d585e5233c34d772b57ba1e57ba38d094b2348e954"
+          },
+          "rawSHA": {
+            "p": "cf055f511aa3f7248cf409afc0eb4f32892397e1ffa6bb26b94e40bbc560ba96",
+            "c": "b52e030f3990336f09bae719c4827a2558325e071b25f9607bba6c3e96e5d83e",
+            "coverage": "0a1dd23c6d94bd35e3d95815947a60a763a845511733647232df7b018e3f857d",
+            "water": "f733dec9f2b5dc1f4936d87ef7807f32a2e0bbad7cb6a098ca3e6d3e284325c9",
+            "foreignWater": "absent",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+          },
+          "commonSHA": {
+            "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+            "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+            "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+          },
+          "captureMetadata": {
+            "version": 1,
+            "conversion": "native-optical-depth-linear",
+            "rawRows": "gl-bottom-up",
+            "inputRows": "top-left",
+            "pigmentScale": 0.6781914893617021,
+            "nativeMassPerAlpha": 2,
+            "nativeDepthPerRGB": 8,
+            "nativeWaterPerByteFraction": 4,
+            "saturatedWaterPixels": 0,
+            "depthWithoutMassPixels": 0,
+            "tileOrigin": [
+              0,
+              0
+            ],
+            "paperWorldSize": [
+              1024,
+              1024
+            ],
+            "paperScale": 1,
+            "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+            "rawSHA": {
+              "inkColor": "b52e030f3990336f09bae719c4827a2558325e071b25f9607bba6c3e96e5d83e",
+              "solvent": "f733dec9f2b5dc1f4936d87ef7807f32a2e0bbad7cb6a098ca3e6d3e284325c9",
+              "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+            },
+            "commonSHA": {
+              "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+              "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+              "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+            },
+            "carrierViolations": 0,
+            "validForBoundedCarrier": true,
+            "nativeMaterialModel": "front8-detail-flow-v4",
+            "scope": "One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim"
+          },
+          "commonAvailable": true,
+          "expectedCanonicalCaptureExact": true,
+          "idleBetweenSamplesMs": 5000,
+          "endpoint": {
+            "file": "mini-wave/goal-native-c.bin",
+            "bytes": 4194304,
+            "sha256": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+            "metadata": {
+              "size": 1024,
+              "rows": "gl-bottom-up",
+              "channels": "native inkColor optical-depth RGB and pigment-mass A",
+              "sha256": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "qualification": "Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale."
+            }
+          },
+          "samples": [
+            {
+              "submitJsMs": 121.5,
+              "runToDependentMs": 105.70000004768372,
+              "totalReadyMs": 227.20000004768372,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                96,
+                156,
+                189
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 0
+            },
+            {
+              "submitJsMs": 34,
+              "runToDependentMs": 185.79999995231628,
+              "totalReadyMs": 219.79999995231628,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                96,
+                156,
+                189
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 5000.399999856949
+            },
+            {
+              "submitJsMs": 28.799999952316284,
+              "runToDependentMs": 187.79999995231628,
+              "totalReadyMs": 216.59999990463257,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                96,
+                156,
+                189
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 5000.299999952316
+            }
+          ],
+          "hashes": [
+            {
+              "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+              "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+            },
+            {
+              "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+              "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+            },
+            {
+              "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+              "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+              "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+            }
+          ],
+          "repeatExact": true,
+          "warmMedianMs": 218.19999992847443,
+          "warmSampleCount": 2,
+          "png": {
+            "file": "mini-wave/original.png",
+            "sha256": "285af1033d66e34ddea8cd4438aea611fd4a9acfca0ea152cccd866fb25cd99a",
+            "bytes": 1447256
+          },
+          "sourceStable": true,
+          "pass": true,
+          "errors": [],
+          "contextClosed": true
+        }
+      ],
+      "commonAvailable": true,
+      "capture": {
+        "file": "mini-wave/fixture.bin",
+        "manifestFile": "mini-wave/capture-manifest.json",
+        "binarySHA": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+        "commonAvailable": true
+      },
+      "pass": true
+    },
+    {
+      "scene": "mini-two-colors",
+      "cacheEnabled": true,
+      "id": "mini-two-colors",
+      "title": "Два цвета из проверки октав",
+      "transform": {
+        "policy": "Whole selected scene uniformly fit to700px including conservative dab size×aspect radius, centered1024. Only XY and size rewritten toFloat32; other packed bits/IDs/presets/relative timestamps preserved. Reconstructed scene, not historical room pixels.",
+        "sourceBounds": [
+          40,
+          -5.8317413330078125,
+          984,
+          909.8317260742188
+        ],
+        "scale": 0.7415254237288136,
+        "sourceCenter": [
+          512,
+          451.99999237060547
+        ],
+        "targetCenter": [
+          512,
+          512
+        ],
+        "paperWorld": [
+          1024,
+          1024
+        ],
+        "size": 1024
+      },
+      "operationSHA": "061c9dfd52d02a84b373e754679f81ddf04d7f20959220c1d3d62c56a201d17f",
+      "variants": [
+        {
+          "id": "original",
+          "label": "Native current front8 control",
+          "sourceHashes": {
+            "entry.js": "5b059c9929efc9fc12c19dbc06e6be91d25352ddafd46bc5c5296fb89d35619d",
+            "worker.js": "e9749f82d57636020764ff789ead7227bd6dbab4416cfdd58871ed1d28272b73",
+            "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+            "chunk-LYZ4OXIH.js": "88f8e265fb353583c0710e731f166379d453ac2e9523b7ae571c0d2950e5f35a",
+            "chunk-STOHRCIG.js": "3e80e5e8390818215ef02e812ef7e8feaaeaa9f1e449a9e0762289fe52d6451c",
+            "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+            "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+            "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+            "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+            "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+          },
+          "replay": {
+            "operationCount": 2,
+            "sourceReady": true,
+            "epoch": 1,
+            "model": "front8-detail-flow-v4",
+            "presetOverrides": [
+              {
+                "original": "normal:95:34:PB15:round",
+                "replayed": "normal:95:34:PB15:round:wc@front8-detail-flow-v4"
+              },
+              {
+                "original": "normal:95:34:PR122:round",
+                "replayed": "normal:95:34:PR122:round:wc@front8-detail-flow-v4"
+              }
+            ],
+            "operationSHA": "fe690c71b46dc101b078db880833a71f988cf37d1da45379f851e6b3d1dab8d8"
+          },
+          "rawSHA": {
+            "p": "9e6b2d1a55fb76d1ee0b78438ae5d3d469124611c919e11904fe985d9ce12e4b",
+            "c": "19da22c5009056852964dcdb2d18fe9ebf1cd646cdf3f080a3f29feb42318cca",
+            "coverage": "f4cfe8e7f89477c32d1c6f5bb7bf33281262704553260febe48ba9213f85a63d",
+            "water": "ca5e5542da5aeda7e8e8d72a2c18c58104ba3ae9bc15952bf23a92ccbd0e49cb",
+            "foreignWater": "absent",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+          },
+          "commonSHA": {
+            "rgba": "f03ca9ddcac1ca92d4c039aede7007323e527043166b5161e2e8586facf43704",
+            "water": "ceba695da63e56355e7c5b3a449eeb17281e64066378501c85f6bc24861f1ab5",
+            "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+          },
+          "captureMetadata": {
+            "version": 1,
+            "conversion": "native-optical-depth-linear",
+            "rawRows": "gl-bottom-up",
+            "inputRows": "top-left",
+            "pigmentScale": 0.5,
+            "nativeMassPerAlpha": 2,
+            "nativeDepthPerRGB": 8,
+            "nativeWaterPerByteFraction": 4,
+            "saturatedWaterPixels": 0,
+            "depthWithoutMassPixels": 0,
+            "tileOrigin": [
+              0,
+              0
+            ],
+            "paperWorldSize": [
+              1024,
+              1024
+            ],
+            "paperScale": 1,
+            "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+            "rawSHA": {
+              "inkColor": "19da22c5009056852964dcdb2d18fe9ebf1cd646cdf3f080a3f29feb42318cca",
+              "solvent": "ca5e5542da5aeda7e8e8d72a2c18c58104ba3ae9bc15952bf23a92ccbd0e49cb",
+              "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+            },
+            "commonSHA": {
+              "rgba": "f03ca9ddcac1ca92d4c039aede7007323e527043166b5161e2e8586facf43704",
+              "water": "ceba695da63e56355e7c5b3a449eeb17281e64066378501c85f6bc24861f1ab5",
+              "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+            },
+            "carrierViolations": 0,
+            "validForBoundedCarrier": true,
+            "nativeMaterialModel": "front8-detail-flow-v4",
+            "scope": "One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim"
+          },
+          "commonAvailable": true,
+          "expectedCanonicalCaptureExact": true,
+          "idleBetweenSamplesMs": 5000,
+          "endpoint": {
+            "file": "mini-two-colors/goal-native-c.bin",
+            "bytes": 4194304,
+            "sha256": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+            "metadata": {
+              "size": 1024,
+              "rows": "gl-bottom-up",
+              "channels": "native inkColor optical-depth RGB and pigment-mass A",
+              "sha256": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "qualification": "Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale."
+            }
+          },
+          "nativeFeatherCache": {
+            "fillDraws": 3,
+            "consumerCalls": 135,
+            "cacheHits": 132,
+            "prefixShaderGuards": 2,
+            "cacheBytes": 4194304,
+            "invalidations": 3,
+            "restored": false,
+            "sourceID": "805-native-feather-cache16-v1",
+            "fills": [
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              },
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              },
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              }
+            ],
+            "sourceSHA": {
+              "fill": "208d17128a867abb36709e40a6e540240c5259e483973bb7d38f180f9d3e289a",
+              "native": "adea5170cae95804d11e88a617c94f992dd1c07eaed7211217e7a73418c3b1ee",
+              "prefix0": "fa472748319c297e69e3c96f65d48779236c1cbd8c11ad2e9a6760766665fc94",
+              "prefix1": "8b35327c91dd42b7ad8917448d5a7cc597d700cb59841f250fe341306b43bca2"
+            },
+            "qualification": "QA-only feather16 quantization; cachefill inside timed solve; source hashes outside interval; no other noise consumer in current native/prefix entrypoints"
+          },
+          "samples": [
+            {
+              "submitJsMs": 120.19999980926514,
+              "runToDependentMs": 159.20000004768372,
+              "totalReadyMs": 279.39999985694885,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                13,
+                0,
+                97,
+                212
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 0
+            },
+            {
+              "submitJsMs": 32.5,
+              "runToDependentMs": 218.40000009536743,
+              "totalReadyMs": 250.90000009536743,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                13,
+                0,
+                97,
+                212
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 5000.199999809265
+            },
+            {
+              "submitJsMs": 36.89999985694885,
+              "runToDependentMs": 199.29999995231628,
+              "totalReadyMs": 236.19999980926514,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                13,
+                0,
+                97,
+                212
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 5000.200000047684
+            }
+          ],
+          "hashes": [
+            {
+              "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+              "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+            },
+            {
+              "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+              "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+            },
+            {
+              "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+              "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+            }
+          ],
+          "repeatExact": true,
+          "warmMedianMs": 243.54999995231628,
+          "warmSampleCount": 2,
+          "png": {
+            "file": "mini-two-colors/original.png",
+            "sha256": "19e673819d8841efd55e0227211a5628cb09b81582c93277fc7dd0aaead838fb",
+            "bytes": 1599237
+          },
+          "sourceStable": true,
+          "pass": true,
+          "errors": [],
+          "contextClosed": true
+        }
+      ],
+      "commonAvailable": true,
+      "capture": {
+        "file": "mini-two-colors/fixture.bin",
+        "manifestFile": "mini-two-colors/capture-manifest.json",
+        "binarySHA": "d69b0e913564ebd2b7954ef9405e99c486858437833217bfddfc57f4def03d60",
+        "commonAvailable": true
+      },
+      "pass": true
+    },
+    {
+      "scene": "mini-two-colors",
+      "cacheEnabled": false,
+      "id": "mini-two-colors",
+      "title": "Два цвета из проверки октав",
+      "transform": {
+        "policy": "Whole selected scene uniformly fit to700px including conservative dab size×aspect radius, centered1024. Only XY and size rewritten toFloat32; other packed bits/IDs/presets/relative timestamps preserved. Reconstructed scene, not historical room pixels.",
+        "sourceBounds": [
+          40,
+          -5.8317413330078125,
+          984,
+          909.8317260742188
+        ],
+        "scale": 0.7415254237288136,
+        "sourceCenter": [
+          512,
+          451.99999237060547
+        ],
+        "targetCenter": [
+          512,
+          512
+        ],
+        "paperWorld": [
+          1024,
+          1024
+        ],
+        "size": 1024
+      },
+      "operationSHA": "061c9dfd52d02a84b373e754679f81ddf04d7f20959220c1d3d62c56a201d17f",
+      "variants": [
+        {
+          "id": "original",
+          "label": "Native current front8 control",
+          "sourceHashes": {
+            "entry.js": "d766cb2017e327f2a5eb892642fcafcf7ada1db6599ec742ed68d45cb1c4a4d9",
+            "worker.js": "54428f8a7bec52b3151e3ea310bb90942ffaa5e87bff01a5b36b39e2a9ea9f33",
+            "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+            "chunk-25VPIKYH.js": "fe34fe3a7adc584d20d441480e8b9d45d5a7f67a0e257534578f0c233f17b029",
+            "chunk-B3CWKNPF.js": "bd0db6510dc37a160c14a911bc4e81ba3305b2c177be2ab5a308171b2b5a6c07",
+            "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+            "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+            "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+            "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+            "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+          },
+          "replay": {
+            "operationCount": 2,
+            "sourceReady": true,
+            "epoch": 1,
+            "model": "front8-detail-flow-v4",
+            "presetOverrides": [
+              {
+                "original": "normal:95:34:PB15:round",
+                "replayed": "normal:95:34:PB15:round:wc@front8-detail-flow-v4"
+              },
+              {
+                "original": "normal:95:34:PR122:round",
+                "replayed": "normal:95:34:PR122:round:wc@front8-detail-flow-v4"
+              }
+            ],
+            "operationSHA": "fe690c71b46dc101b078db880833a71f988cf37d1da45379f851e6b3d1dab8d8"
+          },
+          "rawSHA": {
+            "p": "9e6b2d1a55fb76d1ee0b78438ae5d3d469124611c919e11904fe985d9ce12e4b",
+            "c": "19da22c5009056852964dcdb2d18fe9ebf1cd646cdf3f080a3f29feb42318cca",
+            "coverage": "f4cfe8e7f89477c32d1c6f5bb7bf33281262704553260febe48ba9213f85a63d",
+            "water": "ca5e5542da5aeda7e8e8d72a2c18c58104ba3ae9bc15952bf23a92ccbd0e49cb",
+            "foreignWater": "absent",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+          },
+          "commonSHA": {
+            "rgba": "f03ca9ddcac1ca92d4c039aede7007323e527043166b5161e2e8586facf43704",
+            "water": "ceba695da63e56355e7c5b3a449eeb17281e64066378501c85f6bc24861f1ab5",
+            "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+          },
+          "captureMetadata": {
+            "version": 1,
+            "conversion": "native-optical-depth-linear",
+            "rawRows": "gl-bottom-up",
+            "inputRows": "top-left",
+            "pigmentScale": 0.5,
+            "nativeMassPerAlpha": 2,
+            "nativeDepthPerRGB": 8,
+            "nativeWaterPerByteFraction": 4,
+            "saturatedWaterPixels": 0,
+            "depthWithoutMassPixels": 0,
+            "tileOrigin": [
+              0,
+              0
+            ],
+            "paperWorldSize": [
+              1024,
+              1024
+            ],
+            "paperScale": 1,
+            "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+            "rawSHA": {
+              "inkColor": "19da22c5009056852964dcdb2d18fe9ebf1cd646cdf3f080a3f29feb42318cca",
+              "solvent": "ca5e5542da5aeda7e8e8d72a2c18c58104ba3ae9bc15952bf23a92ccbd0e49cb",
+              "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+            },
+            "commonSHA": {
+              "rgba": "f03ca9ddcac1ca92d4c039aede7007323e527043166b5161e2e8586facf43704",
+              "water": "ceba695da63e56355e7c5b3a449eeb17281e64066378501c85f6bc24861f1ab5",
+              "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+            },
+            "carrierViolations": 0,
+            "validForBoundedCarrier": true,
+            "nativeMaterialModel": "front8-detail-flow-v4",
+            "scope": "One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim"
+          },
+          "commonAvailable": true,
+          "expectedCanonicalCaptureExact": true,
+          "idleBetweenSamplesMs": 5000,
+          "endpoint": {
+            "file": "mini-two-colors/goal-native-c.bin",
+            "bytes": 4194304,
+            "sha256": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+            "metadata": {
+              "size": 1024,
+              "rows": "gl-bottom-up",
+              "channels": "native inkColor optical-depth RGB and pigment-mass A",
+              "sha256": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "qualification": "Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale."
+            }
+          },
+          "samples": [
+            {
+              "submitJsMs": 110,
+              "runToDependentMs": 178.10000014305115,
+              "totalReadyMs": 288.10000014305115,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                13,
+                0,
+                97,
+                212
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 0
+            },
+            {
+              "submitJsMs": 32.40000009536743,
+              "runToDependentMs": 245.19999980926514,
+              "totalReadyMs": 277.59999990463257,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                13,
+                0,
+                97,
+                212
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 5001.200000047684
+            },
+            {
+              "submitJsMs": 34.5,
+              "runToDependentMs": 253.5,
+              "totalReadyMs": 288,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                13,
+                0,
+                97,
+                212
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 5000.799999952316
+            }
+          ],
+          "hashes": [
+            {
+              "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+              "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+            },
+            {
+              "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+              "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+            },
+            {
+              "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+              "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+            }
+          ],
+          "repeatExact": true,
+          "warmMedianMs": 282.7999999523163,
+          "warmSampleCount": 2,
+          "png": {
+            "file": "mini-two-colors/original.png",
+            "sha256": "19e673819d8841efd55e0227211a5628cb09b81582c93277fc7dd0aaead838fb",
+            "bytes": 1599237
+          },
+          "sourceStable": true,
+          "pass": true,
+          "errors": [],
+          "contextClosed": true
+        }
+      ],
+      "commonAvailable": true,
+      "capture": {
+        "file": "mini-two-colors/fixture.bin",
+        "manifestFile": "mini-two-colors/capture-manifest.json",
+        "binarySHA": "d69b0e913564ebd2b7954ef9405e99c486858437833217bfddfc57f4def03d60",
+        "commonAvailable": true
+      },
+      "pass": true
+    },
+    {
+      "scene": "mini-two-colors",
+      "cacheEnabled": false,
+      "id": "mini-two-colors",
+      "title": "Два цвета из проверки октав",
+      "transform": {
+        "policy": "Whole selected scene uniformly fit to700px including conservative dab size×aspect radius, centered1024. Only XY and size rewritten toFloat32; other packed bits/IDs/presets/relative timestamps preserved. Reconstructed scene, not historical room pixels.",
+        "sourceBounds": [
+          40,
+          -5.8317413330078125,
+          984,
+          909.8317260742188
+        ],
+        "scale": 0.7415254237288136,
+        "sourceCenter": [
+          512,
+          451.99999237060547
+        ],
+        "targetCenter": [
+          512,
+          512
+        ],
+        "paperWorld": [
+          1024,
+          1024
+        ],
+        "size": 1024
+      },
+      "operationSHA": "061c9dfd52d02a84b373e754679f81ddf04d7f20959220c1d3d62c56a201d17f",
+      "variants": [
+        {
+          "id": "original",
+          "label": "Native current front8 control",
+          "sourceHashes": {
+            "entry.js": "d766cb2017e327f2a5eb892642fcafcf7ada1db6599ec742ed68d45cb1c4a4d9",
+            "worker.js": "54428f8a7bec52b3151e3ea310bb90942ffaa5e87bff01a5b36b39e2a9ea9f33",
+            "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+            "chunk-25VPIKYH.js": "fe34fe3a7adc584d20d441480e8b9d45d5a7f67a0e257534578f0c233f17b029",
+            "chunk-B3CWKNPF.js": "bd0db6510dc37a160c14a911bc4e81ba3305b2c177be2ab5a308171b2b5a6c07",
+            "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+            "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+            "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+            "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+            "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+          },
+          "replay": {
+            "operationCount": 2,
+            "sourceReady": true,
+            "epoch": 1,
+            "model": "front8-detail-flow-v4",
+            "presetOverrides": [
+              {
+                "original": "normal:95:34:PB15:round",
+                "replayed": "normal:95:34:PB15:round:wc@front8-detail-flow-v4"
+              },
+              {
+                "original": "normal:95:34:PR122:round",
+                "replayed": "normal:95:34:PR122:round:wc@front8-detail-flow-v4"
+              }
+            ],
+            "operationSHA": "fe690c71b46dc101b078db880833a71f988cf37d1da45379f851e6b3d1dab8d8"
+          },
+          "rawSHA": {
+            "p": "9e6b2d1a55fb76d1ee0b78438ae5d3d469124611c919e11904fe985d9ce12e4b",
+            "c": "19da22c5009056852964dcdb2d18fe9ebf1cd646cdf3f080a3f29feb42318cca",
+            "coverage": "f4cfe8e7f89477c32d1c6f5bb7bf33281262704553260febe48ba9213f85a63d",
+            "water": "ca5e5542da5aeda7e8e8d72a2c18c58104ba3ae9bc15952bf23a92ccbd0e49cb",
+            "foreignWater": "absent",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+          },
+          "commonSHA": {
+            "rgba": "f03ca9ddcac1ca92d4c039aede7007323e527043166b5161e2e8586facf43704",
+            "water": "ceba695da63e56355e7c5b3a449eeb17281e64066378501c85f6bc24861f1ab5",
+            "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+          },
+          "captureMetadata": {
+            "version": 1,
+            "conversion": "native-optical-depth-linear",
+            "rawRows": "gl-bottom-up",
+            "inputRows": "top-left",
+            "pigmentScale": 0.5,
+            "nativeMassPerAlpha": 2,
+            "nativeDepthPerRGB": 8,
+            "nativeWaterPerByteFraction": 4,
+            "saturatedWaterPixels": 0,
+            "depthWithoutMassPixels": 0,
+            "tileOrigin": [
+              0,
+              0
+            ],
+            "paperWorldSize": [
+              1024,
+              1024
+            ],
+            "paperScale": 1,
+            "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+            "rawSHA": {
+              "inkColor": "19da22c5009056852964dcdb2d18fe9ebf1cd646cdf3f080a3f29feb42318cca",
+              "solvent": "ca5e5542da5aeda7e8e8d72a2c18c58104ba3ae9bc15952bf23a92ccbd0e49cb",
+              "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+            },
+            "commonSHA": {
+              "rgba": "f03ca9ddcac1ca92d4c039aede7007323e527043166b5161e2e8586facf43704",
+              "water": "ceba695da63e56355e7c5b3a449eeb17281e64066378501c85f6bc24861f1ab5",
+              "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+            },
+            "carrierViolations": 0,
+            "validForBoundedCarrier": true,
+            "nativeMaterialModel": "front8-detail-flow-v4",
+            "scope": "One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim"
+          },
+          "commonAvailable": true,
+          "expectedCanonicalCaptureExact": true,
+          "idleBetweenSamplesMs": 5000,
+          "endpoint": {
+            "file": "mini-two-colors/goal-native-c.bin",
+            "bytes": 4194304,
+            "sha256": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+            "metadata": {
+              "size": 1024,
+              "rows": "gl-bottom-up",
+              "channels": "native inkColor optical-depth RGB and pigment-mass A",
+              "sha256": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "qualification": "Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale."
+            }
+          },
+          "samples": [
+            {
+              "submitJsMs": 103.09999990463257,
+              "runToDependentMs": 179.60000014305115,
+              "totalReadyMs": 282.7000000476837,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                13,
+                0,
+                97,
+                212
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 0
+            },
+            {
+              "submitJsMs": 33.299999952316284,
+              "runToDependentMs": 251.59999990463257,
+              "totalReadyMs": 284.89999985694885,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                13,
+                0,
+                97,
+                212
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 5000.299999952316
+            },
+            {
+              "submitJsMs": 35.700000047683716,
+              "runToDependentMs": 254.90000009536743,
+              "totalReadyMs": 290.60000014305115,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                13,
+                0,
+                97,
+                212
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 5000.200000047684
+            }
+          ],
+          "hashes": [
+            {
+              "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+              "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+            },
+            {
+              "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+              "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+            },
+            {
+              "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+              "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+            }
+          ],
+          "repeatExact": true,
+          "warmMedianMs": 287.75,
+          "warmSampleCount": 2,
+          "png": {
+            "file": "mini-two-colors/original.png",
+            "sha256": "19e673819d8841efd55e0227211a5628cb09b81582c93277fc7dd0aaead838fb",
+            "bytes": 1599237
+          },
+          "sourceStable": true,
+          "pass": true,
+          "errors": [],
+          "contextClosed": true
+        }
+      ],
+      "commonAvailable": true,
+      "capture": {
+        "file": "mini-two-colors/fixture.bin",
+        "manifestFile": "mini-two-colors/capture-manifest.json",
+        "binarySHA": "d69b0e913564ebd2b7954ef9405e99c486858437833217bfddfc57f4def03d60",
+        "commonAvailable": true
+      },
+      "pass": true
+    },
+    {
+      "scene": "mini-two-colors",
+      "cacheEnabled": true,
+      "id": "mini-two-colors",
+      "title": "Два цвета из проверки октав",
+      "transform": {
+        "policy": "Whole selected scene uniformly fit to700px including conservative dab size×aspect radius, centered1024. Only XY and size rewritten toFloat32; other packed bits/IDs/presets/relative timestamps preserved. Reconstructed scene, not historical room pixels.",
+        "sourceBounds": [
+          40,
+          -5.8317413330078125,
+          984,
+          909.8317260742188
+        ],
+        "scale": 0.7415254237288136,
+        "sourceCenter": [
+          512,
+          451.99999237060547
+        ],
+        "targetCenter": [
+          512,
+          512
+        ],
+        "paperWorld": [
+          1024,
+          1024
+        ],
+        "size": 1024
+      },
+      "operationSHA": "061c9dfd52d02a84b373e754679f81ddf04d7f20959220c1d3d62c56a201d17f",
+      "variants": [
+        {
+          "id": "original",
+          "label": "Native current front8 control",
+          "sourceHashes": {
+            "entry.js": "5b059c9929efc9fc12c19dbc06e6be91d25352ddafd46bc5c5296fb89d35619d",
+            "worker.js": "e9749f82d57636020764ff789ead7227bd6dbab4416cfdd58871ed1d28272b73",
+            "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+            "chunk-LYZ4OXIH.js": "88f8e265fb353583c0710e731f166379d453ac2e9523b7ae571c0d2950e5f35a",
+            "chunk-STOHRCIG.js": "3e80e5e8390818215ef02e812ef7e8feaaeaa9f1e449a9e0762289fe52d6451c",
+            "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+            "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+            "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+            "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+            "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+          },
+          "replay": {
+            "operationCount": 2,
+            "sourceReady": true,
+            "epoch": 1,
+            "model": "front8-detail-flow-v4",
+            "presetOverrides": [
+              {
+                "original": "normal:95:34:PB15:round",
+                "replayed": "normal:95:34:PB15:round:wc@front8-detail-flow-v4"
+              },
+              {
+                "original": "normal:95:34:PR122:round",
+                "replayed": "normal:95:34:PR122:round:wc@front8-detail-flow-v4"
+              }
+            ],
+            "operationSHA": "fe690c71b46dc101b078db880833a71f988cf37d1da45379f851e6b3d1dab8d8"
+          },
+          "rawSHA": {
+            "p": "9e6b2d1a55fb76d1ee0b78438ae5d3d469124611c919e11904fe985d9ce12e4b",
+            "c": "19da22c5009056852964dcdb2d18fe9ebf1cd646cdf3f080a3f29feb42318cca",
+            "coverage": "f4cfe8e7f89477c32d1c6f5bb7bf33281262704553260febe48ba9213f85a63d",
+            "water": "ca5e5542da5aeda7e8e8d72a2c18c58104ba3ae9bc15952bf23a92ccbd0e49cb",
+            "foreignWater": "absent",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+          },
+          "commonSHA": {
+            "rgba": "f03ca9ddcac1ca92d4c039aede7007323e527043166b5161e2e8586facf43704",
+            "water": "ceba695da63e56355e7c5b3a449eeb17281e64066378501c85f6bc24861f1ab5",
+            "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+          },
+          "captureMetadata": {
+            "version": 1,
+            "conversion": "native-optical-depth-linear",
+            "rawRows": "gl-bottom-up",
+            "inputRows": "top-left",
+            "pigmentScale": 0.5,
+            "nativeMassPerAlpha": 2,
+            "nativeDepthPerRGB": 8,
+            "nativeWaterPerByteFraction": 4,
+            "saturatedWaterPixels": 0,
+            "depthWithoutMassPixels": 0,
+            "tileOrigin": [
+              0,
+              0
+            ],
+            "paperWorldSize": [
+              1024,
+              1024
+            ],
+            "paperScale": 1,
+            "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+            "rawSHA": {
+              "inkColor": "19da22c5009056852964dcdb2d18fe9ebf1cd646cdf3f080a3f29feb42318cca",
+              "solvent": "ca5e5542da5aeda7e8e8d72a2c18c58104ba3ae9bc15952bf23a92ccbd0e49cb",
+              "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+            },
+            "commonSHA": {
+              "rgba": "f03ca9ddcac1ca92d4c039aede7007323e527043166b5161e2e8586facf43704",
+              "water": "ceba695da63e56355e7c5b3a449eeb17281e64066378501c85f6bc24861f1ab5",
+              "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+            },
+            "carrierViolations": 0,
+            "validForBoundedCarrier": true,
+            "nativeMaterialModel": "front8-detail-flow-v4",
+            "scope": "One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim"
+          },
+          "commonAvailable": true,
+          "expectedCanonicalCaptureExact": true,
+          "idleBetweenSamplesMs": 5000,
+          "endpoint": {
+            "file": "mini-two-colors/goal-native-c.bin",
+            "bytes": 4194304,
+            "sha256": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+            "metadata": {
+              "size": 1024,
+              "rows": "gl-bottom-up",
+              "channels": "native inkColor optical-depth RGB and pigment-mass A",
+              "sha256": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "qualification": "Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale."
+            }
+          },
+          "nativeFeatherCache": {
+            "fillDraws": 3,
+            "consumerCalls": 135,
+            "cacheHits": 132,
+            "prefixShaderGuards": 2,
+            "cacheBytes": 4194304,
+            "invalidations": 3,
+            "restored": false,
+            "sourceID": "805-native-feather-cache16-v1",
+            "fills": [
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              },
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              },
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              }
+            ],
+            "sourceSHA": {
+              "fill": "208d17128a867abb36709e40a6e540240c5259e483973bb7d38f180f9d3e289a",
+              "native": "adea5170cae95804d11e88a617c94f992dd1c07eaed7211217e7a73418c3b1ee",
+              "prefix0": "fa472748319c297e69e3c96f65d48779236c1cbd8c11ad2e9a6760766665fc94",
+              "prefix1": "8b35327c91dd42b7ad8917448d5a7cc597d700cb59841f250fe341306b43bca2"
+            },
+            "qualification": "QA-only feather16 quantization; cachefill inside timed solve; source hashes outside interval; no other noise consumer in current native/prefix entrypoints"
+          },
+          "samples": [
+            {
+              "submitJsMs": 113,
+              "runToDependentMs": 159.5,
+              "totalReadyMs": 272.5,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                13,
+                0,
+                97,
+                212
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 0
+            },
+            {
+              "submitJsMs": 30.100000143051147,
+              "runToDependentMs": 214.79999995231628,
+              "totalReadyMs": 244.90000009536743,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                13,
+                0,
+                97,
+                212
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 5000.200000047684
+            },
+            {
+              "submitJsMs": 37.90000009536743,
+              "runToDependentMs": 203.70000004768372,
+              "totalReadyMs": 241.60000014305115,
+              "iterations": 90,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                13,
+                0,
+                97,
+                212
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 5000.200000047684
+            }
+          ],
+          "hashes": [
+            {
+              "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+              "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+            },
+            {
+              "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+              "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+            },
+            {
+              "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+              "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+              "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+            }
+          ],
+          "repeatExact": true,
+          "warmMedianMs": 243.2500001192093,
+          "warmSampleCount": 2,
+          "png": {
+            "file": "mini-two-colors/original.png",
+            "sha256": "19e673819d8841efd55e0227211a5628cb09b81582c93277fc7dd0aaead838fb",
+            "bytes": 1599237
+          },
+          "sourceStable": true,
+          "pass": true,
+          "errors": [],
+          "contextClosed": true
+        }
+      ],
+      "commonAvailable": true,
+      "capture": {
+        "file": "mini-two-colors/fixture.bin",
+        "manifestFile": "mini-two-colors/capture-manifest.json",
+        "binarySHA": "d69b0e913564ebd2b7954ef9405e99c486858437833217bfddfc57f4def03d60",
+        "commonAvailable": true
+      },
+      "pass": true
+    },
+    {
+      "scene": "gallery-sheet-12-slot-1",
+      "cacheEnabled": false,
+      "id": "gallery-sheet-12-slot-1",
+      "title": "Почти сухая кисть",
+      "transform": {
+        "policy": "Whole selected scene uniformly fit to700px including conservative dab size×aspect radius, centered1024. Only XY and size rewritten toFloat32; other packed bits/IDs/presets/relative timestamps preserved. Reconstructed scene, not historical room pixels.",
+        "sourceBounds": [
+          1614.2482902152178,
+          163.83685363468658,
+          2256.960692882538,
+          255.56295840316443
+        ],
+        "scale": 1.0891341089652709,
+        "sourceCenter": [
+          1935.6044915488778,
+          209.6999060189255
+        ],
+        "targetCenter": [
+          512,
+          512
+        ],
+        "paperWorld": [
+          1024,
+          1024
+        ],
+        "size": 1024
+      },
+      "operationSHA": "5e015eebf40802f664d5666c6b454be2277b2e8ab7b12c5ff59cba46de399247",
+      "variants": [
+        {
+          "id": "original",
+          "label": "Native current front8 control",
+          "sourceHashes": {
+            "entry.js": "d766cb2017e327f2a5eb892642fcafcf7ada1db6599ec742ed68d45cb1c4a4d9",
+            "worker.js": "54428f8a7bec52b3151e3ea310bb90942ffaa5e87bff01a5b36b39e2a9ea9f33",
+            "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+            "chunk-25VPIKYH.js": "fe34fe3a7adc584d20d441480e8b9d45d5a7f67a0e257534578f0c233f17b029",
+            "chunk-B3CWKNPF.js": "bd0db6510dc37a160c14a911bc4e81ba3305b2c177be2ab5a308171b2b5a6c07",
+            "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+            "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+            "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+            "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+            "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+          },
+          "replay": {
+            "operationCount": 1,
+            "sourceReady": true,
+            "epoch": 1,
+            "model": "front8-detail-flow-v4",
+            "presetOverrides": [
+              {
+                "original": "normal:6:100:PB29:chisel",
+                "replayed": "normal:6:100:PB29:chisel:wc@front8-detail-flow-v4"
+              }
+            ],
+            "operationSHA": "64ee7707c12117709e399ba9535da075a903d09ea00966ec8450b6eb72a44e5d"
+          },
+          "rawSHA": {
+            "p": "e0dda48911aa70b3d35516906966d4bd09b6900ad737d0e209c2ba06264b27f4",
+            "c": "482712a8ca5fb6867764c284708c6915b257e76a760888a0308b618e60a4e73a",
+            "coverage": "8390cf408f09308eee614116e5e739b0bcc49524d43e8f24d289535fe02bce4e",
+            "water": "9bc5bb4323140fa9d6c06cfc7546078ed4f3b964e09da4e500bce7d824d5db43",
+            "foreignWater": "absent",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+          },
+          "commonSHA": {
+            "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+            "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+            "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+          },
+          "captureMetadata": {
+            "version": 1,
+            "conversion": "native-optical-depth-linear",
+            "rawRows": "gl-bottom-up",
+            "inputRows": "top-left",
+            "pigmentScale": 0.5,
+            "nativeMassPerAlpha": 2,
+            "nativeDepthPerRGB": 8,
+            "nativeWaterPerByteFraction": 4,
+            "saturatedWaterPixels": 0,
+            "depthWithoutMassPixels": 0,
+            "tileOrigin": [
+              0,
+              0
+            ],
+            "paperWorldSize": [
+              1024,
+              1024
+            ],
+            "paperScale": 1,
+            "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+            "rawSHA": {
+              "inkColor": "482712a8ca5fb6867764c284708c6915b257e76a760888a0308b618e60a4e73a",
+              "solvent": "9bc5bb4323140fa9d6c06cfc7546078ed4f3b964e09da4e500bce7d824d5db43",
+              "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+            },
+            "commonSHA": {
+              "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+              "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+              "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+            },
+            "carrierViolations": 0,
+            "validForBoundedCarrier": true,
+            "nativeMaterialModel": "front8-detail-flow-v4",
+            "scope": "One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim"
+          },
+          "commonAvailable": true,
+          "expectedCanonicalCaptureExact": true,
+          "idleBetweenSamplesMs": 5000,
+          "endpoint": {
+            "file": "gallery-sheet-12-slot-1/goal-native-c.bin",
+            "bytes": 4194304,
+            "sha256": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+            "metadata": {
+              "size": 1024,
+              "rows": "gl-bottom-up",
+              "channels": "native inkColor optical-depth RGB and pigment-mass A",
+              "sha256": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "qualification": "Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale."
+            }
+          },
+          "samples": [
+            {
+              "submitJsMs": 120,
+              "runToDependentMs": 121.5,
+              "totalReadyMs": 241.5,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                18,
+                37,
+                59
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 0
+            },
+            {
+              "submitJsMs": 30.700000047683716,
+              "runToDependentMs": 176.20000004768372,
+              "totalReadyMs": 206.90000009536743,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                18,
+                37,
+                59
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 5000.200000047684
+            },
+            {
+              "submitJsMs": 32.200000047683716,
+              "runToDependentMs": 187.09999990463257,
+              "totalReadyMs": 219.29999995231628,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                18,
+                37,
+                59
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 5000.299999952316
+            }
+          ],
+          "hashes": [
+            {
+              "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+              "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+            },
+            {
+              "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+              "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+            },
+            {
+              "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+              "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+            }
+          ],
+          "repeatExact": true,
+          "warmMedianMs": 213.10000002384186,
+          "warmSampleCount": 2,
+          "png": {
+            "file": "gallery-sheet-12-slot-1/original.png",
+            "sha256": "553e89c33518b621e039295b4bbf4e555e65cf935b322da11d612916488fbfb6",
+            "bytes": 1200792
+          },
+          "sourceStable": true,
+          "pass": true,
+          "errors": [],
+          "contextClosed": true
+        }
+      ],
+      "commonAvailable": true,
+      "capture": {
+        "file": "gallery-sheet-12-slot-1/fixture.bin",
+        "manifestFile": "gallery-sheet-12-slot-1/capture-manifest.json",
+        "binarySHA": "69113189b2a48eb6d6fdfe51b7cb4936e7f75e5aa2d81629298c0b1b264aa21a",
+        "commonAvailable": true
+      },
+      "pass": true
+    },
+    {
+      "scene": "gallery-sheet-12-slot-1",
+      "cacheEnabled": true,
+      "id": "gallery-sheet-12-slot-1",
+      "title": "Почти сухая кисть",
+      "transform": {
+        "policy": "Whole selected scene uniformly fit to700px including conservative dab size×aspect radius, centered1024. Only XY and size rewritten toFloat32; other packed bits/IDs/presets/relative timestamps preserved. Reconstructed scene, not historical room pixels.",
+        "sourceBounds": [
+          1614.2482902152178,
+          163.83685363468658,
+          2256.960692882538,
+          255.56295840316443
+        ],
+        "scale": 1.0891341089652709,
+        "sourceCenter": [
+          1935.6044915488778,
+          209.6999060189255
+        ],
+        "targetCenter": [
+          512,
+          512
+        ],
+        "paperWorld": [
+          1024,
+          1024
+        ],
+        "size": 1024
+      },
+      "operationSHA": "5e015eebf40802f664d5666c6b454be2277b2e8ab7b12c5ff59cba46de399247",
+      "variants": [
+        {
+          "id": "original",
+          "label": "Native current front8 control",
+          "sourceHashes": {
+            "entry.js": "5b059c9929efc9fc12c19dbc06e6be91d25352ddafd46bc5c5296fb89d35619d",
+            "worker.js": "e9749f82d57636020764ff789ead7227bd6dbab4416cfdd58871ed1d28272b73",
+            "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+            "chunk-LYZ4OXIH.js": "88f8e265fb353583c0710e731f166379d453ac2e9523b7ae571c0d2950e5f35a",
+            "chunk-STOHRCIG.js": "3e80e5e8390818215ef02e812ef7e8feaaeaa9f1e449a9e0762289fe52d6451c",
+            "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+            "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+            "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+            "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+            "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+          },
+          "replay": {
+            "operationCount": 1,
+            "sourceReady": true,
+            "epoch": 1,
+            "model": "front8-detail-flow-v4",
+            "presetOverrides": [
+              {
+                "original": "normal:6:100:PB29:chisel",
+                "replayed": "normal:6:100:PB29:chisel:wc@front8-detail-flow-v4"
+              }
+            ],
+            "operationSHA": "64ee7707c12117709e399ba9535da075a903d09ea00966ec8450b6eb72a44e5d"
+          },
+          "rawSHA": {
+            "p": "e0dda48911aa70b3d35516906966d4bd09b6900ad737d0e209c2ba06264b27f4",
+            "c": "482712a8ca5fb6867764c284708c6915b257e76a760888a0308b618e60a4e73a",
+            "coverage": "8390cf408f09308eee614116e5e739b0bcc49524d43e8f24d289535fe02bce4e",
+            "water": "9bc5bb4323140fa9d6c06cfc7546078ed4f3b964e09da4e500bce7d824d5db43",
+            "foreignWater": "absent",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+          },
+          "commonSHA": {
+            "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+            "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+            "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+          },
+          "captureMetadata": {
+            "version": 1,
+            "conversion": "native-optical-depth-linear",
+            "rawRows": "gl-bottom-up",
+            "inputRows": "top-left",
+            "pigmentScale": 0.5,
+            "nativeMassPerAlpha": 2,
+            "nativeDepthPerRGB": 8,
+            "nativeWaterPerByteFraction": 4,
+            "saturatedWaterPixels": 0,
+            "depthWithoutMassPixels": 0,
+            "tileOrigin": [
+              0,
+              0
+            ],
+            "paperWorldSize": [
+              1024,
+              1024
+            ],
+            "paperScale": 1,
+            "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+            "rawSHA": {
+              "inkColor": "482712a8ca5fb6867764c284708c6915b257e76a760888a0308b618e60a4e73a",
+              "solvent": "9bc5bb4323140fa9d6c06cfc7546078ed4f3b964e09da4e500bce7d824d5db43",
+              "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+            },
+            "commonSHA": {
+              "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+              "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+              "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+            },
+            "carrierViolations": 0,
+            "validForBoundedCarrier": true,
+            "nativeMaterialModel": "front8-detail-flow-v4",
+            "scope": "One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim"
+          },
+          "commonAvailable": true,
+          "expectedCanonicalCaptureExact": true,
+          "idleBetweenSamplesMs": 5000,
+          "endpoint": {
+            "file": "gallery-sheet-12-slot-1/goal-native-c.bin",
+            "bytes": 4194304,
+            "sha256": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+            "metadata": {
+              "size": 1024,
+              "rows": "gl-bottom-up",
+              "channels": "native inkColor optical-depth RGB and pigment-mass A",
+              "sha256": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "qualification": "Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale."
+            }
+          },
+          "nativeFeatherCache": {
+            "fillDraws": 3,
+            "consumerCalls": 135,
+            "cacheHits": 132,
+            "prefixShaderGuards": 2,
+            "cacheBytes": 4194304,
+            "invalidations": 3,
+            "restored": false,
+            "sourceID": "805-native-feather-cache16-v1",
+            "fills": [
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              },
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              },
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              }
+            ],
+            "sourceSHA": {
+              "fill": "208d17128a867abb36709e40a6e540240c5259e483973bb7d38f180f9d3e289a",
+              "native": "adea5170cae95804d11e88a617c94f992dd1c07eaed7211217e7a73418c3b1ee",
+              "prefix0": "fa472748319c297e69e3c96f65d48779236c1cbd8c11ad2e9a6760766665fc94",
+              "prefix1": "8b35327c91dd42b7ad8917448d5a7cc597d700cb59841f250fe341306b43bca2"
+            },
+            "qualification": "QA-only feather16 quantization; cachefill inside timed solve; source hashes outside interval; no other noise consumer in current native/prefix entrypoints"
+          },
+          "samples": [
+            {
+              "submitJsMs": 130.10000014305115,
+              "runToDependentMs": 119,
+              "totalReadyMs": 249.10000014305115,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                18,
+                37,
+                59
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 0
+            },
+            {
+              "submitJsMs": 33.5,
+              "runToDependentMs": 149.5,
+              "totalReadyMs": 183,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                18,
+                37,
+                59
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 5000.299999952316
+            },
+            {
+              "submitJsMs": 30.40000009536743,
+              "runToDependentMs": 148.70000004768372,
+              "totalReadyMs": 179.10000014305115,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                18,
+                37,
+                59
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 5000.299999952316
+            }
+          ],
+          "hashes": [
+            {
+              "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+              "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+            },
+            {
+              "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+              "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+            },
+            {
+              "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+              "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+            }
+          ],
+          "repeatExact": true,
+          "warmMedianMs": 181.05000007152557,
+          "warmSampleCount": 2,
+          "png": {
+            "file": "gallery-sheet-12-slot-1/original.png",
+            "sha256": "553e89c33518b621e039295b4bbf4e555e65cf935b322da11d612916488fbfb6",
+            "bytes": 1200792
+          },
+          "sourceStable": true,
+          "pass": true,
+          "errors": [],
+          "contextClosed": true
+        }
+      ],
+      "commonAvailable": true,
+      "capture": {
+        "file": "gallery-sheet-12-slot-1/fixture.bin",
+        "manifestFile": "gallery-sheet-12-slot-1/capture-manifest.json",
+        "binarySHA": "69113189b2a48eb6d6fdfe51b7cb4936e7f75e5aa2d81629298c0b1b264aa21a",
+        "commonAvailable": true
+      },
+      "pass": true
+    },
+    {
+      "scene": "gallery-sheet-12-slot-1",
+      "cacheEnabled": true,
+      "id": "gallery-sheet-12-slot-1",
+      "title": "Почти сухая кисть",
+      "transform": {
+        "policy": "Whole selected scene uniformly fit to700px including conservative dab size×aspect radius, centered1024. Only XY and size rewritten toFloat32; other packed bits/IDs/presets/relative timestamps preserved. Reconstructed scene, not historical room pixels.",
+        "sourceBounds": [
+          1614.2482902152178,
+          163.83685363468658,
+          2256.960692882538,
+          255.56295840316443
+        ],
+        "scale": 1.0891341089652709,
+        "sourceCenter": [
+          1935.6044915488778,
+          209.6999060189255
+        ],
+        "targetCenter": [
+          512,
+          512
+        ],
+        "paperWorld": [
+          1024,
+          1024
+        ],
+        "size": 1024
+      },
+      "operationSHA": "5e015eebf40802f664d5666c6b454be2277b2e8ab7b12c5ff59cba46de399247",
+      "variants": [
+        {
+          "id": "original",
+          "label": "Native current front8 control",
+          "sourceHashes": {
+            "entry.js": "5b059c9929efc9fc12c19dbc06e6be91d25352ddafd46bc5c5296fb89d35619d",
+            "worker.js": "e9749f82d57636020764ff789ead7227bd6dbab4416cfdd58871ed1d28272b73",
+            "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+            "chunk-LYZ4OXIH.js": "88f8e265fb353583c0710e731f166379d453ac2e9523b7ae571c0d2950e5f35a",
+            "chunk-STOHRCIG.js": "3e80e5e8390818215ef02e812ef7e8feaaeaa9f1e449a9e0762289fe52d6451c",
+            "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+            "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+            "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+            "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+            "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+          },
+          "replay": {
+            "operationCount": 1,
+            "sourceReady": true,
+            "epoch": 1,
+            "model": "front8-detail-flow-v4",
+            "presetOverrides": [
+              {
+                "original": "normal:6:100:PB29:chisel",
+                "replayed": "normal:6:100:PB29:chisel:wc@front8-detail-flow-v4"
+              }
+            ],
+            "operationSHA": "64ee7707c12117709e399ba9535da075a903d09ea00966ec8450b6eb72a44e5d"
+          },
+          "rawSHA": {
+            "p": "e0dda48911aa70b3d35516906966d4bd09b6900ad737d0e209c2ba06264b27f4",
+            "c": "482712a8ca5fb6867764c284708c6915b257e76a760888a0308b618e60a4e73a",
+            "coverage": "8390cf408f09308eee614116e5e739b0bcc49524d43e8f24d289535fe02bce4e",
+            "water": "9bc5bb4323140fa9d6c06cfc7546078ed4f3b964e09da4e500bce7d824d5db43",
+            "foreignWater": "absent",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+          },
+          "commonSHA": {
+            "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+            "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+            "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+          },
+          "captureMetadata": {
+            "version": 1,
+            "conversion": "native-optical-depth-linear",
+            "rawRows": "gl-bottom-up",
+            "inputRows": "top-left",
+            "pigmentScale": 0.5,
+            "nativeMassPerAlpha": 2,
+            "nativeDepthPerRGB": 8,
+            "nativeWaterPerByteFraction": 4,
+            "saturatedWaterPixels": 0,
+            "depthWithoutMassPixels": 0,
+            "tileOrigin": [
+              0,
+              0
+            ],
+            "paperWorldSize": [
+              1024,
+              1024
+            ],
+            "paperScale": 1,
+            "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+            "rawSHA": {
+              "inkColor": "482712a8ca5fb6867764c284708c6915b257e76a760888a0308b618e60a4e73a",
+              "solvent": "9bc5bb4323140fa9d6c06cfc7546078ed4f3b964e09da4e500bce7d824d5db43",
+              "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+            },
+            "commonSHA": {
+              "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+              "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+              "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+            },
+            "carrierViolations": 0,
+            "validForBoundedCarrier": true,
+            "nativeMaterialModel": "front8-detail-flow-v4",
+            "scope": "One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim"
+          },
+          "commonAvailable": true,
+          "expectedCanonicalCaptureExact": true,
+          "idleBetweenSamplesMs": 5000,
+          "endpoint": {
+            "file": "gallery-sheet-12-slot-1/goal-native-c.bin",
+            "bytes": 4194304,
+            "sha256": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+            "metadata": {
+              "size": 1024,
+              "rows": "gl-bottom-up",
+              "channels": "native inkColor optical-depth RGB and pigment-mass A",
+              "sha256": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "qualification": "Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale."
+            }
+          },
+          "nativeFeatherCache": {
+            "fillDraws": 3,
+            "consumerCalls": 135,
+            "cacheHits": 132,
+            "prefixShaderGuards": 2,
+            "cacheBytes": 4194304,
+            "invalidations": 3,
+            "restored": false,
+            "sourceID": "805-native-feather-cache16-v1",
+            "fills": [
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              },
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              },
+              {
+                "width": 1024,
+                "height": 1024,
+                "originX": 0,
+                "originY": -1024,
+                "scale": 1,
+                "paperWorldW": 1024,
+                "paperWorldH": 1024,
+                "paperScale": 1,
+                "noiseIdentity": 1
+              }
+            ],
+            "sourceSHA": {
+              "fill": "208d17128a867abb36709e40a6e540240c5259e483973bb7d38f180f9d3e289a",
+              "native": "adea5170cae95804d11e88a617c94f992dd1c07eaed7211217e7a73418c3b1ee",
+              "prefix0": "fa472748319c297e69e3c96f65d48779236c1cbd8c11ad2e9a6760766665fc94",
+              "prefix1": "8b35327c91dd42b7ad8917448d5a7cc597d700cb59841f250fe341306b43bca2"
+            },
+            "qualification": "QA-only feather16 quantization; cachefill inside timed solve; source hashes outside interval; no other noise consumer in current native/prefix entrypoints"
+          },
+          "samples": [
+            {
+              "submitJsMs": 115.70000004768372,
+              "runToDependentMs": 121.40000009536743,
+              "totalReadyMs": 237.10000014305115,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                18,
+                37,
+                59
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 0
+            },
+            {
+              "submitJsMs": 35.299999952316284,
+              "runToDependentMs": 146.90000009536743,
+              "totalReadyMs": 182.20000004768372,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                18,
+                37,
+                59
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 5000.300000190735
+            },
+            {
+              "submitJsMs": 29.40000009536743,
+              "runToDependentMs": 171.89999985694885,
+              "totalReadyMs": 201.29999995231628,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                18,
+                37,
+                59
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "nativeFeatherCache": {
+                "fillDraws": 1,
+                "consumerCalls": 45,
+                "cacheHits": 44
+              },
+              "idleBeforeSampleMs": 5000.900000095367
+            }
+          ],
+          "hashes": [
+            {
+              "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+              "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+            },
+            {
+              "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+              "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+            },
+            {
+              "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+              "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+            }
+          ],
+          "repeatExact": true,
+          "warmMedianMs": 191.75,
+          "warmSampleCount": 2,
+          "png": {
+            "file": "gallery-sheet-12-slot-1/original.png",
+            "sha256": "553e89c33518b621e039295b4bbf4e555e65cf935b322da11d612916488fbfb6",
+            "bytes": 1200792
+          },
+          "sourceStable": true,
+          "pass": true,
+          "errors": [],
+          "contextClosed": true
+        }
+      ],
+      "commonAvailable": true,
+      "capture": {
+        "file": "gallery-sheet-12-slot-1/fixture.bin",
+        "manifestFile": "gallery-sheet-12-slot-1/capture-manifest.json",
+        "binarySHA": "69113189b2a48eb6d6fdfe51b7cb4936e7f75e5aa2d81629298c0b1b264aa21a",
+        "commonAvailable": true
+      },
+      "pass": true
+    },
+    {
+      "scene": "gallery-sheet-12-slot-1",
+      "cacheEnabled": false,
+      "id": "gallery-sheet-12-slot-1",
+      "title": "Почти сухая кисть",
+      "transform": {
+        "policy": "Whole selected scene uniformly fit to700px including conservative dab size×aspect radius, centered1024. Only XY and size rewritten toFloat32; other packed bits/IDs/presets/relative timestamps preserved. Reconstructed scene, not historical room pixels.",
+        "sourceBounds": [
+          1614.2482902152178,
+          163.83685363468658,
+          2256.960692882538,
+          255.56295840316443
+        ],
+        "scale": 1.0891341089652709,
+        "sourceCenter": [
+          1935.6044915488778,
+          209.6999060189255
+        ],
+        "targetCenter": [
+          512,
+          512
+        ],
+        "paperWorld": [
+          1024,
+          1024
+        ],
+        "size": 1024
+      },
+      "operationSHA": "5e015eebf40802f664d5666c6b454be2277b2e8ab7b12c5ff59cba46de399247",
+      "variants": [
+        {
+          "id": "original",
+          "label": "Native current front8 control",
+          "sourceHashes": {
+            "entry.js": "d766cb2017e327f2a5eb892642fcafcf7ada1db6599ec742ed68d45cb1c4a4d9",
+            "worker.js": "54428f8a7bec52b3151e3ea310bb90942ffaa5e87bff01a5b36b39e2a9ea9f33",
+            "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+            "chunk-25VPIKYH.js": "fe34fe3a7adc584d20d441480e8b9d45d5a7f67a0e257534578f0c233f17b029",
+            "chunk-B3CWKNPF.js": "bd0db6510dc37a160c14a911bc4e81ba3305b2c177be2ab5a308171b2b5a6c07",
+            "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+            "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+            "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+            "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+            "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+          },
+          "replay": {
+            "operationCount": 1,
+            "sourceReady": true,
+            "epoch": 1,
+            "model": "front8-detail-flow-v4",
+            "presetOverrides": [
+              {
+                "original": "normal:6:100:PB29:chisel",
+                "replayed": "normal:6:100:PB29:chisel:wc@front8-detail-flow-v4"
+              }
+            ],
+            "operationSHA": "64ee7707c12117709e399ba9535da075a903d09ea00966ec8450b6eb72a44e5d"
+          },
+          "rawSHA": {
+            "p": "e0dda48911aa70b3d35516906966d4bd09b6900ad737d0e209c2ba06264b27f4",
+            "c": "482712a8ca5fb6867764c284708c6915b257e76a760888a0308b618e60a4e73a",
+            "coverage": "8390cf408f09308eee614116e5e739b0bcc49524d43e8f24d289535fe02bce4e",
+            "water": "9bc5bb4323140fa9d6c06cfc7546078ed4f3b964e09da4e500bce7d824d5db43",
+            "foreignWater": "absent",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+          },
+          "commonSHA": {
+            "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+            "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+            "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+          },
+          "captureMetadata": {
+            "version": 1,
+            "conversion": "native-optical-depth-linear",
+            "rawRows": "gl-bottom-up",
+            "inputRows": "top-left",
+            "pigmentScale": 0.5,
+            "nativeMassPerAlpha": 2,
+            "nativeDepthPerRGB": 8,
+            "nativeWaterPerByteFraction": 4,
+            "saturatedWaterPixels": 0,
+            "depthWithoutMassPixels": 0,
+            "tileOrigin": [
+              0,
+              0
+            ],
+            "paperWorldSize": [
+              1024,
+              1024
+            ],
+            "paperScale": 1,
+            "limitation": "Linear optical-depth/mass encoding with one global down-only dose scale and byte quantization; no native deposit/composite equivalence. RGB may exceed A and zero-mass depth is preserved. Paper is separately quantized world-sampled height.",
+            "rawSHA": {
+              "inkColor": "482712a8ca5fb6867764c284708c6915b257e76a760888a0308b618e60a4e73a",
+              "solvent": "9bc5bb4323140fa9d6c06cfc7546078ed4f3b964e09da4e500bce7d824d5db43",
+              "paperHeightRGBA": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+            },
+            "commonSHA": {
+              "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+              "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+              "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+            },
+            "carrierViolations": 0,
+            "validForBoundedCarrier": true,
+            "nativeMaterialModel": "front8-detail-flow-v4",
+            "scope": "One owned watercolor wash, converted full1024 before native solve; actual pigment/preset recorded by scene manifest; no capture timing claim"
+          },
+          "commonAvailable": true,
+          "expectedCanonicalCaptureExact": true,
+          "idleBetweenSamplesMs": 5000,
+          "endpoint": {
+            "file": "gallery-sheet-12-slot-1/goal-native-c.bin",
+            "bytes": 4194304,
+            "sha256": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+            "metadata": {
+              "size": 1024,
+              "rows": "gl-bottom-up",
+              "channels": "native inkColor optical-depth RGB and pigment-mass A",
+              "sha256": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "qualification": "Existing last full result readback reused outside timing; convert with the INITIAL capture pigmentScale, never a new output-derived scale."
+            }
+          },
+          "samples": [
+            {
+              "submitJsMs": 97.90000009536743,
+              "runToDependentMs": 98.29999995231628,
+              "totalReadyMs": 196.20000004768372,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                18,
+                37,
+                59
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 0
+            },
+            {
+              "submitJsMs": 31.59999990463257,
+              "runToDependentMs": 181.29999995231628,
+              "totalReadyMs": 212.89999985694885,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                18,
+                37,
+                59
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 5000.799999952316
+            },
+            {
+              "submitJsMs": 28.700000047683716,
+              "runToDependentMs": 181.20000004768372,
+              "totalReadyMs": 209.90000009536743,
+              "iterations": 91,
+              "status": 36053,
+              "glError": 0,
+              "probeRGBA": [
+                0,
+                18,
+                37,
+                59
+              ],
+              "logicalReadBytes": 4,
+              "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+              "idleBeforeSampleMs": 5002.5
+            }
+          ],
+          "hashes": [
+            {
+              "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+              "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+            },
+            {
+              "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+              "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+            },
+            {
+              "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+              "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+              "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+            }
+          ],
+          "repeatExact": true,
+          "warmMedianMs": 211.39999997615814,
+          "warmSampleCount": 2,
+          "png": {
+            "file": "gallery-sheet-12-slot-1/original.png",
+            "sha256": "553e89c33518b621e039295b4bbf4e555e65cf935b322da11d612916488fbfb6",
+            "bytes": 1200792
+          },
+          "sourceStable": true,
+          "pass": true,
+          "errors": [],
+          "contextClosed": true
+        }
+      ],
+      "commonAvailable": true,
+      "capture": {
+        "file": "gallery-sheet-12-slot-1/fixture.bin",
+        "manifestFile": "gallery-sheet-12-slot-1/capture-manifest.json",
+        "binarySHA": "69113189b2a48eb6d6fdfe51b7cb4936e7f75e5aa2d81629298c0b1b264aa21a",
+        "commonAvailable": true
+      },
+      "pass": true
+    }
+  ],
+  "analysis": [
+    {
+      "scene": "mini-wave",
+      "rawOutputPngExact": true,
+      "control": {
+        "samples": [
+          {
+            "submitJsMs": 28.59999990463257,
+            "runToDependentMs": 190.90000009536743,
+            "totalReadyMs": 219.5,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.200000047684
+          },
+          {
+            "submitJsMs": 29.59999990463257,
+            "runToDependentMs": 186,
+            "totalReadyMs": 215.59999990463257,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.200000047684
+          },
+          {
+            "submitJsMs": 34,
+            "runToDependentMs": 185.79999995231628,
+            "totalReadyMs": 219.79999995231628,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.399999856949
+          },
+          {
+            "submitJsMs": 28.799999952316284,
+            "runToDependentMs": 187.79999995231628,
+            "totalReadyMs": 216.59999990463257,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.299999952316
+          }
+        ],
+        "cold": [
+          {
+            "submitJsMs": 172,
+            "runToDependentMs": 114.20000004768372,
+            "totalReadyMs": 286.2000000476837,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 121.5,
+            "runToDependentMs": 105.70000004768372,
+            "totalReadyMs": 227.20000004768372,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 0
+          }
+        ],
+        "medianTotalReadyMs": 218.04999995231628
+      },
+      "cache": {
+        "samples": [
+          {
+            "submitJsMs": 37.799999952316284,
+            "runToDependentMs": 148,
+            "totalReadyMs": 185.79999995231628,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5003.599999904633
+          },
+          {
+            "submitJsMs": 30,
+            "runToDependentMs": 153.29999995231628,
+            "totalReadyMs": 183.29999995231628,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.199999809265
+          },
+          {
+            "submitJsMs": 35.60000014305115,
+            "runToDependentMs": 154,
+            "totalReadyMs": 189.60000014305115,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5001.700000047684
+          },
+          {
+            "submitJsMs": 33,
+            "runToDependentMs": 152.39999985694885,
+            "totalReadyMs": 185.39999985694885,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.700000047684
+          }
+        ],
+        "cold": [
+          {
+            "submitJsMs": 150.60000014305115,
+            "runToDependentMs": 91.29999995231628,
+            "totalReadyMs": 241.90000009536743,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 113.79999995231628,
+            "runToDependentMs": 91.5,
+            "totalReadyMs": 205.29999995231628,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 0
+          }
+        ],
+        "medianTotalReadyMs": 185.59999990463257
+      }
+    },
+    {
+      "scene": "mini-two-colors",
+      "rawOutputPngExact": true,
+      "control": {
+        "samples": [
+          {
+            "submitJsMs": 32.40000009536743,
+            "runToDependentMs": 245.19999980926514,
+            "totalReadyMs": 277.59999990463257,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5001.200000047684
+          },
+          {
+            "submitJsMs": 34.5,
+            "runToDependentMs": 253.5,
+            "totalReadyMs": 288,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.799999952316
+          },
+          {
+            "submitJsMs": 33.299999952316284,
+            "runToDependentMs": 251.59999990463257,
+            "totalReadyMs": 284.89999985694885,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.299999952316
+          },
+          {
+            "submitJsMs": 35.700000047683716,
+            "runToDependentMs": 254.90000009536743,
+            "totalReadyMs": 290.60000014305115,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.200000047684
+          }
+        ],
+        "cold": [
+          {
+            "submitJsMs": 110,
+            "runToDependentMs": 178.10000014305115,
+            "totalReadyMs": 288.10000014305115,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 103.09999990463257,
+            "runToDependentMs": 179.60000014305115,
+            "totalReadyMs": 282.7000000476837,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 0
+          }
+        ],
+        "medianTotalReadyMs": 286.4499999284744
+      },
+      "cache": {
+        "samples": [
+          {
+            "submitJsMs": 32.5,
+            "runToDependentMs": 218.40000009536743,
+            "totalReadyMs": 250.90000009536743,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.199999809265
+          },
+          {
+            "submitJsMs": 36.89999985694885,
+            "runToDependentMs": 199.29999995231628,
+            "totalReadyMs": 236.19999980926514,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.200000047684
+          },
+          {
+            "submitJsMs": 30.100000143051147,
+            "runToDependentMs": 214.79999995231628,
+            "totalReadyMs": 244.90000009536743,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.200000047684
+          },
+          {
+            "submitJsMs": 37.90000009536743,
+            "runToDependentMs": 203.70000004768372,
+            "totalReadyMs": 241.60000014305115,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.200000047684
+          }
+        ],
+        "cold": [
+          {
+            "submitJsMs": 120.19999980926514,
+            "runToDependentMs": 159.20000004768372,
+            "totalReadyMs": 279.39999985694885,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 113,
+            "runToDependentMs": 159.5,
+            "totalReadyMs": 272.5,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 0
+          }
+        ],
+        "medianTotalReadyMs": 243.2500001192093
+      }
+    },
+    {
+      "scene": "gallery-sheet-12-slot-1",
+      "rawOutputPngExact": true,
+      "control": {
+        "samples": [
+          {
+            "submitJsMs": 30.700000047683716,
+            "runToDependentMs": 176.20000004768372,
+            "totalReadyMs": 206.90000009536743,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.200000047684
+          },
+          {
+            "submitJsMs": 32.200000047683716,
+            "runToDependentMs": 187.09999990463257,
+            "totalReadyMs": 219.29999995231628,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.299999952316
+          },
+          {
+            "submitJsMs": 31.59999990463257,
+            "runToDependentMs": 181.29999995231628,
+            "totalReadyMs": 212.89999985694885,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.799999952316
+          },
+          {
+            "submitJsMs": 28.700000047683716,
+            "runToDependentMs": 181.20000004768372,
+            "totalReadyMs": 209.90000009536743,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5002.5
+          }
+        ],
+        "cold": [
+          {
+            "submitJsMs": 120,
+            "runToDependentMs": 121.5,
+            "totalReadyMs": 241.5,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 97.90000009536743,
+            "runToDependentMs": 98.29999995231628,
+            "totalReadyMs": 196.20000004768372,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 0
+          }
+        ],
+        "medianTotalReadyMs": 211.39999997615814
+      },
+      "cache": {
+        "samples": [
+          {
+            "submitJsMs": 33.5,
+            "runToDependentMs": 149.5,
+            "totalReadyMs": 183,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.299999952316
+          },
+          {
+            "submitJsMs": 30.40000009536743,
+            "runToDependentMs": 148.70000004768372,
+            "totalReadyMs": 179.10000014305115,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.299999952316
+          },
+          {
+            "submitJsMs": 35.299999952316284,
+            "runToDependentMs": 146.90000009536743,
+            "totalReadyMs": 182.20000004768372,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.300000190735
+          },
+          {
+            "submitJsMs": 29.40000009536743,
+            "runToDependentMs": 171.89999985694885,
+            "totalReadyMs": 201.29999995231628,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.900000095367
+          }
+        ],
+        "cold": [
+          {
+            "submitJsMs": 130.10000014305115,
+            "runToDependentMs": 119,
+            "totalReadyMs": 249.10000014305115,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 115.70000004768372,
+            "runToDependentMs": 121.40000009536743,
+            "totalReadyMs": 237.10000014305115,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 0
+          }
+        ],
+        "medianTotalReadyMs": 182.60000002384186
+      }
+    }
+  ],
+  "pass": true
+}

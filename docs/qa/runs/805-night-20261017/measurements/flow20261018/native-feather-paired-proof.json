@@ -1,0 +1,1608 @@
+{
+  "qualification": "Native authored6 source operations/raw P/C/coverage/water/paper/backdrop/complete binary EXACT across controls. Feather16 cache intentional numeric change: output equality not required. Sequential control6 then cache6, three repeats with actual5s idle; two paused warm samples/scene retained, not balanced A/B, no causal speed guarantee. Cache fill inside each reset/solve interval; fill1/sample and prefix2 guards observed, source shaders SHA only; all repeat/output/GL/source/context gates pass. Full dry/render plus1px dependent read boundary, not pureGPU.",
+  "cases": [
+    {
+      "id": "mini-wave",
+      "operationSHA": "b3afa2402c7ceb10d9957ca35cfbe70e432de44490f17561bc90ac33be95cc07",
+      "rawSHA": {
+        "p": "cf055f511aa3f7248cf409afc0eb4f32892397e1ffa6bb26b94e40bbc560ba96",
+        "c": "b52e030f3990336f09bae719c4827a2558325e071b25f9607bba6c3e96e5d83e",
+        "coverage": "0a1dd23c6d94bd35e3d95815947a60a763a845511733647232df7b018e3f857d",
+        "water": "f733dec9f2b5dc1f4936d87ef7807f32a2e0bbad7cb6a098ca3e6d3e284325c9",
+        "foreignWater": "absent",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "commonSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "binarySHA": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+      "control": {
+        "samples": [
+          {
+            "submitJsMs": 137.59999990463257,
+            "runToDependentMs": 111.40000009536743,
+            "totalReadyMs": 249,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 35.799999952316284,
+            "runToDependentMs": 190,
+            "totalReadyMs": 225.79999995231628,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5001.700000047684
+          },
+          {
+            "submitJsMs": 26.09999990463257,
+            "runToDependentMs": 189.29999995231628,
+            "totalReadyMs": 215.39999985694885,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5001.600000143051
+          }
+        ],
+        "hashes": [
+          {
+            "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+            "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+            "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+          },
+          {
+            "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+            "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+            "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+          },
+          {
+            "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+            "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+            "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+          }
+        ],
+        "png": {
+          "file": "mini-wave/original.png",
+          "sha256": "285af1033d66e34ddea8cd4438aea611fd4a9acfca0ea152cccd866fb25cd99a",
+          "bytes": 1447256
+        },
+        "warmMedianMs": 220.59999990463257,
+        "sourceHashes": {
+          "entry.js": "d766cb2017e327f2a5eb892642fcafcf7ada1db6599ec742ed68d45cb1c4a4d9",
+          "worker.js": "54428f8a7bec52b3151e3ea310bb90942ffaa5e87bff01a5b36b39e2a9ea9f33",
+          "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+          "chunk-25VPIKYH.js": "fe34fe3a7adc584d20d441480e8b9d45d5a7f67a0e257534578f0c233f17b029",
+          "chunk-B3CWKNPF.js": "bd0db6510dc37a160c14a911bc4e81ba3305b2c177be2ab5a308171b2b5a6c07",
+          "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+          "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+          "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+          "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+          "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+        }
+      },
+      "cache": {
+        "samples": [
+          {
+            "submitJsMs": 139.10000014305115,
+            "runToDependentMs": 100.5,
+            "totalReadyMs": 239.60000014305115,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 34.39999985694885,
+            "runToDependentMs": 146.5,
+            "totalReadyMs": 180.89999985694885,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.299999952316
+          },
+          {
+            "submitJsMs": 34.700000047683716,
+            "runToDependentMs": 157.70000004768372,
+            "totalReadyMs": 192.40000009536743,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              96,
+              156,
+              189
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.700000047684
+          }
+        ],
+        "hashes": [
+          {
+            "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+            "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+            "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+          },
+          {
+            "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+            "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+            "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+          },
+          {
+            "p": "8d9c42c827a052beb8d50d6adaf966e7a7d723d3c1628e0f7394a49fa2647791",
+            "c": "7e284ec33f590a06378914ee28ee1a5410b19510c575d0e52137e2b3c3dfc2ac",
+            "coverage": "17198e9e8c96e4c323c3a696e12e16da1bf729f6a536267ac4b871b6b4e1bd45"
+          }
+        ],
+        "png": {
+          "file": "mini-wave/original.png",
+          "sha256": "285af1033d66e34ddea8cd4438aea611fd4a9acfca0ea152cccd866fb25cd99a",
+          "bytes": 1447256
+        },
+        "warmMedianMs": 186.64999997615814,
+        "sourceHashes": {
+          "entry.js": "5b059c9929efc9fc12c19dbc06e6be91d25352ddafd46bc5c5296fb89d35619d",
+          "worker.js": "e9749f82d57636020764ff789ead7227bd6dbab4416cfdd58871ed1d28272b73",
+          "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+          "chunk-LYZ4OXIH.js": "88f8e265fb353583c0710e731f166379d453ac2e9523b7ae571c0d2950e5f35a",
+          "chunk-STOHRCIG.js": "3e80e5e8390818215ef02e812ef7e8feaaeaa9f1e449a9e0762289fe52d6451c",
+          "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+          "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+          "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+          "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+          "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+        },
+        "stats": {
+          "fillDraws": 3,
+          "consumerCalls": 135,
+          "cacheHits": 132,
+          "prefixShaderGuards": 2,
+          "cacheBytes": 4194304,
+          "invalidations": 3,
+          "restored": false,
+          "sourceID": "805-native-feather-cache16-v1",
+          "fills": [
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            },
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            },
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            }
+          ],
+          "sourceSHA": {
+            "fill": "208d17128a867abb36709e40a6e540240c5259e483973bb7d38f180f9d3e289a",
+            "native": "adea5170cae95804d11e88a617c94f992dd1c07eaed7211217e7a73418c3b1ee",
+            "prefix0": "fa472748319c297e69e3c96f65d48779236c1cbd8c11ad2e9a6760766665fc94",
+            "prefix1": "8b35327c91dd42b7ad8917448d5a7cc597d700cb59841f250fe341306b43bca2"
+          },
+          "qualification": "QA-only feather16 quantization; cachefill inside timed solve; source hashes outside interval; no other noise consumer in current native/prefix entrypoints"
+        }
+      },
+      "outputHashesEqual": true,
+      "pngEqual": true
+    },
+    {
+      "id": "mini-two-colors",
+      "operationSHA": "061c9dfd52d02a84b373e754679f81ddf04d7f20959220c1d3d62c56a201d17f",
+      "rawSHA": {
+        "p": "9e6b2d1a55fb76d1ee0b78438ae5d3d469124611c919e11904fe985d9ce12e4b",
+        "c": "19da22c5009056852964dcdb2d18fe9ebf1cd646cdf3f080a3f29feb42318cca",
+        "coverage": "f4cfe8e7f89477c32d1c6f5bb7bf33281262704553260febe48ba9213f85a63d",
+        "water": "ca5e5542da5aeda7e8e8d72a2c18c58104ba3ae9bc15952bf23a92ccbd0e49cb",
+        "foreignWater": "absent",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "commonSHA": {
+        "rgba": "f03ca9ddcac1ca92d4c039aede7007323e527043166b5161e2e8586facf43704",
+        "water": "ceba695da63e56355e7c5b3a449eeb17281e64066378501c85f6bc24861f1ab5",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "binarySHA": "d69b0e913564ebd2b7954ef9405e99c486858437833217bfddfc57f4def03d60",
+      "control": {
+        "samples": [
+          {
+            "submitJsMs": 114.39999985694885,
+            "runToDependentMs": 191.60000014305115,
+            "totalReadyMs": 306,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 35.299999952316284,
+            "runToDependentMs": 244.59999990463257,
+            "totalReadyMs": 279.89999985694885,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.200000047684
+          },
+          {
+            "submitJsMs": 29.700000047683716,
+            "runToDependentMs": 249.59999990463257,
+            "totalReadyMs": 279.2999999523163,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.299999952316
+          }
+        ],
+        "hashes": [
+          {
+            "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+            "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+            "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+          },
+          {
+            "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+            "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+            "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+          },
+          {
+            "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+            "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+            "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+          }
+        ],
+        "png": {
+          "file": "mini-two-colors/original.png",
+          "sha256": "19e673819d8841efd55e0227211a5628cb09b81582c93277fc7dd0aaead838fb",
+          "bytes": 1599237
+        },
+        "warmMedianMs": 279.59999990463257,
+        "sourceHashes": {
+          "entry.js": "d766cb2017e327f2a5eb892642fcafcf7ada1db6599ec742ed68d45cb1c4a4d9",
+          "worker.js": "54428f8a7bec52b3151e3ea310bb90942ffaa5e87bff01a5b36b39e2a9ea9f33",
+          "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+          "chunk-25VPIKYH.js": "fe34fe3a7adc584d20d441480e8b9d45d5a7f67a0e257534578f0c233f17b029",
+          "chunk-B3CWKNPF.js": "bd0db6510dc37a160c14a911bc4e81ba3305b2c177be2ab5a308171b2b5a6c07",
+          "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+          "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+          "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+          "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+          "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+        }
+      },
+      "cache": {
+        "samples": [
+          {
+            "submitJsMs": 122.79999995231628,
+            "runToDependentMs": 161.20000004768372,
+            "totalReadyMs": 284,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 31.09999990463257,
+            "runToDependentMs": 217.10000014305115,
+            "totalReadyMs": 248.20000004768372,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5002.700000047684
+          },
+          {
+            "submitJsMs": 34.799999952316284,
+            "runToDependentMs": 221.20000004768372,
+            "totalReadyMs": 256,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              13,
+              0,
+              97,
+              212
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.200000047684
+          }
+        ],
+        "hashes": [
+          {
+            "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+            "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+            "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+          },
+          {
+            "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+            "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+            "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+          },
+          {
+            "p": "8fd95c0d5d7792bcb269071fb065b5ebabdc0f1b829c153b28e968ba19c4fd0f",
+            "c": "dd58e3515dc840538ab4ecdc1e1303e604d86041c792d4ec7cfb32c426695d86",
+            "coverage": "6bea73c2d189b14a6d3f09b396e3b96f7265896b2f0529ff08165455b787178b"
+          }
+        ],
+        "png": {
+          "file": "mini-two-colors/original.png",
+          "sha256": "19e673819d8841efd55e0227211a5628cb09b81582c93277fc7dd0aaead838fb",
+          "bytes": 1599237
+        },
+        "warmMedianMs": 252.10000002384186,
+        "sourceHashes": {
+          "entry.js": "5b059c9929efc9fc12c19dbc06e6be91d25352ddafd46bc5c5296fb89d35619d",
+          "worker.js": "e9749f82d57636020764ff789ead7227bd6dbab4416cfdd58871ed1d28272b73",
+          "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+          "chunk-LYZ4OXIH.js": "88f8e265fb353583c0710e731f166379d453ac2e9523b7ae571c0d2950e5f35a",
+          "chunk-STOHRCIG.js": "3e80e5e8390818215ef02e812ef7e8feaaeaa9f1e449a9e0762289fe52d6451c",
+          "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+          "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+          "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+          "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+          "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+        },
+        "stats": {
+          "fillDraws": 3,
+          "consumerCalls": 135,
+          "cacheHits": 132,
+          "prefixShaderGuards": 2,
+          "cacheBytes": 4194304,
+          "invalidations": 3,
+          "restored": false,
+          "sourceID": "805-native-feather-cache16-v1",
+          "fills": [
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            },
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            },
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            }
+          ],
+          "sourceSHA": {
+            "fill": "208d17128a867abb36709e40a6e540240c5259e483973bb7d38f180f9d3e289a",
+            "native": "adea5170cae95804d11e88a617c94f992dd1c07eaed7211217e7a73418c3b1ee",
+            "prefix0": "fa472748319c297e69e3c96f65d48779236c1cbd8c11ad2e9a6760766665fc94",
+            "prefix1": "8b35327c91dd42b7ad8917448d5a7cc597d700cb59841f250fe341306b43bca2"
+          },
+          "qualification": "QA-only feather16 quantization; cachefill inside timed solve; source hashes outside interval; no other noise consumer in current native/prefix entrypoints"
+        }
+      },
+      "outputHashesEqual": true,
+      "pngEqual": true
+    },
+    {
+      "id": "gallery-sheet-3-slot-1",
+      "operationSHA": "89ce7bd7db778218da160ec5dee3047c96dcf5fd0b7fd6101fba253aafec716b",
+      "rawSHA": {
+        "p": "8e5adfe2ba640eca7fdc83da9c52732fbce009d22fe51c101ff64b14b6df9ab6",
+        "c": "1566f4b9f4d249b3bd17117dfd6c5ba2fa81d80e8b9821a6a90eef30256082c5",
+        "coverage": "1505b31fcb6bae1ff6347a7077e3e123ba7b9c39a6966456c8deba6b4b6a2e23",
+        "water": "5341dc2ecc237e3c54e84ce3ca41b539ed32cc855df329fef5dd1661c577e784",
+        "foreignWater": "absent",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "commonSHA": {
+        "rgba": "4e3dce2299b553852a02e6d8334af9266c1538644745f62d1124255432e84e32",
+        "water": "6bc98c12086629bb7af6e8b3b7d4109b7b5ee1ea43bbb41df2565ecc518e28f2",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "binarySHA": "566b5bff0205a1220745f8177cd37da5d2e97319e11b90814a5f2cb1ec08b03d",
+      "control": {
+        "samples": [
+          {
+            "submitJsMs": 87.40000009536743,
+            "runToDependentMs": 118.09999990463257,
+            "totalReadyMs": 205.5,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              69,
+              0,
+              225,
+              255
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 26.600000143051147,
+            "runToDependentMs": 202.09999990463257,
+            "totalReadyMs": 228.70000004768372,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              69,
+              0,
+              225,
+              255
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5002.700000047684
+          },
+          {
+            "submitJsMs": 28.90000009536743,
+            "runToDependentMs": 196.90000009536743,
+            "totalReadyMs": 225.80000019073486,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              69,
+              0,
+              225,
+              255
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.899999856949
+          }
+        ],
+        "hashes": [
+          {
+            "p": "7d9b46e036c0d62c2c5dbb004021acc666a758d703d39aa1d8a5d088137df8d0",
+            "c": "450c2fa2c2d4e18b2d7a97cd082c716d0699eb97950d96b1b1d816b5ea70a05c",
+            "coverage": "68d0eac1f485b3ad171645826bb1bc32ffa247f2ca9ff421b0ca3ea339b8316d"
+          },
+          {
+            "p": "7d9b46e036c0d62c2c5dbb004021acc666a758d703d39aa1d8a5d088137df8d0",
+            "c": "450c2fa2c2d4e18b2d7a97cd082c716d0699eb97950d96b1b1d816b5ea70a05c",
+            "coverage": "68d0eac1f485b3ad171645826bb1bc32ffa247f2ca9ff421b0ca3ea339b8316d"
+          },
+          {
+            "p": "7d9b46e036c0d62c2c5dbb004021acc666a758d703d39aa1d8a5d088137df8d0",
+            "c": "450c2fa2c2d4e18b2d7a97cd082c716d0699eb97950d96b1b1d816b5ea70a05c",
+            "coverage": "68d0eac1f485b3ad171645826bb1bc32ffa247f2ca9ff421b0ca3ea339b8316d"
+          }
+        ],
+        "png": {
+          "file": "gallery-sheet-3-slot-1/original.png",
+          "sha256": "c7392a4dff30b8861040925626de66e90db050e5684ef0c58f6509a6df9fc733",
+          "bytes": 1257328
+        },
+        "warmMedianMs": 227.2500001192093,
+        "sourceHashes": {
+          "entry.js": "d766cb2017e327f2a5eb892642fcafcf7ada1db6599ec742ed68d45cb1c4a4d9",
+          "worker.js": "54428f8a7bec52b3151e3ea310bb90942ffaa5e87bff01a5b36b39e2a9ea9f33",
+          "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+          "chunk-25VPIKYH.js": "fe34fe3a7adc584d20d441480e8b9d45d5a7f67a0e257534578f0c233f17b029",
+          "chunk-B3CWKNPF.js": "bd0db6510dc37a160c14a911bc4e81ba3305b2c177be2ab5a308171b2b5a6c07",
+          "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+          "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+          "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+          "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+          "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+        }
+      },
+      "cache": {
+        "samples": [
+          {
+            "submitJsMs": 123.39999985694885,
+            "runToDependentMs": 120.70000004768372,
+            "totalReadyMs": 244.09999990463257,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              69,
+              0,
+              225,
+              255
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 29.59999990463257,
+            "runToDependentMs": 163.60000014305115,
+            "totalReadyMs": 193.20000004768372,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              69,
+              0,
+              225,
+              255
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.799999952316
+          },
+          {
+            "submitJsMs": 38.89999985694885,
+            "runToDependentMs": 201.70000004768372,
+            "totalReadyMs": 240.59999990463257,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              69,
+              0,
+              225,
+              255
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5001
+          }
+        ],
+        "hashes": [
+          {
+            "p": "7d9b46e036c0d62c2c5dbb004021acc666a758d703d39aa1d8a5d088137df8d0",
+            "c": "450c2fa2c2d4e18b2d7a97cd082c716d0699eb97950d96b1b1d816b5ea70a05c",
+            "coverage": "68d0eac1f485b3ad171645826bb1bc32ffa247f2ca9ff421b0ca3ea339b8316d"
+          },
+          {
+            "p": "7d9b46e036c0d62c2c5dbb004021acc666a758d703d39aa1d8a5d088137df8d0",
+            "c": "450c2fa2c2d4e18b2d7a97cd082c716d0699eb97950d96b1b1d816b5ea70a05c",
+            "coverage": "68d0eac1f485b3ad171645826bb1bc32ffa247f2ca9ff421b0ca3ea339b8316d"
+          },
+          {
+            "p": "7d9b46e036c0d62c2c5dbb004021acc666a758d703d39aa1d8a5d088137df8d0",
+            "c": "450c2fa2c2d4e18b2d7a97cd082c716d0699eb97950d96b1b1d816b5ea70a05c",
+            "coverage": "68d0eac1f485b3ad171645826bb1bc32ffa247f2ca9ff421b0ca3ea339b8316d"
+          }
+        ],
+        "png": {
+          "file": "gallery-sheet-3-slot-1/original.png",
+          "sha256": "c7392a4dff30b8861040925626de66e90db050e5684ef0c58f6509a6df9fc733",
+          "bytes": 1257328
+        },
+        "warmMedianMs": 216.89999997615814,
+        "sourceHashes": {
+          "entry.js": "5b059c9929efc9fc12c19dbc06e6be91d25352ddafd46bc5c5296fb89d35619d",
+          "worker.js": "e9749f82d57636020764ff789ead7227bd6dbab4416cfdd58871ed1d28272b73",
+          "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+          "chunk-LYZ4OXIH.js": "88f8e265fb353583c0710e731f166379d453ac2e9523b7ae571c0d2950e5f35a",
+          "chunk-STOHRCIG.js": "3e80e5e8390818215ef02e812ef7e8feaaeaa9f1e449a9e0762289fe52d6451c",
+          "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+          "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+          "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+          "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+          "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+        },
+        "stats": {
+          "fillDraws": 3,
+          "consumerCalls": 135,
+          "cacheHits": 132,
+          "prefixShaderGuards": 2,
+          "cacheBytes": 4194304,
+          "invalidations": 3,
+          "restored": false,
+          "sourceID": "805-native-feather-cache16-v1",
+          "fills": [
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            },
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            },
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            }
+          ],
+          "sourceSHA": {
+            "fill": "208d17128a867abb36709e40a6e540240c5259e483973bb7d38f180f9d3e289a",
+            "native": "adea5170cae95804d11e88a617c94f992dd1c07eaed7211217e7a73418c3b1ee",
+            "prefix0": "fa472748319c297e69e3c96f65d48779236c1cbd8c11ad2e9a6760766665fc94",
+            "prefix1": "8b35327c91dd42b7ad8917448d5a7cc597d700cb59841f250fe341306b43bca2"
+          },
+          "qualification": "QA-only feather16 quantization; cachefill inside timed solve; source hashes outside interval; no other noise consumer in current native/prefix entrypoints"
+        }
+      },
+      "outputHashesEqual": true,
+      "pngEqual": true
+    },
+    {
+      "id": "gallery-sheet-7-slot-1",
+      "operationSHA": "9f5bab721d257154e031a9c50998cd2e2b96d6200609ceae5be04fa824673b01",
+      "rawSHA": {
+        "p": "d7dd1586ea886853af7e390e431ca1dc1b8f59e0b2849363681e2db9e103097f",
+        "c": "cde3f2d5dfc200f950f3181d91d5213092c1013594f24e4776229350f8243b54",
+        "coverage": "8524fbc5c668e1a7569383b996cde6015d2de9442aede7ec513735a1dbe6471e",
+        "water": "491c5d615b8522f727e39c6062b86537234df27e9d7ec34bb3ef7a6b8a3b7ce3",
+        "foreignWater": "absent",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "commonSHA": {
+        "rgba": "2638edf9b3177773a1f149ebfa9ad487cfe21555bcfa0c522c9ae0a436e79e10",
+        "water": "db479036ba5c13220bfc095c440b7a2fb13e5d34feeb961e1aff2651fdf16d49",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "binarySHA": "60d1685ff317b9c4638ccdee4fd0cbf0eafaac4ae90b6b39a38ae7e259c3395f",
+      "control": {
+        "samples": [
+          {
+            "submitJsMs": 113.70000004768372,
+            "runToDependentMs": 142.29999995231628,
+            "totalReadyMs": 256,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              79,
+              23,
+              113
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 35.200000047683716,
+            "runToDependentMs": 221.90000009536743,
+            "totalReadyMs": 257.10000014305115,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              79,
+              23,
+              113
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.200000047684
+          },
+          {
+            "submitJsMs": 28.299999952316284,
+            "runToDependentMs": 222.29999995231628,
+            "totalReadyMs": 250.59999990463257,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              79,
+              23,
+              113
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.200000047684
+          }
+        ],
+        "hashes": [
+          {
+            "p": "d08f7d319c76bcf67ba3b0066acc74407b4a917202a0e798fae2d50c2638ff80",
+            "c": "228d3265b79a958b6fddec31bacee3ade9819a80a9c3729ed9ab015f0dcb8d1f",
+            "coverage": "f130e6d0222a8fee3e36d8738690ca90e309276db793c5ed173add9c0dac0b51"
+          },
+          {
+            "p": "d08f7d319c76bcf67ba3b0066acc74407b4a917202a0e798fae2d50c2638ff80",
+            "c": "228d3265b79a958b6fddec31bacee3ade9819a80a9c3729ed9ab015f0dcb8d1f",
+            "coverage": "f130e6d0222a8fee3e36d8738690ca90e309276db793c5ed173add9c0dac0b51"
+          },
+          {
+            "p": "d08f7d319c76bcf67ba3b0066acc74407b4a917202a0e798fae2d50c2638ff80",
+            "c": "228d3265b79a958b6fddec31bacee3ade9819a80a9c3729ed9ab015f0dcb8d1f",
+            "coverage": "f130e6d0222a8fee3e36d8738690ca90e309276db793c5ed173add9c0dac0b51"
+          }
+        ],
+        "png": {
+          "file": "gallery-sheet-7-slot-1/original.png",
+          "sha256": "16edd549ee1ea981b678bef57d841ea2bb5b75a72cdb5d4daecf14c21aa4bb53",
+          "bytes": 1348181
+        },
+        "warmMedianMs": 253.85000002384186,
+        "sourceHashes": {
+          "entry.js": "d766cb2017e327f2a5eb892642fcafcf7ada1db6599ec742ed68d45cb1c4a4d9",
+          "worker.js": "54428f8a7bec52b3151e3ea310bb90942ffaa5e87bff01a5b36b39e2a9ea9f33",
+          "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+          "chunk-25VPIKYH.js": "fe34fe3a7adc584d20d441480e8b9d45d5a7f67a0e257534578f0c233f17b029",
+          "chunk-B3CWKNPF.js": "bd0db6510dc37a160c14a911bc4e81ba3305b2c177be2ab5a308171b2b5a6c07",
+          "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+          "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+          "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+          "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+          "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+        }
+      },
+      "cache": {
+        "samples": [
+          {
+            "submitJsMs": 91.10000014305115,
+            "runToDependentMs": 162.79999995231628,
+            "totalReadyMs": 253.90000009536743,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              79,
+              23,
+              113
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 40.5,
+            "runToDependentMs": 186,
+            "totalReadyMs": 226.5,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              79,
+              23,
+              113
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.200000047684
+          },
+          {
+            "submitJsMs": 34.59999990463257,
+            "runToDependentMs": 191.40000009536743,
+            "totalReadyMs": 226,
+            "iterations": 90,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              79,
+              23,
+              113
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.299999952316
+          }
+        ],
+        "hashes": [
+          {
+            "p": "d08f7d319c76bcf67ba3b0066acc74407b4a917202a0e798fae2d50c2638ff80",
+            "c": "228d3265b79a958b6fddec31bacee3ade9819a80a9c3729ed9ab015f0dcb8d1f",
+            "coverage": "f130e6d0222a8fee3e36d8738690ca90e309276db793c5ed173add9c0dac0b51"
+          },
+          {
+            "p": "d08f7d319c76bcf67ba3b0066acc74407b4a917202a0e798fae2d50c2638ff80",
+            "c": "228d3265b79a958b6fddec31bacee3ade9819a80a9c3729ed9ab015f0dcb8d1f",
+            "coverage": "f130e6d0222a8fee3e36d8738690ca90e309276db793c5ed173add9c0dac0b51"
+          },
+          {
+            "p": "d08f7d319c76bcf67ba3b0066acc74407b4a917202a0e798fae2d50c2638ff80",
+            "c": "228d3265b79a958b6fddec31bacee3ade9819a80a9c3729ed9ab015f0dcb8d1f",
+            "coverage": "f130e6d0222a8fee3e36d8738690ca90e309276db793c5ed173add9c0dac0b51"
+          }
+        ],
+        "png": {
+          "file": "gallery-sheet-7-slot-1/original.png",
+          "sha256": "16edd549ee1ea981b678bef57d841ea2bb5b75a72cdb5d4daecf14c21aa4bb53",
+          "bytes": 1348181
+        },
+        "warmMedianMs": 226.25,
+        "sourceHashes": {
+          "entry.js": "5b059c9929efc9fc12c19dbc06e6be91d25352ddafd46bc5c5296fb89d35619d",
+          "worker.js": "e9749f82d57636020764ff789ead7227bd6dbab4416cfdd58871ed1d28272b73",
+          "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+          "chunk-LYZ4OXIH.js": "88f8e265fb353583c0710e731f166379d453ac2e9523b7ae571c0d2950e5f35a",
+          "chunk-STOHRCIG.js": "3e80e5e8390818215ef02e812ef7e8feaaeaa9f1e449a9e0762289fe52d6451c",
+          "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+          "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+          "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+          "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+          "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+        },
+        "stats": {
+          "fillDraws": 3,
+          "consumerCalls": 135,
+          "cacheHits": 132,
+          "prefixShaderGuards": 2,
+          "cacheBytes": 4194304,
+          "invalidations": 3,
+          "restored": false,
+          "sourceID": "805-native-feather-cache16-v1",
+          "fills": [
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            },
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            },
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            }
+          ],
+          "sourceSHA": {
+            "fill": "208d17128a867abb36709e40a6e540240c5259e483973bb7d38f180f9d3e289a",
+            "native": "adea5170cae95804d11e88a617c94f992dd1c07eaed7211217e7a73418c3b1ee",
+            "prefix0": "fa472748319c297e69e3c96f65d48779236c1cbd8c11ad2e9a6760766665fc94",
+            "prefix1": "8b35327c91dd42b7ad8917448d5a7cc597d700cb59841f250fe341306b43bca2"
+          },
+          "qualification": "QA-only feather16 quantization; cachefill inside timed solve; source hashes outside interval; no other noise consumer in current native/prefix entrypoints"
+        }
+      },
+      "outputHashesEqual": true,
+      "pngEqual": true
+    },
+    {
+      "id": "gallery-sheet-12-slot-1",
+      "operationSHA": "5e015eebf40802f664d5666c6b454be2277b2e8ab7b12c5ff59cba46de399247",
+      "rawSHA": {
+        "p": "e0dda48911aa70b3d35516906966d4bd09b6900ad737d0e209c2ba06264b27f4",
+        "c": "482712a8ca5fb6867764c284708c6915b257e76a760888a0308b618e60a4e73a",
+        "coverage": "8390cf408f09308eee614116e5e739b0bcc49524d43e8f24d289535fe02bce4e",
+        "water": "9bc5bb4323140fa9d6c06cfc7546078ed4f3b964e09da4e500bce7d824d5db43",
+        "foreignWater": "absent",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "commonSHA": {
+        "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+        "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "binarySHA": "69113189b2a48eb6d6fdfe51b7cb4936e7f75e5aa2d81629298c0b1b264aa21a",
+      "control": {
+        "samples": [
+          {
+            "submitJsMs": 99.09999990463257,
+            "runToDependentMs": 99.40000009536743,
+            "totalReadyMs": 198.5,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 34.89999985694885,
+            "runToDependentMs": 185.70000004768372,
+            "totalReadyMs": 220.59999990463257,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.299999952316
+          },
+          {
+            "submitJsMs": 29.800000190734863,
+            "runToDependentMs": 181.5,
+            "totalReadyMs": 211.30000019073486,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.200000047684
+          }
+        ],
+        "hashes": [
+          {
+            "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+            "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+            "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+          },
+          {
+            "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+            "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+            "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+          },
+          {
+            "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+            "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+            "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+          }
+        ],
+        "png": {
+          "file": "gallery-sheet-12-slot-1/original.png",
+          "sha256": "553e89c33518b621e039295b4bbf4e555e65cf935b322da11d612916488fbfb6",
+          "bytes": 1200792
+        },
+        "warmMedianMs": 215.95000004768372,
+        "sourceHashes": {
+          "entry.js": "d766cb2017e327f2a5eb892642fcafcf7ada1db6599ec742ed68d45cb1c4a4d9",
+          "worker.js": "54428f8a7bec52b3151e3ea310bb90942ffaa5e87bff01a5b36b39e2a9ea9f33",
+          "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+          "chunk-25VPIKYH.js": "fe34fe3a7adc584d20d441480e8b9d45d5a7f67a0e257534578f0c233f17b029",
+          "chunk-B3CWKNPF.js": "bd0db6510dc37a160c14a911bc4e81ba3305b2c177be2ab5a308171b2b5a6c07",
+          "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+          "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+          "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+          "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+          "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+        }
+      },
+      "cache": {
+        "samples": [
+          {
+            "submitJsMs": 113.29999995231628,
+            "runToDependentMs": 93.90000009536743,
+            "totalReadyMs": 207.20000004768372,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 25.799999952316284,
+            "runToDependentMs": 178.39999985694885,
+            "totalReadyMs": 204.19999980926514,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.200000047684
+          },
+          {
+            "submitJsMs": 33.90000009536743,
+            "runToDependentMs": 144,
+            "totalReadyMs": 177.90000009536743,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              18,
+              37,
+              59
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5001.299999952316
+          }
+        ],
+        "hashes": [
+          {
+            "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+            "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+            "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+          },
+          {
+            "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+            "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+            "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+          },
+          {
+            "p": "1cdac398a2baa6a3b3ee0d11f6fbfd5e3fa4bc7103e645e4b9b1aa1ec0202f5b",
+            "c": "160dbb0fffad517254ed56af6bb80fe4e3aaed9f99983d6c745d8a0a2fe6c368",
+            "coverage": "633e3d3774ab2abef71132aeaa995b662f51427f46f6d3541e7f95c2f9baa4e1"
+          }
+        ],
+        "png": {
+          "file": "gallery-sheet-12-slot-1/original.png",
+          "sha256": "553e89c33518b621e039295b4bbf4e555e65cf935b322da11d612916488fbfb6",
+          "bytes": 1200792
+        },
+        "warmMedianMs": 191.04999995231628,
+        "sourceHashes": {
+          "entry.js": "5b059c9929efc9fc12c19dbc06e6be91d25352ddafd46bc5c5296fb89d35619d",
+          "worker.js": "e9749f82d57636020764ff789ead7227bd6dbab4416cfdd58871ed1d28272b73",
+          "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+          "chunk-LYZ4OXIH.js": "88f8e265fb353583c0710e731f166379d453ac2e9523b7ae571c0d2950e5f35a",
+          "chunk-STOHRCIG.js": "3e80e5e8390818215ef02e812ef7e8feaaeaa9f1e449a9e0762289fe52d6451c",
+          "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+          "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+          "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+          "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+          "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+        },
+        "stats": {
+          "fillDraws": 3,
+          "consumerCalls": 135,
+          "cacheHits": 132,
+          "prefixShaderGuards": 2,
+          "cacheBytes": 4194304,
+          "invalidations": 3,
+          "restored": false,
+          "sourceID": "805-native-feather-cache16-v1",
+          "fills": [
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            },
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            },
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            }
+          ],
+          "sourceSHA": {
+            "fill": "208d17128a867abb36709e40a6e540240c5259e483973bb7d38f180f9d3e289a",
+            "native": "adea5170cae95804d11e88a617c94f992dd1c07eaed7211217e7a73418c3b1ee",
+            "prefix0": "fa472748319c297e69e3c96f65d48779236c1cbd8c11ad2e9a6760766665fc94",
+            "prefix1": "8b35327c91dd42b7ad8917448d5a7cc597d700cb59841f250fe341306b43bca2"
+          },
+          "qualification": "QA-only feather16 quantization; cachefill inside timed solve; source hashes outside interval; no other noise consumer in current native/prefix entrypoints"
+        }
+      },
+      "outputHashesEqual": true,
+      "pngEqual": true
+    },
+    {
+      "id": "native-flow-pool-drop",
+      "operationSHA": "9c6be539c3930f27aae4faa1af960300d3751e922dfa79462205c4fbe9122956",
+      "rawSHA": {
+        "p": "c275b1782bf4e46b597cd776d03c6864654d7a8c20e55e127d14e7f09d0162ad",
+        "c": "5cd0569a92bf78ce22716d25d20ed290e7a4b8acf0f81149cf3e468bebd88222",
+        "coverage": "36ab4d9c797691177c7e954d88b0685718a17e90fd54e0983ee0720de8af51e8",
+        "water": "df2f84c631897c00a69736f5ba7e568de9722c9ea1cd33b6f7055f2f80f28b68",
+        "foreignWater": "absent",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "commonSHA": {
+        "rgba": "ee7a6e022d82d8b2b3e0afdf558d4017ec11e4af51ea0a65882948fa7efde196",
+        "water": "71770d997651ee4911e33a963ca792dc80157b8dbb6d41daea769c5a726da626",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "binarySHA": "3c20c7068cd00c803b1a913343cb2024f93bc5b23667c74a3c73055cf7ccc538",
+      "control": {
+        "samples": [
+          {
+            "submitJsMs": 123.5,
+            "runToDependentMs": 152.40000009536743,
+            "totalReadyMs": 275.90000009536743,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              63,
+              88,
+              97
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 25.299999952316284,
+            "runToDependentMs": 188.29999995231628,
+            "totalReadyMs": 213.59999990463257,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              63,
+              88,
+              97
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.200000047684
+          },
+          {
+            "submitJsMs": 30.799999952316284,
+            "runToDependentMs": 192.5,
+            "totalReadyMs": 223.29999995231628,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              63,
+              88,
+              97
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "idleBeforeSampleMs": 5000.200000047684
+          }
+        ],
+        "hashes": [
+          {
+            "p": "865d1984aefa898f6dcc066efd58d4c5f1fb2f3ba1deeead8bc2e3fb71d6c21d",
+            "c": "368240a2ece14a18661a6a13fe88e75b450f17dfbfdec148b9db395d16574c65",
+            "coverage": "0cacab76071af715d3973f575f4460e77ea8a1fc9d5665032d56607b56948c86"
+          },
+          {
+            "p": "865d1984aefa898f6dcc066efd58d4c5f1fb2f3ba1deeead8bc2e3fb71d6c21d",
+            "c": "368240a2ece14a18661a6a13fe88e75b450f17dfbfdec148b9db395d16574c65",
+            "coverage": "0cacab76071af715d3973f575f4460e77ea8a1fc9d5665032d56607b56948c86"
+          },
+          {
+            "p": "865d1984aefa898f6dcc066efd58d4c5f1fb2f3ba1deeead8bc2e3fb71d6c21d",
+            "c": "368240a2ece14a18661a6a13fe88e75b450f17dfbfdec148b9db395d16574c65",
+            "coverage": "0cacab76071af715d3973f575f4460e77ea8a1fc9d5665032d56607b56948c86"
+          }
+        ],
+        "png": {
+          "file": "native-flow-pool-drop/original.png",
+          "sha256": "c193d7b5a3ba6169b687a82bf8d12685fea8b65c07ef34868065004bb7ddd895",
+          "bytes": 1148759
+        },
+        "warmMedianMs": 218.44999992847443,
+        "sourceHashes": {
+          "entry.js": "d766cb2017e327f2a5eb892642fcafcf7ada1db6599ec742ed68d45cb1c4a4d9",
+          "worker.js": "54428f8a7bec52b3151e3ea310bb90942ffaa5e87bff01a5b36b39e2a9ea9f33",
+          "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+          "chunk-25VPIKYH.js": "fe34fe3a7adc584d20d441480e8b9d45d5a7f67a0e257534578f0c233f17b029",
+          "chunk-B3CWKNPF.js": "bd0db6510dc37a160c14a911bc4e81ba3305b2c177be2ab5a308171b2b5a6c07",
+          "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+          "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+          "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+          "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+          "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+        }
+      },
+      "cache": {
+        "samples": [
+          {
+            "submitJsMs": 134.39999985694885,
+            "runToDependentMs": 127.79999995231628,
+            "totalReadyMs": 262.19999980926514,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              63,
+              88,
+              97
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 0
+          },
+          {
+            "submitJsMs": 38.200000047683716,
+            "runToDependentMs": 151.5,
+            "totalReadyMs": 189.70000004768372,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              63,
+              88,
+              97
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5001.400000095367
+          },
+          {
+            "submitJsMs": 36.200000047683716,
+            "runToDependentMs": 161.19999980926514,
+            "totalReadyMs": 197.39999985694885,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              63,
+              88,
+              97
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            },
+            "idleBeforeSampleMs": 5000.200000047684
+          }
+        ],
+        "hashes": [
+          {
+            "p": "865d1984aefa898f6dcc066efd58d4c5f1fb2f3ba1deeead8bc2e3fb71d6c21d",
+            "c": "368240a2ece14a18661a6a13fe88e75b450f17dfbfdec148b9db395d16574c65",
+            "coverage": "0cacab76071af715d3973f575f4460e77ea8a1fc9d5665032d56607b56948c86"
+          },
+          {
+            "p": "865d1984aefa898f6dcc066efd58d4c5f1fb2f3ba1deeead8bc2e3fb71d6c21d",
+            "c": "368240a2ece14a18661a6a13fe88e75b450f17dfbfdec148b9db395d16574c65",
+            "coverage": "0cacab76071af715d3973f575f4460e77ea8a1fc9d5665032d56607b56948c86"
+          },
+          {
+            "p": "865d1984aefa898f6dcc066efd58d4c5f1fb2f3ba1deeead8bc2e3fb71d6c21d",
+            "c": "368240a2ece14a18661a6a13fe88e75b450f17dfbfdec148b9db395d16574c65",
+            "coverage": "0cacab76071af715d3973f575f4460e77ea8a1fc9d5665032d56607b56948c86"
+          }
+        ],
+        "png": {
+          "file": "native-flow-pool-drop/original.png",
+          "sha256": "c193d7b5a3ba6169b687a82bf8d12685fea8b65c07ef34868065004bb7ddd895",
+          "bytes": 1148759
+        },
+        "warmMedianMs": 193.54999995231628,
+        "sourceHashes": {
+          "entry.js": "5b059c9929efc9fc12c19dbc06e6be91d25352ddafd46bc5c5296fb89d35619d",
+          "worker.js": "e9749f82d57636020764ff789ead7227bd6dbab4416cfdd58871ed1d28272b73",
+          "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+          "chunk-LYZ4OXIH.js": "88f8e265fb353583c0710e731f166379d453ac2e9523b7ae571c0d2950e5f35a",
+          "chunk-STOHRCIG.js": "3e80e5e8390818215ef02e812ef7e8feaaeaa9f1e449a9e0762289fe52d6451c",
+          "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+          "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+          "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+          "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+          "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+        },
+        "stats": {
+          "fillDraws": 3,
+          "consumerCalls": 135,
+          "cacheHits": 132,
+          "prefixShaderGuards": 2,
+          "cacheBytes": 4194304,
+          "invalidations": 3,
+          "restored": false,
+          "sourceID": "805-native-feather-cache16-v1",
+          "fills": [
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            },
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            },
+            {
+              "width": 1024,
+              "height": 1024,
+              "originX": 0,
+              "originY": -1024,
+              "scale": 1,
+              "paperWorldW": 1024,
+              "paperWorldH": 1024,
+              "paperScale": 1,
+              "noiseIdentity": 1
+            }
+          ],
+          "sourceSHA": {
+            "fill": "208d17128a867abb36709e40a6e540240c5259e483973bb7d38f180f9d3e289a",
+            "native": "adea5170cae95804d11e88a617c94f992dd1c07eaed7211217e7a73418c3b1ee",
+            "prefix0": "fa472748319c297e69e3c96f65d48779236c1cbd8c11ad2e9a6760766665fc94",
+            "prefix1": "8b35327c91dd42b7ad8917448d5a7cc597d700cb59841f250fe341306b43bca2"
+          },
+          "qualification": "QA-only feather16 quantization; cachefill inside timed solve; source hashes outside interval; no other noise consumer in current native/prefix entrypoints"
+        }
+      },
+      "outputHashesEqual": true,
+      "pngEqual": true
+    }
+  ],
+  "pass": true
+}
