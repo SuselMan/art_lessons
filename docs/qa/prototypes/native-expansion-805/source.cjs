@@ -13,7 +13,7 @@ function transformNativeExpansion805(file,source){
  }else{
   const anchor='        const list = strides ?? Array.from({ length: steps }, () => 1)';
   s=one(s,anchor,`        const qaExpansion=(globalThis as unknown as {${KEY}?:{radiusPx?:number;allWetMobile?:boolean}}).${KEY}
-        const list = qaExpansion?.allWetMobile===true&&climb===WC_FRONT_CLIMB ? Array.from({length:Math.ceil(qaExpansion.radiusPx??24)},()=>1) : strides??Array.from({length:steps},()=>1)`);
+        const list = qaExpansion?.radiusPx!==undefined&&climb===WC_FRONT_CLIMB ? Array.from({length:Math.ceil(qaExpansion.radiusPx)},()=>1) : strides??Array.from({length:steps},()=>1)`);
  }
  return '// QA_NATIVE_EXPANSION_805\n'+s;
 }

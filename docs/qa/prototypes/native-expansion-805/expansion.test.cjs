@@ -24,6 +24,11 @@ function rig(){
 test('installer scopes policy to core, borrows immutable water and cleans owned resources',()=>{
  const r=rig(),candidate=r.installNativeExpansion805(r.engine,r.controller,{noise:true,allWetMobile:true});assert.equal(r.sandbox[KEY],undefined);r.passes.waterFrontStep();assert.ok(r.calls.includes('original-front'));assert.equal(r.controller.diagnosticRunCore(),'unchanged-native-buffers');assert.equal(r.coreFlag().radiusPx,24);assert.equal(r.sandbox[KEY],undefined);assert.equal(candidate.stats.outwardDraws,1);assert.equal(r.calls.filter(x=>x==='draw').length,1);assert.equal(r.calls.filter(x=>x.upload).length,2);assert.ok(r.calls.some(x=>x.bound===r.waterA));assert.ok(r.calls.some(x=>x.bound===r.waterB));candidate.restore();candidate.restore();assert.equal(r.controller.diagnosticRunCore,r.originalCore);assert.equal(r.passes.waterFrontStep,r.originalFront);assert.equal(r.deleted.length,4);
 });
+test('main candidates preserve native selection by default and with explicit false; outward schedule does not depend on all-wet',()=>{
+ for(const options of [{noise:false},{noise:true,allWetMobile:false}]){const r=rig(),candidate=r.installNativeExpansion805(r.engine,r.controller,options);r.controller.diagnosticRunCore();assert.equal(r.coreFlag().allWetMobile,false);assert.equal(candidate.metadata.allWetMobile,false);assert.match(candidate.metadata.selection,/Original native contrast/);candidate.restore()}
+ const file=path.join(root,'apps/web/src/engine/src/raster/WatercolorSettlePlan.ts'),s=transformNativeExpansion805(file,fs.readFileSync(file,'utf8'));
+ assert.match(s,/qaExpansion\?\.radiusPx!==undefined&&climb===WC_FRONT_CLIMB/);assert.doesNotMatch(s,/qaExpansion\?\.allWetMobile===true&&climb/);
+});
 test('bad field/stride fails before a draw and always unwinds transient global policy',()=>{
  const r=rig();r.controller.diagnosticRunCore=function(){r.passes.waterFrontStep(r.field,0,0,24,r.src,r.dst,28,30,.5,8,1)};const before=r.controller.diagnosticRunCore,candidate=r.installNativeExpansion805(r.engine,r.controller,{noise:false,allWetMobile:true});assert.throws(()=>r.controller.diagnosticRunCore(),/unit-step/);assert.equal(r.sandbox[KEY],undefined);assert.equal(r.calls.filter(x=>x==='draw').length,0);candidate.restore();assert.equal(r.controller.diagnosticRunCore,before);
 });

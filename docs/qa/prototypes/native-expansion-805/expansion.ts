@@ -34,12 +34,12 @@ function program805(gl:WebGLRenderingContext){
  try{fs=shader(gl.FRAGMENT_SHADER,EXPANSION_FRONT_FRAG_805);p=gl.createProgram();if(!p)throw Error('Expansion program allocation');gl.attachShader(p,vs);gl.attachShader(p,fs);gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error('Expansion program link '+gl.getProgramInfoLog(p));return p}catch(error){if(p)gl.deleteProgram(p);throw error}finally{gl.deleteShader(vs);if(fs)gl.deleteShader(fs)}
 }
 
-export function installNativeExpansion805(engine:any,controller:any,options:{noise:boolean;allWetMobile:true;radiusPx?:number}){
+export function installNativeExpansion805(engine:any,controller:any,options:{noise:boolean;allWetMobile?:boolean;radiusPx?:number}){
  const gl=engine.gl as WebGLRenderingContext,passes=engine._watercolorPasses,radiusPx=expansionRadius805(options.radiusPx)
- if(options.allWetMobile!==true||typeof options.noise!=='boolean')throw Error('Expansion requires explicit all-wet-mobile hypothesis')
+ if(typeof options.noise!=='boolean'||(options.allWetMobile!==undefined&&typeof options.allWetMobile!=='boolean'))throw Error('Expansion requires valid explicit noise and optional allWetMobile policy')
  const target=globalThis as unknown as Record<string,unknown>
  if(target[KEY]!==undefined)throw Error('Expansion already active')
- const originalFront=passes.waterFrontStep,originalCore=controller.diagnosticRunCore,token={noise:options.noise,allWetMobile:true,radiusPx}
+ const originalFront=passes.waterFrontStep,originalCore=controller.diagnosticRunCore,token={noise:options.noise,allWetMobile:options.allWetMobile??false,radiusPx}
  const program=program805(gl),quad=gl.createBuffer(),noise=gl.createTexture(),zero=gl.createTexture()
  if(!quad||!noise||!zero){if(quad)gl.deleteBuffer(quad);if(noise)gl.deleteTexture(noise);if(zero)gl.deleteTexture(zero);gl.deleteProgram(program);throw Error('Expansion resources allocation')}
  const uniforms=Object.fromEntries(['cost','waterA','waterB','noiseMap','resolution','maximum','budget','radius','outward','noisy'].map(name=>[name,gl.getUniformLocation(program,name)])),position=gl.getAttribLocation(program,'pos')
@@ -68,5 +68,5 @@ export function installNativeExpansion805(engine:any,controller:any,options:{noi
    try{return originalCore.apply(this,args)}finally{active=null;if(descriptor)Object.defineProperty(target,KEY,descriptor);else delete target[KEY]}
   }
  }catch(error){passes.waterFrontStep=originalFront;controller.diagnosticRunCore=originalCore;gl.deleteBuffer(quad);gl.deleteTexture(noise);gl.deleteTexture(zero);gl.deleteProgram(program);throw error}
- return{stats,metadata:{id:options.noise?'noisy-expansion':'smooth-expansion',radiusPx,allWetMobile:true,fixedInitialWater:true,front:'bounded unit-step8-neighbor cost, no dry corner cutting',noise:'seed805, CPU integer lattice128², costfactor1..1.7; flat variant factor1',qualification:'Different artistic hypothesis; native carry/diffusion/rim retain P/C transport. No exact mass-conservation or cross-GPU-equality claim.'},restore(){if(restored)return;if(active)throw Error('Cannot restore active expansion');restored=true;passes.waterFrontStep=originalFront;controller.diagnosticRunCore=originalCore;if(gl.getParameter(gl.CURRENT_PROGRAM)===program)gl.useProgram(null);gl.deleteBuffer(quad);gl.deleteTexture(noise);gl.deleteTexture(zero);gl.deleteProgram(program)}}
+ return{stats,metadata:{id:options.noise?'noisy-expansion':'smooth-expansion',radiusPx,allWetMobile:token.allWetMobile,selection:token.allWetMobile?'Explicit historical all-wet-mobile hypothesis':'Original native contrast/Q selection and reference',fixedInitialWater:true,front:'bounded unit-step8-neighbor cost, no dry corner cutting',noise:'seed805, CPU integer lattice128², costfactor1..1.7; flat variant factor1',qualification:'Different front hypothesis; native carry/diffusion/rim retain P/C transport. No exact mass-conservation or cross-GPU-equality claim.'},restore(){if(restored)return;if(active)throw Error('Cannot restore active expansion');restored=true;passes.waterFrontStep=originalFront;controller.diagnosticRunCore=originalCore;if(gl.getParameter(gl.CURRENT_PROGRAM)===program)gl.useProgram(null);gl.deleteBuffer(quad);gl.deleteTexture(noise);gl.deleteTexture(zero);gl.deleteProgram(program)}}
 }
