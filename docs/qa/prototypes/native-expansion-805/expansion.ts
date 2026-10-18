@@ -34,17 +34,36 @@ function program805(gl:WebGLRenderingContext){
  try{fs=shader(gl.FRAGMENT_SHADER,EXPANSION_FRONT_FRAG_805);p=gl.createProgram();if(!p)throw Error('Expansion program allocation');gl.attachShader(p,vs);gl.attachShader(p,fs);gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error('Expansion program link '+gl.getProgramInfoLog(p));return p}catch(error){if(p)gl.deleteProgram(p);throw error}finally{gl.deleteShader(vs);if(fs)gl.deleteShader(fs)}
 }
 
-export function installNativeExpansion805(engine:any,controller:any,options:{noise:boolean;allWetMobile?:boolean;radiusPx?:number}){
+export function installNativeExpansion805(engine:any,controller:any|null,options:{noise:boolean;allWetMobile?:boolean;radiusPx?:number}){
  const gl=engine.gl as WebGLRenderingContext,passes=engine._watercolorPasses,radiusPx=expansionRadius805(options.radiusPx)
  if(typeof options.noise!=='boolean'||(options.allWetMobile!==undefined&&typeof options.allWetMobile!=='boolean'))throw Error('Expansion requires valid explicit noise and optional allWetMobile policy')
  const target=globalThis as unknown as Record<string,unknown>
  if(target[KEY]!==undefined)throw Error('Expansion already active')
- const originalFront=passes.waterFrontStep,originalCore=controller.diagnosticRunCore,token={noise:options.noise,allWetMobile:options.allWetMobile??false,radiusPx}
+ if(controller!==null&&(typeof controller.diagnosticRunCore!=='function'||typeof controller.diagnosticSource!=='function'))throw Error('Expansion requires diagnostic controller or null for explicit source scopes')
+ const originalFront=passes.waterFrontStep,originalCore=controller?.diagnosticRunCore,token={noise:options.noise,allWetMobile:options.allWetMobile??false,radiusPx}
  const program=program805(gl),quad=gl.createBuffer(),noise=gl.createTexture(),zero=gl.createTexture()
  if(!quad||!noise||!zero){if(quad)gl.deleteBuffer(quad);if(noise)gl.deleteTexture(noise);if(zero)gl.deleteTexture(zero);gl.deleteProgram(program);throw Error('Expansion resources allocation')}
  const uniforms=Object.fromEntries(['cost','waterA','waterB','noiseMap','resolution','maximum','budget','radius','outward','noisy'].map(name=>[name,gl.getUniformLocation(program,name)])),position=gl.getAttribLocation(program,'pos')
  let active:{waterA:WebGLTexture|null;waterB:WebGLTexture|null;width:number;height:number}|null=null,restored=false
- const stats={frontDraws:0,outwardDraws:0,inwardDraws:0,coreCalls:0}
+ const stats={frontDraws:0,outwardDraws:0,inwardDraws:0,coreCalls:0,sourceScopes:0}
+ /** Synchronous target-method scope. No source reference or global policy survives
+  * the callback, so a later frame/stroke must supply its own immutable source. */
+ const withSource=<T>(source:{entry:any},work:()=>T):T=>{
+  if(restored)throw Error('Expansion installer already restored')
+  if(active||target[KEY]!==undefined)throw Error('Expansion nested source scope')
+  const entry=source?.entry
+  if(!entry?.inkLoad||(!entry.solventLoad&&!entry.foreignSolventLoad))throw Error('Expansion missing immutable initial water/source')
+  const width=entry.inkLoad.width,height=entry.inkLoad.height
+  if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<1||height<1)throw Error('Expansion invalid source dimensions')
+  const descriptor=Object.getOwnPropertyDescriptor(target,KEY)
+  active={waterA:entry.solventLoad?.texture??null,waterB:entry.foreignSolventLoad?.texture??null,width,height}
+  try{
+   Object.defineProperty(target,KEY,{configurable:true,writable:true,value:token});stats.sourceScopes++
+   const result=work()
+   if(result!==null&&(typeof result==='object'||typeof result==='function')&&typeof (result as {then?:unknown}).then==='function')throw Error('Expansion source scope must be synchronous')
+   return result
+  }finally{active=null;if(descriptor)Object.defineProperty(target,KEY,descriptor);else delete target[KEY]}
+ }
  const texture=(t:WebGLTexture,size:number,bytes:Uint8Array)=>{gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,t);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,size,size,0,gl.RGBA,gl.UNSIGNED_BYTE,bytes)}
  try{
   gl.bindBuffer(gl.ARRAY_BUFFER,quad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);texture(noise,128,expansionNoise805());texture(zero,1,new Uint8Array(4))
@@ -59,14 +78,7 @@ export function installNativeExpansion805(engine:any,controller:any,options:{noi
     stats.frontDraws++;if(outward)stats.outwardDraws++;else stats.inwardDraws++
    }finally{try{dst.endDraw()}finally{gl.activeTexture(gl.TEXTURE0)}}
   }
-  controller.diagnosticRunCore=function(...args:unknown[]){
-   if(active)throw Error('Expansion nested core')
-   const source=controller.diagnosticSource(),entry=source.entry,descriptor=Object.getOwnPropertyDescriptor(target,KEY)
-   if(!entry.solventLoad&&!entry.foreignSolventLoad)throw Error('Expansion missing immutable initial water')
-   active={waterA:entry.solventLoad?.texture??null,waterB:entry.foreignSolventLoad?.texture??null,width:entry.inkLoad.width,height:entry.inkLoad.height}
-   Object.defineProperty(target,KEY,{configurable:true,writable:true,value:token});stats.coreCalls++
-   try{return originalCore.apply(this,args)}finally{active=null;if(descriptor)Object.defineProperty(target,KEY,descriptor);else delete target[KEY]}
-  }
- }catch(error){passes.waterFrontStep=originalFront;controller.diagnosticRunCore=originalCore;gl.deleteBuffer(quad);gl.deleteTexture(noise);gl.deleteTexture(zero);gl.deleteProgram(program);throw error}
- return{stats,metadata:{id:options.noise?'noisy-expansion':'smooth-expansion',radiusPx,allWetMobile:token.allWetMobile,selection:token.allWetMobile?'Explicit historical all-wet-mobile hypothesis':'Original native contrast/Q selection and reference',fixedInitialWater:true,front:'bounded unit-step8-neighbor cost, no dry corner cutting',noise:'seed805, CPU integer lattice128², costfactor1..1.7; flat variant factor1',qualification:'Different front hypothesis; native carry/diffusion/rim retain P/C transport. No exact mass-conservation or cross-GPU-equality claim.'},restore(){if(restored)return;if(active)throw Error('Cannot restore active expansion');restored=true;passes.waterFrontStep=originalFront;controller.diagnosticRunCore=originalCore;if(gl.getParameter(gl.CURRENT_PROGRAM)===program)gl.useProgram(null);gl.deleteBuffer(quad);gl.deleteTexture(noise);gl.deleteTexture(zero);gl.deleteProgram(program)}}
+  if(controller!==null)controller.diagnosticRunCore=function(...args:unknown[]){return withSource(controller.diagnosticSource(),()=>{stats.coreCalls++;return originalCore.apply(this,args)})}
+ }catch(error){passes.waterFrontStep=originalFront;if(controller!==null)controller.diagnosticRunCore=originalCore;gl.deleteBuffer(quad);gl.deleteTexture(noise);gl.deleteTexture(zero);gl.deleteProgram(program);throw error}
+ return{withSource,stats,metadata:{id:options.noise?'noisy-expansion':'smooth-expansion',radiusPx,allWetMobile:token.allWetMobile,selection:token.allWetMobile?'Explicit historical all-wet-mobile hypothesis':'Original native contrast/Q selection and reference',fixedInitialWater:true,front:'bounded unit-step8-neighbor cost, no dry corner cutting',noise:'seed805, CPU integer lattice128², costfactor1..1.7; flat variant factor1',qualification:'Different front hypothesis; native carry/diffusion/rim retain P/C transport. No exact mass-conservation or cross-GPU-equality claim.'},restore(){if(restored)return;if(active)throw Error('Cannot restore active expansion');restored=true;passes.waterFrontStep=originalFront;if(controller!==null)controller.diagnosticRunCore=originalCore;if(gl.getParameter(gl.CURRENT_PROGRAM)===program)gl.useProgram(null);gl.deleteBuffer(quad);gl.deleteTexture(noise);gl.deleteTexture(zero);gl.deleteProgram(program)}}
 }

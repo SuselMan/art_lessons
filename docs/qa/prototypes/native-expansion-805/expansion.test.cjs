@@ -32,6 +32,21 @@ test('main candidates preserve native selection by default and with explicit fal
 test('bad field/stride fails before a draw and always unwinds transient global policy',()=>{
  const r=rig();r.controller.diagnosticRunCore=function(){r.passes.waterFrontStep(r.field,0,0,24,r.src,r.dst,28,30,.5,8,1)};const before=r.controller.diagnosticRunCore,candidate=r.installNativeExpansion805(r.engine,r.controller,{noise:false,allWetMobile:true});assert.throws(()=>r.controller.diagnosticRunCore(),/unit-step/);assert.equal(r.sandbox[KEY],undefined);assert.equal(r.calls.filter(x=>x==='draw').length,0);candidate.restore();assert.equal(r.controller.diagnosticRunCore,before);
 });
+test('interactive null-controller source scope never installs diagnostic hooks and never leaks water to next stroke',()=>{
+ const r=rig(),before=r.controller.diagnosticRunCore,candidate=r.installNativeExpansion805(r.engine,null,{noise:true,allWetMobile:false}),sourceA={entry:{inkLoad:{width:8,height:8},solventLoad:{texture:r.waterA}}},sourceB={entry:{inkLoad:{width:8,height:8},solventLoad:{texture:r.waterB}}};
+ const draw=()=>r.passes.waterFrontStep(r.field,0,0,24,r.src,r.dst,28,30,.5,1,1);
+ const scopes=[];for(const source of [sourceA,sourceB]){const start=r.calls.length;assert.equal(candidate.withSource(source,()=>{assert.equal(r.sandbox[KEY].allWetMobile,false);draw();return'completed'}),'completed');assert.equal(r.sandbox[KEY],undefined);scopes.push(r.calls.slice(start).filter(x=>x.bound).map(x=>x.bound));draw()}
+ assert.ok(scopes[0].includes(r.waterA));assert.ok(!scopes[0].includes(r.waterB));assert.ok(scopes[1].includes(r.waterB));assert.ok(!scopes[1].includes(r.waterA));assert.equal(candidate.stats.frontDraws,2);assert.equal(candidate.stats.coreCalls,0);assert.equal(candidate.stats.sourceScopes,2);assert.equal(r.controller.diagnosticRunCore,before);candidate.restore();assert.equal(r.deleted.length,4);assert.throws(()=>candidate.withSource(sourceA,draw),/already restored/);
+});
+test('interactive source scope restores policy on failure, forbids nesting/async/active restore, then can recover',()=>{
+ const r=rig(),candidate=r.installNativeExpansion805(r.engine,null,{noise:false}),source={entry:{inkLoad:{width:8,height:8},solventLoad:{texture:r.waterA}}};
+ Object.defineProperty(r.sandbox,KEY,{configurable:true,writable:false,value:undefined});const saved=Object.getOwnPropertyDescriptor(r.sandbox,KEY);
+ assert.throws(()=>candidate.withSource(source,()=>{throw Error('target failure')}),/target failure/);assert.deepEqual(Object.getOwnPropertyDescriptor(r.sandbox,KEY),saved);
+ assert.throws(()=>candidate.withSource(source,()=>candidate.withSource(source,()=>{})),/nested source scope/);assert.deepEqual(Object.getOwnPropertyDescriptor(r.sandbox,KEY),saved);
+ assert.throws(()=>candidate.withSource(source,()=>candidate.restore()),/Cannot restore active/);assert.deepEqual(Object.getOwnPropertyDescriptor(r.sandbox,KEY),saved);
+ assert.throws(()=>candidate.withSource(source,()=>Promise.resolve()),/must be synchronous/);assert.deepEqual(Object.getOwnPropertyDescriptor(r.sandbox,KEY),saved);
+ assert.throws(()=>candidate.withSource({entry:{}},()=>{}),/missing immutable/);assert.equal(candidate.withSource(source,()=>42),42);candidate.restore();assert.equal(r.deleted.length,4);assert.deepEqual(Object.getOwnPropertyDescriptor(r.sandbox,KEY),saved);
+});
 test('all-wet reference branch avoids contrast readback and draws exactly raw dry / zero wet P+C',()=>{
  const file=path.join(root,'apps/web/src/engine/src/watercolor/puddle/ContrastPhase.ts'),source=transformNativeExpansion805(file,fs.readFileSync(file,'utf8')),m={exports:{}},clears=[],draws=[],programs=[];let target=null;
  class Buffer{constructor(gl,w,h){this.width=w;this.height=h;this.texture={};}beginReplaceDraw(){target=this}endDraw(){}clear(){clears.push(this)}readPixels(){throw Error('Candidate must not read selection')}destroy(){}}
