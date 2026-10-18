@@ -87,13 +87,19 @@ export function partitionNativeComponents(actual: NativeComponentPlanes, width:n
   mark(`component-${id}-materialize-scatter-five-material-planes`)
   return {id,mask,planes}
  }
+ /** C-only QA selector. Never deletes water or certifies P/coverage equivalence. */
+ function colourOnlySchedule(baseCommonRGBA:Uint8Array,scope:'common-c-only'){
+  if(scope!=='common-c-only'||!(baseCommonRGBA instanceof Uint8Array)||baseCommonRGBA.length!==n*4)throw Error('Explicit common-C-only scope and exact base required')
+  for(let i=0;i<n;i++){const id=labels[i];if(id<0||components[id].pigmented)continue;const j=i*4;if(baseCommonRGBA[j]!==0||baseCommonRGBA[j+1]!==0||baseCommonRGBA[j+2]!==0||baseCommonRGBA[j+3]!==0)throw Error('Unpigmented component has nonzero common-C base')}
+  return{solve:components.filter(c=>c.pigmented),skip:components.filter(c=>!c.pigmented),scope,proof:Object.freeze({allSkippedNativeCZero:true,allSkippedBaseCommonCZero:true,sourceWaterUnchanged:true,fullPartitionRetained:true,qualification:'Only common-C output; assumes actual native alignment P.b=min(C.a,P.a) and pigmentColor from P.b. NOT P/coverage/full-target equivalence. Requires actual C-only GPU oracle.'})}
+ }
  function dryLiteral() {
   const planes=Object.fromEntries(materialKeys.map(k=>[k,new Uint8Array(n*4)])) as Record<typeof materialKeys[number],Uint8Array>
   if(mode==='fast'){const dryOrder=new Uint32Array(n);let count=0;for(let i=0;i<n;i++)if(labels[i]<0)dryOrder[count++]=i;scatterFast(source,planes,dryOrder,0,count)}else for(let i=0;i<n;i++)if(labels[i]<0)for(const k of materialKeys)planes[k].set(source[k].subarray(i*4,i*4+4),i*4)
   return planes
  }
  return {
-  width,height,preparation:Object.freeze({mode,sourceOwnership:options.borrowImmutableSource?'borrowed immutable caller lease':'owned snapshot',backdropOwnership:options.shareImmutableBackdrop?'shared readonly snapshot/caller lease':'owned per-component copies',qualification:'CPU QA component wrapper only; live Mini does not use this path'}),partitionAudit:Object.freeze({expectedWetPixels:expectedWet,labelledPixels:used,contiguousRanges:true,membershipChecked:true}),components:Object.freeze(components),materialize,dryLiteral,
+  width,height,preparation:Object.freeze({mode,sourceOwnership:options.borrowImmutableSource?'borrowed immutable caller lease':'owned snapshot',backdropOwnership:options.shareImmutableBackdrop?'shared readonly snapshot/caller lease':'owned per-component copies',qualification:'CPU QA component wrapper only; live Mini does not use this path'}),partitionAudit:Object.freeze({expectedWetPixels:expectedWet,labelledPixels:used,contiguousRanges:true,membershipChecked:true}),components:Object.freeze(components),materialize,dryLiteral,colourOnlySchedule,
   async describe(id:number, expectedOriginalSHA?:Partial<Record<NativePlaneKey,string>>) {
    const originalSHA=await hashes(source)
    if(expectedOriginalSHA)for(const k of nativePlaneKeys)if(!expectedOriginalSHA[k]||expectedOriginalSHA[k]!==originalSHA[k])throw Error('Original native SHA mismatch '+k)
