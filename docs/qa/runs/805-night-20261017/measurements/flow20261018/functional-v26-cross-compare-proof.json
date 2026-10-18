@@ -1,0 +1,708 @@
+{
+  "qualification": "Same frozen source, requests and exact fixture bytes. Full exported carrier hashes verified before comparison; deltas right minus left. Per-device repeatability is separate from cross-device equality.",
+  "sourceHashes": {
+    "entry.js": "678996849f31adeac2162590747ee770a3258a53a58010d614677649fd820554",
+    "worker.js": "45128770f38887f263b98da3b50a9d5c05f8b4634e22201c4c44bf472466710a",
+    "chunk-OOM2Y3OE.js": "1c8d2734a58c574ab13a2cc23979dab7dde5d96753623c187d42aae717914b8f",
+    "fixtures/native-flow-pool-drop.bin": "3c20c7068cd00c803b1a913343cb2024f93bc5b23667c74a3c73055cf7ccc538",
+    "fixtures/native-flow-separated-colors.bin": "3471744208958a1c64c1e42d53be00c988d5eea11ae46f1d977c89cf3ef24e85",
+    "fixtures/mini-wave.bin": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+    "fixtures/gallery-sheet-7-slot-1.bin": "60d1685ff317b9c4638ccdee4fd0cbf0eafaac4ae90b6b39a38ae7e259c3395f",
+    "fixtures/gallery-sheet-3-slot-1.bin": "566b5bff0205a1220745f8177cd37da5d2e97319e11b90814a5f2cb1ec08b03d",
+    "fixtures/gallery-sheet-1-slot-17.bin": "1277b0b3efe83853f72af79194f718e670b13d75a75eb8318f6a08ec3adc825e",
+    "fixtures/gallery-sheet-10-slot-3.bin": "00c05db5a93d15d9f1a819a073b93d1e3b259b53cb12a3a845f2d101bd83a364",
+    "fixtures/gallery-sheet-12-slot-1.bin": "69113189b2a48eb6d6fdfe51b7cb4936e7f75e5aa2d81629298c0b1b264aa21a",
+    "fixtures/gallery-sheet-2-slot-7.bin": "52d9cfccd269094d3bb534b3ebe11ababba452aaa799ce17ea459facb4ec9eef",
+    "fixtures/gallery-sheet-4-slot-1.bin": "5a8e3e8f16ee532c65db461a87f5098a0e06752c3c1ae9a5bc39eaaa2011c198",
+    "fixtures/gallery-sheet-5-slot-1.bin": "3c6e26fee64a05764cc985d3b4404f8909f694b4142ef2c3eff497e29130b232",
+    "fixtures/gallery-sheet-6-slot-6.bin": "76795ce7f63bcca1aed3d1ffd1395f864a4eda872205eda828c3ff6ba56c705b",
+    "fixtures/gallery-sheet-8-slot-6.bin": "b7aaee0fed9fa46b7de5fcfca7cf7435c0171c7812f46f6b0aaa59a54b8e6e92",
+    "fixtures/gallery-sheet-9-slot-1.bin": "f75c48a0caa16f147c753660b2fdb3db1721adb1a96c7eb207b7cb35d819094a",
+    "fixtures/mini-two-colors.bin": "d69b0e913564ebd2b7954ef9405e99c486858437833217bfddfc57f4def03d60",
+    "index.html": "7f174c6068b1a87f196251529b71ac6c4844f011e315c79534a94c0af5b824e4"
+  },
+  "cases": [
+    {
+      "request": {
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 0,
+        "exportRaw": true,
+        "measureTransport": true,
+        "algorithm": "wgsl-macro-coherent-physical-dt",
+        "fixture": "mini-wave",
+        "config": {
+          "physicalDt": 4,
+          "steps": 64,
+          "mobilityGain": 3,
+          "eddyCells": 8,
+          "curlStrength": 64
+        }
+      },
+      "inputSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "b31443bb883ae8580e6da6a66373b5ac07792df77245644a33998b9606bd52cf",
+      "rightSHA": "b31443bb883ae8580e6da6a66373b5ac07792df77245644a33998b9606bd52cf",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 0,
+        "exportRaw": true,
+        "measureTransport": true,
+        "algorithm": "wgsl-macro-coherent-physical-dt",
+        "fixture": "native-flow-pool-drop",
+        "config": {
+          "physicalDt": 4,
+          "steps": 64,
+          "mobilityGain": 3,
+          "eddyCells": 8,
+          "curlStrength": 64
+        }
+      },
+      "inputSHA": {
+        "rgba": "ee7a6e022d82d8b2b3e0afdf558d4017ec11e4af51ea0a65882948fa7efde196",
+        "water": "71770d997651ee4911e33a963ca792dc80157b8dbb6d41daea769c5a726da626",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "4a437578cc0465e1f515892778bc72e266c432ca4e0ce6ff38210ca01269a689",
+      "rightSHA": "4a437578cc0465e1f515892778bc72e266c432ca4e0ce6ff38210ca01269a689",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 0,
+        "exportRaw": true,
+        "measureTransport": true,
+        "algorithm": "wgsl-macro-coherent-physical-dt",
+        "fixture": "dynamic-two-strokes",
+        "config": {
+          "physicalDt": 4,
+          "steps": 64,
+          "mobilityGain": 3,
+          "eddyCells": 8,
+          "curlStrength": 64
+        }
+      },
+      "inputSHA": {
+        "rgba": "618501f3cceeda037eb4c917b6381e51d1fd1fb0dc2a028cfcc7493502c412aa",
+        "water": "402e8bac12ac5c66db0c453efc3c7c499a635502f3c4ef4706bcc2af3509d87a",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "leftSHA": "ca8bdf1161e1ec32ed3d3991bd2fab94251ef8b428ec5978a80c878905bdf15a",
+      "rightSHA": "ca8bdf1161e1ec32ed3d3991bd2fab94251ef8b428ec5978a80c878905bdf15a",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 0,
+        "exportRaw": true,
+        "measureTransport": true,
+        "algorithm": "wgsl-macro-coherent-physical-dt",
+        "fixture": "gallery-sheet-12-slot-1",
+        "config": {
+          "physicalDt": 4,
+          "steps": 64,
+          "mobilityGain": 3,
+          "eddyCells": 8,
+          "curlStrength": 64
+        }
+      },
+      "inputSHA": {
+        "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+        "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "0054de0144e8e0e13593c734333450370e795e63cd815efbb53e97948230f9f7",
+      "rightSHA": "0054de0144e8e0e13593c734333450370e795e63cd815efbb53e97948230f9f7",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-physical-dt-fine",
+        "fixture": "mini-wave",
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 5000,
+        "exportRaw": true,
+        "measureTransport": true,
+        "config": {
+          "physicalDt": 1,
+          "steps": 256,
+          "fineSteps": 12,
+          "affinityBase": 128,
+          "paperGain": 1,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128
+        }
+      },
+      "inputSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "5d8d3fab5e1eefff16906e66aa2f51261afa09e6840ffd9767cbcc963bb7d38c",
+      "rightSHA": "5d8d3fab5e1eefff16906e66aa2f51261afa09e6840ffd9767cbcc963bb7d38c",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-physical-dt-fine",
+        "fixture": "mini-wave",
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 5000,
+        "exportRaw": true,
+        "measureTransport": true,
+        "config": {
+          "physicalDt": 2,
+          "steps": 128,
+          "fineSteps": 4,
+          "affinityBase": 64,
+          "paperGain": 1,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128
+        }
+      },
+      "inputSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "6ae1e7c2efa110755d6f2791ad37be989ce9f47a4c78be493fde7471661ac5cb",
+      "rightSHA": "6ae1e7c2efa110755d6f2791ad37be989ce9f47a4c78be493fde7471661ac5cb",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-physical-dt-fine",
+        "fixture": "mini-wave",
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 5000,
+        "exportRaw": true,
+        "measureTransport": true,
+        "config": {
+          "physicalDt": 4,
+          "steps": 64,
+          "fineSteps": 4,
+          "affinityBase": 64,
+          "paperGain": 1,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128
+        }
+      },
+      "inputSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "5d45e8898cf68de1dc9a7a8022598d73b22f5a79a5ccb7af3eeaa7df43dcfd5a",
+      "rightSHA": "5d45e8898cf68de1dc9a7a8022598d73b22f5a79a5ccb7af3eeaa7df43dcfd5a",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-physical-dt-fine",
+        "fixture": "native-flow-pool-drop",
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 5000,
+        "exportRaw": true,
+        "measureTransport": true,
+        "config": {
+          "physicalDt": 4,
+          "steps": 64,
+          "fineSteps": 4,
+          "affinityBase": 64,
+          "paperGain": 1,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128
+        }
+      },
+      "inputSHA": {
+        "rgba": "ee7a6e022d82d8b2b3e0afdf558d4017ec11e4af51ea0a65882948fa7efde196",
+        "water": "71770d997651ee4911e33a963ca792dc80157b8dbb6d41daea769c5a726da626",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "80c7a47479fdfd79af4f79c500b5de05b41dc008504d237fc5c8134a3a294098",
+      "rightSHA": "80c7a47479fdfd79af4f79c500b5de05b41dc008504d237fc5c8134a3a294098",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-physical-dt-fine",
+        "fixture": "dynamic-two-strokes",
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 5000,
+        "exportRaw": true,
+        "measureTransport": true,
+        "config": {
+          "physicalDt": 4,
+          "steps": 64,
+          "fineSteps": 4,
+          "affinityBase": 64,
+          "paperGain": 1,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128
+        }
+      },
+      "inputSHA": {
+        "rgba": "618501f3cceeda037eb4c917b6381e51d1fd1fb0dc2a028cfcc7493502c412aa",
+        "water": "402e8bac12ac5c66db0c453efc3c7c499a635502f3c4ef4706bcc2af3509d87a",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "leftSHA": "54f73888772fbb5104f97deed5b02111f44dc009e35d106af7a3ecfd1573c5c9",
+      "rightSHA": "54f73888772fbb5104f97deed5b02111f44dc009e35d106af7a3ecfd1573c5c9",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-physical-dt-fine",
+        "fixture": "gallery-sheet-12-slot-1",
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 5000,
+        "exportRaw": true,
+        "measureTransport": true,
+        "config": {
+          "physicalDt": 2,
+          "steps": 128,
+          "fineSteps": 4,
+          "affinityBase": 64,
+          "paperGain": 1,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128
+        }
+      },
+      "inputSHA": {
+        "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+        "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "8968453b0b1f2462c00e7c4e936c9b4d0d0da312347bafdc5e0543adab7bc35a",
+      "rightSHA": "8968453b0b1f2462c00e7c4e936c9b4d0d0da312347bafdc5e0543adab7bc35a",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-physical-dt-fine",
+        "fixture": "gallery-sheet-12-slot-1",
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 5000,
+        "exportRaw": true,
+        "measureTransport": true,
+        "config": {
+          "physicalDt": 4,
+          "steps": 64,
+          "fineSteps": 4,
+          "affinityBase": 64,
+          "paperGain": 1,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128
+        }
+      },
+      "inputSHA": {
+        "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+        "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "6c927213e929727abfeb4fb8495d304b2cb227fb837c9715a939fadbc2f4829a",
+      "rightSHA": "6c927213e929727abfeb4fb8495d304b2cb227fb837c9715a939fadbc2f4829a",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 0,
+        "exportRaw": true,
+        "measureTransport": true,
+        "algorithm": "wgsl-macro-physical-dt-fine",
+        "fixture": "dynamic-opaque-stationary",
+        "config": {
+          "physicalDt": 1,
+          "steps": 256,
+          "fineSteps": 12,
+          "affinityBase": 128,
+          "paperGain": 1,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128
+        }
+      },
+      "inputSHA": {
+        "rgba": "3ab519d24a0ea26005785f215591298a7f92a4be30e00c4c99aa3ed583db27a2",
+        "water": "038d8d989175a5a6d02975b8cf20c1295999056899aeac5cc5decbc299188024",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "leftSHA": "a458810b019712272aaeadf470d47abc2791c2c88f099acea68b43b3f63bfd76",
+      "rightSHA": "a458810b019712272aaeadf470d47abc2791c2c88f099acea68b43b3f63bfd76",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    }
+  ],
+  "lifecycle": {
+    "pcOwnedChromeRemaining": 0,
+    "pcProfileRootRemoved": true,
+    "pcWatchdogRemoved": true,
+    "pcForward19358Closed": true,
+    "samsungMeasurementContexts": 0,
+    "samsungForward19336": "retained for authorized overnight queue",
+    "userTabs": "untouched"
+  },
+  "metadataChecks": {
+    "all12InitialFinalFieldPairSourceExact": true,
+    "fine8All4ChannelLedgerExact": true,
+    "qualification": "No full coarse-state hash requested; metadata totals/field shader source plus full final RGBA compared"
+  }
+}
